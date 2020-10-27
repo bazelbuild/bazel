@@ -35,10 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.BuiltinCallable;
+import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -112,13 +112,13 @@ public class ApiExporter {
       if (obj instanceof StarlarkCallable) {
         value = valueFromCallable((StarlarkCallable) obj);
       } else {
-        StarlarkBuiltin typeModule = StarlarkInterfaceUtils.getStarlarkBuiltin(obj.getClass());
+        StarlarkBuiltin typeModule = StarlarkAnnotations.getStarlarkBuiltin(obj.getClass());
         if (typeModule != null) {
           Method selfCallMethod =
               Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, obj.getClass());
           if (selfCallMethod != null) {
             // selfCallMethod may be from a subclass of the annotated method.
-            StarlarkMethod annotation = StarlarkInterfaceUtils.getStarlarkMethod(selfCallMethod);
+            StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(selfCallMethod);
             value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
@@ -161,8 +161,8 @@ public class ApiExporter {
     }
 
     // annotated Java method?
-    if (x instanceof BuiltinCallable) {
-      return valueFromAnnotation(((BuiltinCallable) x).getAnnotation());
+    if (x instanceof BuiltinFunction) {
+      return valueFromAnnotation(((BuiltinFunction) x).getAnnotation());
     }
 
     // application-defined callable?  Treat as def f(**kwargs).

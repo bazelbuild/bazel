@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -47,7 +46,7 @@ final class ParamDescriptor {
       @Nullable String disabledByFlag) {
     this.name = name;
     // TODO(adonovan): apply the same validation logic to the default value
-    // as we do to caller-supplied values (see BuiltinCallable.checkParamValue).
+    // as we do to caller-supplied values (see BuiltinFunction.checkParamValue).
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.named = named;
     this.positional = positional;
@@ -79,16 +78,10 @@ final class ParamDescriptor {
       for (ParamType pt : allowedTypes) {
         allowedClasses.add(pt.type());
       }
-    } else if (param.type() == Void.class) {
-      // If no Param.type type was specified, use the class of the parameter itself.
+    } else {
+      // Use the class of the parameter itself.
       // Interpret primitive boolean parameter as j.l.Boolean.
       allowedClasses.add(paramClass == Boolean.TYPE ? Boolean.class : paramClass);
-    } else {
-      allowedClasses.add(param.type());
-    }
-
-    if (param.noneable() && !allowedClasses.contains(NoneType.class)) {
-      allowedClasses.add(NoneType.class);
     }
 
     return new ParamDescriptor(
@@ -107,7 +100,18 @@ final class ParamDescriptor {
 
   /** Returns a description of allowed argument types suitable for an error message. */
   String getTypeErrorMessage() {
-    return allowedClasses.stream().map(Starlark::classType).collect(Collectors.joining(" or "));
+    // Result has one of these forms:
+    // "a"
+    // "a or b"
+    // "a, b, or c"
+    StringBuilder buf = new StringBuilder();
+    for (int i = 0, n = allowedClasses.size(); i < n; i++) {
+      if (i > 0) {
+        buf.append(n == 2 ? " or " : i < n - 1 ? ", " : ", or ");
+      }
+      buf.append(Starlark.classType(allowedClasses.get(i)));
+    }
+    return buf.toString();
   }
 
   List<Class<?>> getAllowedClasses() {

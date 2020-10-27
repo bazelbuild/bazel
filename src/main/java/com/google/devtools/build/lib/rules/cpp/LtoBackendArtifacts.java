@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -97,7 +98,9 @@ public final class LtoBackendArtifacts {
       List<String> userCompileFlags)
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
+    PathFragment obj =
+        ltoOutputRootPrefix.getRelative(
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -151,7 +154,9 @@ public final class LtoBackendArtifacts {
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
+    PathFragment obj =
+        ltoOutputRootPrefix.getRelative(
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
@@ -265,7 +270,9 @@ public final class LtoBackendArtifacts {
               actionConstructionContext,
               repositoryName,
               configuration,
-              FileSystemUtils.replaceExtension(objectFile.getOutputDirRelativePath(), ".dwo"));
+              FileSystemUtils.replaceExtension(
+                  objectFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()),
+                  ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),

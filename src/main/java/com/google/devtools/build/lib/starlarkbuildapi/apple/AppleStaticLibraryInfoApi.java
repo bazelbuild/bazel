@@ -64,13 +64,11 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
         parameters = {
           @Param(
               name = "archive",
-              type = FileApi.class,
               named = true,
               positional = false,
               doc = "Multi-architecture archive (.a) representing a static library"),
           @Param(
               name = "objc",
-              type = ObjcProviderApi.class,
               named = true,
               positional = false,
               doc =

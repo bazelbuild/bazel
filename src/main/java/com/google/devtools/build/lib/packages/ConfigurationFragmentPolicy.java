@@ -26,8 +26,8 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Policy used to express the set of configuration fragments which are legal for a rule or aspect to
@@ -254,8 +254,7 @@ public final class ConfigurationFragmentPolicy {
    */
   private boolean hasLegalFragmentName(
       Class<?> configurationFragment, ConfigurationTransition transition) {
-    StarlarkBuiltin fragmentModule =
-        StarlarkInterfaceUtils.getStarlarkBuiltin(configurationFragment);
+    StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(configurationFragment);
 
     return fragmentModule != null
         && starlarkRequiredConfigurationFragments.containsEntry(transition, fragmentModule.name());
@@ -266,8 +265,7 @@ public final class ConfigurationFragmentPolicy {
    * configuration.
    */
   private boolean hasLegalFragmentName(Class<?> configurationFragment) {
-    StarlarkBuiltin fragmentModule =
-        StarlarkInterfaceUtils.getStarlarkBuiltin(configurationFragment);
+    StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(configurationFragment);
 
     return fragmentModule != null
         && starlarkRequiredConfigurationFragments.containsValue(fragmentModule.name());

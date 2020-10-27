@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1462,7 +1461,6 @@ public class PackageFunction implements SkyFunction {
       private static DetailedExitCode createDetailedExitCode(
           String message, PackageLoading.Code packageLoadingCode) {
         return DetailedExitCode.of(
-            ExitCode.BUILD_FAILURE,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setPackageLoading(PackageLoading.newBuilder().setCode(packageLoadingCode).build())

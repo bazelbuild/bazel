@@ -236,6 +236,7 @@ public final class StarlarkDocumentationProcessor {
         case DocCategory.NONE:
           return NONE;
         case "core": // interpreter built-ins (e.g. int)
+        case "core.lib": // Starlark standard modules (e.g. json)
           return CORE;
         case "": // no annotation
           return TOP_LEVEL_TYPE;

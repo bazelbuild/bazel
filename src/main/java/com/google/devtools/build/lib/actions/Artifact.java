@@ -23,6 +23,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -197,8 +199,9 @@ public abstract class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Iterable<SkyKey> keys(Iterable<Artifact> artifacts) {
-    return Iterables.transform(artifacts, Artifact::key);
+  public static Iterable<SkyKey> keys(Collection<Artifact> artifacts) {
+    // Use Collections2 instead of Iterables#transform to ensure O(1) size().
+    return Collections2.transform(artifacts, Artifact::key);
   }
 
   @Override
@@ -255,12 +258,12 @@ public abstract class Artifact
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableCollection<Artifact>> expandedInputs;
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
-        Map<Artifact, Collection<Artifact>> expandedInputs,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedInputs,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
@@ -272,7 +275,7 @@ public abstract class Artifact
     public void expand(Artifact artifact, Collection<? super Artifact> output) {
       Preconditions.checkState(
           artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
-      Collection<Artifact> result = expandedInputs.get(artifact);
+      ImmutableCollection<Artifact> result = expandedInputs.get(artifact);
       if (result != null) {
         output.addAll(result);
       }
@@ -653,7 +656,7 @@ public abstract class Artifact
    * an overhaul, it must be preferred over {@link Artifact#getPathForLocationExpansion} whenever
    * possible.
    */
-  public final PathFragment getOutputDirRelativePath() {
+  public final PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
     return getPathForLocationExpansion();
   }
 
@@ -791,7 +794,7 @@ public abstract class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getOutputDirRelativePath();
+    PathFragment relativePath = getOutputDirRelativePath(false);
     // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
@@ -1333,7 +1336,7 @@ public abstract class Artifact
       artifact -> artifact.getRootRelativePath().getPathString();
 
   public static final Function<Artifact, String> OUTPUT_DIR_RELATIVE_PATH_STRING =
-      artifact -> artifact.getOutputDirRelativePath().getPathString();
+      artifact -> artifact.getOutputDirRelativePath(false).getPathString();
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and

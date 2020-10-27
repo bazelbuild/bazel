@@ -28,7 +28,6 @@ public class InterruptedFailureDetails {
    */
   public static DetailedExitCode detailedExitCode(String message, Interrupted.Code detailedCode) {
     return DetailedExitCode.of(
-        ExitCode.INTERRUPTED,
         FailureDetail.newBuilder()
             .setMessage(message)
             .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
@@ -43,7 +42,6 @@ public class InterruptedFailureDetails {
       String message, Interrupted.Code detailedCode) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            ExitCode.INTERRUPTED,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
@@ -58,7 +56,6 @@ public class InterruptedFailureDetails {
       String message, Interrupted.Code detailedCode, Exception cause) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            ExitCode.INTERRUPTED,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))

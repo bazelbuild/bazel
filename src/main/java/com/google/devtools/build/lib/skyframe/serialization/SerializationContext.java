@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
@@ -81,7 +80,7 @@ public class SerializationContext {
     serializeInternal(object, /*customMemoizationStrategy=*/ null, codedOut);
   }
 
-  public void serializeWithAdHocMemoizationStrategy(
+  void serializeWithAdHocMemoizationStrategy(
       Object object, MemoizationStrategy memoizationStrategy, CodedOutputStream codedOut)
       throws IOException, SerializationException {
     serializeInternal(object, memoizationStrategy, codedOut);
@@ -161,9 +160,11 @@ public class SerializationContext {
   /**
    * Register a {@link ListenableFuture} that must complete successfully before the serialized bytes
    * generated using this context can be written remotely. Failure of the future implies a bug or
-   * other unrecoverable error that should crash this JVM.
+   * other unrecoverable error that should crash this JVM, which is done by invoking {@link
+   * FutureCallback#onFailure} on the given {@code crashTerminatingCallback}.
    */
-  public void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
+  public void addFutureToBlockWritingOn(
+      ListenableFuture<Void> future, FutureCallback<Void> crashTerminatingCallback) {
     Preconditions.checkState(allowFuturesToBlockWritingOn, "This context cannot block on a future");
     if (futuresToBlockWritingOn == null) {
       futuresToBlockWritingOn = new ArrayList<>();
@@ -171,19 +172,6 @@ public class SerializationContext {
     Futures.addCallback(future, crashTerminatingCallback, MoreExecutors.directExecutor());
     futuresToBlockWritingOn.add(future);
   }
-
-  private static final FutureCallback<Void> crashTerminatingCallback =
-      new FutureCallback<Void>() {
-        @Override
-        public void onSuccess(@Nullable Void result) {
-          // Do nothing.
-        }
-
-        @Override
-        public void onFailure(Throwable t) {
-          BugReport.handleCrash(t);
-        }
-      };
 
   /**
    * Creates a future that succeeds when all futures stored in this context via {@link

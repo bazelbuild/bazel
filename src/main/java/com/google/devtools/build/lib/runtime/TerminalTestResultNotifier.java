@@ -317,7 +317,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       addFailureToErrorList(results, "locally", stats.failedLocallyCount);
       addFailureToErrorList(results, "remotely", stats.failedRemotelyCount);
       addToErrorList(results, "was", "were", "skipped", stats.noStatusCount);
-      printer.print(String.format("\nExecuted %d out of %d %s: %s.\n",
+      printer.print(
+          String.format(
+              "\nExecuted %d out of %d %s: %s.\n",
               stats.numberOfExecutedTargets,
               stats.numberOfTargets,
               stats.numberOfTargets == 1 ? "test" : "tests",

@@ -34,11 +34,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +55,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
     BootClassPathInfo bootclasspath = getBootClassPathInfo(ruleContext);
     boolean javacSupportsWorkers =
@@ -75,14 +74,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ruleContext
                 .attributes()
                 .get("reduced_classpath_incompatible_processors", Type.STRING_LIST));
-    ImmutableSet<Label> reducedClasspathIncompatibleTargets =
-        ImmutableSet.copyOf(
-            ruleContext
-                .attributes()
-                .get("reduced_classpath_incompatible_targets", BuildType.NODEP_LABEL_LIST));
-    ImmutableSet<String> turbineIncompatibleProcessors =
-        ImmutableSet.copyOf(
-            ruleContext.attributes().get("turbine_incompatible_processors", Type.STRING_LIST));
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar");
@@ -92,6 +83,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
+    FilesToRunProvider proguardAllowlister =
+        ruleContext.getExecutablePrerequisite("proguard_allowlister");
     ImmutableListMultimap<String, String> compatibleJavacOptions =
         getCompatibleJavacOptions(ruleContext);
 
@@ -129,6 +122,9 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     FilesToRunProvider jacocoRunner = ruleContext.getExecutablePrerequisite("jacocorunner");
 
+    JavaRuntimeInfo javaRuntime =
+        (JavaRuntimeInfo) ruleContext.getPrerequisite("java_runtime").get(ToolchainInfo.PROVIDER);
+
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
             ruleContext.getLabel(),
@@ -146,8 +142,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompilerDirect,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
-            reducedClasspathIncompatibleTargets,
-            turbineIncompatibleProcessors,
             forciblyDisableHeaderCompilation,
             singleJar,
             oneVersion,
@@ -159,7 +153,9 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             compatibleJavacOptions,
             packageConfiguration,
             jacocoRunner,
-            semantics);
+            proguardAllowlister,
+            semantics,
+            javaRuntime);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)

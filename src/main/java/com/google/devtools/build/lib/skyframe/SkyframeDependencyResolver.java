@@ -127,9 +127,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           Label repositoryLabel;
           try {
             repositoryLabel =
-                Label.create(
-                    EXTERNAL_PACKAGE_IDENTIFIER,
-                    label.getPackageIdentifier().getRepository().strippedName());
+                Label.create(EXTERNAL_PACKAGE_IDENTIFIER, label.getRepository().strippedName());
           } catch (LabelSyntaxException lse) {
             // We're taking the repository name from something that was already
             // part of a label, so it should be valid. If we really get into this
@@ -144,10 +142,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
                       TargetUtils.getLocationMaybe(fromTarget),
                       String.format(
                           "%s depends on %s in repository %s which failed to fetch. %s",
-                          fromTarget.getLabel(),
-                          label,
-                          label.getPackageIdentifier().getRepository(),
-                          e.getMessage())));
+                          fromTarget.getLabel(), label, label.getRepository(), e.getMessage())));
           continue;
         }
         @Nullable BuildConfiguration configuration = fromNode.getConfiguration();

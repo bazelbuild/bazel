@@ -286,8 +286,8 @@ function test_glob_with_subpackage2() {
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
-# Regression test for bug "ASTFileLookupFunction has an unnoted
-# dependency on the PathPackageLocator".
+# Regression test for b/19767102 ("BzlCompileFunction has an unnoted dependency
+# on the PathPackageLocator").
 function test_incremental_deleting_package_roots() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""

@@ -103,7 +103,7 @@ public final class StarlarkConfigurationFieldProcessor extends AbstractProcessor
             "@StarlarkConfigurationField annotated must not throw exceptions.");
       }
     }
-    return true;
+    return false;
   }
 
   private boolean isMethodOfStarlarkExposedConfigurationFragment(

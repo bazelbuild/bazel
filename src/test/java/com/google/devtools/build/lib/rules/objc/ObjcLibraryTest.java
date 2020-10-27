@@ -1256,8 +1256,46 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testClangCoptsForDebugModeWithoutHardcoding() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--compilation_mode=dbg",
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+    scratch.file("x/a.m");
+    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
+
+    assertThat(compileAction("//x:x", "a.o").getArguments()).doesNotContain("-DDEBUG=1");
+  }
+
+  @Test
+  public void testClangCoptsForDebugModeWithoutGlibOrHardcoding() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--compilation_mode=dbg",
+        "--objc_debug_with_GLIBCXX=false",
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+    scratch.file("x/a.m");
+    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
+
+    assertThat(compileAction("//x:x", "a.o").getArguments())
+        .containsNoneOf("-D_GLIBCXX_DEBUG", "-DDEBUG=1");
+  }
+
+  @Test
   public void testCompilationActionsForOptimized() throws Exception {
     checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, CodeCoverageMode.NONE);
+  }
+
+  @Test
+  public void testClangCoptsForOptimizedWithoutHardcoding() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--compilation_mode=opt",
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+    scratch.file("x/a.m");
+    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
+
+    assertThat(compileAction("//x:x", "a.o").getArguments()).doesNotContain("-DNDEBUG=1");
   }
 
   @Test

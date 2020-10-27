@@ -73,36 +73,15 @@ public interface AndroidBinaryDataInfoApi<FileT extends FileApi> extends StructA
         doc = "The <code>AndroidBinaryDataInfoApi</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "resource_apk",
-              doc = "resource_apk",
-              positional = false,
-              named = true,
-              type = FileApi.class),
+          @Param(name = "resource_apk", doc = "resource_apk", positional = false, named = true),
           @Param(
               name = "resource_proguard_config",
               doc = "resource_proguard_config",
               positional = false,
-              named = true,
-              type = FileApi.class),
-          @Param(
-              name = "resources_info",
-              doc = "resources_info",
-              positional = false,
-              named = true,
-              type = AndroidResourcesInfoApi.class),
-          @Param(
-              name = "assets_info",
-              doc = "assets_info",
-              positional = false,
-              named = true,
-              type = AndroidAssetsInfoApi.class),
-          @Param(
-              name = "manifest_info",
-              doc = "manifest_info",
-              positional = false,
-              named = true,
-              type = AndroidManifestInfoApi.class),
+              named = true),
+          @Param(name = "resources_info", doc = "resources_info", positional = false, named = true),
+          @Param(name = "assets_info", doc = "assets_info", positional = false, named = true),
+          @Param(name = "manifest_info", doc = "manifest_info", positional = false, named = true),
         },
         selfCall = true)
     @StarlarkConstructor

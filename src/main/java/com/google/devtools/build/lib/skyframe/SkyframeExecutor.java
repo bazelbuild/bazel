@@ -26,6 +26,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
@@ -113,7 +115,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -162,7 +163,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSup
 import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -361,6 +361,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private boolean siblingRepositoryLayout = false;
 
+  private Map<String, String> lastRemoteDefaultExecProperties;
+  private RemoteOutputsMode lastRemoteOutputsMode;
+
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -370,7 +373,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     @Override
     public ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
-        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
         String workspaceName)
         throws IOException {
@@ -651,7 +654,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return BzlLoadFunction.create(this.pkgFactory, getHashFunction(), bzlCompileCache);
+    return BzlLoadFunction.create(this.pkgFactory, directories, getHashFunction(), bzlCompileCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
@@ -1463,11 +1466,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
-  @VisibleForTesting
-  void setRemoteOutputsMode(RemoteOutputsMode remoteOutputsMode) {
-    PrecomputedValue.REMOTE_OUTPUTS_MODE.set(injectable(), remoteOutputsMode);
-  }
-
   private void setRemoteExecutionEnabled(boolean enabled) {
     PrecomputedValue.REMOTE_EXECUTION_ENABLED.set(injectable(), enabled);
   }
@@ -1541,10 +1539,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       TopDownActionCache topDownActionCache,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
+    deleteActionsIfRemoteOptionsChanged(options);
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
@@ -1630,6 +1629,42 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       TopDownActionCache topDownActionCache) {
     skyframeActionExecutor.prepareForExecution(
         reporter, executor, options, checker, topDownActionCache, outputService);
+  }
+
+  private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
+      throws AbruptExitException {
+    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+    Map<String, String> remoteDefaultExecProperties;
+    try {
+      remoteDefaultExecProperties =
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableMap.of();
+    } catch (UserExecException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(e.getMessage())
+                  .setRemoteOptions(
+                      FailureDetails.RemoteOptions.newBuilder()
+                          .setCode(
+                              FailureDetails.RemoteOptions.Code
+                                  .REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR)
+                          .build())
+                  .build()),
+          e);
+    }
+    boolean needsDeletion =
+        lastRemoteDefaultExecProperties != null
+            && !remoteDefaultExecProperties.equals(lastRemoteDefaultExecProperties);
+    lastRemoteDefaultExecProperties = remoteDefaultExecProperties;
+    RemoteOutputsMode remoteOutputsMode =
+        remoteOptions != null ? remoteOptions.remoteOutputsMode : RemoteOutputsMode.ALL;
+    needsDeletion |= lastRemoteOutputsMode != null && lastRemoteOutputsMode != remoteOutputsMode;
+    this.lastRemoteOutputsMode = remoteOutputsMode;
+    if (needsDeletion) {
+      memoizingEvaluator.delete(k -> SkyFunctions.ACTION_EXECUTION.equals(k.functionName()));
+    }
   }
 
   EvaluationResult<SkyValue> targetPatterns(
@@ -1749,10 +1784,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 .setLabel(key.getLabel())
                 .setConfiguration(depConfig)
                 .build());
-        for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
+        for (AspectDeps aspectDeps : key.getAspects().getUsedAspects()) {
           skyKeys.add(
               AspectValueKey.createAspectKey(
-                  key.getLabel(), depConfig, aspectDescriptor, depConfig));
+                  key.getLabel(), depConfig, aspectDeps.getAspect(), depConfig));
         }
       }
       skyKeys.add(PackageValue.key(key.getLabel().getPackageIdentifier()));
@@ -1805,10 +1840,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           }
           List<ConfiguredAspect> configuredAspects = new ArrayList<>();
 
-          for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
+          for (AspectDeps aspectDeps : key.getAspects().getUsedAspects()) {
             SkyKey aspectKey =
                 AspectValueKey.createAspectKey(
-                    key.getLabel(), depConfig, aspectDescriptor, depConfig);
+                    key.getLabel(), depConfig, aspectDeps.getAspect(), depConfig);
             if (result.get(aspectKey) == null) {
               continue DependentNodeLoop;
             }
@@ -2646,31 +2681,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
     setRepoEnv(options.getOptions(CoreOptions.class));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    setRemoteOutputsMode(
-        remoteOptions != null
-            ? remoteOptions.remoteOutputsMode
-            // If no value is specified then set it to some value so that it's not null.
-            : RemoteOutputsMode.ALL);
-    try {
-      setRemoteDefaultPlatformProperties(
-          remoteOptions != null
-              ? remoteOptions.getRemoteDefaultExecProperties()
-              : ImmutableMap.of());
-    } catch (UserExecException e) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
-              FailureDetail.newBuilder()
-                  .setMessage(e.getMessage())
-                  .setRemoteOptions(
-                      FailureDetails.RemoteOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.RemoteOptions.Code
-                                  .REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR)
-                          .build())
-                  .build()),
-          e);
-    }
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
         packageOptions,
@@ -2695,6 +2705,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws AbruptExitException {
+    syncPackageLoadingInternal(
+        packageOptions, pathPackageLocator, buildLanguageOptions, commandId, clientEnv, tsgm);
+  }
+
+  protected final void syncPackageLoadingInternal(
+      PackageOptions packageOptions,
+      PathPackageLocator pathPackageLocator,
+      BuildLanguageOptions buildLanguageOptions,
+      UUID commandId,
+      Map<String, String> clientEnv,
+      TimestampGranularityMonitor tsgm) {
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(
           pathPackageLocator, packageOptions, buildLanguageOptions, commandId, clientEnv, tsgm);
@@ -2705,12 +2726,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
-  }
-
-  private void setRemoteDefaultPlatformProperties(
-      Map<String, String> remoteDefaultPlatformProperties) {
-    PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.set(
-        injectable(), remoteDefaultPlatformProperties);
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {

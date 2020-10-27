@@ -114,7 +114,6 @@ function test_java_tools_has_buildjar() {
 
 function test_java_tools_has_turbine() {
   expect_path_in_java_tools "src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/BUILD"
-  expect_path_in_java_tools "src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac"
 }
 
 function test_java_tools_has_junitrunner() {

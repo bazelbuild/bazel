@@ -54,8 +54,8 @@ For example, Bazel's
 [Android Rules] don't. *Your* C++ project may not care about Android. But others may. So
 it's not yet safe to globally enable platforms for all C++ builds.
 
-The thrust of this page describes this migration sequence and how and when your
-projects can fit in.
+The remainder of this page describes this migration sequence and how and when
+your projects can fit in.
 
 ## Goal
 Bazel's platform migration is complete when all projects build with the form:
@@ -106,6 +106,8 @@ or opt in early depends on your specific value / cost needs:
   flags on the command line.
 * Simpler language design. All languages share a common API for defining
   toolchains, using toolchains, and selecting the right toolchain for a platform.
+* Targets can be [skipped](platforms.html#skipping-incompatible-targets) in the
+  build and test phase if they are incompatible with the target platform.
 
 ### Costs
 * Dependent projects that don't yet support platforms might not automatically work

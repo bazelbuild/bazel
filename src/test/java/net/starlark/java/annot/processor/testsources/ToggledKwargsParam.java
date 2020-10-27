@@ -34,8 +34,8 @@ public class ToggledKwargsParam implements StarlarkValue {
       name = "toggled_kwargs_method",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = StarlarkInt.class, named = true),
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
       },
       extraPositionals = @Param(name = "args"),
       extraKeywords = @Param(name = "kwargs", enableOnlyWithFlag = FOO),

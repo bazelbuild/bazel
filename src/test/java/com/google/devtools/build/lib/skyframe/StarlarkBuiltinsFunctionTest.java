@@ -43,7 +43,8 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(OVERRIDABLE_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
+            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
+            .addStarlarkAccessibleTopLevels("just_a_symbol", "another_value");
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -51,10 +52,10 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   // TODO(#11437): Add tests for predeclared env of BUILD (and WORKSPACE?) files, once
   // StarlarkBuiltinsFunction manages that functionality.
 
-  /** Sets up exports.bzl with the given contents and evaluates the {@code @builtins}. */
+  /** Sets up exports.bzl with the given contents and evaluates the {@code @_builtins}. */
   private EvaluationResult<StarlarkBuiltinsValue> evalBuiltins(String... lines) throws Exception {
-    scratch.file("tools/builtins_staging/BUILD");
     scratch.file("tools/builtins_staging/exports.bzl", lines);
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
 
     SkyKey key = StarlarkBuiltinsValue.key();
     return SkyframeExecutorTestUtils.evaluate(
@@ -62,20 +63,23 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   /**
-   * Sets up exports.bzl with the given contents, evaluates the {@code @builtins}, and returns an
-   * expected non-transient Exception.
+   * Sets up exports.bzl with the given contents, evaluates the {@code @_builtins}, and asserts that
+   * a BuiltinsFailedException is raised with the given message.
    */
-  private Exception evalBuiltinsToException(String... lines) throws Exception {
+  private void assertBuiltinsFailure(String message, String... lines) throws Exception {
+    reporter.removeHandler(failFastHandler);
     EvaluationResult<StarlarkBuiltinsValue> result = evalBuiltins(lines);
 
     SkyKey key = StarlarkBuiltinsValue.key();
     assertThatEvaluationResult(result).hasError();
     assertThatErrorInfo(result.getError(key)).isNotTransient();
-    return result.getError(key).getException();
+    Exception ex = result.getError(key).getException();
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
+    assertThat(ex).hasMessageThat().contains(message);
   }
 
   @Test
-  public void evalExportsSuccess() throws Exception {
+  public void successfulEvaluation() throws Exception {
     EvaluationResult<StarlarkBuiltinsValue> result =
         evalBuiltins(
             "exported_toplevels = {'overridable_symbol': 'new_value'}",
@@ -88,10 +92,10 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
 
     // Universe symbols are omitted (they're added by the interpreter).
     assertThat(value.predeclaredForBuildBzl).doesNotContainKey("print");
-    // Generic Bazel symbols are present.
+    // General Bazel symbols are present.
     assertThat(value.predeclaredForBuildBzl).containsKey("rule");
-    // Non-overridden symbols are present.
-    assertThat(value.predeclaredForBuildBzl).containsKey("CcInfo");
+    // Non-overridden rule-specific symbols are present.
+    assertThat(value.predeclaredForBuildBzl).containsKey("just_a_symbol");
     // Overridden symbol.
     assertThat(value.predeclaredForBuildBzl).containsEntry("overridable_symbol", "new_value");
     // Overridden native field.
@@ -100,142 +104,133 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     assertThat(nativeField).isEqualTo("new_rule");
     // Stuff for native rules.
     assertThat(value.exportedToJava).containsExactly("for_native_code", "secret_sauce").inOrder();
-    // No test of the digest.
+
+    // Digest should be same as the exports file.
+    byte[] exportsDigest =
+        ((BzlLoadValue)
+                SkyframeExecutorTestUtils.evaluate(
+                        getSkyframeExecutor(),
+                        StarlarkBuiltinsFunction.EXPORTS_ENTRYPOINT_KEY,
+                        /*keepGoing=*/ false,
+                        reporter)
+                    .get(StarlarkBuiltinsFunction.EXPORTS_ENTRYPOINT_KEY))
+            .getTransitiveDigest();
+    assertThat(value.transitiveDigest).isEqualTo(exportsDigest);
   }
 
   @Test
-  public void evalExportsSuccess_withLoad() throws Exception {
-    // TODO(#11437): Use @builtins//:... syntax, once supported. Don't create a real package.
-    scratch.file("builtins_helper/BUILD");
-    scratch.file(
-        "builtins_helper/dummy.bzl", //
-        "toplevels = {'overridable_symbol': 'new_value'}");
+  public void exportsDictMustExist() throws Exception {
+    assertBuiltinsFailure(
+        "Failed to apply declared builtins: expected a 'exported_rules' dictionary to be defined",
+        //
+        "exported_toplevels = {}",
+        "# exported_rules missing",
+        "exported_to_java = {}");
+  }
 
+  @Test
+  public void exportsDictMustBeDict() throws Exception {
+    assertBuiltinsFailure(
+        "Failed to apply declared builtins: got NoneType for 'exported_rules dict', want dict",
+        //
+        "exported_toplevels = {}",
+        "exported_rules = None",
+        "exported_to_java = {}");
+  }
+
+  @Test
+  public void exportsDictKeyMustBeString() throws Exception {
+    assertBuiltinsFailure(
+        "Failed to apply declared builtins: got dict<int, string> for 'exported_rules dict', want"
+            + " dict<string, unknown>",
+        //
+        "exported_toplevels = {}",
+        "exported_rules = {1: 'a'}",
+        "exported_to_java = {}");
+  }
+
+  @Test
+  public void cannotOverrideGeneralSymbol() throws Exception {
+    assertBuiltinsFailure(
+        "Failed to apply declared builtins: Cannot override native module field 'glob' with an"
+            + " injected value",
+        //
+        "exported_toplevels = {}", //
+        "exported_rules = {'glob': 'new_builtin'}",
+        "exported_to_java = {}");
+  }
+
+  @Test
+  public void parseErrorInExportsHandledGracefully() throws Exception {
+    assertBuiltinsFailure(
+        "Failed to load builtins sources: Extension 'exports.bzl' (internal) has errors",
+        //
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}",
+        "asdf asdf  # <-- parse error");
+  }
+
+  @Test
+  public void evalErrorInExportsHandledGracefully() throws Exception {
+    assertBuiltinsFailure(
+        "Failed to load builtins sources: Extension file 'exports.bzl' (internal) has errors",
+        //
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}",
+        "1 // 0  # <-- dynamic error");
+  }
+
+  @Test
+  public void builtinsBzlCannotAccessNative() throws Exception {
+    assertBuiltinsFailure(
+        "Extension 'exports.bzl' (internal) has errors",
+        //
+        "native.overridable_rule",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    assertContainsEvent("name 'native' is not defined");
+  }
+
+  @Test
+  public void builtinsBzlCannotAccessRuleSpecificSymbol() throws Exception {
+    assertBuiltinsFailure(
+        "Extension 'exports.bzl' (internal) has errors",
+        //
+        "overridable_symbol",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    assertContainsEvent("name 'overridable_symbol' is not defined");
+  }
+
+  @Test
+  public void builtinsBzlCanAccessInternal() throws Exception {
     EvaluationResult<StarlarkBuiltinsValue> result =
         evalBuiltins(
-            "load('//builtins_helper:dummy.bzl', 'toplevels')",
-            "exported_toplevels = toplevels",
+            "print(_internal)",
+            "",
+            "exported_toplevels = {}",
             "exported_rules = {}",
             "exported_to_java = {}");
-
-    SkyKey key = StarlarkBuiltinsValue.key();
     assertThatEvaluationResult(result).hasNoError();
-    StarlarkBuiltinsValue value = result.get(key);
-    assertThat(value.predeclaredForBuildBzl).containsEntry("overridable_symbol", "new_value");
+    assertContainsEvent("<_internal module>");
   }
 
   @Test
-  public void evalExportsFails_missingDictSymbol() throws Exception {
-    Exception ex =
-        evalBuiltinsToException(
-            "exported_toplevels = {}", //
-            "# exported_rules missing",
-            "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to apply declared builtins: expected a 'exported_rules' dictionary to be "
-                + "defined");
-  }
-
-  @Test
-  public void evalExportsFails_badSymbolType() throws Exception {
-    Exception ex =
-        evalBuiltinsToException(
-            "exported_toplevels = {}", //
-            "exported_rules = None",
-            "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to apply declared builtins: got NoneType for 'exported_rules dict', want dict");
-  }
-
-  @Test
-  public void evalExportsFails_badDictKey() throws Exception {
-    Exception ex =
-        evalBuiltinsToException(
-            "exported_toplevels = {}", //
-            "exported_rules = {1: 'a'}",
-            "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to apply declared builtins: got dict<int, string> for 'exported_rules dict', "
-                + "want dict<string, unknown>");
-  }
-
-  @Test
-  public void evalExportsFails_overrideNotAllowed() throws Exception {
-    Exception ex =
-        evalBuiltinsToException(
-            "exported_toplevels = {}", //
-            "exported_rules = {'glob': 'new_builtin'}",
-            "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to apply declared builtins: Cannot override native module field 'glob' with an"
-                + " injected value");
-  }
-
-  @Test
-  public void evalExportsFails_parseError() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    Exception ex =
-        evalBuiltinsToException(
-            "exported_toplevels = {}",
-            "exported_rules = {}",
-            "exported_to_java = {}",
-            "asdf asdf  # <-- parse error");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to load builtins sources: Extension 'tools/builtins_staging/exports.bzl' has "
-                + "errors");
-  }
-
-  @Test
-  public void evalExportsFails_evalError() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    Exception ex =
-        evalBuiltinsToException(
-            "exported_toplevels = {}",
-            "exported_rules = {}",
-            "exported_to_java = {}",
-            "1 // 0  # <-- dynamic error");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to load builtins sources: Extension file 'tools/builtins_staging/exports.bzl' "
-                + "has errors");
-  }
-
-  @Test
-  public void evalExportsFails_errorInDependency() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    // TODO(#11437): Use @builtins//:... syntax, once supported. Don't create a real package.
-    scratch.file("builtins_helper/BUILD");
+  public void regularBzlCannotAccessInternal() throws Exception {
     scratch.file(
-        "builtins_helper/dummy.bzl", //
-        "1 // 0  # <-- dynamic error");
-    Exception ex =
-        evalBuiltinsToException(
-            "load('//builtins_helper:dummy.bzl', 'dummy')",
-            "exported_toplevels = {}",
-            "exported_rules = {}",
-            "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
-    assertThat(ex)
-        .hasMessageThat()
-        .contains(
-            "Failed to load builtins sources: in /workspace/tools/builtins_staging/exports.bzl: "
-                + "Extension file 'builtins_helper/dummy.bzl' has errors");
+        "pkg/BUILD", //
+        "load(':dummy.bzl', 'dummy_symbol')");
+    scratch.file(
+        "pkg/dummy.bzl", //
+        "_internal",
+        "dummy_symbol = None");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//pkg:BUILD");
+    assertContainsEvent("name '_internal' is not defined");
   }
 }

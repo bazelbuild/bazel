@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
@@ -57,7 +56,6 @@ public class BazelFileSystemModule extends BlazeModule {
       } catch (OptionsParsingException e) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
                 FailureDetail.newBuilder()
                     .setMessage(Strings.nullToEmpty(e.getMessage()))
                     .setFilesystem(

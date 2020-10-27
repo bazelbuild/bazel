@@ -89,7 +89,7 @@ public class VisibleFunction extends FilteringQueryFunction {
                 context,
                 partialResult -> {
                   for (T t : partialResult) {
-                    if (invert ^ visibleToAll(env, toSet, t)) {
+                    if (invert ^ visibleToAll(expression, env, toSet, t)) {
                       callback.process(ImmutableList.of(t));
                     }
                   }
@@ -98,10 +98,11 @@ public class VisibleFunction extends FilteringQueryFunction {
   }
 
   /** Returns true if {@code target} is visible to all targets in {@code toSet}. */
-  private static <T> boolean visibleToAll(QueryEnvironment<T> env, Set<T> toSet, T target)
+  private static <T> boolean visibleToAll(
+      QueryExpression caller, QueryEnvironment<T> env, Set<T> toSet, T target)
       throws QueryException, InterruptedException {
     for (T to : toSet) {
-      if (!visible(env, to, target)) {
+      if (!visible(caller, env, to, target)) {
         return false;
       }
     }
@@ -109,9 +110,9 @@ public class VisibleFunction extends FilteringQueryFunction {
   }
 
   /** Returns true if the target {@code from} is visible to the target {@code to}. */
-  public static <T> boolean visible(QueryEnvironment<T> env, T to, T from)
+  public static <T> boolean visible(QueryExpression caller, QueryEnvironment<T> env, T to, T from)
       throws QueryException, InterruptedException {
-    Set<QueryVisibility<T>> visiblePackages = env.getAccessor().getVisibility(from);
+    Set<QueryVisibility<T>> visiblePackages = env.getAccessor().getVisibility(caller, from);
     for (QueryVisibility<T> spec : visiblePackages) {
       if (spec.contains(to)) {
         return true;

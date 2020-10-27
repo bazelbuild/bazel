@@ -116,10 +116,6 @@ function test_java_tools_has_turbine_direct() {
   expect_path_in_java_tools "java_tools/turbine_direct_binary_deploy.jar"
 }
 
-function test_java_tools_has_turbine_deploy() {
-  expect_path_in_java_tools "java_tools/turbine_deploy.jar"
-}
-
 function test_java_tools_has_Runner() {
   expect_path_in_java_tools "java_tools/Runner_deploy.jar"
 }

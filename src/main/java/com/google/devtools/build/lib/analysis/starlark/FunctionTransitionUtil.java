@@ -303,6 +303,8 @@ public class FunctionTransitionUtil {
             }
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
             convertedValue = optionValue;
+          } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
+            convertedValue = ((Boolean) optionValue).booleanValue();
           } else if (optionValue instanceof String) {
             convertedValue = def.getConverter().convert((String) optionValue);
           } else {

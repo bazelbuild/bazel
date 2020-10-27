@@ -96,5 +96,32 @@ EOF
       fail "Stripping failed, debug symbols still found in the stripped binary"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/pull/12046
+function test_osx_sandboxed_cc_library_build() {
+  mkdir -p cpp/osx_sandboxed_cc_library_build
+  cat > cpp/osx_sandboxed_cc_library_build/BUILD <<EOF
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+)
+EOF
+  cat > cpp/osx_sandboxed_cc_library_build/a.cc <<EOF
+void a() { }
+EOF
+  assert_build --spawn_strategy=sandboxed \
+    --build_event_text_file=cpp/osx_sandboxed_cc_library_build/bep.json \
+    //cpp/osx_sandboxed_cc_library_build:a
+  grep -q -- "--spawn_strategy=sandboxed" \
+    cpp/osx_sandboxed_cc_library_build/bep.json \
+    || fail "Expected to see --spawn_strategy=sandboxed in BEP output"
+  grep -Eo -- "--[a-z_-]strategy=[a-z_-]*" \
+    cpp/osx_sandboxed_cc_library_build/bep.json \
+    | grep -vq -- "--spawn_strategy=sandboxed" \
+    && fail "Expected to see only --spawn_strategy=sandboxed in BEP output"
+  grep -E "libtool_check_unique|No such file" bazel-out/_tmp/actions/std* \
+    && fail "Missing tools in sandboxed build"
+  return 0
+}
+
 run_suite "Tests for Bazel's C++ rules on Darwin"
 

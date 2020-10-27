@@ -24,11 +24,6 @@ import java.io.IOException;
  * An ExecException which reports an issue executing an action due to an external problem on the
  * local system.
  *
- * <p>This exception will result in an exit code regarded as a system error; avoid using this for
- * problems which should be attributed to the user, e.g., a misconfigured BUILD file (use {@link
- * UserExecException}) or an action returning a non-zero exit code (use {@link *
- * com.google.devtools.build.lib.exec.SpawnExecException}.
- *
  * <p>The most common use of this exception is to wrap an "unexpected" {@link IOException} thrown by
  * an lower-level file system access or local process execution, e.g., failure to create a temporary
  * directory or denied file system access.

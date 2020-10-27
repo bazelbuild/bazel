@@ -23,14 +23,14 @@ import net.starlark.java.eval.FlagGuardedValue;
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi;
+  private final JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
   private final JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
 
   public JavaBootstrap(
-      JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi,
+      JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
       JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
       JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider,

@@ -43,7 +43,7 @@ public class JavaProtoStarlarkCommon
       Artifact sourceJar,
       String protoToolchainAttr,
       String flavour)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     ProtoInfo protoInfo = target.get(ProtoInfo.PROVIDER);
     ProtoCompileActionBuilder.registerActions(
         starlarkRuleContext.getRuleContext(),

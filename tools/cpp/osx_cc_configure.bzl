@@ -19,13 +19,11 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
     "resolve_labels",
-    "write_builtin_include_directory_paths",
 )
 load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
     "configure_unix_toolchain",
     "get_env",
-    "get_escaped_cxx_inc_directories",
 )
 
 def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains):
@@ -39,9 +37,7 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
       include_paths: A list of builtin include paths.
     """
 
-    # TODO(cparsons): Falling back to the default C++ compiler builtin include
-    # paths shouldn't be unnecessary once all actions are using xcrun.
-    include_dirs = get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++")
+    include_dirs = []
     for toolchain in xcode_toolchains:
         include_dirs.append(escape_string(toolchain.developer_dir))
 
@@ -49,10 +45,12 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
     include_dirs.append("/Applications/")
     return include_dirs
 
-def compile_cc_file(repository_ctx, src_name, out_name):
+def _compile_cc_file(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
         "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
         "xcrun",
         "--sdk",
         "macosx",
@@ -60,6 +58,7 @@ def compile_cc_file(repository_ctx, src_name, out_name):
         "-mmacosx-version-min=10.9",
         "-std=c++11",
         "-lc++",
+        "-O3",
         "-o",
         out_name,
         src_name,
@@ -144,11 +143,11 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         libtool_check_unique_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/objc:libtool_check_unique.cc"],
         ))
-        compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
+        _compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
         wrapped_clang_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"],
         ))
-        compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
+        _compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
         repository_ctx.symlink("wrapped_clang", "wrapped_clang_pp")
 
         tool_paths = {}
@@ -159,7 +158,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             tool_paths["gcov"] = gcov_path
 
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
-        write_builtin_include_directory_paths(repository_ctx, cc, escaped_include_paths)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
             escaped_cxx_include_directories.append(("            \"%s\"," % path))

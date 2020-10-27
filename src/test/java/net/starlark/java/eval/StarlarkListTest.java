@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
+import java.util.List;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -327,7 +328,7 @@ public final class StarlarkListTest {
     mutableList.add("added2", (Location) null);
 
     assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
-    assertThat(mutableList).containsExactly("hi", "added2").inOrder();
+    assertThat((List<String>) mutableList).containsExactly("hi", "added2").inOrder();
   }
 
   @Test
@@ -338,6 +339,6 @@ public final class StarlarkListTest {
 
     // Big no-no, but we're proving a point.
     wrapped[0] = "goodbye";
-    assertThat(mutableList).containsExactly("goodbye");
+    assertThat((List<String>) mutableList).containsExactly("goodbye");
   }
 }

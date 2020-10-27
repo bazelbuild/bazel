@@ -46,49 +46,14 @@ public @interface Param {
   String defaultValue() default "";
 
   /**
-   * Type of the parameter, e.g. {@link String}.class or {@link
-   * net.starlark.java.eval.Sequence}.class. May not be used in conjunction with {@link
-   * #allowedTypes}. Specifying neither {@code type} nor {@code allowedTypes} is equivalent to
-   * specifying the class of the parameter variable.
-   */
-  // Deprecated. Use allowedTypes.
-  Class<?> type() default Void.class;
-
-  /**
    * List of allowed types for the parameter.
    *
    * <p>The array may be omitted, in which case the parameter accepts any value whose class is
    * assignable to the class of the parameter variable.
    *
-   * <p>If a function should accept None, NoneType should be in this list. (Currently one may set
-   * {@link #noneable} to achieve the same effect, but it is going away.)
-   *
-   * <p>May not be used in conjunction with {@link #type}.
+   * <p>If a function should accept None, NoneType should be in this list.
    */
   ParamType[] allowedTypes() default {};
-
-  /**
-   * When {@link #type()} is a generic type (e.g., {@link net.starlark.java.eval.Sequence}), specify
-   * the type parameter (e.g. {@link String}.class} along with {@link
-   * net.starlark.java.eval.Sequence} for {@link #type()} to specify a list of strings).
-   *
-   * <p>This is only used for documentation generation. The actual generic type is not checked at
-   * runtime, so the Java method signature should use a generic type of Object and cast
-   * appropriately.
-   */
-  // Deprecated. Use allowedTypes.
-  Class<?> generic1() default Object.class;
-
-  /**
-   * Indicates whether this parameter accepts {@code None} as a value, even if NoneType was not
-   * among {@link #allowedTypes}.
-   *
-   * <p>If true, {@code None} is accepted as a valid input in addition to the types mentioned by
-   * {@link #type} or {@link #allowedTypes}. In this case, the Java type of the corresponding method
-   * parameter must be {@code Object}.
-   */
-  // Deprecated. Use allowedTypes={..., @ParamType(type=NoneType)}.
-  boolean noneable() default false;
 
   /**
    * If true, the parameter may be specified as a named parameter. For example for an integer named

@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
@@ -229,7 +230,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        aspectBuilder.addAttribute(attribute, attribute.getDefaultValue(ruleContext.getRule()));
+        Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+        if (defaultValue instanceof ComputedDefault) {
+          defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+        }
+        aspectBuilder.addAttribute(attribute, defaultValue);
       }
       this.attributesCollection = aspectBuilder.build();
 
@@ -246,7 +251,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          ruleBuilder.addAttribute(attribute, attribute.getDefaultValue(ruleContext.getRule()));
+          Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+          if (defaultValue instanceof ComputedDefault) {
+            defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+          }
+          ruleBuilder.addAttribute(attribute, defaultValue);
         }
       }
 
@@ -746,7 +755,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
               var1, ArtifactRoot.class, "expected first param to be of type 'root'");
       Artifact siblingFile =
           assertTypeForNewFile(var2, Artifact.class, "expected second param to be of type 'File'");
-      PathFragment original = siblingFile.getRootRelativePath();
+      PathFragment original =
+          siblingFile.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout());
       PathFragment fragment = original.replaceName(original.getBaseName() + fileSuffix);
       return ruleContext.getDerivedArtifact(fragment, root);
 

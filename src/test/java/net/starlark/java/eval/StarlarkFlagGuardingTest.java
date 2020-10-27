@@ -54,15 +54,14 @@ public final class StarlarkFlagGuardingTest {
         name = "positionals_only_method",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = true, named = false, type = StarlarkInt.class),
+          @Param(name = "a", positional = true, named = false),
           @Param(
               name = "b",
               positional = true,
               named = false,
-              type = Boolean.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
-          @Param(name = "c", positional = true, named = false, type = StarlarkInt.class),
+          @Param(name = "c", positional = true, named = false),
         },
         useStarlarkThread = true)
     public String positionalsOnlyMethod(
@@ -74,15 +73,14 @@ public final class StarlarkFlagGuardingTest {
         name = "keywords_only_method",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = false, named = true, type = StarlarkInt.class),
+          @Param(name = "a", positional = false, named = true),
           @Param(
               name = "b",
               positional = false,
               named = true,
-              type = Boolean.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
-          @Param(name = "c", positional = false, named = true, type = StarlarkInt.class),
+          @Param(name = "c", positional = false, named = true),
         },
         useStarlarkThread = true)
     public String keywordsOnlyMethod(
@@ -94,22 +92,20 @@ public final class StarlarkFlagGuardingTest {
         name = "mixed_params_method",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = true, named = false, type = StarlarkInt.class),
+          @Param(name = "a", positional = true, named = false),
           @Param(
               name = "b",
               positional = true,
               named = false,
-              type = Boolean.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
-              type = StarlarkInt.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "3"),
-          @Param(name = "d", positional = false, named = true, type = Boolean.class),
+          @Param(name = "d", positional = false, named = true),
         },
         useStarlarkThread = true)
     public String mixedParamsMethod(
@@ -121,19 +117,17 @@ public final class StarlarkFlagGuardingTest {
         name = "keywords_multiple_flags",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = false, named = true, type = StarlarkInt.class),
+          @Param(name = "a", positional = false, named = true),
           @Param(
               name = "b",
               positional = false,
               named = true,
-              type = Boolean.class,
               disableWithFlag = FLAG2,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
-              type = StarlarkInt.class,
               enableOnlyWithFlag = FLAG1,
               valueWhenDisabled = "3"),
         },

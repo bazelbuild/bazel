@@ -20,14 +20,14 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkValue;
 
 // TODO(#11437): Factor an API out into skylarkbuildapi, for stardoc's benefit. Otherwise, stardoc
-// can't run on @builtins bzls.
-/** The {@code _internal} Starlark object, visible only to {@code @builtins} .bzls. */
+// can't run on @_builtins bzls.
+/** The {@code _internal} Starlark object, visible only to {@code @_builtins} .bzls. */
 @StarlarkBuiltin(
     name = "_internal",
     category = DocCategory.BUILTIN,
     documented = false,
     doc =
-        "A module accessible only to @builtins .bzls, that permits access to the original "
+        "A module accessible only to @_builtins .bzls, that permits access to the original "
             + "(uninjected) native builtins, as well as internal-only symbols not accessible to "
             + "users.")
 public class InternalModule implements StarlarkValue {

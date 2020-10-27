@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -46,15 +45,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
     filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs"));
-    boolean siblingRepositoryLayout =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+    boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel(), siblingRepositoryLayout);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
       PathFragment javaHomeAttribute =
@@ -136,18 +130,17 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
   }
 
   static PathFragment defaultJavaHome(Label javabase, boolean siblingRepositoryLayout) {
-    if (javabase.getPackageIdentifier().getRepository().isDefault()) {
+    if (javabase.getRepository().isDefault()) {
       return javabase.getPackageFragment();
     }
     return javabase.getPackageIdentifier().getExecPath(siblingRepositoryLayout);
   }
 
   private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase) {
-    if (javaHome.isAbsolute() || javabase.getPackageIdentifier().getRepository().isMain()) {
+    if (javaHome.isAbsolute() || javabase.getRepository().isMain()) {
       return javaHome.getRelative(BIN_JAVA);
     } else {
       return javabase
-          .getPackageIdentifier()
           .getRepository()
           .getRunfilesPath()
           .getRelative(BIN_JAVA);

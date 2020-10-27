@@ -15,11 +15,23 @@
 package net.starlark.java.eval;
 
 import java.math.BigInteger;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /** The Starlark int data type. */
-// No StarlarkBuiltin(name="int") annotation because it would cause docgen
-// to complain that two things are called int (the type and the function).
-// TODO(adonovan): fix docgen.
+@StarlarkBuiltin(
+    name = "int",
+    category = "core",
+    doc =
+        "The type of integers in Starlark. Starlark integers may be of any magnitude; arithmetic"
+            + " is exact. Examples of integer expressions:<br>"
+            + "<pre class=\"language-python\">153\n"
+            + "0x2A  # hexadecimal literal\n"
+            + "0o54  # octal literal\n"
+            + "23 * 2 + 5\n"
+            + "100 / -7\n"
+            + "100 % -7  # -5 (unlike in some other languages)\n"
+            + "int(\"18\")\n"
+            + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
 
   // A cache of small integers >= LEAST_SMALLINT.
@@ -56,6 +68,15 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       return StarlarkInt.of(x.longValue());
     }
     return new Big(x);
+  }
+
+  /**
+   * Returns the StarlarkInt value that most closely approximates x.
+   *
+   * @throws IllegalArgumentException is x is not finite.
+   */
+  static StarlarkInt ofFiniteDouble(double x) {
+    return StarlarkFloat.finiteDoubleToIntExact(x);
   }
 
   /**
@@ -106,7 +127,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public boolean equals(Object that) {
-      return that instanceof Int32 && this.v == ((Int32) that).v;
+      return (that instanceof Int32 && this.v == ((Int32) that).v)
+          || (that instanceof StarlarkFloat && intEqualsFloat(this, (StarlarkFloat) that));
     }
   }
 
@@ -145,7 +167,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public boolean equals(Object that) {
-      return that instanceof Int64 && this.v == ((Int64) that).v;
+      return (that instanceof Int64 && this.v == ((Int64) that).v)
+          || (that instanceof StarlarkFloat && intEqualsFloat(this, (StarlarkFloat) that));
     }
   }
 
@@ -179,7 +202,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public boolean equals(Object that) {
-      return that instanceof Big && this.v.equals(((Big) that).v);
+      return (that instanceof Big && this.v.equals(((Big) that).v))
+          || (that instanceof StarlarkFloat && intEqualsFloat(this, (StarlarkFloat) that));
     }
   }
 
@@ -210,6 +234,30 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   /** Returns the signed int64 value of this StarlarkInt, or fails if not exactly representable. */
   public long toLong(String what) throws EvalException {
     throw Starlark.errorf("got %s for %s, want value in the signed 64-bit range", this, what);
+  }
+
+  /** Returns the nearest IEEE-754 double-precision value closest to this int, which may be ±Inf. */
+  public double toDouble() {
+    if (this instanceof Int32) {
+      return ((Int32) this).v;
+    } else if (this instanceof Int64) {
+      return ((Int64) this).v;
+    } else {
+      return toBigInteger().doubleValue(); // may be ±Inf
+    }
+  }
+
+  /**
+   * Returns the nearest IEEE-754 double-precision value closest to this int.
+   *
+   * @throws EvalException is the int is to large to represent as a finite float value.
+   */
+  public double toFiniteDouble() throws EvalException {
+    double d = toDouble();
+    if (!Double.isFinite(d)) {
+      throw Starlark.errorf("int too large to convert to float");
+    }
+    return d;
   }
 
   /** Returns the BigInteger value of this StarlarkInt. */
@@ -494,4 +542,56 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   private static final BigInteger MINUS1BIG = BigInteger.ONE.negate();
+
+  /** Reports whether int x exactly equals float y. */
+  static boolean intEqualsFloat(StarlarkInt x, StarlarkFloat y) {
+    double yf = y.toDouble();
+    return !Double.isNaN(yf) && compareIntAndDouble(x, yf) == 0;
+  }
+
+  /** Returns an exact three-valued comparison of int x with (non-NaN) double y. */
+  static int compareIntAndDouble(StarlarkInt x, double y) {
+    if (Double.isInfinite(y)) {
+      return y > 0 ? -1 : +1;
+    }
+
+    // For Int32 and some Int64s, the toDouble conversion is exact.
+    if (x instanceof StarlarkInt.Int32
+        || (x instanceof StarlarkInt.Int64 && longHasExactDouble(((Int64) x).v))) {
+      // Avoid Double.compare: it believes -0.0 < 0.0.
+      double xf = x.toDouble();
+      if (xf > y) {
+        return +1;
+      } else if (xf < y) {
+        return -1;
+      }
+      return 0;
+    }
+
+    // If signs differ, we needn't look at magnitude.
+    int xsign = x.signum();
+    int ysign = (int) Math.signum(y);
+    if (xsign > ysign) {
+      return +1;
+    } else if (xsign < ysign) {
+      return -1;
+    }
+
+    // Left-shift either the int or the float mantissa,
+    // then compare the resulting integers.
+    int shift = StarlarkFloat.getShift(y);
+    BigInteger xbig = x.toBigInteger();
+    if (shift < 0) {
+      xbig = xbig.shiftLeft(-shift);
+    }
+    BigInteger ybig = BigInteger.valueOf(StarlarkFloat.getMantissa(y));
+    if (shift > 0) {
+      ybig = ybig.shiftLeft(shift);
+    }
+    return xbig.compareTo(ybig);
+  }
+
+  private static boolean longHasExactDouble(long x) {
+    return (long) (double) x == x;
+  }
 }

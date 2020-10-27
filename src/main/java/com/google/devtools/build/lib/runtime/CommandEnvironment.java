@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -252,7 +251,6 @@ public class CommandEnvironment {
       if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
                 FailureDetail.newBuilder()
                     .setMessage("Client cwd '" + clientCwd + "' contains uplevel references")
                     .setClientEnvironment(
@@ -264,7 +262,6 @@ public class CommandEnvironment {
       if (clientCwd.isAbsolute() && !clientCwd.startsWith(workspace.asFragment())) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
                 FailureDetail.newBuilder()
                     .setMessage(
                         String.format(

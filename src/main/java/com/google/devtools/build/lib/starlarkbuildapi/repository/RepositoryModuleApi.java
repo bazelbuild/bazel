@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.starlarkbuildapi.repository;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
@@ -39,7 +41,6 @@ public interface RepositoryModuleApi {
       parameters = {
         @Param(
             name = "implementation",
-            type = StarlarkCallable.class,
             named = true,
             doc =
                 "the function that implements this rule. Must have a single parameter,"
@@ -48,8 +49,10 @@ public interface RepositoryModuleApi {
                     + " rule."),
         @Param(
             name = "attrs",
-            type = Dict.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
                 "dictionary to declare all the attributes of the rule. It maps from an attribute "
@@ -62,7 +65,6 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "local",
-            type = Boolean.class,
             defaultValue = "False",
             doc =
                 "Indicate that this rule fetches everything from the local system and should be "
@@ -71,8 +73,9 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "environ",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+            },
             defaultValue = "[]",
             doc =
                 "Provides a list of environment variable that this repository rule depends on. If "
@@ -82,14 +85,12 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "configure",
-            type = Boolean.class,
             defaultValue = "False",
             doc = "Indicate that the repository inspects the system for configuration purpose",
             named = true,
             positional = false),
         @Param(
             name = "remotable",
-            type = Boolean.class,
             defaultValue = "False",
             doc = "Compatible with remote execution",
             named = true,
@@ -98,7 +99,6 @@ public interface RepositoryModuleApi {
             valueWhenDisabled = "False"),
         @Param(
             name = "doc",
-            type = String.class,
             defaultValue = "''",
             doc =
                 "A description of the repository rule that can be extracted by documentation "
