@@ -77,7 +77,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
-  @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
@@ -106,7 +105,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.platformBitcodeModes = collectBitcodeModes(options.appleBitcodeMode);
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
-    this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     this.objcProviderFromLinked = options.objcProviderFromLinked;
   }
@@ -349,15 +347,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   public ImmutableList<String> getIosMultiCpus() {
     return iosMultiCpus;
-  }
-
-  /**
-   * Returns the label of the default provisioning profile to use when bundling/signing an ios
-   * application. Returns null if the target platform is not an iOS device (for example, if
-   * iOS simulator is being targeted).
-   */
-  @Nullable public Label getDefaultProvisioningProfileLabel() {
-    return defaultProvisioningProfileLabel;
   }
 
   /**
