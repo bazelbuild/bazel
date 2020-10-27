@@ -926,7 +926,6 @@ http_archive(
     sha256 = "d9d5bbc25fd6e27598db9db5b1f2b0a8dadc2b704939a85d0bbab85a24a1c692",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v10.2/java_tools_javac11_linux-v10.2-rc1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.1/java_tools_javac11_linux-v10.1.zip",
     ],
 )
 
@@ -938,7 +937,6 @@ http_archive(
     sha256 = "109e1a6227e3280c294c84d8a4fe93320ce782f8386e2b769da7e261432cfad8",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v10.2/java_tools_javac11_windows-v10.2-rc1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.1/java_tools_javac11_windows-v10.1.zip",
     ],
 )
 
@@ -950,7 +948,6 @@ http_archive(
     sha256 = "55fc180cc603918e1306c719c854d06d7132e05da3a6df6881d517a9cae13685",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v10.2/java_tools_javac11_darwin-v10.2-rc1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.1/java_tools_javac11_darwin-v10.1.zip",
     ],
 )
 
