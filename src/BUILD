@@ -751,7 +751,7 @@ genrule(
 
 filegroup(
     name = "test_repos",
-    srcs = [
+    data = [
         "@android_tools_for_testing//:WORKSPACE",
         "@bazel_skylib//:WORKSPACE",
         "@bazel_toolchains//:WORKSPACE",
