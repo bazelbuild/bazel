@@ -161,7 +161,7 @@ public final class AnalysisUtils {
       Label label, PathFragment fragment, boolean siblingRepositoryLayout) {
     return label
         .getPackageIdentifier()
-        .getPackagePath()
+        .getPackagePath(siblingRepositoryLayout)
         .getRelative(fragment)
         .getRelative(label.getName());
   }

@@ -819,7 +819,9 @@ public final class RuleContext extends TargetContext
 
   @Override
   public PathFragment getPackageDirectory() {
-    return getLabel().getPackageIdentifier().getPackagePath();
+    return getLabel()
+        .getPackageIdentifier()
+        .getPackagePath(getConfiguration().isSiblingRepositoryLayout());
   }
 
   /**
