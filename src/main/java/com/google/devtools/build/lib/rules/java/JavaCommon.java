@@ -570,7 +570,7 @@ public class JavaCommon {
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
-        && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
+        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
       ruleContext.attributeError("deps", "deps not allowed without srcs; move to runtime_deps?");
     }
 
