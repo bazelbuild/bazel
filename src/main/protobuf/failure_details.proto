@@ -706,7 +706,7 @@ message Sandbox {
     MOUNT_SOURCE_DOES_NOT_EXIST = 7 [(metadata) = { exit_code: 1 }];
     MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
-    EXECUTION_FAILED = 10 [(metadata) = { exit_code: 1 }];
+    SUBPROCESS_START_FAILED = 10 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
