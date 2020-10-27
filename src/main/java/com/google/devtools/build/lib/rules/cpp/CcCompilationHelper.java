@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -353,8 +352,7 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts)
-      throws InterruptedException {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
     Preconditions.checkNotNull(additionalCopts);
 
     setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
@@ -989,12 +987,8 @@ public final class CcCompilationHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
-    boolean siblingRepositoryLayout =
-        actionConstructionContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
-    RepositoryName repositoryName = label.getPackageIdentifier().getRepository();
+    boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
+    RepositoryName repositoryName = label.getRepository();
     PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
@@ -1238,7 +1232,8 @@ public final class CcCompilationHelper {
 
   /** @return the no-PIC header module artifact for the current target. */
   private Artifact.DerivedArtifact getHeaderModule(Artifact moduleMapArtifact) {
-    PathFragment objectDir = CppHelper.getObjDirectory(label);
+    PathFragment objectDir =
+        CppHelper.getObjDirectory(label, configuration.isSiblingRepositoryLayout());
     PathFragment outputName =
         objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
     return actionConstructionContext.getRelatedArtifact(outputName, ".pcm");
@@ -1246,7 +1241,8 @@ public final class CcCompilationHelper {
 
   /** @return the pic header module artifact for the current target. */
   private Artifact.DerivedArtifact getPicHeaderModule(Artifact moduleMapArtifact) {
-    PathFragment objectDir = CppHelper.getObjDirectory(label);
+    PathFragment objectDir =
+        CppHelper.getObjDirectory(label, configuration.isSiblingRepositoryLayout());
     PathFragment outputName =
         objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
     return actionConstructionContext.getRelatedArtifact(outputName, ".pic.pcm");
@@ -2012,7 +2008,8 @@ public final class CcCompilationHelper {
   }
 
   private Artifact getDwoFile(Artifact outputFile) {
-    return actionConstructionContext.getRelatedArtifact(outputFile.getRootRelativePath(), ".dwo");
+    return actionConstructionContext.getRelatedArtifact(
+        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ".dwo");
   }
 
   private Artifact getLtoIndexingFile(Artifact outputFile) {
@@ -2020,7 +2017,8 @@ public final class CcCompilationHelper {
       return null;
     }
     String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
-    return actionConstructionContext.getRelatedArtifact(outputFile.getRootRelativePath(), ext);
+    return actionConstructionContext.getRelatedArtifact(
+        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ext);
   }
 
   /** Create the actions for "--save_temps". */

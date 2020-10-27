@@ -65,7 +65,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);

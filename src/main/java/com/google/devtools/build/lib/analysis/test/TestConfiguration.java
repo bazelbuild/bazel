@@ -34,6 +34,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -259,6 +260,20 @@ public class TestConfiguration extends Fragment {
                 + "coverage run.")
     public boolean fetchAllCoverageOutputs;
 
+    @Option(
+        name = "incompatible_exclusive_test_sandboxed",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+            OptionMetadataTag.INCOMPATIBLE_CHANGE,
+            OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "If true, exclusive tests will run with sandboxed strategy. Add 'local' tag to force "
+                + "an exclusive test run locally")
+    public boolean incompatibleExclusiveTestSandboxed;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -369,6 +384,8 @@ public class TestConfiguration extends Fragment {
   public boolean fetchAllCoverageOutputs() {
     return options.fetchAllCoverageOutputs;
   }
+
+  public boolean incompatibleExclusiveTestSandboxed() { return options.incompatibleExclusiveTestSandboxed; }
 
   /**
    * Option converter that han handle two styles of value for "--runs_per_test":

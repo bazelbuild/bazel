@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.errorprone.annotations.ForOverride;
+import javax.annotation.Nullable;
 
 /**
  * An exception indication that the execution of an action has failed OR could not be attempted OR
@@ -87,27 +87,32 @@ public abstract class ExecException extends Exception {
    * @return ActionExecutionException object describing the action failure
    */
   public final ActionExecutionException toActionExecutionException(Action action) {
-    return toActionExecutionException("", action);
+    return toActionExecutionException(null, action);
   }
 
   /**
-   * Returns a new ActionExecutionException given a message prefix describing the action type as a
-   * noun. When appropriate (we use some heuristics to decide), produces an abbreviated message
-   * incorporating just the termination status if available.
+   * Returns a new ActionExecutionException given an optional action subtask describing which part
+   * of the action failed (should be null for standard action failures). When appropriate (we use
+   * some heuristics to decide), produces an abbreviated message incorporating just the termination
+   * status if available.
    *
-   * @param messagePrefix describes the action type as noun
+   * @param actionSubtask additional information about the action
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
   public final ActionExecutionException toActionExecutionException(
-      String messagePrefix, Action action) {
+      @Nullable String actionSubtask, Action action) {
+    // Message from ActionExecutionException will be prepended with action.describe() where
+    // necessary: because not all ActionExecutionExceptions come from this codepath, it is safer
+    // for consumers to manually prepend. We still put action.describe() in the failure detail
+    // message argument.
     String message =
-        String.format(
-            "%s failed: %s",
-            Strings.isNullOrEmpty(messagePrefix) ? action.describe() : messagePrefix,
-            getMessageForActionExecutionException());
+        (actionSubtask == null ? "" : actionSubtask + ": ")
+            + getMessageForActionExecutionException();
     return toActionExecutionException(
-        message, action, DetailedExitCode.of(getFailureDetail(message)));
+        message,
+        action,
+        DetailedExitCode.of(getFailureDetail(action.describe() + " failed: " + message)));
   }
 
   @ForOverride

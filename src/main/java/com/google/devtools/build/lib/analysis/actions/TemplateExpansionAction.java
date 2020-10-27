@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -171,7 +170,6 @@ public final class TemplateExpansionAction extends AbstractAction {
           }
         } catch (ExecException e) {
           throw e.toActionExecutionException(
-              "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
               TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));

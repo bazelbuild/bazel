@@ -43,12 +43,10 @@ public interface StarlarkBuildApiGlobals {
       parameters = {
         @Param(
             name = "fragment",
-            type = String.class,
             named = true,
             doc = "The name of a configuration fragment which contains the late-bound value."),
         @Param(
             name = "name",
-            type = String.class,
             named = true,
             doc = "The name of the value to obtain from the configuration fragment."),
       },

@@ -24,7 +24,7 @@ public class StructFieldWithArguments implements StarlarkValue {
   @StarlarkMethod(
       name = "struct_field_method",
       parameters = {
-        @Param(name = "foo", type = String.class, named = true),
+        @Param(name = "foo", named = true),
       },
       structField = true,
       doc = "A private method")

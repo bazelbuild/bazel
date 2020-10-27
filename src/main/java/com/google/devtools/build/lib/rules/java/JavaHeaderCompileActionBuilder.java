@@ -247,8 +247,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Builds and registers the action for a header compilation. */
-  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase)
-      throws InterruptedException {
+  public void build(JavaToolchainProvider javaToolchain) throws InterruptedException {
     checkNotNull(outputDepsProto, "outputDepsProto must not be null");
     checkNotNull(sourceFiles, "sourceFiles must not be null");
     checkNotNull(sourceJars, "sourceJars must not be null");
@@ -333,11 +332,11 @@ public class JavaHeaderCompileActionBuilder {
           CustomCommandLine.builder().addExecPath(headerCompiler.getExecutable()).build();
     } else {
       mandatoryInputs
-          .addTransitive(hostJavabase.javaBaseInputsMiddleman())
+          .addTransitive(javaToolchain.getJavaRuntime().javaBaseInputsMiddleman())
           .add(headerCompiler.getExecutable());
       executableLine =
           CustomCommandLine.builder()
-              .addPath(hostJavabase.javaBinaryExecPathFragment())
+              .addPath(javaToolchain.getJavaRuntime().javaBinaryExecPathFragment())
               .add("-Xverify:none")
               .addAll(javaToolchain.getTurbineJvmOptions())
               .add("-jar")
@@ -365,8 +364,7 @@ public class JavaHeaderCompileActionBuilder {
 
     if (targetLabel != null) {
       commandLine.add("--target_label");
-      if (targetLabel.getPackageIdentifier().getRepository().isDefault()
-          || targetLabel.getPackageIdentifier().getRepository().isMain()) {
+      if (targetLabel.getRepository().isDefault() || targetLabel.getRepository().isMain()) {
         commandLine.addLabel(targetLabel);
       } else {
         // @-prefixed strings will be assumed to be params filenames and expanded,

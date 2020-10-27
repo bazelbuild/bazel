@@ -449,6 +449,7 @@ filegroup(
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/net/starlark/java/cmd:srcs",
         "//src/main/java/net/starlark/java/spelling:srcs",
+        "//src/main/java/net/starlark/java/lib/json:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
@@ -558,7 +559,6 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
     "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
     "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
@@ -660,7 +660,7 @@ JAVA_VERSIONS = ("11",)
             "//tools/jdk:java_toolchain_default.bzl",
         ],
         outs = ["java_tools_java_" + java_version + "_build.zip"],
-        cmd = "zip -jX $@ $(SRCS)",
+        cmd = "zip -qjX $@ $(SRCS)",
     )
     for java_version in JAVA_VERSIONS
 ]

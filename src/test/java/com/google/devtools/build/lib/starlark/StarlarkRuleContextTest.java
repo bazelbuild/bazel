@@ -633,6 +633,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             "generator_location",
             "features",
             "compatible_with",
+            "target_compatible_with",
             "restricted_to",
             "srcs",
             "tools",
@@ -2042,7 +2043,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Object argvUnchecked = ev.eval("action.argv");
     assertThat(argvUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> argv = (StarlarkList) argvUnchecked;
-    assertThat(argv).hasSize(3);
+    assertThat((List<?>) argv).hasSize(3);
     assertThat(argv.isImmutable()).isTrue();
     Object result = ev.eval("action.argv[2].startswith('echo foo123')");
     assertThat((Boolean) result).isTrue();
@@ -2421,6 +2422,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "actions.run_shell(command = 'foo', outputs = [file])",
           "actions.write(file, 'foo')",
           "check_placeholders('foo', [])",
+          "build_file_path",
           "runfiles()",
           "resolve_command(command = 'foo')",
           "resolve_tools()");
@@ -2994,5 +2996,24 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
     assertContainsEvent("Exec group name '" + badName + "' is not a valid name.");
+  }
+
+  @Test
+  public void testBuildFilePath() throws Exception {
+    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
+
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='foo', path='/foo')")
+            .build());
+
+    invalidatePackages(false);
+
+    setRuleContext(createRuleContext("@foo//bar:baz"));
+    Object result = ev.eval("ruleContext.build_file_path");
+    assertThat(result).isEqualTo("foo/bar/BUILD");
   }
 }

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -61,7 +60,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         SkyFunction.Environment env,
         Map<String, String> markerData,
         SkyKey key)
-        throws SkyFunctionException, InterruptedException {
+        throws InterruptedException {
       return null;
     }
 

@@ -29,9 +29,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -394,28 +391,6 @@ public class ProtoCommon {
     return ruleContext.getLabel().getPackageIdentifier().equals(source.getPackageIdentifier());
   }
 
-  public static void checkRuleHasValidMigrationTag(RuleContext ruleContext)
-      throws RuleErrorException {
-    if (!ruleContext.getFragment(ProtoConfiguration.class).loadProtoRulesFromBzl()) {
-      return;
-    }
-
-    if (!hasValidMigrationTag(ruleContext)) {
-      ruleContext.ruleError(
-          "The native Protobuf rules are deprecated. Please load "
-              + ruleContext.getRule().getRuleClass()
-              + " from the rules_proto repository."
-              + " See http://github.com/bazelbuild/rules_proto.");
-    }
-  }
-
-  private static boolean hasValidMigrationTag(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains(PROTO_RULES_MIGRATION_LABEL);
-  }
-
   /**
    * Creates the {@link ProtoInfo} for the {@code proto_library} rule associated with {@code
    * ruleContext}.
@@ -445,13 +420,8 @@ public class ProtoCommon {
       String contextProtoSourceRoot =
           ruleContext
               .getLabel()
-              .getPackageIdentifier()
               .getRepository()
-              .getExecPath(
-                  ruleContext
-                      .getAnalysisEnvironment()
-                      .getStarlarkSemantics()
-                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
+              .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
               .getPathString();
       library =
           createLibraryWithoutVirtualSourceRoot(contextProtoSourceRoot, originalDirectProtoSources);
@@ -518,20 +488,24 @@ public class ProtoCommon {
   // Protocol compiler invocation stuff.
 
   /**
-   * Each language-specific initialization method will call this to construct
-   * Artifacts representing its protocol compiler outputs.
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs.
    *
-   * @param extension Remove ".proto" and replace it with this to produce
-   *                  the output file name, e.g. ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name
-   *              with underscores, as required for Python modules.
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
+   * @param pythonNames If true, replace hyphens in the file name with underscores, as required for
+   *     Python modules.
    */
-  public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources, String extension, boolean pythonNames) {
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext,
+      ImmutableList<Artifact> protoSources,
+      String extension,
+      boolean pythonNames) {
     ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
     ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
     for (Artifact src : protoSources) {
-      PathFragment srcPath = src.getOutputDirRelativePath();
+      PathFragment srcPath =
+          src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       if (pythonNames) {
         srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
       }
@@ -546,14 +520,14 @@ public class ProtoCommon {
   }
 
   /**
-   * Each language-specific initialization method will call this to construct
-   * Artifacts representing its protocol compiler outputs.
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs.
    *
-   * @param extension Remove ".proto" and replace it with this to produce
-   *                  the output file name, e.g. ".pb.cc".
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
    */
-  public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources, String extension) {
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension) {
     return getGeneratedOutputs(ruleContext, protoSources, extension, false);
   }
 

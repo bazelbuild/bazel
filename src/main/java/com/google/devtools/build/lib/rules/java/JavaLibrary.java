@@ -39,7 +39,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     JavaCommon common = new JavaCommon(ruleContext, semantics);
     return init(
         ruleContext,
@@ -53,7 +52,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       final JavaCommon common,
       boolean includeGeneratedExtensionRegistry,
       boolean isJavaPluginRule)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+      throws InterruptedException, ActionConflictException {
     semantics.checkDependencyRuleKinds(ruleContext);
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
@@ -195,8 +194,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .build();
 
     builder
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))

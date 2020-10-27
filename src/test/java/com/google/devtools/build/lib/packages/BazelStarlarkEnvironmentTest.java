@@ -53,8 +53,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   // TODO(#11954): We want BUILD- and WORKSPACE-loaded bzl files to have the exact same environment.
   // In the meantime these two tests help avoid regressions.
 
-  // This property is important for ASTFileLookupFunction, which relies on the symbol names in the
-  // env matching even if the symbols themselves differ.
+  // This property is important for BzlCompileFunction, which relies on the symbol names in the env
+  // matching even if the symbols themselves differ.
   @Test
   public void buildAndWorkspaceBzlEnvsDeclareSameNames() throws Exception {
     Set<String> buildBzlNames = pkgFactory.getUninjectedBuildBzlEnv().keySet();
@@ -71,6 +71,16 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     workspaceBzlEnv.putAll(pkgFactory.getWorkspaceBzlEnv());
     workspaceBzlEnv.remove("native");
     assertThat(buildBzlEnv).isEqualTo(workspaceBzlEnv);
+  }
+
+  @Test
+  public void builtinsBzlEnvCanSeeGeneralToplevels() throws Exception {
+    assertThat(pkgFactory.getBuiltinsBzlEnv()).containsKey("rule");
+  }
+
+  @Test
+  public void builtinsBzlEnvCannotSeeRuleSpecificToplevels() throws Exception {
+    assertThat(pkgFactory.getBuiltinsBzlEnv()).doesNotContainKey("overridable_symbol");
   }
 
   @Test
@@ -97,7 +107,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void injectedNameMustOverrideExistingName_toplevelSymbol() throws Exception {
+  public void injectedNameMustOverrideExistingName_toplevel() throws Exception {
     assertInjectionFailure(
         ImmutableMap.of("brand_new_toplevel", "foo"),
         ImmutableMap.of(),
@@ -115,7 +125,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void cannotInjectGenericNonRuleSpecificSymbol_toplevelSymbol() {
+  public void cannotInjectGeneralSymbol_toplevel() {
     assertInjectionFailure(
         ImmutableMap.of("provider", "new_builtin"),
         ImmutableMap.of(),
@@ -123,7 +133,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void cannotInjectGenericNonRuleSpecificSymbol_nativeField() {
+  public void cannotInjectGeneralSymbol_nativeField() {
     assertInjectionFailure(
         ImmutableMap.of(),
         ImmutableMap.of("glob", "new_builtin"),
@@ -131,7 +141,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void cannotInjectGenericNonRuleSpecificSymbol_nativeModuleItself() {
+  public void cannotInjectGeneralSymbol_nativeModuleItself() {
     assertInjectionFailure(
         ImmutableMap.of("native", "new_builtin"),
         ImmutableMap.of(),
@@ -139,7 +149,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void cannotInjectGenericNonRuleSpecificSymbol_universeSymbol() {
+  public void cannotInjectGeneralSymbol_universe() {
     assertInjectionFailure(
         ImmutableMap.of("len", "new_builtin"),
         ImmutableMap.of(),

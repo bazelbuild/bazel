@@ -14,7 +14,7 @@ filegroup(
 java_library(
     name = "eval",
     srcs = [
-        "BuiltinCallable.java",
+        "BuiltinFunction.java",
         "CallUtils.java",
         "ClassObject.java",
         "CpuProfiler.java",
@@ -38,6 +38,7 @@ java_library(
         "Sequence.java",
         "Starlark.java",
         "StarlarkCallable.java",
+        "StarlarkFloat.java",
         "StarlarkFunction.java",
         "StarlarkIndexable.java",
         "StarlarkInt.java",

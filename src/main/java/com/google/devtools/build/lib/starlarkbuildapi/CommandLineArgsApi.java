@@ -21,6 +21,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
@@ -135,11 +136,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "this method."),
         @Param(
             name = "format",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "A format string pattern, to be applied to the stringified version of <code>value"
                     + "</code>.")
@@ -199,11 +202,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
             doc = "The list, tuple, or depset whose items will be appended."),
         @Param(
             name = "map_each",
-            type = StarlarkCallable.class,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "A function that converts each item to zero or more strings, which may be further "
                     + "processed before appending. If this param is not provided, the standard "
@@ -241,28 +246,31 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "not produce any visible output."),
         @Param(
             name = "format_each",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional format string pattern, applied to each string returned by the "
                     + "<code>map_each</code> function. "
                     + "The format string must have exactly one '%s' placeholder."),
         @Param(
             name = "before_each",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional string to append before each argument derived from "
                     + "<code>values</code> is appended."),
         @Param(
             name = "omit_if_empty",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -274,7 +282,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "other arguments."),
         @Param(
             name = "uniquify",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
@@ -286,7 +293,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "multiple items."),
         @Param(
             name = "expand_directories",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -295,11 +301,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "of files. This happens before <code>map_each</code> is applied."),
         @Param(
             name = "terminate_with",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional string to append after all other arguments. This string will not be "
                     + "added if <code>omit_if_empty</code> is true (the default) and no other "
@@ -361,7 +369,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
             doc = "The list, tuple, or depset whose items will be joined."),
         @Param(
             name = "join_with",
-            type = String.class,
             named = true,
             positional = false,
             doc =
@@ -370,33 +377,38 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "<a href='string.html#join'><code>string.join()</code></a>."),
         @Param(
             name = "map_each",
-            type = StarlarkCallable.class,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc = "Same as for <a href='#add_all.map_each'><code>add_all</code></a>."),
         @Param(
             name = "format_each",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc = "Same as for <a href='#add_all.format_each'><code>add_all</code></a>."),
         @Param(
             name = "format_joined",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional format string pattern applied to the joined string. "
                     + "The format string must have exactly one '%s' placeholder."),
         @Param(
             name = "omit_if_empty",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -409,14 +421,12 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "string (which is the logical join of zero strings)."),
         @Param(
             name = "uniquify",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
             doc = "Same as for <a href='#add_all.uniquify'><code>add_all</code></a>."),
         @Param(
             name = "expand_directories",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -448,7 +458,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "param_file_arg",
-            type = String.class,
             named = true,
             doc =
                 "A format string with a single \"%s\". "
@@ -460,7 +469,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "contain \"--file=params.txt\"."),
         @Param(
             name = "use_always",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
@@ -477,7 +485,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "format",
-            type = String.class,
             named = true,
             doc =
                 "Must be one of:<ul>"

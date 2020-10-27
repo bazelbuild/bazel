@@ -238,7 +238,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
-  private static List<String> compilationModeCopts(CompilationMode mode) {
+  protected static ImmutableList<String> compilationModeCopts(CompilationMode mode) {
     switch (mode) {
       case DBG:
         return ImmutableList.<String>builder()
@@ -1033,6 +1033,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(allExpectedCoptsBuilder.build())
         .inOrder();
+    assertThat(compileActionA.getArguments()).doesNotContain("-D_GLIBCXX_DEBUG");
   }
 
   private void addTransitiveDefinesUsage(RuleType topLevelRuleType) throws Exception {

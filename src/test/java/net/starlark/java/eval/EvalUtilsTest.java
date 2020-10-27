@@ -120,9 +120,7 @@ public final class EvalUtilsTest {
         if (i != j) {
           Object first = objects[i];
           Object second = objects[j];
-          assertThrows(
-              EvalUtils.ComparisonException.class,
-              () -> EvalUtils.STARLARK_COMPARATOR.compare(first, second));
+          assertThrows(ClassCastException.class, () -> Starlark.ORDERING.compare(first, second));
         }
       }
     }
@@ -131,8 +129,7 @@ public final class EvalUtilsTest {
   @Test
   public void testComparatorWithNones() throws Exception {
     assertThrows(
-        EvalUtils.ComparisonException.class,
-        () -> EvalUtils.STARLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
+        ClassCastException.class, () -> Starlark.ORDERING.compare(Starlark.NONE, Starlark.NONE));
   }
 
   @Test

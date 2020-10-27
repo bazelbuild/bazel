@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -62,7 +63,9 @@ public interface StructApi extends StarlarkValue {
               + "#   key: 2\n"
               + "#   value: 1\n"
               + "# }\n"
-              + "</pre>")
+              + "</pre>"
+              + "<p>Deprecated: use proto.encode_text(x) instead.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_STRUCT_HAS_NO_METHODS)
   String toProto() throws EvalException;
 
   @StarlarkMethod(
@@ -82,7 +85,10 @@ public interface StructApi extends StarlarkValue {
               + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
               + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
               + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
-              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>")
+              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>."
+              + "<p>Deprecated: instead, use json.encode(x) or json.encode_indent(x), which work"
+              + " for values other than structs and do not pollute the struct field namespace. ",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_STRUCT_HAS_NO_METHODS)
   String toJson() throws EvalException;
 
   /** Callable Provider for new struct objects. */
@@ -97,11 +103,7 @@ public interface StructApi extends StarlarkValue {
                 + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
                 + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
         extraKeywords =
-            @Param(
-                name = "kwargs",
-                type = Dict.class,
-                defaultValue = "{}",
-                doc = "Dictionary of arguments."),
+            @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
         useStarlarkThread = true,
         selfCall = true)
     @StarlarkConstructor

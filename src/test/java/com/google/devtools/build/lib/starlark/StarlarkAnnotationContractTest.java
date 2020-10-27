@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.starlark;
 
 import com.google.devtools.build.lib.util.Classpath;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,7 +53,7 @@ public class StarlarkAnnotationContractTest {
   @Test
   public void testResolvableStarlarkBuiltins() throws Exception {
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
-      StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass);
+      StarlarkAnnotations.getStarlarkBuiltin(candidateClass);
     }
   }
 }

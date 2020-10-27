@@ -222,7 +222,8 @@ public final class RunfilesSupport {
     // The executable may be null for emptyRunfiles
     PathFragment relativePath =
         (owningExecutable != null)
-            ? owningExecutable.getRootRelativePath()
+            ? owningExecutable.getOutputDirRelativePath(
+                context.getConfiguration().isSiblingRepositoryLayout())
             : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
@@ -348,7 +349,10 @@ public final class RunfilesSupport {
     }
 
     PathFragment runfilesDir =
-        FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(), RUNFILES_DIR_EXT);
+        FileSystemUtils.replaceExtension(
+            inputManifest.getOutputDirRelativePath(
+                context.getConfiguration().isSiblingRepositoryLayout()),
+            RUNFILES_DIR_EXT);
     PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfiguration config = context.getConfiguration();

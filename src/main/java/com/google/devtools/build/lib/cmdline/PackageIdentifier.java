@@ -181,7 +181,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * Returns the package path to the source code for this package. Returns pkgName if this is in the
    * main repository or external/[repository name]/[pkgName] if not.
    */
-  public PathFragment getPackagePath() {
+  public PathFragment getPackagePath(boolean siblingRepositoryLayout) {
     return repository.getPackagePath().getRelative(pkgName);
   }
 

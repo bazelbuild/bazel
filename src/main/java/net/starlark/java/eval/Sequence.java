@@ -14,11 +14,12 @@
 
 package net.starlark.java.eval;
 
+import static java.lang.Math.min;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.RandomAccess;
-import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * A Sequence is a finite iterable sequence of Starlark values, such as a list or tuple.
@@ -32,11 +33,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
  * but there appears to be little demand, and doing so carries some risk of obscuring unintended
  * mutations to Starlark values that would currently cause the program to crash.
  */
-@StarlarkBuiltin(
-    name = "sequence",
-    documented = false,
-    category = "core",
-    doc = "common type of lists and tuples.")
 public interface Sequence<E>
     extends StarlarkValue, List<E>, RandomAccess, StarlarkIndexable, StarlarkIterable<E> {
 
@@ -60,6 +56,42 @@ public interface Sequence<E>
   @Override
   default boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     return contains(key);
+  }
+
+  /**
+   * Compares two sequences of values. Sequences compare equal if corresponding elements compare
+   * equal using {@code x[i] == y[i]}. Otherwise, the result is the ordered comparison of the first
+   * element for which {@code x[i] != y[i]}. If one list is a prefix of another, the result is the
+   * comparison of the list's sizes.
+   *
+   * @throws ClassCastException if any comparison failed.
+   */
+  static int compare(List<?> x, List<?> y) {
+    for (int i = 0; i < min(x.size(), y.size()); i++) {
+      Object xelem = x.get(i);
+      Object yelem = y.get(i);
+
+      // First test for equality. This avoids an unnecessary
+      // ordered comparison, which may be unsupported despite
+      // the values being equal. Also, it is potentially more
+      // expensive. For example, list==list need not look at
+      // the elements if the lengths are unequal.
+      if (xelem == yelem || xelem.equals(yelem)) {
+        continue;
+      }
+
+      // The ordered comparison of unequal elements should
+      // always be nonzero unless compareTo is inconsistent.
+      int cmp = Starlark.compareUnchecked(xelem, yelem);
+      if (cmp == 0) {
+        throw new IllegalStateException(
+            String.format(
+                "x.equals(y) yet x.compareTo(y)==%d (x: %s, y: %s)",
+                cmp, Starlark.type(xelem), Starlark.type(yelem)));
+      }
+      return cmp;
+    }
+    return Integer.compare(x.size(), y.size());
   }
 
   /**

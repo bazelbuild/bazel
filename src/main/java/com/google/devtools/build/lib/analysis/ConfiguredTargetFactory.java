@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
@@ -321,6 +322,12 @@ public final class ConfiguredTargetFactory {
                     configConditions,
                     prerequisiteMap.values()))
             .build();
+
+    ConfiguredTarget incompatibleTarget =
+        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
+    if (incompatibleTarget != null) {
+      return incompatibleTarget;
+    }
 
     List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
     if (!analysisFailures.isEmpty()) {

@@ -493,7 +493,47 @@ public class NinjaBuildTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateOutputSymlinkArtifacts() throws Exception {
+  public void testCreateOutputSymlinkArtifactsInTopLevelDirectory() throws Exception {
+    // output root: <cwd>/out/
+    // working directory: <cwd>
+    rewriteWorkspace("workspace(name = 'test')", "toplevel_output_directories(paths = ['out'])");
+
+    scratch.file(
+        "out/build.ninja",
+        "rule symlink_rule",
+        "  command = ln -s fictive-file ${out}",
+        "  symlink_outputs = $out",
+        "build out/dangling_symlink: symlink_rule");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "ninja_target",
+            "ninja_graph(name = 'graph', output_root = 'out',",
+            " main = 'out/build.ninja')",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups= {'main': ['out/dangling_symlink']})");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(1);
+
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    Artifact primaryOutput = action.getPrimaryOutput();
+    assertThat(primaryOutput.isSymlink()).isTrue();
+    assertThat(action).isInstanceOf(NinjaAction.class);
+
+    List<CommandLineAndParamFileInfo> commandLines =
+        ((NinjaAction) action).getCommandLines().getCommandLines();
+    assertThat(commandLines).hasSize(1);
+    assertThat(commandLines.get(0).commandLine.toString())
+        .endsWith("ln -s fictive-file out/dangling_symlink");
+  }
+
+  @Test
+  public void testCreateOutputSymlinkArtifactsInWorkingDirectory() throws Exception {
+    // output root: <cwd>/build_config
+    // working directory: <cwd>/build_config
     rewriteWorkspace(
         "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 

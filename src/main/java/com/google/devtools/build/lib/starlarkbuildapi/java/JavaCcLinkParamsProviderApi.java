@@ -66,12 +66,7 @@ public interface JavaCcLinkParamsProviderApi<
         documented = true,
         enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
-          @Param(
-              name = "store",
-              doc = "The CcInfo provider.",
-              positional = true,
-              named = false,
-              type = CcInfoApi.class),
+          @Param(name = "store", doc = "The CcInfo provider.", positional = true, named = false),
         },
         selfCall = true)
     @StarlarkConstructor

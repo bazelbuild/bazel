@@ -56,7 +56,6 @@ public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<
             name = "child_path",
             positional = true,
             named = false,
-            type = String.class,
             doc = "The path to append to this path."),
       })
   RepositoryPathApi<?> getChild(String childPath);

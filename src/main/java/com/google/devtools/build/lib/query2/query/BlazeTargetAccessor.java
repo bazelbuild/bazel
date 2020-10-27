@@ -132,24 +132,25 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public Set<QueryVisibility<Target>> getVisibility(Target target)
+  public ImmutableSet<QueryVisibility<Target>> getVisibility(QueryExpression caller, Target target)
       throws QueryException, InterruptedException {
     ImmutableSet.Builder<QueryVisibility<Target>> result = ImmutableSet.builder();
     result.add(QueryVisibility.samePackage(target, this));
-    convertVisibility(result, target);
+    convertVisibility(caller, result, target);
     return result.build();
   }
 
   // CAUTION: keep in sync with ConfiguredTargetFactory#convertVisibility()
   private void convertVisibility(
-      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications, Target target)
+      QueryExpression caller,
+      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,
+      Target target)
       throws QueryException, InterruptedException {
    RuleVisibility ruleVisibility = target.getVisibility();
    if (ruleVisibility instanceof ConstantRuleVisibility) {
      if (((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()) {
-       packageSpecifications.add(QueryVisibility.<Target>everything());
+        packageSpecifications.add(QueryVisibility.everything());
      }
-     return;
    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
      PackageGroupsRuleVisibility packageGroupsVisibility =
          (PackageGroupsRuleVisibility) ruleVisibility;
@@ -157,12 +158,14 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
        try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);
        } catch (TargetNotFoundException e) {
-          throw new QueryException(e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
+          queryEnvironment.handleError(
+              caller,
+              "Invalid visibility label '" + groupLabel.getCanonicalForm() + "': " + e.getMessage(),
+              e.getDetailedExitCode());
        }
      }
       packageSpecifications.add(
           new BlazeQueryVisibility(packageGroupsVisibility.getDirectPackages()));
-     return;
    } else {
      throw new IllegalStateException("unknown visibility: " + ruleVisibility.getClass());
    }

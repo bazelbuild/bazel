@@ -179,10 +179,10 @@ class Worker {
     if (workerProtocol == null) {
       switch (workerKey.getProtocolFormat()) {
         case JSON:
-          workerProtocol = new JsonWorkerProtocol(recordingInputStream, process.getOutputStream());
+          workerProtocol = new JsonWorkerProtocol(process.getOutputStream(), recordingInputStream);
           break;
         case PROTO:
-          workerProtocol = new ProtoWorkerProtocol(recordingInputStream, process.getOutputStream());
+          workerProtocol = new ProtoWorkerProtocol(process.getOutputStream(), recordingInputStream);
           break;
       }
     }

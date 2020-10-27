@@ -860,7 +860,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
         .containsAtLeast("jre_core.h", "test.h", "test.m");
     assertThat(compileAction.getArguments())
-        .containsAtLeast("-fno-objc-arc", "-fno-strict-overflow");
+        .containsAtLeast("-fno-objc-arc", "-fno-strict-overflow", "-fobjc-weak");
   }
 
   @Test

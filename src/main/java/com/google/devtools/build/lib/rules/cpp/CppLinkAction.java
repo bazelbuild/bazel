@@ -472,7 +472,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
         throw e.toActionExecutionException(
-            "Linking of rule '" + getOwner().getLabel() + "'",
             CppLinkAction.this);
       }
     }

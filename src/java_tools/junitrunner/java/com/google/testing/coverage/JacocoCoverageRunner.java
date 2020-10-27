@@ -46,6 +46,7 @@ import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 import org.jacoco.agent.rt.IAgent;
 import org.jacoco.agent.rt.RT;
@@ -345,7 +346,33 @@ public class JacocoCoverageRunner {
     return convertedMetadataFiles.build();
   }
 
-  private static URL[] getUrls(ClassLoader classLoader) {
+  private static URL[] getUrls(ClassLoader classLoader, boolean wasWrappedJar) {
+    URL[] urls = getClassLoaderUrls(classLoader);
+    // If the classpath was too long then a temporary top-level jar is created containing nothing
+    // but a manifest with
+    // the original classpath. Those are the URLs we are looking for.
+    if (wasWrappedJar && urls != null && urls.length == 1) {
+      try {
+        String jarClassPath =
+            new JarInputStream(urls[0].openStream())
+                .getManifest()
+                .getMainAttributes()
+                .getValue("Class-Path");
+        String[] urlStrings = jarClassPath.split(" ");
+        URL[] newUrls = new URL[urlStrings.length];
+        for (int i = 0; i < urlStrings.length; i++) {
+          newUrls[i] = new URL(urlStrings[i]);
+        }
+        return newUrls;
+      } catch (Exception e) {
+        e.printStackTrace();
+        return null;
+      }
+    }
+    return urls;
+  }
+
+  private static URL[] getClassLoaderUrls(ClassLoader classLoader) {
     if (classLoader instanceof URLClassLoader) {
       return ((URLClassLoader) classLoader).getURLs();
     }
@@ -377,13 +404,15 @@ public class JacocoCoverageRunner {
 
   public static void main(String[] args) throws Exception {
     String metadataFile = System.getenv("JACOCO_METADATA_JAR");
+    String jarWrappedValue = System.getenv("JACOCO_IS_JAR_WRAPPED");
+    boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
 
     File[] metadataFiles = null;
     int deployJars = 0;
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
     ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = getUrls(classLoader);
+    URL[] urls = getUrls(classLoader, wasWrappedJar);
     if (urls != null) {
       metadataFiles = new File[urls.length];
       for (int i = 0; i < urls.length; i++) {

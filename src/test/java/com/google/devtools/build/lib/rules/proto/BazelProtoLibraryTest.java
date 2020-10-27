@@ -960,52 +960,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMigrationLabel() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_library(",
-        "    name = 'a',",
-        "    srcs = ['a.proto'],",
-        // Don't use |ProtoCommon.PROTO_RULES_MIGRATION_LABEL| here
-        // so we don't accidentally change it without breaking a local test.
-        "    tags = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
-
-    getConfiguredTarget("//a");
-  }
-
-  @Test
-  public void testMissingMigrationLabel() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a");
-    assertContainsEvent("The native Protobuf rules are deprecated.");
-  }
-
-  @Test
-  public void testMigrationLabelNotRequiredWhenDisabled() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    useConfiguration("--noincompatible_load_proto_rules_from_bzl");
-    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
-
-    getConfiguredTarget("//a");
-  }
-
-  @Test
   public void testNoExperimentalProtoDescriptorSetsIncludeSourceInfo() throws Exception {
     if (!isThisBazel()) {
       return;

@@ -52,6 +52,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -348,7 +349,7 @@ class ArtifactFunction implements SkyFunction {
     ImmutableList.Builder<Pair<Artifact, TreeArtifactValue>> directoryInputsBuilder =
         ImmutableList.builder();
     // Avoid iterating over nested set twice.
-    Iterable<Artifact> inputs = action.getInputs().toList();
+    List<Artifact> inputs = action.getInputs().toList();
     Map<SkyKey, SkyValue> values = env.getValues(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;

@@ -161,8 +161,7 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       List<Artifact> sourceFiles,
       List<Artifact> sourceJars,
-      JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase)
+      JavaToolchainProvider javaToolchain)
       throws EvalException {
     if (outputJar == null && outputSourceJar == null) {
       throw Starlark.errorf(
@@ -183,8 +182,7 @@ final class JavaInfoBuildHelper {
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
         outputSourceJar,
-        javaToolchain,
-        hostJavabase);
+        javaToolchain);
     return outputSourceJar;
   }
 
@@ -240,7 +238,6 @@ final class JavaInfoBuildHelper {
       List<Artifact> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase,
       ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       Boolean neverlink,
@@ -293,7 +290,6 @@ final class JavaInfoBuildHelper {
         helper.build(
             javaSemantics,
             toolchainProvider,
-            hostJavabase,
             outputJarsBuilder,
             /*createOutputSourceJar=*/ true,
             outputSourceJar,

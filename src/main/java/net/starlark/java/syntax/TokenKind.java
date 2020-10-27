@@ -38,6 +38,7 @@ public enum TokenKind {
   EQUALS_EQUALS("=="),
   EXCEPT("except"),
   FINALLY("finally"),
+  FLOAT("float literal"),
   FOR("for"),
   FROM("from"),
   GLOBAL("global"),

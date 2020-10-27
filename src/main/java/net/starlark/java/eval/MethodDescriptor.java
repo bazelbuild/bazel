@@ -172,18 +172,10 @@ final class MethodDescriptor {
     if (method.getReturnType().equals(Void.TYPE)) {
       return Starlark.NONE;
     }
-    if (result == null) {
-      // TODO(adonovan): eliminate allowReturnNones. Given that we convert
-      // String/Integer/Boolean/List/Map, it seems obtuse to crash instead
-      // of converting null too.
-      if (isAllowReturnNones()) {
-        return Starlark.NONE;
-      } else {
-        throw new IllegalStateException(
-            "method invocation returned null: " + getName() + Tuple.copyOf(Arrays.asList(args)));
-      }
+    if (result == null && !isAllowReturnNones()) {
+      throw new IllegalStateException(
+          "method invocation returned null: " + getName() + Tuple.copyOf(Arrays.asList(args)));
     }
-
     return Starlark.fromJava(result, mu);
   }
 

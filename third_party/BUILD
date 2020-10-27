@@ -139,7 +139,7 @@ distrib_java_import(
 distrib_java_import(
     name = "apache_commons_compress",
     enable_distributions = ["debian"],
-    jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
+    jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
 )
 
 distrib_java_import(

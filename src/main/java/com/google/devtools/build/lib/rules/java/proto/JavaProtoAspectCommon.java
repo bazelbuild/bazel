@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -129,7 +128,6 @@ public class JavaProtoAspectCommon {
         helper.build(
             javaSemantics,
             JavaToolchainProvider.from(ruleContext),
-            JavaRuntimeInfo.forHost(ruleContext),
             JavaRuleOutputJarsProvider.builder(),
             /*createOutputSourceJar*/ false,
             /*outputSourceJar=*/ null);

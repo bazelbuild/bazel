@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
@@ -147,7 +146,6 @@ public final class SpawnLogModule extends BlazeModule {
               new AbruptExitException(
                   createDetailedExitCode(
                       "Error initializing execution log",
-                      ExitCode.COMMAND_LINE_ERROR,
                       Code.EXECUTION_LOG_INITIALIZATION_FAILURE)));
     }
   }
@@ -167,9 +165,7 @@ public final class SpawnLogModule extends BlazeModule {
       } catch (IOException e) {
         String message = e.getMessage() == null ? "Error writing execution log" : e.getMessage();
         throw new AbruptExitException(
-            createDetailedExitCode(
-                message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, Code.EXECUTION_LOG_WRITE_FAILURE),
-            e);
+            createDetailedExitCode(message, Code.EXECUTION_LOG_WRITE_FAILURE), e);
       } finally {
         if (!done && !outputStreams.isEmpty()) {
           env.getReporter()
@@ -183,10 +179,8 @@ public final class SpawnLogModule extends BlazeModule {
     }
   }
 
-  private static DetailedExitCode createDetailedExitCode(
-      String message, ExitCode exitCode, Code detailedCode) {
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
     return DetailedExitCode.of(
-        exitCode,
         FailureDetail.newBuilder()
             .setMessage(message)
             .setExecution(Execution.newBuilder().setCode(detailedCode))

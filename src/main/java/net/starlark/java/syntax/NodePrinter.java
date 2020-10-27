@@ -362,6 +362,12 @@ final class NodePrinter {
           break;
         }
 
+      case FLOAT_LITERAL:
+        {
+          buf.append(((FloatLiteral) expr).getValue());
+          break;
+        }
+
       case LIST_EXPR:
         {
           ListExpression list = (ListExpression) expr;

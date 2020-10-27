@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -437,7 +438,7 @@ public class RunCommand implements BlazeCommand  {
       workingDir = env.getExecRoot();
 
       try {
-        testAction.prepare(env.getExecRoot(), /* bulkDeleter= */ null);
+        testAction.prepare(env.getExecRoot(), ArtifactPathResolver.IDENTITY, /*bulkDeleter=*/ null);
       } catch (IOException e) {
         return reportAndCreateFailureResult(
             env,

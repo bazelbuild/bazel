@@ -32,7 +32,7 @@ public final class BzlCompileKeyCodecTest {
     SerializationTester serializationTester =
         new SerializationTester(
             BzlCompileValue.EMPTY_PRELUDE_KEY,
-            BzlCompileValue.keyForPrelude(root, Label.parseAbsoluteUnchecked("//a:a")),
+            BzlCompileValue.keyForBuildPrelude(root, Label.parseAbsoluteUnchecked("//a:a")),
             BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//a:a")));
     FsUtils.addDependencies(serializationTester);
     // Indirectly test that deserialization does interning by verifying that the deserialized

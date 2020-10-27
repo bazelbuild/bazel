@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.FingerprintComputationResult;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -27,6 +29,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /** Codec for {@link NestedSet} that uses the {@link NestedSetStore}. */
 public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
@@ -37,7 +40,21 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     NONLEAF // more than one element; size > 1, depth > 1
   }
 
+  private static final FutureCallback<Void> CRASH_TERMINATING_CALLBACK =
+      new FutureCallback<Void>() {
+        @Override
+        public void onSuccess(@Nullable Void result) {
+          // Do nothing.
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+          BugReport.handleCrash(t);
+        }
+      };
+
   private final NestedSetStore nestedSetStore;
+
   /**
    * Used to preserve the invariant that if NestedSets inside two different objects are
    * reference-equal, they will continue to be reference-equal after deserialization.
@@ -84,7 +101,8 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       context.serialize(obj.getApproxDepth(), codedOut);
       FingerprintComputationResult fingerprintComputationResult =
           nestedSetStore.computeFingerprintAndStore((Object[]) obj.getChildren(), context);
-      context.addFutureToBlockWritingOn(fingerprintComputationResult.writeStatus());
+      context.addFutureToBlockWritingOn(
+          fingerprintComputationResult.writeStatus(), CRASH_TERMINATING_CALLBACK);
       codedOut.writeByteArrayNoTag(fingerprintComputationResult.fingerprint().toByteArray());
     }
     interner.put(new EqualsWrapper(obj), obj);

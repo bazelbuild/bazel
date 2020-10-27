@@ -120,7 +120,8 @@ public final class PythonUtils {
    */
   @Nullable
   private static Artifact get2to3OutputArtifact(RuleContext ruleContext, Artifact input) {
-    PathFragment rootRelativePath = input.getRootRelativePath();
+    PathFragment rootRelativePath =
+        input.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
     if (!rootRelativePath.startsWith(ruleContext.getPackageDirectory())) {
       ruleContext.ruleError(
           String.format(

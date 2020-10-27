@@ -35,12 +35,8 @@ public interface StarlarkCommandLineApi extends StarlarkValue {
           "Deprecated. Creates a single command line argument joining the paths of a set "
               + "of files on the separator string.",
       parameters = {
-        @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
-        @Param(
-            name = "files",
-            type = Depset.class,
-            generic1 = FileApi.class,
-            doc = "the files to concatenate.")
+        @Param(name = "separator", doc = "the separator string to join on."),
+        @Param(name = "files", doc = "the files to concatenate.")
       })
   String joinPaths(String separator, Depset files) throws EvalException;
 }

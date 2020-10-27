@@ -136,7 +136,8 @@ public class ToolchainTypeLookupUtil {
     }
 
     InvalidToolchainTypeException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label, DEFAULT_ERROR), e);
+      // Just propagate the inner exception, because it's directly actionable.
+      super(e);
     }
 
     public InvalidToolchainTypeException(Label label, NoSuchThingException e) {

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -161,8 +160,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   @Override
-  public Set<QueryVisibility<ConfiguredTarget>> getVisibility(ConfiguredTarget from)
-      throws QueryException, InterruptedException {
+  public ImmutableSet<QueryVisibility<ConfiguredTarget>> getVisibility(
+      QueryExpression caller, ConfiguredTarget from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
     throw new QueryException(
         "visible() is not supported on configured targets",

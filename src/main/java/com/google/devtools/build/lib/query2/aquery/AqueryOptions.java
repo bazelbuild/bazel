@@ -72,7 +72,7 @@ public class AqueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "incompatible_proto_output_v2",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {

@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -30,7 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -117,7 +116,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_multiplex_workers) -->
         True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(false))
+        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -228,14 +227,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("reduced_classpath_incompatible_processors", STRING_LIST)
                 .undocumented("internal")
                 .value(ImmutableList.<String>of()))
-        .add(
-            attr("reduced_classpath_incompatible_targets", NODEP_LABEL_LIST)
-                .undocumented("internal")
-                .value(ImmutableList.<Label>of()))
-        .add(
-            attr("turbine_incompatible_processors", STRING_LIST)
-                .undocumented("internal")
-                .value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -283,6 +274,28 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(proguard_allowlister) -->
+        Label of the Proguard allowlister.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("proguard_allowlister", LABEL)
+                // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(java_runtime) -->
+        The java_runtime to use with this toolchain. It defaults to java_runtime
+        in execution configuration.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("java_runtime", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                // TODO(b/171140578): remove default value and set to mandatory after it is set on
+                // all toolchains
+                .value(JavaSemantics.hostJdkAttribute(env))
+                .mandatoryProviders(ToolchainInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .useOutputLicenses())
         .build();
   }
 

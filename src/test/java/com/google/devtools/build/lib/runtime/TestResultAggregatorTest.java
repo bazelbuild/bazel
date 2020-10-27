@@ -64,7 +64,8 @@ public class TestResultAggregatorTest {
             new AggregationPolicy(
                 new EventBus(),
                 /*testCheckUpToDate=*/ false,
-                /*testVerboseTimeoutWarnings=*/ false));
+                /*testVerboseTimeoutWarnings=*/ false),
+            /*skippedThisTest=*/ false);
   }
 
   @Test

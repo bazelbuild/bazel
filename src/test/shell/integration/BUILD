@@ -724,6 +724,22 @@ sh_test(
 )
 
 sh_test(
+    name = "target_compatible_with_test",
+    timeout = "long",
+    srcs = ["target_compatible_with_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "target_compatible_with_external_repo_test",
+    timeout = "long",
+    srcs = ["target_compatible_with_test_external_repo.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "info_test",
     srcs = ["info_test.sh"],
     data = [

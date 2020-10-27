@@ -53,7 +53,8 @@ public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
     assertThat(e).hasMessageThat().isNull();
 
     events.assertContainsError("output 'test/test.out' is a dangling symbolic link");
-    events.assertContainsError("Couldn't build file test/test.out: not all outputs were created");
+    events.assertContainsError(
+        "Executing genrule //test:test_ln failed: not all outputs were created");
   }
 
   /**

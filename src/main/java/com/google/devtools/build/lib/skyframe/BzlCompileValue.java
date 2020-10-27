@@ -141,7 +141,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     // differ. (See also #11954, which aims to make even the symbol definitions the same.)
     NORMAL,
 
-    /** A .bzl file loaded during evaluation of the {@code @builtins} pseudo-repository. */
+    /** A .bzl file loaded during evaluation of the {@code @_builtins} pseudo-repository. */
     BUILTINS,
 
     /** The prelude file, whose declarations are implicitly loaded by all BUILD files. */
@@ -182,14 +182,12 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       return keyInterner.intern(new Key(root, label, kind));
     }
 
-    boolean isPrelude() {
+    boolean isBuildPrelude() {
       return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
     }
 
     @Override
     public int hashCode() {
-      // TODO(bazel-team): Consider optimizing e.g. by omitting root from the hash. Roots are not
-      // interned and in the common case there's only one.
       return Objects.hash(Key.class, root, label, kind);
     }
 
@@ -220,14 +218,12 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a key for loading a builtins .bzl. */
-  // TODO(#11437): Retrieve the builtins bzl from the root given by
-  // --experimental_builtins_bzl_path, instead of making the caller specify it here.
   public static Key keyForBuiltins(Root root, Label label) {
     return Key.create(root, label, Kind.BUILTINS);
   }
 
   /** Constructs a key for loading the prelude .bzl. */
-  static Key keyForPrelude(Root root, Label label) {
+  static Key keyForBuildPrelude(Root root, Label label) {
     return Key.create(root, label, Kind.PRELUDE);
   }
 

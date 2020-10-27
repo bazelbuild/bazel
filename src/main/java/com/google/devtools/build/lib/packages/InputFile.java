@@ -106,7 +106,6 @@ public final class InputFile extends FileTarget {
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
     return label
-        .getPackageIdentifier()
         .getRepository()
         .getExecPath(siblingRepositoryLayout)
         .getRelative(label.getPackageName())

@@ -90,12 +90,16 @@ public class DeclarationAssembler {
         // We are only looking for the separators between fragments.
         int start = Math.max(0, fragmentShift - 3);
         int end = fragmentShift + Math.min(4, fragment.length());
-        // Assert that the ranges are not intersecting, otherwise the code that iterates ranges
-        // will work incorrectly.
-        Preconditions.checkState(
-            interestingRanges.isEmpty()
-                || Iterables.getLast(interestingRanges).upperEndpoint() < start);
-        interestingRanges.add(Range.openClosed(start, end));
+        Range<Integer> candidate = Range.openClosed(start, end);
+        if (!interestingRanges.isEmpty()
+            && Iterables.getLast(interestingRanges).isConnected(candidate)) {
+          // If the last fragment was tiny, it can be that the ranges before the last fragment and
+          // the one before this fragment intersect. In that case, merge them.
+          interestingRanges.set(
+              interestingRanges.size() - 1, Iterables.getLast(interestingRanges).span(candidate));
+        } else {
+          interestingRanges.add(candidate);
+        }
       }
       fragmentShift += fragment.length();
     }

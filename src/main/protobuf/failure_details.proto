@@ -643,6 +643,8 @@ message Query {
     SKYQUERY_TRANSITIVE_TARGET_ERROR = 37 [(metadata) = { exit_code: 7 }];
     SKYQUERY_TARGET_EXCEPTION = 38 [(metadata) = { exit_code: 7 }];
     INVALID_LABEL_IN_TEST_SUITE = 39 [(metadata) = { exit_code: 7 }];
+    // Indicates any usage of flags that must not be combined.
+    ILLEGAL_FLAG_COMBINATION = 40 [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -704,7 +706,7 @@ message Sandbox {
     MOUNT_SOURCE_DOES_NOT_EXIST = 7 [(metadata) = { exit_code: 1 }];
     MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
-    EXECUTION_FAILED = 10 [(metadata) = { exit_code: 1 }];
+    SUBPROCESS_START_FAILED = 10 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -840,6 +842,8 @@ message ConfigurableQuery {
     TARGET_MISSING = 9 [(metadata) = { exit_code: 2 }];
     STARLARK_SYNTAX_ERROR = 10 [(metadata) = { exit_code: 2 }];
     STARLARK_EVAL_ERROR = 11 [(metadata) = { exit_code: 2 }];
+    // Indicates failure to correctly define a format function
+    FORMAT_FUNCTION_ERROR = 12 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1036,6 +1040,7 @@ message FailAction {
     INCORRECT_TOOLCHAIN = 6 [(metadata) = { exit_code: 1 }];
     FRAGMENT_CLASS_MISSING = 7 [(metadata) = { exit_code: 1 }];
     reserved 8, 9; // For internal use
+    CANT_BUILD_INCOMPATIBLE_TARGET = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1131,6 +1136,7 @@ message Analysis {
     INVALID_EXECUTION_PLATFORM = 16 [(metadata) = { exit_code: 1 }];
     ASPECT_CREATION_FAILED = 17 [(metadata) = { exit_code: 1 }];
     CONFIGURED_VALUE_CREATION_FAILED = 18 [(metadata) = { exit_code: 1 }];
+    INCOMPATIBLE_TARGET_REQUESTED = 19 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

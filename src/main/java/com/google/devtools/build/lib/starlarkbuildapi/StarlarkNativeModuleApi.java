@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
@@ -53,15 +54,13 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "include",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
             named = true,
             doc = "The list of glob patterns to include."),
         @Param(
             name = "exclude",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
             named = true,
             doc = "The list of glob patterns to exclude."),
@@ -73,7 +72,6 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
             doc = "A flag whether to exclude directories or not."),
         @Param(
             name = "allow_empty",
-            type = Object.class,
             defaultValue = "unbound",
             named = true,
             doc =
@@ -116,7 +114,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " order-dependent. Also, beware that it differs subtly from the two"
               + " other conversions of rule attribute values from internal form to Starlark: one"
               + " used by computed defaults, the other used by <code>ctx.attr.foo</code>.",
-      parameters = {@Param(name = "name", type = String.class, doc = "The name of the target.")},
+      parameters = {@Param(name = "name", doc = "The name of the target.")},
       useStarlarkThread = true)
   Object existingRule(String name, StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -141,22 +139,21 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "name",
-            type = String.class,
             named = true,
             positional = false,
             doc = "The unique name for this rule."),
         @Param(
             name = "packages",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+            },
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = "A complete enumeration of packages in this group."),
         @Param(
             name = "includes",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -175,16 +172,16 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "srcs",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc = "The list of files to export."),
-        // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
         @Param(
             name = "visibility",
-            type = Sequence.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
-            noneable = true,
             named = true,
             doc =
                 "A visibility declaration can to be specified. The files will be visible to the "
@@ -192,9 +189,10 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
                     + "to every package."),
         @Param(
             name = "licenses",
-            type = Sequence.class,
-            generic1 = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             defaultValue = "None",
             doc = "Licenses to be specified.")

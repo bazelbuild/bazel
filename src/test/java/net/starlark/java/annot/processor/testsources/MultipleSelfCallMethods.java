@@ -26,8 +26,8 @@ public class MultipleSelfCallMethods implements StarlarkValue {
       name = "selfCallMethod",
       selfCall = true,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = StarlarkInt.class, named = true),
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
       },
       documented = false)
   public StarlarkInt selfCallMethod(String one, StarlarkInt two) {
