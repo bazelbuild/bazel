@@ -637,26 +637,18 @@ JAVA_VERSIONS = ("11",)
     for java_version in JAVA_VERSIONS
 ]
 
-_PLATFORM = select({
-    "//src/conditions:darwin": "macos",
-    "//src/conditions:darwin_x86_64": "macos",
-    "//src/conditions:windows": "win",
-    "//src/conditions:linux_x86_64": "linux",
-    "//conditions:default": "linux",
-})
-
 [
-    # Currently a single release of java_tools contains java_toolchains for
-    # Java 8 to 11 (using remote_jdk11 with patched javac), and Java 14 and 15
-    # (using corresponding remote_jdk). All toolchains use JavaBuilder.
-    # The java_tools are released for three platforms: linux, macos and
-    # windows. Each release is bound to the remote_jdks for the corresponding
-    # platform.
+    # The java_tools releases can have BUILD files that vary depending on the
+    # javac version they embed. Currently the only difference is in the
+    # java_toolchain source version which has to be 14 for javac 14 to be able
+    # to build new Java 14 features. This is not used atm, as the toolchain for
+    # javac 14 was duplicated, but it might be used in future Bazel releases to
+    # support new javac release, so that we preserve this step for now.
     genrule(
         name = "create_java_tools_build_java" + java_version,
         srcs = ["//tools/jdk:BUILD.java_tools"],
         outs = ["remote_java_tools_java" + java_version + "/BUILD"],
-        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + java_version + "/g; s/PLATFORM/" + _PLATFORM + "/g' $< > $@",
+        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + java_version + "/g' $< > $@",
     )
     for java_version in JAVA_VERSIONS
 ]
