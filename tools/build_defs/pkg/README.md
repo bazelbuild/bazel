@@ -23,7 +23,6 @@ For more information, follow [issue 8857](https://github.com/bazelbuild/bazel/is
   <ul>
     <li><a href="#pkg_tar">pkg_tar</a></li>
     <li><a href="#pkg_deb">pkg_deb</a></li>
-    <li><a href="#pkg_rpm">pkg_rpm</a></li>
   </ul>
 </div>
 
@@ -519,74 +518,6 @@ for more details on this.
         <p>The list of dependencies in the project.</p>
         <p>
           See <a href="http://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps">http://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps</a>.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<a name="pkg_rpm"></a>
-### pkg_rpm
-
-```python
-pkg_rpm(name, spec_file, architecture, version, version_file, changelog, data)
-```
-
-Create an RPM package. See <a
-href="http://rpm.org/documentation.html">http://rpm.org/documentation.html</a>
-for more details on this.
-
-<table class="table table-condensed table-bordered table-params">
-  <colgroup>
-    <col class="col-param" />
-    <col class="param-description" />
-  </colgroup>
-  <thead>
-    <tr>
-      <th colspan="2">Attributes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>name</code></td>
-      <td>
-        <code>Name, required</code>
-        <p>A unique name for this rule. Used to name the output package.</p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>spec_file</code></td>
-      <td>
-        <code>File, required</code>
-        <p>The RPM specification file used to generate the package.</p>
-        <p>
-          See <a href="http://ftp.rpm.org/max-rpm/s1-rpm-build-creating-spec-file.html">http://ftp.rpm.org/max-rpm/s1-rpm-build-creating-spec-file.html</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>architecture</code></td>
-      <td>
-        <code>String, default to 'all'</code>
-        <p>The architecture that this package target.</p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>version</code>, <code>version_file</code></td>
-      <td>
-        <code>String or File, required</code>
-        <p>
-          The package version provided either inline (with <code>version</code>)
-          or from a file (with <code>version_file</code>).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>data</code></td>
-      <td>
-        <code>Files, required</code>
-        <p>
-          Files to include in the generated package.
         </p>
       </td>
     </tr>
