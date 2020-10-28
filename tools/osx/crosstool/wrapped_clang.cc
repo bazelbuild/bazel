@@ -23,18 +23,6 @@
 // "DSYM_HINT_LINKED_BINARY": Workspace-relative path to binary output of the
 //    link action generating the dsym file.
 // "DSYM_HINT_DSYM_PATH": Workspace-relative path to dSYM dwarf file.
-//
-// Likewise, this wrapper also contains a workaround for a bug in ld that causes
-// flaky builds when using Bitcode symbol maps. ld allows the
-// -bitcode_symbol_map to be either a directory (into which the file will be
-// written) or a file, but the return value of the call to ::stat is never
-// checked so examining the S_ISDIR bit of the struct afterwards returns
-// true/false randomly depending on what data happened to be in memory at the
-// time it was called:
-// https://github.com/michaelweiser/ld64/blob/9c3700b64ed03e2d55ba094176bf6a172bf2bc6b/src/ld/Options.cpp#L3261
-// To address this, we prepend a special "BITCODE_TOUCH_SYMBOL_MAP=" flag to the
-// symbol map filename and touch it before passing it along to clang, forcing
-// the file to exist.
 
 #include <libgen.h>
 #include <spawn.h>
@@ -191,7 +179,7 @@ int main(int argc, char *argv[]) {
 
   std::vector<std::string> processed_args = {"/usr/bin/xcrun", tool_name};
 
-  std::string linked_binary, dsym_path, bitcode_symbol_map;
+  std::string linked_binary, dsym_path;
   std::string dest_dir;
 
   std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
@@ -210,12 +198,6 @@ int main(int argc, char *argv[]) {
     }
     if (SetArgIfFlagPresent(arg, "DSYM_HINT_DSYM_PATH", &dsym_path)) {
       continue;
-    }
-    if (SetArgIfFlagPresent(arg, "BITCODE_TOUCH_SYMBOL_MAP",
-                            &bitcode_symbol_map)) {
-      // Touch bitcode_symbol_map.
-      std::ofstream bitcode_symbol_map_file(bitcode_symbol_map);
-      arg = bitcode_symbol_map;
     }
     if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
       arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
