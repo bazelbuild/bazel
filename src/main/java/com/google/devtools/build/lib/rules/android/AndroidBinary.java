@@ -678,6 +678,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             new ApkInfo(
                 zipAlignedApk,
                 unsignedApk,
+                binaryJar,
                 getCoverageInstrumentationJarForApk(ruleContext),
                 resourceApk.getManifest(),
                 signingKeys,
