@@ -375,7 +375,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     /**
-     * Returns whether the parent has been both been signalled and also is ready for evaluation (but
+     * Returns whether the parent has both been signalled and also is ready for evaluation (but
      * wasn't enqueued).
      */
     private boolean handleKnownChildrenForDirtyNode(
