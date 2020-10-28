@@ -653,6 +653,48 @@ EOF
   expect_log '^Hello World$'
 }
 
+# Validates that we successfully skip analysistest rule targets when they
+# depend on incompatible targets.
+function test_analysistest() {
+  setup_skylib_support
+
+  cat > target_skipping/analysistest.bzl <<EOF
+load("@bazel_skylib//lib:unittest.bzl", "analysistest")
+
+def _analysistest_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    print("Running the test")
+    return analysistest.end(env)
+
+analysistest_test = analysistest.make(_analysistest_test_impl)
+EOF
+
+  cat >> target_skipping/BUILD <<EOF
+load(":analysistest.bzl", "analysistest_test")
+
+analysistest_test(
+    name = "foo3_analysistest_test",
+    target_under_test = ":some_foo3_target",
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel test --show_result=10  \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping:foo3_analysistest_test &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log '^//target_skipping:foo3_analysistest_test  *  PASSED in'
+
+  bazel test --show_result=10  \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log '^Target //target_skipping:foo3_analysistest_test was skipped'
+}
+
 function write_query_test_targets() {
   cat >> target_skipping/BUILD <<EOF
 genrule(
