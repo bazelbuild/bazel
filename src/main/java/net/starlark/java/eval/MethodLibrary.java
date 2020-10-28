@@ -243,9 +243,9 @@ class MethodLibrary {
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
       parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
-  public Tuple<?> tuple(StarlarkIterable<?> x) throws EvalException {
+  public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
-      return (Tuple<?>) x;
+      return (Tuple) x;
     }
     return Tuple.wrap(Starlark.toArray(x));
   }
@@ -758,7 +758,7 @@ class MethodLibrary {
     for (int i = 0; i < args.size(); i++) {
       iterators[i] = Starlark.toIterable(args.get(i)).iterator();
     }
-    ArrayList<Tuple<?>> result = new ArrayList<>();
+    ArrayList<Tuple> result = new ArrayList<>();
     boolean allHasNext;
     do {
       allHasNext = !args.isEmpty();

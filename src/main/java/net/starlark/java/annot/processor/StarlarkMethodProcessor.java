@@ -421,14 +421,13 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
 
     if (!annot.extraPositionals().name().isEmpty()) {
       VariableElement param = params.get(index++);
-      // Allow any supertype of Tuple<Object>.
-      TypeMirror tupleOfObjectType =
-          types.getDeclaredType(
-              elements.getTypeElement("net.starlark.java.eval.Tuple"), getType("java.lang.Object"));
-      if (!types.isAssignable(tupleOfObjectType, param.asType())) {
+      // Allow any supertype of Tuple.
+      TypeMirror tupleType =
+          types.getDeclaredType(elements.getTypeElement("net.starlark.java.eval.Tuple"));
+      if (!types.isAssignable(tupleType, param.asType())) {
         errorf(
             param,
-            "extraPositionals special parameter '%s' has type %s, to which Tuple<Object> cannot be"
+            "extraPositionals special parameter '%s' has type %s, to which a Tuple cannot be"
                 + " assigned",
             param.getSimpleName(),
             param.asType());

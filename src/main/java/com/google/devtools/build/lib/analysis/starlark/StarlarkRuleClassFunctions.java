@@ -672,7 +672,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     @Override
-    public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException, ConversionException {
       if (!args.isEmpty()) {
         throw new EvalException("unexpected positional arguments");

@@ -161,7 +161,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
       if (!args.isEmpty()) {

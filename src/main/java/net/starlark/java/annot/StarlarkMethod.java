@@ -43,8 +43,8 @@ import java.lang.annotation.Target;
  *         <li>one for each {@code Param} marked {@link Param#named} but not {@link
  *             Param#positional}. These parameters must be specified by name. Again, required
  *             named-only parameters must precede optional ones.
- *         <li>one for the {@code Tuple<Object>} of extra positional arguments ({@code *args}), if
- *             {@code extraPositionals};
+ *         <li>one for the {@code Tuple} of extra positional arguments ({@code *args}), if {@code
+ *             extraPositionals};
  *         <li>a {@code Dict<String, Object>} of extra keyword arguments ({@code **kwargs}), if
  *             {@code extraKeywords};
  *         <li>a {@code StarlarkThread}, if {@code useStarlarkThread};
@@ -120,12 +120,12 @@ public @interface StarlarkMethod {
    *
    * <p>If this is left as default, it is an error for the caller to pass more positional arguments
    * than are explicitly allowed by the method signature. If this is defined, all additional
-   * positional arguments are passed as elements of a {@link Tuple<Object>} to the method.
+   * positional arguments are passed as elements of a {@link Tuple} to the method.
    *
    * <p>See Python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
    * <p>If defined, the annotated method must declare a corresponding parameter to which a {@code
-   * Tuple<Object>} may be assigned. See the interface-level javadoc for details.
+   * Tuple} may be assigned. See the interface-level javadoc for details.
    */
   // TODO(adonovan): consider using a simpler type than Param here. All that's needed at run-time
   // is a boolean. The doc tools want a name and doc string, but the rest is irrelevant and

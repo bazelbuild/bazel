@@ -98,7 +98,7 @@ final class EvalUtils {
         } else if (x instanceof Tuple) {
           if (y instanceof Tuple) {
             // tuple + tuple
-            return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
+            return Tuple.concat((Tuple) x, (Tuple) y);
           }
 
         } else if (x instanceof StarlarkList) {
@@ -194,7 +194,7 @@ final class EvalUtils {
             return repeatString((String) y, xi);
           } else if (y instanceof Tuple) {
             //  int * tuple
-            return ((Tuple<?>) y).repeat(xi);
+            return ((Tuple) y).repeat(xi);
           } else if (y instanceof StarlarkList) {
             // int * list
             return ((StarlarkList<?>) y).repeat(xi, mu);
@@ -213,7 +213,7 @@ final class EvalUtils {
         } else if (x instanceof Tuple) {
           if (y instanceof StarlarkInt) {
             // tuple * int
-            return ((Tuple<?>) x).repeat((StarlarkInt) y);
+            return ((Tuple) x).repeat((StarlarkInt) y);
           }
 
         } else if (x instanceof StarlarkList) {

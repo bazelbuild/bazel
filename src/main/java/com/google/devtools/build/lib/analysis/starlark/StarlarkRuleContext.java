@@ -928,7 +928,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Tuple<Object> resolveCommand(
+  public Tuple resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
@@ -980,20 +980,20 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             // conflicting with each other.
             "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
-    return Tuple.<Object>of(
+    return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
         StarlarkList.copyOf(thread.mutability(), argv),
         helper.getToolsRunfilesSuppliers());
   }
 
   @Override
-  public Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException {
+  public Tuple resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
-    return Tuple.<Object>of(
+    return Tuple.pair(
         Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 

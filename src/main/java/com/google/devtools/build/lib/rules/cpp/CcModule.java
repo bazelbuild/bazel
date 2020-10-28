@@ -1584,7 +1584,7 @@ public abstract class CcModule
   }
 
   @Override
-  public Tuple<Object> createLinkingContextFromCompilationOutputs(
+  public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,
@@ -1717,7 +1717,7 @@ public abstract class CcModule
     }
   }
 
-  protected Tuple<Object> compile(
+  protected Tuple compile(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,

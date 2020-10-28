@@ -694,7 +694,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "for useful keys."),
       },
       useStarlarkThread = true)
-  Tuple<Object> resolveCommand(
+  Tuple resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
@@ -725,5 +725,5 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             positional = false,
             doc = "List of tools (list of targets)."),
       })
-  Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException;
+  Tuple resolveTools(Sequence<?> tools) throws EvalException;
 }

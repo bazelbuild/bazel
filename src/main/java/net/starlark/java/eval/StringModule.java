@@ -404,7 +404,7 @@ final class StringModule implements StarlarkValue {
               + " separator, after). If the input string does not contain the separator, partition"
               + " returns (self, '', '').",
       parameters = {@Param(name = "self"), @Param(name = "sep", doc = "The string to split on.")})
-  public Tuple<String> partition(String self, String sep) throws EvalException {
+  public Tuple partition(String self, String sep) throws EvalException {
     return partitionCommon(self, sep, /*first=*/ true);
   }
 
@@ -416,7 +416,7 @@ final class StringModule implements StarlarkValue {
               + " separator, after). If the input string does not contain the separator,"
               + " rpartition returns ('', '', self).",
       parameters = {@Param(name = "self"), @Param(name = "sep", doc = "The string to split on.")})
-  public Tuple<String> rpartition(String self, String sep) throws EvalException {
+  public Tuple rpartition(String self, String sep) throws EvalException {
     return partitionCommon(self, sep, /*first=*/ false);
   }
 
@@ -424,7 +424,7 @@ final class StringModule implements StarlarkValue {
   // and returns a triple of substrings (before, separator, after).
   // If the input does not contain the separator,
   // it returns (input, "", "") if first, or ("", "", input), if !first.
-  private static Tuple<String> partitionCommon(String input, String separator, boolean first)
+  private static Tuple partitionCommon(String input, String separator, boolean first)
       throws EvalException {
     if (separator.isEmpty()) {
       throw Starlark.errorf("empty separator");
@@ -941,8 +941,7 @@ final class StringModule implements StarlarkValue {
       extraPositionals = @Param(name = "args", defaultValue = "()", doc = "List of arguments."),
       extraKeywords =
           @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."))
-  public String format(String self, Tuple<Object> args, Dict<String, Object> kwargs)
-      throws EvalException {
+  public String format(String self, Tuple args, Dict<String, Object> kwargs) throws EvalException {
     return new FormatParser().format(self, args, kwargs);
   }
 

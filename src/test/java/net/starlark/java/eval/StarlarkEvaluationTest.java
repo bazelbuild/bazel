@@ -410,7 +410,7 @@ public final class StarlarkEvaluationTest {
         },
         extraPositionals = @Param(name = "args"),
         extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Tuple<Object> args, Dict<String, Object> kwargs) {
+    public String withArgsAndKwargs(String foo, Tuple args, Dict<String, Object> kwargs) {
       String argsString = debugPrintArgs(args);
       String kwargsString =
           "kwargs("

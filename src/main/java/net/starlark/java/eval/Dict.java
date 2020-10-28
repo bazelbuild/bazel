@@ -233,7 +233,7 @@ public final class Dict<K, V>
               + "If the dictionary is empty, calling <code>popitem()</code> fails. "
               + "It is deterministic which pair is returned.",
       useStarlarkThread = true)
-  public Tuple<Object> popitem(StarlarkThread thread) throws EvalException {
+  public Tuple popitem(StarlarkThread thread) throws EvalException {
     if (isEmpty()) {
       throw Starlark.errorf("popitem(): dictionary is empty");
     }

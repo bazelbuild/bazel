@@ -369,7 +369,7 @@ public final class PackageFactory {
       }
 
       @Override
-      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
           throws EvalException {
         if (!args.isEmpty()) {
           throw new EvalException("unexpected positional arguments");
@@ -437,7 +437,7 @@ public final class PackageFactory {
     }
 
     @Override
-    public NoneType call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+    public NoneType call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");

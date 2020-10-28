@@ -852,7 +852,7 @@ public final class Starlark {
    */
   public static Object execFileProgram(Program prog, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Tuple<Object> defaultValues = Tuple.empty();
+    Tuple defaultValues = Tuple.empty();
     StarlarkFunction toplevel =
         new StarlarkFunction(prog.getResolvedFunction(), defaultValues, module);
     return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
@@ -898,7 +898,7 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module) throws SyntaxError.Exception {
     Expression expr = Expression.parse(input, options);
     Program prog = Program.compileExpr(expr, module, options);
-    Tuple<Object> defaultValues = Tuple.empty();
+    Tuple defaultValues = Tuple.empty();
     return new StarlarkFunction(prog.getResolvedFunction(), defaultValues, module);
   }
 

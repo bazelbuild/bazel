@@ -195,7 +195,7 @@ public final class BuiltinFunction implements StarlarkCallable {
     }
 
     // *args
-    Tuple<Object> varargs = null;
+    Tuple varargs = null;
     if (desc.acceptsExtraArgs()) {
       varargs = Tuple.wrap(Arrays.copyOfRange(positional, argIndex, positional.length));
     } else if (argIndex < positional.length) {

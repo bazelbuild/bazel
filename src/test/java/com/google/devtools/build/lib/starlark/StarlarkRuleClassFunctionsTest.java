@@ -1429,12 +1429,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testStructMutabilityDeep() throws Exception {
-    assertThat(Starlark.isImmutable(Tuple.<Object>of(makeList(null)))).isTrue();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(null)))).isTrue();
     assertThat(Starlark.isImmutable(makeStruct("a", makeList(null)))).isTrue();
     assertThat(Starlark.isImmutable(makeBigStruct(null))).isTrue();
 
     Mutability mu = Mutability.create("test");
-    assertThat(Starlark.isImmutable(Tuple.<Object>of(makeList(mu)))).isFalse();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(mu)))).isFalse();
     assertThat(Starlark.isImmutable(makeStruct("a", makeList(mu)))).isFalse();
     assertThat(Starlark.isImmutable(makeBigStruct(mu))).isFalse();
   }

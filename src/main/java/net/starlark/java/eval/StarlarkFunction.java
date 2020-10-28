@@ -37,9 +37,9 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   private final Resolver.Function rfn;
   private final Module module; // a function closes over its defining module
-  private final Tuple<Object> defaultValues;
+  private final Tuple defaultValues;
 
-  StarlarkFunction(Resolver.Function rfn, Tuple<Object> defaultValues, Module module) {
+  StarlarkFunction(Resolver.Function rfn, Tuple defaultValues, Module module) {
     this.rfn = rfn;
     this.module = module;
     this.defaultValues = defaultValues;
