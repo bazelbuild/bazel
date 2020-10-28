@@ -22,7 +22,8 @@ java_library(
     resources = [
         "android_device_stub_template.txt",
         "android_instrumentation_test_template.txt",
-        "databinding/databinding_annotation_template.txt",
+        "databinding/databinding_annotation_template_androidx.txt",
+        "databinding/databinding_annotation_template_support_lib.txt",
         "robolectric_properties_template.txt",
         "test_suite_property_name.txt",
     ],

@@ -307,16 +307,17 @@ public class ResourceShrinkerAction {
           aaptConfigOptions.buildToolsVersion,
           VariantType.DEFAULT,
           aaptConfigOptions.debug,
-          null /* packageForR */,
+          /* customPackageForR= */ null,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
+          aaptConfigOptions.useDataBindingAndroidX,
           new MergedAndroidData(
               shrunkResources, resourceFiles.resolve("assets"), options.primaryManifest),
-          ImmutableList.<DependencyAndroidData>of() /* libraries */,
+          /* dependencyData= */ ImmutableList.<DependencyAndroidData>of(),
           generatedSources,
           options.shrunkApk,
-          null /* proguardOutput */,
-          null /* mainDexProguardOutput */,
+          /* proguardOut= */ null,
+          /* mainDexProguardOut= */ null,
           /* publicResourcesOut= */ null,
           /* dataBindingInfoOut= */ null);
       if (options.shrunkResources != null) {
