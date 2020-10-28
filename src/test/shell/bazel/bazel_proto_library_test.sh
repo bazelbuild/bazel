@@ -49,6 +49,16 @@ function write_workspace() {
   fi
 
   cat >> "$workspace"WORKSPACE << EOF
+# TODO(#9029): May require some adjustment if/when we depend on the real
+# @rules_python in the real source tree, since this third_party/ package won't
+# be available.
+new_local_repository(
+    name = "rules_python",
+    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
+    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
+    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
+)
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -70,16 +80,6 @@ new_local_repository(
     path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
     build_file_content = "# Intentionally left empty.",
     workspace_file_content = "workspace(name = 'io_bazel')",
-)
-
-# TODO(#9029): May require some adjustment if/when we depend on the real
-# @rules_python in the real source tree, since this third_party/ package won't
-# be available.
-new_local_repository(
-    name = "rules_python",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
-    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
-    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
 )
 EOF
 }

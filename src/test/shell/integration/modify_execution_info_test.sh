@@ -153,6 +153,16 @@ function test_modify_execution_info_various_types() {
   if [[ "$PRODUCT_NAME" = "bazel" ]]; then
     # proto_library requires this external workspace.
     cat >> WORKSPACE << EOF
+# TODO(#9029): May require some adjustment if/when we depend on the real
+# @rules_python in the real source tree, since this third_party/ package won't
+# be available.
+new_local_repository(
+    name = "rules_python",
+    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
+    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
+    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
+)
+
 http_archive(
     name = "rules_proto",
     strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
@@ -172,16 +182,6 @@ new_local_repository(
     path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
     build_file_content = "# Intentionally left empty.",
     workspace_file_content = "workspace(name = 'io_bazel')",
-)
-
-# TODO(#9029): May require some adjustment if/when we depend on the real
-# @rules_python in the real source tree, since this third_party/ package won't
-# be available.
-new_local_repository(
-    name = "rules_python",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
-    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
-    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
 )
 EOF
   fi
