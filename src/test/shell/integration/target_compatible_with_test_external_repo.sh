@@ -230,4 +230,31 @@ EOF
   expect_log 'Target @test_repo//:bin is incompatible and cannot be built.'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/12374
+function test_repository_defines_target_compatible_with() {
+  cat > repo.bzl <<EOF
+def _repo_rule_impl(repo_ctx):
+    pass
+
+repo_rule = repository_rule(
+    implementation = _repo_rule_impl,
+    attrs = {
+        "target_compatible_with": attr.label_list(),
+    },
+)
+EOF
+
+  cat >> WORKSPACE <<EOF
+load(':repo.bzl', 'repo_rule')
+repo_rule(name = 'defines_tcw')
+EOF
+
+  cat > BUILD <<EOF
+filegroup(name = "empty")
+EOF
+
+  bazel build //:empty &> "${TEST_log}" || fail "Bazel failed."
+  expect_not_log "Error in repository_rule: There is already a built-in attribute 'target_compatible_with' which cannot be overridden"
+}
+
 run_suite "target_compatible_with_external_repo tests"
