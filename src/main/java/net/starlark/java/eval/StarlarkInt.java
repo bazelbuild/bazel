@@ -81,10 +81,85 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
   /**
    * Returns the int denoted by a literal string in the specified base, as if by the Starlark
-   * expression {@code int(str, base)}.
+   * expression {@code int(s, base)}.
+   *
+   * @throws NumberFormatException if the input is invalid.
    */
-  public static StarlarkInt parse(String str, int base) throws NumberFormatException {
-    return MethodLibrary.parseInt(str, base);
+  public static StarlarkInt parse(String s, int base) {
+    String stringForErrors = s;
+
+    if (s.isEmpty()) {
+      throw new NumberFormatException("empty string");
+    }
+
+    // +/- prefix?
+    boolean isNegative = false;
+    char c = s.charAt(0);
+    if (c == '+') {
+      s = s.substring(1);
+    } else if (c == '-') {
+      s = s.substring(1);
+      isNegative = true;
+    }
+
+    String digits = s;
+
+    // 0b 0o 0x prefix?
+    if (s.length() > 1 && s.charAt(0) == '0') {
+      int prefixBase = 0;
+      c = s.charAt(1);
+      if (c == 'b' || c == 'B') {
+        prefixBase = 2;
+      } else if (c == 'o' || c == 'O') {
+        prefixBase = 8;
+      } else if (c == 'x' || c == 'X') {
+        prefixBase = 16;
+      }
+      if (prefixBase != 0) {
+        digits = s.substring(2); // strip prefix
+        if (base == 0) {
+          base = prefixBase;
+        } else if (base != prefixBase) {
+          throw new NumberFormatException(
+              String.format(
+                  "invalid base-%d literal: %s (%s prefix wants base %d)",
+                  base, Starlark.repr(stringForErrors), s.substring(0, 2), prefixBase));
+        }
+      }
+    }
+
+    // No prefix, no base? Use decimal.
+    if (digits == s && base == 0) {
+      // Don't infer base when input starts with '0' due to octal/decimal ambiguity.
+      if (s.length() > 1 && s.charAt(0) == '0') {
+        throw new NumberFormatException(
+            "cannot infer base when string begins with a 0: " + Starlark.repr(stringForErrors));
+      }
+      base = 10;
+    }
+    if (base < 2 || base > 36) {
+      throw new NumberFormatException(
+          String.format("invalid base %d (want 2 <= base <= 36)", base));
+    }
+
+    // Do not allow Long.parseLong and new BigInteger to accept another +/- sign.
+    if (digits.startsWith("+") || digits.startsWith("-")) {
+      throw new NumberFormatException(
+          String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+    }
+
+    StarlarkInt result;
+    try {
+      result = StarlarkInt.of(Long.parseLong(digits, base));
+    } catch (NumberFormatException unused1) {
+      try {
+        result = StarlarkInt.of(new BigInteger(digits, base));
+      } catch (NumberFormatException unused2) {
+        throw new NumberFormatException(
+            String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+      }
+    }
+    return isNegative ? StarlarkInt.uminus(result) : result;
   }
 
   // Subclass for values exactly representable in a Java int.
@@ -216,13 +291,17 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   /** Returns this StarlarkInt as a string of decimal digits. */
   @Override
   public String toString() {
-    // TODO(adonovan): opt: avoid Number allocation
-    return toNumber().toString();
+    if (this instanceof Int32) {
+      return Integer.toString(((Int32) this).v);
+    } else if (this instanceof Int64) {
+      return Long.toString(((Int64) this).v);
+    } else {
+      return toBigInteger().toString();
+    }
   }
 
   @Override
   public void repr(Printer printer) {
-    // TODO(adonovan): opt: avoid Number and String allocations.
     printer.append(toString());
   }
 

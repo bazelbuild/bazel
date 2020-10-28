@@ -15,17 +15,14 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -396,9 +393,6 @@ class MethodLibrary {
     }
   }
 
-  private static final ImmutableMap<String, Integer> INT_PREFIXES =
-      ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
-
   @StarlarkMethod(
       name = "int",
       doc =
@@ -478,80 +472,6 @@ class MethodLibrary {
       }
     }
     throw Starlark.errorf("got %s, want string, int, float, or bool", Starlark.type(x));
-  }
-
-  // TODO(adonovan): move into StarlarkInt.parse in a follow-up.
-  static StarlarkInt parseInt(String string, int base) throws NumberFormatException {
-    String stringForErrors = string;
-
-    boolean isNegative = false;
-    if (string.isEmpty()) {
-      throw new NumberFormatException("empty string");
-    }
-    char c = string.charAt(0);
-    if (c == '+') {
-      string = string.substring(1);
-    } else if (c == '-') {
-      string = string.substring(1);
-      isNegative = true;
-    }
-
-    String prefix = getIntegerPrefix(string);
-    String digits;
-    if (prefix == null) {
-      // Nothing to strip. Infer base 10 if autodetection was requested (base == 0).
-      digits = string;
-      if (base == 0) {
-        if (string.length() > 1 && string.startsWith("0")) {
-          // We don't infer the base when input starts with '0' (due
-          // to confusion between octal and decimal).
-          throw new NumberFormatException(
-              "cannot infer base when string begins with a 0: " + Starlark.repr(stringForErrors));
-        }
-        base = 10;
-      }
-    } else {
-      // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
-      // consistency.
-      digits = string.substring(prefix.length());
-      int expectedBase = INT_PREFIXES.get(prefix);
-      if (base == 0) {
-        base = expectedBase;
-      } else if (base != expectedBase) {
-        throw new NumberFormatException(
-            String.format(
-                "invalid base-%d literal: %s (%s prefix wants base %d)",
-                base, Starlark.repr(stringForErrors), prefix, expectedBase));
-      }
-    }
-
-    if (base < 2 || base > 36) {
-      throw new NumberFormatException(
-          String.format("invalid base %d (want 2 <= base <= 36)", base));
-    }
-    StarlarkInt result;
-    try {
-      result = StarlarkInt.of(Long.parseLong(digits, base));
-    } catch (NumberFormatException unused1) {
-      try {
-        result = StarlarkInt.of(new BigInteger(digits, base));
-      } catch (NumberFormatException unused2) {
-        throw new NumberFormatException(
-            String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
-      }
-    }
-    return isNegative ? StarlarkInt.uminus(result) : result;
-  }
-
-  @Nullable
-  private static String getIntegerPrefix(String value) {
-    value = Ascii.toLowerCase(value);
-    for (String prefix : INT_PREFIXES.keySet()) {
-      if (value.startsWith(prefix)) {
-        return prefix;
-      }
-    }
-    return null;
   }
 
   @StarlarkMethod(
