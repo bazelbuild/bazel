@@ -52,4 +52,9 @@ public final class ExecutionPolicy {
   public boolean canRunLocally() {
     return locality != Locality.REMOTE_ONLY;
   }
+
+  @Override
+  public String toString() {
+    return locality.toString();
+  }
 }
