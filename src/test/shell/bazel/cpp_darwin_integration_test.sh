@@ -156,7 +156,7 @@ EOF
   ./bazel-bin/cpp/test || \
       fail "//cpp:test workspace execution failed, expected return 0, got $?"
   cd bazel-bin
-  ./cpp/rpaths/test || \
+  ./cpp/test || \
       fail "//cpp:test execution failed, expected 0, but $?"
 }
 
