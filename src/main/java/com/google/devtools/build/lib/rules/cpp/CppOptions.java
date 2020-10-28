@@ -1047,7 +1047,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_macos_set_install_name",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -1147,6 +1147,8 @@ public class CppOptions extends FragmentOptions {
     host.hostLinkoptList = hostLinkoptList;
 
     host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
+    
+    host.macosSetInstallName = macosSetInstallName;
 
     return host;
   }
