@@ -136,7 +136,7 @@ public abstract class RepositoryFunction {
       super(e.getMessage(), e.getCause());
       checkState(e instanceof NoSuchPackageException
           || e instanceof IOException || e instanceof EvalException
-          || e instanceof ExternalPackageException);
+          || e instanceof ExternalPackageException, e);
     }
   }
 

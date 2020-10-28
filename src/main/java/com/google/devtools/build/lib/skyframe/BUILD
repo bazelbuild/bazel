@@ -2806,5 +2806,4 @@ java_library(
 java_library(
     name = "already_reported_exception",
     srcs = ["AlreadyReportedException.java"],
-    deps = [],
 )
