@@ -15,11 +15,23 @@
 package net.starlark.java.eval;
 
 import java.math.BigInteger;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /** The Starlark int data type. */
-// No StarlarkBuiltin(name="int") annotation because it would cause docgen
-// to complain that two things are called int (the type and the function).
-// TODO(adonovan): fix docgen.
+@StarlarkBuiltin(
+    name = "int",
+    category = "core",
+    doc =
+        "The type of integers in Starlark. Starlark integers may be of any magnitude; arithmetic"
+            + " is exact. Examples of integer expressions:<br>"
+            + "<pre class=\"language-python\">153\n"
+            + "0x2A  # hexadecimal literal\n"
+            + "0o54  # octal literal\n"
+            + "23 * 2 + 5\n"
+            + "100 / -7\n"
+            + "100 % -7  # -5 (unlike in some other languages)\n"
+            + "int(\"18\")\n"
+            + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
 
   // A cache of small integers >= LEAST_SMALLINT.
@@ -59,11 +71,95 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   /**
-   * Returns the int denoted by a literal string in the specified base, as if by the Starlark
-   * expression {@code int(str, base)}.
+   * Returns the StarlarkInt value that most closely approximates x.
+   *
+   * @throws IllegalArgumentException is x is not finite.
    */
-  public static StarlarkInt parse(String str, int base) throws NumberFormatException {
-    return MethodLibrary.parseInt(str, base);
+  static StarlarkInt ofFiniteDouble(double x) {
+    return StarlarkFloat.finiteDoubleToIntExact(x);
+  }
+
+  /**
+   * Returns the int denoted by a literal string in the specified base, as if by the Starlark
+   * expression {@code int(s, base)}.
+   *
+   * @throws NumberFormatException if the input is invalid.
+   */
+  public static StarlarkInt parse(String s, int base) {
+    String stringForErrors = s;
+
+    if (s.isEmpty()) {
+      throw new NumberFormatException("empty string");
+    }
+
+    // +/- prefix?
+    boolean isNegative = false;
+    char c = s.charAt(0);
+    if (c == '+') {
+      s = s.substring(1);
+    } else if (c == '-') {
+      s = s.substring(1);
+      isNegative = true;
+    }
+
+    String digits = s;
+
+    // 0b 0o 0x prefix?
+    if (s.length() > 1 && s.charAt(0) == '0') {
+      int prefixBase = 0;
+      c = s.charAt(1);
+      if (c == 'b' || c == 'B') {
+        prefixBase = 2;
+      } else if (c == 'o' || c == 'O') {
+        prefixBase = 8;
+      } else if (c == 'x' || c == 'X') {
+        prefixBase = 16;
+      }
+      if (prefixBase != 0) {
+        digits = s.substring(2); // strip prefix
+        if (base == 0) {
+          base = prefixBase;
+        } else if (base != prefixBase) {
+          throw new NumberFormatException(
+              String.format(
+                  "invalid base-%d literal: %s (%s prefix wants base %d)",
+                  base, Starlark.repr(stringForErrors), s.substring(0, 2), prefixBase));
+        }
+      }
+    }
+
+    // No prefix, no base? Use decimal.
+    if (digits == s && base == 0) {
+      // Don't infer base when input starts with '0' due to octal/decimal ambiguity.
+      if (s.length() > 1 && s.charAt(0) == '0') {
+        throw new NumberFormatException(
+            "cannot infer base when string begins with a 0: " + Starlark.repr(stringForErrors));
+      }
+      base = 10;
+    }
+    if (base < 2 || base > 36) {
+      throw new NumberFormatException(
+          String.format("invalid base %d (want 2 <= base <= 36)", base));
+    }
+
+    // Do not allow Long.parseLong and new BigInteger to accept another +/- sign.
+    if (digits.startsWith("+") || digits.startsWith("-")) {
+      throw new NumberFormatException(
+          String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+    }
+
+    StarlarkInt result;
+    try {
+      result = StarlarkInt.of(Long.parseLong(digits, base));
+    } catch (NumberFormatException unused1) {
+      try {
+        result = StarlarkInt.of(new BigInteger(digits, base));
+      } catch (NumberFormatException unused2) {
+        throw new NumberFormatException(
+            String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+      }
+    }
+    return isNegative ? StarlarkInt.uminus(result) : result;
   }
 
   // Subclass for values exactly representable in a Java int.
@@ -106,7 +202,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public boolean equals(Object that) {
-      return that instanceof Int32 && this.v == ((Int32) that).v;
+      return (that instanceof Int32 && this.v == ((Int32) that).v)
+          || (that instanceof StarlarkFloat && intEqualsFloat(this, (StarlarkFloat) that));
     }
   }
 
@@ -145,7 +242,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public boolean equals(Object that) {
-      return that instanceof Int64 && this.v == ((Int64) that).v;
+      return (that instanceof Int64 && this.v == ((Int64) that).v)
+          || (that instanceof StarlarkFloat && intEqualsFloat(this, (StarlarkFloat) that));
     }
   }
 
@@ -179,7 +277,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public boolean equals(Object that) {
-      return that instanceof Big && this.v.equals(((Big) that).v);
+      return (that instanceof Big && this.v.equals(((Big) that).v))
+          || (that instanceof StarlarkFloat && intEqualsFloat(this, (StarlarkFloat) that));
     }
   }
 
@@ -192,13 +291,17 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   /** Returns this StarlarkInt as a string of decimal digits. */
   @Override
   public String toString() {
-    // TODO(adonovan): opt: avoid Number allocation
-    return toNumber().toString();
+    if (this instanceof Int32) {
+      return Integer.toString(((Int32) this).v);
+    } else if (this instanceof Int64) {
+      return Long.toString(((Int64) this).v);
+    } else {
+      return toBigInteger().toString();
+    }
   }
 
   @Override
   public void repr(Printer printer) {
-    // TODO(adonovan): opt: avoid Number and String allocations.
     printer.append(toString());
   }
 
@@ -210,6 +313,30 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   /** Returns the signed int64 value of this StarlarkInt, or fails if not exactly representable. */
   public long toLong(String what) throws EvalException {
     throw Starlark.errorf("got %s for %s, want value in the signed 64-bit range", this, what);
+  }
+
+  /** Returns the nearest IEEE-754 double-precision value closest to this int, which may be ±Inf. */
+  public double toDouble() {
+    if (this instanceof Int32) {
+      return ((Int32) this).v;
+    } else if (this instanceof Int64) {
+      return ((Int64) this).v;
+    } else {
+      return toBigInteger().doubleValue(); // may be ±Inf
+    }
+  }
+
+  /**
+   * Returns the nearest IEEE-754 double-precision value closest to this int.
+   *
+   * @throws EvalException is the int is to large to represent as a finite float value.
+   */
+  public double toFiniteDouble() throws EvalException {
+    double d = toDouble();
+    if (!Double.isFinite(d)) {
+      throw Starlark.errorf("int too large to convert to float");
+    }
+    return d;
   }
 
   /** Returns the BigInteger value of this StarlarkInt. */
@@ -494,4 +621,56 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   private static final BigInteger MINUS1BIG = BigInteger.ONE.negate();
+
+  /** Reports whether int x exactly equals float y. */
+  static boolean intEqualsFloat(StarlarkInt x, StarlarkFloat y) {
+    double yf = y.toDouble();
+    return !Double.isNaN(yf) && compareIntAndDouble(x, yf) == 0;
+  }
+
+  /** Returns an exact three-valued comparison of int x with (non-NaN) double y. */
+  static int compareIntAndDouble(StarlarkInt x, double y) {
+    if (Double.isInfinite(y)) {
+      return y > 0 ? -1 : +1;
+    }
+
+    // For Int32 and some Int64s, the toDouble conversion is exact.
+    if (x instanceof StarlarkInt.Int32
+        || (x instanceof StarlarkInt.Int64 && longHasExactDouble(((Int64) x).v))) {
+      // Avoid Double.compare: it believes -0.0 < 0.0.
+      double xf = x.toDouble();
+      if (xf > y) {
+        return +1;
+      } else if (xf < y) {
+        return -1;
+      }
+      return 0;
+    }
+
+    // If signs differ, we needn't look at magnitude.
+    int xsign = x.signum();
+    int ysign = (int) Math.signum(y);
+    if (xsign > ysign) {
+      return +1;
+    } else if (xsign < ysign) {
+      return -1;
+    }
+
+    // Left-shift either the int or the float mantissa,
+    // then compare the resulting integers.
+    int shift = StarlarkFloat.getShift(y);
+    BigInteger xbig = x.toBigInteger();
+    if (shift < 0) {
+      xbig = xbig.shiftLeft(-shift);
+    }
+    BigInteger ybig = BigInteger.valueOf(StarlarkFloat.getMantissa(y));
+    if (shift > 0) {
+      ybig = ybig.shiftLeft(shift);
+    }
+    return xbig.compareTo(ybig);
+  }
+
+  private static boolean longHasExactDouble(long x) {
+    return (long) (double) x == x;
+  }
 }

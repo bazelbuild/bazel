@@ -81,7 +81,7 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
     }
 
     // Make sure the label is under the packageRoot.
-    if (!label.getPackageIdentifier().getRepository().equals(packageRoot.getRepository())) {
+    if (!label.getRepository().equals(packageRoot.getRepository())) {
       return false;
     }
 

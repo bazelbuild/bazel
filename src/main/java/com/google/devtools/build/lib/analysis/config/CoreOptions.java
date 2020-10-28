@@ -833,17 +833,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
-  // TODO(b/132346407): Remove when all usages are gone.
-  @Option(
-      name = "experimental_enable_flag_alias",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "When enabled, alternate names can be assigned to Starlark-defined flags.")
-  public boolean enableFlagAlias;
-
-  // TODO(b/132346407): Update docs when the feature is fully implemented
   @Option(
       name = "flag_alias",
       converter = Converters.FlagAliasConverter.class,
@@ -853,8 +842,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form"
-              + " \"<key>=<value>\" as an argument. This is an experimental feature and will be"
-              + " ignored unless --experimental_enable_flag_alias is set to true.")
+              + " \"<key>=<value>\" as an argument.")
   public List<Map.Entry<String, String>> commandLineFlagAliases;
 
   @Option(

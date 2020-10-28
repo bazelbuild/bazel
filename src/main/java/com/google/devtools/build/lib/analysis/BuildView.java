@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
@@ -212,6 +213,7 @@ public class BuildView {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       Set<String> multiCpu,
+      ImmutableSet<String> explicitTargetPatterns,
       List<String> aspects,
       AnalysisOptions viewOptions,
       boolean keepGoing,
@@ -430,6 +432,24 @@ public class BuildView {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
 
+    TopLevelConstraintSemantics topLevelConstraintSemantics =
+        new TopLevelConstraintSemantics(
+            skyframeExecutor.getPackageManager(),
+            input -> skyframeExecutor.getConfiguration(eventHandler, input),
+            eventHandler);
+
+    PlatformRestrictionsResult platformRestrictions =
+        topLevelConstraintSemantics.checkPlatformRestrictions(
+            skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+
+    if (!platformRestrictions.targetsWithErrors().isEmpty()) {
+      // If there are any errored targets (e.g. incompatible targets that are explicitly specified
+      // on the command line), remove them from the list of targets to be built.
+      skyframeAnalysisResult =
+          skyframeAnalysisResult.withAdditionalErroredTargets(
+              ImmutableSet.copyOf(platformRestrictions.targetsWithErrors()));
+    }
+
     int numTargetsToAnalyze = topLevelTargetsWithConfigs.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
@@ -440,11 +460,11 @@ public class BuildView {
     }
 
     Set<ConfiguredTarget> targetsToSkip =
-        new TopLevelConstraintSemantics(
-                skyframeExecutor.getPackageManager(),
-                input -> skyframeExecutor.getConfiguration(eventHandler, input),
-                eventHandler)
-            .checkTargetEnvironmentRestrictions(skyframeAnalysisResult.getConfiguredTargets());
+        Sets.union(
+                topLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
+                    skyframeAnalysisResult.getConfiguredTargets()),
+                platformRestrictions.targetsToSkip())
+            .immutableCopy();
 
     AnalysisResult result =
         createResult(

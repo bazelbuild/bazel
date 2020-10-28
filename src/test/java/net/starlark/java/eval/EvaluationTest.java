@@ -316,11 +316,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testSlashOperatorIsForbidden() throws Exception {
-    ev.new Scenario().testIfErrorContains("The `/` operator is not allowed.", "5 / 2");
-  }
-
-  @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
         .testExpression("6 // 2", StarlarkInt.of(3))
@@ -462,7 +457,7 @@ public final class EvaluationTest {
   public void testDictWithDuplicatedKey() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+            "dictionary expression has duplicate key: \"str\"", "{'str': 1, 'x': 2, 'str': 3}");
   }
 
   @Test

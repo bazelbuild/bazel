@@ -766,8 +766,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   public ImmutableMap<String, Object> getNativeRuleSpecificBindings() {
     // Include rule-related stuff like CcInfo, but not core stuff like rule(). Essentially, this
     // is intended to include things that could in principle be migrated to Starlark (and hence
-    // should be overridable by @builtins); in practice it means anything specifically registered
-    // with the RuleClassProvider.
+    // should be overridable by @_builtins); in practice it means anything specifically
+    // registered with the RuleClassProvider.
     return nativeRuleSpecificBindings;
   }
 

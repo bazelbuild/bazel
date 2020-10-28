@@ -21,12 +21,10 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** Utility methods for use by Java-related parts of Bazel. */
 // TODO(bazel-team): Merge with JavaUtil.
@@ -56,12 +54,20 @@ public abstract class JavaHelper {
 
   /**
    * Control structure abstraction for safely extracting a prereq from the launcher attribute or
-   * --java_launcher flag.
+   * {@code --java_launcher} flag.
+   *
+   * <p>Returns {@code null} if either {@code create_executable} or {@code use_launcher} are
+   * disabled.
    */
   private static String filterLauncherForTarget(RuleContext ruleContext) {
     // create_executable=0 disables the launcher
     if (ruleContext.getRule().isAttrDefined("create_executable", Type.BOOLEAN)
         && !ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
+      return null;
+    }
+    // use_launcher=False disables the launcher
+    if (ruleContext.getRule().isAttrDefined("use_launcher", Type.BOOLEAN)
+        && !ruleContext.attributes().get("use_launcher", Type.BOOLEAN)) {
       return null;
     }
     // BUILD rule "launcher" attribute
@@ -109,17 +115,16 @@ public abstract class JavaHelper {
   }
 
   public static PathFragment getJavaResourcePath(
-      JavaSemantics semantics, RuleContext ruleContext, Artifact resource)
-      throws InterruptedException {
-    StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
-    PathFragment resourcePath =
-        resource.getOutputDirRelativePath(
-            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
-    if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
-      PathFragment workspace =
-          PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
-      resourcePath = resourcePath.relativeTo(workspace);
+      JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
+    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
+    PathFragment resourcePath = resource.getOutputDirRelativePath(siblingRepositoryLayout);
+    PathFragment repoExecPath =
+        ruleContext
+            .getLabel()
+            .getRepository()
+            .getExecPath(siblingRepositoryLayout);
+    if (!repoExecPath.isEmpty() && resourcePath.startsWith(repoExecPath)) {
+      resourcePath = resourcePath.relativeTo(repoExecPath);
     }
 
     if (!ruleContext.attributes().has("resource_strip_prefix", Type.STRING)

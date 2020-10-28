@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -31,7 +30,6 @@ public class JavaRuleClasses {
 
   public static final String JAVA_TOOLCHAIN_ATTRIBUTE_NAME = "$java_toolchain";
   public static final String JAVA_RUNTIME_ATTRIBUTE_NAME = "$jvm";
-  public static final String HOST_JAVA_RUNTIME_ATTRIBUTE_NAME = "$host_jdk";
 
   /** Common attributes for rules that depend on ijar. */
   public static final class IjarBaseRule implements RuleDefinition {
@@ -89,29 +87,6 @@ public class JavaRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$java_runtime_toolchain_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaHostRuntimeBaseRule.class)
-          .build();
-    }
-  }
-
-  /** Common attributes for rules that use the host Java runtime. */
-  public static final class JavaHostRuntimeBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .value(JavaSemantics.hostJdkAttribute(env))
-                  .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$java_host_runtime_toolchain_base_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
     }

@@ -216,8 +216,6 @@ public final class SkyframeActionExecutor {
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
-  private boolean bazelRemoteExecutionEnabled;
-
   private NestedSetExpander nestedSetExpander;
 
   SkyframeActionExecutor(
@@ -274,8 +272,6 @@ public final class SkyframeActionExecutor {
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
-    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
 
     Cache<PathFragment, Boolean> cache =
         CacheBuilder.from(options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec)
@@ -776,10 +772,6 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  boolean isBazelRemoteExecutionEnabled() {
-    return bazelRemoteExecutionEnabled;
-  }
-
   private MetadataProvider createFileCache(
       MetadataProvider graphFileCache, @Nullable FileSystem actionFileSystem) {
     if (actionFileSystem instanceof MetadataProvider) {
@@ -939,6 +931,7 @@ public final class SkyframeActionExecutor {
               // keep previous outputs in place.
               action.prepare(
                   actionExecutionContext.getExecRoot(),
+                  actionExecutionContext.getPathResolver(),
                   outputService != null ? outputService.bulkDeleter() : null);
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(

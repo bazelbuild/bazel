@@ -672,6 +672,21 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean dataBindingUpdatedArgs;
 
     @Option(
+        name = "android_databinding_use_androidx",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help =
+            "Generate AndroidX-compatible data-binding files. "
+                + "This is only used with databinding v2.")
+    public boolean dataBindingAndroidX;
+
+    @Option(
         name = "experimental_android_library_exports_manifest_default",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -989,6 +1004,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
   private final boolean dataBindingUpdatedArgs;
+  private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
@@ -1043,6 +1059,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
+    this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
@@ -1274,6 +1291,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useDataBindingUpdatedArgs() {
     return dataBindingUpdatedArgs;
+  }
+
+  @Override
+  public boolean useDataBindingAndroidX() {
+    return dataBindingAndroidX;
   }
 
   @Override

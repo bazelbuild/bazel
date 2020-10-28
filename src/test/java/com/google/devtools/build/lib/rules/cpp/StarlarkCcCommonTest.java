@@ -70,7 +70,6 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -5829,7 +5828,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     Object picObjects = fooInfoForPic.getValue("pic_objects");
     assertThat(picObjects).isNotEqualTo(Starlark.NONE);
-    assertThat((StarlarkList) picObjects).isEmpty();
+    assertThat((List) picObjects).isEmpty();
 
     // With PIC and the default compilation_mode which is fastbuild C++ rules only produce PIC
     // objects.
@@ -5845,7 +5844,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     Object objects = fooInfoForNoPic.getValue("objects");
     assertThat(objects).isNotEqualTo(Starlark.NONE);
-    assertThat((StarlarkList) objects).isEmpty();
+    assertThat((List) objects).isEmpty();
   }
 
   @Test
@@ -5905,11 +5904,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     Object picLtoBitcodeFiles = fooInfo.getValue("pic_lto_bitcode_files");
     assertThat(picLtoBitcodeFiles).isNotEqualTo(Starlark.NONE);
-    assertThat((StarlarkList) picLtoBitcodeFiles).isEmpty();
+    assertThat((List) picLtoBitcodeFiles).isEmpty();
 
     Object ltoBitcodeFiles = fooInfo.getValue("lto_bitcode_files");
     assertThat(ltoBitcodeFiles).isNotEqualTo(Starlark.NONE);
-    assertThat((StarlarkList) ltoBitcodeFiles).isEmpty();
+    assertThat((List) ltoBitcodeFiles).isEmpty();
   }
 
   private void scratchObjectsProvidingRule() throws IOException {

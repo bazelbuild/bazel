@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -41,23 +40,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AspectCollectionTest {
-
-  private static final Function<Aspect, AspectDescriptor> ASPECT_TO_DESCRIPTOR =
-      new Function<Aspect, AspectDescriptor>() {
-        @Override
-        public AspectDescriptor apply(Aspect aspect) {
-          return aspect.getDescriptor();
-        }
-      };
-
-  private static final Function<AspectDeps, AspectDescriptor> ASPECT_PATH_TO_DESCRIPTOR =
-      new Function<AspectDeps, AspectDescriptor>() {
-        @Override
-        public AspectDescriptor apply(AspectDeps aspectPath) {
-          return aspectPath.getAspect();
-        }
-      };
-
   /**
    * a3 wants a1 and a2, a1 and a2 want no one, path is a1, a2, a3.
    */
@@ -66,16 +48,13 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1");
     Aspect a2 = createAspect("a2");
     Aspect a3 = createAspect("a3", "a1", "a2");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
         ImmutableList.of(a1, a2, a3),
-        ImmutableList.of(a3),
         expectDeps(a3, a1, a2),
         expectDeps(a1),
-        expectDeps(a2)
-    );
+        expectDeps(a2));
   }
 
   /**
@@ -86,16 +65,13 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3", "a2");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
         ImmutableList.of(a1, a2, a3),
-        ImmutableList.of(a3),
         expectDeps(a3, a2),
         expectDeps(a2, a1),
-        expectDeps(a1)
-    );
+        expectDeps(a1));
   }
 
   /**
@@ -106,15 +82,13 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1", "a2");
     Aspect a2 = createAspect("a2");
     Aspect a3 = createAspect("a3", "a1");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
-        ImmutableList.of(a1, a3),
-        ImmutableList.of(a3),
-        expectDeps(a3, a1),
-        expectDeps(a1)
-    );
+        ImmutableList.of(a1, a2, a3),
+        expectDeps(a1),
+        expectDeps(a2),
+        expectDeps(a3, a1));
   }
 
   /**
@@ -125,33 +99,13 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1", "a2");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3", "a1");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
-        ImmutableList.of(a1, a3),
-        ImmutableList.of(a3),
-        expectDeps(a3, a1),
-        expectDeps(a1)
-    );
-  }
-
-  /**
-   * a3 wants no one => a1 and a2 must be removed.
-   */
-  @Test
-  public void unneededRemoved() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2");
-    Aspect a3 = createAspect("a3");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
-    validateAspectCollection(
-        collection,
-        ImmutableList.of(a3),
-        ImmutableList.of(a3),
-        expectDeps(a3)
-    );
+        ImmutableList.of(a1, a2, a3),
+        expectDeps(a1),
+        expectDeps(a2, a1),
+        expectDeps(a3, a1));
   }
 
   /**
@@ -162,55 +116,24 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1");
     Aspect a2 = createAspect("a2");
     Aspect a3 = createAspect("a3", "a3");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
-        collection,
-        ImmutableList.of(a3),
-        ImmutableList.of(a3),
-        expectDeps(a3)
-    );
+        collection, ImmutableList.of(a1, a2, a3), expectDeps(a1), expectDeps(a2), expectDeps(a3));
   }
 
-  /**
-   * a2 (non-visible aspect) wants itself, a3 wants a2.
-   */
+  /** a2 wants a1, a3 wants nothing. */
   @Test
-  public void recursiveNonVisible()  throws Exception{
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2", "a2");
-    Aspect a3 = createAspect("a3", "a2");
-    AspectCollection collection = AspectCollection
-        .create(ImmutableList.of(a1, a2, a3), ImmutableSet.of(a3.getDescriptor()));
-    validateAspectCollection(
-        collection,
-        ImmutableList.of(a2, a3),
-        ImmutableList.of(a3),
-        expectDeps(a3, a2),
-        expectDeps(a2)
-    );
-  }
-
-  /**
-   * Both a2 and a3 are visible, a2 wants a1, a3 wants nothing.
-   */
-  @Test
-  public void twoVisibleAspects() throws Exception {
+  public void threeAspects() throws Exception {
     Aspect a1 = createAspect("a1");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3");
-    AspectCollection collection = AspectCollection
-        .create(
-            ImmutableList.of(a1, a2, a3),
-            ImmutableSet.of(a2.getDescriptor(), a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
         ImmutableList.of(a1, a2, a3),
-        ImmutableList.of(a2, a3),
         expectDeps(a3),
         expectDeps(a2, a1),
-        expectDeps(a1)
-    );
+        expectDeps(a1));
   }
 
   /**
@@ -226,9 +149,7 @@ public class AspectCollectionTest {
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
-            () ->
-                AspectCollection.create(
-                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+            () -> AspectCollection.create(ImmutableList.of(a2, a1, a2, a3)));
     assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
     assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
@@ -246,9 +167,7 @@ public class AspectCollectionTest {
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
-            () ->
-                AspectCollection.create(
-                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+            () -> AspectCollection.create(ImmutableList.of(a2, a1, a2, a3)));
     assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
     assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
@@ -264,19 +183,14 @@ public class AspectCollectionTest {
     Aspect a2 = createAspect("a2");
     Aspect a3 = createAspect("a3", "a1", "a2");
 
-    AspectCollection collection = AspectCollection.create(
-        ImmutableList.of(a2, a1, a2, a3),
-        ImmutableSet.of(a3.getDescriptor())
-    );
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a2, a1, a2, a3));
 
     validateAspectCollection(
         collection,
         ImmutableList.of(a2, a1, a3),
-        ImmutableList.of(a3),
-        expectDeps(a3, a2, a1),
         expectDeps(a2),
-        expectDeps(a1)
-    );
+        expectDeps(a1),
+        expectDeps(a3, a2, a1));
   }
 
 
@@ -292,9 +206,7 @@ public class AspectCollectionTest {
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
-            () ->
-                AspectCollection.create(
-                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+            () -> AspectCollection.create(ImmutableList.of(a2, a1, a2, a3)));
     assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
     assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
@@ -312,35 +224,27 @@ public class AspectCollectionTest {
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
-            () ->
-                AspectCollection.create(
-                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+            () -> AspectCollection.create(ImmutableList.of(a2, a1, a2, a3)));
     assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
     assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
 
   /**
-   * a2 and a3 are visible.
-   * a3 wants a2, a1 wants a2. The path is [a2, a1, a2, a3], so a2 occurs twice.
-   * First occurrence of a2 is consistent with the second.
-   * a1 disappears.
+   * a3 wants a2, a1 wants a2. The path is [a2, a1, a2, a3], so a2 occurs twice. First occurrence of
+   * a2 is consistent with the second. a1 disappears.
    */
   @Test
-  public void duplicateAspectVisible() throws Exception {
+  public void duplicateAspect5() throws Exception {
     Aspect a1 = createAspect("a1", "a2");
     Aspect a2 = createAspect("a2");
     Aspect a3 = createAspect("a3", "a2");
-    AspectCollection collection = AspectCollection
-        .create(
-            ImmutableList.of(a2, a1, a2, a3),
-            ImmutableSet.of(a2.getDescriptor(), a3.getDescriptor()));
+    AspectCollection collection = AspectCollection.create(ImmutableList.of(a2, a1, a2, a3));
     validateAspectCollection(
         collection,
-        ImmutableList.of(a2, a3),
-        ImmutableList.of(a2, a3),
-        expectDeps(a3, a2),
-        expectDeps(a2)
-    );
+        ImmutableList.of(a2, a1, a3),
+        expectDeps(a2),
+        expectDeps(a1, a2),
+        expectDeps(a3, a2));
   }
 
 
@@ -349,16 +253,13 @@ public class AspectCollectionTest {
   }
 
   @SafeVarargs
-  private static void validateAspectCollection(AspectCollection collection,
-      ImmutableList<Aspect> allAspects,
-      ImmutableList<Aspect> visibleAspects,
+  private static void validateAspectCollection(
+      AspectCollection collection,
+      ImmutableList<Aspect> expectedUsedAspects,
       Pair<Aspect, ImmutableList<Aspect>>... expectedPaths) {
 
-    assertThat(collection.getAllAspects())
-        .containsExactlyElementsIn(Iterables.transform(allAspects, ASPECT_TO_DESCRIPTOR))
-        .inOrder();
-    assertThat(Iterables.transform(collection.getVisibleAspects(), ASPECT_PATH_TO_DESCRIPTOR))
-        .containsExactlyElementsIn(Iterables.transform(visibleAspects, ASPECT_TO_DESCRIPTOR))
+    assertThat(Iterables.transform(collection.getUsedAspects(), AspectDeps::getAspect))
+        .containsExactlyElementsIn(Iterables.transform(expectedUsedAspects, Aspect::getDescriptor))
         .inOrder();
     validateAspectPaths(
         collection,
@@ -369,7 +270,7 @@ public class AspectCollectionTest {
   private static void validateAspectPaths(AspectCollection collection,
       ImmutableList<Pair<Aspect, ImmutableList<Aspect>>> expectedList) {
     HashMap<AspectDescriptor, AspectDeps> allPaths = new HashMap<>();
-    for (AspectDeps aspectPath : collection.getVisibleAspects()) {
+    for (AspectDeps aspectPath : collection.getUsedAspects()) {
       collectAndValidateAspectDeps(aspectPath, allPaths);
     }
 
@@ -378,8 +279,8 @@ public class AspectCollectionTest {
     for (Pair<Aspect, ImmutableList<Aspect>> expected : expectedList) {
       assertThat(allPaths).containsKey(expected.first.getDescriptor());
       AspectDeps aspectPath = allPaths.get(expected.first.getDescriptor());
-      assertThat(Iterables.transform(aspectPath.getDependentAspects(), ASPECT_PATH_TO_DESCRIPTOR))
-          .containsExactlyElementsIn(Iterables.transform(expected.second, ASPECT_TO_DESCRIPTOR))
+      assertThat(Iterables.transform(aspectPath.getUsedAspects(), AspectDeps::getAspect))
+          .containsExactlyElementsIn(Iterables.transform(expected.second, Aspect::getDescriptor))
           .inOrder();
       expectedKeys.add(expected.first.getDescriptor());
     }
@@ -401,7 +302,7 @@ public class AspectCollectionTest {
       return;
     }
     allDeps.put(aspectDeps.getAspect(), aspectDeps);
-    for (AspectDeps path : aspectDeps.getDependentAspects()) {
+    for (AspectDeps path : aspectDeps.getUsedAspects()) {
       collectAndValidateAspectDeps(path, allDeps);
     }
   }

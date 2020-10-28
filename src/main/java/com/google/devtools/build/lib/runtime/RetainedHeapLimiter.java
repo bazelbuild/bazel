@@ -21,10 +21,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -208,20 +208,19 @@ final class RetainedHeapLimiter implements NotificationListener {
         if (percentUsed > occupiedHeapPercentageThreshold.getAsInt()) {
           if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
             // Assume we got here from a GC initiated by the other branch.
-            String exitMsg = BugReport.constructOomExitMessage(oomMessage);
-            eventHandler.handle(Event.error(exitMsg));
-            String detailedExitMsg =
-                String.format(
-                    "%s RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
-                        + " full GCs, the tenured space is more than %s%% occupied (%s out of"
-                        + " a tenured space size of %s).",
-                    exitMsg,
-                    occupiedHeapPercentageThreshold.getAsInt(),
-                    space.getUsed(),
-                    space.getMax());
-            logger.atSevere().log(detailedExitMsg);
+            OutOfMemoryError oom =
+                new OutOfMemoryError(
+                    String.format(
+                        "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
+                            + " full GCs, the tenured space is more than %s%% occupied (%s out of"
+                            + " a tenured space size of %s).",
+                        occupiedHeapPercentageThreshold.getAsInt(),
+                        space.getUsed(),
+                        space.getMax()));
             // Exits the runtime.
-            throw bugReporter.handleCrash(new OutOfMemoryError(detailedExitMsg));
+            bugReporter.handleCrash(
+                Crash.from(oom),
+                CrashContext.halt().withExtraOomInfo(oomMessage).reportingTo(eventHandler));
           }
 
           if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()

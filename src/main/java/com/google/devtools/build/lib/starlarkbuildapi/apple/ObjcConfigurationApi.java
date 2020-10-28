@@ -53,7 +53,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
   String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
@@ -67,7 +66,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
   DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);

@@ -45,8 +45,7 @@ public interface GoCcLinkParamsInfoApi extends StructApi {
               name = "linking_context",
               doc = "The CC linking context.",
               positional = false,
-              named = true,
-              type = CcLinkingContextApi.class),
+              named = true),
         },
         selfCall = true)
     @StarlarkConstructor

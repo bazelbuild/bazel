@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -60,8 +61,7 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
               doc = "Resource class jars.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

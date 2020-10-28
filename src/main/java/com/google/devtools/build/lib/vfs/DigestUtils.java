@@ -248,8 +248,7 @@ public class DigestUtils {
     Cache<CacheKey, byte[]> cache = globalCache;
     CacheKey key = null;
     if (cache != null) {
-      Path canonicalPath = path.resolveSymbolicLinks();
-      key = new CacheKey(canonicalPath, canonicalPath.stat());
+      key = new CacheKey(path, path.stat());
       digest = cache.getIfPresent(key);
       if (digest != null) {
         return digest;

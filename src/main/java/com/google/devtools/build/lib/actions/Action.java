@@ -85,7 +85,7 @@ public interface Action extends ActionExecutionMetadata {
    * @throws IOException if there is an error deleting the outputs.
    * @throws InterruptedException if the execution is interrupted
    */
-  void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  void prepare(Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
       throws IOException, InterruptedException;
 
   /**

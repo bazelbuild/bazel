@@ -22,10 +22,12 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -92,33 +94,37 @@ public interface PlatformInfoApi<
         parameters = {
           @Param(
               name = "label",
-              type = Label.class,
               named = true,
               positional = false,
               doc = "The label for this platform."),
           @Param(
               name = "parent",
-              type = PlatformInfoApi.class,
+              allowedTypes = {
+                @ParamType(type = PlatformInfoApi.class),
+                @ParamType(type = NoneType.class),
+              },
               defaultValue = "None",
               named = true,
               positional = false,
-              noneable = true,
               doc = "The parent of this platform."),
           @Param(
               name = "constraint_values",
-              type = Sequence.class,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = ConstraintValueInfoApi.class),
+              },
               defaultValue = "[]",
-              generic1 = ConstraintValueInfoApi.class,
               named = true,
               positional = false,
               doc = "The constraint values for the platform"),
           @Param(
               name = "exec_properties",
-              type = Dict.class,
+              allowedTypes = {
+                @ParamType(type = Dict.class),
+                @ParamType(type = NoneType.class),
+              },
               defaultValue = "None",
               named = true,
               positional = false,
-              noneable = true,
               doc = "The exec properties for the platform.")
         },
         selfCall = true,

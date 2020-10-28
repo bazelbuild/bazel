@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -162,16 +164,17 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         parameters = {
           @Param(
               name = "output_jar",
-              type = FileApi.class,
               named = true,
               doc =
                   "The jar that was created as a result of a compilation "
                       + "(e.g. javac, scalac, etc)."),
           @Param(
               name = "compile_jar",
-              type = FileApi.class,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
-              noneable = true,
               defaultValue = "None",
               doc =
                   "A jar that is added as the compile-time dependency in lieu of "
@@ -184,9 +187,11 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                       + "you can simply pass <code>output_jar</code>."),
           @Param(
               name = "source_jar",
-              type = FileApi.class,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
-              noneable = true,
               defaultValue = "None",
               doc =
                   "The source jar that was used to create the output jar. "
@@ -194,28 +199,24 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                       + "pack_sources</a></code> to produce this source jar."),
           @Param(
               name = "neverlink",
-              type = Boolean.class,
               named = true,
               defaultValue = "False",
               doc = "If true only use this library for compilation and not at runtime."),
           @Param(
               name = "deps",
-              type = Sequence.class,
-              generic1 = JavaInfoApi.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
               named = true,
               defaultValue = "[]",
               doc = "Compile time dependencies that were used to create the output jar."),
           @Param(
               name = "runtime_deps",
-              type = Sequence.class,
-              generic1 = JavaInfoApi.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
               named = true,
               defaultValue = "[]",
               doc = "Runtime dependencies that are needed for this library."),
           @Param(
               name = "exports",
-              type = Sequence.class,
-              generic1 = JavaInfoApi.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
               named = true,
               defaultValue = "[]",
               doc =
@@ -224,10 +225,12 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                       + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
           @Param(
               name = "jdeps",
-              type = FileApi.class,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               defaultValue = "None",
-              noneable = true,
               doc =
                   "jdeps information for the rule output (if available). This should be a binary"
                       + " proto encoded using the deps.proto protobuf included with Bazel.  If"

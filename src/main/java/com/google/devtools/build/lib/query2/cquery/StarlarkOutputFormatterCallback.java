@@ -14,7 +14,15 @@
 
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -22,8 +30,15 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -42,6 +57,72 @@ import net.starlark.java.syntax.SyntaxError;
  * of the Starlark expression specified by {@code --expr}.
  */
 public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
+  private class CqueryDialectGlobals {
+    @StarlarkMethod(
+        name = "build_options",
+        documented = false,
+        parameters = {
+          @Param(name = "target"),
+        })
+    public Object buildOptions(ConfiguredTarget target) {
+      BuildConfiguration config = getConfiguration(target.getConfigurationKey());
+
+      if (config == null) {
+        // config is null for input file configured targets.
+        return Starlark.NONE;
+      }
+
+      BuildOptions buildOptions = config.getOptions();
+      ImmutableMap.Builder<String, Object> result = ImmutableMap.builder();
+
+      // Add all build options from each native configuration fragment.
+      for (FragmentOptions fragmentOptions : buildOptions.getNativeOptions()) {
+        Class<? extends FragmentOptions> optionClass = fragmentOptions.getClass();
+        for (OptionDefinition def : OptionsParser.getOptionDefinitions(optionClass)) {
+          String optionName = def.getOptionName();
+          String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
+
+          try {
+            Field field = def.getField();
+            FragmentOptions options = buildOptions.get(optionClass);
+            Object optionValue = field.get(options);
+
+            try {
+              result.put(optionKey, Starlark.fromJava(optionValue, null));
+            } catch (IllegalArgumentException exception) {
+              // optionValue is not a valid Starlark value, so skip this option.
+            }
+          } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+          }
+        }
+      }
+
+      // Add Starlark options.
+      for (Map.Entry<Label, Object> e : buildOptions.getStarlarkOptions().entrySet()) {
+        result.put(e.getKey().toString(), e.getValue());
+      }
+      return result.build();
+    }
+
+    @StarlarkMethod(
+        name = "providers",
+        documented = false,
+        parameters = {
+          @Param(name = "target"),
+        })
+    public Object providers(ConfiguredTarget target) {
+      if (!(target instanceof AbstractConfiguredTarget)) {
+        return Starlark.NONE;
+      }
+      Dict<String, Object> ret = ((AbstractConfiguredTarget) target).getProvidersDict();
+      if (ret == null) {
+        return Starlark.NONE;
+      }
+      return ret;
+    }
+  }
+
   private static final Object[] NO_ARGS = new Object[0];
 
   // Starlark function with single required parameter "target", a ConfiguredTarget query result.
@@ -84,8 +165,9 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
         throw new QueryException(
             exceptionMessagePrefix + ex.getMessage(), ConfigurableQuery.Code.STARLARK_SYNTAX_ERROR);
       }
+
       // Create a synthetic file that defines a function with single parameter "target",
-      // whose body is provided by the user's expression. Dynamic error will have the wrong column.
+      // whose body is provided by the user's expression. Dynamic errors will have the wrong column.
       String fileBody = "def format(target): return (" + expr + ")";
       input = ParserInput.fromString(fileBody, "--starlark:expr");
     }
@@ -95,7 +177,10 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       Event.replayEventsOn(eventHandler, file.errors());
     }
     try (Mutability mu = Mutability.create("formatter")) {
-      Module module = Module.create();
+      ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+      Starlark.addMethods(env, new CqueryDialectGlobals(), StarlarkSemantics.DEFAULT);
+      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.build());
+
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
       Object formatFn = module.getGlobal("format");
@@ -135,12 +220,12 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
-    StarlarkThread thread =
-        new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
-    thread.setMaxExecutionSteps(500_000L);
-
     for (ConfiguredTarget target : partialResult) {
       try {
+        StarlarkThread thread =
+            new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
+        thread.setMaxExecutionSteps(500_000L);
+
         // Invoke formatFn with `target` argument.
         Object result = Starlark.fastcall(thread, this.formatFn, new Object[] {target}, NO_ARGS);
 

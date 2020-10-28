@@ -61,7 +61,6 @@ public interface RunfilesApi extends StarlarkValue {
             name = "other",
             positional = true,
             named = false,
-            type = RunfilesApi.class,
             doc = "The runfiles object to merge into this."),
       })
   RunfilesApi merge(RunfilesApi other);

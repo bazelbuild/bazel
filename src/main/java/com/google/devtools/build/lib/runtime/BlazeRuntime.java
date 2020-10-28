@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
@@ -83,7 +85,6 @@ import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
@@ -561,7 +562,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   @Override
   public void cleanUpForCrash(DetailedExitCode exitCode) {
-    // TODO(b/167592709): remove verbose logging when bug resolved.
     logger.atInfo().log("Cleaning up in crash: %s", exitCode);
     if (declareExitCode(exitCode)) {
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
@@ -586,7 +586,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // We don't call #shutDown() here because all it does is shut down the modules, and who knows if
     // they can be trusted.  Instead, we call runtime#shutdownOnCrash() which attempts to cleanly
     // shut down those modules that might have something pending to do as a best-effort operation.
-    shutDownModulesOnCrash();
+    shutDownModulesOnCrash(exitCode);
   }
 
   private boolean declareExitCode(DetailedExitCode detailedExitCode) {
@@ -739,14 +739,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
-  private void shutDownModulesOnCrash() {
+  /** Invokes {@link BlazeModule#blazeShutdownOnCrash} on all registered modules. */
+  private void shutDownModulesOnCrash(DetailedExitCode exitCode) {
     // TODO(b/167592709): remove verbose logging when bug resolved.
     logger.atInfo().log("Shutting down modules on crash: %s", blazeModules);
     try {
       for (BlazeModule module : blazeModules) {
         logger.atInfo().log("Shutting down %s on crash", module);
-        module.blazeShutdownOnCrash();
+        module.blazeShutdownOnCrash(exitCode);
       }
     } finally {
       DebugLoggerConfigurator.flushServerLog();
@@ -776,11 +776,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
-      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e, /* oomMessage = */ null);
-      BugReport.sendBugReport(e, Arrays.asList(args));
-      CustomFailureDetailPublisher.maybeWriteFailureDetailFile(CrashFailureDetails.forThrowable(e));
-      System.exit(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
-      throw e; // Shouldn't get here.
+      Crash crash = Crash.from(e);
+      BugReport.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
+      System.exit(crash.getDetailedExitCode().getExitCode().getNumericExitCode());
     }
   }
 

@@ -262,9 +262,6 @@ You can set an alias for your build setting target path to make it easier to rea
 on the command line. Aliases function similarly to native flags and also make use
 of the double-dash option syntax.
 
-Note: This feature is currently experimental. To enable it, set
-`--experimental_enable_flag_alias` to true.
-
 Set an alias by adding `--flag_alias=ALIAS_NAME=TARGET_PATH`
 to your `.bazelrc` . For example, to set an alias to `coffee`:
 

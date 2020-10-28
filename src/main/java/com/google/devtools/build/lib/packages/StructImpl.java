@@ -27,7 +27,6 @@ import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.syntax.Location;
@@ -176,76 +175,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
 
   @Override
   public String toProto() throws EvalException {
-    StringBuilder sb = new StringBuilder();
-    printProtoTextMessage(this, sb, 0);
-    return sb.toString();
-  }
-
-  private static void printProtoTextMessage(ClassObject object, StringBuilder sb, int indent)
-      throws EvalException {
-    // For determinism sort the fields alphabetically.
-    List<String> fields = new ArrayList<>(object.getFieldNames());
-    Collections.sort(fields);
-    for (String field : fields) {
-      printProtoTextMessage(field, object.getValue(field), sb, indent);
-    }
-  }
-
-  private static void printProtoTextMessage(
-      String key, Object value, StringBuilder sb, int indent, String container)
-      throws EvalException {
-    if (value instanceof Map.Entry) {
-      Map.Entry<?, ?> entry = (Map.Entry<?, ?>) value;
-      print(sb, key + " {", indent);
-      printProtoTextMessage("key", entry.getKey(), sb, indent + 1);
-      printProtoTextMessage("value", entry.getValue(), sb, indent + 1);
-      print(sb, "}", indent);
-    } else if (value instanceof ClassObject) {
-      print(sb, key + " {", indent);
-      printProtoTextMessage((ClassObject) value, sb, indent + 1);
-      print(sb, "}", indent);
-    } else if (value instanceof String) {
-      print(
-          sb,
-          key + ": \"" + escapeDoubleQuotesAndBackslashesAndNewlines((String) value) + "\"",
-          indent);
-    } else if (value instanceof StarlarkInt) {
-      print(sb, key + ": " + value, indent);
-    } else if (value instanceof Boolean) {
-      // We're relying on the fact that Java converts Booleans to Strings in the same way
-      // as the protocol buffers do.
-      print(sb, key + ": " + value, indent);
-    } else {
-      throw Starlark.errorf(
-          "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a"
-              + " %s for %s '%s'",
-          Starlark.type(value), container, key);
-    }
-  }
-
-  private static void printProtoTextMessage(String key, Object value, StringBuilder sb, int indent)
-      throws EvalException {
-    if (value instanceof Sequence) {
-      for (Object item : ((Sequence) value)) {
-        // TODO(bazel-team): There should be some constraint on the fields of the structs
-        // in the same list but we ignore that for now.
-        printProtoTextMessage(key, item, sb, indent, "list element in struct field");
-      }
-    } else if (value instanceof Dict) {
-      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
-        printProtoTextMessage(key, entry, sb, indent, "entry of dictionary");
-      }
-    } else {
-      printProtoTextMessage(key, value, sb, indent, "struct field");
-    }
-  }
-
-  private static void print(StringBuilder sb, String text, int indent) {
-    for (int i = 0; i < indent; i++) {
-      sb.append("  ");
-    }
-    sb.append(text);
-    sb.append("\n");
+    return StarlarkLibrary.Proto.INSTANCE.encodeText(this);
   }
 
   /**

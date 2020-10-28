@@ -183,7 +183,7 @@ public class CppLinkActionBuilder {
 
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.actionConstructionContext = actionConstructionContext;
-    repositoryName = label.getPackageIdentifier().getRepository();
+    repositoryName = label.getRepository();
   }
 
   /** Returns the action name for purposes of querying the crosstool. */

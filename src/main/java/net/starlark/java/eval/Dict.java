@@ -169,11 +169,10 @@ public final class Dict<K, V>
               + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
               + "<code>None</code>, so that this method never throws an error.",
       parameters = {
-        @Param(name = "key", noneable = true, doc = "The key to look for."),
+        @Param(name = "key", doc = "The key to look for."),
         @Param(
             name = "default",
             defaultValue = "None",
-            noneable = true,
             named = true,
             doc = "The default value to use (instead of None) if the key is not found.")
       },
@@ -204,13 +203,11 @@ public final class Dict<K, V>
               + "If no entry with that key was found, remove nothing and return the specified "
               + "<code>default</code> value; if no default value was specified, fail instead.",
       parameters = {
-        @Param(name = "key", type = Object.class, doc = "The key.", noneable = true),
+        @Param(name = "key", doc = "The key."),
         @Param(
             name = "default",
-            type = Object.class,
             defaultValue = "unbound",
             named = true,
-            noneable = true,
             doc = "a default value if the key is absent."),
       },
       useStarlarkThread = true)
@@ -254,13 +251,11 @@ public final class Dict<K, V>
               + "and return <code>default</code>. "
               + "<code>default</code> defaults to <code>None</code>.",
       parameters = {
-        @Param(name = "key", type = Object.class, doc = "The key."),
+        @Param(name = "key", doc = "The key."),
         @Param(
             name = "default",
-            type = Object.class,
             defaultValue = "None",
             named = true,
-            noneable = true,
             doc = "a default value if the key is absent."),
       })
   @SuppressWarnings("unchecked") // Cast of value to V
@@ -290,7 +285,6 @@ public final class Dict<K, V>
       parameters = {
         @Param(
             name = "args",
-            type = Object.class,
             defaultValue = "[]",
             doc =
                 "Either a dictionary or a list of entries. Entries must be tuples or lists with "

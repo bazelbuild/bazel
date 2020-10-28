@@ -488,7 +488,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
         .put(
             SkyFunctions.BZL_LOAD,
-            BzlLoadFunction.create(pkgFactory, hashFunction, CacheBuilder.newBuilder().build()))
+            BzlLoadFunction.create(
+                pkgFactory, directories, hashFunction, CacheBuilder.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,

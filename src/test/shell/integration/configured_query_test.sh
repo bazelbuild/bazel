@@ -889,6 +889,138 @@ EOF
   assert_contains "Starlark evaluation error for //$pkg:pylib" "$TEST_log"
 }
 
+function test_starlark_build_options() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+cat > tools/allowlists/function_transition_allowlist/BUILD <<EOF
+package_group(
+    name = "function_transition_allowlist",
+    packages = [
+        "//...",
+    ],
+)
+EOF
+
+  cat > "$pkg/rules.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+bool_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.bool(flag = True),
+)
+
+def _dep_transition_impl(settings, attr):
+    return {
+        "//$pkg:myflag": True,
+        "//command_line_option:test_arg": ["blah"]
+    }
+
+_dep_transition = transition(
+    implementation = _dep_transition_impl,
+    inputs = [],
+    outputs = [
+        "//$pkg:myflag",
+        "//command_line_option:test_arg",
+    ],
+)
+
+def _root_rule_impl(ctx):
+    return []
+
+root_rule = rule(
+    _root_rule_impl,
+    attrs = {
+        "_allowlist_function_transition": attr.label(default = "//tools/allowlists/function_transition_allowlist"),
+        "deps": attr.label_list(cfg = _dep_transition),
+    },
+)
+EOF
+
+  cat > $pkg/BUILD <<'EOF'
+load(":rules.bzl", "bool_flag", "root_rule")
+
+exports_files(["rules.bzl"])
+
+bool_flag(
+    name = "myflag",
+    build_setting_default = False,
+)
+
+py_library(
+    name = "bar",
+    srcs = ["pylib.py"],
+)
+
+root_rule(
+    name = "foo",
+    deps = ["bar"],
+)
+EOF
+
+  cat > $pkg/expr.star <<EOF
+def format(target):
+  bo = build_options(target)
+  print(bo)
+  if bo == None:
+    return str(target.label) + '%None'
+  first = ','.join(bo['//command_line_option:test_arg'])
+  second = str(('//$pkg:myflag' in bo) and bo['//$pkg:myflag'])
+  return str(target.label) + '%' + first + '%' + second
+EOF
+
+  bazel cquery "//$pkg:bar" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:bar%%False" output
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:foo%%False" output
+
+  bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:foo%%False" output
+  assert_contains "//$pkg:bar%blah%True" output
+
+  bazel cquery "//$pkg:rules.bzl" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:rules.bzl%None" output
+}
+
+function test_starlark_build_options_invalid_arg() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/BUILD <<'EOF'
+py_library(
+    name = "foo",
+    srcs = ["pylib.py"],
+)
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="build_options(False)" > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "Error in build_options: in call to build_options()" "$TEST_log"
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="build_options()" > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "build_options() missing 1 required positional argument: target" "$TEST_log"
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="build_options(target, 'blah')" > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "build_options() accepts no more than 1 positional argument but got 2" "$TEST_log"
+}
+
 function test_starlark_output_both_options() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -1008,6 +1140,96 @@ EOF
     > output 2>"$TEST_log" || fail "Expected failure"
 
   assert_contains "^path=$pkg/foo$" output
+}
+
+function test_starlark_output_providers_function() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+    srcs_version = "PY3",
+)
+EOF
+  cat > $pkg/pylib.py <<'EOF'
+pylib=1
+EOF
+  cat > $pkg/outfunc.bzl <<'EOF'
+def format(target):
+    p = providers(target)
+    if not p:
+        return str(target.label) + ':no providers'
+    ret = str(target.label) + ':providers=' + str(sorted(p.keys()))
+    vis_info = p.get('VisibilityProvider')
+    if vis_info:
+        ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
+    py_info = p.get('PyInfo')
+    if py_info:
+        ret += '\n\tPyInfo:py3_only=' + str(py_info.has_py3_only_sources)
+    return ret
+EOF
+  bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylib:providers=.*PyInfo" output
+  assert_contains "PyInfo:py3_only=True" output
+
+  # A file
+  bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
+    output
+  assert_contains "VisbilityProvider.label://$pkg:pylib.py" output
+}
+
+function test_starlark_output_providers_starlark_provider() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":my_rule.bzl", "my_rule")
+my_rule(name="myrule")
+EOF
+  cat > $pkg/my_rule.bzl <<'EOF'
+# A no-op rule that manifests a provider
+MyRuleInfo = provider(fields={"label": "a_rule_label"})
+
+def _my_rule_impl(ctx):
+    return [MyRuleInfo(label="some_value")]
+
+my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {},
+)
+EOF
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    p = providers(target)
+    return p["//$pkg:my_rule.bzl%MyRuleInfo"].label
+EOF
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "some_value" output
+}
+
+function test_bazelignore_error_cquery_nocrash() {
+  local -r pkg=$FUNCNAME
+
+  mkdir -p $pkg/repo
+  touch $pkg/repo/WORKSPACE
+  cat > $pkg/repo/BUILD <<EOF
+  toolchain_type(name = "toolchain_type")
+EOF
+
+  cat > $pkg/WORKSPACE <<EOF
+  local_repository(name = "repo", path = "./repo")
+EOF
+  bazel cquery --output=starlark --starlark:expr 'target' @repo//:toolchain_type >output \
+    2>"$TEST_log" && fail "Expected failure"
+
+  # A Bazel crash would have exit codes 3x.
+  assert_equals $? 1
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

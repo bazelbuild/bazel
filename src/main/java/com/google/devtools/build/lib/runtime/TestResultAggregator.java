@@ -70,7 +70,10 @@ final class TestResultAggregator {
   private final Map<Artifact, TestResult> statusMap = new HashMap<>();
 
   public TestResultAggregator(
-      ConfiguredTarget target, BuildConfiguration configuration, AggregationPolicy policy) {
+      ConfiguredTarget target,
+      BuildConfiguration configuration,
+      AggregationPolicy policy,
+      boolean skippedThisTest) {
     this.testTarget = target;
     this.policy = policy;
 
@@ -83,6 +86,7 @@ final class TestResultAggregator {
       this.summary.setConfiguration(configuration);
     }
     this.summary.setStatus(BlazeTestStatus.NO_STATUS);
+    this.summary.setSkipped(skippedThisTest);
     this.remainingRuns = new HashSet<>(TestProvider.getTestStatusArtifacts(target));
   }
 
@@ -144,6 +148,21 @@ final class TestResultAggregator {
     }
 
     markUnbuilt(blazeHalted, skipTargetsOnFailure);
+
+    // These are never going to run; removing them marks the target complete.
+    remainingRuns.clear();
+    policy.eventBus.post(summary.build());
+  }
+
+  synchronized void targetSkipped() {
+    if (remainingRuns.isEmpty()) {
+      // Blaze does not guarantee that BuildResult.getSuccessfulTargets() and posted TestResult
+      // events are in sync. Thus, it is possible that a test event was posted, but the target is
+      // not present in the set of successful targets.
+      return;
+    }
+
+    summary.setStatus(BlazeTestStatus.NO_STATUS);
 
     // These are never going to run; removing them marks the target complete.
     remainingRuns.clear();

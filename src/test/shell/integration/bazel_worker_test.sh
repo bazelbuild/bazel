@@ -38,6 +38,7 @@ add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --experimental_worker_allow_json_protocol"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
 add_to_bazelrc "build --debug_print_action_contexts"
+add_to_bazelrc "build --noexperimental_worker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -145,7 +146,7 @@ def _impl(ctx):
 work = rule(
     implementation=_impl,
     attrs={
-        "worker": attr.label(cfg="host", mandatory=True, allow_files=True, executable=True),
+        "worker": attr.label(cfg="exec", mandatory=True, allow_files=True, executable=True),
         "worker_args": attr.string_list(),
         "worker_key_mnemonic": attr.string(),
         "action_mnemonic": attr.string(default = "Work"),

@@ -59,7 +59,7 @@ public interface TemplateVariableInfoApi extends StructApi {
         doc = "The <code>TemplateVariableInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(name = "vars", positional = true, named = true, type = Dict.class),
+          @Param(name = "vars", positional = true, named = true),
         },
         selfCall = true,
         useStarlarkThread = true)

@@ -147,7 +147,7 @@ public final class PackageFactory {
   private final ImmutableMap<String, Object> uninjectedBuildBzlEnv;
   /** The top-level predeclared symbols for a WORKSPACE-loaded bzl module. */
   private final ImmutableMap<String, Object> workspaceBzlEnv;
-  /** The top-level predeclared symbols for a bzl module in the {@code @builtins} pseudo-repo. */
+  /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
 
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
@@ -319,7 +319,7 @@ public final class PackageFactory {
     return workspaceBzlEnv;
   }
 
-  /** Returns the environment for bzl files in the {@code @builtins} pseudo-repository. */
+  /** Returns the environment for bzl files in the {@code @_builtins} pseudo-repository. */
   public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
     return builtinsBzlEnv;
   }
@@ -429,7 +429,7 @@ public final class PackageFactory {
   /** A callable Starlark value that creates Rules for native RuleClasses. */
   // TODO(adonovan): why is this distinct from RuleClass itself?
   // Make RuleClass implement StarlarkCallable directly.
-  private static class BuiltinRuleFunction implements StarlarkCallable, RuleFunction {
+  private static class BuiltinRuleFunction implements RuleFunction {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {

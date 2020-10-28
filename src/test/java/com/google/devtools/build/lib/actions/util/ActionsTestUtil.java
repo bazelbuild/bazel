@@ -714,23 +714,26 @@ public final class ActionsTestUtil {
     }
   }
 
-  /**
-   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
-   * suffix and returns the Artifact.
-   */
+  /** Returns the first artifact found in the given set whose path ends with the given suffix. */
   public static Artifact getFirstArtifactEndingWith(
       NestedSet<? extends Artifact> artifacts, String suffix) {
     return getFirstArtifactEndingWith(artifacts.toList(), suffix);
   }
 
   /**
-   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
-   * suffix and returns the Artifact.
+   * Returns the first artifact found in the given Iterable whose path ends with the given suffix.
    */
   public static Artifact getFirstArtifactEndingWith(
       Iterable<? extends Artifact> artifacts, String suffix) {
+    return getFirstArtifactMatching(
+        artifacts, artifact -> artifact.getExecPath().getPathString().endsWith(suffix));
+  }
+
+  /** Returns the first Artifact in the provided Iterable that matches the specified predicate. */
+  public static Artifact getFirstArtifactMatching(
+      Iterable<? extends Artifact> artifacts, Predicate<Artifact> predicate) {
     for (Artifact a : artifacts) {
-      if (a.getExecPath().getPathString().endsWith(suffix)) {
+      if (predicate.test(a)) {
         return a;
       }
     }

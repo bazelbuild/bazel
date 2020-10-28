@@ -48,16 +48,28 @@ public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
     @Option(
-        name = "incompatible_disallow_legacy_java_provider",
-        defaultValue = "true",
+        name = "incompatible_load_proto_rules_from_bzl",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
         help = "Deprecated no-op.")
-    public boolean incompatibleDisallowLegacyJavaProvider;
+    public boolean loadProtoRulesFromBzl;
+
+    @Option(
+        name = "incompatible_load_java_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean loadJavaRulesFromBzl;
 
     @Option(
         name = "incompatible_disable_legacy_proto_provider",

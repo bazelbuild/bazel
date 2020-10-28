@@ -112,6 +112,8 @@ public class NodeVisitor {
 
   public void visit(@SuppressWarnings("unused") IntLiteral node) {}
 
+  public void visit(@SuppressWarnings("unused") FloatLiteral node) {}
+
   public void visit(@SuppressWarnings("unused") StringLiteral node) {}
 
   public void visit(AssignmentStatement node) {

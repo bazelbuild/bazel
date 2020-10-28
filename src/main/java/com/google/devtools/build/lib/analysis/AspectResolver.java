@@ -67,7 +67,7 @@ public final class AspectResolver {
     for (Dependency dep : deps) {
       Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
 
-      for (AspectCollection.AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
+      for (AspectCollection.AspectDeps depAspect : dep.getAspects().getUsedAspects()) {
         SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
 
         AspectValue aspectValue;
@@ -139,7 +139,7 @@ public final class AspectResolver {
   private static Map<AspectDescriptor, SkyKey> getAspectKeys(Dependency dep) {
     HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
     AspectCollection aspects = dep.getAspects();
-    for (AspectCollection.AspectDeps aspectDeps : aspects.getVisibleAspects()) {
+    for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
       buildAspectKey(aspectDeps, result, dep);
     }
     return result;
@@ -154,7 +154,7 @@ public final class AspectResolver {
     }
 
     ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectCollection.AspectDeps path : aspectDeps.getDependentAspects()) {
+    for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
       dependentAspects.add(buildAspectKey(path, result, dep));
     }
     AspectKey aspectKey =

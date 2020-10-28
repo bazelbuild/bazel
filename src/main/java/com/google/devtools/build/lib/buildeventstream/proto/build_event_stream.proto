@@ -258,8 +258,8 @@ message Aborted {
     // remote execution of actions) was not available in the expected way.
     REMOTE_ENVIRONMENT_FAILURE = 3;
 
-    // Failure due to reasons entirely internal to the build tool, e.g.,
-    // running out of memory.
+    // Failure due to reasons entirely internal to the build tool, i.e. an
+    // unexpected crash due to programmer error.
     INTERNAL = 4;
 
     // A Failure occurred in the loading phase of a target.
@@ -274,6 +274,11 @@ message Aborted {
     // Build incomplete due to an earlier build failure (e.g. --keep_going was
     // set to false causing the build be ended upon failure).
     INCOMPLETE = 10;
+
+    // The build tool ran out of memory and crashed. Not yet used. OOMs are
+    // currently reported as INTERNAL.
+    // TODO(b/170643206): Use this reason for OOMs after updating consumers.
+    OUT_OF_MEMORY = 11;
   }
   AbortReason reason = 1;
 

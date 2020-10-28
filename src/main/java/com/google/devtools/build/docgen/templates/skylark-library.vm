@@ -57,10 +57,12 @@ ${module.documentation}
               <code>${param.name}</code>
             </td>
             <td>
-            #if (!$param.type.isEmpty())
-              <p><code>${param.type}</code></p>
+            #if (!$param.defaultValue.isEmpty())
+             <code>${param.type}</code>; default = ${param.defaultValue}<br/>
+            #else
+             <code>${param.type}</code>; required<br/>
             #end
-              <p>${param.documentation}</p>
+              ${param.documentation}
             </td>
           </tr>
         #end

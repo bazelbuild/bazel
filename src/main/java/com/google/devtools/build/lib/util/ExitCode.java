@@ -15,27 +15,27 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Objects;
+import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.HashMap;
 import javax.annotation.Nullable;
 
 /**
- *  <p>Anything marked FAILURE is generally from a problem with the source code
- *  under consideration.  In these cases, a re-run in an identical client should
- *  produce an identical return code all things being constant.
+ * Anything marked FAILURE is generally from a problem with the source code under consideration. In
+ * these cases, a re-run in an identical client should produce an identical return code all things
+ * being constant.
  *
- *  <p>Anything marked as an ERROR is generally a problem unrelated to the
- *  source code itself.  It is either something wrong with the user's command
- *  line or the user's machine or environment.
+ * <p>Anything marked as an ERROR is generally a problem unrelated to the source code itself. It is
+ * either something wrong with the user's command line or the user's machine or environment.
  *
- *  <p>Note that these exit codes should be kept consistent with the codes
- *  returned by Blaze's launcher in //devtools/blaze/main:blaze.cc
- *  Blaze exit codes should be consistently classified as permanent vs.
- *  transient (i.e. retriable) vs. unknown transient/permanent because users,
- *  in particular infrastructure users, will use the exit code to decide whether
- *  the request should be retried or not.
+ * <p>Note that these exit codes should be kept consistent with the codes returned by Blaze's
+ * launcher in //devtools/blaze/main:blaze.cc Blaze exit codes should be consistently classified as
+ * permanent vs. transient (i.e. retriable) vs. unknown transient/permanent because users, in
+ * particular infrastructure users, will use the exit code to decide whether the request should be
+ * retried or not.
  */
-public class ExitCode {
+@Immutable
+public final class ExitCode {
   // Tracks all exit codes defined here and elsewhere in Bazel.
   private static final HashMap<Integer, ExitCode> exitCodeRegistry = new HashMap<>();
 

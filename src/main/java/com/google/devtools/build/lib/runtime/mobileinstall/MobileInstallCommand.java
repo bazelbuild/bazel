@@ -249,9 +249,7 @@ public class MobileInstallCommand implements BlazeCommand {
         env.getSkyframeExecutor()
             .getConfiguration(env.getReporter(), targetToRun.getConfigurationKey());
     cmdLine.add(
-        configuration
-                .getBinFragment(targetToRun.getLabel().getPackageIdentifier().getRepository())
-                .getPathString()
+        configuration.getBinFragment(targetToRun.getLabel().getRepository()).getPathString()
             + "/"
             + targetToRun.getLabel().toPathFragment().getPathString()
             + "_mi/launcher");

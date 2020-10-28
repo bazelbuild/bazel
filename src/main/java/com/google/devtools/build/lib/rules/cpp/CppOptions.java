@@ -1015,7 +1015,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_force_strict_header_check_from_starlark",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {
@@ -1024,6 +1024,14 @@ public class CppOptions extends FragmentOptions {
       },
       help = "If enabled, set strict header checking in the Starlark API")
   public boolean forceStrictHeaderCheckFromStarlark;
+
+  @Option(
+      name = "experimental_generate_llvm_lcov",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "If true, coverage for clang will generate an LCOV report.")
+  public boolean generateLlvmLcov;
 
   @Option(
       name = "incompatible_use_cpp_compile_header_mnemonic",

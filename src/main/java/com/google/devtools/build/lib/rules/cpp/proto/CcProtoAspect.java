@@ -342,7 +342,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       PathFragment repositoryRoot =
           ruleContext
               .getLabel()
-              .getPackageIdentifier()
               .getRepository()
               .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       if (protoRoot.equals(".") || protoRoot.equals(repositoryRoot.getPathString())) {
@@ -357,7 +356,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       PathFragment repositoryPath =
           ruleContext
               .getLabel()
-              .getPackageIdentifier()
               .getRepository()
               .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       if (protoRootFragment.startsWith(repositoryPath)) {

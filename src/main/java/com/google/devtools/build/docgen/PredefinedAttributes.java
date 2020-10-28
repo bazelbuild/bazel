@@ -54,6 +54,7 @@ public class PredefinedAttributes {
           "templates/attributes/common/licenses.html",
           "templates/attributes/common/restricted_to.html",
           "templates/attributes/common/tags.html",
+          "templates/attributes/common/target_compatible_with.html",
           "templates/attributes/common/testonly.html",
           "templates/attributes/common/toolchains.html",
           "templates/attributes/common/visibility.html");

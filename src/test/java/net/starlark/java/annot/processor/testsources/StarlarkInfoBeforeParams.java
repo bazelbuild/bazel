@@ -29,9 +29,9 @@ public class StarlarkInfoBeforeParams implements StarlarkValue {
       name = "skylark_info_wrong_order",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = StarlarkInt.class, named = true),
-        @Param(name = "three", type = String.class, named = true)
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
+        @Param(name = "three", named = true)
       },
       useStarlarkThread = true)
   public String threeArgMethod(StarlarkThread thread, String one, StarlarkInt two, String three) {

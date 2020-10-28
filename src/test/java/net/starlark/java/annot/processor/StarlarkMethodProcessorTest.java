@@ -162,27 +162,6 @@ public final class StarlarkMethodProcessorTest {
   }
 
   @Test
-  public void testInvalidParamNoneDefault() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("InvalidParamNoneDefault.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Parameter 'a_parameter' has 'None' default value but is not noneable.");
-  }
-
-  @Test
-  public void testParamTypeConflict() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("ParamTypeConflict.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Parameter 'a_parameter' has both 'type' and 'allowedTypes' specified."
-                + " Only one may be specified.");
-  }
-
-  @Test
   public void testParamNeitherNamedNorPositional() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ParamNeitherNamedNorPositional.java"))
@@ -343,16 +322,5 @@ public final class StarlarkMethodProcessorTest {
         .withErrorContaining(
             "parameter 'one' has generic type "
                 + "net.starlark.java.eval.Sequence<java.lang.String>");
-  }
-
-  @Test
-  public void testInvalidNoneableParameter() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("InvalidNoneableParameter.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Expected type 'Object' but got type 'java.lang.String' "
-                + "for noneable parameter 'aParameter'.");
   }
 }

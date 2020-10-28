@@ -158,10 +158,6 @@ class StartupOptions {
   // Override more finegrained rc file flags and ignore them all.
   bool ignore_all_rc_files;
 
-  // Whether to put the execroot at $OUTPUT_BASE/$WORKSPACE_NAME (if false) or
-  // $OUTPUT_BASE/execroot/$WORKSPACE_NAME (if true).
-  bool deep_execroot;
-
   // Block for the Blaze server lock. Otherwise,
   // quit with non-0 exit code if lock can't
   // be acquired immediately.
@@ -237,6 +233,9 @@ class StartupOptions {
 
   // Connection timeout for each gRPC connection attempt.
   int connect_timeout_secs;
+
+  // Local server startup timeout duration.
+  int local_startup_timeout_secs;
 
   // Invocation policy proto, or an empty string.
   std::string invocation_policy;

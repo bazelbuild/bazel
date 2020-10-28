@@ -1300,6 +1300,31 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAvailableXcodeModesDifferentAlias() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version5", "5.1", true, "5")
+        .addLocalVersion("version5.1.2", "5.1.2", true, "5")
+        .write(scratch, "xcode/BUILD");
+    useConfiguration("--xcode_version=5");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent("Xcode version 5 was selected");
+    assertContainsEvent("This corresponds to local Xcode version 5.1.2");
+  }
+
+  @Test
+  public void testAvailableXcodeModesDifferentAliasFullySpecified() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version5", "5.1", true, "5")
+        .addLocalVersion("version5.1.2", "5.1.2", true, "5")
+        .write(scratch, "xcode/BUILD");
+    useConfiguration("--xcode_version=5.1.2");
+    getConfiguredTarget("//xcode:foo");
+    assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+  }
+
+  @Test
   public void testAvailableXcodesModeWithFlag() throws Exception {
     new BuildFileBuilder()
         .addRemoteVersion("version512", "5.1.2", true, "5", "5.1")

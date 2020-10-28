@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
@@ -620,7 +621,8 @@ public interface QueryEnvironment<T> {
      * Returns the set of package specifications the given target is visible from, represented as
      * {@link QueryVisibility}s.
      */
-    Set<QueryVisibility<T>> getVisibility(T from) throws QueryException, InterruptedException;
+    ImmutableSet<QueryVisibility<T>> getVisibility(QueryExpression caller, T from)
+        throws QueryException, InterruptedException;
   }
 
   /** List of the default query functions. */

@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -58,7 +59,6 @@ public interface WorkspaceGlobalsApi {
       parameters = {
         @Param(
             name = "name",
-            type = String.class,
             doc =
                 "the name of the workspace. Names must start with a letter and can only contain "
                     + "letters, numbers, and underscores.",
@@ -66,8 +66,6 @@ public interface WorkspaceGlobalsApi {
             positional = false),
         @Param(
             name = "managed_directories",
-            type = Dict.class,
-            generic1 = String.class,
             named = true,
             positional = false,
             defaultValue = "{}",
@@ -104,8 +102,7 @@ public interface WorkspaceGlobalsApi {
       parameters = {
         @Param(
             name = "paths",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             doc = "",
             named = true,
             positional = false)
@@ -125,8 +122,7 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "platform_labels",
-              type = Sequence.class,
-              generic1 = String.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the platforms to register."),
       useStarlarkThread = true)
   NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
@@ -144,8 +140,7 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "toolchain_labels",
-              type = Sequence.class,
-              generic1 = String.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the toolchains to register."),
       useStarlarkThread = true)
   NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
@@ -162,16 +157,17 @@ public interface WorkspaceGlobalsApi {
       parameters = {
         @Param(
             name = "name",
-            type = String.class,
             named = true,
             positional = false,
             doc = "The label under '//external' to serve as the alias name"),
         @Param(
             name = "actual",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
-            noneable = true,
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
