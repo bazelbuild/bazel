@@ -523,7 +523,7 @@ final class Eval {
       Object v = eval(fr, entry.getValue());
       int before = dict.size();
       try {
-        dict.put(k, v, (Location) null);
+        dict.putEntry(k, v);
       } catch (EvalException ex) {
         fr.setErrorLocation(entry.getColonLocation());
         throw ex;
@@ -811,7 +811,7 @@ final class Eval {
           try {
             Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
-            dict.put(k, v, (Location) null);
+            dict.putEntry(k, v);
           } catch (EvalException ex) {
             fr.setErrorLocation(body.getColonLocation());
             throw ex;

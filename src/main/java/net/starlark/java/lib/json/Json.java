@@ -30,7 +30,6 @@ import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
 
 // Tests at //src/test/java/net/starlark/java/eval:testdata/json.sky
 
@@ -367,7 +366,7 @@ public final class Json implements StarlarkValue {
           if (c != ']') {
             while (true) {
               Object elem = parse();
-              list.add(elem, (Location) null); // can't fail
+              list.addElement(elem); // can't fail
               c = next();
               if (c != ',') {
                 if (c != ']') {
@@ -400,7 +399,7 @@ public final class Json implements StarlarkValue {
               i++; // ':'
               Object value = parse();
               int sz = dict.size();
-              dict.put((String) key, value, (Location) null); // can't fail
+              dict.putEntry((String) key, value); // can't fail
               if (dict.size() == sz) {
                 throw Starlark.errorf("object has duplicate key: %s", Starlark.repr(key));
               }

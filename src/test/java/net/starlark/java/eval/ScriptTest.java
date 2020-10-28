@@ -31,7 +31,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.FileOptions;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -313,7 +312,7 @@ public final class ScriptTest {
       if (value.equals("bad")) {
         throw Starlark.errorf("bad field value");
       }
-      ((Dict<String, Object>) fields).put(field, value, (Location) null);
+      ((Dict<String, Object>) fields).putEntry(field, value);
     }
   }
 }
