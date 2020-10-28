@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
@@ -351,7 +352,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       env.getListener().post(new RepositoryFetching(repositoryName, true));
       env.getListener().post(new RepositoryFailedEvent(repositoryName, e.getMessage()));
       env.getListener().handle(Event.error("Error fetching repository: " + e.getMessage()));
-      throw e;
+
+      // Rewrap the underlying exception to signal callers not to re-report this error.
+      throw new RepositoryFunctionException(
+          new AlreadyReportedRepositoryAccessException(
+              e.getCause()), e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
 
     if (env.valuesMissing()) {

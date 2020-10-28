@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
@@ -397,7 +398,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException() instanceof IOException).isTrue();
+    assertThat(
+        result.getError().getException() instanceof AlreadyReportedRepositoryAccessException).isTrue();
     assertThat(eventHandler.hasErrors()).isTrue();
     assertThat(eventHandler.getEvents().size()).isEqualTo(1);
   }

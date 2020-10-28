@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -114,8 +117,26 @@ public abstract class RepositoryFunction {
       super(cause, transience);
     }
 
+    public RepositoryFunctionException(
+        AlreadyReportedRepositoryAccessException cause, Transience transience) {
+      super(cause, transience);
+    }
+
     public RepositoryFunctionException(ExternalPackageException e) {
       super(e.getCause(), e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+    }
+  }
+
+  /**
+   * Encapsulates the exceptions that arise when accessing a repository.
+   * Error reporting should ONLY be handled in {@link RepositoryDelegatorFunction#fetchRepository}.
+   */
+  public static class AlreadyReportedRepositoryAccessException extends AlreadyReportedException {
+    public AlreadyReportedRepositoryAccessException(Exception e) {
+      super(e.getMessage(), e.getCause());
+      checkState(e instanceof NoSuchPackageException
+          || e instanceof IOException || e instanceof EvalException
+          || e instanceof ExternalPackageException);
     }
   }
 

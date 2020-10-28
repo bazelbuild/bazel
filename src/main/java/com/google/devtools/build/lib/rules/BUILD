@@ -424,6 +424,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/repository:external_rule_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/repository:repository_failed_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",

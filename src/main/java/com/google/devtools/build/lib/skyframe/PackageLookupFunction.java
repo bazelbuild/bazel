@@ -330,14 +330,14 @@ public class PackageLookupFunction implements SkyFunction {
     RepositoryValue repositoryValue;
     try {
       repositoryValue = (RepositoryValue) env.getValueOrThrow(
-          repositoryKey, NoSuchPackageException.class, IOException.class, EvalException.class);
+          repositoryKey, NoSuchPackageException.class, IOException.class, EvalException.class, AlreadyReportedException.class);
       if (repositoryValue == null) {
         return null;
       }
     } catch (NoSuchPackageException e) {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
           Transience.PERSISTENT);
-    } catch (IOException | EvalException e) {
+    } catch (IOException | EvalException | AlreadyReportedException e) {
       throw new PackageLookupFunctionException(
           new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }
