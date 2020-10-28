@@ -139,6 +139,11 @@ public interface JavaSemantics {
                 return null;
               }
 
+              // use_launcher=False disables the launcher
+              if (attributes.has("use_launcher") && !attributes.get("use_launcher", Type.BOOLEAN)) {
+                return null;
+              }
+
               // don't read --java_launcher if this target overrides via a launcher attribute
               if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
                 return attributes.get("launcher", LABEL);

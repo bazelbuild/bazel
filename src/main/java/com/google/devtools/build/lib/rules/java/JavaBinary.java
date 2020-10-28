@@ -103,6 +103,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    if (!ruleContext.attributes().get("use_launcher", Type.BOOLEAN)
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("launcher")) {
+      ruleContext.ruleError("launcher specified but use_launcher is false");
+    }
+
     semantics.checkRule(ruleContext, common);
     semantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, common);
     String mainClass = semantics.getMainClass(ruleContext, common.getSrcsArtifacts());
