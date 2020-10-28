@@ -3842,26 +3842,35 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64"):
-        default_link_flags_feature = feature(
-            name = "default_link_flags",
-            enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-no-canonical-prefixes"],
-                        ),
-                    ],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                ),
+        default_link_flags_feature_flags = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = ["-no-canonical-prefixes"],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_dynamic_library,
+                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                ],
+                flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+            ),
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_executable,
+                    "objc-executable",
+                    "objc++-executable",
+                ],
+                flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+                with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
+            ),
+        ]
+        if ctx.fragments.cpp.do_not_use_macos_set_install_name:
+            default_link_flags_feature_flags.append(
                 flag_set(
                     actions = [
                         ACTION_NAMES.cpp_link_dynamic_library,
@@ -3873,43 +3882,46 @@ def _impl(ctx):
                             expand_if_available = "runtime_solib_name",
                         ),
                     ],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        "objc-executable",
-                        "objc++-executable",
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                    with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
-                ),
-            ],
+                ))
+        default_link_flags_feature = feature(
+            name = "default_link_flags",
+            enabled = True,
+            flag_sets = default_link_flags_feature_flags,
         )
     elif (ctx.attr.cpu == "darwin_arm64"):
-        default_link_flags_feature = feature(
-            name = "default_link_flags",
-            enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-target",
-                                "arm64-apple-macosx",
-                            ],
-                        ),
-                    ],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                ),
+        default_link_flags_feature_flags = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no-canonical-prefixes",
+                            "-target",
+                            "arm64-apple-macosx",
+                        ],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_dynamic_library,
+                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                ],
+                flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+            ),
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_executable,
+                    "objc-executable",
+                    "objc++-executable",
+                ],
+                flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+                with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
+            ),
+        ]
+        if ctx.fragments.cpp.do_not_use_macos_set_install_name:
+            default_link_flags_feature_flags.append(
                 flag_set(
                     actions = [
                         ACTION_NAMES.cpp_link_dynamic_library,
@@ -3921,53 +3933,62 @@ def _impl(ctx):
                             expand_if_available = "runtime_solib_name",
                         ),
                     ],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        "objc-executable",
-                        "objc++-executable",
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                    with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_arm64e"):
+                ))
         default_link_flags_feature = feature(
             name = "default_link_flags",
             enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-target",
-                                "arm64e-apple-macos",
-                            ],
-                        ),
-                    ],
-                ),
+            flag_sets = default_link_flags_feature_flags,
+        )
+    elif (ctx.attr.cpu == "darwin_arm64e"):
+        default_link_flags_feature_flags = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no-canonical-prefixes",
+                            "-target",
+                            "arm64e-apple-macos",
+                        ],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_dynamic_library,
+                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                ],
+                flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+            ),
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_executable,
+                    "objc-executable",
+                    "objc++-executable",
+                ],
+                flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+                with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
+            ),
+        ]
+        if ctx.fragments.cpp.do_not_use_macos_set_install_name:
+            default_link_flags_feature_flags.append(
                 flag_set(
                     actions = [
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
                     ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        "objc-executable",
-                        "objc++-executable",
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-install_name", "@rpath/%{runtime_solib_name}"],
+                            expand_if_available = "runtime_solib_name",
+                        ),
                     ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                    with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
-                ),
-            ],
+                ))
+        default_link_flags_feature = feature(
+            name = "default_link_flags",
+            enabled = True,
+            flag_sets = default_link_flags_feature_flags,
         )
     elif (ctx.attr.cpu == "armeabi-v7a" or
           ctx.attr.cpu == "watchos_arm64_32" or
@@ -6381,4 +6402,5 @@ cc_toolchain_config = rule(
     },
     provides = [CcToolchainConfigInfo],
     executable = True,
+    fragments = ["cpp"],
 )

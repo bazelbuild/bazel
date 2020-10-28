@@ -765,4 +765,9 @@ public final class CppConfiguration extends Fragment
   public boolean useCppCompileHeaderMnemonic() {
     return cppOptions.useCppCompileHeaderMnemonic;
   }
+
+  @Override
+  public boolean macosSetInstallName() {
+    return cppOptions.macosSetInstallName;
+  }
 }

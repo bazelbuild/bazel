@@ -1,4 +1,8 @@
 load(
+    "//tools/config:common_settings.bzl",
+    "bool_flag",
+)
+load(
     "//tools/osx:xcode_version_flag.bzl",
     "ios_sdk_version_flag",
     "macos_sdk_version_flag",
