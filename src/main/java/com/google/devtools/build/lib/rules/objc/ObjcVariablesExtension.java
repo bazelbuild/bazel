@@ -192,6 +192,10 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringVariable(
         FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME, fullyLinkArchive.getExecPathString());
 
+    // ObjcProvider.getObjcLibraries contains both libraries from objc providers
+    // as well as those from CcInfo. ObjcProvider.getCcLibraries only contains
+    // those from CcInfo. We have to split these lists to make sure duplicate
+    // libraries are not included in the fully linked archive.
     ImmutableSet<Artifact> ccLibs = ImmutableSet.copyOf(objcProvider.getCcLibraries());
     Predicate<Artifact> isNotCcLib = library -> !ccLibs.contains(library);
     Iterable<Artifact> objcLibraries = Iterables.filter(objcProvider.getObjcLibraries(), isNotCcLib);
