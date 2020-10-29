@@ -36,10 +36,6 @@ public class GenClassOptionsParser {
         case "--output_jar":
           builder.setOutputJar(readPath(it));
           break;
-        case "--temp_dir":
-          // TODO(b/169793789): remove once Blaze no longer passes the flag
-          readPath(it);
-          break;
         default:
           throw new IllegalArgumentException(
               String.format("Unexpected argument: '%s' in %s", arg, args));

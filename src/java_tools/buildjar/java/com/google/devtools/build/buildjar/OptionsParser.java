@@ -196,23 +196,11 @@ public final class OptionsParser {
         case "--builtin_processors":
           collectProcessorArguments(builtinProcessorNames, argQueue, "-");
           break;
-        case "--extclasspath":
-        case "--extdir":
-          // TODO(b/149114743): delete once Blaze stops passing the flag
-          collectFlagArguments(new ArrayList<>(), argQueue, "-");
-          break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
           break;
         case "--native_header_output":
           nativeHeaderOutput = getArgument(argQueue, arg);
-          break;
-        case "--classdir":
-        case "--gendir":
-        case "--sourcegendir":
-        case "--tempdir":
-          // TODO(bazel-team) - remove when Bazel no longer passes these flags to buildjar.
-          getArgument(argQueue, arg);
           break;
         case "--post_processor":
           addExternalPostProcessor(argQueue, arg);
