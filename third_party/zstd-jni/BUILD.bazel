@@ -77,7 +77,7 @@ cc_binary(
 )
 
 cc_binary(
-    name = "libzstd-jni.dll",
+    name = "zstd-jni.dll",
     srcs = [":zstd_sources"],
     includes = [
         "src/main/native",
@@ -108,7 +108,7 @@ filegroup(
     srcs = select({
         "@io_bazel//src/conditions:darwin": ["libzstd-jni.dylib"],
         "@io_bazel//src/conditions:darwin_x86_64": ["libzstd-jni.dylib"],
-        "@io_bazel//src/conditions:windows": ["libzstd-jni.dll"],
+        "@io_bazel//src/conditions:windows": ["zstd-jni.dll"],
         "@io_bazel//conditions:default": ["libzstd-jni.so"],
     }),
     visibility = [
