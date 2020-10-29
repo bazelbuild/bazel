@@ -150,6 +150,14 @@ public final class StarlarkList<E> extends AbstractList<E>
    */
   public static <T> StarlarkList<T> copyOf(
       @Nullable Mutability mutability, Iterable<? extends T> elems) {
+    if (mutability == null
+        && elems instanceof StarlarkList
+        && ((StarlarkList) elems).isImmutable()) {
+      @SuppressWarnings("unchecked")
+      StarlarkList<T> list = (StarlarkList<T>) elems; // safe
+      return list;
+    }
+
     return wrap(mutability, Iterables.toArray(elems, Object.class));
   }
 
@@ -166,6 +174,11 @@ public final class StarlarkList<E> extends AbstractList<E>
    */
   public static <T> StarlarkList<T> of(@Nullable Mutability mutability, T... elems) {
     return wrap(mutability, Arrays.copyOf(elems, elems.length));
+  }
+
+  /** Returns an immutable {@code StarlarkList} with the given items. */
+  public static <T> StarlarkList<T> immutableOf(T... elems) {
+    return wrap(null, Arrays.copyOf(elems, elems.length));
   }
 
   @Override

@@ -383,6 +383,12 @@ public final class Dict<K, V>
 
   /** Returns a new dict with the specified mutability containing the entries of {@code m}. */
   public static <K, V> Dict<K, V> copyOf(@Nullable Mutability mu, Map<? extends K, ? extends V> m) {
+    if (mu == null && m instanceof Dict && ((Dict) m).isImmutable()) {
+      @SuppressWarnings("unchecked")
+      Dict<K, V> dict = (Dict<K, V>) m; // safe
+      return dict;
+    }
+
     // TODO(laurentlb): Move this method out of this file and rename it. It should go with
     // Starlark.fromJava; its main purpose is to convert a Java value to Starlark.
     // TODO(adonovan): fromJava shouldn't be applied recursively.
@@ -395,6 +401,11 @@ public final class Dict<K, V>
       dict.contents.put(e.getKey(), v);
     }
     return dict;
+  }
+
+  /** Returns an immutable dict containing the entries of {@code m}. */
+  public static <K, V> Dict<K, V> immutableCopyOf(Map<? extends K, ? extends V> m) {
+    return copyOf(null, m);
   }
 
   /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
