@@ -44,16 +44,16 @@ JDK9_JVM_OPTS = [
 # jdk.compiler module, and jvm_opts
 _BASE_TOOLCHAIN_CONFIGURATION = dict(
     forcibly_disable_header_compilation = False,
-    genclass = [Label("//:GenClass", relative_to_caller_repository = True)],
-    header_compiler = [Label("//:TurbineDirect", relative_to_caller_repository = True)],
-    header_compiler_direct = [Label("//:TurbineDirect", relative_to_caller_repository = True)],
-    ijar = [Label("//:ijar", relative_to_caller_repository = True)],
-    javabuilder = [Label("//:JavaBuilder", relative_to_caller_repository = True)],
+    genclass = [Label("//:GenClass")],
+    header_compiler = [Label("//:TurbineDirect")],
+    header_compiler_direct = [Label("//:TurbineDirect")],
+    ijar = [Label("//:ijar")],
+    javabuilder = [Label("//:JavaBuilder")],
     javac_supports_workers = True,
-    jacocorunner = Label("//:jacoco_coverage_runner_filegroup", relative_to_caller_repository = True),
+    jacocorunner = Label("//:jacoco_coverage_runner_filegroup"),
     jvm_opts = JDK9_JVM_OPTS,
     misc = _DEFAULT_JAVACOPTS,
-    singlejar = [Label("//:singlejar", relative_to_caller_repository = True)],
+    singlejar = [Label("//:singlejar")],
     # Code to enumerate target JVM boot classpath uses host JVM. Because
     # java_runtime-s are involved, its implementation is in @bazel_tools.
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
