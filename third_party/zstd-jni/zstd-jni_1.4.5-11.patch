@@ -44,7 +44,7 @@ diff --git a/src/main/java/com/github/luben/zstd/util/Native.java b/src/main/jav
 -    private static String resourceName() {
 -        return "/" + osName() + "/" + osArch() + "/" + libname + "." + libExtension();
 +    private static String libraryFilename() {
-+        return libPrefix() + "." + libExtension();
++        return libPrefix() + libnameShort + "." + libExtension();
      }
  
      private static boolean loaded = false;
