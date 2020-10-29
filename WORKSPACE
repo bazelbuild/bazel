@@ -327,7 +327,7 @@ distdir_tar(
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         ],
         # com_github_luben_zstd_jni
-        "v1.4.5-6.tar.gz": [
+        "v1.4.5-11.tar.gz": [
             # "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
             "https://github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
         ],
