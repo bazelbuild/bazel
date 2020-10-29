@@ -345,6 +345,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateSpawnActionShellCommandList() throws Exception {
+    ev.setSemantics("--incompatible_run_shell_command_string=false");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
@@ -444,6 +445,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRunShellArgumentsWithCommandSequence() throws Exception {
+    ev.setSemantics("--incompatible_run_shell_command_string=false");
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
         "'arguments' must be empty if 'command' is a sequence of strings",
@@ -3047,7 +3049,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "def _path(f): return f.path",
             "args.add_all([directory], map_each=_path)");
 
-    ev.setSemantics("--incompatible_run_shell_command_string");
+    ev.setSemantics("--incompatible_run_shell_command_string=false");
     // setBuildLanguageOptions reinitializes the thread -- set the ruleContext on the new one.
     setRuleContext(createRuleContext("//foo:foo"));
 
