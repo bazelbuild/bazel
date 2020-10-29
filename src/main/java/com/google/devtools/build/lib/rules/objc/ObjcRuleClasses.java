@@ -136,7 +136,7 @@ public class ObjcRuleClasses {
   }
 
   /** Returns apple environment variables that are typically needed by the apple toolchain. */
-  static ImmutableMap<String, String> appleToolchainEnvironment(
+  private static ImmutableMap<String, String> appleToolchainEnvironment(
       XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
     return ImmutableMap.<String, String>builder()
         .putAll(
@@ -147,7 +147,7 @@ public class ObjcRuleClasses {
   }
 
   /** Creates a new spawn action builder that requires a darwin architecture to run. */
-  static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
+  private static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
     return new SpawnAction.Builder().setExecutionInfo(xcodeConfigInfo.getExecutionRequirements());
   }
 

@@ -59,8 +59,7 @@ public class PackageGroup implements Target {
       PackageSpecification specification = null;
       try {
         specification =
-            PackageSpecification.fromString(
-                label.getPackageIdentifier().getRepository(), packageSpecification);
+            PackageSpecification.fromString(label.getRepository(), packageSpecification);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         containsErrors = true;
         eventHandler.handle(

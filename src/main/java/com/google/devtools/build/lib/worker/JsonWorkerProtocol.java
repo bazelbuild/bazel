@@ -39,10 +39,10 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
   /** Writer for writing the WorkRequest to the worker */
   private final BufferedWriter jsonWriter;
 
-  JsonWorkerProtocol(InputStream stdin, OutputStream stdout) {
+  JsonWorkerProtocol(OutputStream workersStdin, InputStream workersStdout) {
     jsonPrinter = JsonFormat.printer().omittingInsignificantWhitespace();
-    jsonWriter = new BufferedWriter(new OutputStreamWriter(stdout, UTF_8));
-    reader = new JsonReader(new BufferedReader(new InputStreamReader(stdin, UTF_8)));
+    jsonWriter = new BufferedWriter(new OutputStreamWriter(workersStdin, UTF_8));
+    reader = new JsonReader(new BufferedReader(new InputStreamReader(workersStdout, UTF_8)));
     reader.setLenient(true);
   }
 

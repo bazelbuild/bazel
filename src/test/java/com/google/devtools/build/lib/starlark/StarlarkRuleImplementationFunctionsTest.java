@@ -104,7 +104,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
       documented = false,
       parameters = {
         @Param(name = "mandatory", doc = "", named = true),
-        @Param(name = "optional", doc = "", defaultValue = "None", noneable = true, named = true),
+        @Param(name = "optional", doc = "", defaultValue = "None", named = true),
         @Param(name = "mandatory_key", doc = "", positional = false, named = true),
         @Param(
             name = "optional_key",
@@ -335,7 +335,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
-        "got value of type 'int', want 'File or string or FilesToRunProvider'",
+        "got value of type 'int', want 'File, string, or FilesToRunProvider'",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -1974,11 +1974,9 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
-    // This confusing message shows why we should distinguish
-    // built-ins and Starlark functions in their repr strings.
     thrown.expectMessage(
-        "in call to rule(), parameter 'implementation' got value of type 'function', want"
-            + " 'function'");
+        "in call to rule(), parameter 'implementation' got value of type"
+            + " 'builtin_function_or_method', want 'function'");
     getConfiguredTarget("//test:silly");
   }
 

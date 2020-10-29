@@ -46,6 +46,7 @@ class DataBindingV2Context implements DataBindingContext {
 
   private final ActionConstructionContext actionContext;
   private final boolean useUpdatedArgs;
+  private final boolean useAndroidX;
   /**
    * Annotation processing creates the following metadata files that describe how data binding is
    * applied. The full file paths include prefixes as implemented in {@link #getMetadataOutputs}.
@@ -54,9 +55,11 @@ class DataBindingV2Context implements DataBindingContext {
 
   private final String setterStoreName;
 
-  DataBindingV2Context(ActionConstructionContext actionContext, boolean useUpdatedArgs) {
+  DataBindingV2Context(
+      ActionConstructionContext actionContext, boolean useUpdatedArgs, boolean useAndroidX) {
     this.actionContext = actionContext;
     this.useUpdatedArgs = useUpdatedArgs;
+    this.useAndroidX = useAndroidX;
     this.setterStoreName = useUpdatedArgs ? "setter_store.json" : "setter_store.bin";
     metadataOutputSuffixes = ImmutableList.of(setterStoreName, "br.bin");
   }
@@ -256,7 +259,7 @@ class DataBindingV2Context implements DataBindingContext {
   public ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext) {
     ImmutableList.Builder<Artifact> srcs = ImmutableList.builder();
 
-    srcs.addAll(DataBinding.getAnnotationFile(ruleContext));
+    srcs.addAll(DataBinding.getAnnotationFile(ruleContext, useAndroidX));
     srcs.addAll(createBaseClasses(ruleContext));
 
     return srcs.build();
@@ -275,14 +278,15 @@ class DataBindingV2Context implements DataBindingContext {
     FilesToRunProvider exec =
         ruleContext.getExecutablePrerequisite(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR);
 
-    CustomCommandLine.Builder commandLineBuilder = CustomCommandLine.builder()
-        .add("GEN_BASE_CLASSES")
-        .addExecPath("-layoutInfoFiles", layoutInfo)
-        .add("-package", AndroidCommon.getJavaPackage(ruleContext))
-        .addExecPath("-classInfoOut", classInfoFile)
-        .addExecPath("-sourceOut", srcOutFile)
-        .add("-zipSourceOutput", "true")
-        .add("-useAndroidX", "false");
+    CustomCommandLine.Builder commandLineBuilder =
+        CustomCommandLine.builder()
+            .add("GEN_BASE_CLASSES")
+            .addExecPath("-layoutInfoFiles", layoutInfo)
+            .add("-package", AndroidCommon.getJavaPackage(ruleContext))
+            .addExecPath("-classInfoOut", classInfoFile)
+            .addExecPath("-sourceOut", srcOutFile)
+            .add("-zipSourceOutput", "true")
+            .add("-useAndroidX", useAndroidX ? "true" : "false");
 
     List<Artifact> dependencyClassInfo = getDirectClassInfo(ruleContext);
     for (Artifact artifact : dependencyClassInfo) {
@@ -364,14 +368,20 @@ class DataBindingV2Context implements DataBindingContext {
   public AndroidResources processResources(
       AndroidDataContext dataContext, AndroidResources resources, String appId) {
 
-    AndroidResources databindingProcessedResources = AndroidDataBindingProcessorBuilder.create(
-        dataContext,
-        resources,
-        appId,
-        DataBinding.getLayoutInfoFile(actionContext));
+    AndroidResources databindingProcessedResources =
+        AndroidDataBindingProcessorBuilder.create(
+            dataContext,
+            resources,
+            appId,
+            DataBinding.getLayoutInfoFile(actionContext),
+            useAndroidX);
 
     return databindingProcessedResources;
+  }
 
+  @Override
+  public boolean usesAndroidX() {
+    return useAndroidX;
   }
 
   private static Artifact getClassInfoFile(ActionConstructionContext context) {

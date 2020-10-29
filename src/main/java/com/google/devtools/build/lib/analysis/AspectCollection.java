@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Objects;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -23,10 +23,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * Represents aspects that should be applied to a target as part of {@link Dependency}.
+ * Represents aspects that should be applied to a configured target as part of {@link Dependency}.
+ *
+ * <p>One can consider the configured target graph as being a DAG in two dimensions: one is the DAG
+ * analogous to the target graph and the other is a DAG between aspects applied to the same
+ * configured target. This class represents the latter. The full "aspect dependency graph" is
+ * computed when traversing the configured target graph. The analysis of the aspects attached to the
+ * same configured target is done by simply unwrapping the graph of {@link AspectDeps} instances.
  *
  * <p>{@link Dependency} encapsulates all information that is needed to analyze an edge between an
  * AspectValue or a ConfiguredTargetValue and their direct dependencies, and {@link
@@ -61,13 +66,13 @@ import java.util.Set;
  *       order (the order is determined by the order in which aspects originate on {@code
  *       ab->...->pl} path).
  *   <li>however, DexArchiveAspect is not visible to either ide_info_aspect or java_proto_aspect, so
- *       the reduced list(and a result of {@link #getAllAspects()}) will be [java_proto_aspect,
+ *       the reduced list(and a result of {@link #getUsedAspects()} ) will be [java_proto_aspect,
  *       ide_info_aspect]
  *   <li>both java_proto_aspect and ide_info_aspect will be visible to <code>jpl + ide_info_aspect
  *       </code> node: the former because java_proto_library originates java_proto_aspect, and the
  *       aspect applied to the node sees the same dependencies; and the latter because the aspect
- *       sees itself on all targets it propagates to. So {@link #getVisibleAspects()} will return
- *       both of them.
+ *       sees itself on all targets it propagates to. So {@link #getUsedAspects()} will return both
+ *       of them.
  *   <li>Since ide_info_aspect declared its interest in java_proto_aspect and the latter comes
  *       before it in the order, {@link AspectDeps} for ide_info_aspect will contain
  *       java_proto_aspect (so the application of ide_info_aspect to <code>pl</code> target will see
@@ -80,9 +85,7 @@ import java.util.Set;
  * <p>{@link AspectDeps} is a class that represents an aspect and all aspects that are directly
  * visible to it.
  *
- * <p>{@link #getVisibleAspects()} returns aspects that should be visible to the node in question.
- *
- * <p>{@link #getAllAspects()} return all aspects that should be applied to the target, in
+ * <p>{@link #getUsedAspects()} return all aspects that should be applied to the target, in
  * topological order.
  *
  * <p>In the following scenario, consider rule r<sub>i</sub> sending an aspect a<sub>i</sub> to its
@@ -106,33 +109,33 @@ import java.util.Set;
  * not interested in each other (according to their {@link
  * com.google.devtools.build.lib.packages.AspectDefinition#getRequiredProvidersForAspects()}).
  *
- * <p>Since a3 is interested in all aspects, the result of {@link #getAllAspects()} will be [a1, a2,
- * a3], and {@link AspectCollection} will be:
+ * <p>Since a3 is interested in all aspects, the result of {@link #getUsedAspects()} will be [a1,
+ * a2, a3], and {@link AspectCollection} will be:
  *
  * <ul>
- *   <li>a3 -> [a1, a2], a3 is visible
+ *   <li>a3 -> [a1, a2]
  *   <li>a2 -> []
  *   <li>a1 -> []
  * </ul>
  *
  * <p>Now what happens if a3 is interested in a2 but not a1, and a2 is interested in a1? Again, all
- * aspects are transitively interesting to a visible a3, so {@link #getAllAspects()} will be [a1,
+ * aspects are transitively interesting to a visible a3, so {@link #getUsedAspects()} will be [a1,
  * a2, a3], but {@link AspectCollection} will now be:
  *
  * <ul>
- *   <li>a3 -> [a2], a3 is visible
+ *   <li>a3 -> [a2]
  *   <li>a2 -> [a1]
  *   <li>a1 -> []
  * </ul>
  *
  * <p>As a final example, what happens if a3 is interested in a1, and a1 is interested in a2, but a3
- * is not interested in a2? Now the result of {@link #getAllAspects()} will be [a1, a3]. a1 is
+ * is not interested in a2? Now the result of {@link #getUsedAspects()} will be [a1, a3]. a1 is
  * interested in a2, but a2 comes later in the path than a1, so a1 does not see it (a1 only started
  * propagating on r1 -> r0 edge, and there is now a2 originating on that path). And {@link
  * AspectCollection} will now be:
  *
  * <ul>
- *   <li>a3 -> [a1], a3 is visible
+ *   <li>a3 -> [a1]
  *   <li>a1 -> []
  * </ul>
  *
@@ -141,38 +144,31 @@ import java.util.Set;
  */
 @Immutable
 public final class AspectCollection {
-  /** all aspects in the path; transitively visible to {@link #visibleAspects} */
-  private final ImmutableSet<AspectDescriptor> aspectPath;
-
   /** aspects that should be visible to a dependency */
-  private final ImmutableSet<AspectDeps> visibleAspects;
+  private final ImmutableSet<AspectDeps> usedAspects;
 
-  public static final AspectCollection EMPTY = new AspectCollection(
-      ImmutableSet.<AspectDescriptor>of(), ImmutableSet.<AspectDeps>of());
+  public static final AspectCollection EMPTY = new AspectCollection(ImmutableSet.<AspectDeps>of());
 
-
-  private AspectCollection(
-      ImmutableSet<AspectDescriptor> allAspects,
-      ImmutableSet<AspectDeps> visibleAspects) {
-    this.aspectPath = allAspects;
-    this.visibleAspects = visibleAspects;
+  private AspectCollection(ImmutableSet<AspectDeps> usedAspects) {
+    this.usedAspects = usedAspects;
   }
 
-  public Iterable<AspectDescriptor> getAllAspects() {
-    return aspectPath;
-  }
-
-  public ImmutableSet<AspectDeps> getVisibleAspects() {
-    return visibleAspects;
+  public ImmutableSet<AspectDeps> getUsedAspects() {
+    return usedAspects;
   }
 
   public boolean isEmpty() {
-    return aspectPath.isEmpty();
+    return usedAspects.isEmpty();
+  }
+
+  @Override
+  public String toString() {
+    return "AspectCollection{" + usedAspects + "}";
   }
 
   @Override
   public int hashCode() {
-    return aspectPath.hashCode();
+    return usedAspects.hashCode();
   }
 
   @Override
@@ -181,35 +177,34 @@ public final class AspectCollection {
       return false;
     }
     AspectCollection that = (AspectCollection) obj;
-    return Objects.equal(aspectPath, that.aspectPath);
+    return this.usedAspects.equals(that.usedAspects);
   }
 
-
   /**
-   * Represents an aspect with all the aspects it depends on
-   * (within an {@link AspectCollection}.
+   * Represents an aspect with all the aspects it depends on (within an {@link AspectCollection}.
    *
-   * We preserve the order of aspects to correspond to the order in the
-   * original {@link AspectCollection#aspectPath}, although that is not
-   * strictly needed semantically.
+   * <p>We preserve the order of aspects to correspond to the order originally specified in the call
+   * to {@link AspectCollection#create}, although that is not strictly needed semantically.
+   *
+   * <p>This data structure cannot be a simple list. Consider the case when four aspects [a1, a2,
+   * a3, a4] are attached and a4 is interested in a3, a3 in a2 and a2 in a1.
+   *
+   * <p>In this case, when analyzing a3, only a2 will be in its direct dependencies (since we don't
+   * want to merge in the dependencies of a1), but then a2 would have no way of knowing that a1 was
+   * also propagated.
+   *
+   * <p>(a list of (dependent aspect, visible) pairs would work, though and the code would probably
+   * be somewhat simpler)
    */
-  @Immutable
-  public static final class AspectDeps {
-    private final AspectDescriptor aspect;
-    private final ImmutableList<AspectDeps> dependentAspects;
+  @AutoValue
+  public abstract static class AspectDeps {
+    public abstract AspectDescriptor getAspect();
 
-    private AspectDeps(AspectDescriptor aspect,
-        ImmutableList<AspectDeps> dependentAspects) {
-      this.aspect = aspect;
-      this.dependentAspects = dependentAspects;
-    }
+    public abstract ImmutableList<AspectDeps> getUsedAspects();
 
-    public AspectDescriptor getAspect() {
-      return aspect;
-    }
-
-    public ImmutableList<AspectDeps> getDependentAspects() {
-      return dependentAspects;
+    private static AspectDeps create(
+        AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
+      return new AutoValue_AspectCollection_AspectDeps(aspect, usedAspects);
     }
   }
 
@@ -220,70 +215,53 @@ public final class AspectCollection {
   public static AspectCollection createForTests(ImmutableSet<AspectDescriptor> descriptors) {
     ImmutableSet.Builder<AspectDeps> depsBuilder = ImmutableSet.builder();
     for (AspectDescriptor descriptor : descriptors) {
-      depsBuilder.add(new AspectDeps(descriptor, ImmutableList.<AspectDeps>of()));
+      depsBuilder.add(AspectDeps.create(descriptor, ImmutableList.<AspectDeps>of()));
     }
-    return new AspectCollection(descriptors, depsBuilder.build());
+    return new AspectCollection(depsBuilder.build());
   }
 
   /**
-   *  Creates an {@link AspectCollection} from an ordered list of aspects and
-   *  a set of visible aspects.
+   * Creates an {@link AspectCollection} from an ordered list of aspects and a set of visible
+   * aspects.
    *
-   *  The order of aspects is reverse to the order in which they originated, with
-   *  the earliest originating occurring last in the list.
+   * <p>The order of aspects is reverse to the order in which they originated, with the earliest
+   * originating occurring last in the list.
    */
-  public static AspectCollection create(
-      Iterable<Aspect> aspectPath,
-      Set<AspectDescriptor> visibleAspects) throws AspectCycleOnPathException {
+  public static AspectCollection create(Iterable<Aspect> aspectPath)
+      throws AspectCycleOnPathException {
     LinkedHashMap<AspectDescriptor, Aspect> aspectMap = deduplicateAspects(aspectPath);
-
     LinkedHashMap<AspectDescriptor, ArrayList<AspectDescriptor>> deps =
         new LinkedHashMap<>();
 
-    // Calculate all needed aspects (either visible from outside or visible to
-    // other needed aspects). Already discovered needed aspects are in key set of deps.
+    // Calculate all needed aspects. Already discovered aspects are in key set of deps.
     // 1) Start from the end of the path. The aspect only sees other aspects that are
     //    before it
-    // 2) If the 'aspect' is visible from outside, it is needed.
-    // 3) Otherwise, check whether 'aspect' is visible to any already needed aspects,
-    //    if it is visible to a needed 'depAspect',
-    //            add the 'aspect' to a list of aspects visible to 'depAspect'.
-    //    if 'aspect' is needed, add it to 'deps'.
-    // At the end of this algorithm, key set of 'deps' contains a subset of original
-    // aspect list consisting only of needed aspects, in reverse (since we iterate
-    // the original list in reverse).
+    // 2) Otherwise, check whether 'aspect' is visible to any already seen aspects. If it is visible
+    //    to 'depAspect', add the 'aspect' to a list of aspects visible to 'depAspect'.
+    // At the end of this algorithm, key set of 'deps' contains the original aspect list in reverse
+    // (since we iterate the original list in reverse).
     //
     // deps[aspect] contains all aspects that 'aspect' needs, in reverse order.
     for (Map.Entry<AspectDescriptor, Aspect> aspect :
         ImmutableList.copyOf(aspectMap.entrySet()).reverse()) {
-      boolean needed = visibleAspects.contains(aspect.getKey());
       for (AspectDescriptor depAspectDescriptor : deps.keySet()) {
-        if (depAspectDescriptor.equals(aspect.getKey())) {
-          continue;
-        }
         Aspect depAspect = aspectMap.get(depAspectDescriptor);
         if (depAspect.getDefinition().getRequiredProvidersForAspects()
             .isSatisfiedBy(aspect.getValue().getDefinition().getAdvertisedProviders())) {
           deps.get(depAspectDescriptor).add(aspect.getKey());
-          needed = true;
         }
       }
-      if (needed && !deps.containsKey(aspect.getKey())) {
-        deps.put(aspect.getKey(), new ArrayList<AspectDescriptor>());
-      }
+
+      deps.put(aspect.getKey(), new ArrayList<>());
     }
 
-    // Record only the needed aspects from all aspects, in correct order.
-    ImmutableList<AspectDescriptor> neededAspects = ImmutableList.copyOf(deps.keySet()).reverse();
-
-    // Calculate visible aspect paths.
+    // Calculate the path for every directly required aspect
     HashMap<AspectDescriptor, AspectDeps> aspectPaths = new HashMap<>();
-    ImmutableSet.Builder<AspectDeps> visibleAspectPaths = ImmutableSet.builder();
-    for (AspectDescriptor visibleAspect : visibleAspects) {
-      visibleAspectPaths.add(buildAspectDeps(visibleAspect, aspectPaths, deps));
+    ImmutableSet.Builder<AspectDeps> result = ImmutableSet.builder();
+    for (AspectDescriptor aspect : aspectMap.keySet()) {
+      result.add(buildAspectDeps(aspect, aspectPaths, deps));
     }
-    return new AspectCollection(ImmutableSet.copyOf(neededAspects),
-        visibleAspectPaths.build());
+    return new AspectCollection(result.build());
   }
 
   /**
@@ -346,7 +324,7 @@ public final class AspectCollection {
     for (int i = depList.size() - 1; i >= 0; i--) {
       aspectPathBuilder.add(buildAspectDeps(depList.get(i), aspectPaths, deps));
     }
-    AspectDeps aspectPath = new AspectDeps(descriptor, aspectPathBuilder.build());
+    AspectDeps aspectPath = AspectDeps.create(descriptor, aspectPathBuilder.build());
     aspectPaths.put(descriptor, aspectPath);
     return aspectPath;
   }

@@ -237,6 +237,7 @@ java_library(
         "config/RequiredFragmentsUtil.java",
         "config/TransitionResolver.java",
         "configuredtargets/AbstractConfiguredTarget.java",
+        "configuredtargets/ConfiguredTargetsUtil.java",
         "configuredtargets/EnvironmentGroupConfiguredTarget.java",
         "configuredtargets/FileConfiguredTarget.java",
         "configuredtargets/InputFileConfiguredTarget.java",
@@ -328,6 +329,7 @@ java_library(
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
         ":file_provider",
+        ":incompatible_platform_provider",
         ":inconsistent_aspect_order_exception",
         ":label_and_location",
         ":label_expander",
@@ -377,6 +379,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -517,6 +520,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -599,6 +603,7 @@ java_library(
         ":config/build_options",
         ":config/invalid_configuration_exception",
         ":configured_target",
+        ":constraints/platform_restrictions_result",
         ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
@@ -771,6 +776,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+    ],
+)
+
+java_library(
+    name = "incompatible_platform_provider",
+    srcs = ["IncompatiblePlatformProvider.java"],
+    deps = [
+        ":configured_target",
+        ":transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1981,8 +1999,21 @@ java_library(
 )
 
 java_library(
+    name = "constraints/platform_restrictions_result",
+    srcs = ["constraints/PlatformRestrictionsResult.java"],
+    deps = [
+        ":configured_target",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "constraints/top_level_constraint_semantics",
-    srcs = ["constraints/TopLevelConstraintSemantics.java"],
+    srcs = [
+        "constraints/PlatformRestrictionsResult.java",
+        "constraints/TopLevelConstraintSemantics.java",
+    ],
     deps = [
         ":analysis_cluster",
         ":config/build_configuration",
@@ -1990,14 +2021,17 @@ java_library(
         ":constraints/constraint_semantics",
         ":constraints/environment_collection",
         ":constraints/supported_environments_provider",
+        ":incompatible_platform_provider",
         ":transitive_info_collection",
         ":view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

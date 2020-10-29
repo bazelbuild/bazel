@@ -106,9 +106,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
       Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
-      BuildConfiguration config =
-          skyframeExecutor.getConfiguration(
-              eventHandler, configuredTarget.getConfigurationKey());
+      BuildConfiguration config = getConfiguration(configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
               + String.format("%s (%s)", configuredTarget.getOriginalLabel(), shortId(config)));

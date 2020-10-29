@@ -44,7 +44,6 @@ public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigura
             name = "configuration",
             positional = true,
             named = false,
-            type = AppleConfigurationApi.class,
             doc = "The apple configuration fragment.")
       })
   String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);

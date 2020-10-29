@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -60,6 +59,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
@@ -110,14 +110,6 @@ import net.starlark.java.eval.Tuple;
  */
 public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
 
-  public static final Function<Attribute, Object> ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT =
-      new Function<Attribute, Object>() {
-        @Nullable
-        @Override
-        public Object apply(Attribute attribute) {
-          return attribute.getDefaultValue(null);
-        }
-      };
   public static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
   // This field is a copy of the info from ruleContext, stored separately so it can be accessed
@@ -238,7 +230,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        aspectBuilder.addAttribute(attribute, attribute.getDefaultValue(null));
+        Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+        if (defaultValue instanceof ComputedDefault) {
+          defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+        }
+        aspectBuilder.addAttribute(attribute, defaultValue);
       }
       this.attributesCollection = aspectBuilder.build();
 
@@ -255,7 +251,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          ruleBuilder.addAttribute(attribute, attribute.getDefaultValue(null));
+          Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+          if (defaultValue instanceof ComputedDefault) {
+            defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+          }
+          ruleBuilder.addAttribute(attribute, defaultValue);
         }
       }
 
@@ -755,7 +755,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
               var1, ArtifactRoot.class, "expected first param to be of type 'root'");
       Artifact siblingFile =
           assertTypeForNewFile(var2, Artifact.class, "expected second param to be of type 'File'");
-      PathFragment original = siblingFile.getRootRelativePath();
+      PathFragment original =
+          siblingFile.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout());
       PathFragment fragment = original.replaceName(original.getBaseName() + fileSuffix);
       return ruleContext.getDerivedArtifact(fragment, root);
 
@@ -927,7 +928,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Tuple<Object> resolveCommand(
+  public Tuple resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
@@ -979,20 +980,20 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             // conflicting with each other.
             "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
-    return Tuple.<Object>of(
+    return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
         StarlarkList.copyOf(thread.mutability(), argv),
         helper.getToolsRunfilesSuppliers());
   }
 
   @Override
-  public Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException {
+  public Tuple resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
-    return Tuple.<Object>of(
+    return Tuple.pair(
         Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 

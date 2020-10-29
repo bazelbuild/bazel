@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
 import java.util.Map;
 
 /** Static utilities for working with action inputs. */
@@ -45,7 +45,7 @@ final class ActionInputMapHelper {
    */
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -164,7 +164,7 @@ final class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {

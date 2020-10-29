@@ -19,7 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
-import net.starlark.java.syntax.Location;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -256,19 +256,18 @@ public final class StarlarkListTest {
   public void testListAddWithIndex() throws Exception {
     Mutability mutability = Mutability.create("test");
     StarlarkList<String> list = StarlarkList.newList(mutability);
-    Location loc = null;
-    list.add("a", loc);
-    list.add("b", loc);
-    list.add("c", loc);
-    list.add(0, "d", loc);
+    list.addElement("a");
+    list.addElement("b");
+    list.addElement("c");
+    list.addElementAt(0, "d");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"b\", \"c\"]");
-    list.add(2, "e", loc);
+    list.addElementAt(2, "e");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"c\"]");
-    list.add(4, "f", loc);
+    list.addElementAt(4, "f");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\"]");
-    list.add(6, "g", loc);
+    list.addElementAt(6, "g");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\", \"g\"]");
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.add(8, "h", loc));
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.addElementAt(8, "h"));
   }
 
   @Test
@@ -279,29 +278,20 @@ public final class StarlarkListTest {
             mutability, ImmutableList.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     mutability.freeze();
 
-    // The casts force selection of the Starlark add/remove methods,
-    // not the disabled ones like List.add(int, Object).
-    // We could enable the List method, but then it would have to
-    // report failures using unchecked exceptions.
-    EvalException e =
-        assertThrows(
-            EvalException.class, () -> list.add((Object) StarlarkInt.of(4), (Location) null));
+    EvalException e = assertThrows(EvalException.class, () -> list.addElement(StarlarkInt.of(4)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e =
-        assertThrows(
-            EvalException.class, () -> list.add(0, (Object) StarlarkInt.of(4), (Location) null));
+    e = assertThrows(EvalException.class, () -> list.addElementAt(0, StarlarkInt.of(4)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e =
         assertThrows(
             EvalException.class,
             () ->
-                list.addAll(
-                    ImmutableList.of(StarlarkInt.of(4), StarlarkInt.of(5), StarlarkInt.of(6)),
-                    (Location) null));
+                list.addElements(
+                    ImmutableList.of(StarlarkInt.of(4), StarlarkInt.of(5), StarlarkInt.of(6))));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.remove(0, (Location) null));
+    e = assertThrows(EvalException.class, () -> list.removeElementAt(0));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.set(0, StarlarkInt.of(10), (Location) null));
+    e = assertThrows(EvalException.class, () -> list.setElementAt(0, StarlarkInt.of(10)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
@@ -313,8 +303,7 @@ public final class StarlarkListTest {
             mutability, ImmutableList.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     list.unsafeShallowFreeze();
 
-    EvalException e =
-        assertThrows(EvalException.class, () -> list.add((Object) StarlarkInt.of(4), null));
+    EvalException e = assertThrows(EvalException.class, () -> list.addElement(StarlarkInt.of(4)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
@@ -324,10 +313,10 @@ public final class StarlarkListTest {
     Mutability mutability = Mutability.create("test");
     StarlarkList<String> mutableList = StarlarkList.copyOf(mutability, copyFrom);
     copyFrom.add("added1");
-    mutableList.add("added2", (Location) null);
+    mutableList.addElement("added2");
 
     assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
-    assertThat(mutableList).containsExactly("hi", "added2").inOrder();
+    assertThat((List<String>) mutableList).containsExactly("hi", "added2").inOrder();
   }
 
   @Test
@@ -338,6 +327,6 @@ public final class StarlarkListTest {
 
     // Big no-no, but we're proving a point.
     wrapped[0] = "goodbye";
-    assertThat(mutableList).containsExactly("goodbye");
+    assertThat((List<String>) mutableList).containsExactly("goodbye");
   }
 }

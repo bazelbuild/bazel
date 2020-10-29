@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -146,6 +147,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
                   .value(ImmutableList.of()))
+          .add(
+              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                  // This should be configurable to allow for complex types of restrictions.
+                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
 
   /** Parent rule class for executable non-test Starlark rules. */
@@ -627,8 +633,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
    *
    * <p>Exactly one of {@link #builder} or {@link #ruleClass} is null except inside {@link #export}.
    */
-  public static final class StarlarkRuleFunction
-      implements StarlarkCallable, StarlarkExportable, RuleFunction {
+  public static final class StarlarkRuleFunction implements StarlarkExportable, RuleFunction {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
@@ -637,6 +642,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     private final Location definitionLocation;
     private Label starlarkLabel;
 
+    // TODO(adonovan): merge {Starlark,Builtin}RuleFunction and RuleClass,
+    // making the latter a callable, StarlarkExportable value.
+    // (Making RuleClasses first-class values will help us to build a
+    // rich query output mode that includes values from loaded .bzl files.)
     public StarlarkRuleFunction(
         RuleClass.Builder builder,
         RuleClassType type,
@@ -665,11 +674,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     @Override
     public String getName() {
-      return "rule";
+      return ruleClass != null ? ruleClass.getName() : "unexported rule";
     }
 
     @Override
-    public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException, ConversionException {
       if (!args.isEmpty()) {
         throw new EvalException("unexpected positional arguments");

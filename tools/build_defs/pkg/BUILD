@@ -88,45 +88,6 @@ py_binary(
     ],
 )
 
-# Used by pkg_rpm in rpm.bzl.
-py_binary(
-    name = "make_rpm",
-    srcs = ["make_rpm.py"],
-    deprecation = "The internal version of make_rpm is deprecated. Please " +
-                  "use the replacement for pkg_rpm from " +
-                  "https://github.com/bazelbuild/rules_pkg/blob/master/pkg.",
-    python_version = PY_BINARY_VERSION,
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":make_rpm_lib",
-    ],
-)
-
-py_library(
-    name = "make_rpm_lib",
-    srcs = ["make_rpm.py"],
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "make_rpm_test",
-    srcs = ["make_rpm_test.py"],
-    python_version = PY_BINARY_VERSION,
-    srcs_version = "PY2AND3",
-    # rpmbuild is not available in windows
-    tags = [
-        "no_windows",
-    ],
-    deps = [
-        ":make_rpm_lib",
-    ],
-)
-
 # tests
 
 genrule(

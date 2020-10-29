@@ -249,13 +249,9 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, ClassOb
   @Override
   public boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
-    // TODO(adonovan): implement isHashable?
     if (!getProvider().isExported()) {
       return false;
     }
-    // TODO(bazel-team): If we export at the end of a full module's evaluation, instead of at the
-    // end of every top-level statement, then we can assume that exported implies frozen, and just
-    // return true here without a traversal.
     for (int i = table.length / 2; i < table.length; i++) {
       if (!Starlark.isImmutable(table[i])) {
         return false;

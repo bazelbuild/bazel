@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -46,21 +47,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
-  private static final ImmutableList<String> MOCK_SDK_VERSIONS = ImmutableList.of("foo", "bar");
-  private static final ImmutableList<String> MOCK_NDK_CPUS = ImmutableList.of("x86", "armeabi-v7a");
-
-  private static final String PLATFORM_TEMPLATE =
-      String.join(
-          "\n",
-          "platform(",
-          "    name = '%s',",
-          "    constraint_values = [",
-          "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
-          "    ])");
+  private static final ImmutableList<String> MOCK_CPUS = ImmutableList.of("x86_64", "arm");
 
   @Before
-  public void writeMockPlatforms() throws Exception {
-    MockPlatformSupport.setup(mockToolsConfig);
+  public void setupMockClient() throws Exception {
+    getAnalysisMock().setupMockClient(mockToolsConfig);
     // This line is necessary so an ARM C++ toolchain is available for dependencies under an Android
     // split transition. BazelMockAndroidSupport.setupNdk(mockToolsConfig) isn't sufficient for this
     // because that sets up the NDK in a special package //android/crosstool that tests then have to
@@ -69,28 +60,40 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     // tests to have to explicitly set --android_crosstool_top. Until --platforms correctly does
     // that, NDKs default to the default C++ toolchain. That's what this line configures.
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+  }
 
-    for (String sdkVersion : MOCK_SDK_VERSIONS) {
-      scratch.appendFile("platforms/BUILD", String.format(PLATFORM_TEMPLATE, "sdk_" + sdkVersion));
-    }
-    for (String ndkCpu : MOCK_NDK_CPUS) {
-      scratch.appendFile("platforms/BUILD", String.format(PLATFORM_TEMPLATE, "ndk_" + ndkCpu));
+  private static final String PLATFORM_TEMPLATE =
+      String.join(
+          "\n",
+          "platform(",
+          "    name = '%s',",
+          "    constraint_values = [",
+          "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
+          "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:%s',",
+          "    ])");
+
+  @Before
+  public void writeMockPlatforms() throws Exception {
+    MockPlatformSupport.setup(mockToolsConfig);
+    for (String cpu : MOCK_CPUS) {
+      scratch.appendFile(
+          "test_android_platforms/BUILD", String.format(PLATFORM_TEMPLATE, cpu, cpu));
     }
   }
 
   @Before
   public void writeMockSDKs() throws Exception {
-    for (String sdkVersion : MOCK_SDK_VERSIONS) {
+    for (String cpu : MOCK_CPUS) {
       scratch.appendFile(
-          "sdk/BUILD",
+          "test_android_sdks/BUILD",
           "android_sdk(",
-          String.format("    name = 'sdk_%s',", sdkVersion),
+          String.format("    name = '%s',", cpu),
           "    aapt = 'aapt',",
           "    aapt2 = 'aapt2',",
           "    adb = 'adb',",
           "    aidl = 'aidl',",
           "    android_jar = 'android.jar',",
-          String.format("    apksigner = 'apksigner_%s',", sdkVersion),
+          String.format("    apksigner = 'apksigner_%s',", cpu),
           "    dx = 'dx',",
           "    framework_aidl = 'framework_aidl',",
           "    main_dex_classes = 'main_dex_classes',",
@@ -102,6 +105,33 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     }
   }
 
+  @Before
+  public void writeMockSdkToolchains() throws Exception {
+    for (String cpu : MOCK_CPUS) {
+      scratch.appendFile(
+          "test_android_sdk_toolchains/BUILD",
+          "toolchain(",
+          String.format("    name = '%s',", cpu),
+          String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
+          String.format("    toolchain = '//test_android_sdks:%s',", cpu),
+          "    target_compatible_with = [",
+          String.format("        '%scpu:%s',", TestConstants.CONSTRAINTS_PACKAGE_ROOT, cpu),
+          "    ]",
+          ")");
+    }
+  }
+
+  /** {@link #useConfiguration} variant that sets up Android platform resolution and toolchains. */
+  private void usePlatformConfiguration(String... args) throws Exception {
+    ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
+    fullArgs.add("--incompatible_enable_android_toolchain_resolution");
+    String toolchainLabels =
+        MOCK_CPUS.stream().map(cpu -> "//test_android_sdk_toolchains:" + cpu).collect(joining(","));
+    fullArgs.add("--extra_toolchains=" + toolchainLabels);
+    fullArgs.add(args);
+    useConfiguration(fullArgs.build().toArray(new String[0]));
+  }
+
   @Test
   public void chooseSdk() throws Exception {
     scratch.file(
@@ -111,21 +141,19 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
         "    srcs = ['A.java'],",
         "    manifest = 'AndroidManifest.xml')");
 
-    useConfiguration("--platforms=//platforms:sdk_foo");
-    Artifact apkFoo =
+    usePlatformConfiguration("--platforms=//test_android_platforms:x86_64");
+    Artifact apkX86 =
         getImplicitOutputArtifact(
             getConfiguredTarget("//java/a:a"), AndroidRuleClasses.ANDROID_BINARY_APK);
-    // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
-    assertThat(getGeneratingSpawnActionArgs(apkFoo).get(0)).endsWith("/ApkSignerBinary");
-    // assertThat(getGeneratingSpawnActionArgs(apkFoo).get(0)).isEqualTo("sdk/apksigner_foo");
+    assertThat(getGeneratingSpawnActionArgs(apkX86).get(0))
+        .isEqualTo("test_android_sdks/apksigner_x86_64");
 
-    useConfiguration("--platforms=//platforms:sdk_bar");
-    Artifact apkBar =
+    usePlatformConfiguration("--platforms=//test_android_platforms:arm");
+    Artifact apkArm =
         getImplicitOutputArtifact(
             getConfiguredTarget("//java/a:a"), AndroidRuleClasses.ANDROID_BINARY_APK);
-    // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
-    assertThat(getGeneratingSpawnActionArgs(apkBar).get(0)).endsWith("/ApkSignerBinary");
-    // assertThat(getGeneratingSpawnActionArgs(apkBar).get(0)).isEqualTo("sdk/apksigner_foo");
+    assertThat(getGeneratingSpawnActionArgs(apkArm).get(0))
+        .isEqualTo("test_android_sdks/apksigner_arm");
   }
 
   @Test
@@ -143,7 +171,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
 
     // See BazelMockAndroidSupport for the NDK toolchain this should imply. This replaces
     // "--fat_apk_cpu=x86", "--android_crosstool_top=//android/crosstool:everything".
-    useConfiguration("--platforms=//platforms:ndk_x86");
+    useConfiguration("--platforms=//test_android_platforms:x86_64");
     ConfiguredTarget x86Binary = getConfiguredTarget("//java/a:a");
     CppLinkAction x86Link =
         (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(x86Binary, "deps").get(0));
@@ -154,7 +182,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
 
     // See BazelMockAndroidSupport for the NDK toolchain this should imply. This replaces
     // "--fat_apk_cpu=armeabi-v7a", "--android_crosstool_top=//android/crosstool:everything".
-    useConfiguration("--platforms=//platforms:ndk_armeabi-v7a");
+    useConfiguration("--platforms=//test_android_platforms:arm");
     ConfiguredTarget armBinary = getConfiguredTarget("//java/a:a");
     CppLinkAction armLink =
         (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(armBinary, "deps").get(0));

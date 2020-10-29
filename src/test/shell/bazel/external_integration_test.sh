@@ -2487,4 +2487,59 @@ EOF
   done
 }
 
+function test_external_java_target_depends_on_external_resources() {
+  local test_repo1=$TEST_TMPDIR/repo1
+  local test_repo2=$TEST_TMPDIR/repo2
+
+  mkdir -p $test_repo1/a
+  mkdir -p $test_repo2
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+local_repository(name = 'repo1', path='$test_repo1')
+local_repository(name = 'repo2', path='$test_repo2')
+EOF
+  cat > BUILD <<'EOF'
+java_binary(
+    name = "a_bin",
+    runtime_deps = ["@repo1//a:a"],
+    main_class = "a.A",
+)
+EOF
+
+  touch $test_repo1/WORKSPACE
+  cat > $test_repo1/a/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "a",
+    srcs = ["A.java"],
+    resources = ["@repo2//:resource_files"],
+)
+EOF
+  cat > $test_repo1/a/A.java <<EOF
+package a;
+
+public class A {
+    public static void main(String args[]) {
+    }
+}
+EOF
+
+  touch $test_repo2/WORKSPACE
+  cat > $test_repo2/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "resource_files",
+    srcs = ["resource.txt"]
+)
+EOF
+
+  cat > $test_repo2/resource.txt <<EOF
+RESOURCE
+EOF
+
+  bazel build a_bin >& $TEST_log  || fail "Expected build/run to succeed"
+}
+
 run_suite "external tests"

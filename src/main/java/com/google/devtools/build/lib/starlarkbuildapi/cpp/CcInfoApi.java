@@ -68,7 +68,6 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               doc = "The <code>CompilationContext</code>.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcCompilationContextApi.class),
@@ -79,7 +78,6 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               doc = "The <code>LinkingContext</code>.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcLinkingContextApi.class),

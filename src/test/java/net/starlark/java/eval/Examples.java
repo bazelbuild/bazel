@@ -123,10 +123,10 @@ final class Examples {
   static final class MyFunctions {
     @StarlarkMethod(
         name = "square",
-        parameters = {@Param(name = "x", type = int.class)},
+        parameters = {@Param(name = "x")},
         doc = "Returns the square of its integer argument.")
-    public int square(int x) {
-      return x * x;
+    public StarlarkInt square(StarlarkInt x) {
+      return StarlarkInt.multiply(x, x);
     }
   }
 }

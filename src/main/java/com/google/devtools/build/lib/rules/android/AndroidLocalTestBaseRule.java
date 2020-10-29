@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -24,9 +25,10 @@ import static com.google.devtools.build.lib.rules.android.AndroidRuleClasses.get
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -93,7 +95,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         // rule so they're not defined in multiple places
         .add(
             attr("$android_resources_busybox", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_RESOURCES_BUSYBOX)))
         .add(
@@ -137,6 +139,26 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         you will likely need to use <code>test_class</code> as well.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("custom_package", STRING))
+        /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(enable_data_binding) -->
+        If true, this rule processes
+        <a href="https://developer.android.com/topic/libraries/data-binding/index.html">data
+        binding</a> references used in data-binding enabled dependencies used by this test. Without
+        this setting, data-binding dependencies won't have necessary binary-level code generation,
+        and may produce build failures.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("enable_data_binding", BOOLEAN))
+        // The javac annotation processor from Android's data binding library that turns
+        // processed XML expressions into Java code.
+        .add(
+            attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(
+                    environment.getToolsLabel("//tools/android:databinding_annotation_processor")))
+        .add(
+            attr(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR, LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .exec()
+                .value(environment.getToolsLabel("//tools/android:databinding_exec")))
         /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(nocompress_extensions) -->
         A list of file extensions to leave uncompressed in the resource apk.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

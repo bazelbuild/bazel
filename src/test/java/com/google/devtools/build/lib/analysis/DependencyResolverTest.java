@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.causes.Cause;
@@ -127,7 +129,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
     assertWithMessage("Dependency '" + dep + "' on attribute '" + attrName + "' not found")
         .that(dependency)
         .isNotNull();
-    assertThat(dependency.getAspects().getAllAspects()).containsExactly((Object[]) aspects);
+    assertThat(Iterables.transform(dependency.getAspects().getUsedAspects(), AspectDeps::getAspect))
+        .containsExactlyElementsIn(aspects);
     return dependency;
   }
 

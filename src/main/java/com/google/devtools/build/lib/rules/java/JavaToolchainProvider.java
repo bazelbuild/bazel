@@ -85,8 +85,6 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable FilesToRunProvider headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
-      ImmutableSet<Label> reducedClasspathIncompatibleTargets,
-      ImmutableSet<String> turbineIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -98,7 +96,9 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
-      JavaSemantics javaSemantics) {
+      FilesToRunProvider proguardAllowlister,
+      JavaSemantics javaSemantics,
+      JavaRuntimeInfo javaRuntime) {
     return new JavaToolchainProvider(
         label,
         bootclasspath,
@@ -109,8 +109,6 @@ public class JavaToolchainProvider extends ToolchainInfo
         headerCompilerDirect,
         headerCompilerBuiltinProcessors,
         reducedClasspathIncompatibleProcessors,
-        reducedClasspathIncompatibleTargets,
-        turbineIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
         singleJar,
         oneVersion,
@@ -128,7 +126,9 @@ public class JavaToolchainProvider extends ToolchainInfo
         javacSupportsMultiplexWorkers,
         packageConfiguration,
         jacocoRunner,
-        javaSemantics);
+        proguardAllowlister,
+        javaSemantics,
+        javaRuntime);
   }
 
   private final Label label;
@@ -140,8 +140,6 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Nullable private final FilesToRunProvider headerCompilerDirect;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
-  private final ImmutableSet<Label> reducedClasspathIncompatibleTargets;
-  private final ImmutableSet<String> turbineIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
@@ -159,7 +157,9 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final boolean javacSupportsMultiplexWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
+  private final FilesToRunProvider proguardAllowlister;
   private final JavaSemantics javaSemantics;
+  private final JavaRuntimeInfo javaRuntime;
 
   @VisibleForSerialization
   JavaToolchainProvider(
@@ -172,8 +172,6 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable FilesToRunProvider headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
-      ImmutableSet<Label> reducedClasspathIncompatibleTargets,
-      ImmutableSet<String> turbineIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -191,7 +189,9 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean javacSupportsMultiplexWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
-      JavaSemantics javaSemantics) {
+      FilesToRunProvider proguardAllowlister,
+      JavaSemantics javaSemantics,
+      JavaRuntimeInfo javaRuntime) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
@@ -203,8 +203,6 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.headerCompilerDirect = headerCompilerDirect;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
     this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
-    this.reducedClasspathIncompatibleTargets = reducedClasspathIncompatibleTargets;
-    this.turbineIncompatibleProcessors = turbineIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
@@ -222,7 +220,9 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
+    this.proguardAllowlister = proguardAllowlister;
     this.javaSemantics = javaSemantics;
+    this.javaRuntime = javaRuntime;
   }
 
   /** Returns the label for this {@code java_toolchain}. */
@@ -275,13 +275,6 @@ public class JavaToolchainProvider extends ToolchainInfo
     return reducedClasspathIncompatibleProcessors;
   }
 
-  public ImmutableSet<Label> getReducedClasspathIncompatibleTargets() {
-    return reducedClasspathIncompatibleTargets;
-  }
-
-  public ImmutableSet<String> getTurbineIncompatibleProcessors() {
-    return turbineIncompatibleProcessors;
-  }
 
   /**
    * Returns {@code true} if header compilation should be forcibly disabled, overriding
@@ -397,8 +390,16 @@ public class JavaToolchainProvider extends ToolchainInfo
     return jacocoRunner;
   }
 
+  public FilesToRunProvider getProguardAllowlister() {
+    return proguardAllowlister;
+  }
+
   public JavaSemantics getJavaSemantics() {
     return javaSemantics;
+  }
+
+  public JavaRuntimeInfo getJavaRuntime() {
+    return javaRuntime;
   }
 
   /** Returns the input Java language level */

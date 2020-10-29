@@ -482,9 +482,10 @@ public class TestRunnerAction extends AbstractAction
    * the test log base name with arbitrary prefix and extension.
    */
   @Override
-  protected void deleteOutputs(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  protected void deleteOutputs(
+      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
       throws IOException, InterruptedException {
-    super.deleteOutputs(execRoot, bulkDeleter);
+    super.deleteOutputs(execRoot, pathResolver, bulkDeleter);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.

@@ -306,7 +306,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               Code.SOURCE_FILES_MISSING));
     }
 
-    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext);
     CcCompilationOutputs precompiledFilesObjects =
         CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
@@ -435,7 +435,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         common.getInstrumentedFilesProvider(
             instrumentedObjectFiles,
             /* withBaselineCoverage= */ true,
-            /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+            /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER),
+            /* additionalMetadata= */ null);
     CppHelper.maybeAddStaticLinkMarkerProvider(targetBuilder, ruleContext);
 
     Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());

@@ -55,6 +55,10 @@ public class TargetPatternUtil {
       Environment env, List<String> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
 
+    if (targetPatterns.isEmpty()) {
+      return ImmutableList.of();
+    }
+
     // First parse the patterns, and throw any errors immediately.
     List<TargetPatternValue.TargetPatternKey> patternKeys = new ArrayList<>();
     for (TargetPatternValue.TargetPatternSkyKeyOrException keyOrException :

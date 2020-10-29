@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.config;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -51,7 +52,6 @@ public interface ConfigGlobalLibraryApi {
       parameters = {
         @Param(
             name = "implementation",
-            type = StarlarkCallable.class,
             positional = false,
             named = true,
             // TODO(cparsons): The settings dict should take actual Label objects as keys and not
@@ -76,8 +76,7 @@ public interface ConfigGlobalLibraryApi {
                     + "split transition."),
         @Param(
             name = "inputs",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             positional = false,
             named = true,
             doc =
@@ -86,8 +85,7 @@ public interface ConfigGlobalLibraryApi {
                     + "parameter."),
         @Param(
             name = "outputs",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             positional = false,
             named = true,
             doc =
@@ -119,7 +117,6 @@ public interface ConfigGlobalLibraryApi {
       parameters = {
         @Param(
             name = "settings",
-            type = Dict.class,
             positional = false,
             named = true,
             doc =

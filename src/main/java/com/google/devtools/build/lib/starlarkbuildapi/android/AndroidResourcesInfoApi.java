@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -128,18 +129,9 @@ public interface AndroidResourcesInfoApi<
         doc = "The <code>AndroidResourcesInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "label",
-              doc = "A label of the target.",
-              positional = true,
-              named = false,
-              type = Label.class),
-          @Param(
-              name = "manifest",
-              positional = true,
-              named = true,
-              type = AndroidManifestInfoApi.class),
-          @Param(name = "r_txt", positional = true, named = true, type = FileApi.class),
+          @Param(name = "label", doc = "A label of the target.", positional = true, named = false),
+          @Param(name = "manifest", positional = true, named = true),
+          @Param(name = "r_txt", positional = true, named = true),
           @Param(
               name = "transitive_android_resources",
               doc =
@@ -147,43 +139,41 @@ public interface AndroidResourcesInfoApi<
                       + "closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = ValidatedAndroidDataApi.class),
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = ValidatedAndroidDataApi.class)
+              }),
           @Param(
               name = "direct_android_resources",
               doc = "A depset of ValidatedAndroidData of Android Resources for the target.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = ValidatedAndroidDataApi.class),
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = ValidatedAndroidDataApi.class)
+              }),
           @Param(
               name = "transitive_resources",
               doc = "A depset of Artifacts of Android Resource files in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_manifests",
               doc = "A depset of Artifacts of Android Manifests in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_aapt2_r_txt",
               doc = "A depset of Artifacts of Android AAPT2 R.txt files in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_symbols_bin",
               doc = "A depset of Artifacts of Android symbols files in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_compiled_symbols",
               doc =
@@ -191,25 +181,22 @@ public interface AndroidResourcesInfoApi<
                       + "closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               // TODO(b/119560471): remove.
               name = "transitive_static_lib",
               doc = "A depset of Artifacts of static lib files in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              defaultValue = "unbound",
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)},
+              defaultValue = "unbound"),
           @Param(
               name = "transitive_r_txt",
               doc = "A depset of Artifacts of Android AAPT R.txt files in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              defaultValue = "unbound", // needed to allow removing any earlier parameters.
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)},
+              defaultValue = "unbound"), // needed to allow removing any earlier parameters.
           // TODO(b/132383435): remove this
           @Param(
               name = "validation_artifacts",
@@ -217,8 +204,7 @@ public interface AndroidResourcesInfoApi<
               doc = "A depset of opaque files to trigger resource validation.",
               positional = false,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

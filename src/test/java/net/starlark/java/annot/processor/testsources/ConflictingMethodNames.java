@@ -29,7 +29,7 @@ public class ConflictingMethodNames implements StarlarkValue {
       name = "conflicting_method",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "one", named = true),
       })
   public String conflictingMethod(String one) {
     return "foo";
@@ -39,8 +39,8 @@ public class ConflictingMethodNames implements StarlarkValue {
       name = "conflicting_method",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = StarlarkInt.class, named = true),
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
       })
   public String conflictingMethodTwo(String one, StarlarkInt two) {
     return "foo";

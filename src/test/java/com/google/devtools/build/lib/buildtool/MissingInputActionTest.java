@@ -79,7 +79,9 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     addOptions("--workspace_status_command=" + sleepPath.getPathString());
     for (int i = 0; i < 2; i++) {
       assertMissingInputOnBuild("//dummy", 1);
-      events.assertContainsError("dummy/BUILD:1:8: //dummy:dummy: missing input file '//dummy:in'");
+      events.assertContainsError(
+          "dummy/BUILD:1:8: Executing genrule //dummy:dummy failed: missing input file"
+              + " '//dummy:in'");
       events.assertContainsEventWithFrequency("missing input file", 1);
       events.assertDoesNotContainEvent("Failed to determine build info");
       events.clear();

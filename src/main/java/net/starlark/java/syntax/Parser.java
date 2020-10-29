@@ -564,7 +564,8 @@ final class Parser {
     return literal;
   }
 
-  //  primary = INTEGER
+  //  primary = INT
+  //          | FLOAT
   //          | STRING
   //          | IDENTIFIER
   //          | list_expression
@@ -577,6 +578,14 @@ final class Parser {
       case INT:
         {
           IntLiteral literal = new IntLiteral(locs, token.raw, token.start, (Number) token.value);
+          nextToken();
+          return literal;
+        }
+
+      case FLOAT:
+        {
+          FloatLiteral literal =
+              new FloatLiteral(locs, token.raw, token.start, (double) token.value);
           nextToken();
           return literal;
         }

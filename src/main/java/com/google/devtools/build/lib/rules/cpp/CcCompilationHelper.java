@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -61,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -355,8 +352,7 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts)
-      throws InterruptedException {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
     Preconditions.checkNotNull(additionalCopts);
 
     setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
@@ -754,14 +750,14 @@ public final class CcCompilationHelper {
    *
    * @throws RuleErrorException
    */
-  public CompilationInfo compile(Consumer<String> errorReporter)
+  public CompilationInfo compile(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
 
     if (!generatePicAction && !generateNoPicAction) {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
     }
 
-    ccCompilationContext = initializeCcCompilationContext();
+    ccCompilationContext = initializeCcCompilationContext(ruleContext);
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
@@ -769,7 +765,7 @@ public final class CcCompilationHelper {
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
-    CcCompilationOutputs ccOutputs = createCcCompileActions(errorReporter);
+    CcCompilationOutputs ccOutputs = createCcCompileActions();
 
     return new CompilationInfo(ccCompilationContext, ccOutputs);
   }
@@ -978,7 +974,8 @@ public final class CcCompilationHelper {
   }
 
   /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
-  private CcCompilationContext initializeCcCompilationContext() throws InterruptedException {
+  private CcCompilationContext initializeCcCompilationContext(RuleContext ruleContext)
+      throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
 
@@ -990,18 +987,14 @@ public final class CcCompilationHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
-    boolean siblingRepositoryLayout =
-        actionConstructionContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
-    RepositoryName repositoryName = label.getPackageIdentifier().getRepository();
+    boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
+    RepositoryName repositoryName = label.getRepository();
     PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
-        configuration.getGenfilesFragment(repositoryName).getRelative(repositoryPath));
+        ruleContext.getGenfilesFragment().getRelative(repositoryPath));
     ccCompilationContextBuilder.addQuoteIncludeDir(
-        configuration.getBinFragment(repositoryName).getRelative(repositoryPath));
+        ruleContext.getBinFragment().getRelative(repositoryPath));
 
     ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
     ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
@@ -1239,7 +1232,8 @@ public final class CcCompilationHelper {
 
   /** @return the no-PIC header module artifact for the current target. */
   private Artifact.DerivedArtifact getHeaderModule(Artifact moduleMapArtifact) {
-    PathFragment objectDir = CppHelper.getObjDirectory(label);
+    PathFragment objectDir =
+        CppHelper.getObjDirectory(label, configuration.isSiblingRepositoryLayout());
     PathFragment outputName =
         objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
     return actionConstructionContext.getRelatedArtifact(outputName, ".pcm");
@@ -1247,7 +1241,8 @@ public final class CcCompilationHelper {
 
   /** @return the pic header module artifact for the current target. */
   private Artifact.DerivedArtifact getPicHeaderModule(Artifact moduleMapArtifact) {
-    PathFragment objectDir = CppHelper.getObjDirectory(label);
+    PathFragment objectDir =
+        CppHelper.getObjDirectory(label, configuration.isSiblingRepositoryLayout());
     PathFragment outputName =
         objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
     return actionConstructionContext.getRelatedArtifact(outputName, ".pic.pcm");
@@ -1338,8 +1333,7 @@ public final class CcCompilationHelper {
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions(Consumer<String> errorReporter)
-      throws RuleErrorException {
+  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -1373,7 +1367,6 @@ public final class CcCompilationHelper {
     }
     outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
-    boolean hasTemplateAction = false;
     for (CppSource source : compilationUnitSources.values()) {
       Artifact sourceArtifact = source.getSource();
       Label sourceLabel = source.getLabel();
@@ -1419,7 +1412,6 @@ public final class CcCompilationHelper {
             break;
         }
       } else {
-        hasTemplateAction = true;
         switch (source.getType()) {
           case HEADER:
             Artifact headerTokenFile =
@@ -1458,16 +1450,6 @@ public final class CcCompilationHelper {
                 "Encountered invalid source types when creating CppCompileActionTemplates");
         }
       }
-    }
-
-    // TODO(b/159733792): Remove this -- this fails the analysis phase to avoid a crash later due to
-    //  missing archived artifact for the template action output.
-
-    if (hasTemplateAction
-        && configuration.getOptions().get(CoreOptions.class).sendArchivedTreeArtifactInputs) {
-      errorReporter.accept(
-          "Template actions are not supported when using"
-              + " --experimental_send_archived_tree_artifact_inputs option");
     }
 
     return result.build();
@@ -2026,7 +2008,8 @@ public final class CcCompilationHelper {
   }
 
   private Artifact getDwoFile(Artifact outputFile) {
-    return actionConstructionContext.getRelatedArtifact(outputFile.getRootRelativePath(), ".dwo");
+    return actionConstructionContext.getRelatedArtifact(
+        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ".dwo");
   }
 
   private Artifact getLtoIndexingFile(Artifact outputFile) {
@@ -2034,7 +2017,8 @@ public final class CcCompilationHelper {
       return null;
     }
     String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
-    return actionConstructionContext.getRelatedArtifact(outputFile.getRootRelativePath(), ext);
+    return actionConstructionContext.getRelatedArtifact(
+        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ext);
   }
 
   /** Create the actions for "--save_temps". */

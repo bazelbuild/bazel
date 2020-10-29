@@ -420,6 +420,15 @@ public class BazelJavaRuleClasses {
                   .allowedFileTypes(FileTypeSet.NO_FILE)
                   .mandatoryProviders(
                       StarlarkProviderIdentifier.forKey(CcLauncherInfo.PROVIDER.getKey())))
+          /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(use_launcher) -->
+          Whether the binary should use a custom launcher.
+
+          <p>If this attribute is set to false, the
+          <a href="${link java_binary.launcher}">launcher</a> attribute  and the related
+          <a href="../user-manual.html#flag--java_launcher"><code>--java_launcher</code></a> flag
+          will be ignored for this target.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("use_launcher", BOOLEAN).value(true))
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER)) // blaze flag
           .add(
               attr("$launcher", LABEL)

@@ -72,7 +72,7 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true),
       })
   // TODO(b/113797843): Not written in Starlark because of GoRunfilesProvider.
   public RunfilesApi starlarkGetGoRunfiles(StarlarkRuleContextT starlarkRuleContext)
@@ -83,7 +83,7 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "go", positional = false, named = true, type = GoConfigurationApi.class),
+        @Param(name = "go", positional = false, named = true),
       })
   // TODO(b/113797843): Not written in Starlark because of GoCompilationHelper.
   public int getArchIntSize(GoConfigurationT goConfig);
@@ -93,21 +93,20 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "export", positional = false, named = true, type = FileApi.class),
-        @Param(name = "pkg", positional = false, named = true, type = FileApi.class),
-        @Param(name = "gopkg", positional = false, named = true, type = FileApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "export", positional = false, named = true),
+        @Param(name = "pkg", positional = false, named = true),
+        @Param(name = "gopkg", positional = false, named = true),
         @Param(
             name = "wrap_context",
             positional = false,
             named = true,
             defaultValue = "None",
-            noneable = true,
             allowedTypes = {
               @ParamType(type = NoneType.class),
               @ParamType(type = GoContextInfoApi.class)
             }),
-        @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
+        @Param(name = "cc_info", positional = false, named = true),
       })
   public GoContextInfoT starlarkCollectTransitiveGoContextGopkg(
       StarlarkRuleContextT starlarkRuleContext,
@@ -122,8 +121,8 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_info", positional = false, named = true),
       })
   // TODO(b/113797843): GoWrapCcInfo is not written in Starlark because several native rules use it.
   public GoWrapCcInfoApi<FileT> getGoWrapCcInfo(
@@ -135,12 +134,8 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(
-            name = "linking_context",
-            positional = false,
-            named = true,
-            type = CcLinkingContextApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "linking_context", positional = false, named = true),
       })
   public GoCcLinkParamsInfoApi getGoCcLinkParamsProvider(
       StarlarkRuleContextT ruleContext, CcLinkingContextT ccLinkingContext)
@@ -151,16 +146,12 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(
-            name = "cc_toolchain",
-            positional = false,
-            named = true,
-            type = CcToolchainProviderApi.class),
-        @Param(name = "srcs", positional = false, named = true, type = Sequence.class),
-        @Param(name = "deps", positional = false, named = true, type = Sequence.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "srcs", positional = false, named = true),
+        @Param(name = "deps", positional = false, named = true),
       })
-  public Tuple<FileT> createGoCompileActions(
+  public Tuple /* of FileT */ createGoCompileActions(
       StarlarkRuleContextT starlarkRuleContext,
       CcToolchainProviderT ccToolchainProvider,
       Sequence<?> srcs, // <FileT> expected
@@ -172,16 +163,12 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(
-            name = "cc_toolchain",
-            positional = false,
-            named = true,
-            type = CcToolchainProviderApi.class),
-        @Param(name = "srcs", positional = false, named = true, type = Sequence.class),
-        @Param(name = "deps", positional = false, named = true, type = Sequence.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "srcs", positional = false, named = true),
+        @Param(name = "deps", positional = false, named = true),
       })
-  public Tuple<FileT> createGoCompileActionsGopkg(
+  public Tuple /* of FileT */ createGoCompileActionsGopkg(
       StarlarkRuleContextT starlarkRuleContext,
       CcToolchainProviderT ccToolchainProvider,
       Sequence<?> srcs, // <FileT> expected
@@ -193,10 +180,10 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "gopkg", positional = false, named = true, type = FileApi.class),
-        @Param(name = "export", positional = false, named = true, type = FileApi.class),
-        @Param(name = "swig_out_go", positional = false, named = true, type = FileApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "gopkg", positional = false, named = true),
+        @Param(name = "export", positional = false, named = true),
+        @Param(name = "swig_out_go", positional = false, named = true),
       })
   public GoPackageInfoApi createTransitiveGopackageInfo(
       StarlarkRuleContextT starlarkRuleContext, FileT starlarkGopkg, FileT export, FileT swigOutGo);
@@ -206,8 +193,8 @@ public interface GoWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "gopkg", positional = false, named = true, type = FileApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "gopkg", positional = false, named = true),
       })
   public Depset /*<FileT>*/ getGopackageFilesForStarlark(
       StarlarkRuleContextT starlarkRuleContext, FileT starlarkGopkg);

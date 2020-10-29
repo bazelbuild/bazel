@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
@@ -192,7 +191,7 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  public Action[] build() throws InterruptedException {
+  public Action[] build() {
     if (isEmpty(outputs)) {
       return NO_ACTIONS;
     }
@@ -204,8 +203,7 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  private SpawnAction.Builder createAction()
-      throws MissingPrerequisiteException, InterruptedException {
+  private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(protoInfo.getTransitiveProtoSources());
 
@@ -247,7 +245,7 @@ public class ProtoCompileActionBuilder {
 
   /** Commandline generator for protoc invocations. */
   @VisibleForTesting
-  CustomCommandLine.Builder createProtoCompilerCommandLine() throws InterruptedException {
+  CustomCommandLine.Builder createProtoCompilerCommandLine() {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPlugin != null) {
@@ -265,11 +263,7 @@ public class ProtoCompileActionBuilder {
 
     boolean areDepsStrict = areDepsStrict(ruleContext);
 
-    boolean siblingRepositoryLayout =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
 
     // Add include maps
     addIncludeMapArguments(
@@ -323,8 +317,7 @@ public class ProtoCompileActionBuilder {
   private static class MissingPrerequisiteException extends Exception {}
 
   public static void writeDescriptorSet(
-      RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices)
-      throws InterruptedException {
+      RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices) {
     Artifact output = protoInfo.getDirectDescriptorSet();
     ImmutableList<ProtoInfo> protoDeps =
         ImmutableList.copyOf(ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER));
@@ -417,8 +410,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices)
-      throws InterruptedException {
+      Services allowServices) {
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
@@ -443,8 +435,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices)
-      throws InterruptedException {
+      Services allowServices) {
 
     if (isEmpty(outputs)) {
       return null;
@@ -465,11 +456,7 @@ public class ProtoCompileActionBuilder {
       return null;
     }
 
-    boolean siblingRepositoryLayout =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
 
     result
         .addOutputs(outputs)

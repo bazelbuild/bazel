@@ -16,6 +16,7 @@ package com.google.devtools.build.android.r8;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
+import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
@@ -429,11 +430,11 @@ public class Desugar {
       throws CompilationFailedException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
-    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector);
+    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector, input);
     D8Command.Builder builder =
         D8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addClasspathResourceProvider(classpath)
-            .addProgramFiles(input)
+            .addProgramResourceProvider(ArchiveProgramResourceProvider.fromArchive(input))
             .setIntermediate(true)
             .setMinApiLevel(options.minSdkVersion)
             .setProgramConsumer(consumer);

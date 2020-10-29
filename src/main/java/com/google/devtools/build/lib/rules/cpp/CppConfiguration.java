@@ -64,6 +64,7 @@ public final class CppConfiguration extends Fragment
     GCOV("gcov"),
     GCOVTOOL("gcov-tool"),
     LD("ld"),
+    LLVM_COV("llvm-cov"),
     NM("nm"),
     OBJCOPY("objcopy"),
     OBJDUMP("objdump"),
@@ -760,5 +761,13 @@ public final class CppConfiguration extends Fragment
 
   public boolean strictHeaderCheckingFromStarlark() {
     return cppOptions.forceStrictHeaderCheckFromStarlark;
+  }
+
+  public boolean useCppCompileHeaderMnemonic() {
+    return cppOptions.useCppCompileHeaderMnemonic;
+  }
+
+  public boolean generateLlvmLCov() {
+    return cppOptions.generateLlvmLcov;
   }
 }

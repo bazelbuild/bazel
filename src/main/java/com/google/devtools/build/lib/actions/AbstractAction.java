@@ -353,7 +353,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * @param execRoot the exec root in which this action is executed
    * @param bulkDeleter a helper to bulk delete outputs to avoid delegating to the filesystem
    */
-  protected void deleteOutputs(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  protected void deleteOutputs(
+      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
       throws IOException, InterruptedException {
     if (bulkDeleter != null) {
       bulkDeleter.bulkDelete(Artifact.asPathFragments(getOutputs()));
@@ -361,7 +362,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     }
 
     for (Artifact output : getOutputs()) {
-      deleteOutput(output.getPath(), output.getRoot());
+      deleteOutput(pathResolver.toPath(output), output.getRoot());
     }
   }
 
@@ -457,13 +458,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  public void prepare(
+      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
       throws IOException, InterruptedException {
-    deleteOutputs(execRoot, bulkDeleter);
+    deleteOutputs(execRoot, pathResolver, bulkDeleter);
   }
 
   @Override
-  public String describe() {
+  public final String describe() {
     String progressMessage = getProgressMessage();
     return progressMessage != null ? progressMessage : defaultProgressMessage();
   }

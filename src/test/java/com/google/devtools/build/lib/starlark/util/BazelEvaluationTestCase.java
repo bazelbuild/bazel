@@ -134,7 +134,7 @@ public final class BazelEvaluationTestCase {
 
   private static Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
     StarlarkModules.addPredeclared(predeclared);
-    Starlark.addModule(predeclared, new PlatformCommon());
+    predeclared.put("platform_common", new PlatformCommon());
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(

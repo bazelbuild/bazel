@@ -214,7 +214,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrAllowedFileTypesWrongType() throws Exception {
     ev.checkEvalErrorContains(
-        "allow_files should be a boolean or a string list", "attr.label_list(allow_files = 18)");
+        "got value of type 'int', want 'bool, sequence, or NoneType'",
+        "attr.label_list(allow_files = 18)");
   }
 
   @Test
@@ -982,6 +983,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     checkTextMessage("struct(name=[]).to_proto()"); // empty lines
     checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
     checkTextMessage("struct(name=123).to_proto()", "name: 123");
+    checkTextMessage(
+        "struct(a=1.2e34, b=float('nan'), c=float('-inf')).to_proto()",
+        "a: 1.2e+34",
+        "b: nan",
+        "c: -inf");
+    checkTextMessage("struct(name=123).to_proto()", "name: 123");
     checkTextMessage("struct(name=[1, 2, 3]).to_proto()", "name: 1", "name: 2", "name: 3");
     checkTextMessage("struct(a=struct(b='b')).to_proto()", "a {", "  b: \"b\"", "}");
     checkTextMessage(
@@ -1059,24 +1066,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTextMessageInvalidElementInListStructure() throws Exception {
-    ev.checkEvalErrorContains(
-        "Invalid text format, expected a struct, a dict, a string, a bool, or "
-            + "an int but got a list for list element in struct field 'a'",
-        "struct(a=[['b']]).to_proto()");
-  }
-
-  @Test
   public void testTextMessageInvalidStructure() throws Exception {
+    // list in list
     ev.checkEvalErrorContains(
-        "Invalid text format, expected a struct, a dict, a string, a bool, or an int "
-            + "but got a function for struct field 'a'",
+        "in struct field .a: at list index 0: got list, want string, int, bool, or struct",
+        "struct(a=[['b']]).to_proto()");
+
+    // dict in list
+    ev.checkEvalErrorContains(
+        "in struct field .a: at list index 0: got dict, want string, int, bool, or struct",
+        "struct(a=[{'b': 1}]).to_proto()");
+
+    // tuple as dict key
+    ev.checkEvalErrorContains(
+        "in struct field .a: invalid dict key: got tuple, want int or string",
+        "struct(a={(1, 2): 3}).to_proto()");
+
+    // dict in dict
+    ev.checkEvalErrorContains(
+        "in struct field .name: in value for dict key \"a\": got dict, want string, int, bool, or"
+            + " struct",
+        "struct(name={'a': {'b': [1, 2]}}).to_proto()");
+
+    // callable in field
+    ev.checkEvalErrorContains(
+        "in struct field .a: got builtin_function_or_method, want string, int, bool, or struct",
         "struct(a=rule).to_proto()");
   }
 
   private void checkJson(String from, String expected) throws Exception {
     Object result = ev.eval(from);
     assertThat(result).isEqualTo(expected);
+  }
+
+  @Test
+  public void testStarlarkJsonModule() throws Exception {
+    // struct.to_json is deprecated.
+    // java.starlark.net's json module is its replacement.
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
+    checkJson("json.encode(struct(name=True))", "{\"name\":true}");
+    checkJson("json.encode([1, 2])", "[1,2]"); // works for non-structs too
+    checkJson("str(dir(struct()))", "[\"to_json\", \"to_proto\"]");
+
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=true");
+    ev.checkEvalErrorContains("no field or method 'to_json'", "struct(name=True).to_json()");
+    checkJson("str(dir(struct()))", "[]"); // no to_{json,proto}
   }
 
   @Test
@@ -1132,15 +1166,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testJsonInvalidStructure() throws Exception {
     ev.checkEvalErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-            + "function for struct field 'a'",
+            + "builtin_function_or_method for struct field 'a'",
         "struct(a=rule).to_json()");
   }
 
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     ev.checkEvalErrorContains(
-        "got value of type 'int', want 'Label or string or LateBoundDefault or function or"
-            + " NoneType'",
+        "got value of type 'int', want 'Label, string, LateBoundDefault, function, or NoneType'",
         "attr.label(default = 123)");
   }
 
@@ -1172,6 +1205,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ClassObject x = (ClassObject) ev.lookup("x");
     assertThat(x.getValue("a")).isEqualTo(StarlarkInt.of(1));
     assertThat(x.getValue("b")).isEqualTo(StarlarkInt.of(2));
+
+    // Update is prohibited.
+    ev.checkEvalErrorContains(
+        "struct value does not support field assignment", "x = struct(a = 1); x.a = 2");
   }
 
   @Test
@@ -1197,10 +1234,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testStructIncomparability() throws Exception {
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) < struct(a = 2)");
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) > struct(a = 2)");
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) <= struct(a = 2)");
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) >= struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) < struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) > struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) <= struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) >= struct(a = 2)");
   }
 
   @Test
@@ -1388,12 +1429,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testStructMutabilityDeep() throws Exception {
-    assertThat(Starlark.isImmutable(Tuple.<Object>of(makeList(null)))).isTrue();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(null)))).isTrue();
     assertThat(Starlark.isImmutable(makeStruct("a", makeList(null)))).isTrue();
     assertThat(Starlark.isImmutable(makeBigStruct(null))).isTrue();
 
     Mutability mu = Mutability.create("test");
-    assertThat(Starlark.isImmutable(Tuple.<Object>of(makeList(mu)))).isFalse();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(mu)))).isFalse();
     assertThat(Starlark.isImmutable(makeStruct("a", makeList(mu)))).isFalse();
     assertThat(Starlark.isImmutable(makeBigStruct(mu))).isFalse();
   }
@@ -2006,6 +2047,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     getConfiguredTarget("//r:r");
 
-    ev.assertContainsError("Error in rule: Invalid rule class hasn't been exported by a bzl file");
+    ev.assertContainsError(
+        "Error in unexported rule: Invalid rule class hasn't been exported by a bzl file");
   }
 }

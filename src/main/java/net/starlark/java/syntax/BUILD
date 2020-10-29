@@ -28,6 +28,7 @@ java_library(
         "ExpressionStatement.java",
         "FileLocations.java",
         "FileOptions.java",
+        "FloatLiteral.java",
         "FlowStatement.java",
         "ForStatement.java",
         "Identifier.java",

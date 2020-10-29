@@ -27,11 +27,10 @@ import org.junit.runners.Suite;
   PrinterTest.class,
   StarlarkEvaluationTest.class,
   StarlarkFlagGuardingTest.class,
-  StarlarkInterfaceUtilsTest.class,
+  StarlarkAnnotationsTest.class,
   StarlarkListTest.class,
   StarlarkMutableTest.class,
   StarlarkThreadDebuggingTest.class,
   StarlarkThreadTest.class,
-  StringModuleTest.class,
 })
 public class EvalTests {}

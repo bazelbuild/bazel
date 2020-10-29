@@ -171,7 +171,8 @@ public class AndroidAssets {
     return assetDir;
   }
 
-  public ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {
+  @VisibleForTesting
+  ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {
     return ParsedAndroidAssets.parseFrom(dataContext, this);
   }
 

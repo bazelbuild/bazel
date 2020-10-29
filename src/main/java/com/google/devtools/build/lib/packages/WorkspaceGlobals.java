@@ -232,7 +232,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
 
     // registeration happened in a loaded bzl file
-    return label.getPackageIdentifier().getRepository();
+    return label.getRepository();
   }
 
   private static ImmutableList<String> renamePatterns(

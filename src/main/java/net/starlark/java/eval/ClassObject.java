@@ -66,4 +66,15 @@ public interface ClassObject extends StarlarkValue {
    */
   @Nullable
   String getErrorMessageForUnknownField(String field);
+
+  /**
+   * Updates the named field of this value as if by the Starlark statement {@code this.field =
+   * value}.
+   *
+   * @throws EvalException if the update failed because this value is immutable, does not support
+   *     field update, or update of that particular field, or because the value was inappropriate.
+   */
+  default void setField(String field, Object value) throws EvalException {
+    throw Starlark.errorf("%s value does not support field assignment", Starlark.type(this));
+  }
 }

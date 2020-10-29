@@ -479,6 +479,78 @@ EOF
   done
 }
 
+function test_location_output_relative_locations() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name='foo')
+EOF
+
+  bazel query --output=location '//foo' >& $TEST_log || fail "Expected success"
+  expect_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log "//foo:foo"
+
+  bazel query --output=location --relative_locations '//foo' >& $TEST_log || fail "Expected success"
+  # Query with --relative_locations should not show full path
+  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log "^foo/BUILD"
+  expect_log "//foo:foo"
+}
+
+function test_location_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  # The incompatible_display_source_file_location flag displays the location of
+  # line 1 of the actual source file
+  bazel query \
+    --output=location \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+
+  # The noincompatible_display_source_file_location flag displays its location
+  # in the BUILD file
+  bazel query \
+    --output=location \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+
+  # The incompatible_display_source_file_location should still be affected by
+  # relative_locations flag to display the relative location of the source file
+  bazel query \
+    --output=location \
+    --relative_locations \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^foo/main.py:1:1"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+
+  # The noincompatible_display_source_file_location flag should still be
+  # affected by relative_locations flag to display the relative location of
+  # the BUILD file.
+  bazel query --output=location \
+    --relative_locations \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+}
+
 function test_subdirectory_named_external() {
   mkdir -p foo/external foo/bar
   cat > foo/external/BUILD <<EOF
@@ -639,6 +711,24 @@ function test_infer_universe_scope_considers_only_target_patterns() {
   expect_log //c:c
 }
 
+function test_bogus_visibility() {
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+sh_library(name = 'a', visibility = ['//bad:visibility', '//bar:__pkg__'])
+sh_library(name = 'b', visibility = ['//visibility:public'])
+sh_library(name = 'c', visibility = ['//bad:visibility'])
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  ! bazel query --keep_going --output=label_kind \
+      'visible(//bar:BUILD, //foo:a + //foo:b + //foo:c)' \
+      >& "$TEST_log" || fail "Expected failure"
+  expect_log "no such package 'bad'"
+  expect_log "keep_going specified, ignoring errors. Results may be inaccurate"
+  expect_log "sh_library rule //foo:a"
+  expect_log "sh_library rule //foo:b"
+  expect_not_log "sh_library rule //foo:c"
+}
+
 function test_infer_universe_scope_defers_to_universe_scope_value() {
   # When we have two targets, in two different packages, that do not depend on
   # each other,
@@ -673,6 +763,56 @@ function test_infer_universe_scope_defers_to_universe_scope_value() {
   # inferred universe.
   expect_log //a:a
   expect_log //b:b
+}
+
+function test_query_failure_exit_code_behavior() {
+  bazel query //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going //targetdoesnotexist >& "$TEST_log" \
+      && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 3 "$exit_code"
+
+  bazel query '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 1 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 1 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=seven \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=seven \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

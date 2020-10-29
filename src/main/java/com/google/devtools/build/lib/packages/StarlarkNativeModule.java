@@ -160,7 +160,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       if (t instanceof Rule) {
         Dict<String, Object> rule = targetDict(t, mu);
         Preconditions.checkNotNull(rule);
-        rules.put(t.getName(), rule, (Location) null);
+        rules.putEntry(t.getName(), rule);
       }
     }
 
@@ -305,7 +305,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         if (val == null) {
           continue;
         }
-        values.put(attr.getName(), val, (Location) null);
+        values.putEntry(attr.getName(), val);
       } catch (NotRepresentableException e) {
         throw new NotRepresentableException(
             String.format(
@@ -313,8 +313,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
     }
 
-    values.put("name", rule.getName(), (Location) null);
-    values.put("kind", rule.getRuleClass(), (Location) null);
+    values.putEntry("name", rule.getName());
+    values.putEntry("kind", rule.getRuleClass());
     return values;
   }
 

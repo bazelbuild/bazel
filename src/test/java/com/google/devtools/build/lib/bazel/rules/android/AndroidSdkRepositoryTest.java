@@ -288,6 +288,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    build_tools_version = '26.0.1',",
         ")");
     invalidatePackages();
+    reporter.removeHandler(failFastHandler);
 
     try {
       getTarget("@androidsdk//:files");
@@ -332,6 +333,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    path = '/sdk',",
         ")");
     invalidatePackages();
+    reporter.removeHandler(failFastHandler);
 
     try {
       getTarget("@androidsdk//:files");
@@ -355,6 +357,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    path = '/sdk',",
         ")");
     invalidatePackages();
+    reporter.removeHandler(failFastHandler);
 
     try {
       getTarget("@androidsdk//:files");

@@ -87,7 +87,7 @@ public class BlazeTestUtils {
 
   public static Label convertLabel(Label label) {
     try {
-      return label.getPackageIdentifier().getRepository().isDefault()
+      return label.getRepository().isDefault()
           ? Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName())
           : label;
     } catch (LabelSyntaxException e) {

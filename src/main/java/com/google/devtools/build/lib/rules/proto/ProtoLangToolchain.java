@@ -35,7 +35,6 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
     NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
     for (TransitiveInfoCollection protos : ruleContext.getPrerequisites("blacklisted_protos")) {
       ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);

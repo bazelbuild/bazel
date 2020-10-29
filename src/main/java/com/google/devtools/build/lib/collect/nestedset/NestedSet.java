@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
@@ -293,8 +295,8 @@ public final class NestedSet<E> {
         System.err.println(
             "An interrupted exception occurred during nested set deserialization, "
                 + "exiting abruptly.");
-        BugReport.handleCrash(e, ExitCode.INTERRUPTED);
-        throw new IllegalStateException("Server should have shut down.", e);
+        BugReport.handleCrash(Crash.from(e, ExitCode.INTERRUPTED), CrashContext.halt());
+        throw new IllegalStateException("Should have halted", e);
       }
     } else {
       return children;

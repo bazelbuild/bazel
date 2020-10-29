@@ -68,6 +68,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
   private final boolean useDataBindingV2;
+  private final boolean useDataBindingAndroidX;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
     return makeContext(ruleContext);
@@ -88,7 +89,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
         !hasExemption(ruleContext, "allow_proguard_apply_dictionary", true),
         !hasExemption(ruleContext, "allow_proguard_apply_mapping", true),
         !hasExemption(ruleContext, "allow_resource_conflicts", true),
-        androidConfig.useDataBindingV2());
+        androidConfig.useDataBindingV2(),
+        androidConfig.useDataBindingAndroidX());
   }
 
   private static boolean hasExemption(
@@ -109,7 +111,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
-      boolean useDataBindingV2) {
+      boolean useDataBindingV2,
+      boolean useDataBindingAndroidX) {
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
     this.ruleContext = ruleContext;
     this.busybox = busybox;
@@ -121,6 +124,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
     this.useDataBindingV2 = useDataBindingV2;
+    this.useDataBindingAndroidX = useDataBindingAndroidX;
   }
 
   public Label getLabel() {
@@ -221,6 +225,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean useDataBindingV2() {
     return useDataBindingV2;
+  }
+
+  public boolean useDataBindingAndroidX() {
+    return useDataBindingAndroidX;
   }
 
   public boolean annotateRFieldsFromTransitiveDeps() {

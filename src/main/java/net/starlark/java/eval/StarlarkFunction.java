@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
@@ -28,13 +29,17 @@ import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
+@StarlarkBuiltin(
+    name = "function",
+    category = "core",
+    doc = "The type of functions declared in Starlark.")
 public final class StarlarkFunction implements StarlarkCallable {
 
   private final Resolver.Function rfn;
   private final Module module; // a function closes over its defining module
-  private final Tuple<Object> defaultValues;
+  private final Tuple defaultValues;
 
-  StarlarkFunction(Resolver.Function rfn, Tuple<Object> defaultValues, Module module) {
+  StarlarkFunction(Resolver.Function rfn, Tuple defaultValues, Module module) {
     this.rfn = rfn;
     this.module = module;
     this.defaultValues = defaultValues;
@@ -256,7 +261,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       } else if (kwargs != null) {
         // residual keyword argument
         int sz = kwargs.size();
-        kwargs.put(keyword, value, null);
+        kwargs.putEntry(keyword, value);
         if (kwargs.size() == sz) {
           throw Starlark.errorf(
               "%s() got multiple values for keyword argument '%s'", getName(), keyword);

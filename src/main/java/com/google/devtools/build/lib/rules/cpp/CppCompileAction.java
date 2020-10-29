@@ -423,9 +423,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new IllegalStateException(e.getCause());
       }
     } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          "Include scanning of rule '" + getOwner().getLabel() + "'",
-          this);
+      throw e.toActionExecutionException("include scanning", this);
     }
   }
 
@@ -1676,7 +1674,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  static String actionNameToMnemonic(String actionName, FeatureConfiguration featureConfiguration) {
+  static String actionNameToMnemonic(
+      String actionName,
+      FeatureConfiguration featureConfiguration,
+      boolean useCppCompileHeaderMnemonic) {
     switch (actionName) {
       case CppActionNames.OBJC_COMPILE:
       case CppActionNames.OBJCPP_COMPILE:
@@ -1693,9 +1694,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         return "CppLinkstampCompile";
 
       case CppActionNames.CPP_HEADER_PARSING:
+        String suffix = useCppCompileHeaderMnemonic ? "Header" : "";
         return featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)
-            ? OBJC_COMPILE_MNEMONIC
-            : CPP_COMPILE_MNEMONIC;
+            ? OBJC_COMPILE_MNEMONIC + suffix
+            : CPP_COMPILE_MNEMONIC + suffix;
 
       default:
         return CPP_COMPILE_MNEMONIC;
@@ -1704,7 +1706,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public String getMnemonic() {
-    return actionNameToMnemonic(actionName, featureConfiguration);
+    return actionNameToMnemonic(
+        actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic());
   }
 
   @Override
@@ -1842,7 +1845,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
         throw e.toActionExecutionException(
-            "C++ compilation of rule '" + getOwner().getLabel() + "'",
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
@@ -1923,9 +1925,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         } catch (IOException e) {
           throw new EnvironmentalExecException(
                   e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
-              .toActionExecutionException(
-                  getRawProgressMessage(),
-                  CppCompileAction.this);
+              .toActionExecutionException(CppCompileAction.this);
         }
       }
     }
