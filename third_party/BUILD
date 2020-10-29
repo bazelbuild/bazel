@@ -513,7 +513,7 @@ distrib_jar_filegroup(
 java_import(
     name = "javax_activation",
     jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
-    srcjar = "javax_annotations/javax.activation-api-1.2.0-sources.jar",
+    srcjar = "javax_activation/javax.activation-api-1.2.0-sources.jar",
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
