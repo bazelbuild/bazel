@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -49,7 +50,7 @@ public class RemoteRepositoryRemoteExecutorTest {
 
   @Mock public RemoteExecutionCache remoteCache;
 
-  @Mock public GrpcRemoteExecutor remoteExecutor;
+  @Mock public RemoteExecutionClient remoteExecutor;
 
   private RemoteRepositoryRemoteExecutor repoExecutor;
 
@@ -88,7 +89,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Assert
     verify(remoteCache).downloadActionResult(any(), anyBoolean());
     // Don't fallback to execution
-    verify(remoteExecutor, never()).executeRemotely(any());
+    verify(remoteExecutor, never()).executeRemotely(any(), any());
 
     assertThat(executionResult.exitCode()).isEqualTo(0);
   }
@@ -103,7 +104,7 @@ public class RemoteRepositoryRemoteExecutorTest {
         .thenReturn(cachedResult);
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
-    when(remoteExecutor.executeRemotely(any())).thenReturn(response);
+    when(remoteExecutor.executeRemotely(any(), any())).thenReturn(response);
 
     // Act
     ExecutionResult executionResult =
@@ -118,7 +119,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Assert
     verify(remoteCache).downloadActionResult(any(), anyBoolean());
     // Fallback to execution
-    verify(remoteExecutor).executeRemotely(any());
+    verify(remoteExecutor).executeRemotely(any(), any());
 
     assertThat(executionResult.exitCode()).isEqualTo(1);
   }
@@ -140,7 +141,7 @@ public class RemoteRepositoryRemoteExecutorTest {
         .thenReturn(cachedResult);
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
-    when(remoteExecutor.executeRemotely(any())).thenReturn(response);
+    when(remoteExecutor.executeRemotely(any(), any())).thenReturn(response);
 
     // Act
     ExecutionResult executionResult =

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -38,7 +39,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
 
   private final CommandEnvironment env;
   private final RemoteCache cache;
-  @Nullable private final GrpcRemoteExecutor executor;
+  @Nullable private final RemoteExecutionClient executor;
   @Nullable private final ListeningScheduledExecutorService retryScheduler;
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
@@ -47,7 +48,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
   private RemoteActionContextProvider(
       CommandEnvironment env,
       RemoteCache cache,
-      @Nullable GrpcRemoteExecutor executor,
+      @Nullable RemoteExecutionClient executor,
       @Nullable ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       @Nullable Path logDir) {
@@ -71,7 +72,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
       RemoteExecutionCache cache,
-      GrpcRemoteExecutor executor,
+      RemoteExecutionClient executor,
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       Path logDir) {
