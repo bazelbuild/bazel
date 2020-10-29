@@ -189,7 +189,7 @@ public class OutputDirectories {
   }
 
   /** Returns the include directory for this build configuration. */
-  ArtifactRoot getIncludeDirectory() {
+  ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
     return includeDirectory;
   }
 
@@ -203,12 +203,12 @@ public class OutputDirectories {
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
    * tools.
    */
-  ArtifactRoot getCoverageMetadataDirectory() {
+  ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
     return coverageDirectory;
   }
 
   /** Returns the testlogs directory for this build configuration. */
-  ArtifactRoot getTestLogsDirectory() {
+  ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
     return testlogsDirectory;
   }
 
@@ -229,7 +229,7 @@ public class OutputDirectories {
   }
 
   /** Returns the internal directory (used for middlemen) for this build configuration. */
-  ArtifactRoot getMiddlemanDirectory() {
+  ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
     return middlemanDirectory;
   }
 

@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -81,5 +83,23 @@ public class SkyframeAnalysisResult {
 
   public PackageRoots getPackageRoots() {
     return packageRoots;
+  }
+
+  /**
+   * Returns an equivalent {@link SkyframeAnalysisResult}, except with errored targets removed from
+   * the configured target list.
+   */
+  public SkyframeAnalysisResult withAdditionalErroredTargets(
+      ImmutableSet<ConfiguredTarget> erroredTargets) {
+    return new SkyframeAnalysisResult(
+        hasLoadingError,
+        /*hasAnalysisError=*/ true,
+        hasActionConflicts,
+        Sets.difference(ImmutableSet.copyOf(configuredTargets), erroredTargets)
+            .immutableCopy()
+            .asList(),
+        walkableGraph,
+        aspects,
+        packageRoots);
   }
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -67,36 +68,33 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
               name = "label",
               doc = "The label of the target which created this object",
               positional = false,
-              named = true,
-              type = Label.class),
+              named = true),
           @Param(
               name = "wrapper",
               doc = "A string in which the output should be embedded.",
               positional = false,
-              named = true,
-              type = String.class),
+              named = true),
           @Param(
               name = "full_pinto_sources",
               doc =
                   "PintoSourcesContextProvider for this module and the transitive closure of"
                       + " dependencies.",
               positional = false,
-              named = true,
-              type = Object.class),
+              named = true),
           @Param(
               name = "direct_pinto_sources",
               doc = "PintoSourcesContextProvider for only this module.",
               positional = false,
-              named = true,
-              type = Object.class),
+              named = true),
           @Param(
               name = "direct_module_dependencies",
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = JsModuleInfoApi.class),
+              },
               doc = "A list of direct module dependencies of this module.",
               positional = false,
               named = true,
-              defaultValue = "[]",
-              type = Sequence.class,
-              generic1 = JsModuleInfoApi.class),
+              defaultValue = "[]"),
         },
         selfCall = true,
         enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)

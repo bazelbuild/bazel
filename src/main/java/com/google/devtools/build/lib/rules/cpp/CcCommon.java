@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -552,7 +551,7 @@ public final class CcCommon {
    * Determines a list of loose include directories that are only allowed to be referenced when
    * headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
-  Set<PathFragment> getLooseIncludeDirs() throws InterruptedException {
+  Set<PathFragment> getLooseIncludeDirs() {
     ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
     // The package directory of the rule contributes includes. Note that this also covers all
     // non-subpackage sub-directories.
@@ -560,11 +559,7 @@ public final class CcCommon {
         ruleContext
             .getLabel()
             .getPackageIdentifier()
-            .getExecPath(
-                ruleContext
-                    .getAnalysisEnvironment()
-                    .getStarlarkSemantics()
-                    .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+            .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
     result.add(rulePackage);
 
     if (ruleContext
@@ -577,27 +572,19 @@ public final class CcCommon {
           ruleContext
               .getLabel()
               .getPackageIdentifier()
-              .getExecPath(
-                  ruleContext
-                      .getAnalysisEnvironment()
-                      .getStarlarkSemantics()
-                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+              .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
     }
     return result.build();
   }
 
-  List<PathFragment> getSystemIncludeDirs() throws InterruptedException {
-    boolean siblingRepositoryLayout =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+  List<PathFragment> getSystemIncludeDirs() {
+    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
     PathFragment packageExecPath = packageIdentifier.getExecPath(siblingRepositoryLayout);
-    PathFragment packageSourceRoot = packageIdentifier.getPackagePath();
+    PathFragment packageSourceRoot = packageIdentifier.getPackagePath(siblingRepositoryLayout);
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
@@ -730,13 +717,15 @@ public final class CcCommon {
     return getInstrumentedFilesProvider(
         files,
         withBaselineCoverage,
-        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* additionalMetadata= */ null);
   }
 
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders)
+      NestedSet<Pair<String, String>> virtualToOriginalHeaders,
+      @Nullable Iterable<Artifact> additionalMetadata)
       throws RuleErrorException {
     return InstrumentedFilesCollector.collect(
         ruleContext,
@@ -746,7 +735,8 @@ public final class CcCommon {
         CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
         CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, cppConfiguration, ccToolchain),
         withBaselineCoverage,
-        virtualToOriginalHeaders);
+        virtualToOriginalHeaders,
+        additionalMetadata);
   }
 
   public String getPurpose(CppSemantics semantics) {

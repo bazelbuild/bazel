@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Helper functions for StarlarkMethod-annotated fields and methods. */
@@ -109,7 +109,7 @@ final class CallUtils {
       }
 
       // annotated?
-      StarlarkMethod callable = StarlarkInterfaceUtils.getStarlarkMethod(method);
+      StarlarkMethod callable = StarlarkAnnotations.getStarlarkMethod(method);
       if (callable == null) {
         continue;
       }

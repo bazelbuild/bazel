@@ -678,6 +678,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             new ApkInfo(
                 zipAlignedApk,
                 unsignedApk,
+                binaryJar,
                 getCoverageInstrumentationJarForApk(ruleContext),
                 resourceApk.getManifest(),
                 signingKeys,
@@ -1460,7 +1461,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // Must use params file as otherwise expanding the input tree artifact doesn't work
     Artifact paramFile =
         ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(outputZip.getRootRelativePath()), outputZip.getRoot());
+            ParameterFile.derivePath(
+                outputZip.getOutputDirRelativePath(
+                    ruleContext.getConfiguration().isSiblingRepositoryLayout())),
+            outputZip.getRoot());
     ruleContext.registerAction(
         new ParameterFileWriteAction(
             ruleContext.getActionOwner(),
@@ -1532,7 +1536,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // because for "legacy" ResourceApks, AndroidCommon produces Jars per resource dependency that
       // can theoretically have duplicate basenames, so they go into special directories, and we
       // piggyback on that naming scheme here by placing dex archives into the same directories.
-      PathFragment jarPath = jar.getRootRelativePath();
+      PathFragment jarPath =
+          jar.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       Artifact desugared =
           DexArchiveAspect.desugar(
               ruleContext,
@@ -1580,7 +1585,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // because for "legacy" ResourceApks, AndroidCommon produces Jars per resource dependency that
       // can theoretically have duplicate basenames, so they go into special directories, and we
       // piggyback on that naming scheme here by placing dex archives into the same directories.
-      PathFragment jarPath = jar.getRootRelativePath();
+      PathFragment jarPath =
+          jar.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       Artifact dexArchive =
           DexArchiveAspect.createDexArchiveAction(
               ruleContext,

@@ -344,11 +344,14 @@ public class SkyframeBuilder implements Builder {
     }
     if (cause instanceof ActionExecutionException) {
       ActionExecutionException actionExecutionCause = (ActionExecutionException) cause;
+      String message = cause.getMessage();
+      if (actionExecutionCause.getAction() != null) {
+        message = actionExecutionCause.getAction().describe() + " failed: " + message;
+      }
       // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
-      String message =
-          (actionExecutionCause.getLocation() != null)
-              ? (actionExecutionCause.getLocation() + " " + cause.getMessage())
-              : cause.getMessage();
+      if (actionExecutionCause.getLocation() != null) {
+        message = actionExecutionCause.getLocation() + " " + message;
+      }
       throw new BuildFailedException(
           message,
           actionExecutionCause.isCatastrophe(),

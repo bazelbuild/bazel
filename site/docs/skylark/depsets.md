@@ -10,9 +10,13 @@ collecting data across a target’s transitive dependencies. Since this use case
 concerns the [analysis phase](concepts.md#evaluation-model), depsets are useful
 for authors of rules and aspects, but probably not macros.
 
-The main feature of depsets is that they support a time- and space-efficient
-merge operation, whose cost is independent of the size of the existing contents.
-Depsets also have well-defined ordering semantics.
+The defining feature of depset is its time- and space-efficient union operation.
+The depset constructor accepts a list of elements ("direct") and a list of other
+depsets ("transitive"), and returns a depset representing a set containing all the
+direct elements and the union of all the transitive sets. Conceptually, the
+constructor creates a new graph node that has the direct and transitive nodes
+as its successors. Depsets have a well-defined ordering semantics, based on
+traversal of this graph.
 
 Example uses of depsets include:
 
@@ -22,7 +26,7 @@ Example uses of depsets include:
 *   for an interpreted language, storing the transitive source files that will
     be included in an executable's runfiles
 
-If you don't need the merge operation, consider using another type, such as
+If you don't need the union operation, consider using another type, such as
 [list](lib/list.html) or [dict](lib/dict.html).
 
 ## Full example
@@ -226,7 +230,7 @@ t = depset(["b", "c"])
 # in a loop, and convert it to a dictionary for fast membership tests.
 t_items = {e: None for e in t.to_list()}
 diff_items = [x for x in s.to_list() if x not in t_items]
-# Convert back to depset if it's still going to be used for merge operations.
+# Convert back to depset if it's still going to be used for union operations.
 s = depset(diff_items)
 print(s)  # depset(["a"])
 ```

@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -55,7 +57,6 @@ public interface StarlarkConfigApi extends StarlarkValue {
       parameters = {
         @Param(
             name = FLAG_ARG,
-            type = Boolean.class,
             defaultValue = "False",
             doc = FLAG_ARG_DOC,
             named = true,
@@ -69,7 +70,6 @@ public interface StarlarkConfigApi extends StarlarkValue {
       parameters = {
         @Param(
             name = FLAG_ARG,
-            type = Boolean.class,
             defaultValue = "False",
             doc = FLAG_ARG_DOC,
             named = true,
@@ -83,7 +83,6 @@ public interface StarlarkConfigApi extends StarlarkValue {
       parameters = {
         @Param(
             name = FLAG_ARG,
-            type = Boolean.class,
             defaultValue = "False",
             doc = FLAG_ARG_DOC,
             named = true,
@@ -97,7 +96,6 @@ public interface StarlarkConfigApi extends StarlarkValue {
       parameters = {
         @Param(
             name = FLAG_ARG,
-            type = Boolean.class,
             defaultValue = "False",
             doc = FLAG_ARG_DOC,
             named = true,
@@ -122,9 +120,11 @@ public interface StarlarkConfigApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "exec_group",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             defaultValue = "None",
             doc =
                 "The name of the exec group whose execution platform this transition will use. If"

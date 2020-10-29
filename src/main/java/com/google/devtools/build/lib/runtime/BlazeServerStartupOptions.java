@@ -240,16 +240,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batch;
 
   @Option(
-      name = "deep_execroot",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
-      help =
-          "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
-              + "$OUTPUT_BASE.")
-  public boolean deepExecRoot;
-
-  @Option(
       name = "block_for_lock",
       defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -392,6 +382,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The amount of time the client waits for each attempt to connect to the server")
   public int connectTimeoutSecs;
+
+  @Option(
+      name = "local_startup_timeout_secs",
+      defaultValue = "120", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum amount of time the client waits to connect to the server")
+  public int localStartupTimeoutSecs;
 
   // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
   // experimental tag once this has been tested and is ready for use.

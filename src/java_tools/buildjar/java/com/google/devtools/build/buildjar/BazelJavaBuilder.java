@@ -43,10 +43,15 @@ public class BazelJavaBuilder {
       WorkRequestHandler workerHandler = new WorkRequestHandler(builder::parseAndBuild);
       System.exit(workerHandler.processRequests(System.in, System.out, System.err));
     } else {
-      System.exit(
-          builder.parseAndBuild(
-              Arrays.asList(args),
-              new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()))));
+      PrintWriter pw =
+          new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()));
+      int returnCode;
+      try {
+        returnCode = builder.parseAndBuild(Arrays.asList(args), pw);
+      } finally {
+        pw.flush();
+      }
+      System.exit(returnCode);
     }
   }
 

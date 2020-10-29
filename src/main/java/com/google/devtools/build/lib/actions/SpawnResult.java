@@ -239,7 +239,6 @@ public interface SpawnResult {
   }
 
   String getDetailMessage(
-      String messagePrefix,
       String message,
       boolean catastrophe,
       boolean forciblyRunRemotely);
@@ -378,13 +377,12 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String messagePrefix,
         String message,
         boolean catastrophe,
         boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
-      String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
+      String reason = "(" + status.toShortString() + ")"; // e.g "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
       if (!status().isConsideredUserError()) {
@@ -412,7 +410,7 @@ public interface SpawnResult {
       if (!Strings.isNullOrEmpty(failureMessage)) {
         explanation += " " + failureMessage;
       }
-      return messagePrefix + " failed" + reason + explanation;
+      return reason + explanation;
     }
 
     @Nullable

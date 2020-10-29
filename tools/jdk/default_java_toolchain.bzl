@@ -44,6 +44,7 @@ JDK9_JVM_OPTS = [
 
 DEFAULT_JAVACOPTS = [
     "-XDskipDuplicateBridges=true",
+    "-XDcompilePolicy=simple",
     "-g",
     "-parameters",
 ]

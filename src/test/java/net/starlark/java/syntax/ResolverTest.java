@@ -67,14 +67,6 @@ public class ResolverTest {
   }
 
   @Test
-  public void testAssignmentToDotExpression() throws Exception {
-    // According to the spec, this is allowed. TODO(adonovan): implement.
-    // Once it is allowed, we'll need a test (in lib.packages)
-    // that assignments to fields of a Bazel 'struct' are disallowed.
-    assertInvalid("cannot assign to 'pre.field'", "pre.field = ()");
-  }
-
-  @Test
   public void testAugmentedAssignmentWithMultipleLValues() throws Exception {
     assertInvalid(
         "cannot perform augmented assignment on a list or tuple expression", //

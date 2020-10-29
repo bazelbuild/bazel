@@ -313,7 +313,7 @@ public final class SyncCommand implements BlazeCommand {
   private static BlazeCommandResult blazeCommandResultWithNoBuildReport(
       CommandEnvironment env, ExitCode exitCode, Code syncCommandCode, String message) {
     reportNoBuildRequestFinished(env, exitCode);
-    return createFailedBlazeCommandResult(exitCode, syncCommandCode, message);
+    return createFailedBlazeCommandResult(syncCommandCode, message);
   }
 
   private static void reportNoBuildRequestFinished(CommandEnvironment env, ExitCode exitCode) {
@@ -322,10 +322,9 @@ public final class SyncCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
-      ExitCode exitCode, Code syncCommandCode, String message) {
+      Code syncCommandCode, String message) {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setSyncCommand(

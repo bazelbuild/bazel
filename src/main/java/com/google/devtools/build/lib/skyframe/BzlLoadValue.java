@@ -64,16 +64,21 @@ public class BzlLoadValue implements SkyValue {
   abstract static class Key implements SkyKey {
 
     /**
-     * Returns the label of the .bzl file to be loaded.
+     * Returns the absolute label of the .bzl file to be loaded.
      *
-     * <p>For {@link KeyForBuiltins}, it usually begins with {@code @builtins//:}. Other values are
-     * possible but indicate a bug in the {@code @builtins} .bzl files and will fail during
-     * evaluation.
+     * <p>For {@link KeyForBuiltins}, it must begin with {@code @_builtins//:}. (It is legal for
+     * other keys to use {@code @_builtins}, but since no real repo by that name may be defined,
+     * they won't evaluate to a successful result.)
      */
     abstract Label getLabel();
 
     /** Returns true if this is a request for the special BUILD prelude file. */
     boolean isBuildPrelude() {
+      return false;
+    }
+
+    /** Returns true if this is a request for a builtins bzl file. */
+    boolean isBuiltins() {
       return false;
     }
 
@@ -140,7 +145,7 @@ public class BzlLoadValue implements SkyValue {
     @Override
     BzlCompileValue.Key getCompileKey(Root root) {
       if (isBuildPrelude) {
-        return BzlCompileValue.keyForPrelude(root, label);
+        return BzlCompileValue.keyForBuildPrelude(root, label);
       } else {
         return BzlCompileValue.key(root, label);
       }
@@ -244,14 +249,16 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /**
-   * A key for loading a .bzl during {@code @builtins} evaluation.
+   * A key for loading a .bzl during {@code @_builtins} evaluation.
    *
    * <p>This kind of key is only requested by {@link StarlarkBuiltinsFunction} and its transitively
    * loaded {@link BzlLoadFunction} calls.
    *
-   * <p>The label begins with {@code @builtins//:}, but it is distinct from any .bzl in an external
-   * repository named {@code "@builtins"}.
+   * <p>The label must have {@link StarlarkBuiltinsValue#BUILTINS_REPO} as its repository component.
+   * (It is valid for other key types to use that repo name, but since it is not a real repository
+   * and cannot be fetched, any attempt to resolve such a key would fail.)
    */
+  // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForBuiltins extends Key {
@@ -260,11 +267,19 @@ public class BzlLoadValue implements SkyValue {
 
     private KeyForBuiltins(Label label) {
       this.label = Preconditions.checkNotNull(label);
+      if (!StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
+        throw new IllegalArgumentException("repository name for builtins key must be '@_builtins'");
+      }
     }
 
     @Override
     Label getLabel() {
       return label;
+    }
+
+    @Override
+    boolean isBuiltins() {
+      return true;
     }
 
     @Override
@@ -279,7 +294,7 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public String toString() {
-      return label + " (in builtins)";
+      return label.toString();
     }
 
     @Override
@@ -316,7 +331,7 @@ public class BzlLoadValue implements SkyValue {
     return keyInterner.intern(new KeyForWorkspace(label, workspaceChunk, workspacePath));
   }
 
-  /** Constructs a key for loading a .bzl file within the {@code @builtins} pseudo-repository. */
+  /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
   static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }

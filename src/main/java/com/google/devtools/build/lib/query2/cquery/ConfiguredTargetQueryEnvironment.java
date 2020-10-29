@@ -252,6 +252,13 @@ public class ConfiguredTargetQueryEnvironment
             OutputType.JSON),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new GraphOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            ct -> getFwdDeps(ImmutableList.of(ct))),
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
@@ -198,7 +199,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
-                        pkgFactory, hashFunction, CacheBuilder.newBuilder().build()))
+                        pkgFactory, directories, hashFunction, CacheBuilder.newBuilder().build()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
@@ -357,6 +358,51 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
     testStarlarkRepositoryFunction.reset();
+  }
+
+  @Test
+  public void testFetchRepositoryException_eventHandled() throws Exception {
+    scratch.file(
+        rootPath.getRelative("rule.bzl").getPathString(),
+        "def _impl(ctx):",
+        "    pass",
+        "sample = rule(",
+        "    implementation = _impl,",
+        "    toolchains = ['//:toolchain_type'],",
+        ")");
+    scratch.file(
+        rootPath.getRelative("BUILD").getPathString(),
+        "load('rule.bzl', 'sample')",
+        "toolchain_type(name = 'toolchain_type')",
+        "sample(name = 'sample')");
+    scratch.file(
+        rootPath.getRelative("repo_rule.bzl").getPathString(),
+        "def _impl(repo_ctx):",
+        "# Error: no file written",
+        "    pass",
+        "broken_repo = repository_rule(implementation = _impl)");
+    scratch.overwriteFile(
+        rootPath.getRelative("WORKSPACE").getPathString(),
+        "load('repo_rule.bzl', 'broken_repo')",
+        "broken_repo(name = 'broken')");
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("broken"));
+    // Make it be evaluated every time, as we are testing evaluation.
+    differencer.invalidate(ImmutableSet.of(key));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .isInstanceOf(AlreadyReportedRepositoryAccessException.class);
+    assertThat(eventHandler.hasErrors()).isTrue();
+    assertThat(eventHandler.getEvents()).hasSize(1);
   }
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {

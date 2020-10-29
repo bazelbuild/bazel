@@ -49,7 +49,6 @@ public interface OutputGroupInfoApi extends StructApi {
         extraKeywords =
             @Param(
                 name = "kwargs",
-                type = Dict.class,
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
         selfCall = true)

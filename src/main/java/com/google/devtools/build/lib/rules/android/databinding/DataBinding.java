@@ -91,7 +91,10 @@ public final class DataBinding {
 
     if (enabled) {
       if (androidConfig.useDataBindingV2()) {
-        return new DataBindingV2Context(context, androidConfig.useDataBindingUpdatedArgs());
+        return new DataBindingV2Context(
+            context,
+            androidConfig.useDataBindingUpdatedArgs(),
+            androidConfig.useDataBindingAndroidX());
       } else {
         return new DataBindingV1Context(context, androidConfig.useDataBindingUpdatedArgs());
       }
@@ -148,7 +151,7 @@ public final class DataBinding {
         binRelativeBasePath.getRelative(relativePath), ruleContext.getBinOrGenfilesDirectory());
   }
 
-  static ImmutableList<Artifact> getAnnotationFile(RuleContext ruleContext) {
+  static ImmutableList<Artifact> getAnnotationFile(RuleContext ruleContext, boolean useAndroidX) {
     // Add this rule's annotation processor input. If the rule doesn't have direct resources,
     // there's no direct data binding info, so there's strictly no need for annotation processing.
     // But it's still important to process the deps' .bin files so any Java class references get
@@ -160,7 +163,10 @@ public final class DataBinding {
     try {
       String contents =
           ResourceFileLoader.loadResource(
-              DataBinding.class, "databinding_annotation_template.txt");
+              DataBinding.class,
+              useAndroidX
+                  ? "databinding_annotation_template_androidx.txt"
+                  : "databinding_annotation_template_support_lib.txt");
       Artifact annotationFile = getDataBindingArtifact(ruleContext, "DataBindingInfo.java");
       ruleContext.registerAction(
           FileWriteAction.create(ruleContext, annotationFile, contents, false));

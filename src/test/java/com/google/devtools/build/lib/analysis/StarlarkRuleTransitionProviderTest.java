@@ -1304,6 +1304,67 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
+  // Regression test for b/170729565
+  @Test
+  public void testSetBooleanNativeOptionWithStarlarkBoolean() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:bool': True}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:bool'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+    useConfiguration("--bool=false");
+    ConfiguredTarget ct = getConfiguredTarget("//test");
+    assertNoEvents();
+    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).bool).isTrue();
+  }
+
+  // Regression test for b/170729565
+  @Test
+  public void testSetBooleanNativeOptionWithItself() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:bool': settings['//command_line_option:bool']}",
+        "my_transition = transition(implementation = _impl,",
+        "  inputs = ['//command_line_option:bool'],",
+        "  outputs = ['//command_line_option:bool'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+    useConfiguration("--bool=false");
+    ConfiguredTarget ct = getConfiguredTarget("//test");
+    assertNoEvents();
+    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).bool).isFalse();
+  }
+
   @Test
   public void failedTypeConversionOfNativeListOption() throws Exception {
     writeAllowlistFile();

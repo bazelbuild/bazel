@@ -784,7 +784,9 @@ public final class PyCommon {
     // On Linux, the Python executable has no extension.
     // We can't use ruleContext#getRelatedArtifact because it would mangle files with dots in the
     // name on non-Windows platforms.
-    PathFragment pathFragment = executable.getRootRelativePath();
+    PathFragment pathFragment =
+        executable.getOutputDirRelativePath(
+            ruleContext.getConfiguration().isSiblingRepositoryLayout());
     String fileName = executable.getFilename();
     if (OS.getCurrent() == OS.WINDOWS) {
       Preconditions.checkArgument(fileName.endsWith(".exe"));
@@ -810,7 +812,10 @@ public final class PyCommon {
 
   /** Returns an artifact next to the executable file with no suffix. Only called for Windows. */
   public Artifact getPythonStubArtifactForWindows(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "");
+    return ruleContext.getRelatedArtifact(
+        executable.getOutputDirRelativePath(
+            ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+        "");
   }
 
   /**

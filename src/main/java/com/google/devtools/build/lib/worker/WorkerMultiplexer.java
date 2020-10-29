@@ -95,6 +95,10 @@ public class WorkerMultiplexer extends Thread {
    * exist. Also makes sure this {@code WorkerMultiplexer} runs as a separate thread.
    */
   public synchronized void createProcess(WorkerKey workerKey, Path workDir) throws IOException {
+    // The process may have died in the meanwhile (e.g. between builds).
+    if (this.process != null && !this.process.isAlive()) {
+      this.process = null;
+    }
     if (this.process == null) {
       ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
@@ -130,6 +134,7 @@ public class WorkerMultiplexer extends Thread {
   public synchronized void destroyMultiplexer() {
     if (this.process != null) {
       destroyProcess(this.process);
+      this.process = null;
     }
     isInterrupted = true;
   }

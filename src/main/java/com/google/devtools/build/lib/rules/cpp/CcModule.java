@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -910,10 +911,7 @@ public abstract class CcModule
                   .getRuleContext()
                   .getLabel()
                   .getPackageIdentifier()
-                  .getExecPath(
-                      starlarkRuleContext
-                          .getStarlarkSemantics()
-                          .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
+                  .getExecPath(starlarkRuleContext.getConfiguration().isSiblingRepositoryLayout())
                   .getRelative(PathFragment.create(tool.second))
                   .getPathString();
         }
@@ -1586,7 +1584,7 @@ public abstract class CcModule
   }
 
   @Override
-  public Tuple<Object> createLinkingContextFromCompilationOutputs(
+  public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,
@@ -1719,7 +1717,7 @@ public abstract class CcModule
     }
   }
 
-  protected Tuple<Object> compile(
+  protected Tuple compile(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,
@@ -1845,7 +1843,8 @@ public abstract class CcModule
       helper.setStripIncludePrefix(stripIncludePrefix);
     }
     try {
-      CompilationInfo compilationInfo = helper.compile(actions.getRuleContext()::ruleError);
+      RuleContext ruleContext = actions.getRuleContext();
+      CompilationInfo compilationInfo = helper.compile(ruleContext);
       return Tuple.of(
           compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
     } catch (RuleErrorException e) {

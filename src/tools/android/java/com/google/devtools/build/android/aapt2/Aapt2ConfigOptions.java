@@ -164,4 +164,13 @@ public class Aapt2ConfigOptions extends OptionsBase {
       category = "config",
       help = "Whether to generate pseudo locales during compilation.")
   public boolean generatePseudoLocale;
+
+  @Option(
+      name = "useDataBindingAndroidX",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Indicates whether databinding generated files should depend on AndroidX.")
+  public boolean useDataBindingAndroidX;
 }

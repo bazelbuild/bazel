@@ -34,6 +34,7 @@ import net.starlark.java.syntax.DictExpression;
 import net.starlark.java.syntax.DotExpression;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
+import net.starlark.java.syntax.FloatLiteral;
 import net.starlark.java.syntax.FlowStatement;
 import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
@@ -301,6 +302,17 @@ final class Eval {
       ListExpression list = (ListExpression) lhs;
       assignSequence(fr, list.getElements(), value);
 
+    } else if (lhs instanceof DotExpression) {
+      // x.f = ...
+      DotExpression dot = (DotExpression) lhs;
+      Object object = eval(fr, dot.getObject());
+      String field = dot.getField().getName();
+      try {
+        EvalUtils.setField(object, field, value);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(dot.getDotLocation());
+        throw ex;
+      }
     } else {
       // Not possible for resolved ASTs.
       throw Starlark.errorf("cannot assign to '%s'", lhs);
@@ -462,6 +474,8 @@ final class Eval {
         } else {
           return StarlarkInt.of((BigInteger) n);
         }
+      case FLOAT_LITERAL:
+        return StarlarkFloat.of(((FloatLiteral) expr).getValue());
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:
@@ -509,14 +523,14 @@ final class Eval {
       Object v = eval(fr, entry.getValue());
       int before = dict.size();
       try {
-        dict.put(k, v, (Location) null);
+        dict.putEntry(k, v);
       } catch (EvalException ex) {
         fr.setErrorLocation(entry.getColonLocation());
         throw ex;
       }
       if (dict.size() == before) {
         fr.setErrorLocation(entry.getColonLocation());
-        throw Starlark.errorf("Duplicated key %s when creating dictionary", Starlark.repr(k));
+        throw Starlark.errorf("dictionary expression has duplicate key: %s", Starlark.repr(k));
       }
     }
     return dict;
@@ -795,9 +809,9 @@ final class Eval {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());
           try {
-            EvalUtils.checkHashable(k);
+            Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
-            dict.put(k, v, (Location) null);
+            dict.putEntry(k, v);
           } catch (EvalException ex) {
             fr.setErrorLocation(body.getColonLocation());
             throw ex;

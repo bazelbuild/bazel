@@ -96,7 +96,7 @@ public class RemoteCache implements AutoCloseable {
   /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
   @FunctionalInterface
   interface OutputFilesLocker {
-    void lock() throws InterruptedException, IOException;
+    void lock() throws InterruptedException;
   }
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);

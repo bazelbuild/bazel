@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -292,7 +291,6 @@ public class IncludeScanningModule extends BlazeModule {
       } catch (ExecException e) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
                 FailureDetail.newBuilder()
                     .setMessage("could not initialize include hints: " + e.getMessage())
                     .setIncludeScanning(

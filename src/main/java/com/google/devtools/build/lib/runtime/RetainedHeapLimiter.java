@@ -21,17 +21,16 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -102,7 +101,6 @@ final class RetainedHeapLimiter implements NotificationListener {
     if (tenuredGcEmitters.isEmpty() && occupiedHeapPercentageThreshold != 100) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(
                       "No tenured GC collectors were found: unable to watch for GC events to exit"
@@ -120,7 +118,6 @@ final class RetainedHeapLimiter implements NotificationListener {
     if (occupiedHeapPercentageThreshold < 0 || occupiedHeapPercentageThreshold > 100) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(
                       "--experimental_oom_more_eagerly_threshold must be a percent between "
@@ -211,20 +208,19 @@ final class RetainedHeapLimiter implements NotificationListener {
         if (percentUsed > occupiedHeapPercentageThreshold.getAsInt()) {
           if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
             // Assume we got here from a GC initiated by the other branch.
-            String exitMsg = BugReport.constructOomExitMessage(oomMessage);
-            eventHandler.handle(Event.error(exitMsg));
-            String detailedExitMsg =
-                String.format(
-                    "%s RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
-                        + " full GCs, the tenured space is more than %s%% occupied (%s out of"
-                        + " a tenured space size of %s).",
-                    exitMsg,
-                    occupiedHeapPercentageThreshold.getAsInt(),
-                    space.getUsed(),
-                    space.getMax());
-            logger.atSevere().log(detailedExitMsg);
+            OutOfMemoryError oom =
+                new OutOfMemoryError(
+                    String.format(
+                        "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
+                            + " full GCs, the tenured space is more than %s%% occupied (%s out of"
+                            + " a tenured space size of %s).",
+                        occupiedHeapPercentageThreshold.getAsInt(),
+                        space.getUsed(),
+                        space.getMax()));
             // Exits the runtime.
-            throw bugReporter.handleCrash(new OutOfMemoryError(detailedExitMsg));
+            bugReporter.handleCrash(
+                Crash.from(oom),
+                CrashContext.halt().withExtraOomInfo(oomMessage).reportingTo(eventHandler));
           }
 
           if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()

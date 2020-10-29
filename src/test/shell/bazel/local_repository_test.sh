@@ -302,8 +302,8 @@ EOF
 }
 
 function test_default_ws() {
-  bazel fetch //external:java || fail "Fetch failed"
-  bazel build //external:java >& $TEST_log || fail "Failed to build java"
+  bazel fetch //external:main || fail "Fetch failed"
+  bazel build //external:main >& $TEST_log || fail "Failed to build java"
 }
 
 function test_external_hdrs() {

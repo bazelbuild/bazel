@@ -1,0 +1,32 @@
+<p>
+<code>List of <a href="../build-ref.html#labels">labels</a>; optional; default
+is the empty list</code>
+</p>
+
+<p>
+A list of
+<code><a href="platform.html#constraint_value">constraint_value</a></code>s
+that must be present in the target platform for this target to be considered
+"compatible". This is in addition to any constraints already set by the rule
+type. If the target platform does not satisfy all listed constraints then the
+target is considered "incompatible". Incompatible targets are skipped for
+building and testing when the target pattern is expanded
+(e.g. `//...`, `:all`). When explicitly specified on the command line,
+incompatible targets cause Bazel to print an error and cause a build or test
+failure.
+</p>
+
+<p>
+Targets that transitively depend on incompatible targets are themselves
+considered incompatible. They are also skipped for building and testing.
+</p>
+
+<p>
+An empty list (which is the default) signifies that the target is compatible
+with all platforms.
+<p>
+
+<p>
+See the <a href="../platforms.html#skipping-incompatible-targets">Platforms</a>
+page for more information about incompatible target skipping.
+</p>

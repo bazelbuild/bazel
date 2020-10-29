@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
  * An marker annotation used on a {@link net.starlark.java.annot.StarlarkMethod}-annotated method
  * that causes docgen to document it as a constructor function for the Starlark data type denoted by
  * the method's return type. The Starlark data type is obtained from the class using {@link
- * net.starlark.java.annot.StarlarkInterfaceUtils#getStarlarkBuiltin}.
+ * net.starlark.java.annot.StarlarkAnnotations#getStarlarkBuiltin}.
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

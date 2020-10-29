@@ -1400,7 +1400,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             .getExecutable();
     assertWithMessage("ProGuard implementation was not correctly taken from the configuration")
         .that(proguardAction.getCommandFilename())
-        .endsWith(jkrunchyExecutable.getOutputDirRelativePathString());
+        .endsWith(jkrunchyExecutable.getRepositoryRelativePathString());
   }
 
   @Test
@@ -4167,14 +4167,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     scratch.file(
         "java/com/google/android/postprocess.bzl",
         "def _impl(ctx):",
-        "  return [DefaultInfo(files=depset([ctx.attr.dep[ApkInfo].signed_apk]))]",
+        "  return [DefaultInfo(files=depset(",
+        "    [ctx.attr.dep[ApkInfo].signed_apk, ctx.attr.dep[ApkInfo].deploy_jar]))]",
         "postprocess = rule(implementation=_impl,",
         "              attrs={'dep': attr.label(providers=[ApkInfo])})");
     ConfiguredTarget postprocess = getConfiguredTarget("//java/com/google/android:postprocess");
     assertThat(postprocess).isNotNull();
     assertThat(
             prettyArtifactNames(postprocess.getProvider(FilesToRunProvider.class).getFilesToRun()))
-        .containsExactly("java/com/google/android/b1.apk");
+        .containsExactly("java/com/google/android/b1.apk", "java/com/google/android/b1_deploy.jar");
   }
 
   @Test

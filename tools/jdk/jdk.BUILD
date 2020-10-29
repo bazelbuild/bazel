@@ -1,6 +1,6 @@
-package(default_visibility = ["//visibility:public"])
+load("@rules_java//java:defs.bzl", "java_import", "java_runtime")
 
-load("@rules_java//java:defs.bzl", "java_runtime", "java_import")
+package(default_visibility = ["//visibility:public"])
 
 exports_files(["BUILD.bazel"])
 
@@ -181,6 +181,12 @@ filegroup(
     ),
 )
 
+#This folder holds security policies
+filegroup(
+    name = "jdk-conf",
+    srcs = glob(["conf/**"]),
+)
+
 filegroup(
     name = "jdk-include",
     srcs = glob(["include/**"]),
@@ -201,6 +207,7 @@ java_runtime(
     name = "jdk",
     srcs = [
         ":jdk-bin",
+        ":jdk-conf",
         ":jdk-include",
         ":jdk-lib",
         ":jre-default",

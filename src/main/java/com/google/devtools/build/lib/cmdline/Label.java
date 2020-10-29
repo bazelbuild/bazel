@@ -341,6 +341,10 @@ public final class Label
     return packageIdentifier;
   }
 
+  public RepositoryName getRepository() {
+    return packageIdentifier.getRepository();
+  }
+
   /**
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).
@@ -360,6 +364,9 @@ public final class Label
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
    * it will returns an empty string.
+   *
+   * @deprecated The sole purpose of this method is to implement the workspace_root method. For
+   *     other purposes, use {@link RepositoryName#getExecPath} instead.
    */
   @StarlarkMethod(
       name = "workspace_root",
@@ -370,7 +377,8 @@ public final class Label
               + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
-  public String getWorkspaceRoot(StarlarkSemantics semantics) {
+  @Deprecated
+  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) {
     return packageIdentifier
         .getRepository()
         .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
@@ -531,10 +539,7 @@ public final class Label
               + "Label(\"@remapped//wiz:quux\")\n"
               + "</pre>",
       parameters = {
-        @Param(
-            name = "relName",
-            type = String.class,
-            doc = "The label that will be resolved relative to this one.")
+        @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {

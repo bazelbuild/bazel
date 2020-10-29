@@ -18,7 +18,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -45,7 +47,7 @@ public class DependencyTest extends AnalysisTestCase {
 
     assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(nullDep.getConfiguration()).isNull();
-    assertThat(nullDep.getAspects().getAllAspects()).isEmpty();
+    assertThat(nullDep.getAspects().getUsedAspects()).isEmpty();
   }
 
   @Test
@@ -59,7 +61,7 @@ public class DependencyTest extends AnalysisTestCase {
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspects().getAllAspects()).isEmpty();
+    assertThat(targetDep.getAspects().getUsedAspects()).isEmpty();
   }
 
   @Test
@@ -111,7 +113,7 @@ public class DependencyTest extends AnalysisTestCase {
             .setConfiguration(getTargetConfiguration())
             .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
-    assertThat(dep.getAspects().getAllAspects()).isEmpty();
+    assertThat(dep.getAspects().getUsedAspects()).isEmpty();
   }
 
   @Test
@@ -130,7 +132,7 @@ public class DependencyTest extends AnalysisTestCase {
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspects().getAllAspects())
+    assertThat(Iterables.transform(targetDep.getAspects().getUsedAspects(), AspectDeps::getAspect))
         .containsExactly(simpleAspect, attributeAspect);
   }
 
@@ -144,7 +146,7 @@ public class DependencyTest extends AnalysisTestCase {
             .setAspects(AspectCollection.EMPTY)
             .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
-    assertThat(dep.getAspects().getAllAspects()).isEmpty();
+    assertThat(dep.getAspects().getUsedAspects()).isEmpty();
   }
 
   @Test

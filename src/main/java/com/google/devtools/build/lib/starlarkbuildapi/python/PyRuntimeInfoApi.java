@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -96,8 +98,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
         parameters = {
           @Param(
               name = "interpreter_path",
-              type = String.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",
@@ -106,8 +110,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "a value for this argument if you pass in <code>interpreter</code>."),
           @Param(
               name = "interpreter",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",
@@ -116,9 +122,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "a value for this argument if you pass in <code>interpreter_path</code>."),
           @Param(
               name = "files",
-              type = Depset.class,
-              generic1 = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",
@@ -129,7 +136,6 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "<code>files</code> becomes an empty <code>depset</code> instead."),
           @Param(
               name = "python_version",
-              type = String.class,
               positional = false,
               named = true,
               doc = "The value for the new object's <code>python_version</code> field."),

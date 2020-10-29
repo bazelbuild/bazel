@@ -311,7 +311,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())
             .build();
     if (usesInliningBzlLoadFunction()) {
-      injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory);
+      injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory, directories);
     }
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
@@ -339,13 +339,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private static void injectInliningBzlLoadFunction(
       SkyframeExecutor skyframeExecutor,
-      PackageFactory packageFactory) {
+      PackageFactory packageFactory,
+      BlazeDirectories directories) {
     ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions =
         ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting())
             .getSkyFunctionsForTesting();
     BzlLoadFunction bzlLoadFunction =
         BzlLoadFunction.createForInlining(
             packageFactory,
+            directories,
             // Use a cache size of 2 for testing to balance coverage for where loads are present and
             // aren't present in the cache.
             /*bzlLoadValueCacheSize=*/ 2);
@@ -1505,8 +1507,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        getConfiguration(owner)
-            .getGenfilesDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
+        getConfiguration(owner).getGenfilesDirectory(owner.getLabel().getRepository()),
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
@@ -1550,8 +1551,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
-        targetConfig.getIncludeDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
+        targetConfig.getIncludeDirectory(owner.getLabel().getRepository()),
         owner);
   }
 
@@ -1947,6 +1949,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         loadingResult,
         targetConfig.getOptions(),
         /* multiCpu= */ ImmutableSet.of(),
+        /*explicitTargetPatterns=*/ ImmutableSet.of(),
         aspects,
         viewOptions,
         keepGoing,

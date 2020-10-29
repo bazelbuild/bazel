@@ -60,8 +60,8 @@ function assert_only_action_foo() {
 
 function assert_only_action_foo_textproto() {
   expect_log_once "actions {"
-  assert_contains "input_dep_set_ids: \"0\"" $1
-  assert_contains "output_ids: \"2\"" $1
+  assert_contains "input_dep_set_ids: 1" $1
+  assert_contains "output_ids: 3" $1
   assert_contains "mnemonic: \"Genrule\"" $1
   return 0
 }
@@ -160,6 +160,7 @@ EOF
   assert_not_contains "Outputs: \[" output
 }
 
+# TODO(b/154500246): Remove this test.
 function test_aquery_textproto() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -173,19 +174,20 @@ genrule(
 EOF
   echo "hello aquery" > "$pkg/in.txt"
 
-  bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+  bazel aquery --noincompatible_proto_output_v2 --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_contains "exec_path: \"$pkg/dummy.txt\"" output
-  assert_contains "nemonic: \"Genrule\"" output
+  assert_contains "mnemonic: \"Genrule\"" output
   assert_contains "mnemonic: \".*-fastbuild\"" output
   assert_contains "echo unused" output
 
-  bazel aquery --output=textproto --noinclude_commandline "//$pkg:bar" > output \
+  bazel aquery --noincompatible_proto_output_v2 --output=textproto --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
   assert_not_contains "echo unused" output
 }
 
+# TODO(b/154500246): Remove this test.
 function test_aquery_jsonproto() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -199,7 +201,7 @@ genrule(
 EOF
   echo "hello aquery" > "$pkg/in.txt"
 
-  bazel aquery --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+  bazel aquery --noincompatible_proto_output_v2 --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_contains "\"execPath\": \"$pkg/dummy.txt\"" output
@@ -1096,7 +1098,7 @@ genrule(
     cmd = "echo unused > $(OUTS)",
 )
 EOF
-  bazel aquery --output=proto "//$pkg:bar" > output_v1 || fail "Expected success"
+  bazel aquery --noincompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v1 || fail "Expected success"
   bazel clean
 
   bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v2 2> "$TEST_log" \

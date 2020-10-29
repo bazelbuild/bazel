@@ -192,10 +192,21 @@ ctx.actions.run(
 )
 ```
 
+## Hanging
+
+If Bazel appears to be hung, you can hit <kbd>Ctrl-&#92;</kbd> or send
+Bazel a `SIGQUIT` signal (`kill -3 $(bazel info server_pid)`) to get a thread
+dump in the file `$(bazel info output_base)/server/jvm.out`.
+
+Since you may not be able to run `bazel info` if bazel is hung, the
+`output_base` directory is usually the parent of the `bazel-<workspace>`
+symlink in your workspace directory.
+
 ## Performance profiling
 
 Bazel writes a JSON profile to `command.profile.gz` in the output base by
-default. You can configure the location with the `--profile` flag, for example
+default. You can configure the location with the
+[`--profile`](user-manual.html#flag--profile) flag, for example
 `--profile=/tmp/profile.gz`. Location ending with `.gz` are compressed with
 GZIP.
 

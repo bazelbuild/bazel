@@ -18,6 +18,7 @@ import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.ASM7;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
+import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
@@ -73,12 +74,14 @@ public class OutputConsumer implements ClassFileConsumer {
   private final Path archive;
   private final Origin origin;
   private final DependencyCollector dependencyCollector;
+  private final Path input;
   private final NavigableSet<ClassFileData> classFiles = new TreeSet<>();
 
-  public OutputConsumer(Path archive, DependencyCollector dependencyCollector) {
+  public OutputConsumer(Path archive, DependencyCollector dependencyCollector, Path input) {
     this.archive = archive;
     this.origin = new PathOrigin(archive);
     this.dependencyCollector = dependencyCollector;
+    this.input = input;
   }
 
   @Override
@@ -101,6 +104,12 @@ public class OutputConsumer implements ClassFileConsumer {
       if (desugarDeps != null) {
         ZipUtils.addEntry(Desugar.DESUGAR_DEPS_FILENAME, desugarDeps, ZipEntry.STORED, out);
       }
+      ZipUtils.copyEntries(
+          input,
+          out,
+          entryName ->
+              ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
+                  || ArchiveProgramResourceProvider.includeClassFileEntries(entryName));
     } catch (IOException e) {
       handler.error(new ExceptionDiagnostic(e, origin));
     }

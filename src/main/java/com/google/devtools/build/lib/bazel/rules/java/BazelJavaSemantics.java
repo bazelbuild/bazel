@@ -337,7 +337,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                   + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
                   + File.separator
                   + workspacePrefix
-                  + testRuntimeClasspathArtifact.getOutputDirRelativePathString()));
+                  + testRuntimeClasspathArtifact.getRepositoryRelativePathString()));
     } else {
       arguments.add(
           new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
@@ -365,7 +365,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
                     + workspacePrefix
                     + "/"
-                    + runtimeClassPathArtifact.getOutputDirRelativePathString()));
+                    + runtimeClassPathArtifact.getRepositoryRelativePathString()));
       } else {
         // Remove the placeholder in the stub otherwise bazel coverage fails.
         arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
@@ -759,12 +759,5 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void checkDependencyRuleKinds(RuleContext ruleContext) {}
-
-  @Override
-  public boolean shouldSetupJavaBuilderTemporaryDirectories() {
-    // TODO(cushon): remove after release of:
-    // https://github.com/bazelbuild/bazel/commit/2350239c39841a67162c1c3de042397d6c3771e4
-    return true;
-  }
 }
 

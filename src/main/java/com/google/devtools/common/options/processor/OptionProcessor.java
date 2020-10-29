@@ -550,8 +550,7 @@ public final class OptionProcessor extends AbstractProcessor {
         error(e.getElementInError(), e.getMessage());
       }
     }
-    // Claim all Option annotated fields.
-    return true;
+    return false;
   }
 
   /**

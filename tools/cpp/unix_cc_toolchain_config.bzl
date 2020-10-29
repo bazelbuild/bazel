@@ -16,10 +16,12 @@
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+    "action_config",
     "feature",
     "feature_set",
     "flag_group",
     "flag_set",
+    "tool",
     "tool_path",
     "variable_with_value",
     "with_feature_set",
@@ -146,6 +148,17 @@ def _impl(ctx):
         for name, path in ctx.attr.tool_paths.items()
     ]
     action_configs = []
+
+    llvm_cov_action = action_config(
+        action_name = ACTION_NAMES.llvm_cov,
+        tools = [
+            tool(
+                path = ctx.attr.tool_paths["llvm-cov"],
+            ),
+        ],
+    )
+
+    action_configs.append(llvm_cov_action)
 
     supports_pic_feature = feature(
         name = "supports_pic",

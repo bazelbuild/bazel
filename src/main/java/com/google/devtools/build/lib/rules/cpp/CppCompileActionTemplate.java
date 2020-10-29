@@ -325,6 +325,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
+  public String describe() {
+    return "Compiling all C++ files in " + sourceTreeArtifact.prettyPrint();
+  }
+
+  @Override
   public String toString() {
     return prettyPrint();
   }

@@ -1576,6 +1576,13 @@ echo "STABLE_USER_NAME $USER"
 
 <h3 id='misc_build_options'>Miscellaneous</h3>
 
+<h4 id='flag--flag_alias'><code class='flag'>--flag_alias <var>alias_name=target_path</var></code></h4>
+<p>
+  A convenience flag used to bind longer Starlark build settings to a shorter name. For more
+  details, see the
+  <a href=https://docs.bazel.build/versions/master/skylark/config.html#using-build-setting-aliases">Starlark Configurations</a>.
+</p>
+
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
 <p>
   Changes the prefix of the generated convenience symlinks. The
@@ -2646,10 +2653,9 @@ adb -s deadbeef install ...
   The following options are supported:
 </p>
 <ul>
-  <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
-  <a href='guide.html#dump-text-format'>human-readable format</a></li>
-  <li><code>--dump=raw</code> displays all gathered data in a
-  <a href='guide.html#dump-raw-format'>script-friendly format</a></li>
+  <li><code id='flag--dump'>--dump</code> displays all gathered data in a
+  <a href='guide.html#dump-text-format'>human-readable format</a>. However,
+  this it does not support other formats yet.</li>
 </ul>
 
 <p>
@@ -2661,7 +2667,8 @@ adb -s deadbeef install ...
 <h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
-  The <code>canonicalize-flags</code> command, which takes a list of options for
+  The <a href="https://docs.bazel.build/command-line-reference.html#canonicalize-flags-options">
+  <code>canonicalize-flags</code></a> command, which takes a list of options for
   a Bazel command and returns a list of options that has the same effect. The
   new list of options is canonical, i.e., two lists of options with the same
   effect are canonicalized to the same new list.
@@ -2673,8 +2680,17 @@ adb -s deadbeef install ...
 </p>
 <p>
   Note that a small number of options cannot be reordered, because Bazel cannot
-  ensure that the effect is identical.
+  ensure that the effect is identical. Also note that this command
+  <i>does not</i> expand flags from <code>--config</code>.
 </p>
+<p>
+  As an example:
+</p>
+<pre>
+  % bazel canonicalize-flags -- --config=any_name --test_tag_filters="-lint"
+  --config=any_name
+  --test_tag_filters=-lint
+</pre>
 
 <h3 id='startup_options'>Startup options</h3>
 

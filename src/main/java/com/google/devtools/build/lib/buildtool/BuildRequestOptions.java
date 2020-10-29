@@ -410,7 +410,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_nested_set_as_skykey_threshold",
-      defaultValue = "0",
+      defaultValue = "1",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},

@@ -65,16 +65,18 @@ public class LostInputsExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
-    String message = String.format("%s failed: %s", messagePrefix, getMessage());
-    DetailedExitCode code =
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExecution(Execution.newBuilder().setCode(Code.ACTION_INPUT_LOST))
-                .build());
+  protected ActionExecutionException toActionExecutionException(
+      String message, Action action, DetailedExitCode code) {
     return new LostInputsActionExecutionException(
         message, lostInputs, owners, action, /*cause=*/ this, code);
+  }
+
+  @Override
+  protected FailureDetail getFailureDetail(String message) {
+    return FailureDetail.newBuilder()
+        .setExecution(Execution.newBuilder().setCode(Code.ACTION_INPUT_LOST))
+        .setMessage(message)
+        .build();
   }
 
   public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {

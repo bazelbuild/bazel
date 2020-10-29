@@ -62,7 +62,6 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
         parameters = {
           @Param(
               name = "target",
-              type = ApkInfoApi.class,
               named = true,
               doc = "The target ApkInfo of the instrumentation test.")
         },

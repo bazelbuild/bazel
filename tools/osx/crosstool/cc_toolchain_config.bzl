@@ -4555,7 +4555,7 @@ def _impl(ctx):
                         key = "APPLE_SDK_PLATFORM",
                         value = "%{apple_sdk_platform_value}",
                     ),
-                ],
+                ] + [env_entry(key = key, value = value) for key, value in ctx.attr.extra_env.items()],
             ),
         ],
     )
@@ -5218,6 +5218,24 @@ def _impl(ctx):
         ],
     )
 
+    relative_ast_path_feature = feature(
+        name = "relative_ast_path",
+        env_sets = [
+            env_set(
+                actions = all_link_actions + [
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
+                ],
+                env_entries = [
+                    env_entry(
+                        key = "RELATIVE_AST_PATH",
+                        value = "true",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     archiver_flags_feature = feature(
         name = "archiver_flags",
         flag_sets = [
@@ -5338,6 +5356,7 @@ def _impl(ctx):
 
     debug_prefix_map_pwd_is_dot_feature = feature(
         name = "debug_prefix_map_pwd_is_dot",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5353,6 +5372,29 @@ def _impl(ctx):
                     ACTION_NAMES.objcpp_compile,
                 ],
                 flag_groups = [flag_group(flags = ["DEBUG_PREFIX_MAP_PWD=."])],
+            ),
+        ],
+    )
+
+    remap_xcode_path_feature = feature(
+        name = "remap_xcode_path",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.linkstamp_compile,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                ],
+                flag_groups = [flag_group(flags = [
+                    "-fdebug-prefix-map=__BAZEL_XCODE_DEVELOPER_DIR__=DEVELOPER_DIR",
+                ])],
             ),
         ],
     )
@@ -6046,6 +6088,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6090,6 +6133,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6121,6 +6165,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6165,6 +6210,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6196,6 +6242,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6240,6 +6287,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6350,6 +6398,7 @@ cc_toolchain_config = rule(
         "compiler": attr.string(),
         "cxx_builtin_include_directories": attr.string_list(),
         "tool_paths_overrides": attr.string_dict(),
+        "extra_env": attr.string_dict(),
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",
             name = "xcode_config_label",

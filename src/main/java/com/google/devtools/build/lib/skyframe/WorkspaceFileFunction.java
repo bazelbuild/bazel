@@ -169,19 +169,8 @@ public class WorkspaceFileFunction implements SkyFunction {
       String suffix;
       if (resolvedFile.isPresent()) {
         suffix = "";
-      } else if (!ruleClassProvider.getDefaultWorkspaceSuffix().contains("sh_configure")) {
-        // It might look fragile to check for sh_configure in the WORKSPACE file,
-        // but it turns out it's the best approximation.
-        // The problem is that some tests want the ruleClassProvider
-        // together with logic from BazelRulesModule,
-        // whereas some tests want only the BazelRuleClassProvider,
-        // and some only a subset of that.
-        suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
       } else {
-        suffix =
-            ruleClassProvider.getDefaultWorkspaceSuffix()
-                + "\nload('@bazel_tools//tools/cpp:cc_configure.bzl', 'cc_configure')\n\n"
-                + "cc_configure()";
+        suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
       }
 
       file =

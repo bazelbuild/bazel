@@ -70,8 +70,7 @@ public final class FetchCommand implements BlazeCommand {
               "missing fetch expression. Type '%s help fetch' for syntax and help",
               env.getRuntime().getProductName());
       env.getReporter().handle(Event.error(errorMessage));
-      return createFailedBlazeCommandResult(
-          ExitCode.COMMAND_LINE_ERROR, Code.EXPRESSION_MISSING, errorMessage);
+      return createFailedBlazeCommandResult(Code.EXPRESSION_MISSING, errorMessage);
     }
 
     try {
@@ -92,8 +91,7 @@ public final class FetchCommand implements BlazeCommand {
     if (!pkgOptions.fetch) {
       String errorMessage = "You cannot run fetch with --fetch=false";
       env.getReporter().handle(Event.error(null, errorMessage));
-      return createFailedBlazeCommandResult(
-          ExitCode.COMMAND_LINE_ERROR, Code.OPTIONS_INVALID, errorMessage);
+      return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
     }
 
     // Querying for all of the dependencies of the targets has the side-effect of populating the
@@ -125,8 +123,7 @@ public final class FetchCommand implements BlazeCommand {
           String.format(
               "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(null, errorMessage));
-      return createFailedBlazeCommandResult(
-          ExitCode.COMMAND_LINE_ERROR, Code.QUERY_PARSE_ERROR, errorMessage);
+      return createFailedBlazeCommandResult(Code.QUERY_PARSE_ERROR, errorMessage);
     }
 
     env.getReporter()
@@ -165,8 +162,7 @@ public final class FetchCommand implements BlazeCommand {
           .post(
               new NoBuildRequestFinishedEvent(
                   ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
-      return createFailedBlazeCommandResult(
-          ExitCode.COMMAND_LINE_ERROR, Code.QUERY_PARSE_ERROR, e.getMessage());
+      return createFailedBlazeCommandResult(Code.QUERY_PARSE_ERROR, e.getMessage());
     } catch (IOException e) {
       // Should be impossible since our OutputFormatterCallback doesn't throw IOException.
       throw new IllegalStateException(e);
@@ -183,7 +179,6 @@ public final class FetchCommand implements BlazeCommand {
     return queryEvalResult.getSuccess()
         ? BlazeCommandResult.success()
         : createFailedBlazeCommandResult(
-            ExitCode.COMMAND_LINE_ERROR,
             Code.QUERY_EVALUATION_ERROR,
             String.format(
                 "Evaluation of query \"%s\" failed but --keep_going specified, ignoring errors",
@@ -191,10 +186,9 @@ public final class FetchCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
-      ExitCode exitCode, Code fetchCommandCode, String message) {
+      Code fetchCommandCode, String message) {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setFetchCommand(

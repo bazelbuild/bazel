@@ -258,7 +258,6 @@ public final class RemoteModule extends BlazeModule {
     if (enableRemoteDownloader && !enableGrpcCache) {
       throw createOptionsExitException(
           "The remote downloader can only be used in combination with gRPC caching",
-          ExitCode.COMMAND_LINE_ERROR,
           FailureDetails.RemoteOptions.Code.DOWNLOADER_WITHOUT_GRPC_CACHE);
     }
 
@@ -270,7 +269,6 @@ public final class RemoteModule extends BlazeModule {
     if ((enableHttpCache || enableDiskCache) && enableRemoteExecution) {
       throw createOptionsExitException(
           "Cannot combine gRPC based remote execution with disk caching or HTTP-based caching",
-          ExitCode.COMMAND_LINE_ERROR,
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
     }
 
@@ -888,10 +886,9 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private static AbruptExitException createOptionsExitException(
-      String message, ExitCode exitCode, FailureDetails.RemoteOptions.Code remoteExecutionCode) {
+      String message, FailureDetails.RemoteOptions.Code remoteExecutionCode) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setRemoteOptions(

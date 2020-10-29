@@ -160,7 +160,7 @@ public class BzlCompileFunction implements SkyFunction {
     FileOptions options =
         FileOptions.builder()
             // TODO(adonovan): add this, so that loads can normally be truly local.
-            // .loadBindsGlobally(key.isPrelude())
+            // .loadBindsGlobally(key.isBuildPrelude())
             .restrictStringEscapes(
                 semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();

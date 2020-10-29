@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -241,8 +240,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addNativeDeclaredProvider(dataBindingV2Provider)
         .addNativeDeclaredProvider(

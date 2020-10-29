@@ -47,24 +47,26 @@ class LogHelper {
 // Abort the program after logging the mesage.
 #define GRPC_CODEGEN_FAIL GRPC_CODEGEN_CHECK(false)
 
-using namespace std;
-
 namespace java_grpc_generator {
+
+namespace impl {
+namespace protobuf = google::protobuf;
+} // namespace impl
 
 enum ProtoFlavor {
   NORMAL, LITE
 };
 
 // Returns the package name of the gRPC services defined in the given file.
-std::string ServiceJavaPackage(const google::protobuf::FileDescriptor* file);
+std::string ServiceJavaPackage(const impl::protobuf::FileDescriptor* file);
 
 // Returns the name of the outer class that wraps in all the generated code for
 // the given service.
-std::string ServiceClassName(const google::protobuf::ServiceDescriptor* service);
+std::string ServiceClassName(const impl::protobuf::ServiceDescriptor* service);
 
 // Writes the generated service interface into the given ZeroCopyOutputStream
-void GenerateService(const google::protobuf::ServiceDescriptor* service,
-                     google::protobuf::io::ZeroCopyOutputStream* out,
+void GenerateService(const impl::protobuf::ServiceDescriptor* service,
+                     impl::protobuf::io::ZeroCopyOutputStream* out,
                      ProtoFlavor flavor,
                      bool disable_version);
 

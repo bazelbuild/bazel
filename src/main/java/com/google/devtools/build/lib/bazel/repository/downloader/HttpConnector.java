@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.math.IntMath;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -59,6 +60,8 @@ class HttpConnector {
   private static final int READ_TIMEOUT_MS = 20000;
   private static final ImmutableSet<String> COMPRESSED_EXTENSIONS =
       ImmutableSet.of("bz2", "gz", "jar", "tgz", "war", "xz", "zip");
+  private static final String USER_AGENT_VALUE =
+      "bazel/" + BlazeVersionInfo.instance().getVersion();
 
   private final Locale locale;
   private final EventHandler eventHandler;
@@ -120,6 +123,9 @@ class HttpConnector {
             continue;
           }
           connection.addRequestProperty(entry.getKey(), entry.getValue());
+        }
+        if (connection.getRequestProperty("User-Agent") == null) {
+          connection.setRequestProperty("User-Agent", USER_AGENT_VALUE);
         }
         connection.setConnectTimeout(connectTimeout);
         // The read timeout is always large because it stays in effect after this method.

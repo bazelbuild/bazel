@@ -257,7 +257,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       }
       debugMessage(
           eventHandler,
-          "    Type %s: %s %s: Rejected toolchain %s%s%s",
+          "    Type %s: %s platform %s: Rejected toolchain %s%s%s",
           toolchainTypeLabel,
           platformType,
           platform.label(),

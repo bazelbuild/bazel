@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -334,12 +335,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     Preconditions.checkState(analysisResult != null, "You must run update() first!");
   }
 
-  /**
-   * Update the BuildView: syncs the package cache; loads and analyzes the given labels.
-   */
+  /** Update the BuildView: syncs the package cache; loads and analyzes the given labels. */
   protected AnalysisResult update(
-      EventBus eventBus, FlagBuilder config, ImmutableList<String> aspects, String... labels)
-          throws Exception {
+      EventBus eventBus,
+      FlagBuilder config,
+      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableList<String> aspects,
+      String... labels)
+      throws Exception {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = optionsParser.getOptions(LoadingOptions.class);
@@ -393,6 +396,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             loadingResult,
             buildOptions,
             multiCpu,
+            explicitTargetPatterns,
             aspects,
             viewOptions,
             keepGoing,
@@ -408,9 +412,16 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return analysisResult;
   }
 
+  protected AnalysisResult update(
+      EventBus eventBus, FlagBuilder config, ImmutableList<String> aspects, String... labels)
+      throws Exception {
+    return update(
+        eventBus, config, /*explicitTargetPatterns=*/ ImmutableSet.<String>of(), aspects, labels);
+  }
+
   protected AnalysisResult update(EventBus eventBus, FlagBuilder config, String... labels)
       throws Exception {
-    return update(eventBus, config, /*aspects=*/ImmutableList.<String>of(), labels);
+    return update(eventBus, config, /*aspects=*/ ImmutableList.<String>of(), labels);
   }
 
   protected AnalysisResult update(FlagBuilder config, String... labels) throws Exception {
@@ -550,7 +561,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getArtifactFactory()
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
-            getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
+            getTargetConfiguration().getBinDirectory(label.getRepository()),
             ConfiguredTargetKey.builder()
                 .setConfiguredTarget(owner)
                 .setConfiguration(

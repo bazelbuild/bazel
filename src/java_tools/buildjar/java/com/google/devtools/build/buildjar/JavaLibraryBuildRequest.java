@@ -31,7 +31,6 @@ import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -195,10 +194,6 @@ public final class JavaLibraryBuildRequest {
   // TODO(b/169793789): kill this with fire if javahotswap starts using jars instead of classes
   @VisibleForTesting
   static Path deriveDirectory(String label, String outputJar, String suffix) throws IOException {
-    if (label == null) {
-      // TODO(b/169944970): require --target_label to be set and fix up affected tests
-      return Files.createTempDirectory(suffix);
-    }
     checkArgument(label != null, "--target_label is required");
     checkArgument(outputJar != null, "--output is required");
     checkArgument(

@@ -180,6 +180,34 @@ function test_no_arguments() {
   expect_log "Usage: b\\(laze\\|azel\\)"
 }
 
+function test_local_startup_timeout() {
+  local output_base=$(bazel info output_base 2>"$TEST_log") ||
+    fail "bazel info failed"
+
+  # --host-jvm_debug will cause the server to block, forcing the client
+  # into the timeout condition.
+  bazel --host_jvm_args="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=localhost:41687" \
+      --local_startup_timeout_secs=1 2>"$TEST_log" &
+  local timeout=20
+  while true; do
+    local jobs_output=$(jobs)
+    [[ $jobs_output =~ Exit ]] && break
+    [[ $jobs_output =~ Done ]] && fail "bazel should have exited non-zero"
+
+    timeout="$(( ${timeout} - 1 ))"
+    [[ "${timeout}" -gt 0 ]] || {
+      kill -9 %1
+      wait %1
+      fail "--local_startup_timeout_secs was not respected"
+    }
+    # Wait for the client to exit.
+    sleep 1
+  done
+
+  expect_log "Starting local.*server and connecting to it"
+  expect_log "FATAL: couldn't connect to server"
+}
+
 function test_max_idle_secs() {
   # TODO(https://github.com/bazelbuild/bazel/issues/6773): Remove when fixed.
   bazel shutdown

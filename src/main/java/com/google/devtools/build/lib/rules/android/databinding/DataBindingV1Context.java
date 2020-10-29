@@ -106,7 +106,7 @@ final class DataBindingV1Context implements DataBindingContext {
 
   @Override
   public ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext) {
-    return DataBinding.getAnnotationFile(ruleContext);
+    return DataBinding.getAnnotationFile(ruleContext, /* useAndroidX= */ false);
   }
 
   @Override
@@ -134,5 +134,11 @@ final class DataBindingV1Context implements DataBindingContext {
   public AndroidResources processResources(
       AndroidDataContext dataContext, AndroidResources resources, String appId) {
     return resources;
+  }
+
+  @Override
+  public boolean usesAndroidX() {
+    // AndroidX dependencies are only supported with databinding v2.
+    return false;
   }
 }

@@ -57,7 +57,7 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
         doc = "The <code>MessageBundleInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(name = "messages", positional = false, named = true, type = Sequence.class),
+          @Param(name = "messages", positional = false, named = true),
         },
         selfCall = true,
         useStarlarkThread = true)

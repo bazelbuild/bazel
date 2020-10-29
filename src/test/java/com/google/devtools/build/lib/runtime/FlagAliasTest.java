@@ -14,99 +14,50 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
+import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.TestOptions;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests --flag_alias functionality in {@link BlazeOptionHandler}. */
 @RunWith(JUnit4.class)
-public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
+public final class FlagAliasTest {
 
-  @Test
-  public void useAliasWithoutSettingFeature() {
-    ImmutableList<String> args =
-        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
-    assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error(
-                "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to"
-                    + " make use of it. Detected aliases: --flag_alias=foo=//bar"));
-  }
+  private StoredEventHandler eventHandler;
+  private OptionsParser parser;
+  private BlazeOptionHandler optionHandler;
 
-  @Test
-  public void useAliasWithSetDisabledFeature() {
-    ImmutableList<String> args =
+  @Before
+  public void setUp() throws Exception {
+    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
         ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--noexperimental_enable_flag_alias",
-            "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
-    assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error(
-                "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to"
-                    + " make use of it. Detected aliases: --flag_alias=foo=//bar"));
-  }
+            TestOptions.class, CommonCommandOptions.class, ClientOptions.class, CoreOptions.class);
 
-  @Test
-  public void useAliasWithSetDisabledFeatureRcFile() {
-    ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--noexperimental_enable_flag_alias",
-            "--rc_source=/somewhere/.blazerc",
-            "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
-    assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error(
-                "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to"
-                    + " make use of it. Detected aliases: --flag_alias=foo=//bar"));
-  }
-
-  @Test
-  public void useAliasWithSetEnabledFeature() {
-    ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
-    assertThat(eventHandler.hasErrors()).isFalse();
-  }
-
-  @Test
-  public void multipleAliasesLoggedInError() {
-    ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--noexperimental_enable_flag_alias",
-            "--flag_alias=foo=//bar",
-            "--flag_alias=baz=//baz2");
-    optionHandler.parseOptions(args, eventHandler);
-    assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error(
-                "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to"
-                    + " make use of it. Detected aliases: --flag_alias=foo=//bar,"
-                    + " --flag_alias=baz=//baz2"));
+    BlazeOptionHandlerTestHelper helper =
+        new BlazeOptionHandlerTestHelper(
+            optionsClasses,
+            /* allowResidue= */ true,
+            /* aliasFlag= */ BLAZE_ALIASING_FLAG,
+            /* skipStarlarkPrefixes= */ true);
+    eventHandler = helper.getEventHandler();
+    parser = helper.getOptionsParser();
+    optionHandler = helper.getOptionHandler();
   }
 
   @Test
   public void useAliasWithNonStarlarkFlag() {
     ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=foo=bar");
+        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
@@ -118,11 +69,7 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   @Test
   public void useAliasWithValueAssignment() {
     ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=foo=//bar=7");
+        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar=7");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
@@ -134,11 +81,7 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   @Test
   public void useAliasWithInvalidName() {
     ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=bad$foo=//bar");
+        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=bad$foo=//bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
@@ -150,11 +93,7 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   @Test
   public void useAliasWithoutEqualsInValue() {
     ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=foo");
+        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
@@ -166,12 +105,7 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   @Test
   public void useAliasWithoutEqualsInArg() {
     ImmutableList<String> args =
-        ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias",
-            "foo=//bar");
+        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias", "foo=//bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.hasErrors()).isFalse();
   }
@@ -180,13 +114,22 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   public void useAliasWithBooleanSyntax() {
     ImmutableList<String> args =
         ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=foo=//bar",
-            "--foo");
+            "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(parser.getResidue()).contains("--//bar");
+  }
+
+  @Test
+  public void useAliasWithNoBooleanSyntax() {
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "c0",
+            "--rc_source=/somewhere/.blazerc",
+            "--flag_alias=foo=//bar",
+            "--nofoo");
+    optionHandler.parseOptions(args, eventHandler);
+    assertThat(eventHandler.getEvents())
+        .contains(Event.error("--nofoo :: Unrecognized option: --nofoo").withTag(BAD_OPTION_TAG));
   }
 
   @Test
@@ -195,7 +138,6 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
         ImmutableList.of(
             "c0",
             "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
             "--flag_alias=foo=//bar",
             "--foo",
             "--flag_alias=foo=//baz",
@@ -210,7 +152,6 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "c0",
-            "--default_override=0:c0=--experimental_enable_flag_alias",
             "--default_override=0:c0=--flag_alias=foo=//bar",
             "--default_override=0:c0=--foo",
             "--rc_source=/somewhere/.blazerc");
@@ -224,7 +165,6 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "c0",
-            "--default_override=0:c0=--experimental_enable_flag_alias",
             "--default_override=0:c0=--flag_alias=foo=//bar",
             "--rc_source=/somewhere/.blazerc",
             "--foo");
@@ -237,11 +177,7 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   public void setAliasOnCommandLine_useOnCommandLine() {
     ImmutableList<String> args =
         ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--flag_alias=foo=//bar",
-            "--foo=7");
+            "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo=7");
     ImmutableList<String> expectedResidue = ImmutableList.of("--//bar=7");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(parser.getResidue()).isEqualTo(expectedResidue);
@@ -254,28 +190,19 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
             "c0",
             "--default_override=0:c0=--foo=7",
             "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
             "--flag_alias=foo=//bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error("--foo=7 :: Unrecognized option: --foo=7")
-                .withTag(BlazeOptionHandler.BAD_OPTION_TAG));
+        .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
 
   @Test
   public void useAliasBeforeSettingOnCommandLine() {
     ImmutableList<String> args =
         ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--experimental_enable_flag_alias",
-            "--foo=7",
-            "--flag_alias=foo=//bar");
+            "c0", "--rc_source=/somewhere/.blazerc", "--foo=7", "--flag_alias=foo=//bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error("--foo=7 :: Unrecognized option: --foo=7")
-                .withTag(BlazeOptionHandler.BAD_OPTION_TAG));
+        .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
 }

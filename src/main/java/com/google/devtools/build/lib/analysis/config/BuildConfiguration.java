@@ -53,8 +53,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Instances of BuildConfiguration represent a collection of context information which may affect a
@@ -358,7 +358,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
 
     for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
-      StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
+      StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(fragmentClass);
       if (module != null) {
         builder.put(module.name(), fragmentClass);
       }
@@ -412,9 +412,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return outputDirectories.getBinDirectory(repositoryName).getExecPath();
   }
 
-  /** Returns the include directory for this build configuration. */
+  /**
+   * Returns the include directory for this build configuration.
+   *
+   * @deprecated Use {@code RuleContext#getIncludeDirectory} instead whenever possible.
+   */
+  @Deprecated
   public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getIncludeDirectory();
+    return outputDirectories.getIncludeDirectory(repositoryName);
   }
 
   /** @deprecated Use {@link #getGenfilesDirectory} instead. */
@@ -442,14 +447,22 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * Returns the directory where coverage-related artifacts and metadata files should be stored.
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
    * tools.
+   *
+   * @deprecated Use {@code RuleContext#getCoverageMetadataDirectory} instead whenever possible.
    */
+  @Deprecated
   public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getCoverageMetadataDirectory();
+    return outputDirectories.getCoverageMetadataDirectory(repositoryName);
   }
 
-  /** Returns the testlogs directory for this build configuration. */
+  /**
+   * Returns the testlogs directory for this build configuration.
+   *
+   * @deprecated Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
+   */
+  @Deprecated
   public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getTestLogsDirectory();
+    return outputDirectories.getTestLogsDirectory(repositoryName);
   }
 
   /**
@@ -473,9 +486,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return outputDirectories.getHostPathSeparator();
   }
 
-  /** Returns the internal directory (used for middlemen) for this build configuration. */
+  /**
+   * Returns the internal directory (used for middlemen) for this build configuration.
+   *
+   * @deprecated Use {@code RuleContext#getMiddlemanDirectory} instead whenever possible.
+   */
+  @Deprecated
   public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getMiddlemanDirectory();
+    return outputDirectories.getMiddlemanDirectory(repositoryName);
   }
 
   public boolean isStrictFilesets() {
@@ -506,6 +524,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public ActionEnvironment getActionEnvironment() {
     return actionEnv;
+  }
+
+  public boolean isSiblingRepositoryLayout() {
+    return siblingRepositoryLayout;
   }
 
   /**

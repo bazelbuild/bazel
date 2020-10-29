@@ -32,14 +32,12 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -50,8 +48,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
-
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
         ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
@@ -101,8 +97,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))

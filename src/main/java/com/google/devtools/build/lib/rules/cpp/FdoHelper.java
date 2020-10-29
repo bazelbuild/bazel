@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoMode;
 import com.google.devtools.build.lib.util.FileType;
@@ -458,8 +457,7 @@ public class FdoHelper {
   }
 
   private static FdoInputFile fdoInputFileFromArtifacts(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes)
-      throws InterruptedException {
+      RuleContext ruleContext, CcToolchainAttributesProvider attributes) {
     ImmutableList<Artifact> fdoArtifacts = attributes.getFdoOptimizeArtifacts();
     if (fdoArtifacts.size() != 1) {
       ruleContext.ruleError("--fdo_optimize does not point to a single target");
@@ -475,11 +473,7 @@ public class FdoHelper {
     Label fdoLabel = attributes.getFdoOptimize().getLabel();
     if (!fdoLabel
         .getPackageIdentifier()
-        .getExecPath(
-            ruleContext
-                .getAnalysisEnvironment()
-                .getStarlarkSemantics()
-                .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
+        .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
         .getRelative(fdoLabel.getName())
         .equals(fdoArtifact.getExecPath())) {
       ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");

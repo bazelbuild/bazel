@@ -60,12 +60,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
         doc = "The <code>AndroidFeatureFlagSetProvider</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "flags",
-              doc = "Map of flags",
-              positional = true,
-              named = false,
-              type = Dict.class),
+          @Param(name = "flags", doc = "Map of flags", positional = true, named = false),
         },
         selfCall = true)
     @StarlarkConstructor

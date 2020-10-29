@@ -59,14 +59,12 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
         parameters = {
           @Param(
               name = "success",
-              type = Boolean.class,
               named = true,
               doc =
                   "If true, then the analysis-phase test represented by this target should "
                       + "pass. If false, the test should fail."),
           @Param(
               name = "message",
-              type = String.class,
               named = true,
               doc =
                   "A descriptive message containing information about the test and its "

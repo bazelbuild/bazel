@@ -83,16 +83,17 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "This flag tells Bazel how to find the \"@builtins\" .bzl files that govern how "
+          "This flag tells Bazel how to find the \"@_builtins\" .bzl files that govern how "
               + "predeclared symbols for BUILD and .bzl files are defined. This flag is only "
-              + "intended for Bazel developers, to help when writing @builtins .bzl code. "
+              + "intended for Bazel developers, to help when writing @_builtins .bzl code. "
               + "Ordinarily this value is set to \"%install_base%\", which means to use the "
               + "builtins_bzl/ directory located in the install base. However, it can be set to "
-              + "the path to the root of a Bazel source tree workspace, in which case the bzl "
-              + "sources underneath that workspace are used. If the value is literally "
-              + "\"%workspace%\", the root of the current workspace is used; this should only be "
-              + "set when running Bazel within its own source tree. Finally, a value of the empty "
-              + "string (\"\") disables the builtins injection mechanism entirely.")
+              + "the path (relative to the root of the current workspace) of an alternate "
+              + "builtins_bzl/ directory, such as one in a Bazel source tree workspace. A literal "
+              + "value of \"%workspace%\" is equivalent to the relative package path of "
+              + "builtins_bzl/ within a Bazel source tree; this should only be used when running "
+              + "Bazel within its own source tree. Finally, a value of the empty string disables "
+              + "the builtins injection mechanism entirely.")
   public String experimentalBuiltinsBzlPath;
 
   @Option(
@@ -256,6 +257,21 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " requirements; otherwise tags are not propagated. See"
               + " https://github.com/bazelbuild/bazel/issues/8830 for details.")
   public boolean experimentalAllowTagsPropagation;
+
+  @Option(
+      name = "incompatible_struct_has_no_methods",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Disables the to_json and to_proto methods of struct, which pollute the struct field"
+              + " namespace. Instead, use json.encode or json.encode_indent for JSON, or"
+              + " proto.encode_text for textproto.")
+  public boolean incompatibleStructHasNoMethods;
 
   @Option(
       name = "incompatible_always_check_depset_elements",
@@ -456,20 +472,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       help = "If set to true, the command parameter of actions.run_shell will only accept string")
   public boolean incompatibleRunShellCommandString;
 
-  @Option(
-      name = "incompatible_string_replace_count",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the `count` parameter of string.replace() is changed to behave as in "
-              + "Python: a negative count is ignored, and a None count is an error")
-  public boolean incompatibleStringReplaceCount;
-
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
       name = "internal_starlark_flag_test_canary",
@@ -536,7 +538,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_linkopts_to_linklibs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       metadataTags = {
@@ -550,7 +552,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_objc_provider_remove_compile_info",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -569,7 +571,9 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, the jar_file parameter in pack_sources will be removed.")
+      help =
+          "If set to true, the jar_file, and host_javabase parameters in pack_sources and "
+              + "host_javabase in compile will all be removed.")
   public boolean incompatibleJavaCommonParameters;
 
   @Option(
@@ -633,8 +637,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
-            .setBool(
-                StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT, incompatibleStringReplaceCount)
+            .setBool(INCOMPATIBLE_STRUCT_HAS_NO_METHODS, incompatibleStructHasNoMethods)
             .setBool(
                 INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION,
                 incompatibleVisibilityPrivateAttributesAtDefinition)
@@ -703,7 +706,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "-incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
-      "-incompatible_linkopts_to_linklibs";
+      "+incompatible_linkopts_to_linklibs";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
@@ -711,13 +714,15 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
   public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO =
-      "-incompatible_objc_provider_remove_compile_info";
+      "+incompatible_objc_provider_remove_compile_info";
   public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
       "-incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RESTRICT_STRING_ESCAPES =
       "-incompatible_restrict_string_escapes";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "-incompatible_run_shell_command_string";
+  public static final String INCOMPATIBLE_STRUCT_HAS_NO_METHODS =
+      "-incompatible_struct_has_no_methods";
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =

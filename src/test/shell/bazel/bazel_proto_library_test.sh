@@ -49,15 +49,25 @@ function write_workspace() {
   fi
 
   cat >> "$workspace"WORKSPACE << EOF
+# TODO(#9029): May require some adjustment if/when we depend on the real
+# @rules_python in the real source tree, since this third_party/ package won't
+# be available.
+new_local_repository(
+    name = "rules_python",
+    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
+    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
+    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
+)
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_proto",
-    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
-    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
+    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
     ],
 )
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
@@ -70,16 +80,6 @@ new_local_repository(
     path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
     build_file_content = "# Intentionally left empty.",
     workspace_file_content = "workspace(name = 'io_bazel')",
-)
-
-# TODO(#9029): May require some adjustment if/when we depend on the real
-# @rules_python in the real source tree, since this third_party/ package won't
-# be available.
-new_local_repository(
-    name = "rules_python",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
-    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
-    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
 )
 EOF
 }

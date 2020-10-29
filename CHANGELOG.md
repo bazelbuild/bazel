@@ -1,3 +1,49 @@
+## Release 3.7.0 (2020-10-20)
+
+```
+Baseline: a991db7c2f66a354666388d888dcef9b0d0f70c0
+```
+
+Incompatible changes:
+
+  - The syntax //foo/BUILD can no longer be used on the command line
+    to refer to the //foo:BUILD target. Use //foo:BUILD (preferred)
+    or foo/BUILD instead. This does not affect BUILD/bzl files, where
+    that syntax already didn't work.
+  - This removes `--objc_header_scanner_tool`. The flag was primarily
+    used internally, and to our knowledge, a compatible tool was
+    never released. Therefore this flag is believed to be unused.
+
+New features:
+
+  - select() directly supports constraint_value (no need for an
+    intermediate config_setting).
+
+Important changes:
+
+  - Non-android targets can again be built when
+    android_sdk_repository is present but invalid.
+  - Add a build variable for -install_name / -soname.
+  - Add a build variable for -install_name / -soname.
+  - Include "resources" attr in dependency attributes for java_*
+    coverage configuration.
+  - --trim_test_configuration should work for almost all cases when a
+    non-test target depends on a test.
+  - Javac now supports multiplex workers.
+  - Javac now supports multiplex workers.
+  - Blaze now allows symbolic links that point to their own ancestor
+    unless they are traversed recursively by e.g. a //... recursive
+    target pattern or a recursive glob.
+  - Blaze now allows symbolic links that point to their own ancestor
+    unless they are traversed recursively by e.g. a //... recursive
+    target pattern or a recursive glob.
+  - Blaze now allows symbolic links that point to their own ancestor
+    unless they are traversed recursively by e.g. a //... recursive
+    target pattern or a recursive glob.
+  - Generated Go protobufs no longer depend on //net/proto2/go:proto
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Cristian Hancila, Ed Schouten, Fredrik Medley, Greg Estren, jgehw, Jin, Kalle Johansson, Keith Smiley, Kseniia Vasilchuk, Michael Eisel, Michael Hackner, Michael Krasnyk, Mostyn Bramley-Moore, Ruixin Bao, Samuel Giddins, Simon Stewart, Torgil Svensson, Ulf Adams, Vasilios Pantazopoulos, Wenyu Zhang, Yannic Bonenberger, yoav-steinberg.
+
 ## Release 3.6.0 (2020-10-06)
 
 ```

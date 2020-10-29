@@ -359,8 +359,9 @@ public final class Resolver extends NodeVisitor {
       for (Expression elem : ((ListExpression) lhs).getElements()) {
         assign(elem);
       }
+    } else if (lhs instanceof DotExpression) {
+      visit(((DotExpression) lhs).getObject());
     } else {
-      // TODO(adonovan): support x.f = y.
       errorf(lhs, "cannot assign to '%s'", lhs);
     }
   }

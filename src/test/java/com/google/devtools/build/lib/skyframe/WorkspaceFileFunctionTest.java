@@ -276,7 +276,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
           "managed_directories attribute should not contain multiple (or duplicate)"
               + " repository mappings for the same directory ('a/b').");
       assertManagedDirectoriesParsingError(
-          "{'@repo1': [], '@repo1': [] }", "Duplicated key \"@repo1\" when creating dictionary");
+          "{'@repo1': [], '@repo1': [] }", "dictionary expression has duplicate key: \"@repo1\"");
       assertManagedDirectoriesParsingError(
           "{'@repo1': ['a/b'], '@repo2': ['a/b/c/..'] }",
           "managed_directories attribute should not contain multiple (or duplicate)"

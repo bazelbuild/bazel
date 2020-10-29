@@ -92,6 +92,7 @@ java_toolchain_alias = rule(
             default = Label("@bazel_tools//tools/jdk:legacy_current_java_toolchain"),
         ),
     },
+    incompatible_use_toolchain_transition = True,
 )
 
 # Add aliases for the legacy native rules to allow referring to both versions in @bazel_tools//tools/jdk

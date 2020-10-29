@@ -609,7 +609,9 @@ message Query {
     QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
     QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
-    reserved 16;
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_UNCLOSED_QUOTATION_EXPRESSION_ERROR = 16
+        [(metadata) = { exit_code: 2 }];
     VARIABLE_NAME_INVALID = 17 [(metadata) = { exit_code: 7 }];
     VARIABLE_UNDEFINED = 18 [(metadata) = { exit_code: 7 }];
     BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR = 19
@@ -625,13 +627,24 @@ message Query {
     ARGUMENTS_MISSING = 28 [(metadata) = { exit_code: 7 }];
     RBUILDFILES_FUNCTION_REQUIRES_SKYQUERY = 29 [(metadata) = { exit_code: 7 }];
     FULL_TARGETS_NOT_SUPPORTED = 30 [(metadata) = { exit_code: 7 }];
-    reserved 31 to 34;
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_UNEXPECTED_TOKEN_ERROR = 31 [(metadata) = { exit_code: 2 }];
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_INTEGER_LITERAL_MISSING = 32 [(metadata) = { exit_code: 2 }];
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_INVALID_STARTING_CHARACTER_ERROR = 33
+        [(metadata) = { exit_code: 2 }];
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_PREMATURE_END_OF_INPUT_ERROR = 34
+        [(metadata) = { exit_code: 2 }];
     // Indicates the user specified invalid query syntax.
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
     OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
     SKYQUERY_TRANSITIVE_TARGET_ERROR = 37 [(metadata) = { exit_code: 7 }];
     SKYQUERY_TARGET_EXCEPTION = 38 [(metadata) = { exit_code: 7 }];
     INVALID_LABEL_IN_TEST_SUITE = 39 [(metadata) = { exit_code: 7 }];
+    // Indicates any usage of flags that must not be combined.
+    ILLEGAL_FLAG_COMBINATION = 40 [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -693,7 +706,7 @@ message Sandbox {
     MOUNT_SOURCE_DOES_NOT_EXIST = 7 [(metadata) = { exit_code: 1 }];
     MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
-    EXECUTION_FAILED = 10 [(metadata) = { exit_code: 1 }];
+    SUBPROCESS_START_FAILED = 10 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -829,6 +842,8 @@ message ConfigurableQuery {
     TARGET_MISSING = 9 [(metadata) = { exit_code: 2 }];
     STARLARK_SYNTAX_ERROR = 10 [(metadata) = { exit_code: 2 }];
     STARLARK_EVAL_ERROR = 11 [(metadata) = { exit_code: 2 }];
+    // Indicates failure to correctly define a format function
+    FORMAT_FUNCTION_ERROR = 12 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1025,6 +1040,7 @@ message FailAction {
     INCORRECT_TOOLCHAIN = 6 [(metadata) = { exit_code: 1 }];
     FRAGMENT_CLASS_MISSING = 7 [(metadata) = { exit_code: 1 }];
     reserved 8, 9; // For internal use
+    CANT_BUILD_INCOMPATIBLE_TARGET = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1120,6 +1136,7 @@ message Analysis {
     INVALID_EXECUTION_PLATFORM = 16 [(metadata) = { exit_code: 1 }];
     ASPECT_CREATION_FAILED = 17 [(metadata) = { exit_code: 1 }];
     CONFIGURED_VALUE_CREATION_FAILED = 18 [(metadata) = { exit_code: 1 }];
+    INCOMPATIBLE_TARGET_REQUESTED = 19 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

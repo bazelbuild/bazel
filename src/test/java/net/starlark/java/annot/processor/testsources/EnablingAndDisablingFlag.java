@@ -29,8 +29,8 @@ public class EnablingAndDisablingFlag implements StarlarkValue {
       name = "someMethod",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = StarlarkInt.class, named = true),
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
       },
       enableOnlyWithFlag = FOO,
       disableWithFlag = FOO)

@@ -109,7 +109,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> pluginList;
   private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
-  private final boolean loadJavaRulesFromBzl;
   private final boolean disallowLegacyJavaToolchainFlags;
   private final boolean experimentalTurbineAnnotationProcessing;
 
@@ -148,7 +147,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
-    this.loadJavaRulesFromBzl = javaOptions.loadJavaRulesFromBzl;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
@@ -444,10 +442,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean disallowResourceJars() {
     return disallowResourceJars;
-  }
-
-  public boolean loadJavaRulesFromBzl() {
-    return loadJavaRulesFromBzl;
   }
 
   public boolean experimentalTurbineAnnotationProcessing() {

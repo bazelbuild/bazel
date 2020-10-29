@@ -1,4 +1,3 @@
-
 // Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -65,12 +65,13 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  public void prepare(
+      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
       throws IOException, InterruptedException {
     if (includePath.isDirectory(Symlinks.NOFOLLOW)) {
       includePath.deleteTree();
     }
-    super.prepare(execRoot, bulkDeleter);
+    super.prepare(execRoot, pathResolver, bulkDeleter);
   }
 
   @Override

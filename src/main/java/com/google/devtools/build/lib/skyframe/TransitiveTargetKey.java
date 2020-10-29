@@ -29,7 +29,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 @ThreadSafe
 public final class TransitiveTargetKey implements SkyKey {
   public static TransitiveTargetKey of(Label label) {
-    Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
+    Preconditions.checkArgument(!label.getRepository().isDefault());
     return new TransitiveTargetKey(label);
   }
 
