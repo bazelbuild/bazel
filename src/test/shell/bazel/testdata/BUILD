@@ -30,5 +30,5 @@ filegroup(
     srcs = [
         "//src/test/shell/bazel/testdata:jdk_http_archives",
     ],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
+    visibility = ["//src/test/shell/bazel:__subpackages__"],
 )
