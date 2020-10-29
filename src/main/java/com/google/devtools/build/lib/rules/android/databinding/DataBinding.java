@@ -129,6 +129,26 @@ public final class DataBinding {
     }
   }
 
+  /** Supplies a databinding context from an injected layout info zip file. */
+  public static DataBindingContext getInjectedDataBindingContext(
+      ActionConstructionContext context,
+      AndroidConfiguration androidConfig,
+      Artifact injectedLayoutInfoZip) {
+    if (androidConfig.useDataBindingV2()) {
+      if (injectedLayoutInfoZip == null) {
+        return DISABLED_V2_CONTEXT;
+      } else {
+        return new DataBindingV2Context(
+            context,
+            androidConfig.useDataBindingUpdatedArgs(),
+            androidConfig.useDataBindingAndroidX(),
+            injectedLayoutInfoZip);
+      }
+    } else {
+      return DISABLED_V1_CONTEXT;
+    }
+  }
+
   /** Returns this rule's data binding base output dir (as an execroot-relative path). */
   static PathFragment getDataBindingExecPath(RuleContext ruleContext) {
     return ruleContext
