@@ -184,7 +184,7 @@ distdir_tar(
         # abseil/abseil-cpp
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         # com_github_luben_zstd_jni
-        "v1.4.5-6.tar.gz",
+        "v1.4.5-11.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -227,7 +227,7 @@ distdir_tar(
         # abseil/abseil-cpp
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
         # com_github_luben_zstd_jni
-        "v1.4.5-6.tar.gz": "7048d468b2efbb3a8adba169f4a5b7aaaa1a870cfa46fbe3c8e7745553209330",
+        "v1.4.5-11.tar.gz": "9a33de540e4a10a080a22ff918c1bc2f585647f73ea30694eb095a1844b3f052",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -328,8 +328,8 @@ distdir_tar(
         ],
         # com_github_luben_zstd_jni
         "v1.4.5-6.tar.gz": [
-            # "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-6.tar.gz",
-            "https://github.com/luben/zstd-jni/archive/v1.4.5-6.tar.gz",
+            # "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
+            "https://github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
         ],
     },
 )
@@ -556,13 +556,13 @@ http_archive(
     name = "com_github_luben_zstd_jni",
     build_file = "//third_party/zstd-jni:BUILD.bazel",
     patch_args = ["-p1"],
-    patches = ["//third_party/zstd-jni:zstd-jni_1.4.5-6.patch"],
-    sha256 = "7048d468b2efbb3a8adba169f4a5b7aaaa1a870cfa46fbe3c8e7745553209330",
-    strip_prefix = "zstd-jni-1.4.5-6",
+    patches = ["//third_party/zstd-jni:zstd-jni_1.4.5-11.patch"],
+    sha256 = "9a33de540e4a10a080a22ff918c1bc2f585647f73ea30694eb095a1844b3f052",
+    strip_prefix = "zstd-jni-1.4.5-11",
     urls = [
         # TODO: Uncomment after publishing library to the mirror.
-        # "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-6.tar.gz",
-        "https://github.com/luben/zstd-jni/archive/v1.4.5-6.tar.gz",
+        # "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
+        "https://github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
     ],
 )
 
