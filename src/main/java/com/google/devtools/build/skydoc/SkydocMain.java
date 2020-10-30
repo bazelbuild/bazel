@@ -58,6 +58,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -67,6 +70,8 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.FileOptions;
@@ -454,6 +459,8 @@ public class SkydocMain {
 
     // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
     // were Skydoc allowed to depend on it. See hack for select below.
+    env.put("json", Json.INSTANCE);
+    env.put("proto", new ProtoModule());
     env.put(
         "depset",
         new StarlarkCallable() {
@@ -504,6 +511,17 @@ public class SkydocMain {
     "js_common",
     "pkg_common",
   };
+
+  @StarlarkBuiltin(name = "ProtoModule", doc = "")
+  private static final class ProtoModule implements StarlarkValue {
+    @StarlarkMethod(
+        name = "encode_text",
+        doc = ".",
+        parameters = {@Param(name = "x")})
+    public String encodeText(Object x) {
+      return "";
+    }
+  }
 
   /**
    * A hack to add a number of global symbols which are part of the build API but are otherwise
