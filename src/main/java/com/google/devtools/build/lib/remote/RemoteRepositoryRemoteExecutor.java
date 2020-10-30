@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -45,7 +47,7 @@ import java.util.Map;
 public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor {
 
   private final RemoteExecutionCache remoteCache;
-  private final GrpcRemoteExecutor remoteExecutor;
+  private final RemoteExecutionClient remoteExecutor;
   private final DigestUtil digestUtil;
   private final Context requestCtx;
 
@@ -54,7 +56,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
   public RemoteRepositoryRemoteExecutor(
       RemoteExecutionCache remoteCache,
-      GrpcRemoteExecutor remoteExecutor,
+      RemoteExecutionClient remoteExecutor,
       DigestUtil digestUtil,
       Context requestCtx,
       String remoteInstanceName,
@@ -139,7 +141,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
                   .setSkipCacheLookup(!acceptCached)
                   .build();
 
-          ExecuteResponse response = remoteExecutor.executeRemotely(executeRequest);
+          ExecuteResponse response =
+              remoteExecutor.executeRemotely(executeRequest, OperationObserver.NO_OP);
           actionResult = response.getResult();
         }
       }
