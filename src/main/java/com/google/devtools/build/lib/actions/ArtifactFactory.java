@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -37,8 +37,8 @@ import javax.annotation.Nullable;
 public class ArtifactFactory implements ArtifactResolver {
 
   private final Path execRootParent;
+  private final Path externalSourceBase;
   private final PathFragment derivedPathPrefix;
-  private ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots;
   private boolean siblingRepositoryLayout = false;
 
   /**
@@ -123,6 +123,10 @@ public class ArtifactFactory implements ArtifactResolver {
    */
   public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
     this.execRootParent = execRootParent;
+    this.externalSourceBase =
+        execRootParent
+            .getParentDirectory()
+            .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
@@ -132,11 +136,6 @@ public class ArtifactFactory implements ArtifactResolver {
   public synchronized void clear() {
     packageRoots = null;
     sourceArtifactCache.clear();
-  }
-
-  public synchronized void setSourceArtifactRoots(
-      ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots) {
-    this.sourceArtifactRoots = sourceArtifactRoots;
   }
 
   public void setSiblingRepositoryLayout(boolean siblingRepositoryLayout) {
@@ -162,20 +161,13 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkArgument(
         execPath.isAbsolute() == root.isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
-    Preconditions.checkNotNull(
-        sourceArtifactRoots, "Not initialized for %s %s %s", execPath, root, owner);
+    // TODO(jungjw): Come up with a more reliable way to distinguish external source roots.
+    ArtifactRoot artifactRoot =
+        root.asPath() != null && root.asPath().startsWith(externalSourceBase)
+            ? ArtifactRoot.asExternalSourceRoot(root)
+            : ArtifactRoot.asSourceRoot(root);
     return (SourceArtifact)
-        getArtifact(
-            Preconditions.checkNotNull(
-                sourceArtifactRoots.get(root),
-                "%s has no ArtifactRoot (%s) in %s",
-                root,
-                execPath,
-                sourceArtifactRoots),
-            execPath,
-            owner,
-            null,
-            /*contentBasedPath=*/ false);
+        getArtifact(artifactRoot, execPath, owner, null, /*contentBasedPath=*/ false);
   }
 
   @Override
