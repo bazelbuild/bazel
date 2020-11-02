@@ -432,10 +432,8 @@ http_file(
 
 http_archive(
     name = "bazel_toolchains",
-    patch_args = ["-p1"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    patches = ["@//third_party:bazel_toolchains/0001-Rename-target_compatible_with-to-internal_target_com.patch"],
     sha256 = "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
     strip_prefix = "bazel-toolchains-3.1.0",
     urls = [
