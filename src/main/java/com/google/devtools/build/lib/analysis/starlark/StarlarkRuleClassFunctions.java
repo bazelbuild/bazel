@@ -927,8 +927,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public ExecGroup execGroup(
-      Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
+      Sequence<?> toolchains,
+      Sequence<?> execCompatibleWith,
+      Boolean copyFromRule,
+      StarlarkThread thread)
       throws EvalException {
+    if (copyFromRule) {
+      if (!toolchains.isEmpty() || !execCompatibleWith.isEmpty()) {
+        throw Starlark.errorf(
+            "An exec group cannot set copy_from_rule=True and declare toolchains or constraints.");
+      }
+      return ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
+    }
+
     ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
     ImmutableSet<Label> constraints =
         ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
