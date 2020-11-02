@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection.
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -966,6 +967,16 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     } else {
       throw new IllegalArgumentException(
           "Both violatedConstraints and targetsResponsibleForIncompatibility are null");
+    }
+
+    // If this is an analysis test, RuleConfiguredTargetBuilder performs some additional sanity
+    // checks. Satisfy them with an appropriate provider.
+    if (ruleContext.getRule().isAnalysisTest()) {
+      builder.addNativeDeclaredProvider(
+          new AnalysisTestResultInfo(
+              /*success=*/ false,
+              "This test is incompatible and should not have been run. Please file a bug"
+                  + " upstream."));
     }
 
     builder.add(RunfilesProvider.class, RunfilesProvider.simple(runfiles));
