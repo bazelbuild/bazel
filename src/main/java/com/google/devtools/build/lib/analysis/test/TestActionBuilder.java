@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -145,6 +147,11 @@ public final class TestActionBuilder {
             .getFragment(TestConfiguration.class)
             .isPersistentTestRunner()
         && persistentTestRunnerRunfiles != null;
+  }
+
+  private ActionOwner getOwner() {
+    ActionOwner owner = ruleContext.getActionOwner(TEST_RUNNER_EXEC_GROUP);
+    return owner == null ? ruleContext.getActionOwner() : owner;
   }
 
   /**
@@ -385,7 +392,7 @@ public final class TestActionBuilder {
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
-                ruleContext.getActionOwner(),
+                getOwner(),
                 inputs,
                 testRunfilesSupplier,
                 testActionExecutable,
