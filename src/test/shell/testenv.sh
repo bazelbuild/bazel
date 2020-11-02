@@ -654,6 +654,11 @@ function cleanup_workspace() {
 }
 
 function testenv_tear_down() {
+  if [ -d "${WORKSPACE_DIR:-}" ]; then
+    # Try to shutdown Bazel at the end to prevent log spam.
+    cd "${WORKSPACE_DIR}"
+    try_with_timeout bazel shutdown || true
+  fi
   cleanup_workspace
 }
 
