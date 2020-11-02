@@ -83,7 +83,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     private final ProgressiveBackoff backoff;
     private final Supplier<ExecutionBlockingStub> executionBlockingStubSupplier;
 
-    private Operation operation;
+    private Operation lastOperation;
 
     Execution(ExecuteRequest request,
         OperationObserver observer,
@@ -107,7 +107,8 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       //
       // Error possibilities:
       // - An Execute call may fail with a retriable error (raise a StatusRuntimeException).
-      //   - If the failure occurred before the first Operation is returned, we retry the call.
+      //   - If the failure occurred before the first Operation is returned and tells us the
+      //     execution is accepted, we retry the call.
       //   - Otherwise, we call WaitExecution on the Operation.
       // - A WaitExecution call may fail with a retriable error (raise a StatusRuntimeException).
       //   In that case, we retry the WaitExecution call on the same operation object.
@@ -116,7 +117,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       // - Any call can return an Operation object with an error status in the result. Such
       //   Operations are completed and failed; however, some of these errors may be retriable.
       //   These errors should trigger a retry of the Execute call, resulting in a new Operation.
-      Preconditions.checkState(operation == null);
+      Preconditions.checkState(lastOperation == null);
 
       ExecuteResponse response = null;
       while (response == null) {
@@ -136,13 +137,13 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
 
     @Nullable
     ExecuteResponse execute() throws IOException {
-      Preconditions.checkState(operation == null);
+      Preconditions.checkState(lastOperation == null);
 
       try {
         Iterator<Operation> operations = executionBlockingStubSupplier.get().execute(request);
         return handleStreamOperations(operations, /* resetBackoff */ false);
       } catch (StatusRuntimeException e) {
-        if (operation != null) {
+        if (lastOperation != null) {
           // By returning null, we are going to call WaitExecution in a loop.
           return null;
         }
@@ -152,10 +153,10 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
 
     @Nullable
     ExecuteResponse waitExecution() throws IOException {
-      Preconditions.checkState(operation != null);
+      Preconditions.checkState(lastOperation != null);
 
       WaitExecutionRequest request = WaitExecutionRequest.newBuilder()
-          .setName(operation.getName())
+          .setName(lastOperation.getName())
           .build();
       try {
         Iterator<Operation> operations = executionBlockingStubSupplier.get()
@@ -164,7 +165,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       } catch (StatusRuntimeException e) {
         if (e.getStatus().getCode() == Code.NOT_FOUND) {
           // Operation was lost on the server. Retry Execute.
-          operation = null;
+          lastOperation = null;
           return null;
         }
         throw new IOException(e);
@@ -175,7 +176,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
         throws IOException {
       try {
         while (operations.hasNext()) {
-          operation = operations.next();
+          Operation operation = operations.next();
 
           if (resetBackoff) {
             // Assuming the server has made progress since we received the response. Reset the backoff
@@ -187,6 +188,8 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
           if (response != null) {
             return response;
           }
+
+          lastOperation = operation;
         }
 
         // The operation completed successfully but without a result.

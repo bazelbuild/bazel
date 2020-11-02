@@ -117,7 +117,7 @@ import org.mockito.stubbing.Answer;
 
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
-public class GrpcRemoteExecutionClientTest {
+public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
@@ -1065,7 +1065,7 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace.
     assertThat(result.getFailureMessage())
-        .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
+        .contains("RemoteSpawnRunnerWithGrpcRemoteExecutorTest.passCacheMissErrorWithStackTrace");
   }
 
   @Test
