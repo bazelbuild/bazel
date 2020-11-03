@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.longrunning.Operation;
+import com.google.longrunning.Operation.ResultCase;
 import com.google.rpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -83,6 +84,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     private final ProgressiveBackoff backoff;
     private final Supplier<ExecutionBlockingStub> executionBlockingStubSupplier;
 
+    // Last response (without error) we received from server.
     private Operation lastOperation;
 
     Execution(ExecuteRequest request,
@@ -120,11 +122,18 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       Preconditions.checkState(lastOperation == null);
 
       ExecuteResponse response = null;
+      // Exit the loop as long as we get a response from either Execute() or WaitExecution().
       while (response == null) {
+        // We use refreshIfUnauthenticated inside retry block. If use it outside, retrier will stop
+        // retrying when received a unauthenticated error, and propagate to refreshIfUnauthenticated
+        // which will then call retrier again. It will reset the retry time counter so we could
+        // retry more than --remote_retry times which is not expected.
         response = retrier
             .execute(() -> Utils.refreshIfUnauthenticated(this::execute, callCredentialsProvider),
                 backoff);
 
+        // If no response from Execute(), use WaitExecution() in a "loop" which is implicated inside
+        // the retry block.
         if (response == null) {
           response = retrier.execute(
               () -> Utils.refreshIfUnauthenticated(this::waitExecution, callCredentialsProvider),
@@ -140,11 +149,16 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       Preconditions.checkState(lastOperation == null);
 
       try {
-        Iterator<Operation> operations = executionBlockingStubSupplier.get().execute(request);
-        return handleStreamOperations(operations, /* resetBackoff */ false);
+        Iterator<Operation> streamOperations = executionBlockingStubSupplier.get().execute(request);
+
+        // We don't want to reset backoff for Execute() since if there is an error:
+        //   1. If happened before we received a first response, we want to ensure the retry counter
+        //      is increased and call Execute() again.
+        //   2. Otherwise, we will fallback to WaitExecution() loop.
+        return handleStreamOperations(streamOperations, /* resetBackoff */ false);
       } catch (StatusRuntimeException e) {
         if (lastOperation != null) {
-          // By returning null, we are going to call WaitExecution in a loop.
+          // By returning null, we are going to fallback to WaitExecution() loop.
           return null;
         }
         throw new IOException(e);
@@ -159,9 +173,11 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
           .setName(lastOperation.getName())
           .build();
       try {
-        Iterator<Operation> operations = executionBlockingStubSupplier.get()
+        Iterator<Operation> streamOperations = executionBlockingStubSupplier.get()
             .waitExecution(request);
-        return handleStreamOperations(operations, /* resetBackoff */ true);
+        // We want to reset backoff for WaitExecution() so we can "infinitely" wait for the
+        // execution to complete as long as they are making progress (by returning response).
+        return handleStreamOperations(streamOperations, /* resetBackoff */ true);
       } catch (StatusRuntimeException e) {
         if (e.getStatus().getCode() == Code.NOT_FOUND) {
           // Operation was lost on the server. Retry Execute.
@@ -172,42 +188,49 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       }
     }
 
-    ExecuteResponse handleStreamOperations(Iterator<Operation> operations, Boolean resetBackoff)
-        throws IOException {
+    /**
+     * Process a stream of operations from Execute() or WaitExecution().
+     *
+     * @param resetBackoff reset backoff if true once received a response successfully.
+     */
+    ExecuteResponse handleStreamOperations(Iterator<Operation> streamOperations,
+        boolean resetBackoff) throws IOException {
       try {
-        while (operations.hasNext()) {
-          Operation operation = operations.next();
+        while (streamOperations.hasNext()) {
+          Operation operation = streamOperations.next();
 
           if (resetBackoff) {
-            // Assuming the server has made progress since we received the response. Reset the backoff
-            // so that this request has a full deck of retries
+            // Assuming the server has made progress since we received the response. Reset the
+            // backoff so that this request has a full deck of retries.
             backoff.reset();
           }
 
           ExecuteResponse response = handleOperation(operation, observer);
+
+          // At this point, we received the response without error
+          lastOperation = operation;
+
           if (response != null) {
             return response;
           }
-
-          lastOperation = operation;
         }
 
         // The operation completed successfully but without a result.
         throw new IOException("Remote server error: execution terminated with no result.");
       } finally {
-        close(operations);
+        close(streamOperations);
       }
     }
 
-    void close(Iterator<Operation> operations) {
+    void close(Iterator<Operation> streamOperations) {
       // The blocking streaming call closes correctly only when trailers and a Status are received
       // from the server so that onClose() is called on this call's CallListener. Under normal
       // circumstances (no cancel/errors), these are guaranteed to be sent by the server only if
-      // operations.hasNext() has been called after all replies from the stream have been
+      // streamOperations.hasNext() has been called after all replies from the stream have been
       // consumed.
       try {
-        while (operations.hasNext()) {
-          operations.next();
+        while (streamOperations.hasNext()) {
+          streamOperations.next();
         }
       } catch (StatusRuntimeException e) {
         // Cleanup: ignore exceptions, because the meaningful errors have already been propagated.
@@ -243,13 +266,23 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       }
 
       if (operation.getDone()) {
+        if (operation.getResultCase() == ResultCase.RESULT_NOT_SET) {
+          throw new ExecutionStatusException(Status.newBuilder()
+              .setCode(com.google.rpc.Code.DATA_LOSS_VALUE)
+              .setMessage("Unexpected result of remote execution: no result")
+              .build(), null);
+        }
         Preconditions.checkState(operation.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
         ExecuteResponse response = operation.getResponse().unpack(ExecuteResponse.class);
         if (response.hasStatus()) {
           throwIfError(response.getStatus(), response);
         }
-        Preconditions.checkState(
-            response.hasResult(), "Unexpected result of remote execution: no result");
+        if (!response.hasResult()) {
+          throw new ExecutionStatusException(Status.newBuilder()
+              .setCode(com.google.rpc.Code.DATA_LOSS_VALUE)
+              .setMessage("Unexpected result of remote execution: no result")
+              .build(), response);
+        }
         return response;
       }
 

@@ -34,6 +34,7 @@ import com.google.devtools.common.options.Options;
 import com.google.rpc.Code;
 import io.grpc.Context;
 import io.grpc.Server;
+import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import java.io.IOException;
@@ -208,5 +209,35 @@ public class GrpcRemoteExecutorKeepalivedTest {
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(errorTimes + 1);
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
+
+  @Test
+  public void executeRemotely_operationWithoutResult_shouldNotCrash() throws Exception {
+    executionService.whenExecute(DUMMY_REQUEST).thenDone();
+
+    IOException e = assertThrows(IOException.class, () -> {
+      executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    });
+
+    assertThat(e.getCause()).isInstanceOf(ExecutionStatusException.class);
+    ExecutionStatusException executionStatusException = (ExecutionStatusException)e.getCause();
+    assertThat(executionStatusException.getStatus().getCode()).isEqualTo(Status.Code.DATA_LOSS);
+    // Shouldn't retry in this case
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+  }
+
+  @Test
+  public void executeRemotely_responseWithoutResult_shouldNotCrash() throws Exception {
+    executionService.whenExecute(DUMMY_REQUEST).thenDone(ExecuteResponse.newBuilder().build());
+
+    IOException e = assertThrows(IOException.class, () -> {
+      executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    });
+
+    assertThat(e.getCause()).isInstanceOf(ExecutionStatusException.class);
+    ExecutionStatusException executionStatusException = (ExecutionStatusException)e.getCause();
+    assertThat(executionStatusException.getStatus().getCode()).isEqualTo(Status.Code.DATA_LOSS);
+    // Shouldn't retry in this case
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
   }
 }

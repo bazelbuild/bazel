@@ -87,6 +87,15 @@ public class FakeExecutionService extends ExecutionImplBase {
       return this;
     }
 
+    public void thenDone() {
+      String name = getResourceName(request);
+      operations.add(() -> Operation.newBuilder()
+          .setName(name)
+          .setDone(true)
+          .build());
+      finish();
+    }
+
     public void thenDone(ExecuteResponse response) {
       String name = getResourceName(request);
       operations.add(() -> Operation.newBuilder()
