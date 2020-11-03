@@ -218,7 +218,7 @@ public final class PyCommon {
     this.transitivePythonSources = initTransitivePythonSources(ruleContext);
     this.directPythonSources =
         initAndMaybeValidateDirectPythonSources(
-            ruleContext, /*validate=*/ validatePackageAndSources);
+            ruleContext, semantics, /*validate=*/ validatePackageAndSources);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
     this.imports = initImports(ruleContext, semantics);
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
@@ -229,7 +229,7 @@ public final class PyCommon {
     validateLegacyProviderNotUsedIfDisabled();
     maybeValidateLoadedFromBzl();
     if (validatePackageAndSources) {
-      validatePackageName(ruleContext);
+      validatePackageName();
     }
   }
 
@@ -282,13 +282,15 @@ public final class PyCommon {
   }
 
   private static List<Artifact> initAndMaybeValidateDirectPythonSources(
-      RuleContext ruleContext, boolean validate) {
+      RuleContext ruleContext, PythonSemantics semantics, boolean validate) {
     List<Artifact> sourceFiles = new ArrayList<>();
     // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
     for (TransitiveInfoCollection src :
         ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
-      if (validate && Util.containsHyphen(src.getLabel().getPackageFragment())) {
+      if (validate
+          && semantics.prohibitHyphensInPackagePaths()
+          && Util.containsHyphen(src.getLabel().getPackageFragment())) {
         ruleContext.attributeError(
             "srcs", src.getLabel() + ": paths to Python packages may not contain '-'");
       }
@@ -613,8 +615,9 @@ public final class PyCommon {
   }
 
   /** Checks that the package name of this Python rule does not contain a '-'. */
-  private static void validatePackageName(RuleContext ruleContext) {
-    if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
+  private void validatePackageName() {
+    if (semantics.prohibitHyphensInPackagePaths()
+        && Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
       ruleContext.ruleError("paths to Python packages may not contain '-'");
     }
   }

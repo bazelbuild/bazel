@@ -436,33 +436,29 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void packageNameCannotHaveHyphen() throws Exception {
-    checkError(
-        "pkg-hyphenated",
-        "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
+  public void packageNameCanHaveHyphen() throws Exception {
+    scratch.file(
+        "pkg-hyphenated/BUILD", //
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
         ")");
+    assertThat(getConfiguredTarget("//pkg-hyphenated:foo")).isNotNull();
+    assertNoEvents();
   }
 
   @Test
-  public void srcsPackageNameCannotHaveHyphen() throws Exception {
+  public void srcsPackageNameCanHaveHyphen() throws Exception {
     scratch.file(
         "pkg-hyphenated/BUILD", //
         "exports_files(['bar.py'])");
-    checkError(
-        "otherpkg",
-        "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
+    scratch.file(
+        "otherpkg/BUILD", //
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'],",
         ")");
+    assertThat(getConfiguredTarget("//otherpkg:foo")).isNotNull();
+    assertNoEvents();
   }
 }

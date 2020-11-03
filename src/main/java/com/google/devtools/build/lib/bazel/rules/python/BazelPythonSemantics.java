@@ -90,6 +90,11 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
+  public boolean prohibitHyphensInPackagePaths() {
+    return false;
+  }
+
+  @Override
   public void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo) {
     addRuntime(ruleContext, common, builder);
