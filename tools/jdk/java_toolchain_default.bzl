@@ -87,9 +87,9 @@ _LABELS = [
 
 # Converts values to labels, so that they are resolved relative to this java_tools repository
 def _to_label(k, v):
-    if k in _LABELS:
+    if k in _LABELS and type(v) == type(Label("//a")):
         return Label(v)
-    if k in _LABEL_LISTS:
+    if k in _LABEL_LISTS and type(v) == type([Label("//a")]):
         return [Label(l) for l in v]
     return v
 
@@ -97,7 +97,7 @@ def java_toolchain_default(name, **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
-    toolchain_args.update({k: _to_label(k, v) for k, v in kwargs})
+    toolchain_args.update({k: _to_label(k, v) for k, v in kwargs.items()})
     native.java_toolchain(
         name = name,
         **toolchain_args
