@@ -393,7 +393,9 @@ public final class Dict<K, V>
 
     Dict<K, V> dict = new Dict<>(mu);
     for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-      dict.contents.put(Starlark.checkValid(e.getKey()), Starlark.checkValid(e.getValue()));
+      dict.contents.put(
+          Starlark.checkValid(e.getKey()), //
+          Starlark.checkValid(e.getValue()));
     }
     return dict;
   }
