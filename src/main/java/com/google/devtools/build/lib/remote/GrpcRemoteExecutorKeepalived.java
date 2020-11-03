@@ -152,13 +152,13 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       Preconditions.checkState(lastOperation == null);
 
       try {
-        Iterator<Operation> streamOperations = executionBlockingStubSupplier.get().execute(request);
+        Iterator<Operation> operationStream = executionBlockingStubSupplier.get().execute(request);
 
         // We don't want to reset backoff for Execute() since if there is an error:
         //   1. If happened before we received a first response, we want to ensure the retry counter
         //      is increased and call Execute() again.
         //   2. Otherwise, we will fallback to WaitExecution() loop.
-        return handleStreamOperations(streamOperations, (operation) -> {
+        return handleOperationStream(operationStream, (operation) -> {
           lastOperation = operation;
           observer.onNext(operation);
         });
@@ -179,12 +179,12 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
           .setName(lastOperation.getName())
           .build();
       try {
-        Iterator<Operation> streamOperations = executionBlockingStubSupplier.get()
+        Iterator<Operation> operationStream = executionBlockingStubSupplier.get()
             .waitExecution(request);
 
         // We want to reset backoff for WaitExecution() so we can "infinitely" wait for the
         // execution to complete as long as they are making progress (by returning response).
-        return handleStreamOperations(streamOperations, (operation) -> {
+        return handleOperationStream(operationStream, (operation) -> {
           // Assuming the server has made progress since we received the response. Reset the
           // backoff so that this request has a full deck of retries.
           waitExecutionBackoff.reset();
@@ -210,11 +210,11 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
      * <p>Notify {@link OperationObserver} if we receive an {@link Operation} from the stream
      * without error.
      */
-    static ExecuteResponse handleStreamOperations(Iterator<Operation> streamOperations,
+    static ExecuteResponse handleOperationStream(Iterator<Operation> operationStream,
         OperationObserver observer) throws IOException {
       try {
-        while (streamOperations.hasNext()) {
-          Operation operation = streamOperations.next();
+        while (operationStream.hasNext()) {
+          Operation operation = operationStream.next();
           ExecuteResponse response = handleOperation(operation);
 
           // At this point, we received the response without error. Update execution progress to the
@@ -240,19 +240,19 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
         // The operation completed successfully but without a result.
         throw new IOException("Remote server error: execution terminated with no result.");
       } finally {
-        close(streamOperations);
+        close(operationStream);
       }
     }
 
-    static void close(Iterator<Operation> streamOperations) {
+    static void close(Iterator<Operation> operationStream) {
       // The blocking streaming call closes correctly only when trailers and a Status are received
       // from the server so that onClose() is called on this call's CallListener. Under normal
       // circumstances (no cancel/errors), these are guaranteed to be sent by the server only if
-      // streamOperations.hasNext() has been called after all replies from the stream have been
+      // operationStream.hasNext() has been called after all replies from the stream have been
       // consumed.
       try {
-        while (streamOperations.hasNext()) {
-          streamOperations.next();
+        while (operationStream.hasNext()) {
+          operationStream.next();
         }
       } catch (StatusRuntimeException e) {
         // Cleanup: ignore exceptions, because the meaningful errors have already been propagated.
