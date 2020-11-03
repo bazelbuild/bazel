@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -343,7 +342,7 @@ public abstract class AndroidStarlarkData
                       resourceConfigurationFilters, String.class, "resource_configuration_filters"),
                   Sequence.cast(densities, String.class, "densities")));
 
-      ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
+      Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));
       builder.put(
           AndroidBinaryDataInfo.PROVIDER,
@@ -353,7 +352,7 @@ public abstract class AndroidStarlarkData
               resourceApk.toResourceInfo(ctx.getLabel()),
               resourceApk.toAssetsInfo(ctx.getLabel()),
               resourceApk.toManifestInfo().get()));
-      return Dict.copyOf((Mutability) null, builder.build());
+      return builder.buildImmutable();
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
     }
@@ -565,7 +564,7 @@ public abstract class AndroidStarlarkData
 
   public static Dict<Provider, NativeInfo> getNativeInfosFrom(
       ResourceApk resourceApk, Label label) {
-    ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
+    Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
 
     builder
         .put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label))
@@ -578,7 +577,7 @@ public abstract class AndroidStarlarkData
         getJavaInfoForRClassJar(
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
-    return Dict.copyOf((Mutability) null, builder.build());
+    return builder.buildImmutable();
   }
 
   private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {

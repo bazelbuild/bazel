@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
@@ -2376,5 +2377,44 @@ public final class Attribute implements Comparable<Attribute> {
 
   public Attribute.Builder<?> cloneBuilder() {
     return cloneBuilder(this.type);
+  }
+
+  /**
+   * Converts a rule attribute value from internal form to Starlark form. Internal form may use any
+   * subtype of {@link List} or {@link Map} for {@code list} and {@code dict} attributes, whereas
+   * Starlark uses only immutable {@link StarlarkList} and {@link Dict}.
+   *
+   * <p>The conversion is similar to {@link Starlark#fromJava} for all types except {@code
+   * attr.string_list_dict} ({@code Map<String, List<String>>}), for which fromJava does not
+   * recursively convert elements. (Doing so is expensive.)
+   *
+   * <p>It is tempting to require that attributes are stored internally in Starlark form. However, a
+   * number of obstacles would need to be overcome:
+   *
+   * <ol>
+   *   <li>Some obscure attribute types such as TRISTATE and DISTRIBUTION are not currently legal
+   *       Starlark values.
+   *   <li>ImmutableList is significantly more compact than StarlarkList for small lists (n &lt; 2).
+   *       StarlarkList would need multiple representations and a builder to achieve parity.
+   *   <li>The types used by the Type mechanism would need changing; this has extensive
+   *       ramifications.
+   * </ol>
+   */
+  public static Object valueToStarlark(Object x) {
+    // Is x a non-empty string_list_dict?
+    if (x instanceof Map) {
+      Map<?, ?> map = (Map) x;
+      if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
+        // Recursively convert subelements.
+        Dict.Builder<Object, Object> dict = Dict.builder();
+        for (Map.Entry<?, ?> e : map.entrySet()) {
+          dict.put((String) e.getKey(), Starlark.fromJava(e.getValue(), null));
+        }
+        return dict.buildImmutable();
+      }
+    }
+
+    // For all other attribute values, shallow conversion is safe.
+    return Starlark.fromJava(x, null);
   }
 }

@@ -1020,7 +1020,7 @@ public class StarlarkRepositoryContext
           Transience.PERSISTENT);
     }
 
-    ImmutableMap.Builder<String, Object> out = new ImmutableMap.Builder<>();
+    Dict.Builder<String, Object> out = Dict.builder();
     out.put("success", true);
     out.put("integrity", finalChecksum.toSubresourceIntegrity());
 
@@ -1028,7 +1028,7 @@ public class StarlarkRepositoryContext
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StructProvider.STRUCT.createWithBuiltinLocation(Dict.copyOf(null, out.build()));
+    return StructProvider.STRUCT.createWithBuiltinLocation(out.buildImmutable());
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {

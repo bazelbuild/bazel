@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -164,7 +165,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       // Starlark as a Map<String, Label>; this special case preserves that behavior temporarily.
       if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
         // Attribute values should be type safe
-        attrBuilder.put(skyname, Starlark.fromJava(val, null));
+        attrBuilder.put(skyname, Attribute.valueToStarlark(val));
         return;
       }
       if (a.isExecutable()) {
@@ -213,14 +214,14 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         List<?> allPrereq = context.getRuleContext().getPrerequisites(a.getName());
         attrBuilder.put(skyname, StarlarkList.immutableCopyOf(allPrereq));
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
-        ImmutableMap.Builder<TransitiveInfoCollection, String> builder = ImmutableMap.builder();
+        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
         List<? extends TransitiveInfoCollection> allPrereq =
             context.getRuleContext().getPrerequisites(a.getName());
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
-        attrBuilder.put(skyname, Starlark.fromJava(builder.build(), null));
+        attrBuilder.put(skyname, builder.buildImmutable());
       } else if (type == BuildType.LABEL_DICT_UNARY) {
         Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
         for (TransitiveInfoCollection target :

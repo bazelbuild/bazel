@@ -18,6 +18,8 @@ import static java.lang.Math.max;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -389,16 +391,9 @@ public final class Dict<K, V>
       return dict;
     }
 
-    // TODO(laurentlb): Move this method out of this file and rename it. It should go with
-    // Starlark.fromJava; its main purpose is to convert a Java value to Starlark.
-    // TODO(adonovan): fromJava shouldn't be applied recursively.
-    // Instead, call checkValid(getValue()), fix all violations,
-    // and remove the fromJava call here. The function is otherwise sound API.
     Dict<K, V> dict = new Dict<>(mu);
     for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-      @SuppressWarnings("unchecked")
-      V v = (V) Starlark.fromJava(e.getValue(), mu);
-      dict.contents.put(e.getKey(), v);
+      dict.contents.put(Starlark.checkValid(e.getKey()), Starlark.checkValid(e.getValue()));
     }
     return dict;
   }
@@ -406,6 +401,54 @@ public final class Dict<K, V>
   /** Returns an immutable dict containing the entries of {@code m}. */
   public static <K, V> Dict<K, V> immutableCopyOf(Map<? extends K, ? extends V> m) {
     return copyOf(null, m);
+  }
+
+  /** Returns a new empty Dict.Builder. */
+  public static <K, V> Builder<K, V> builder() {
+    return new Builder<>();
+  }
+
+  /** A reusable builder for Dicts. */
+  public static final class Builder<K, V> {
+    private final ArrayList<Object> items = new ArrayList<>(); // [k, v, ... k, v]
+
+    /** Adds an entry (k, v) to the builder, overwriting any previous entry with the same key . */
+    public Builder<K, V> put(K k, V v) {
+      items.add(Starlark.checkValid(k));
+      items.add(Starlark.checkValid(v));
+      return this;
+    }
+
+    /** Adds all the map's entries to the builder. */
+    public Builder<K, V> putAll(Map<? extends K, ? extends V> map) {
+      items.ensureCapacity(items.size() + 2 * map.size());
+      for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
+        put(e.getKey(), e.getValue());
+      }
+      return this;
+    }
+
+    /** Returns a new immutable Dict containing the entries added so far. */
+    public Dict<K, V> buildImmutable() {
+      return build(null);
+    }
+
+    /**
+     * Returns a new Dict containing the entries added so far. The result has the specified
+     * mutability; null means immutable.
+     */
+    public Dict<K, V> build(@Nullable Mutability mu) {
+      int n = items.size() / 2;
+      LinkedHashMap<K, V> map = Maps.newLinkedHashMapWithExpectedSize(n);
+      for (int i = 0; i < n; i++) {
+        @SuppressWarnings("unchecked")
+        K k = (K) items.get(2 * i); // safe
+        @SuppressWarnings("unchecked")
+        V v = (V) items.get(2 * i + 1); // safe
+        map.put(k, v);
+      }
+      return wrap(mu, map);
+    }
   }
 
   /** Puts the given entry into the dict, without calling {@link #checkMutable}. */

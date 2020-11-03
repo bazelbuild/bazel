@@ -39,7 +39,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -371,7 +370,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Tuple.copyOf(l);
     }
     if (val instanceof Map) {
-      Map<Object, Object> m = new TreeMap<>();
+      Dict.Builder<Object, Object> m = Dict.builder();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
         Object key = starlarkifyValue(mu, e.getKey(), pkg);
         Object mapVal = starlarkifyValue(mu, e.getValue(), pkg);
@@ -382,7 +381,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
         m.put(key, mapVal);
       }
-      return Starlark.fromJava(m, mu);
+      return m.build(mu);
     }
     if (val.getClass().isAnonymousClass()) {
       // Computed defaults. They will be represented as

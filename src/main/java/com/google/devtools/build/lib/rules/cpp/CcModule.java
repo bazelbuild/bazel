@@ -222,8 +222,7 @@ public abstract class CcModule
       String actionName,
       CcToolchainVariables variables)
       throws EvalException {
-    return Dict.copyOf(
-        null,
+    return Dict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
             .getEnvironmentVariables(actionName, variables));

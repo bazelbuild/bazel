@@ -214,7 +214,7 @@ public final class StarlarkEvaluationTest {
 
     @StarlarkMethod(name = "string_list_dict", documented = false)
     public Map<String, List<String>> stringListDict() {
-      return ImmutableMap.of("a", ImmutableList.of("b", "c"));
+      return ImmutableMap.of("a", StarlarkList.immutableOf("b", "c"));
     }
 
     @StarlarkMethod(

@@ -162,6 +162,9 @@ public final class Starlark {
    * null becomes {@link #NONE}. Any other non-Starlark value causes the function to throw
    * IllegalArgumentException.
    *
+   * <p>Elements of Lists and Maps must be valid Starlark values; they are not recursively
+   * converted. (This avoids excessive unintended deep copying.)
+   *
    * <p>This function is applied to the results of StarlarkMethod-annotated Java methods.
    */
   public static Object fromJava(Object x, @Nullable Mutability mutability) {

@@ -576,12 +576,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     if (executionInfo == null) {
       return null;
     }
-    return Dict.copyOf(null, executionInfo);
+    return Dict.immutableCopyOf(executionInfo);
   }
 
   @Override
   public Dict<String, String> getEnv() {
-    return Dict.copyOf(null, env.getFixedEnv().toMap());
+    return Dict.immutableCopyOf(env.getFixedEnv().toMap());
   }
 
   @Override
