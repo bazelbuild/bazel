@@ -330,8 +330,18 @@ config_setting(
 )
 
 config_setting(
-    name = "darwin",
-    constraint_values = [ "@platforms//os:macos"],
+    name = "darwin_x86_64",
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:x86_64" ],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:arm64" ],
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:arm64e" ],
 )
 
 config_setting(
@@ -363,7 +373,9 @@ alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
         ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin_arm64": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin_arm64e": "java_tools/src/tools/singlejar/singlejar_local",
         ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
         "//conditions:default": "singlejar_cc_bin",
     }),
@@ -389,7 +401,9 @@ alias(
     name = "prebuilt_binary_or_cc_binary",
     actual = select({
         ":linux_x86_64": ":ijar_prebuilt_binary",
-        ":darwin": ":ijar_prebuilt_binary",
+        ":darwin_x86_64": ":ijar_prebuilt_binary",
+        ":darwin_arm64": ":ijar_prebuilt_binary",
+        ":darwin_arm64e": ":ijar_prebuilt_binary",
         ":windows": ":ijar_prebuilt_binary",
         "//conditions:default": ":ijar_cc_binary",
     }),
