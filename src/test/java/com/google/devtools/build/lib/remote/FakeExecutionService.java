@@ -66,6 +66,21 @@ public class FakeExecutionService extends ExecutionImplBase {
     return new OnetimeOperationSupplierBuilder(waitExecutionOperationProvider, request);
   }
 
+  public static Operation ackOperation(ExecuteRequest request) {
+    return Operation.newBuilder()
+        .setName(getResourceName(request))
+        .setDone(false)
+        .build();
+  }
+
+  public static Operation doneOperation(ExecuteRequest request, ExecuteResponse response) {
+    return Operation.newBuilder()
+        .setName(getResourceName(request))
+        .setDone(true)
+        .setResponse(Any.pack(response))
+        .build();
+  }
+
   public static class OnetimeOperationSupplierBuilder {
 
     private final OperationProvider provider;
@@ -78,41 +93,33 @@ public class FakeExecutionService extends ExecutionImplBase {
     }
 
     public OnetimeOperationSupplierBuilder thenAck() {
-      String name = getResourceName(request);
-      operations.add(() -> Operation.newBuilder()
-          .setName(name)
-          .setDone(false)
-          .build()
-      );
+      Operation operation = ackOperation(request);
+      operations.add(() -> operation);
       return this;
     }
 
     public void thenDone() {
-      String name = getResourceName(request);
-      operations.add(() -> Operation.newBuilder()
-          .setName(name)
+      Operation operation = Operation.newBuilder()
+          .setName(getResourceName(request))
           .setDone(true)
-          .build());
+          .build();
+      operations.add(() -> operation);
       finish();
     }
 
     public void thenDone(ExecuteResponse response) {
-      String name = getResourceName(request);
-      operations.add(() -> Operation.newBuilder()
-          .setName(name)
-          .setDone(true)
-          .setResponse(Any.pack(response))
-          .build());
+      Operation operation = doneOperation(request, response);
+      operations.add(() -> operation);
       finish();
     }
 
     public void thenError(Code code) {
-      String name = getResourceName(request);
-      operations.add(() -> Operation.newBuilder()
-          .setName(name)
+      Operation operation = Operation.newBuilder()
+          .setName(getResourceName(request))
           .setDone(true)
           .setError(Status.newBuilder().setCode(code.getNumber()))
-          .build());
+          .build();
+      operations.add(() -> operation);
       finish();
     }
 
@@ -155,7 +162,7 @@ public class FakeExecutionService extends ExecutionImplBase {
       }
       responseObserver.onCompleted();
     } else {
-      responseObserver.onError(io.grpc.Status.UNAVAILABLE.asRuntimeException());
+      responseObserver.onError(io.grpc.Status.UNIMPLEMENTED.asRuntimeException());
     }
   }
 

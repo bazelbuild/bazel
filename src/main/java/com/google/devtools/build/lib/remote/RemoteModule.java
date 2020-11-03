@@ -508,17 +508,23 @@ public final class RemoteModule extends BlazeModule {
         TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "repository_rule");
 
     if (enableRemoteExecution) {
-      RemoteRetrier execRetrier =
-          new RemoteRetrier(
-              remoteOptions,
-              RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
-              retryScheduler,
-              Retrier.ALLOW_ALL_CALLS);
       RemoteExecutionClient remoteExecutor;
       if (remoteOptions.remoteExecutionKeepalive) {
+        RemoteRetrier execRetrier =
+            new RemoteRetrier(
+                remoteOptions,
+                RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
+                retryScheduler,
+                Retrier.ALLOW_ALL_CALLS);
         remoteExecutor = new GrpcRemoteExecutorKeepalived(remoteOptions, execChannel.retain(),
             callCredentialsProvider, execRetrier);
       } else {
+        RemoteRetrier execRetrier =
+            new RemoteRetrier(
+                remoteOptions,
+                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+                retryScheduler,
+                Retrier.ALLOW_ALL_CALLS);
         remoteExecutor = new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider,
             execRetrier);
       }

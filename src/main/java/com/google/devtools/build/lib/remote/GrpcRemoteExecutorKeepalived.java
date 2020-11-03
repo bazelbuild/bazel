@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
+import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -81,7 +82,8 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     private final OperationObserver observer;
     private final RemoteRetrier retrier;
     private final CallCredentialsProvider callCredentialsProvider;
-    private final ProgressiveBackoff backoff;
+    private final Backoff executeBackoff;
+    private final ProgressiveBackoff waitExecutionBackoff;
     private final Supplier<ExecutionBlockingStub> executionBlockingStubSupplier;
 
     // Last response (without error) we received from server.
@@ -96,7 +98,8 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       this.observer = observer;
       this.retrier = retrier;
       this.callCredentialsProvider = callCredentialsProvider;
-      this.backoff = new ProgressiveBackoff(this.retrier::newBackoff);
+      this.executeBackoff = this.retrier.newBackoff();
+      this.waitExecutionBackoff = new ProgressiveBackoff(this.retrier::newBackoff);
       this.executionBlockingStubSupplier = executionBlockingStubSupplier;
     }
 
@@ -130,14 +133,14 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
         // retry more than --remote_retry times which is not expected.
         response = retrier
             .execute(() -> Utils.refreshIfUnauthenticated(this::execute, callCredentialsProvider),
-                backoff);
+                executeBackoff);
 
         // If no response from Execute(), use WaitExecution() in a "loop" which is implicated inside
         // the retry block.
         if (response == null) {
           response = retrier.execute(
               () -> Utils.refreshIfUnauthenticated(this::waitExecution, callCredentialsProvider),
-              backoff);
+              waitExecutionBackoff);
         }
       }
 
@@ -155,7 +158,10 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
         //   1. If happened before we received a first response, we want to ensure the retry counter
         //      is increased and call Execute() again.
         //   2. Otherwise, we will fallback to WaitExecution() loop.
-        return handleStreamOperations(streamOperations, /* resetBackoff */ false);
+        return handleStreamOperations(streamOperations, (operation) -> {
+          lastOperation = operation;
+          observer.onNext(operation);
+        });
       } catch (StatusRuntimeException e) {
         if (lastOperation != null) {
           // By returning null, we are going to fallback to WaitExecution() loop.
@@ -175,12 +181,22 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       try {
         Iterator<Operation> streamOperations = executionBlockingStubSupplier.get()
             .waitExecution(request);
+
         // We want to reset backoff for WaitExecution() so we can "infinitely" wait for the
         // execution to complete as long as they are making progress (by returning response).
-        return handleStreamOperations(streamOperations, /* resetBackoff */ true);
+        return handleStreamOperations(streamOperations, (operation) -> {
+          // Assuming the server has made progress since we received the response. Reset the
+          // backoff so that this request has a full deck of retries.
+          waitExecutionBackoff.reset();
+
+          lastOperation = operation;
+          observer.onNext(operation);
+        });
       } catch (StatusRuntimeException e) {
-        if (e.getStatus().getCode() == Code.NOT_FOUND) {
-          // Operation was lost on the server. Retry Execute.
+        // Only retry Execute() if executeBackoff should retry. Also increase the retry counter at
+        // the same time since we will technically retry (done by nextDelayMillis()).
+        if (e.getStatus().getCode() == Code.NOT_FOUND && executeBackoff.nextDelayMillis() >= 0) {
+          // Operation was lost on the server, retry Execute().
           lastOperation = null;
           return null;
         }
@@ -191,24 +207,30 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     /**
      * Process a stream of operations from Execute() or WaitExecution().
      *
-     * @param resetBackoff reset backoff if true once received a response successfully.
+     * <p>Notify {@link OperationObserver} if we receive an {@link Operation} from the stream
+     * without error.
      */
-    ExecuteResponse handleStreamOperations(Iterator<Operation> streamOperations,
-        boolean resetBackoff) throws IOException {
+    static ExecuteResponse handleStreamOperations(Iterator<Operation> streamOperations,
+        OperationObserver observer) throws IOException {
       try {
         while (streamOperations.hasNext()) {
           Operation operation = streamOperations.next();
+          ExecuteResponse response = handleOperation(operation);
 
-          if (resetBackoff) {
-            // Assuming the server has made progress since we received the response. Reset the
-            // backoff so that this request has a full deck of retries.
-            backoff.reset();
-          }
-
-          ExecuteResponse response = handleOperation(operation, observer);
-
-          // At this point, we received the response without error
-          lastOperation = operation;
+          // At this point, we received the response without error. Update execution progress to the
+          // observer.
+          //
+          // After called `execute` above, the action is actually waiting for an available gRPC
+          // connection to be sent. Once we get a reply from server, we know the connection is up
+          // and indicate to the caller the fact by forwarding the `operation`.
+          //
+          // The accurate execution status of the action relies on the server
+          // implementation:
+          //   1. Server can reply the accurate status in `operation.metadata.stage`;
+          //   2. Server may send a reply without metadata. In this case, we assume the action is
+          //      accepted by the server and will be executed ASAP;
+          //   3. Server may execute the action silently and send a reply once it is done.
+          observer.onNext(operation);
 
           if (response != null) {
             return response;
@@ -222,7 +244,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       }
     }
 
-    void close(Iterator<Operation> streamOperations) {
+    static void close(Iterator<Operation> streamOperations) {
       // The blocking streaming call closes correctly only when trailers and a Status are received
       // from the server so that onClose() is called on this call's CallListener. Under normal
       // circumstances (no cancel/errors), these are guaranteed to be sent by the server only if
@@ -245,22 +267,8 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     }
 
     @Nullable
-    static ExecuteResponse handleOperation(Operation operation, OperationObserver observer)
+    static ExecuteResponse handleOperation(Operation operation)
         throws IOException {
-      // Update execution progress to the caller.
-      //
-      // After called `execute` above, the action is actually waiting for an available gRPC
-      // connection to be sent. Once we get a reply from server, we know the connection is up and
-      // indicate to the caller the fact by forwarding the `operation`.
-      //
-      // The accurate execution status of the action relies on the server
-      // implementation:
-      //   1. Server can reply the accurate status in `operation.metadata.stage`;
-      //   2. Server may send a reply without metadata. In this case, we assume the action is
-      //      accepted by the server and will be executed ASAP;
-      //   3. Server may execute the action silently and send a reply once it is done.
-      observer.onNext(operation);
-
       if (operation.getResultCase() == Operation.ResultCase.ERROR) {
         throwIfError(operation.getError(), null);
       }
