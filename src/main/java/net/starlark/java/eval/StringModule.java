@@ -17,10 +17,8 @@ package net.starlark.java.eval;
 import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
@@ -339,7 +337,7 @@ final class StringModule implements StarlarkValue {
     if (maxSplitO != Starlark.NONE) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
-    ArrayList<String> res = new ArrayList<>();
+    StarlarkList.Builder<String> res = StarlarkList.builder();
     int start = 0;
     while (true) {
       int end = self.indexOf(sep, start);
@@ -350,7 +348,7 @@ final class StringModule implements StarlarkValue {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return StarlarkList.copyOf(thread.mutability(), res);
+    return res.build(thread.mutability());
   }
 
   @StarlarkMethod(
@@ -646,7 +644,7 @@ final class StringModule implements StarlarkValue {
       name = "splitlines",
       doc =
           "Splits the string at line boundaries ('\\n', '\\r\\n', '\\r') "
-              + "and returns the result as a list.",
+              + "and returns the result as a new mutable list.",
       parameters = {
         @Param(name = "self", doc = "This string."),
         @Param(
@@ -654,9 +652,10 @@ final class StringModule implements StarlarkValue {
             name = "keepends",
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
-      })
-  public Sequence<String> splitLines(String self, Boolean keepEnds) throws EvalException {
-    List<String> result = new ArrayList<>();
+      },
+      useStarlarkThread = true)
+  public Sequence<String> splitLines(String self, boolean keepEnds, StarlarkThread thread) {
+    StarlarkList.Builder<String> result = StarlarkList.builder();
     Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
     while (matcher.find()) {
       String line = matcher.group("line");
@@ -671,9 +670,9 @@ final class StringModule implements StarlarkValue {
         result.add(line);
       }
     }
-    // TODO(adonovan): spec should state immutability.
-    // Python[23] and go.starlark.net return a mutable list.
-    return StarlarkList.immutableCopyOf(result);
+    // TODO(adonovan): spec should state that result is mutable,
+    // as in Python[23] and go.starlark.net.
+    return result.build(thread.mutability());
   }
 
   @StarlarkMethod(
@@ -856,12 +855,13 @@ final class StringModule implements StarlarkValue {
               + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
               + "returned value might not be a list.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Sequence<String> elems(String self) throws EvalException {
-    ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+  public Sequence<String> elems(String self) {
+    // TODO(adonovan): opt: return a new type that is lazily iterable.
+    StarlarkList.Builder<String> res = StarlarkList.builder();
     for (char c : self.toCharArray()) {
-      builder.add(String.valueOf(c));
+      res.add(String.valueOf(c));
     }
-    return StarlarkList.immutableCopyOf(builder.build());
+    return res.buildImmutable();
   }
 
   @StarlarkMethod(

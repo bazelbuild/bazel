@@ -85,9 +85,9 @@ public final class StarlarkList<E> extends AbstractList<E>
 
   private static final Object[] EMPTY_ARRAY = {};
 
-  private StarlarkList(@Nullable Mutability mutability, Object[] elems) {
+  private StarlarkList(@Nullable Mutability mutability, Object[] elems, int size) {
     this.elems = elems;
-    this.size = elems.length;
+    this.size = size;
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 
@@ -97,7 +97,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * instance may do so.
    */
   static <T> StarlarkList<T> wrap(@Nullable Mutability mutability, Object[] elems) {
-    return new StarlarkList<>(mutability, elems);
+    return new StarlarkList<>(mutability, elems, elems.length);
   }
 
   @Override
@@ -179,6 +179,79 @@ public final class StarlarkList<E> extends AbstractList<E>
   /** Returns an immutable {@code StarlarkList} with the given items. */
   public static <T> StarlarkList<T> immutableOf(T... elems) {
     return wrap(null, Arrays.copyOf(elems, elems.length));
+  }
+
+  /** Returns a new empty StarlarkList builder. */
+  public static <T> Builder<T> builder() {
+    return new Builder<>();
+  }
+
+  /** A reusable builder for StarlarkLists. */
+  public static final class Builder<T> {
+    private Object[] elems = EMPTY;
+    private int size;
+    private boolean shared; // whether elems is nonempty and shared with some StarlarkList
+
+    private static final Object[] EMPTY = {};
+
+    /** Adds an element to the builder. */
+    public Builder<T> add(T v) {
+      ensureCapacity(1);
+      elems[size++] = Starlark.checkValid(v);
+      return this;
+    }
+
+    /** Adds all the iterable's entries to the builder. */
+    public Builder<T> addAll(Iterable<? extends T> seq) {
+      if (!(seq instanceof Collection)) {
+        // iterable of unknown size
+        for (T elem : seq) {
+          add(elem);
+        }
+
+      } else if (size == 0) {
+        // first time: bulk copy, avoiding iterator
+        elems = ((Collection<? extends T>) seq).toArray();
+        for (Object elem : elems) {
+          Starlark.checkValid(elem);
+        }
+        size = elems.length;
+
+      } else {
+        // general case
+        ensureCapacity(((Collection) seq).size());
+        for (Object elem : seq) {
+          elems[size++] = Starlark.checkValid(elem);
+        }
+      }
+      return this;
+    }
+
+    // Ensures elems is unshared with sufficient capacity for n additional elements.
+    private void ensureCapacity(int n) {
+      int cap = elems.length;
+      if (shared || size + n > cap) {
+        int newcap = Math.max(size + n, cap + (cap >> 1) + 1); // grow by at least 50%
+        elems = Arrays.copyOf(elems, newcap);
+        shared = false;
+      }
+    }
+
+    /** Returns a new immutable StarlarkList containing the elements added so far. */
+    public StarlarkList<T> buildImmutable() {
+      return build(null);
+    }
+
+    /**
+     * Returns a new StarlarkList containing the elements added so far. The result has the specified
+     * mutability; null means immutable.
+     */
+    public StarlarkList<T> build(@Nullable Mutability mu) {
+      // TODO(adonovan): opt: if elems.length ≫ size, reallocate smaller.
+      ensureCapacity(0);
+      shared = size > 0;
+      return new StarlarkList<T>(mu, elems, size);
+    }
   }
 
   @Override

@@ -199,8 +199,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       }
       filesBuilder.put(
           skyname,
-          StarlarkList.copyOf(
-              /*mutability=*/ null,
+          StarlarkList.immutableCopyOf(
               context.getRuleContext().getPrerequisiteArtifacts(a.getName()).list()));
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {

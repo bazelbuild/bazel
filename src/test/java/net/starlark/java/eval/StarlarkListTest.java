@@ -329,4 +329,55 @@ public final class StarlarkListTest {
     wrapped[0] = "goodbye";
     assertThat((List<String>) mutableList).containsExactly("goodbye");
   }
+
+  @Test
+  public void testBuilder() throws EvalException {
+    // add
+    StarlarkList<String> list1 =
+        StarlarkList.<String>builder().add("a").add("b").add("c").buildImmutable();
+    assertThat((List<?>) list1).containsExactly("a", "b", "c");
+    assertThrows(EvalException.class, () -> list1.addElement("d")); // immutable
+
+    // addAll(Collection)
+    StarlarkList<String> list2 =
+        StarlarkList.<String>builder()
+            .addAll(ImmutableList.of("a", "b"))
+            .addAll(ImmutableList.of("c", "d"))
+            .buildImmutable();
+    assertThat((List<?>) list2).containsExactly("a", "b", "c", "d");
+
+    // addAll(Iterable)
+    StarlarkList<String> list3 =
+        StarlarkList.<String>builder()
+            .addAll(() -> ImmutableList.of("a", "b", "c").iterator())
+            .buildImmutable();
+    assertThat((List<?>) list3).containsExactly("a", "b", "c");
+
+    // mutability and builder re-use
+    StarlarkList.Builder<String> builder = StarlarkList.<String>builder().add("a").add("b");
+    StarlarkList<String> list4 = builder.buildImmutable();
+    assertThat((List<?>) list4).containsExactly("a", "b");
+    builder.add("c"); // continue building
+    StarlarkList<String> list5 = builder.buildImmutable();
+    assertThat((List<?>) list5).containsExactly("a", "b", "c");
+    assertThat((List<?>) list4).containsExactly("a", "b"); // unchanged
+    Mutability mu = Mutability.create("test");
+    StarlarkList<String> list6 = builder.build(mu);
+    list6.addElement("d");
+    mu.close();
+    assertThrows(EvalException.class, () -> list6.addElement("e")); // frozen
+    assertThat((List<?>) list6).containsExactly("a", "b", "c", "d");
+  }
+
+  @Test
+  public void testListsFromSameBuilderDoNotShareBackingArray() throws EvalException {
+    Mutability mu = Mutability.create("test");
+    StarlarkList.Builder<String> builder = StarlarkList.<String>builder().add("a").add("b");
+    StarlarkList<String> x = builder.build(mu);
+    x.setElementAt(1, "c");
+    StarlarkList<String> y = builder.build(mu);
+    y.setElementAt(1, "C");
+    assertThat((List<?>) x).containsExactly("a", "c");
+    assertThat((List<?>) y).containsExactly("a", "C");
+  }
 }
