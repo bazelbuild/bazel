@@ -277,7 +277,7 @@ cc_toolchain(
     linker_files = ":osx_wrapper",
     objcopy_files = ":empty",
     strip_files = ":empty",
-    supports_param_files = 0,
+    supports_param_files = 1,
     toolchain_config = ":local_darwin",
     toolchain_identifier = "local_darwin",
 )

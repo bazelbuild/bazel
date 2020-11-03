@@ -291,7 +291,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     switch (binaryType) {
       case LOADABLE_BUNDLE:
         extraLinkArgs.add("-bundle");
-        extraLinkArgs.add("-Wl,-rpath,@loader_path/Frameworks");
+        extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
         if (didProvideBundleLoader) {
           AppleExecutableBinaryInfo executableProvider =
               ruleContext.getPrerequisite(

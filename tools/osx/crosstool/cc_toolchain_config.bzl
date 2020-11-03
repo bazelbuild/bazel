@@ -5198,16 +5198,13 @@ def _impl(ctx):
         name = "linker_param_file",
         flag_sets = [
             flag_set(
-                actions = all_link_actions,
-                flag_groups = [
-                    flag_group(
-                        flags = ["-Wl,@%{linker_param_file}"],
-                        expand_if_available = "linker_param_file",
-                    ),
+                actions = all_link_actions + [
+                    ACTION_NAMES.cpp_link_static_library,
+                    ACTION_NAMES.objc_archive,
+                    ACTION_NAMES.objc_fully_link,
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
                 ],
-            ),
-            flag_set(
-                actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["@%{linker_param_file}"],
