@@ -1103,4 +1103,45 @@ EOF
   expect_log 'option_value: "666"'
 }
 
+# TODO(b/159359614): enable
+function DISABLED_test_empty_tree_in_named_files() {
+  mkdir -p foo
+  cat > foo/rule.bzl <<'EOF'
+def _leaf_impl(ctx):
+  ctx.actions.write(output = ctx.outputs.out2, content = 'hello\n')
+  ctx.actions.write(output = ctx.outputs.out1, content = 'hello\n')
+  return [DefaultInfo(files = depset([ctx.outputs.out1, ctx.outputs.out2]))]
+
+def _top_impl(ctx):
+  dir = ctx.actions.declare_directory('dir')
+  ctx.actions.run_shell(outputs = [dir], command = 'true')
+  return [DefaultInfo(files = depset([dir],
+                      transitive = [dep[DefaultInfo].files
+                                        for dep in ctx.attr.deps]))]
+
+leaf = rule(
+    implementation = _leaf_impl,
+    attrs = {"out1": attr.output(), "out2": attr.output()},
+)
+
+top = rule(
+    implementation = _top_impl,
+    attrs = { "deps": attr.label_list()}
+)
+EOF
+  cat > foo/BUILD <<'EOF'
+load('//foo:rule.bzl', 'leaf', 'top')
+
+leaf(name = 'leaf', out1 = '1.out', out2 = '2.out')
+top(name = 'top', deps = [':leaf'])
+EOF
+
+  bazel build --build_event_text_file=bep.txt //foo:top >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log ClassCastException
+  cat bep.txt > "$TEST_log"
+  expect_log "1.out"
+  expect_log "2.out"
+}
+
 run_suite "Integration tests for the build event stream"
