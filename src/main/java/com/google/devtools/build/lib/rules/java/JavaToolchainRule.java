@@ -282,6 +282,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
+                // TODO(b/170769708): set explicitly in Bazel and remove this default
+                .value(env.getToolsLabel("//tools/jdk:proguard_whitelister"))
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(java_runtime) -->
         The java_runtime to use with this toolchain. It defaults to java_runtime

@@ -101,13 +101,16 @@ public final class PyCommon {
     return pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL ? pythonVersionAttr : null;
   }
 
-  private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
-    @Override
-    public void collectMetadataArtifacts(Iterable<Artifact> artifacts,
-        AnalysisEnvironment analysisEnvironment, NestedSetBuilder<Artifact> metadataFilesBuilder) {
-      // Python doesn't do any compilation, so we simply return the empty set.
-    }
-  };
+  private static final LocalMetadataCollector METADATA_COLLECTOR =
+      new LocalMetadataCollector() {
+        @Override
+        public void collectMetadataArtifacts(
+            Iterable<Artifact> artifacts,
+            AnalysisEnvironment analysisEnvironment,
+            NestedSetBuilder<Artifact> metadataFilesBuilder) {
+          // Python doesn't do any compilation, so we simply return the empty set.
+        }
+      };
 
   /** The context for the target this {@code PyCommon} is helping to analyze. */
   private final RuleContext ruleContext;
@@ -140,6 +143,17 @@ public final class PyCommon {
    * sources in this target's {@code srcs}.
    */
   private final NestedSet<Artifact> transitivePythonSources;
+
+  /**
+   * The Python sources from this target's {@code srcs}.
+   *
+   * <p>This is computed slightly differently than the difference between {@link
+   * #dependencyTransitivePythonSources} and {@link transitivePythonSources}; it includes the
+   * filesToBuild rather than the prerequisite artifacts.
+   */
+  // TODO(bazel-team): Can this be simplified to instead just be (transitivePythonSources -
+  // dependencyTransitivePythonSources)?
+  private final List<Artifact> directPythonSources;
 
   /** Whether this target or any of its {@code deps} or {@code data} deps has a shared library. */
   private final boolean usesSharedLibraries;
@@ -191,13 +205,20 @@ public final class PyCommon {
         fieldName, expected.getStarlarkName(), actual.getStarlarkName());
   }
 
-  public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
+  // TODO(bazel-team): validatePackageAndSources is the result of refactoring while preserving
+  // legacy behavior across some (but not all) Google-internal uses of PyCommon. Ideally all call
+  // sites should be updated to expect the same validation steps.
+  public PyCommon(
+      RuleContext ruleContext, PythonSemantics semantics, boolean validatePackageAndSources) {
     this.ruleContext = ruleContext;
     this.semantics = semantics;
     this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
     this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.dependencyTransitivePythonSources = initDependencyTransitivePythonSources(ruleContext);
     this.transitivePythonSources = initTransitivePythonSources(ruleContext);
+    this.directPythonSources =
+        initAndMaybeValidateDirectPythonSources(
+            ruleContext, semantics, /*validate=*/ validatePackageAndSources);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
     this.imports = initImports(ruleContext, semantics);
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
@@ -207,6 +228,9 @@ public final class PyCommon {
     validatePythonVersionAttr();
     validateLegacyProviderNotUsedIfDisabled();
     maybeValidateLoadedFromBzl();
+    if (validatePackageAndSources) {
+      validatePackageName();
+    }
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -255,6 +279,32 @@ public final class PyCommon {
             "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
+  }
+
+  private static List<Artifact> initAndMaybeValidateDirectPythonSources(
+      RuleContext ruleContext, PythonSemantics semantics, boolean validate) {
+    List<Artifact> sourceFiles = new ArrayList<>();
+    // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
+    for (TransitiveInfoCollection src :
+        ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
+      // Make sure that none of the sources contain hyphens.
+      if (validate
+          && semantics.prohibitHyphensInPackagePaths()
+          && Util.containsHyphen(src.getLabel().getPackageFragment())) {
+        ruleContext.attributeError(
+            "srcs", src.getLabel() + ": paths to Python packages may not contain '-'");
+      }
+      Iterable<Artifact> pySrcs =
+          FileType.filter(
+              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
+              PyRuleClasses.PYTHON_SOURCE);
+      Iterables.addAll(sourceFiles, pySrcs);
+      if (validate && Iterables.isEmpty(pySrcs)) {
+        ruleContext.attributeWarning(
+            "srcs", "rule '" + src.getLabel() + "' does not produce any Python source files");
+      }
+    }
+    return sourceFiles;
   }
 
   /**
@@ -564,6 +614,14 @@ public final class PyCommon {
     }
   }
 
+  /** Checks that the package name of this Python rule does not contain a '-'. */
+  private void validatePackageName() {
+    if (semantics.prohibitHyphensInPackagePaths()
+        && Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
+      ruleContext.ruleError("paths to Python packages may not contain '-'");
+    }
+  }
+
   /**
    * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
@@ -750,7 +808,6 @@ public final class PyCommon {
   public void initBinary(List<Artifact> srcs) {
     Preconditions.checkNotNull(version);
 
-    validatePackageName();
     if (OS.getCurrent() == OS.WINDOWS) {
       executable =
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
@@ -859,42 +916,11 @@ public final class PyCommon {
         .addOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES, transitivePythonSources);
   }
 
-  /**
-   * Returns a mutable List of the source Artifacts.
-   */
-  public List<Artifact> validateSrcs() {
-    List<Artifact> sourceFiles = new ArrayList<>();
-    // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
-    for (TransitiveInfoCollection src :
-        ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
-      // Make sure that none of the sources contain hyphens.
-      if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
-        ruleContext.attributeError("srcs",
-            src.getLabel() + ": paths to Python packages may not contain '-'");
-      }
-      Iterable<Artifact> pySrcs =
-          FileType.filter(
-              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
-              PyRuleClasses.PYTHON_SOURCE);
-      Iterables.addAll(sourceFiles, pySrcs);
-      if (Iterables.isEmpty(pySrcs)) {
-        ruleContext.attributeWarning("srcs",
-            "rule '" + src.getLabel() + "' does not produce any Python source files");
-      }
-    }
-
+  /** Returns a list of the source artifacts */
+  public List<Artifact> getPythonSources() {
     return convertedFiles != null
         ? ImmutableList.copyOf(convertedFiles.values())
-        : sourceFiles;
-  }
-
-  /**
-   * Checks that the package name of this Python rule does not contain a '-'.
-   */
-  void validatePackageName() {
-    if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
-      ruleContext.ruleError("paths to Python packages may not contain '-'");
-    }
+        : directPythonSources;
   }
 
   /**
@@ -972,8 +998,11 @@ public final class PyCommon {
         if (mainArtifact == null) {
           mainArtifact = outItem;
         } else {
-          ruleContext.attributeError("srcs",
-              buildMultipleMainMatchesErrorText(explicitMain, mainSourceName,
+          ruleContext.attributeError(
+              "srcs",
+              buildMultipleMainMatchesErrorText(
+                  explicitMain,
+                  mainSourceName,
                   mainArtifact.getRunfilesPath().toString(),
                   outItem.getRunfilesPath().toString()));
         }
@@ -1020,17 +1049,21 @@ public final class PyCommon {
     }
   }
 
-  private static String buildMultipleMainMatchesErrorText(boolean explicit, String proposedMainName,
-      String match1, String match2) {
+  private static String buildMultipleMainMatchesErrorText(
+      boolean explicit, String proposedMainName, String match1, String match2) {
     String errorText;
     if (explicit) {
-      errorText = "file name '" + proposedMainName
-          + "' specified by 'main' attribute matches multiple files: e.g., '" + match1
-          + "' and '" + match2 + "'";
+      errorText =
+          String.format(
+              "file name '%s' specified by 'main' attribute matches multiple files: e.g., '%s' and"
+                  + " '%s'",
+              proposedMainName, match1, match2);
     } else {
-      errorText = "default main file name '" + proposedMainName
-          + "' matches multiple files.  Perhaps specify an explicit file with 'main' attribute?  "
-          + "Matches were: '" + match1 + "' and '" + match2 + "'";
+      errorText =
+          String.format(
+              "default main file name '%s' matches multiple files.  Perhaps specify an explicit"
+                  + " file with 'main' attribute?  Matches were: '%s' and '%s'",
+              proposedMainName, match1, match2);
     }
     return errorText;
   }
@@ -1038,11 +1071,13 @@ public final class PyCommon {
   private static String buildNoMainMatchesErrorText(boolean explicit, String proposedMainName) {
     String errorText;
     if (explicit) {
-      errorText = "could not find '" + proposedMainName
-          + "' as specified by 'main' attribute";
+      errorText = "could not find '" + proposedMainName + "' as specified by 'main' attribute";
     } else {
-      errorText = "corresponding default '" + proposedMainName + "' does not appear in srcs. Add it"
-          + " or override default file name with a 'main' attribute";
+      errorText =
+          String.format(
+              "corresponding default '%s' does not appear in srcs. Add it or override default file"
+                  + " name with a 'main' attribute",
+              proposedMainName);
     }
     return errorText;
   }
@@ -1052,9 +1087,12 @@ public final class PyCommon {
   private static final class PyPseudoAction extends PseudoAction<PythonInfo> {
     private static final UUID ACTION_UUID = UUID.fromString("8d720129-bc1a-481f-8c4c-dbe11dcef319");
 
-    public PyPseudoAction(ActionOwner owner,
-        NestedSet<Artifact> inputs, Collection<Artifact> outputs,
-        String mnemonic, GeneratedExtension<ExtraActionInfo, PythonInfo> infoExtension,
+    public PyPseudoAction(
+        ActionOwner owner,
+        NestedSet<Artifact> inputs,
+        Collection<Artifact> outputs,
+        String mnemonic,
+        GeneratedExtension<ExtraActionInfo, PythonInfo> infoExtension,
         PythonInfo info) {
       super(ACTION_UUID, owner, inputs, outputs, mnemonic, infoExtension, info);
     }

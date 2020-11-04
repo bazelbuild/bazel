@@ -31,10 +31,10 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.Structure;
 
 /**
  * This configured target pretends to be whatever type of target "actual" is, returning its label,
@@ -44,7 +44,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 @AutoCodec
 @Immutable
-public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObject {
+public final class AliasConfiguredTarget implements ConfiguredTarget, Structure {
   private final Label label;
   private final BuildConfigurationValue.Key configurationKey;
   private final ConfiguredTarget actual;
@@ -131,7 +131,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     return configurationKey;
   }
 
-  /* ClassObject methods */
+  /* Structure methods */
 
   @Override
   public Object getValue(String name) {

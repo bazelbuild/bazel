@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -611,23 +610,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   public String addCoverageSupport(JavaCompilationHelper helper, Artifact executable) {
     // This method can be called only for *_binary/*_test targets.
     Preconditions.checkNotNull(executable);
-    if (!helper.addCoverageSupport()) {
-      // Fallback to $jacocorunner attribute if no jacocorunner was found in the toolchain.
-
-      // Add the coverage runner to the list of dependencies when compiling in coverage mode.
-      TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner");
-      if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
-        helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
-      } else {
-        helper
-            .getRuleContext()
-            .ruleError(
-                "this rule depends on "
-                    + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
-                    + " which is not a java_library rule, or contains errors");
-      }
-    }
+    helper.addCoverageSupport();
 
     // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
     // script via an environment variable.

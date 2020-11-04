@@ -37,6 +37,11 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   }
 
   @Override
+  public FileApi getDeployJar() {
+    return null;
+  }
+
+  @Override
   public FileApi getKeystore() {
     return null;
   }

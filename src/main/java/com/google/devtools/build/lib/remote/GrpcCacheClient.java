@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
@@ -198,6 +199,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                   return result.build();
                 },
                 MoreExecutors.directExecutor());
+
+    RequestMetadata requestMetadata = TracingMetadataUtils.fromCurrentContext();
     return Futures.catchingAsync(
         success,
         RuntimeException.class,
@@ -207,7 +210,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                     String.format(
                         "findMissingBlobs(%d) for %s: %s",
                         requestBuilder.getBlobDigestsCount(),
-                        TracingMetadataUtils.fromCurrentContext().getActionId(),
+                        requestMetadata.getActionId(),
                         e.getMessage()),
                     e)),
         MoreExecutors.directExecutor());

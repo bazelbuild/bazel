@@ -87,7 +87,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -97,6 +96,7 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -186,13 +186,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         if (type.getLabelClass() != LabelClass.OUTPUT) {
           continue;
         }
-        ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
+        StarlarkList.Builder<Artifact> artifactsBuilder = StarlarkList.builder();
         for (OutputFile outputFile : ruleContext.getRule().getOutputFileMap().get(attrName)) {
           Artifact artifact = ruleContext.createOutputArtifact(outputFile);
           artifactsBuilder.add(artifact);
           artifactLabelMapBuilder.put(artifact, outputFile.getLabel());
         }
-        ImmutableList<Artifact> artifacts = artifactsBuilder.build();
+        StarlarkList<Artifact> artifacts = artifactsBuilder.buildImmutable();
 
         if (type == BuildType.OUTPUT) {
           if (artifacts.size() == 1) {
@@ -201,7 +201,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             outputs.addOutput(attrName, Starlark.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          outputs.addOutput(attrName, StarlarkList.immutableCopyOf(artifacts));
+          outputs.addOutput(attrName, artifacts);
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -272,13 +272,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   /**
    * Represents `ctx.outputs`.
    *
-   * <p>A {@link ClassObject} (struct-like data structure) with "executable" field created lazily
-   * on-demand.
+   * <p>The value of its {@code ctx.outputs.executable} field is computed on-demand.
    *
    * <p>Note: There is only one {@code Outputs} object per rule context, so default (object
    * identity) equals and hashCode suffice.
    */
-  private static class Outputs implements ClassObject, StarlarkValue {
+  // TODO(adonovan): add StarlarkBuiltin(name="ctx.outputs") annotation.
+  private static class Outputs implements Structure, StarlarkValue {
     private final Map<String, Object> outputs;
     private final StarlarkRuleContext context;
     private boolean executableCreated = false;
@@ -462,7 +462,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         }
       }
 
-      splitAttrInfos.put(attr.getPublicName(), Dict.copyOf(null, splitPrereqsMap));
+      splitAttrInfos.put(attr.getPublicName(), Dict.immutableCopyOf(splitPrereqsMap));
     }
 
     return StructProvider.STRUCT.create(
@@ -648,7 +648,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public ClassObject outputs() throws EvalException {
+  public Structure outputs() throws EvalException {
     checkMutable("outputs");
     if (outputsObject == null) {
       throw new EvalException("'outputs' is not defined");
@@ -928,7 +928,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Tuple<Object> resolveCommand(
+  public Tuple resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
@@ -980,20 +980,20 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             // conflicting with each other.
             "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
-    return Tuple.<Object>of(
+    return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
         StarlarkList.copyOf(thread.mutability(), argv),
         helper.getToolsRunfilesSuppliers());
   }
 
   @Override
-  public Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException {
+  public Tuple resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
-    return Tuple.<Object>of(
+    return Tuple.pair(
         Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 

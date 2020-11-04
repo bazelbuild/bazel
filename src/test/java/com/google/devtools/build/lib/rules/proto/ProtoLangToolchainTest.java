@@ -142,6 +142,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
   @Test
   public void protoToolchainMixedBlacklist() throws Exception {
+    // Tests legacy behaviour.
+    useConfiguration("--incompatible_blacklisted_protos_requires_proto_info=false");
+
     scratch.file(
         "third_party/x/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,

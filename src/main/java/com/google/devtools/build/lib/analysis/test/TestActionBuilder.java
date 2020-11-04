@@ -201,6 +201,9 @@ public final class TestActionBuilder {
 
     int runsPerTest = testConfiguration.getRunsPerTestForLabel(ruleContext.getLabel());
 
+    NestedSetBuilder<Artifact> lcovMergerFilesToRun = NestedSetBuilder.compileOrder();
+    RunfilesSupplier lcovMergerRunfilesSupplier = null;
+
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
       collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
@@ -251,6 +254,12 @@ public final class TestActionBuilder {
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
+
+          lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
+          if (lcovFilesToRun.getRunfilesSupport() != null) {
+            lcovMergerFilesToRun.add(lcovFilesToRun.getRunfilesSupport().getRunfilesMiddleman());
+          }
+          lcovMergerRunfilesSupplier = lcovFilesToRun.getRunfilesSupplier();
         } else {
           NestedSet<Artifact> filesToBuild =
               lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
@@ -259,6 +268,7 @@ public final class TestActionBuilder {
             Artifact lcovMergerArtifact = filesToBuild.getSingleton();
             extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
             inputsBuilder.add(lcovMergerArtifact);
+            lcovMergerFilesToRun.add(lcovMergerArtifact);
           } else {
             ruleContext.attributeError(
                 lcovMergerAttr,
@@ -372,6 +382,7 @@ public final class TestActionBuilder {
           tools.add(executionSettings.getExecutable());
           tools.addAll(additionalTools.build());
         }
+        boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
@@ -396,7 +407,10 @@ public final class TestActionBuilder {
                     ? ShToolchain.getPathOrError(ruleContext)
                     : null,
                 cancelConcurrentTests,
-                tools.build());
+                tools.build(),
+                splitCoveragePostProcessing,
+                lcovMergerFilesToRun,
+                lcovMergerRunfilesSupplier);
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

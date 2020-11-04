@@ -274,6 +274,14 @@ public class TestConfiguration extends Fragment {
                 + "an exclusive test run locally")
     public boolean incompatibleExclusiveTestSandboxed;
 
+    @Option(
+        name = "experimental_split_coverage_postprocessing",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
+    public boolean splitCoveragePostProcessing;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -386,6 +394,10 @@ public class TestConfiguration extends Fragment {
   }
 
   public boolean incompatibleExclusiveTestSandboxed() { return options.incompatibleExclusiveTestSandboxed; }
+
+  public boolean splitCoveragePostProcessing() {
+    return options.splitCoveragePostProcessing;
+  }
 
   /**
    * Option converter that han handle two styles of value for "--runs_per_test":

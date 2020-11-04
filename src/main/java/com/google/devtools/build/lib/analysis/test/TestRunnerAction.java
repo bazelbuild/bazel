@@ -142,6 +142,10 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean cancelConcurrentTestsOnSuccess;
 
+  private final boolean splitCoveragePostProcessing;
+  private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
+  private final RunfilesSupplier lcovMergerRunfilesSupplier;
+
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
     for (Artifact artifact : artifacts) {
@@ -180,7 +184,10 @@ public class TestRunnerAction extends AbstractAction
       String workspaceName,
       @Nullable PathFragment shExecutable,
       boolean cancelConcurrentTestsOnSuccess,
-      Iterable<Artifact> tools) {
+      Iterable<Artifact> tools,
+      boolean splitCoveragePostProcessing,
+      NestedSetBuilder<Artifact> lcovMergerFilesToRun,
+      RunfilesSupplier lcovMergerRunfilesSupplier) {
     super(
         owner,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
@@ -236,6 +243,13 @@ public class TestRunnerAction extends AbstractAction
                 configuration.getActionEnvironment().getInheritedEnv(),
                 configuration.getTestActionEnvironment().getInheritedEnv()));
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
+    this.splitCoveragePostProcessing = splitCoveragePostProcessing;
+    this.lcovMergerFilesToRun = lcovMergerFilesToRun;
+    this.lcovMergerRunfilesSupplier = lcovMergerRunfilesSupplier;
+  }
+
+  public RunfilesSupplier getLcovMergerRunfilesSupplier() {
+    return lcovMergerRunfilesSupplier;
   }
 
   public BuildConfiguration getConfiguration() {
@@ -244,6 +258,18 @@ public class TestRunnerAction extends AbstractAction
 
   public final PathFragment getBaseDir() {
     return baseDir;
+  }
+
+  public boolean getSplitCoveragePostProcessing() {
+    return splitCoveragePostProcessing;
+  }
+
+  public NestedSetBuilder<Artifact> getLcovMergerFilesToRun() {
+    return lcovMergerFilesToRun;
+  }
+
+  public Artifact getCoverageDirectoryTreeArtifact() {
+    return coverageDirectory;
   }
 
   @Override
@@ -266,7 +292,9 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
     if (isCoverageMode()) {
-      outputs.add(coverageData);
+      if (!splitCoveragePostProcessing) {
+        outputs.add(coverageData);
+      }
       if (coverageDirectory != null) {
         outputs.add(coverageDirectory);
       }
@@ -607,6 +635,8 @@ public class TestRunnerAction extends AbstractAction
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      env.put("SPLIT_COVERAGE_POST_PROCESSING", splitCoveragePostProcessing ? "1" : "0");
+      env.put("IS_COVERAGE_SPAWN", "0");
     }
   }
 

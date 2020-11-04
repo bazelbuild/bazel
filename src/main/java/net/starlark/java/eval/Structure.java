@@ -17,9 +17,11 @@ package net.starlark.java.eval;
 import com.google.common.collect.ImmutableCollection;
 import javax.annotation.Nullable;
 
-/** An interface for Starlark values (such as structs) that have fields. */
-// TODO(adonovan): rename "HasFields".
-public interface ClassObject extends StarlarkValue {
+/**
+ * An interface for Starlark values (such as Bazel structs) with fields that may be accessed using
+ * Starlark's {@code x.field} notation and optionally updating using an {@code x.f=y} assignment.
+ */
+public interface Structure extends StarlarkValue {
 
   /**
    * Returns the value of the field with the given name, or null if the field does not exist. The

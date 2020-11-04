@@ -23,9 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 
@@ -120,13 +118,13 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
   }
 
   public Dict<String, String> collectMakeVariables() throws ExpansionException {
-    Map<String, String> map = new LinkedHashMap<>();
+    Dict.Builder<String, String> map = Dict.builder();
     // Collect variables in the reverse order as in lookupMakeVariable
     // because each update is overwriting.
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers.reverse()) {
       map.putAll(supplier.getAllMakeVariables());
     }
-    return Dict.<String, String>copyOf(null, map);
+    return map.buildImmutable();
   }
 
   @Override

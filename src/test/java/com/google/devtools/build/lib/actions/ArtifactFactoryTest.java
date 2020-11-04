@@ -99,15 +99,6 @@ public class ArtifactFactoryTest {
     packageRootMap.put(barPackage, clientRoRoot);
     packageRootMap.put(alienPackage, alienRoot);
     artifactFactory.setPackageRoots(packageRootMap::get);
-    Root absoluteRoot = Root.absoluteRoot(clientRoot.asPath().getFileSystem());
-    artifactFactory.setSourceArtifactRoots(
-        ImmutableMap.of(
-            clientRoot,
-            ArtifactRoot.asSourceRoot(clientRoot),
-            clientRoRoot,
-            ArtifactRoot.asSourceRoot(clientRoRoot),
-            absoluteRoot,
-            ArtifactRoot.asSourceRoot(absoluteRoot)));
   }
 
   @Test

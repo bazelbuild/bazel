@@ -22,6 +22,8 @@ import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.longrunning.Operation;
@@ -36,7 +38,7 @@ import javax.annotation.Nullable;
 
 /** A remote work executor that uses gRPC for communicating the work, inputs and outputs. */
 @ThreadSafe
-class GrpcRemoteExecutor {
+class GrpcRemoteExecutor implements RemoteExecutionClient {
 
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
@@ -84,15 +86,6 @@ class GrpcRemoteExecutor {
     return null;
   }
 
-  interface ExecuteOperationUpdateReceiver {
-    void onNextOperation(Operation o) throws IOException;
-  }
-
-  public ExecuteResponse executeRemotely(ExecuteRequest request)
-      throws IOException, InterruptedException {
-    return executeRemotely(request, null);
-  }
-
   /* Execute has two components: the Execute call and (optionally) the WaitExecution call.
    * This is the simple flow without any errors:
    *
@@ -111,8 +104,8 @@ class GrpcRemoteExecutor {
    *   are completed and failed; however, some of these errors may be retriable. These errors should
    *   trigger a retry of the Execute call, resulting in a new Operation.
    * */
-  public ExecuteResponse executeRemotely(
-      ExecuteRequest request, ExecuteOperationUpdateReceiver receiver)
+  @Override
+  public ExecuteResponse executeRemotely(ExecuteRequest request, OperationObserver observer)
       throws IOException, InterruptedException {
     // Execute has two components: the Execute call and (optionally) the WaitExecution call.
     // This is the simple flow without any errors:
@@ -184,9 +177,7 @@ class GrpcRemoteExecutor {
                           //      action is accepted by the server and will be executed ASAP;
                           //   3. Server may execute the action silently and send a reply once it is
                           // done.
-                          if (receiver != null) {
-                            receiver.onNextOperation(o);
-                          }
+                          observer.onNext(o);
 
                           ExecuteResponse r = getOperationResponse(o);
                           if (r != null) {
@@ -233,6 +224,7 @@ class GrpcRemoteExecutor {
     }
   }
 
+  @Override
   public void close() {
     if (closed.getAndSet(true)) {
       return;

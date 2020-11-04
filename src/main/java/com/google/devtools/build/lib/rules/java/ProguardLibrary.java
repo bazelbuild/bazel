@@ -66,7 +66,12 @@ public final class ProguardLibrary {
     if (!localSpecs.isEmpty()) {
       // Pass our local proguard configs through the validator, which checks an allowlist.
       FilesToRunProvider proguardAllowlister =
-          ruleContext.getExecutablePrerequisite("$proguard_whitelister");
+          JavaToolchainProvider.from(ruleContext).getProguardAllowlister();
+      if (proguardAllowlister == null) {
+        ruleContext.ruleError(
+            "java_toolchain.proguard_allowlister is required to use proguard_specs");
+        return specsBuilder.build();
+      }
       for (Artifact specToValidate : localSpecs) {
         specsBuilder.add(validateProguardSpec(proguardAllowlister, specToValidate));
       }

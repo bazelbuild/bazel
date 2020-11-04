@@ -215,6 +215,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean useDataBindingUpdatedArgs();
 
   @StarlarkMethod(
+      name = "android_databinding_use_androidx",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useDataBindingAndroidX();
+
+  @StarlarkMethod(
       name = "persistent_busybox_tools",
       structField = true,
       doc = "",

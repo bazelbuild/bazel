@@ -24,15 +24,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /** An Info (provider instance) for providers defined in Starlark. */
-public final class StarlarkInfo extends StructImpl implements HasBinary, ClassObject {
+public final class StarlarkInfo extends StructImpl implements HasBinary, Structure {
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(StarlarkInfo.class);
 

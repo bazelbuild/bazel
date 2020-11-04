@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import java.util.LinkedHashMap;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 
@@ -34,7 +33,7 @@ public final class ConfiguredTargetsUtil {
    */
   public static Dict<String, Object> getProvidersDict(
       AbstractConfiguredTarget target, TransitiveInfoProviderMap providers) {
-    LinkedHashMap<String, Object> res = new LinkedHashMap<>();
+    Dict.Builder<String, Object> res = Dict.builder();
     for (int i = 0; i < providers.getProviderCount(); i++) {
       // The key may be of many types, but we need a string for the intended use.
       Object key = providers.getProviderKeyAt(i);
@@ -61,6 +60,6 @@ public final class ConfiguredTargetsUtil {
         // This is OK. If this is not a valid StarlarkValue, we just leave it out of the map.
       }
     }
-    return Dict.copyOf(null, res);
+    return res.buildImmutable();
   }
 }

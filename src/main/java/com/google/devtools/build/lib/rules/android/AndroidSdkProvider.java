@@ -15,20 +15,25 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -39,6 +44,8 @@ public final class AndroidSdkProvider extends NativeInfo
 
   public static final String ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =
       "$android_sdk_toolchain_type";
+  public static final String ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME =
+      "$android_sdk_dummy_toolchains";
 
   public static final Provider PROVIDER = new Provider();
 
@@ -115,6 +122,7 @@ public final class AndroidSdkProvider extends NativeInfo
         && configuration
             .getFragment(AndroidConfiguration.class)
             .incompatibleUseToolchainResolution()) {
+      AttributeMap attributes = ruleContext.attributes();
       if (ruleContext.getToolchainContext() == null) {
         ruleContext.ruleError(
             String.format(
@@ -125,9 +133,7 @@ public final class AndroidSdkProvider extends NativeInfo
         return null;
       }
       Label toolchainType =
-          ruleContext
-              .attributes()
-              .get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.NODEP_LABEL);
+          attributes.get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.NODEP_LABEL);
       if (toolchainType == null) {
         ruleContext.ruleError(
             String.format(
@@ -139,7 +145,26 @@ public final class AndroidSdkProvider extends NativeInfo
                 ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME));
         return null;
       }
-      ToolchainInfo info = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+      ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
+      if (attributes.has(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, BuildType.NODEP_LABEL_LIST)) {
+        ImmutableSet<Label> resolvedToolchains = toolchainContext.resolvedToolchainLabels();
+        List<Label> dummyToochains =
+            attributes.get(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, BuildType.NODEP_LABEL_LIST);
+        for (Label toolchain : resolvedToolchains) {
+          if (dummyToochains.contains(toolchain)) {
+            ruleContext.ruleError(
+                String.format(
+                    "'%s' rule '%s' requested sdk toolchain resolution via"
+                        + " --incompatible_enable_android_toolchain_resolution but hasn't set an"
+                        + " appropriate --platforms value: --platforms=%s",
+                    ruleContext.getRuleClassNameForLogging(),
+                    ruleContext.getLabel(),
+                    configuration.getOptions().get(PlatformOptions.class).platforms));
+            return null;
+          }
+        }
+      }
+      ToolchainInfo info = toolchainContext.forToolchainType(toolchainType);
       if (info == null) {
         ruleContext.ruleError(
             String.format(

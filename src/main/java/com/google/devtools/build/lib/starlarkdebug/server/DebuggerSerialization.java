@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.V
 import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 
 /** Helper class for creating {@link StarlarkDebuggingProtos.Value} from Starlark objects. */
 final class DebuggerSerialization {
@@ -71,8 +71,8 @@ final class DebuggerSerialization {
     if (value instanceof StarlarkInt) {
       return false;
     }
-    if (value instanceof ClassObject || value instanceof StarlarkValue) {
-      // assuming ClassObject's have at least one child as a temporary optimization
+    if (value instanceof Structure || value instanceof StarlarkValue) {
+      // assuming Structure's have at least one child as a temporary optimization
       // TODO(bazel-team): remove once child-listing logic is moved to StarlarkValue
       return true;
     }
@@ -97,8 +97,8 @@ final class DebuggerSerialization {
       return getDebugAttributes(objectMap, (Debug.ValueWithDebugAttributes) value);
     }
     // TODO(bazel-team): move child-listing logic to StarlarkValue where practical
-    if (value instanceof ClassObject) {
-      return getChildren(objectMap, (ClassObject) value);
+    if (value instanceof Structure) {
+      return getChildren(objectMap, (Structure) value);
     }
     if (value instanceof StarlarkValue) {
       return getChildren(objectMap, (StarlarkValue) value);
@@ -108,7 +108,7 @@ final class DebuggerSerialization {
   }
 
   private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, ClassObject classObject) {
+      ThreadObjectMap objectMap, Structure classObject) {
     ImmutableList.Builder<Value> builder = ImmutableList.builder();
     for (String key : Ordering.natural().immutableSortedCopy(classObject.getFieldNames())) {
       try {

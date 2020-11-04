@@ -1743,6 +1743,7 @@ java_library(
     name = "package_lookup_function",
     srcs = ["PackageLookupFunction.java"],
     deps = [
+        ":already_reported_exception",
         ":file_symlink_exception",
         ":ignored_package_prefixes_value",
         ":local_repository_lookup_value",
@@ -2814,4 +2815,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "already_reported_exception",
+    srcs = ["AlreadyReportedException.java"],
 )

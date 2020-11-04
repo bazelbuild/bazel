@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import javax.annotation.Nullable;
 
@@ -46,7 +47,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       ArtifactGroupNamer artifactGroupNamer,
       EventBus eventBus,
       Duration closeTimeout,
-      Sleeper sleeper) {
+      Sleeper sleeper,
+      Timestamp commandStartTime) {
     this.besTimeout = closeTimeout;
     this.besUploader =
         new BuildEventServiceUploader.Builder()
@@ -59,6 +61,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             .sleeper(sleeper)
             .artifactGroupNamer(artifactGroupNamer)
             .eventBus(eventBus)
+            .commandStartTime(commandStartTime)
             .build();
   }
 
@@ -108,6 +111,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     private BuildEventServiceProtoUtil besProtoUtil;
     private EventBus eventBus;
     private @Nullable Sleeper sleeper;
+    private Timestamp commandStartTime;
 
     public Builder besClient(BuildEventServiceClient value) {
       this.besClient = value;
@@ -155,6 +159,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       return this;
     }
 
+    public Builder commandStartTime(Timestamp value) {
+      this.commandStartTime = value;
+      return this;
+    }
+
     public BuildEventServiceTransport build() {
       checkNotNull(besOptions);
       return new BuildEventServiceTransport(
@@ -167,7 +176,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus),
           (besOptions.besTimeout != null) ? besOptions.besTimeout : Duration.ZERO,
-          sleeper != null ? sleeper : new JavaSleeper());
+          sleeper != null ? sleeper : new JavaSleeper(),
+          checkNotNull(commandStartTime));
     }
   }
 }

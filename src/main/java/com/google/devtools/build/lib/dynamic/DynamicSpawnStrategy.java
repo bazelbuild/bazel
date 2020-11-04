@@ -138,8 +138,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
       // branch just has to give up execution.
       if (strategyThatCancelled.compareAndSet(null, cancellingStrategy)) {
-        boolean cancelled = branch.cancel(true);
-        checkState(cancelled, "Failed to cancel other branch from %s", cancellingStrategy);
+        branch.cancel(true);
         branchDone.acquire();
       } else {
         throw new DynamicInterruptedException(

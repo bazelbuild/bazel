@@ -56,7 +56,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * <p>Returns the given path as a source root. The path may not be {@code null}.
    */
   public static ArtifactRoot asSourceRoot(Root root) {
-    return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source);
+    return INTERNER.intern(new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source));
   }
 
   /**
@@ -70,7 +70,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   public static ArtifactRoot asExternalSourceRoot(Root root) {
     Preconditions.checkArgument(
         root.asPath().asFragment().endsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
-    return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.ExternalSource);
+    return INTERNER.intern(
+        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.ExternalSource));
   }
 
   /**

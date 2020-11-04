@@ -43,19 +43,14 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
     return create(kwargs, thread.getCallerLocation());
   }
 
-  // Called from StarlarkRepositoryContext. TODO(adonovan): eliminate.
-  public StructImpl createWithBuiltinLocation(Dict<String, Object> kwargs) throws EvalException {
-    return create(kwargs, Location.BUILTIN);
-  }
-
-  private StructImpl create(Dict<String, Object> kwargs, Location location) throws EvalException {
-    if (kwargs.containsKey("to_json")) {
+  public StructImpl create(Map<String, Object> fields, Location location) throws EvalException {
+    if (fields.containsKey("to_json")) {
       throw Starlark.errorf("cannot override built-in struct function 'to_json'");
     }
-    if (kwargs.containsKey("to_proto")) {
+    if (fields.containsKey("to_proto")) {
       throw Starlark.errorf("cannot override built-in struct function 'to_proto'");
     }
-    return StarlarkInfo.create(this, kwargs, location);
+    return StarlarkInfo.create(this, fields, location);
   }
 
   /**
@@ -65,7 +60,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
    * providers, such as the {@code native} object, and the struct fields of {@code ctx} like {@code
    * ctx.attr}.
    */
-  public StarlarkInfo create(Map<String, Object> values, String errorMessageFormatForUnknownField) {
-    return StarlarkInfo.createWithCustomMessage(this, values, errorMessageFormatForUnknownField);
+  public StarlarkInfo create(Map<String, Object> fields, String errorMessageFormatForUnknownField) {
+    return StarlarkInfo.createWithCustomMessage(this, fields, errorMessageFormatForUnknownField);
   }
 }

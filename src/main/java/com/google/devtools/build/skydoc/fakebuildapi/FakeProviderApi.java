@@ -32,7 +32,7 @@ public class FakeProviderApi implements StarlarkCallable, ProviderApi {
   private final String name = "ProviderIdentifier" + idCounter++;
 
   @Override
-  public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs) {
+  public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
     return new FakeStructApi();
   }
 

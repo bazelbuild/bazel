@@ -103,6 +103,7 @@ java_library(
 java_library(
     name = "execution_policy",
     srcs = ["ExecutionPolicy.java"],
+    deps = ["//third_party:error_prone_annotations"],
 )
 
 java_library(

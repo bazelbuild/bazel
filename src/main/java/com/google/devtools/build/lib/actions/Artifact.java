@@ -656,8 +656,8 @@ public abstract class Artifact
    * an overhaul, it must be preferred over {@link Artifact#getPathForLocationExpansion} whenever
    * possible.
    */
-  public final PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
-    return getPathForLocationExpansion();
+  public PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
+    return getRootRelativePath();
   }
 
   /**
@@ -902,6 +902,11 @@ public abstract class Artifact
     @Override
     public PathFragment getPathForLocationExpansion() {
       return getExecPath();
+    }
+
+    @Override
+    public PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
+      return siblingRepositoryLayout ? getRepositoryRelativePath() : getExecPath();
     }
 
     @Override

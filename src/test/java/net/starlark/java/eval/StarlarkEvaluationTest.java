@@ -79,7 +79,7 @@ public final class StarlarkEvaluationTest {
   }
 
   // A trivial struct-like class with Starlark fields defined by a map.
-  private static class SimpleStruct implements StarlarkValue, ClassObject {
+  private static class SimpleStruct implements StarlarkValue, Structure {
     final ImmutableMap<String, Object> fields;
 
     SimpleStruct(ImmutableMap<String, Object> fields) {
@@ -214,7 +214,7 @@ public final class StarlarkEvaluationTest {
 
     @StarlarkMethod(name = "string_list_dict", documented = false)
     public Map<String, List<String>> stringListDict() {
-      return ImmutableMap.of("a", ImmutableList.of("b", "c"));
+      return ImmutableMap.of("a", StarlarkList.immutableOf("b", "c"));
     }
 
     @StarlarkMethod(
@@ -345,7 +345,7 @@ public final class StarlarkEvaluationTest {
         doc = "Returns a struct containing all callable method objects of this mock",
         allowReturnNones = true,
         useStarlarkThread = true)
-    public ClassObject proxyMethodsObject(StarlarkThread thread)
+    public Structure proxyMethodsObject(StarlarkThread thread)
         throws EvalException, InterruptedException {
       ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
       for (String name : Starlark.dir(thread.mutability(), thread.getSemantics(), this)) {
@@ -410,7 +410,7 @@ public final class StarlarkEvaluationTest {
         },
         extraPositionals = @Param(name = "args"),
         extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Tuple<Object> args, Dict<String, Object> kwargs) {
+    public String withArgsAndKwargs(String foo, Tuple args, Dict<String, Object> kwargs) {
       String argsString = debugPrintArgs(args);
       String kwargsString =
           "kwargs("
@@ -1680,7 +1680,11 @@ public final class StarlarkEvaluationTest {
     ev.new Scenario()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
         .testLookup(
-            "d", Dict.of((Mutability) null, "a", StarlarkInt.of(1), "b", StarlarkInt.of(2)));
+            "d",
+            Dict.builder()
+                .put("a", StarlarkInt.of(1))
+                .put("b", StarlarkInt.of(2))
+                .buildImmutable());
   }
 
   @Test
@@ -2010,7 +2014,7 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testStructMethodDefinedInValuesAndStarlarkMethod() throws Exception {
     // This test exercises the resolution of ambiguity between @StarlarkMethod-annotated
-    // fields and those reported by ClassObject.getValue.
+    // fields and those reported by Structure.getValue.
     ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.collision_method()")

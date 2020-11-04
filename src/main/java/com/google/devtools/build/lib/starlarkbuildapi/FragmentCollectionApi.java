@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 
 /** Represents a collection of configuration fragments in Starlark. */
 @StarlarkBuiltin(
@@ -31,4 +31,4 @@ import net.starlark.java.eval.StarlarkValue;
             + "may be accessed in this collection.</p>"
             + "<p>See <a href=\"../rules.DOC_EXT#configuration-fragments\">rules documentation</a> "
             + "for details.")
-public interface FragmentCollectionApi extends ClassObject, StarlarkValue {}
+public interface FragmentCollectionApi extends Structure, StarlarkValue {}

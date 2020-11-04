@@ -101,7 +101,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -223,7 +222,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.StarlarkFile;
@@ -1420,24 +1418,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       // We need to take additional steps to keep the corresponding data structures in sync.
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
-      artifactFactory.setSourceArtifactRoots(
-          createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator));
+      onPkgLocatorChange(oldLocator, pkgLocator);
     }
   }
 
-  protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
-      PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
-    ImmutableMap.Builder<Root, ArtifactRoot> builder = ImmutableMap.builder();
-    Stream.concat(pkgLocator.getPathEntries().stream(), Stream.of(Root.absoluteRoot(fileSystem)))
-        .distinct()
-        .forEach(r -> builder.put(r, ArtifactRoot.asSourceRoot(r)));
-    Root externalRoot =
-        Root.fromPath(
-            directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
-    builder.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
-
-    return builder.build();
-  }
+  protected abstract void onPkgLocatorChange(
+      PathPackageLocator oldLocator, PathPackageLocator pkgLocator);
 
   public SkyframeBuildView getSkyframeBuildView() {
     return skyframeBuildView;

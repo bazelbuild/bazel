@@ -5356,6 +5356,7 @@ def _impl(ctx):
 
     debug_prefix_map_pwd_is_dot_feature = feature(
         name = "debug_prefix_map_pwd_is_dot",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [

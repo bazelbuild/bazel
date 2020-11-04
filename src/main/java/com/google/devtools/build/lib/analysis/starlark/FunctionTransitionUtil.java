@@ -46,7 +46,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.syntax.Location;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -192,7 +191,7 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue == null ? Starlark.NONE : optionValue, (Location) null);
+          dict.putEntry(optionKey, optionValue == null ? Starlark.NONE : optionValue);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
@@ -204,7 +203,7 @@ public class FunctionTransitionUtil {
         if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
           continue;
         }
-        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), (Location) null);
+        dict.putEntry(starlarkOption.getKey().toString(), starlarkOption.getValue());
       }
 
       if (!remainingInputs.isEmpty()) {
