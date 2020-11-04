@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Structure;
 
 /**
  * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled with the
@@ -31,7 +31,7 @@ import net.starlark.java.eval.ClassObject;
  * their direct dependencies, only the corresponding {@link TransitiveInfoCollection}s. Also, {@link
  * ConfiguredTarget} objects should not be accessible from the action graph.
  */
-public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject {
+public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
 
   /** All <code>ConfiguredTarget</code>s have a "label" field. */
   String LABEL_FIELD = "label";
@@ -63,8 +63,7 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject 
   /**
    * Returns a legacy Starlark provider.
    *
-   * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow EvalException to be
-   * thrown.
+   * <p>Overrides {@link Structure#getValue(String)}, but does not allow EvalException to be thrown.
    */
   @Nullable
   @Override

@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -82,6 +81,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 
 /** A module that contains Starlark utilities for C++ support. */
@@ -1048,7 +1048,7 @@ public abstract class CcModule
     }
   }
 
-  private static Object getValueOrNull(ClassObject x, String name) {
+  private static Object getValueOrNull(Structure x, String name) {
     try {
       return x.getValue(name);
     } catch (EvalException e) {

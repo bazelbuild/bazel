@@ -79,7 +79,7 @@ public final class StarlarkEvaluationTest {
   }
 
   // A trivial struct-like class with Starlark fields defined by a map.
-  private static class SimpleStruct implements StarlarkValue, ClassObject {
+  private static class SimpleStruct implements StarlarkValue, Structure {
     final ImmutableMap<String, Object> fields;
 
     SimpleStruct(ImmutableMap<String, Object> fields) {
@@ -345,7 +345,7 @@ public final class StarlarkEvaluationTest {
         doc = "Returns a struct containing all callable method objects of this mock",
         allowReturnNones = true,
         useStarlarkThread = true)
-    public ClassObject proxyMethodsObject(StarlarkThread thread)
+    public Structure proxyMethodsObject(StarlarkThread thread)
         throws EvalException, InterruptedException {
       ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
       for (String name : Starlark.dir(thread.mutability(), thread.getSemantics(), this)) {
@@ -2014,7 +2014,7 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testStructMethodDefinedInValuesAndStarlarkMethod() throws Exception {
     // This test exercises the resolution of ambiguity between @StarlarkMethod-annotated
-    // fields and those reported by ClassObject.getValue.
+    // fields and those reported by Structure.getValue.
     ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.collision_method()")

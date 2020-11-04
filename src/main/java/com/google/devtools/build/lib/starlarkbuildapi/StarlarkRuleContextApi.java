@@ -30,13 +30,13 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 
 /** Interface for a context object given to rule implementation functions. */
@@ -291,7 +291,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   FileRootApi getGenfilesDirectory() throws EvalException;
 
   @StarlarkMethod(name = "outputs", structField = true, doc = OUTPUTS_DOC)
-  ClassObject outputs() throws EvalException;
+  Structure outputs() throws EvalException;
 
   @StarlarkMethod(
       name = "rule",

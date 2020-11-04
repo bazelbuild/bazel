@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -63,6 +62,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
@@ -1195,14 +1195,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testStructCreation() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
     ev.exec("x = struct(a = 1, b = 2)");
-    assertThat(ev.lookup("x")).isInstanceOf(ClassObject.class);
+    assertThat(ev.lookup("x")).isInstanceOf(Structure.class);
   }
 
   @Test
   public void testStructFields() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
     ev.exec("x = struct(a = 1, b = 2)");
-    ClassObject x = (ClassObject) ev.lookup("x");
+    Structure x = (Structure) ev.lookup("x");
     assertThat(x.getValue("a")).isEqualTo(StarlarkInt.of(1));
     assertThat(x.getValue("b")).isEqualTo(StarlarkInt.of(2));
 

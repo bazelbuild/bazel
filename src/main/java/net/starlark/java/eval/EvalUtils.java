@@ -477,8 +477,8 @@ final class EvalUtils {
 
   /** Updates the named field of x as if by the Starlark statement {@code x.field = value}. */
   static void setField(Object x, String field, Object value) throws EvalException {
-    if (x instanceof ClassObject) {
-      ((ClassObject) x).setField(field, value);
+    if (x instanceof Structure) {
+      ((Structure) x).setField(field, value);
     } else {
       throw Starlark.errorf("cannot set .%s field of %s value", field, Starlark.type(x));
     }

@@ -325,6 +325,8 @@ public final class Starlark {
       return "sequence";
     } else if (c == StarlarkCallable.class) {
       return "callable";
+    } else if (c == Structure.class) {
+      return "structure";
     }
 
     StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(c);
@@ -658,7 +660,7 @@ public final class Starlark {
    */
   public static boolean hasattr(StarlarkSemantics semantics, Object x, String name)
       throws EvalException {
-    return (x instanceof ClassObject && ((ClassObject) x).getValue(name) != null)
+    return (x instanceof Structure && ((Structure) x).getValue(name) != null)
         || CallUtils.getAnnotatedMethods(semantics, x.getClass()).containsKey(name);
   }
 
@@ -685,9 +687,9 @@ public final class Starlark {
     }
 
     // user-defined field?
-    if (x instanceof ClassObject) {
-      ClassObject obj = (ClassObject) x;
-      Object field = obj.getValue(semantics, name);
+    if (x instanceof Structure) {
+      Structure struct = (Structure) x;
+      Object field = struct.getValue(semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);
       }
@@ -696,7 +698,7 @@ public final class Starlark {
         return defaultValue;
       }
 
-      String error = obj.getErrorMessageForUnknownField(name);
+      String error = struct.getErrorMessageForUnknownField(name);
       if (error != null) {
         throw Starlark.errorf("%s", error);
       }
@@ -717,8 +719,8 @@ public final class Starlark {
   public static StarlarkList<String> dir(Mutability mu, StarlarkSemantics semantics, Object x) {
     // Order the fields alphabetically.
     Set<String> fields = new TreeSet<>();
-    if (x instanceof ClassObject) {
-      fields.addAll(((ClassObject) x).getFieldNames());
+    if (x instanceof Structure) {
+      fields.addAll(((Structure) x).getFieldNames());
     }
     fields.addAll(CallUtils.getAnnotatedMethods(semantics, x.getClass()).keySet());
     return StarlarkList.copyOf(mu, fields);

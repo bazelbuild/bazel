@@ -56,11 +56,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 
 /**
  * Metadata of a rule attribute. Contains the attribute name and type, and an default value to be
@@ -1478,7 +1478,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     private Object invokeCallback(EventHandler eventHandler, Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
-      ClassObject attrs =
+      Structure attrs =
           StructProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(eventHandler, attrs);

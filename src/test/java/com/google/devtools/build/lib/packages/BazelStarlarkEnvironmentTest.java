@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Structure;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -90,8 +90,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
             ImmutableMap.of("overridable_symbol", "new_value"),
             ImmutableMap.of("overridable_rule", "new_rule"));
     assertThat(env).containsEntry("overridable_symbol", "new_value");
-    assertThat(((ClassObject) env.get("native")).getValue("overridable_rule"))
-        .isEqualTo("new_rule");
+    assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
   }
 
   /** Asserts that injection with the given maps fails with the given error substring. */

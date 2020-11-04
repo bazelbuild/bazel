@@ -257,7 +257,7 @@ public final class ScriptTest {
   }
 
   // A trivial struct-like class with Starlark fields defined by a map.
-  private static class Struct implements StarlarkValue, ClassObject {
+  private static class Struct implements StarlarkValue, Structure {
     final Map<String, Object> fields;
 
     Struct(Map<String, Object> fields) {

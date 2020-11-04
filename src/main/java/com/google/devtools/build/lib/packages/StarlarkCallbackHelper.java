@@ -18,20 +18,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Structure;
 
 /**
  * A helper class for calling Starlark functions from Java, where the argument values are supplied
- * by the fields of a ClassObject, as in the case of computed attribute defaults and computed
- * implicit outputs.
+ * by the fields of a Structure, as in the case of computed attribute defaults and computed implicit
+ * outputs.
  *
- * TODO(adonovan): eliminate the need for this class by making the Starlark calls in the same
+ * <p>TODO(adonovan): eliminate the need for this class by making the Starlark calls in the same
  * Starlark thread that instantiated the rule.
  */
 @AutoCodec
@@ -65,9 +65,9 @@ public class StarlarkCallbackHelper {
     return callback.getParameterNames();
   }
 
-  // TODO(adonovan): opt: all current callers are forced to construct a temporary ClassObject.
+  // TODO(adonovan): opt: all current callers are forced to construct a temporary Structure.
   // Instead, make them supply a map.
-  public Object call(EventHandler eventHandler, ClassObject ctx, Object... arguments)
+  public Object call(EventHandler eventHandler, Structure ctx, Object... arguments)
       throws EvalException, InterruptedException {
     try (Mutability mu = Mutability.create("callback", callback)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
@@ -87,7 +87,7 @@ public class StarlarkCallbackHelper {
    * Creates a list of actual arguments that contains the given arguments and all attribute values
    * required from the specified context.
    */
-  private ImmutableList<Object> buildArgumentList(ClassObject ctx, Object... arguments)
+  private ImmutableList<Object> buildArgumentList(Structure ctx, Object... arguments)
       throws EvalException {
     ImmutableList.Builder<Object> builder = ImmutableList.builder();
     ImmutableList<String> names = getParameterNames();
