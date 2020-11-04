@@ -372,10 +372,12 @@ public final class JavaCompilationHelper {
     }
   }
 
-  public boolean addCoverageSupport() {
+  /** Adds coverage support from java_toolchain. */
+  public void addCoverageSupport() {
     FilesToRunProvider jacocoRunner = javaToolchain.getJacocoRunner();
     if (jacocoRunner == null) {
-      return false;
+      ruleContext.ruleError(
+          "jacocorunner not set in java_toolchain:" + javaToolchain.getToolchainLabel());
     }
     Artifact jacocoRunnerJar = jacocoRunner.getExecutable();
     if (isStrict()) {
@@ -383,7 +385,6 @@ public final class JavaCompilationHelper {
     }
     attributes.addCompileTimeClassPathEntry(jacocoRunnerJar);
     attributes.addRuntimeClassPathEntry(jacocoRunnerJar);
-    return true;
   }
 
   /**

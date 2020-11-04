@@ -560,9 +560,21 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "[]",
             doc = "<i>Experimental</i> A list of constraints on the execution platform."),
+        @Param(
+            name = "copy_from_rule",
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc =
+                "<i>Experimental</i> If set to true, this exec group inherits the toolchains and "
+                    + "constraints of the rule to which this group is attached. If set to any "
+                    + "other string this will throw an error.")
       },
       useStarlarkThread = true)
   ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread)
+      Sequence<?> execCompatibleWith,
+      Sequence<?> toolchains,
+      Boolean copyFromRule,
+      StarlarkThread thread)
       throws EvalException;
 }

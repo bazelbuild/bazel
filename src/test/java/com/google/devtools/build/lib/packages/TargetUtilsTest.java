@@ -20,7 +20,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -198,14 +197,17 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.of((Mutability) null, "supports-worker", "1"),
+            Dict.<String, String>builder().put("supports-worker", "1").buildImmutable(),
             noTag, /* allowTagsPropagation */
             true);
     assertThat(execInfo).containsExactly("supports-worker", "1");
 
     execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.of((Mutability) null, "some-custom-tag", "1", "no-cache", "1"),
+            Dict.<String, String>builder()
+                .put("some-custom-tag", "1")
+                .put("no-cache", "1")
+                .buildImmutable(),
             noTag,
             /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "1");
@@ -220,8 +222,10 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.of(
-                (Mutability) null, "supports-workers", "1", "worker-key-mnemonic", "MyMnemonic"),
+            Dict.<String, String>builder()
+                .put("supports-workers", "1")
+                .put("worker-key-mnemonic", "MyMnemonic")
+                .buildImmutable(),
             noTag, /* allowTagsPropagation */
             true);
     assertThat(execInfo)
@@ -235,7 +239,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Dict<String, String> executionRequirementsUnchecked =
-        Dict.of((Mutability) null, "no-remote", "1");
+        Dict.<String, String>builder().put("no-remote", "1").buildImmutable();
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
@@ -251,7 +255,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Dict<String, String> executionRequirementsUnchecked =
-        Dict.of((Mutability) null, "no-cache", "1");
+        Dict.<String, String>builder().put("no-cache", "1").buildImmutable();
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
@@ -284,7 +288,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Dict<String, String> executionRequirementsUnchecked =
-        Dict.of((Mutability) null, "no-remote", "1");
+        Dict.<String, String>builder().put("no-remote", "1").buildImmutable();
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(

@@ -15,17 +15,11 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -246,9 +240,9 @@ class MethodLibrary {
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
       parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
-  public Tuple<?> tuple(StarlarkIterable<?> x) throws EvalException {
+  public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
-      return (Tuple<?>) x;
+      return (Tuple) x;
     }
     return Tuple.wrap(Starlark.toArray(x));
   }
@@ -396,9 +390,6 @@ class MethodLibrary {
     }
   }
 
-  private static final ImmutableMap<String, Integer> INT_PREFIXES =
-      ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
-
   @StarlarkMethod(
       name = "int",
       doc =
@@ -480,80 +471,6 @@ class MethodLibrary {
     throw Starlark.errorf("got %s, want string, int, float, or bool", Starlark.type(x));
   }
 
-  // TODO(adonovan): move into StarlarkInt.parse in a follow-up.
-  static StarlarkInt parseInt(String string, int base) throws NumberFormatException {
-    String stringForErrors = string;
-
-    boolean isNegative = false;
-    if (string.isEmpty()) {
-      throw new NumberFormatException("empty string");
-    }
-    char c = string.charAt(0);
-    if (c == '+') {
-      string = string.substring(1);
-    } else if (c == '-') {
-      string = string.substring(1);
-      isNegative = true;
-    }
-
-    String prefix = getIntegerPrefix(string);
-    String digits;
-    if (prefix == null) {
-      // Nothing to strip. Infer base 10 if autodetection was requested (base == 0).
-      digits = string;
-      if (base == 0) {
-        if (string.length() > 1 && string.startsWith("0")) {
-          // We don't infer the base when input starts with '0' (due
-          // to confusion between octal and decimal).
-          throw new NumberFormatException(
-              "cannot infer base when string begins with a 0: " + Starlark.repr(stringForErrors));
-        }
-        base = 10;
-      }
-    } else {
-      // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
-      // consistency.
-      digits = string.substring(prefix.length());
-      int expectedBase = INT_PREFIXES.get(prefix);
-      if (base == 0) {
-        base = expectedBase;
-      } else if (base != expectedBase) {
-        throw new NumberFormatException(
-            String.format(
-                "invalid base-%d literal: %s (%s prefix wants base %d)",
-                base, Starlark.repr(stringForErrors), prefix, expectedBase));
-      }
-    }
-
-    if (base < 2 || base > 36) {
-      throw new NumberFormatException(
-          String.format("invalid base %d (want 2 <= base <= 36)", base));
-    }
-    StarlarkInt result;
-    try {
-      result = StarlarkInt.of(Long.parseLong(digits, base));
-    } catch (NumberFormatException unused1) {
-      try {
-        result = StarlarkInt.of(new BigInteger(digits, base));
-      } catch (NumberFormatException unused2) {
-        throw new NumberFormatException(
-            String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
-      }
-    }
-    return isNegative ? StarlarkInt.uminus(result) : result;
-  }
-
-  @Nullable
-  private static String getIntegerPrefix(String value) {
-    value = Ascii.toLowerCase(value);
-    for (String prefix : INT_PREFIXES.keySet()) {
-      if (value.startsWith(prefix)) {
-        return prefix;
-      }
-    }
-    return null;
-  }
-
   @StarlarkMethod(
       name = "dict",
       doc =
@@ -564,21 +481,21 @@ class MethodLibrary {
               + "positional argument.",
       parameters = {
         @Param(
-            name = "args",
+            name = "pairs",
             defaultValue = "[]",
-            doc =
-                "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-                    + "exactly two elements: key, value."),
+            doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  public Dict<?, ?> dict(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
+  public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    Dict<?, ?> dict =
-        args instanceof Dict
-            ? (Dict) args
-            : Dict.getDictFromArgs("dict", args, thread.mutability());
-    return Dict.plus(dict, kwargs, thread.mutability());
+    // common case: dict(k=v, ...)
+    if (pairs instanceof StarlarkList && ((StarlarkList) pairs).isEmpty()) {
+      return kwargs;
+    }
+    Dict<Object, Object> dict = Dict.of(thread.mutability());
+    Dict.update("dict", dict, pairs, kwargs);
+    return dict;
   }
 
   @StarlarkMethod(
@@ -834,27 +751,27 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
       useStarlarkThread = true)
   public StarlarkList<?> zip(Sequence<?> args, StarlarkThread thread) throws EvalException {
-    Iterator<?>[] iterators = new Iterator<?>[args.size()];
-    for (int i = 0; i < args.size(); i++) {
-      iterators[i] = Starlark.toIterable(args.get(i)).iterator();
-    }
-    ArrayList<Tuple<?>> result = new ArrayList<>();
-    boolean allHasNext;
-    do {
-      allHasNext = !args.isEmpty();
-      List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
-      for (Iterator<?> iterator : iterators) {
-        if (iterator.hasNext()) {
-          elem.add(iterator.next());
-        } else {
-          allHasNext = false;
+    StarlarkList.Builder<Tuple> result = StarlarkList.builder();
+    int ncols = args.size();
+    if (ncols > 0) {
+      Iterator<?>[] iterators = new Iterator<?>[ncols];
+      for (int i = 0; i < ncols; i++) {
+        iterators[i] = Starlark.toIterable(args.get(i)).iterator();
+      }
+      rows:
+      for (; ; ) {
+        Object[] elem = new Object[ncols];
+        for (int i = 0; i < ncols; i++) {
+          Iterator<?> it = iterators[i];
+          if (!it.hasNext()) {
+            break rows;
+          }
+          elem[i] = it.next();
         }
+        result.add(Tuple.wrap(elem));
       }
-      if (allHasNext) {
-        result.add(Tuple.copyOf(elem));
-      }
-    } while (allHasNext);
-    return StarlarkList.copyOf(thread.mutability(), result);
+    }
+    return result.build(thread.mutability());
   }
 
   /** Starlark bool type. */

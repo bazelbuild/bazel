@@ -107,6 +107,15 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       structField = true)
   FileT getResourcesZip();
 
+  /** The databinding layout info file */
+  @StarlarkMethod(
+      name = "databinding_info",
+      doc = "The databinding layout info file.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileT getDatabindingLayoutInfoZip();
+
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -180,6 +189,15 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               named = true,
               doc = "",
               defaultValue = "None"),
+          @Param(
+              name = "databinding_info",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -191,7 +209,8 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         Object resourceProguardConfig,
         Object mainDexProguardConfig,
         Object rTxt,
-        Object resourcesZip)
+        Object resourcesZip,
+        Object databindingLayoutInfoZip)
         throws EvalException;
   }
 }

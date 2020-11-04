@@ -117,11 +117,6 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
 
       return version.stringRepresentation.equals(((Option) o).version.stringRepresentation);
     }
-
-    @Override
-    public String toString() {
-      return version.toString();
-    }
   }
 
   public static DottedVersion maybeUnwrap(DottedVersion.Option option) {

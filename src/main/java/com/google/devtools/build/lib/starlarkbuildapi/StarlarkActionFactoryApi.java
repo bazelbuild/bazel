@@ -94,7 +94,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "('sibling' defines a directory)."),
         @Param(
             name = "sibling",
-            doc = "A file that lives in the same directory as the newly declared directory.",
+            doc =
+                "A file that lives in the same directory as the newly declared directory. "
+                    + "The file must be in the current package.",
             allowedTypes = {
               @ParamType(type = FileApi.class),
               @ParamType(type = NoneType.class),

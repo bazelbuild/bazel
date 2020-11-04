@@ -221,7 +221,7 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public Tuple<FileApi> createGoCompileActions(
+    public Tuple createGoCompileActions(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
@@ -230,7 +230,7 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public Tuple<FileApi> createGoCompileActionsGopkg(
+    public Tuple createGoCompileActionsGopkg(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>

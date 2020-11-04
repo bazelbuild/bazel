@@ -54,6 +54,14 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getUnsignedApk();
 
+  /** Returns the deploy jar used to build the APK. */
+  @StarlarkMethod(
+      name = "deploy_jar",
+      doc = "Returns the deploy jar used to build the APK.",
+      documented = false,
+      structField = true)
+  FileT getDeployJar();
+
   /** Returns the coverage metadata artifact generated in the transitive closure. */
   @StarlarkMethod(
       name = "coverage_metadata",

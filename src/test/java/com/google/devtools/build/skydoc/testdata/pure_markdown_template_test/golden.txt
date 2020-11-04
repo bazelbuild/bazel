@@ -56,7 +56,7 @@ Small example of function using a markdown template.
 | Name  | Description | Default Value |
 | :-------------: | :-------------: | :-------------: |
 | <a name="example_function-foo"></a>foo |  This parameter does foo related things.   |  none |
-| <a name="example_function-bar"></a>bar |  This parameter does bar related things.   |  <code>"bar"</code> |
+| <a name="example_function-bar"></a>bar |  This parameter does bar related things.<br><br>For example, it does things that require **multiple paragraphs** to explain.<br><br>Note: we should preserve the nested indent in the following code:<br><br><pre><code>json {     "key": "value" } </code></pre>   |  <code>"bar"</code> |
 
 
 <a name="#example_aspect"></a>

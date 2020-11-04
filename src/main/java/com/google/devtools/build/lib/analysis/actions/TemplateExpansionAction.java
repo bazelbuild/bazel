@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -216,10 +215,10 @@ public final class TemplateExpansionAction extends AbstractAction {
 
   @Override
   public Dict<String, String> getStarlarkSubstitutions() {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    Dict.Builder<String, String> builder = Dict.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());
     }
-    return Dict.copyOf(null, builder.build());
+    return builder.buildImmutable();
   }
 }

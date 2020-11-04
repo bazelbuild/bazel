@@ -39,6 +39,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   private final Artifact mainDexProguardConfig;
   private final Artifact rTxt;
   private final Artifact resourcesZip;
+  private final Artifact databindingLayoutInfoZip;
 
   AndroidApplicationResourceInfo(
       Artifact resourceApk,
@@ -48,7 +49,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact resourceProguardConfig,
       Artifact mainDexProguardConfig,
       Artifact rTxt,
-      Artifact resourcesZip) {
+      Artifact resourcesZip,
+      Artifact databindingLayoutInfoZip) {
     super(PROVIDER);
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
@@ -58,6 +60,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.mainDexProguardConfig = mainDexProguardConfig;
     this.rTxt = rTxt;
     this.resourcesZip = resourcesZip;
+    this.databindingLayoutInfoZip = databindingLayoutInfoZip;
   }
 
   @Override
@@ -100,6 +103,11 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     return resourcesZip;
   }
 
+  @Override
+  public Artifact getDatabindingLayoutInfoZip() {
+    return databindingLayoutInfoZip;
+  }
+
   /** Provider for {@link AndroidApplicationResourceInfo}. */
   public static class AndroidApplicationResourceInfoProvider
       extends BuiltinProvider<AndroidApplicationResourceInfo>
@@ -118,7 +126,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
         Object resourceProguardConfig,
         Object mainDexProguardConfig,
         Object rTxt,
-        Object resourcesZip)
+        Object resourcesZip,
+        Object databindingLayoutInfoZip)
         throws EvalException {
 
       return new AndroidApplicationResourceInfo(
@@ -129,7 +138,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
           fromNoneable(resourceProguardConfig, Artifact.class),
           fromNoneable(mainDexProguardConfig, Artifact.class),
           fromNoneable(rTxt, Artifact.class),
-          fromNoneable(resourcesZip, Artifact.class));
+          fromNoneable(resourcesZip, Artifact.class),
+          fromNoneable(databindingLayoutInfoZip, Artifact.class));
     }
   }
 }

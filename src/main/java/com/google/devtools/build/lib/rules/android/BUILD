@@ -22,7 +22,8 @@ java_library(
     resources = [
         "android_device_stub_template.txt",
         "android_instrumentation_test_template.txt",
-        "databinding/databinding_annotation_template.txt",
+        "databinding/databinding_annotation_template_androidx.txt",
+        "databinding/databinding_annotation_template_support_lib.txt",
         "robolectric_properties_template.txt",
         "test_suite_property_name.txt",
     ],
@@ -59,6 +60,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_api_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_error_reporter",

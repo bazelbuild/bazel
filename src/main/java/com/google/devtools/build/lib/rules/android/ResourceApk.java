@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
@@ -114,7 +115,9 @@ public final class ResourceApk {
   }
 
   public static ResourceApk fromAndroidApplicationResourceInfo(
-      AndroidDataContext ctx, AndroidApplicationResourceInfo androidApplicationResourceInfo) {
+      RuleContext ctx,
+      AndroidConfiguration androidConfig,
+      AndroidApplicationResourceInfo androidApplicationResourceInfo) {
     return new ResourceApk(
         androidApplicationResourceInfo.getResourceApk(),
         androidApplicationResourceInfo.getResourceJavaSrcJar(),
@@ -130,7 +133,8 @@ public final class ResourceApk {
         androidApplicationResourceInfo.getResourcesZip(),
         androidApplicationResourceInfo.getResourceProguardConfig(),
         androidApplicationResourceInfo.getMainDexProguardConfig(),
-        DataBinding.getDisabledDataBindingContext(ctx),
+        DataBinding.getInjectedDataBindingContext(
+            ctx, androidConfig, androidApplicationResourceInfo.getDatabindingLayoutInfoZip()),
         /* isFromAndroidApplicationResourceInfo= */ true);
   }
 

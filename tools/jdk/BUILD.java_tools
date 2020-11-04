@@ -19,7 +19,7 @@ SUPRESSED_WARNINGS = select({
 
 java_toolchain_default(
     name = "toolchain",
-    javac = [":javac_jar"],
+    javac = ["//:javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
@@ -30,14 +30,14 @@ java_toolchain_default(
         "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
     ] + JDK9_JVM_OPTS,
     tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
+        "//:java_compiler_jar",
+        "//:jdk_compiler_jar",
     ],
 )
 
 java_toolchain_default(
     name = "toolchain_hostjdk8",
-    javac = [":javac_jar"],
+    javac = ["//:javac_jar"],
     jvm_opts = ["-Xbootclasspath/p:$(location :javac_jar)"],
     source_version = "8",
     target_version = "8",
@@ -47,7 +47,7 @@ java_toolchain_default(
 # TODO(cushon): consider if/when we should increment this?
 java_toolchain_default(
     name = "legacy_toolchain",
-    javac = [":javac_jar"],
+    javac = ["//:javac_jar"],
     jvm_opts = [
         # override the javac in the JDK.
         "--patch-module=java.compiler=$(location :java_compiler_jar)",
@@ -56,15 +56,15 @@ java_toolchain_default(
     source_version = "8",
     target_version = "8",
     tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
+        "//:java_compiler_jar",
+        "//:jdk_compiler_jar",
     ],
 )
 
 # Needed for openbsd / JVM8
 java_toolchain_default(
     name = "legacy_toolchain_jvm8",
-    javac = [":javac_jar"],
+    javac = ["//:javac_jar"],
     jvm_opts = ["-Xbootclasspath/p:$(location :javac_jar)"],
     source_version = "8",
     target_version = "8",
@@ -87,7 +87,7 @@ java_toolchain_default(
 java_toolchain_default(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,
-    javabuilder = [":vanillajavabuilder"],
+    javabuilder = ["//:vanillajavabuilder"],
     jvm_opts = [],
     source_version = "",
     target_version = "",
@@ -99,7 +99,7 @@ RELEASES = (8, 9, 10, 11)
     (
         java_toolchain_default(
             name = "toolchain_java%d" % release,
-            javac = [":javac_jar"],
+            javac = ["//:javac_jar"],
             jvm_opts = [
                 # override the javac in the JDK.
                 "--patch-module=java.compiler=$(location :java_compiler_jar)",
@@ -108,14 +108,14 @@ RELEASES = (8, 9, 10, 11)
             source_version = "%s" % release,
             target_version = "%s" % release,
             tools = [
-                ":java_compiler_jar",
-                ":jdk_compiler_jar",
+                "//:java_compiler_jar",
+                "//:jdk_compiler_jar",
             ],
         ),
         # Needed for openbsd / JVM8
         java_toolchain_default(
             name = "toolchain_java%d_jvm8" % release,
-            javac = [":javac_jar"],
+            javac = ["//:javac_jar"],
             jvm_opts = [
                 "-Xbootclasspath/p:$(location :javac_jar)",
             ],
@@ -129,7 +129,7 @@ RELEASES = (8, 9, 10, 11)
 # A toolchain that targets java 11.
 java_toolchain_default(
     name = "toolchain_jdk_11",
-    javac = [":javac_jar"],
+    javac = ["//:javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
@@ -142,8 +142,8 @@ java_toolchain_default(
     source_version = "11",
     target_version = "11",
     tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
+        "//:java_compiler_jar",
+        "//:jdk_compiler_jar",
     ],
 )
 
@@ -168,8 +168,8 @@ java_toolchain_default(
 # platform.
 java_toolchain_default(
     name = "prebuilt_toolchain",
-    ijar = [":ijar_prebuilt_binary"],
-    javac = [":javac_jar"],
+    ijar = ["//:ijar_prebuilt_binary"],
+    javac = ["//:javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
@@ -179,10 +179,10 @@ java_toolchain_default(
         "--patch-module=java.compiler=$(location :java_compiler_jar)",
         "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
     ] + JDK9_JVM_OPTS,
-    singlejar = [":prebuilt_singlejar"],
+    singlejar = ["//:prebuilt_singlejar"],
     tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
+        "//:java_compiler_jar",
+        "//:jdk_compiler_jar",
     ],
 )
 
@@ -301,21 +301,21 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["java_tools/third_party/java/jacoco/asm-7.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-7.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-8.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-8.0-sources.jar",
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["java_tools/third_party/java/jacoco/asm-commons-7.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-commons-7.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-8.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["java_tools/third_party/java/jacoco/asm-tree-7.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-tree-7.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-8.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-8.0-sources.jar",
     runtime_deps = [":asm"],
 )
 
@@ -326,43 +326,38 @@ config_setting(
 
 config_setting(
     name = "linux_x86_64",
-    values = {"cpu": "k8"},
-)
-
-config_setting(
-    name = "darwin",
-    values = {"cpu": "darwin"},
+    constraint_values = [ "@platforms//os:linux", "@platforms//cpu:x86_64" ],
 )
 
 config_setting(
     name = "darwin_x86_64",
-    values = {"cpu": "darwin_x86_64"},
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:x86_64" ],
 )
 
 config_setting(
     name = "darwin_arm64",
-    values = {"cpu": "darwin_arm64"},
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:arm64" ],
 )
 
 config_setting(
     name = "darwin_arm64e",
-    values = {"cpu": "darwin_arm64e"},
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:arm64e" ],
 )
 
 config_setting(
     name = "windows",
-    values = {"cpu": "x64_windows"},
+    constraint_values = [ "@platforms//os:windows" ],
 )
 
 config_setting(
     name = "freebsd",
-    values = {"cpu": "freebsd"},
+    constraint_values = [ "@platforms//os:freebsd" ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "openbsd",
-    values = {"cpu": "openbsd"},
+    constraint_values = [ "@platforms//os:openbsd" ],
     visibility = ["//visibility:public"],
 )
 
@@ -378,7 +373,6 @@ alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
         ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin": "java_tools/src/tools/singlejar/singlejar_local",
         ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
         ":darwin_arm64": "java_tools/src/tools/singlejar/singlejar_local",
         ":darwin_arm64e": "java_tools/src/tools/singlejar/singlejar_local",
@@ -407,7 +401,6 @@ alias(
     name = "prebuilt_binary_or_cc_binary",
     actual = select({
         ":linux_x86_64": ":ijar_prebuilt_binary",
-        ":darwin": ":ijar_prebuilt_binary",
         ":darwin_x86_64": ":ijar_prebuilt_binary",
         ":darwin_arm64": ":ijar_prebuilt_binary",
         ":darwin_arm64e": ":ijar_prebuilt_binary",

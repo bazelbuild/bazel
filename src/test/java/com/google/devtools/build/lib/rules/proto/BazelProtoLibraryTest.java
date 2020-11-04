@@ -356,11 +356,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
-    invalidatePackages();
-
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
+    invalidatePackages();
 
     scratch.file("/foo/WORKSPACE");
     scratch.file(
@@ -374,16 +373,22 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles =
+        getTargetConfiguration()
+            .getGenfilesFragment(
+                siblingRepoLayout ? RepositoryName.create("@foo") : RepositoryName.MAIN)
+            .toString();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
     assertThat(aInfo.getTransitiveProtoSourceRoots().toList())
-        .containsExactly(".", genfiles + "/external/foo/x/_virtual_imports/x");
+        .containsExactly(
+            ".", genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x");
 
     ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
     assertThat(xInfo.getTransitiveProtoSourceRoots().toList())
-        .containsExactly(genfiles + "/external/foo/x/_virtual_imports/x");
+        .containsExactly(
+            genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x");
   }
 
   @Test

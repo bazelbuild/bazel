@@ -336,10 +336,6 @@ public class BaseRuleClasses {
                 .nonconfigurable(
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
-            attr("target_compatible_with", LABEL_LIST)
-                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .allowedFileTypes(FileTypeSet.NO_FILE))
-        .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
                 .nonconfigurable("stores configurability keys"))
         .add(
@@ -452,6 +448,11 @@ public class BaseRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
                   .value(ImmutableList.of()))
+          .add(
+              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                  // This should be configurable to allow for complex types of restrictions.
+                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 

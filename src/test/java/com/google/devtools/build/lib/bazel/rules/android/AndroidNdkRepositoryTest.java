@@ -211,6 +211,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         "    path = '/ndk',",
         ")");
     invalidatePackages(false);
+    reporter.removeHandler(failFastHandler);
     RepositoryFetchException e =
         assertThrows(RepositoryFetchException.class, () -> getTarget("@androidndk//:files"));
     assertThat(e)

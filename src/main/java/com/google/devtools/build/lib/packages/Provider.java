@@ -48,7 +48,7 @@ public interface Provider extends ProviderApi {
 
   /**
    * Returns an error message format string for instances to use for their {@link
-   * net.starlark.java.eval.ClassObject#getErrorMessageForUnknownField(String)}.
+   * net.starlark.java.eval.Structure#getErrorMessageForUnknownField(String)}.
    *
    * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */

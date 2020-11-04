@@ -107,6 +107,14 @@ public final class BuildEventServiceUploader implements Runnable {
   private final Clock clock;
   private final ArtifactGroupNamer namer;
   private final EventBus eventBus;
+  // `commandStartTime` is an instant in time determined by the build tool's native launcher and
+  // matches `BuildStartingEvent.getRequest().getStartTime()`.
+  private final Timestamp commandStartTime;
+  // `eventStreamStartTime` is an instant *after* `commandStartTime` indicating when the
+  // BuildEventServiceUploader was initialized to begin reporting build events. This instant should
+  // be *before* the event_time for any BuildEvents uploaded after they are received via
+  // `#enqueueEvent(BuildEvent)`.
+  private final Timestamp eventStreamStartTime;
   private boolean startedClose = false;
 
   private final ScheduledExecutorService timeoutExecutor =
@@ -157,7 +165,8 @@ public final class BuildEventServiceUploader implements Runnable {
       Sleeper sleeper,
       Clock clock,
       ArtifactGroupNamer namer,
-      EventBus eventBus) {
+      EventBus eventBus,
+      Timestamp commandStartTime) {
     this.besClient = besClient;
     this.buildEventUploader = localFileUploader;
     this.besProtoUtil = besProtoUtil;
@@ -167,6 +176,8 @@ public final class BuildEventServiceUploader implements Runnable {
     this.clock = clock;
     this.namer = namer;
     this.eventBus = eventBus;
+    this.commandStartTime = commandStartTime;
+    this.eventStreamStartTime = currentTime();
     // Ensure the half-close future is closed once the upload is complete. This is usually a no-op,
     // but makes sure we half-close in case of error / interrupt.
     closeFuture.addListener(
@@ -297,8 +308,8 @@ public final class BuildEventServiceUploader implements Runnable {
   public void run() {
     try {
       if (publishLifecycleEvents) {
-        publishLifecycleEvent(besProtoUtil.buildEnqueued(currentTime()));
-        publishLifecycleEvent(besProtoUtil.invocationStarted(currentTime()));
+        publishLifecycleEvent(besProtoUtil.buildEnqueued(commandStartTime));
+        publishLifecycleEvent(besProtoUtil.invocationStarted(eventStreamStartTime));
       }
 
       try {
@@ -732,6 +743,7 @@ public final class BuildEventServiceUploader implements Runnable {
     private Clock clock;
     private ArtifactGroupNamer artifactGroupNamer;
     private EventBus eventBus;
+    private Timestamp commandStartTime;
 
     Builder besClient(BuildEventServiceClient value) {
       this.besClient = value;
@@ -778,6 +790,11 @@ public final class BuildEventServiceUploader implements Runnable {
       return this;
     }
 
+    public Builder commandStartTime(Timestamp value) {
+      this.commandStartTime = value;
+      return this;
+    }
+
     BuildEventServiceUploader build() {
       return new BuildEventServiceUploader(
           checkNotNull(besClient),
@@ -788,7 +805,8 @@ public final class BuildEventServiceUploader implements Runnable {
           checkNotNull(sleeper),
           checkNotNull(clock),
           checkNotNull(artifactGroupNamer),
-          checkNotNull(eventBus));
+          checkNotNull(eventBus),
+          checkNotNull(commandStartTime));
     }
   }
 

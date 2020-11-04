@@ -64,6 +64,7 @@ assert_eq(int('-11', 2), -3)
 assert_eq(int('016', 8), 14)
 assert_eq(int('016', 16), 22)
 assert_eq(int('0', 0), 0)
+assert_eq(int('0x0b10', 16), 0x0b10)
 int('0xFF', 8) ### invalid base-8 literal: "0xFF"
 ---
 int('016', 0) ### cannot infer base when string begins with a 0: "016"
@@ -103,3 +104,7 @@ int('0x') ### invalid base-10 literal: "0x"
 int('1.5') ### invalid base-10 literal: "1.5"
 ---
 int('ab') ### invalid base-10 literal: "ab"
+---
+int('--1') ### invalid base-10 literal: "--1"
+---
+int('-0x-10', 16) ### invalid base-16 literal: "-0x-10"

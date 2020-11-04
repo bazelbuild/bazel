@@ -88,9 +88,16 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
             Object optionValue = field.get(options);
 
             try {
+              // fromJava is not a deep validity check.
+              // It is not guaranteed to catch all errors,
+              // nor does it specify how it reports the errors it does find.
+              // Passing arbitrary Java values into the Starlark interpreter
+              // is not safe.
+              // TODO(cparsons,twigg): fix it: convert value by explicit cases.
               result.put(optionKey, Starlark.fromJava(optionValue, null));
-            } catch (IllegalArgumentException exception) {
+            } catch (IllegalArgumentException | NullPointerException ex) {
               // optionValue is not a valid Starlark value, so skip this option.
+              // (e.g. tristate; a map with null values)
             }
           } catch (IllegalAccessException e) {
             throw new IllegalStateException(e);

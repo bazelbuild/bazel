@@ -328,7 +328,6 @@ public class Aapt2ResourcePackagingAction {
         effectTags = {OptionEffectTag.NO_OP},
         help = "Unused/deprecated option.")
     public boolean isTestWithResources;
-
   }
 
   public static void main(String[] args) throws Exception {
@@ -369,7 +368,10 @@ public class Aapt2ResourcePackagingAction {
           options
               .primaryData
               .processDataBindings(
-                  options.dataBindingInfoOut, options.packageForR, databindingResourcesRoot)
+                  options.dataBindingInfoOut,
+                  options.packageForR,
+                  databindingResourcesRoot,
+                  aaptConfigOptions.useDataBindingAndroidX)
               .compile(compiler, compiledResources)
               .processManifest(
                   manifest ->

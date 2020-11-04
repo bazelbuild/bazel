@@ -279,7 +279,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     } else {
       resourceApk =
           ResourceApk.fromAndroidApplicationResourceInfo(
-              dataContext, androidApplicationResourceInfo);
+              ruleContext, dataContext.getAndroidConfig(), androidApplicationResourceInfo);
     }
 
     if (dataContext.useResourcePathShortening()) {
@@ -678,6 +678,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             new ApkInfo(
                 zipAlignedApk,
                 unsignedApk,
+                binaryJar,
                 getCoverageInstrumentationJarForApk(ruleContext),
                 resourceApk.getManifest(),
                 signingKeys,

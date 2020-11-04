@@ -222,7 +222,7 @@ public interface BazelCcModuleApi<
             named = true,
             defaultValue = "[]"),
       })
-  Tuple<Object> compile(
+  Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
       CcToolchainProviderT starlarkCcToolchainProvider,

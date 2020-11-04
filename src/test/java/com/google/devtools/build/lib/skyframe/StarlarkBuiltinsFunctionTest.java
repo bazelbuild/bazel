@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Structure;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -100,7 +100,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     assertThat(value.predeclaredForBuildBzl).containsEntry("overridable_symbol", "new_value");
     // Overridden native field.
     Object nativeField =
-        ((ClassObject) value.predeclaredForBuildBzl.get("native")).getValue("overridable_rule");
+        ((Structure) value.predeclaredForBuildBzl.get("native")).getValue("overridable_rule");
     assertThat(nativeField).isEqualTo("new_rule");
     // Stuff for native rules.
     assertThat(value.exportedToJava).containsExactly("for_native_code", "secret_sauce").inOrder();
