@@ -711,6 +711,10 @@ EOF
 }
 
 function test_aquery_include_param_file_cc_binary() {
+  if is_darwin; then
+    return 0
+  fi
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -735,6 +739,10 @@ EOF
 }
 
 function test_aquery_include_param_file_starlark_rule() {
+  if is_darwin; then
+    return 0
+  fi
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/test_rule.bzl" <<'EOF'
@@ -785,6 +793,10 @@ EOF
 }
 
 function test_aquery_include_param_file_not_enabled_by_default() {
+  if is_darwin; then
+    return 0
+  fi
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'

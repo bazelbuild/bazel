@@ -80,20 +80,4 @@ function test_sdkroot_remapping() {
   expect_log "sdkroot=mysdkroot" "Expected sdkroot to be remapped."
 }
 
-function test_params_expansion() {
-  params=$(mktemp)
-  {
-    echo "first"
-    echo "-rpath"
-    echo "@loader_path"
-    echo "sdkroot=__BAZEL_XCODE_SDKROOT__"
-    echo "developer_dir=__BAZEL_XCODE_DEVELOPER_DIR__"
-  } > "$params"
-
-  env DEVELOPER_DIR=dummy SDKROOT=mysdkroot \
-      "${WRAPPED_CLANG}" "@$params" \
-      >"$TEST_log" || fail "wrapped_clang failed";
-  expect_log "/usr/bin/xcrun clang first -rpath @loader_path sdkroot=mysdkroot developer_dir=dummy"
-}
-
 run_suite "Wrapped clang tests"
