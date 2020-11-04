@@ -516,7 +516,7 @@ public final class RemoteModule extends BlazeModule {
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
-        remoteExecutor = new GrpcRemoteExecutorKeepalived(remoteOptions, execChannel.retain(),
+        remoteExecutor = new ExperimentalGrpcRemoteExecutor(remoteOptions, execChannel.retain(),
             callCredentialsProvider, execRetrier);
       } else {
         RemoteRetrier execRetrier =

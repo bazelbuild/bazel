@@ -40,6 +40,8 @@ public class FakeExecutionService extends ExecutionImplBase {
 
   public static class OperationProvider {
 
+    // Map from the request to the list of operations to be returned for each instance of
+    // that request, with Supplier used for either throwing an exception or returning an Operation.
     private final Map<String, Deque<ImmutableList<Supplier<Operation>>>> operationProvider =
         new HashMap<>();
 

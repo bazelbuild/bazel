@@ -50,10 +50,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link GrpcRemoteExecutorKeepalived}.
+ * Tests for {@link ExperimentalGrpcRemoteExecutor}.
  */
 @RunWith(JUnit4.class)
-public class GrpcRemoteExecutorKeepalivedTest {
+public class ExperimentalGrpcRemoteExecutorTest {
 
   private FakeExecutionService executionService;
   private RemoteOptions remoteOptions;
@@ -61,7 +61,7 @@ public class GrpcRemoteExecutorKeepalivedTest {
   private ListeningScheduledExecutorService retryService;
   private Context context;
   private Context prevContext;
-  GrpcRemoteExecutorKeepalived executor;
+  ExperimentalGrpcRemoteExecutor executor;
 
   private static final int MAX_RETRY_ATTEMPTS = 5;
 
@@ -118,7 +118,7 @@ public class GrpcRemoteExecutorKeepalivedTest {
     prevContext = context.attach();
 
     executor =
-        new GrpcRemoteExecutorKeepalived(
+        new ExperimentalGrpcRemoteExecutor(
             remoteOptions, channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
 
     channel.release();

@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
  * Keepalived Remote Execution</a>
  */
 @ThreadSafe
-public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
+public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
   private final RemoteOptions remoteOptions;
   private final ReferenceCountedChannel channel;
@@ -59,7 +59,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
-  public GrpcRemoteExecutorKeepalived(
+  public ExperimentalGrpcRemoteExecutor(
       RemoteOptions remoteOptions,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
