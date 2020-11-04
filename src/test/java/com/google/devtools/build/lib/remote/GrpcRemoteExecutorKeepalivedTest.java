@@ -253,7 +253,14 @@ public class GrpcRemoteExecutorKeepalivedTest {
     });
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
-    assertThat(executionService.getWaitTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 1);
+    // Implementation detail:
+    //
+    // The retry times is MAX_RETRY_ATTEMPTS + 2 instead of MAX_RETRY_ATTEMPTS + 1, because we reset
+    // waitExecutionBackoff unconditionally when we receive a response that is not an error.
+    //
+    // For a ProgressiveBackoff, once a reset() is called, the next call to nextDelayMillis() will
+    // not increase the internal counter. So there will be one more retry here.
+    assertThat(executionService.getWaitTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 2);
   }
 
   @Test
