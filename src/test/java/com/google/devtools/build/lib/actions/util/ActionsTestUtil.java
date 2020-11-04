@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -96,7 +98,9 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -259,6 +263,45 @@ public final class ActionsTestUtil {
   public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
     return ArtifactRoot.asDerivedRoot(
         root, execPath.relativeTo(root).getSegments().toArray(new String[0]));
+  }
+
+  /**
+   * Creates a {@link VirtualActionInput} with given string as contents and provided relative path.
+   */
+  public static VirtualActionInput createVirtualActionInput(String relativePath, String contents) {
+    return createVirtualActionInput(PathFragment.create(relativePath), contents);
+  }
+
+  /** Creates a {@link VirtualActionInput} with given string as contents and provided path. */
+  public static VirtualActionInput createVirtualActionInput(PathFragment path, String contents) {
+    return new VirtualActionInput() {
+      @Override
+      public ByteString getBytes() throws IOException {
+        ByteString.Output out = ByteString.newOutput();
+        writeTo(out);
+        return out.toByteString();
+      }
+
+      @Override
+      public String getExecPathString() {
+        return path.getPathString();
+      }
+
+      @Override
+      public PathFragment getExecPath() {
+        return path;
+      }
+
+      @Override
+      public boolean isSymlink() {
+        return false;
+      }
+
+      @Override
+      public void writeTo(OutputStream out) throws IOException {
+        out.write(contents.getBytes(UTF_8));
+      }
+    };
   }
 
   /**
