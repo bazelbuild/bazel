@@ -14,17 +14,13 @@
 
 package net.starlark.java.eval;
 
-import static java.lang.Math.max;
-
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -116,10 +112,6 @@ public final class Dict<K, V>
 
   private Dict(@Nullable Mutability mutability) {
     this(mutability, new LinkedHashMap<>());
-  }
-
-  private Dict(@Nullable Mutability mutability, int initialCapacity) {
-    this(mutability, new LinkedHashMap<>(initialCapacity));
   }
 
   /**
@@ -302,19 +294,49 @@ public final class Dict<K, V>
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  @SuppressWarnings("unchecked")
-  public NoneType update(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
+  public NoneType update(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    // TODO(adonovan): opt: don't materialize dict; call put directly.
-
-    // These types and casts are unsafe; see class doc comment.
-    Dict<K, V> dict =
-        args instanceof Dict
-            ? (Dict<K, V>) args
-            : getDictFromArgs("update", args, thread.mutability());
-    dict = Dict.plus(dict, (Dict<K, V>) kwargs, thread.mutability());
-    putEntries(dict);
+    Starlark.checkMutable(this);
+    @SuppressWarnings("unchecked")
+    Dict<Object, Object> dict = (Dict) this; // see class doc comment
+    update("update", dict, pairs, kwargs);
     return Starlark.NONE;
+  }
+
+  // Common implementation of dict(pairs, **kwargs) and dict.update(pairs, **kwargs).
+  static void update(
+      String funcname, Dict<Object, Object> dict, Object pairs, Dict<String, Object> kwargs)
+      throws EvalException {
+    if (pairs instanceof Dict) { // common case
+      dict.putEntries((Dict<?, ?>) pairs);
+    } else {
+      Iterable<?> iterable;
+      try {
+        iterable = Starlark.toIterable(pairs);
+      } catch (EvalException unused) {
+        throw Starlark.errorf("in %s, got %s, want iterable", funcname, Starlark.type(pairs));
+      }
+      int pos = 0;
+      for (Object item : iterable) {
+        Object[] pair;
+        try {
+          pair = Starlark.toArray(item);
+        } catch (EvalException unused) {
+          throw Starlark.errorf(
+              "in %s, dictionary update sequence element #%d is not iterable (%s)",
+              funcname, pos, Starlark.type(item));
+        }
+        if (pair.length != 2) {
+          throw Starlark.errorf(
+              "in %s, item #%d has length %d, but exactly two elements are required",
+              funcname, pos, pair.length);
+        }
+        dict.putEntry(pair[0], pair[1]);
+        pos++;
+      }
+    }
+
+    dict.putEntries(kwargs);
   }
 
   @StarlarkMethod(
@@ -569,52 +591,6 @@ public final class Dict<K, V>
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     Starlark.checkHashable(key);
     return this.containsKey(key);
-  }
-
-  static <K, V> Dict<K, V> plus(
-      Dict<? extends K, ? extends V> left,
-      Dict<? extends K, ? extends V> right,
-      @Nullable Mutability mu) {
-    Dict<K, V> result = new Dict<>(mu, max(left.size(), right.size()));
-    // Update underlying map contents directly, input dicts already contain valid objects
-    result.contents.putAll(left.contents);
-    result.contents.putAll(right.contents);
-    return result;
-  }
-
-  @SuppressWarnings("unchecked")
-  static <K, V> Dict<K, V> getDictFromArgs(String funcname, Object args, @Nullable Mutability mu)
-      throws EvalException {
-    Iterable<?> seq;
-    try {
-      seq = Starlark.toIterable(args);
-    } catch (EvalException ex) {
-      throw Starlark.errorf("in %s, got %s, want iterable", funcname, Starlark.type(args));
-    }
-    Dict<K, V> result = Dict.of(mu);
-    int pos = 0;
-    for (Object item : seq) {
-      Iterable<?> seq2;
-      try {
-        seq2 = Starlark.toIterable(item);
-      } catch (EvalException ex) {
-        throw Starlark.errorf(
-            "in %s, dictionary update sequence element #%d is not iterable (%s)",
-            funcname, pos, Starlark.type(item));
-      }
-      // TODO(adonovan): opt: avoid unnecessary allocations and copies.
-      // Why is there no operator to compute len(x), following the spec, without iterating??
-      List<Object> pair = Lists.newArrayList(seq2);
-      if (pair.size() != 2) {
-        throw Starlark.errorf(
-            "in %s, item #%d has length %d, but exactly two elements are required",
-            funcname, pos, pair.size());
-      }
-      // These casts are lies
-      result.putEntry((K) pair.get(0), (V) pair.get(1));
-      pos++;
-    }
-    return result;
   }
 
   // java.util.Map accessors

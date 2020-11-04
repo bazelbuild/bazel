@@ -481,21 +481,21 @@ class MethodLibrary {
               + "positional argument.",
       parameters = {
         @Param(
-            name = "args",
+            name = "pairs",
             defaultValue = "[]",
-            doc =
-                "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-                    + "exactly two elements: key, value."),
+            doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  public Dict<?, ?> dict(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
+  public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    Dict<?, ?> dict =
-        args instanceof Dict
-            ? (Dict) args
-            : Dict.getDictFromArgs("dict", args, thread.mutability());
-    return Dict.plus(dict, kwargs, thread.mutability());
+    // common case: dict(k=v, ...)
+    if (pairs instanceof StarlarkList && ((StarlarkList) pairs).isEmpty()) {
+      return kwargs;
+    }
+    Dict<Object, Object> dict = Dict.of(thread.mutability());
+    Dict.update("dict", dict, pairs, kwargs);
+    return dict;
   }
 
   @StarlarkMethod(
