@@ -84,8 +84,8 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     private final CallCredentialsProvider callCredentialsProvider;
     // Count retry times for Execute() calls and can't be reset.
     private final Backoff executeBackoff;
-    // Count retry times for WaitExecution() calls and will be reset once we received response from
-    // server without errors.
+    // Count retry times for WaitExecution() calls and is reset when we receive any response from
+    // the server that is not an error.
     private final ProgressiveBackoff waitExecutionBackoff;
     private final Supplier<ExecutionBlockingStub> executionBlockingStubSupplier;
 
@@ -162,17 +162,14 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
 
       try {
         Iterator<Operation> operationStream = executionBlockingStubSupplier.get().execute(request);
-
-        // We don't want to reset backoff for Execute() since if there is an error:
-        //   1. If happened before we received a first response, we want to ensure the retry counter
-        //      is increased and call Execute() again.
-        //   2. Otherwise, we will fallback to WaitExecution() loop.
-        //
-        // This also prevent us from being stuck at a infinite loop:
-        //   Execute() -> WaitExecution() -> Execute()
-        return handleOperationStream(operationStream, /* resetWaitExecutionBackoff */ false);
+        return handleOperationStream(operationStream);
       } catch (StatusRuntimeException e) {
-        if (lastOperation != null) {
+        // If lastOperation is not null, we know the execution request is accepted by the server. In
+        // this case, we will fallback to WaitExecution() loop when the stream is broken.
+        //
+        // However, we only do so if waitExecutionBackoff should retry. Also increase the retry
+        // counter at the same time (done by nextDelayMillis()).
+        if (lastOperation != null && waitExecutionBackoff.nextDelayMillis() >= 0) {
           // By returning null, we are going to fallback to WaitExecution() loop.
           return null;
         }
@@ -190,15 +187,12 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       try {
         Iterator<Operation> operationStream = executionBlockingStubSupplier.get()
             .waitExecution(request);
-
-        // We want to reset backoff for WaitExecution() so we can "infinitely" wait for the
-        // execution to complete as long as they are making progress (by returning response).
-        return handleOperationStream(operationStream, /* resetWaitExecutionBackoff */ true);
+        return handleOperationStream(operationStream);
       } catch (StatusRuntimeException e) {
         // A NOT_FOUND error means Operation was lost on the server, retry Execute().
         //
         // However, we only retry Execute() if executeBackoff should retry. Also increase the retry
-        // counter at the same time since we will technically retry (done by nextDelayMillis()).
+        // counter at the same time (done by nextDelayMillis()).
         if (e.getStatus().getCode() == Code.NOT_FOUND && executeBackoff.nextDelayMillis() >= 0) {
           lastOperation = null;
           return null;
@@ -208,19 +202,27 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     }
 
     /** Process a stream of operations from Execute() or WaitExecution(). */
-    ExecuteResponse handleOperationStream(Iterator<Operation> operationStream,
-        boolean resetWaitExecutionBackoff) throws IOException {
+    ExecuteResponse handleOperationStream(Iterator<Operation> operationStream) throws IOException {
       try {
         while (operationStream.hasNext()) {
           Operation operation = operationStream.next();
-          ExecuteResponse response = handleOperation(operation);
+          ExecuteResponse response = extractResponseOrThrowIfError(operation);
 
-          // At this point, we received the response without error.
+          // At this point, we successfully received a response that is not an error.
           lastOperation = operation;
 
-          if (resetWaitExecutionBackoff) {
-            waitExecutionBackoff.reset();
-          }
+          // We don't want to reset executeBackoff since if there is an error:
+          //   1. If happened before we received a first response, we want to ensure the retry counter
+          //      is increased and call Execute() again.
+          //   2. Otherwise, we will fallback to WaitExecution() loop.
+          //
+          // This also prevent us from being stuck at a infinite loop:
+          //   Execute() -> WaitExecution() -> Execute()
+          //
+          // However, we do want to reset waitExecutionBackoff so we can "infinitely" wait
+          // for the execution to complete as long as they are making progress (by returning a
+          // response that is not an error).
+          waitExecutionBackoff.reset();
 
           // Update execution progress to the observer.
           //
@@ -242,7 +244,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
         }
 
         // The operation completed successfully but without a result.
-        throw new IOException("Remote server error: execution terminated with no result.");
+        throw new IOException("Remote server error: execution terminated with no result");
       } finally {
         close(operationStream);
       }
@@ -271,7 +273,7 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     }
 
     @Nullable
-    static ExecuteResponse handleOperation(Operation operation)
+    static ExecuteResponse extractResponseOrThrowIfError(Operation operation)
         throws IOException {
       if (operation.getResultCase() == Operation.ResultCase.ERROR) {
         throwIfError(operation.getError(), null);

@@ -242,6 +242,21 @@ public class GrpcRemoteExecutorKeepalivedTest {
   }
 
   @Test
+  public void executeRemotely_executeAndRetryWait_failForConsecutiveErrors() {
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    for (int i = 0; i < MAX_RETRY_ATTEMPTS * 2; ++i) {
+      executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.UNAVAILABLE);
+    }
+
+    assertThrows(IOException.class, () -> {
+      executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    });
+
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+    assertThat(executionService.getWaitTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 1);
+  }
+
+  @Test
   public void executeRemotely_operationWithoutResult_shouldNotCrash() {
     executionService.whenExecute(DUMMY_REQUEST).thenDone();
 
