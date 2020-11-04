@@ -301,21 +301,21 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["java_tools/third_party/java/jacoco/asm-7.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-7.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-8.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-8.0-sources.jar",
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["java_tools/third_party/java/jacoco/asm-commons-7.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-commons-7.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-8.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["java_tools/third_party/java/jacoco/asm-tree-7.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-tree-7.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-8.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-8.0-sources.jar",
     runtime_deps = [":asm"],
 )
 
