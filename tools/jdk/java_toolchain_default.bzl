@@ -61,11 +61,43 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     target_version = "8",
 )
 
+_LABEL_LISTS = [
+    "bootclasspath",
+    "extclasspath",
+    "javac",
+    "tools",
+    "javabuilder",
+    "singlejar",
+    "genclass",
+    "resourcejar",
+    "ijar",
+    "header_compiler",
+    "header_compiler_direct",
+    "package_configuration",
+]
+
+_LABELS = [
+    "timezone_data",
+    "oneversion",
+    "oneversion_whitelist",
+    "jacocorunner",
+    "proguard_allowlister",
+    "java_runtime",
+]
+
+# Converts values to labels, so that they are resolved relative to this java_tools repository
+def _to_label(k, v):
+    if k in _LABELS and type(v) == type(Label("//a")):
+        return Label(v)
+    if k in _LABEL_LISTS and type(v) == type([Label("//a")]):
+        return [Label(label) for label in v]
+    return v
+
 def java_toolchain_default(name, **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
-    toolchain_args.update(kwargs)
+    toolchain_args.update({k: _to_label(k, v) for k, v in kwargs.items()})
     native.java_toolchain(
         name = name,
         **toolchain_args
