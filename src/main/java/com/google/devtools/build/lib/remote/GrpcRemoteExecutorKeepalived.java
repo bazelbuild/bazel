@@ -166,10 +166,13 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       } catch (StatusRuntimeException e) {
         // If lastOperation is not null, we know the execution request is accepted by the server. In
         // this case, we will fallback to WaitExecution() loop when the stream is broken.
-        //
-        // However, we only do so if waitExecutionBackoff should retry. Also increase the retry
-        // counter at the same time (done by nextDelayMillis()).
-        if (lastOperation != null && waitExecutionBackoff.nextDelayMillis() >= 0) {
+        if (lastOperation != null) {
+          // At this point we know that the waitExecutionBackoff is just reset, so call
+          // nextDelayMillis() here to ensure the expected retry times(--remote_retry + 1) for
+          // waitExecutionBackoff: once you reset it, the next call to nextDelayMillis() will not
+          // increase the counter.
+          waitExecutionBackoff.nextDelayMillis();
+
           // By returning null, we are going to fallback to WaitExecution() loop.
           return null;
         }
