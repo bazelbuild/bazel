@@ -67,45 +67,6 @@ const char *Basename(const char *filepath) {
   return base ? (base + 1) : filepath;
 }
 
-// Unescape and unquote an argument read from a line of a response file.
-static std::string Unescape(const std::string &arg) {
-  std::string result;
-  auto length = arg.size();
-  for (size_t i = 0; i < length; ++i) {
-    auto ch = arg[i];
-
-    // If it's a backslash, consume it and append the character that follows.
-    if (ch == '\\' && i + 1 < length) {
-      ++i;
-      result.push_back(arg[i]);
-      continue;
-    }
-
-    // If it's a quote, process everything up to the matching quote, unescaping
-    // backslashed characters as needed.
-    if (ch == '"' || ch == '\'') {
-      auto quote = ch;
-      ++i;
-      while (i != length && arg[i] != quote) {
-        if (arg[i] == '\\' && i + 1 < length) {
-          ++i;
-        }
-        result.push_back(arg[i]);
-        ++i;
-      }
-      if (i == length) {
-        break;
-      }
-      continue;
-    }
-
-    // It's a regular character.
-    result.push_back(ch);
-  }
-
-  return result;
-}
-
 // Converts an array of string arguments to char *arguments.
 // The first arg is reduced to its basename as per execve conventions.
 // Note that the lifetime of the char* arguments in the returned array
@@ -208,160 +169,6 @@ bool StripPrefixStringIfPresent(std::string *str, const std::string &prefix) {
   return false;
 }
 
-// An RAII temporary file.
-class TempFile {
- public:
-  // Create a new temporary file using the given path template string (the same
-  // form used by `mkstemp`). The file will automatically be deleted when the
-  // object goes out of scope.
-  static std::unique_ptr<TempFile> Create(const std::string &path_template) {
-    const char *tmpDir = getenv("TMPDIR");
-    if (!tmpDir) {
-      tmpDir = "/tmp";
-    }
-    size_t size = strlen(tmpDir) + path_template.size() + 2;
-    std::unique_ptr<char[]> path(new char[size]);
-    snprintf(path.get(), size, "%s/%s", tmpDir, path_template.c_str());
-
-    if (mkstemp(path.get()) == -1) {
-      std::cerr << "Failed to create temporary file '" << path.get()
-                << "': " << strerror(errno) << "\n";
-      return nullptr;
-    }
-    return std::unique_ptr<TempFile>(new TempFile(path.get()));
-  }
-
-  // Explicitly make TempFile non-copyable and movable.
-  TempFile(const TempFile &) = delete;
-  TempFile &operator=(const TempFile &) = delete;
-  TempFile(TempFile &&) = default;
-  TempFile &operator=(TempFile &&) = default;
-
-  ~TempFile() { remove(path_.c_str()); }
-
-  // Gets the path to the temporary file.
-  std::string GetPath() const { return path_; }
-
- private:
-  explicit TempFile(const std::string &path) : path_(path) {}
-
-  std::string path_;
-};
-
-static std::unique_ptr<TempFile> WriteResponseFile(
-    const std::vector<std::string> &args) {
-  auto response_file = TempFile::Create("wrapped_clang_params.XXXXXX");
-  std::ofstream response_file_stream(response_file->GetPath());
-
-  for (const auto &arg : args) {
-    // When Clang/Swift write out a response file to communicate from driver to
-    // frontend, they just quote every argument to be safe; we duplicate that
-    // instead of trying to be "smarter" and only quoting when necessary.
-    response_file_stream << '"';
-    for (auto ch : arg) {
-      if (ch == '"' || ch == '\\') {
-        response_file_stream << '\\';
-      }
-      response_file_stream << ch;
-    }
-    response_file_stream << "\"\n";
-  }
-
-  response_file_stream.close();
-  return response_file;
-}
-
-void ProcessArgument(const std::string arg, const std::string developer_dir,
-                     const std::string sdk_root, const std::string cwd,
-                     bool relative_ast_path, std::string &linked_binary,
-                     std::string &dsym_path,
-                     std::function<void(const std::string &)> consumer);
-
-bool ProcessResponseFile(const std::string arg, const std::string developer_dir,
-                         const std::string sdk_root, const std::string cwd,
-                         bool relative_ast_path, std::string &linked_binary,
-                         std::string &dsym_path,
-                         std::function<void(const std::string &)> consumer) {
-  auto path = arg.substr(1);
-  std::ifstream original_file(path);
-  // Ignore non-file args such as '@loader_path/...'
-  if (!original_file.good()) {
-    return false;
-  }
-
-  std::string arg_from_file;
-  while (std::getline(original_file, arg_from_file)) {
-    // Arguments in response files might be quoted/escaped, so we need to
-    // unescape them ourselves.
-    ProcessArgument(Unescape(arg_from_file), developer_dir, sdk_root, cwd,
-                    relative_ast_path, linked_binary, dsym_path, consumer);
-  }
-
-  return true;
-}
-
-std::string GetCurrentDirectory() {
-  // Passing null,0 causes getcwd to allocate the buffer of the correct size.
-  char *buffer = getcwd(nullptr, 0);
-  std::string cwd(buffer);
-  free(buffer);
-  return cwd;
-}
-
-void ProcessArgument(const std::string arg, const std::string developer_dir,
-                     const std::string sdk_root, const std::string cwd,
-                     bool relative_ast_path, std::string &linked_binary,
-                     std::string &dsym_path,
-                     std::function<void(const std::string &)> consumer) {
-  auto new_arg = arg;
-  if (arg[0] == '@') {
-    if (ProcessResponseFile(arg, developer_dir, sdk_root, cwd,
-                            relative_ast_path, linked_binary, dsym_path,
-                            consumer)) {
-      return;
-    }
-  }
-
-  if (SetArgIfFlagPresent(arg, "DSYM_HINT_LINKED_BINARY", &linked_binary)) {
-    return;
-  }
-  if (SetArgIfFlagPresent(arg, "DSYM_HINT_DSYM_PATH", &dsym_path)) {
-    return;
-  }
-
-  std::string dest_dir, bitcode_symbol_map;
-  if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
-    new_arg = "-fdebug-prefix-map=" + cwd + "=" + dest_dir;
-  }
-  if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
-    new_arg = "-Wl,-oso_prefix," + cwd + "/";
-  }
-  if (SetArgIfFlagPresent(arg, "BITCODE_TOUCH_SYMBOL_MAP",
-                          &bitcode_symbol_map)) {
-    // Touch bitcode_symbol_map.
-    std::ofstream bitcode_symbol_map_file(bitcode_symbol_map);
-    new_arg = bitcode_symbol_map;
-  }
-
-  FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &new_arg);
-  FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &new_arg);
-
-  // Make the `add_ast_path` options used to embed Swift module references
-  // absolute to enable Swift debugging without dSYMs: see
-  // https://forums.swift.org/t/improving-swift-lldb-support-for-path-remappings/22694
-  if (!relative_ast_path &&
-      StripPrefixStringIfPresent(&new_arg, kAddASTPathPrefix)) {
-    // Only modify relative paths.
-    if (!StartsWith(arg, "/")) {
-      new_arg = std::string(kAddASTPathPrefix) + cwd + "/" + new_arg;
-    } else {
-      new_arg = std::string(kAddASTPathPrefix) + new_arg;
-    }
-  }
-
-  consumer(new_arg);
-}
-
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -381,34 +188,68 @@ int main(int argc, char *argv[]) {
 
   std::string developer_dir = GetMandatoryEnvVar("DEVELOPER_DIR");
   std::string sdk_root = GetMandatoryEnvVar("SDKROOT");
-  std::string linked_binary, dsym_path;
 
-  const std::string cwd = GetCurrentDirectory();
-  std::vector<std::string> invocation_args = {"/usr/bin/xcrun", tool_name};
-  std::vector<std::string> processed_args = {};
+  std::vector<std::string> processed_args = {"/usr/bin/xcrun", tool_name};
+
+  std::string linked_binary, dsym_path, bitcode_symbol_map;
+  std::string dest_dir;
+
+  std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
+                                                   std::free};
+  if (cwd == nullptr) {
+    std::cerr << "Error determining current working directory\n";
+    abort();
+  }
 
   bool relative_ast_path = getenv("RELATIVE_AST_PATH") != nullptr;
-  auto consumer = [&](const std::string &arg) {
-    processed_args.push_back(arg);
-  };
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
 
-    ProcessArgument(arg, developer_dir, sdk_root, cwd, relative_ast_path,
-                    linked_binary, dsym_path, consumer);
+    if (SetArgIfFlagPresent(arg, "DSYM_HINT_LINKED_BINARY", &linked_binary)) {
+      continue;
+    }
+    if (SetArgIfFlagPresent(arg, "DSYM_HINT_DSYM_PATH", &dsym_path)) {
+      continue;
+    }
+    if (SetArgIfFlagPresent(arg, "BITCODE_TOUCH_SYMBOL_MAP",
+                            &bitcode_symbol_map)) {
+      // Touch bitcode_symbol_map.
+      std::ofstream bitcode_symbol_map_file(bitcode_symbol_map);
+      arg = bitcode_symbol_map;
+    }
+    if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
+      arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
+    }
+    if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
+      arg = "-Wl,-oso_prefix," + std::string(cwd.get()) + "/";
+    }
+    FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
+    FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
+
+    // Make the `add_ast_path` options used to embed Swift module references
+    // absolute to enable Swift debugging without dSYMs: see
+    // https://forums.swift.org/t/improving-swift-lldb-support-for-path-remappings/22694
+    if (!relative_ast_path &&
+        StripPrefixStringIfPresent(&arg, kAddASTPathPrefix)) {
+      // Only modify relative paths.
+      if (!StartsWith(arg, "/")) {
+        arg = std::string(kAddASTPathPrefix) +
+              std::string(cwd.get()) + "/" + arg;
+      } else {
+        arg = std::string(kAddASTPathPrefix) + arg;
+      }
+    }
+
+    processed_args.push_back(arg);
   }
 
   // Special mode that only prints the command. Used for testing.
   if (getenv("__WRAPPED_CLANG_LOG_ONLY")) {
-    for (const std::string &arg : invocation_args) std::cout << arg << ' ';
     for (const std::string &arg : processed_args)
         std::cout << arg << ' ';
     std::cout << "\n";
     return 0;
   }
-
-  auto response_file = WriteResponseFile(processed_args);
-  invocation_args.push_back("@" + response_file->GetPath());
 
   // Check to see if we should postprocess with dsymutil.
   bool postprocess = false;
@@ -430,12 +271,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (!postprocess) {
-    ExecProcess(invocation_args);
+    ExecProcess(processed_args);
     std::cerr << "ExecProcess should not return. Please fix!\n";
     abort();
   }
 
-  RunSubProcess(invocation_args);
+  RunSubProcess(processed_args);
 
   std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun", "dsymutil",
                                             linked_binary, "-o", dsym_path,

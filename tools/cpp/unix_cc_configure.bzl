@@ -447,6 +447,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{modulemap}": ("\":module.modulemap\"" if is_clang else "None"),
+            "%{supports_param_files}": "0" if darwin else "1",
             "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
                 [":cc_wrapper"] if darwin else []
             )),
