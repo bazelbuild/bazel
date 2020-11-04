@@ -23,6 +23,7 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;

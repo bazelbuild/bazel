@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.buildjar;
+package com.google.devtools.build.lib.worker;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -114,6 +114,9 @@ public class WorkRequestHandler {
     }
     out.flush();
 
-    // This would be a tempting place to suggest a GC, but it causes a 10% performance hit.
+    // Hint to the system that now would be a good time to run a gc.  After a compile
+    // completes lots of objects should be available for collection and it should be cheap to
+    // collect them.
+    System.gc();
   }
 }
