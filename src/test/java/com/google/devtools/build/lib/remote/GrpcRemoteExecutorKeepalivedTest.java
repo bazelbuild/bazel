@@ -315,7 +315,7 @@ public class GrpcRemoteExecutorKeepalivedTest {
   public void executeRemotely_notFoundLoop_reportError() {
     for (int i = 0; i <= MAX_RETRY_ATTEMPTS * 2; ++i) {
       executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
-      executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.NOT_FOUND);
+      executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.NOT_FOUND);
     }
 
     IOException e = assertThrows(IOException.class, () -> {

@@ -82,7 +82,10 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
     private final OperationObserver observer;
     private final RemoteRetrier retrier;
     private final CallCredentialsProvider callCredentialsProvider;
+    // Count retry times for Execute() calls and can't be reset.
     private final Backoff executeBackoff;
+    // Count retry times for WaitExecution() calls and will be reset once we received response from
+    // server without errors.
     private final ProgressiveBackoff waitExecutionBackoff;
     private final Supplier<ExecutionBlockingStub> executionBlockingStubSupplier;
 
@@ -135,8 +138,14 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
             .execute(() -> Utils.refreshIfUnauthenticated(this::execute, callCredentialsProvider),
                 executeBackoff);
 
-        // If no response from Execute(), use WaitExecution() in a "loop" which is implicated inside
-        // the retry block.
+        // If no response from Execute(), use WaitExecution() in a "loop" which is implemented
+        // inside the retry block.
+        //
+        // The cases to exit the loop:
+        //   1. Received the final response.
+        //   2. Received a un-retriable gRPC error.
+        //   3. Received NOT_FOUND error where we will retry Execute() (by returning null).
+        //   4. Received consecutive retriable gRPC errors (up to max retry times).
         if (response == null) {
           response = retrier.execute(
               () -> Utils.refreshIfUnauthenticated(this::waitExecution, callCredentialsProvider),
@@ -158,10 +167,10 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
         //   1. If happened before we received a first response, we want to ensure the retry counter
         //      is increased and call Execute() again.
         //   2. Otherwise, we will fallback to WaitExecution() loop.
-        return handleOperationStream(operationStream, (operation) -> {
-          lastOperation = operation;
-          observer.onNext(operation);
-        });
+        //
+        // This also prevent us from being stuck at a infinite loop:
+        //   Execute() -> WaitExecution() -> Execute()
+        return handleOperationStream(operationStream, /* resetWaitExecutionBackoff */ false);
       } catch (StatusRuntimeException e) {
         if (lastOperation != null) {
           // By returning null, we are going to fallback to WaitExecution() loop.
@@ -184,19 +193,13 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
 
         // We want to reset backoff for WaitExecution() so we can "infinitely" wait for the
         // execution to complete as long as they are making progress (by returning response).
-        return handleOperationStream(operationStream, (operation) -> {
-          // Assuming the server has made progress since we received the response. Reset the
-          // backoff so that this request has a full deck of retries.
-          waitExecutionBackoff.reset();
-
-          lastOperation = operation;
-          observer.onNext(operation);
-        });
+        return handleOperationStream(operationStream, /* resetWaitExecutionBackoff */ true);
       } catch (StatusRuntimeException e) {
-        // Only retry Execute() if executeBackoff should retry. Also increase the retry counter at
-        // the same time since we will technically retry (done by nextDelayMillis()).
+        // A NOT_FOUND error means Operation was lost on the server, retry Execute().
+        //
+        // However, we only retry Execute() if executeBackoff should retry. Also increase the retry
+        // counter at the same time since we will technically retry (done by nextDelayMillis()).
         if (e.getStatus().getCode() == Code.NOT_FOUND && executeBackoff.nextDelayMillis() >= 0) {
-          // Operation was lost on the server, retry Execute().
           lastOperation = null;
           return null;
         }
@@ -204,21 +207,22 @@ public class GrpcRemoteExecutorKeepalived implements RemoteExecutionClient {
       }
     }
 
-    /**
-     * Process a stream of operations from Execute() or WaitExecution().
-     *
-     * <p>Notify {@link OperationObserver} if we receive an {@link Operation} from the stream
-     * without error.
-     */
-    static ExecuteResponse handleOperationStream(Iterator<Operation> operationStream,
-        OperationObserver observer) throws IOException {
+    /** Process a stream of operations from Execute() or WaitExecution(). */
+    ExecuteResponse handleOperationStream(Iterator<Operation> operationStream,
+        boolean resetWaitExecutionBackoff) throws IOException {
       try {
         while (operationStream.hasNext()) {
           Operation operation = operationStream.next();
           ExecuteResponse response = handleOperation(operation);
 
-          // At this point, we received the response without error. Update execution progress to the
-          // observer.
+          // At this point, we received the response without error.
+          lastOperation = operation;
+
+          if (resetWaitExecutionBackoff) {
+            waitExecutionBackoff.reset();
+          }
+
+          // Update execution progress to the observer.
           //
           // After called `execute` above, the action is actually waiting for an available gRPC
           // connection to be sent. Once we get a reply from server, we know the connection is up
