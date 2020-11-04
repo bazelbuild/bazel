@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -139,13 +140,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       }
 
       // Make sure the target platform matches.
-      if (!checkConstraints(
-          eventHandler,
-          toolchain.targetConstraints(),
-          "target",
-          targetPlatform,
-          toolchainTypeLabel,
-          toolchain.toolchainLabel())) {
+      if (!toolchain.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches)
+          || !checkConstraints(
+              eventHandler,
+              toolchain.targetConstraints(),
+              "target",
+              targetPlatform,
+              toolchainTypeLabel,
+              toolchain.toolchainLabel())) {
         continue;
       }
 
