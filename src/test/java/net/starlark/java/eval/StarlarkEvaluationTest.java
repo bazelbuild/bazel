@@ -1680,7 +1680,11 @@ public final class StarlarkEvaluationTest {
     ev.new Scenario()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
         .testLookup(
-            "d", Dict.of((Mutability) null, "a", StarlarkInt.of(1), "b", StarlarkInt.of(2)));
+            "d",
+            Dict.builder()
+                .put("a", StarlarkInt.of(1))
+                .put("b", StarlarkInt.of(2))
+                .buildImmutable());
   }
 
   @Test

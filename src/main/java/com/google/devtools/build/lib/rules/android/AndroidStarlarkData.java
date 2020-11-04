@@ -47,7 +47,6 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -190,12 +189,10 @@ public abstract class AndroidStarlarkData
         mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding);
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
-    return Dict.of(
-        (Mutability) null,
-        AndroidResourcesInfo.PROVIDER,
-        validated.toProvider(),
-        JavaInfo.PROVIDER,
-        javaInfo);
+    return Dict.<Provider, NativeInfo>builder()
+        .put(AndroidResourcesInfo.PROVIDER, validated.toProvider())
+        .put(JavaInfo.PROVIDER, javaInfo)
+        .buildImmutable();
   }
 
   @Override

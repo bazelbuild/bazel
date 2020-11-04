@@ -1409,13 +1409,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 StarlarkList.<Object>of(
                     mu,
                     StructProvider.STRUCT.create(
-                        ImmutableMap.<String, Object>of(
-                            "x", Dict.<Object, Object>of(mu, StarlarkInt.of(1), StarlarkInt.of(1))),
-                        "no field '%s'"),
+                        ImmutableMap.<String, Object>of("x", dictOf(mu, 1, 1)), "no field '%s'"),
                     Tuple.of()),
             "b", Tuple.of(),
-            "c", Dict.<Object, Object>of(mu, StarlarkInt.of(2), StarlarkInt.of(2))),
+            "c", dictOf(mu, 2, 2)),
         "no field '%s'");
+  }
+
+  private static Dict<Object, Object> dictOf(@Nullable Mutability mu, int k, int v) {
+    return Dict.<Object, Object>builder().put(StarlarkInt.of(k), StarlarkInt.of(v)).build(mu);
   }
 
   @Test

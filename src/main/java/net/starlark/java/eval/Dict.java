@@ -101,6 +101,8 @@ public final class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K> {
 
+  // TODO(adonovan): for dicts that are born frozen, use ImmutableMap, which is also
+  // insertion-ordered and has smaller Entries (singly linked, no hash).
   private final LinkedHashMap<K, V> contents;
   private int iteratorCount; // number of active iterators (unused once frozen)
 
@@ -373,16 +375,6 @@ public final class Dict<K, V>
     return new Dict<>(mu);
   }
 
-  /** Returns a new dict with the specified mutability and a single entry. */
-  public static <K, V> Dict<K, V> of(@Nullable Mutability mu, K k, V v) {
-    return new Dict<K, V>(mu).putUnsafe(k, v);
-  }
-
-  /** Returns a new dict with the specified mutability and two entries. */
-  public static <K, V> Dict<K, V> of(@Nullable Mutability mu, K k1, V v1, K k2, V v2) {
-    return new Dict<K, V>(mu).putUnsafe(k1, v1).putUnsafe(k2, v2);
-  }
-
   /** Returns a new dict with the specified mutability containing the entries of {@code m}. */
   public static <K, V> Dict<K, V> copyOf(@Nullable Mutability mu, Map<? extends K, ? extends V> m) {
     if (mu == null && m instanceof Dict && ((Dict) m).isImmutable()) {
@@ -451,12 +443,6 @@ public final class Dict<K, V>
       }
       return wrap(mu, map);
     }
-  }
-
-  /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
-  private Dict<K, V> putUnsafe(K k, V v) {
-    contents.put(k, v);
-    return this;
   }
 
   @Override

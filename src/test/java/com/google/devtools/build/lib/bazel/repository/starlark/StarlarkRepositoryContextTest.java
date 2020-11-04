@@ -392,7 +392,7 @@ public final class StarlarkRepositoryContextTest {
             "$remotable",
             true,
             "exec_properties",
-            Dict.of((Mutability) null, "OSFamily", "Linux"));
+            Dict.builder().put("OSFamily", "Linux").buildImmutable());
 
     RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
     ExecutionResult executionResult =

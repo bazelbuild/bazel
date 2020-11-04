@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -139,8 +138,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
     PackageContext context = getContext(thread);
     Target target = context.pkgBuilder.getTarget(name);
-    Dict<String, Object> rule = targetDict(target, thread.mutability());
-    return rule != null ? rule : Starlark.NONE;
+    return target instanceof Rule ? getRuleDict((Rule) target, thread.mutability()) : Starlark.NONE;
   }
 
   /*
@@ -154,16 +152,13 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     PackageContext context = getContext(thread);
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Mutability mu = thread.mutability();
-    Dict<String, Dict<String, Object>> rules = Dict.of(mu);
+    Dict.Builder<String, Dict<String, Object>> rules = Dict.builder();
     for (Target t : targets) {
       if (t instanceof Rule) {
-        Dict<String, Object> rule = targetDict(t, mu);
-        Preconditions.checkNotNull(rule);
-        rules.putEntry(t.getName(), rule);
+        rules.put(t.getName(), getRuleDict((Rule) t, mu));
       }
     }
-
-    return rules;
+    return rules.build(mu);
   }
 
   @Override
@@ -279,15 +274,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     return packageId.getRepository().toString();
   }
 
-  @Nullable
-  private static Dict<String, Object> targetDict(Target target, Mutability mu)
-      throws EvalException {
-    if (!(target instanceof Rule)) {
-      return null;
-    }
-    Dict<String, Object> values = Dict.of(mu);
+  private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
+    Dict.Builder<String, Object> values = Dict.builder();
 
-    Rule rule = (Rule) target;
     for (Attribute attr : rule.getAttributes()) {
       if (!Character.isAlphabetic(attr.getName().charAt(0))) {
         continue;
@@ -300,21 +289,21 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
 
       try {
-        Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), target.getPackage());
+        Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), rule.getPackage());
         if (val == null) {
           continue;
         }
-        values.putEntry(attr.getName(), val);
+        values.put(attr.getName(), val);
       } catch (NotRepresentableException e) {
         throw new NotRepresentableException(
             String.format(
-                "target %s, attribute %s: %s", target.getName(), attr.getName(), e.getMessage()));
+                "target %s, attribute %s: %s", rule.getName(), attr.getName(), e.getMessage()));
       }
     }
 
-    values.putEntry("name", rule.getName());
-    values.putEntry("kind", rule.getRuleClass());
-    return values;
+    values.put("name", rule.getName());
+    values.put("kind", rule.getRuleClass());
+    return values.build(mu);
   }
 
   /**

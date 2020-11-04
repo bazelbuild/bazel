@@ -86,12 +86,12 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Starlark API for the repository_rule's context. */
 public class StarlarkRepositoryContext
@@ -770,8 +770,7 @@ public class StarlarkRepositoryContext
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       if (allowFail) {
-        Dict<String, Object> dict = Dict.of((Mutability) null, "success", false);
-        return StructProvider.STRUCT.createWithBuiltinLocation(dict);
+        return StructProvider.STRUCT.create(ImmutableMap.of("success", false), Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -898,8 +897,7 @@ public class StarlarkRepositoryContext
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        Dict<String, Object> dict = Dict.of((Mutability) null, "success", false);
-        return StructProvider.STRUCT.createWithBuiltinLocation(dict);
+        return StructProvider.STRUCT.create(ImmutableMap.of("success", false), Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -1020,7 +1018,7 @@ public class StarlarkRepositoryContext
           Transience.PERSISTENT);
     }
 
-    Dict.Builder<String, Object> out = Dict.builder();
+    ImmutableMap.Builder<String, Object> out = ImmutableMap.builder();
     out.put("success", true);
     out.put("integrity", finalChecksum.toSubresourceIntegrity());
 
@@ -1028,7 +1026,7 @@ public class StarlarkRepositoryContext
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StructProvider.STRUCT.createWithBuiltinLocation(out.buildImmutable());
+    return StructProvider.STRUCT.create(out.build(), Location.BUILTIN);
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
