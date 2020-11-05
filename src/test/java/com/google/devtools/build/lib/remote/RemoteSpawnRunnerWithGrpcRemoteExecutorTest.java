@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
@@ -102,7 +103,6 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.util.Set;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -117,7 +117,7 @@ import org.mockito.stubbing.Answer;
 
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
-public class GrpcRemoteExecutionClientTest {
+public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
@@ -315,7 +315,7 @@ public class GrpcRemoteExecutionClientTest {
   public void tearDown() throws Exception {
     retryService.shutdownNow();
     retryService.awaitTermination(
-        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
 
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
@@ -455,7 +455,6 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.isCacheHit()).isTrue();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
-
   }
 
   @Test
@@ -485,7 +484,7 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
   }
 
-  private Answer<StreamObserver<WriteRequest>> blobWriteAnswer(final byte[] data) {
+  private static Answer<StreamObserver<WriteRequest>> blobWriteAnswer(final byte[] data) {
     final Digest digest = DIGEST_UTIL.compute(data);
     return new Answer<StreamObserver<WriteRequest>>() {
       @Override
@@ -517,7 +516,7 @@ public class GrpcRemoteExecutionClientTest {
     };
   }
 
-  private Answer<StreamObserver<WriteRequest>> blobWriteAnswerError() {
+  private static Answer<StreamObserver<WriteRequest>> blobWriteAnswerError() {
     return new Answer<StreamObserver<WriteRequest>>() {
       @Override
       @SuppressWarnings("unchecked")
@@ -546,9 +545,7 @@ public class GrpcRemoteExecutionClientTest {
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-        ServerCall<ReqT, RespT> call,
-        Metadata headers,
-        ServerCallHandler<ReqT, RespT> next) {
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
       RequestMetadata meta = headers.get(TracingMetadataUtils.METADATA_KEY);
       assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
       assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
@@ -689,7 +686,7 @@ public class GrpcRemoteExecutionClientTest {
     verify(mockByteStreamImpl).write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
-  private Answer<Void> answerWith(@Nullable Operation op, Status status) {
+  private static Answer<Void> answerWith(@Nullable Operation op, Status status) {
     return invocationOnMock -> {
       @SuppressWarnings("unchecked")
       StreamObserver<Operation> responseObserver =
@@ -1065,7 +1062,7 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace.
     assertThat(result.getFailureMessage())
-        .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
+        .contains("RemoteSpawnRunnerWithGrpcRemoteExecutorTest.passCacheMissErrorWithStackTrace");
   }
 
   @Test
@@ -1353,9 +1350,7 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
     final ActionResult actionResult =
-        ActionResult.newBuilder()
-            .addOutputFiles(DUMMY_OUTPUT)
-            .build();
+        ActionResult.newBuilder().addOutputFiles(DUMMY_OUTPUT).build();
     AtomicInteger numExecuteCalls = new AtomicInteger();
     serviceRegistry.addService(
         new ExecutionImplBase() {
