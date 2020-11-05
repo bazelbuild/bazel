@@ -1165,6 +1165,91 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 2"'
 }
 
+function test_exec_setting() {
+  write_test_toolchain
+  write_test_rule
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//:toolchain_1')
+register_toolchains('//:toolchain_2')
+register_toolchains('//:toolchain_3')
+EOF
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule')
+test_toolchain(
+    name = 'toolchain_impl_1',
+    extra_label = ':dep_rule',
+    extra_str = 'foo from 1',
+    visibility = ['//visibility:public'])
+test_toolchain(
+    name = 'toolchain_impl_2',
+    extra_label = ':dep_rule',
+    extra_str = 'foo from 2',
+    visibility = ['//visibility:public'])
+test_toolchain(
+    name = 'toolchain_impl_3',
+    extra_label = ':dep_rule',
+    extra_str = 'foo from 3',
+    visibility = ['//visibility:public'])
+
+# Define config setting
+config_setting(
+    name = "debug",
+    values = {"compilation_mode": "dbg"}
+)
+
+# Declare the toolchain.
+toolchain(
+    name = 'toolchain_1',
+    toolchain_type = '//toolchain:test_toolchain',
+    target_settings = [":debug"],
+    exec_settings = [":debug"],
+    toolchain = ':toolchain_impl_1')
+toolchain(
+    name = 'toolchain_2',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_settings = [":debug"],
+    toolchain = ':toolchain_impl_2')
+toolchain(
+    name = 'toolchain_3',
+    toolchain_type = '//toolchain:test_toolchain',
+    toolchain = ':toolchain_impl_3')
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  # This should use toolchain_3.
+  bazel build \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 3"'
+
+  # This should use toolchain_1.
+  bazel build \
+    --compilation_mode=dbg \
+    --host_compilation_mode=dbg \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
+
+  # This should match toolchain_2.
+  bazel build \
+    --compilation_mode=opt \
+    --host_compilation_mode=dbg \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 2"'
+}
+
+
 function test_target_setting_with_transition() {
   write_test_toolchain
   write_test_rule
