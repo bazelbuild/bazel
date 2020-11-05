@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
@@ -305,6 +306,14 @@ public class CommandEnvironment {
 
   public BlazeRuntime getRuntime() {
     return runtime;
+  }
+
+  public Clock getClock() {
+    return getRuntime().getClock();
+  }
+
+  public OptionsProvider getStartupOptionsProvider() {
+    return getRuntime().getStartupOptionsProvider();
   }
 
   public BlazeWorkspace getBlazeWorkspace() {
