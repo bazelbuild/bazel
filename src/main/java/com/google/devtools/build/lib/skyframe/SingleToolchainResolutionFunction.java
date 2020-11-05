@@ -140,14 +140,18 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       }
 
       // Make sure the target platform matches.
-      if (!toolchain.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches)
+      if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)
           || !checkConstraints(
-              eventHandler,
-              toolchain.targetConstraints(),
-              "target",
-              targetPlatform,
-              toolchainTypeLabel,
-              toolchain.toolchainLabel())) {
+          eventHandler,
+          toolchain.targetConstraints(),
+          "target",
+          targetPlatform,
+          toolchainTypeLabel,
+          toolchain.toolchainLabel())) {
+        continue;
+      }
+
+      if (!toolchain.execSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
         continue;
       }
 

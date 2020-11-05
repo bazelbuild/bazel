@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -27,13 +28,17 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 
-/** Rule definition for {@link Toolchain}. */
+/**
+ * Rule definition for {@link Toolchain}.
+ */
 public class ToolchainRule implements RuleDefinition {
+
   public static final String RULE_NAME = "toolchain";
   public static final String TOOLCHAIN_TYPE_ATTR = "toolchain_type";
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String TARGET_COMPATIBLE_WITH_ATTR = "target_compatible_with";
-  public static final String TARGET_SETTING_ATTR = "target_setting";
+  public static final String TARGET_SETTING_ATTR = "target_settings";
+  public static final String EXEC_SETTING_ATTR = "exec_settings";
   public static final String TOOLCHAIN_ATTR = "toolchain";
 
   @Override
@@ -79,14 +84,23 @@ public class ToolchainRule implements RuleDefinition {
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .allowedFileTypes()
                 .nonconfigurable("part of toolchain configuration"))
-        /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_setting) -->
-        A list of <code>config_setting</code>s where at least one must be satisfied by the target
+        /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_settings) -->
+        A list of <code>config_setting</code>s that must be satisfied by the target
         build configuration in order for this toolchain to be selected for a target building.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(TARGET_SETTING_ATTR, BuildType.LABEL_LIST)
                 .allowedRuleClasses("config_setting")
                 .allowedFileTypes())
+        /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(exec_settings) -->
+        A list of <code>config_setting</code>s that must be satisfied by the exec
+        build configuration in order for this toolchain to be selected for a target building.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(EXEC_SETTING_ATTR, BuildType.LABEL_LIST)
+                .allowedRuleClasses("config_setting")
+                .allowedFileTypes()
+                .cfg(ExecutionTransitionFactory.create()))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain) -->
         The target representing the actual tool or tool suite that is made available when this
         toolchain is selected.
