@@ -101,7 +101,6 @@ public class NetworkTime {
               // already stopped.
               try {
                 networkTime.stop();
-                throw new IllegalStateException();
               } catch (RuntimeException e) {
                 logger.atWarning().withCause(e).log("Failed to stop networkTime");
               }
