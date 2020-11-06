@@ -139,9 +139,26 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         continue;
       }
 
+      // Make sure the target setting matches.
+      if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
+        String mismatchValues =
+            toolchain.targetSettings().stream()
+                .filter(configProvider -> !configProvider.matches())
+                .map(configProvider -> configProvider.label().getName())
+                .collect(joining(", "));
+        debugMessage(
+            eventHandler,
+            "    Type %s: %s platform %s: Rejected toolchain %s; mismatching config settings: %s",
+            toolchainTypeLabel,
+            "target",
+            targetPlatform.label(),
+            toolchain.toolchainLabel(),
+            mismatchValues);
+        continue;
+      }
+
       // Make sure the target platform matches.
-      if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)
-          || !checkConstraints(
+      if (!checkConstraints(
           eventHandler,
           toolchain.targetConstraints(),
           "target",
