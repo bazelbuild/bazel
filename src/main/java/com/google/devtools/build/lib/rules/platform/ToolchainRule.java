@@ -82,8 +82,8 @@ public class ToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_settings) -->
-        A list of <code>config_setting</code>s that must be satisfied by the target
-        build configuration in order for this toolchain to be selected for a target building.
+        A list of <code>config_setting</code>s that must be satisfied by the target configuration
+        in order for this toolchain to be selected during toolchain resolution.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(TARGET_SETTING_ATTR, BuildType.LABEL_LIST)
