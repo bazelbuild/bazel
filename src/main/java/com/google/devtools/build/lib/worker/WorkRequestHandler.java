@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -29,59 +28,76 @@ import java.util.function.BiFunction;
  * (https://docs.bazel.build/versions/master/persistent-workers.html), including multiplex workers
  * (https://docs.bazel.build/versions/master/multiplex-worker.html).
  */
-public class WorkRequestHandler {
+public class WorkRequestHandler implements AutoCloseable {
 
+  /** Contains the logic for reading {@link WorkRequest}s and writing {@link WorkResponse}s. */
+  public interface WorkerMessageProcessor {
+    /** Reads the next incoming request from this worker's stdin. */
+    public WorkRequest readWorkRequest() throws IOException;
+
+    /**
+     * Writes the provided {@link WorkResponse} to this worker's stdout. This function is also
+     * responsible for flushing the stdout.
+     */
+    public void writeWorkResponse(WorkResponse workResponse) throws IOException;
+
+    /** Clean up. */
+    public void close() throws IOException;
+  }
+
+  /** The function to be called after each {@link WorkRequest} is read. */
   private final BiFunction<List<String>, PrintWriter, Integer> callback;
+
+  /** This worker's stderr. */
+  private final PrintStream stderr;
+
+  private final WorkerMessageProcessor messageProcessor;
 
   /**
    * Creates a {@code WorkRequestHandler} that will call {@code callback} for each WorkRequest
    * received. The first argument to {@code callback} is the set of command-line arguments, the
-   * second is where all error messages and similar should be written to.
+   * second is where all error messages and similar should be written to. The callback should return
+   * an exit code indicating success (0) or failure (nonzero).
    */
-  public WorkRequestHandler(BiFunction<List<String>, PrintWriter, Integer> callback) {
+  public WorkRequestHandler(
+      BiFunction<List<String>, PrintWriter, Integer> callback,
+      PrintStream stderr,
+      WorkerMessageProcessor messageProcessor) {
     this.callback = callback;
+    this.stderr = stderr;
+    this.messageProcessor = messageProcessor;
   }
 
   /**
-   * Runs an infinite loop of reading {@code WorkRequest} from {@code in}, running the callback,
-   * then writing the corresponding {@code WorkResponse} to {@code out}. If there is an error
+   * Runs an infinite loop of reading {@link WorkRequest} from {@code in}, running the callback,
+   * then writing the corresponding {@link WorkResponse} to {@code out}. If there is an error
    * reading or writing the requests or responses, it writes an error message on {@code err} and
    * returns. If {@code in} reaches EOF, it also returns.
-   *
-   * @return 0 if we reached EOF, 1 if there was an error.
    */
-  public int processRequests(InputStream in, PrintStream out, PrintStream err) {
+  public void processRequests() throws IOException {
     while (true) {
-      try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(in);
-
+      WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
           break;
         }
-
         if (request.getRequestId() != 0) {
-          Thread t = createResponseThread(request, out, err);
+        Thread t = createResponseThread(request);
           t.start();
         } else {
-          respondToRequest(request, out);
-        }
-      } catch (IOException e) {
-        e.printStackTrace(err);
-        return 1;
+        respondToRequest(request);
       }
     }
-    return 0;
   }
 
-  /** Creates a new {@code Thread} to process a multiplex request. */
-  public Thread createResponseThread(WorkRequest request, PrintStream out, PrintStream err) {
+  /** Creates a new {@link Thread} to process a multiplex request. */
+  public Thread createResponseThread(WorkRequest request) {
     Thread currentThread = Thread.currentThread();
     return new Thread(
         () -> {
           try {
-            respondToRequest(request, out);
+            respondToRequest(request);
           } catch (IOException e) {
-            e.printStackTrace(err);
+            e.printStackTrace(stderr);
             // In case of error, shut down the entire worker.
             currentThread.interrupt();
           }
@@ -89,9 +105,9 @@ public class WorkRequestHandler {
         "multiplex-request-" + request.getRequestId());
   }
 
-  /** Responds to {@code request}, writing the {@code WorkResponse} proto to {@code out}. */
+  /** Handles and responds to the given {@link WorkRequest}. */
   @VisibleForTesting
-  void respondToRequest(WorkRequest request, PrintStream out) throws IOException {
+  void respondToRequest(WorkRequest request) throws IOException {
     try (StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw)) {
       int exitCode;
@@ -109,14 +125,13 @@ public class WorkRequestHandler {
               .setRequestId(request.getRequestId())
               .build();
       synchronized (this) {
-        workResponse.writeDelimitedTo(out);
+        messageProcessor.writeWorkResponse(workResponse);
       }
     }
-    out.flush();
+  }
 
-    // Hint to the system that now would be a good time to run a gc.  After a compile
-    // completes lots of objects should be available for collection and it should be cheap to
-    // collect them.
-    System.gc();
+  @Override
+  public void close() throws IOException {
+    messageProcessor.close();
   }
 }
