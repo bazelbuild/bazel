@@ -134,12 +134,14 @@ java_runtime_files(
 # See test_jni in third_party/bazel/src/test/shell/bazel/bazel_java_test.sh for
 # an example of using Bazel to build a Java program that calls a C function.
 #
-# TODO(adonovan): add cases for //src/conditions:linux_arm when released in Bazel.
-# TODO(adonovan): why is there no //src/conditions target meaning "just linux"?
+# TODO(ilist): use //src:condition:linux when released in Bazel
 cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
-        "//src/conditions:linux": [":jni_md_header-linux"],
+        "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
+        "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
+        "//src/conditions:linux_s390x": [":jni_md_header-linux"],
+        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
         "//src/conditions:openbsd": [":jni_md_header-openbsd"],
@@ -147,7 +149,10 @@ cc_library(
         "//conditions:default": [],
     }),
     includes = ["include"] + select({
-        "//src/conditions:linux": ["include/linux"],
+        "//src/conditions:linux_aarch64": ["include/linux"],
+        "//src/conditions:linux_ppc64le": ["include/linux"],
+        "//src/conditions:linux_s390x": ["include/linux"],
+        "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],
         "//src/conditions:openbsd": ["include/openbsd"],
@@ -287,7 +292,7 @@ alias(
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:proguard",
         "//src/conditions:windows": "@remote_java_tools_windows//:proguard",
-        "//src/conditions:linux": "@remote_java_tools_linux//:proguard",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
         "//conditions:default": "@remote_java_tools_linux//:proguard",
@@ -372,7 +377,7 @@ alias(
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux": "@remote_java_tools_linux//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
@@ -382,7 +387,7 @@ alias(
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux": "@remote_java_tools_linux//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
