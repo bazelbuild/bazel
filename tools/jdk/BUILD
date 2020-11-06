@@ -139,10 +139,7 @@ java_runtime_files(
 cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
-        "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
-        "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
-        "//src/conditions:linux_s390x": [":jni_md_header-linux"],
-        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
+        "//src/conditions:linux": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
         "//src/conditions:openbsd": [":jni_md_header-openbsd"],
@@ -150,10 +147,7 @@ cc_library(
         "//conditions:default": [],
     }),
     includes = ["include"] + select({
-        "//src/conditions:linux_aarch64": ["include/linux"],
-        "//src/conditions:linux_ppc64le": ["include/linux"],
-        "//src/conditions:linux_s390x": ["include/linux"],
-        "//src/conditions:linux_x86_64": ["include/linux"],
+        "//src/conditions:linux": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],
         "//src/conditions:openbsd": ["include/openbsd"],
@@ -292,9 +286,8 @@ alias(
     name = "proguard",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:proguard",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:proguard",
         "//src/conditions:windows": "@remote_java_tools_windows//:proguard",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
+        "//src/conditions:linux": "@remote_java_tools_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
         "//conditions:default": "@remote_java_tools_linux//:proguard",
@@ -378,9 +371,8 @@ alias(
     name = "toolchain",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//src/conditions:linux": "@remote_java_tools_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
@@ -389,9 +381,8 @@ alias(
     name = "remote_toolchain",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//src/conditions:linux": "@remote_java_tools_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
@@ -508,7 +499,6 @@ alias(
     actual = select(
         {
             "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk11_macos//:jdk",
             "//src/conditions:windows": "@remotejdk11_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
