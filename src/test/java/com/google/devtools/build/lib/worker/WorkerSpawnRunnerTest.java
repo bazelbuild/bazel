@@ -110,7 +110,7 @@ public class WorkerSpawnRunnerTest {
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getLogFile()).thenReturn(logFile);
-    when(worker.getResponse())
+    when(worker.getResponse(1))
         .thenReturn(
             WorkResponse.newBuilder().setExitCode(0).setOutput("out").setRequestId(1).build());
     WorkResponse response =
@@ -149,7 +149,7 @@ public class WorkerSpawnRunnerTest {
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getLogFile()).thenReturn(logFile);
-    when(worker.getResponse()).thenThrow(new IOException("Bad protobuf"));
+    when(worker.getResponse(1)).thenThrow(new IOException("Bad protobuf"));
     when(worker.getRecordingStreamMessage()).thenReturn(recordedResponse);
     String workerLog = "Log from worker\n";
     FileSystemUtils.writeIsoLatin1(logFile, workerLog);
