@@ -151,10 +151,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         continue;
       }
 
-      if (!toolchain.execSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
-        continue;
-      }
-
       // Find the matching execution platforms.
       for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
         // Only check the toolchains if this is a new platform.
