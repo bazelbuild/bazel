@@ -222,7 +222,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       if (ex.getDeprecatedLocation() == null) {
         // Prefer target struct's creation location in error messages.
         if (target instanceof Info) {
-          loc = ((Info) target).getCreationLoc();
+          loc = ((Info) target).getCreationLocation();
         }
         ex = new EvalException(loc, ex.getMessage());
       }
@@ -299,7 +299,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // Either an old-style struct or a single declared provider (not in a list)
       Info info = (Info) target;
       // Use the creation location of this struct as a better reference in error messages
-      loc = info.getCreationLoc();
+      loc = info.getCreationLocation();
       if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
         if (context
@@ -479,7 +479,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
     Runfiles defaultRunfiles = null;
     Artifact executable = null;
 
-    Location loc = provider.getCreationLoc();
+    Location loc = provider.getCreationLocation();
 
     if (getProviderKey(loc, provider).equals(DefaultInfo.PROVIDER.getKey())) {
       DefaultInfo defaultInfo = (DefaultInfo) provider;

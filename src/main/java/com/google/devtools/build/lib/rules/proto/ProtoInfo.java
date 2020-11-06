@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
@@ -76,9 +75,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       NestedSet<Pair<Artifact, String>> exportedProtoSourcesImportPaths,
       NestedSet<String> exportedProtoSourceRoots,
       Artifact directDescriptorSet,
-      NestedSet<Artifact> transitiveDescriptorSets,
-      Location location) {
-    super(location);
+      NestedSet<Artifact> transitiveDescriptorSets) {
     this.directProtoSources = directProtoSources;
     this.originalDirectProtoSources = originalDirectProtoSources;
     this.directProtoSourceRoot = directProtoSourceRoot;

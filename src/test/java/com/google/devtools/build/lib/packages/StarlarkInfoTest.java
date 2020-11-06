@@ -41,7 +41,7 @@ public class StarlarkInfoTest {
   @Test
   public void nullLocationDefaultsToBuiltin() throws Exception {
     StarlarkInfo info = StarlarkInfo.create(makeProvider(), ImmutableMap.of(), null);
-    assertThat(info.getCreationLoc()).isEqualTo(Location.BUILTIN);
+    assertThat(info.getCreationLocation()).isEqualTo(Location.BUILTIN);
   }
 
   @Test

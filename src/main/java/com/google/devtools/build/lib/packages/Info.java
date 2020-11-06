@@ -60,18 +60,8 @@ public interface Info extends StarlarkValue {
    * Returns the source location where this Info (provider instance) was created, or BUILTIN if it
    * was instantiated by Java code.
    */
-  default Location getCreationLoc() {
+  default Location getCreationLocation() {
     return Location.BUILTIN;
-  }
-
-  /**
-   * This method (which is redundant with getCreationLoc and should not be overridden or called) is
-   * required to pacify the AutoCodec annotation processor.
-   */
-  // TODO(adonovan): find out why and stop it.
-  // Alternatively rename various constructor parameters from 'location' to 'creationLoc'.
-  default Location getLocation() {
-    return getCreationLoc();
   }
 
   @Override

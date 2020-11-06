@@ -260,8 +260,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       NestedSet<Artifact> transitiveOnlyRuntimeJars,
       boolean neverlink,
       ImmutableList<String> javaConstraints,
-      Location location) {
-    super(location);
+      Location creationLocation) {
+    super(creationLocation);
     this.directRuntimeJars = directRuntimeJars;
     this.transitiveOnlyRuntimeJars = transitiveOnlyRuntimeJars;
     this.providers = providers;
@@ -484,7 +484,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     private final NestedSetBuilder<Artifact> transitiveOnlyRuntimeJars =
         new NestedSetBuilder<>(Order.STABLE_ORDER);
     private boolean neverlink;
-    private Location location = Location.BUILTIN;
+    private Location creationLocation = Location.BUILTIN;
 
     private Builder(TransitiveInfoProviderMapBuilder providerMap) {
       this.providerMap = providerMap;
@@ -502,7 +502,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
           .setNeverlink(javaInfo.isNeverlink())
           .setJavaConstraints(javaInfo.getJavaConstraints())
-          .setLocation(javaInfo.getCreationLoc());
+          .setLocation(javaInfo.getCreationLocation());
     }
 
     public Builder setRuntimeJars(ImmutableList<Artifact> runtimeJars) {
@@ -560,7 +560,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     public Builder setLocation(Location location) {
-      this.location = location;
+      this.creationLocation = location;
       return this;
     }
 
@@ -588,7 +588,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           transitiveOnlyRuntimeJars.build(),
           neverlink,
           javaConstraints,
-          location);
+          creationLocation);
     }
   }
 }

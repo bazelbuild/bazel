@@ -117,8 +117,8 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> auxiliary,
       Artifact system,
-      Location location) {
-    super(location);
+      Location creationLocation) {
+    super(creationLocation);
     this.bootclasspath = bootclasspath;
     this.auxiliary = auxiliary;
     this.system = system;

@@ -60,7 +60,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
   }
 
   @Override
-  public Location getCreationLoc() {
+  public Location getCreationLocation() {
     return location;
   }
 
