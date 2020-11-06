@@ -55,9 +55,10 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# TODO: fix where use points and remove cpu
 config_setting(
     name = "darwin",
-    constraint_values = [ "@platforms//os:macos" ],
+    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:x86_64" ],
     visibility = ["//visibility:public"],
 )
 
