@@ -48,8 +48,13 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   @VisibleForSerialization
   ToolchainTypeInfo(Label typeLabel, Location location) {
-    super(PROVIDER, location);
+    super(location);
     this.typeLabel = typeLabel;
+  }
+
+  @Override
+  public BuiltinProvider<ToolchainTypeInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override

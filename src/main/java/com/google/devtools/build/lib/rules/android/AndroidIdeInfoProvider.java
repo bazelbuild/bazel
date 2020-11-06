@@ -198,7 +198,6 @@ public final class AndroidIdeInfoProvider extends NativeInfo
       ImmutableCollection<Artifact> apksUnderTest,
       ImmutableMap<String, NestedSet<Artifact>> nativeLibs,
       @Nullable Artifact resourceApk) {
-    super(PROVIDER);
     this.javaPackage = javaPackage;
     this.idlImportRoot = idlImportRoot;
     this.manifest = manifest;
@@ -214,6 +213,11 @@ public final class AndroidIdeInfoProvider extends NativeInfo
     this.apksUnderTest = apksUnderTest;
     this.nativeLibs = nativeLibs;
     this.resourceApk = resourceApk;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

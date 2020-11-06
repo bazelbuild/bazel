@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
@@ -288,7 +288,7 @@ public class AppleStarlarkCommon
   private StructImpl createAppleBinaryOutputStarlarkStruct(
       AppleBinaryOutput output, StarlarkThread thread) {
     Provider constructor =
-        new NativeProvider<StructImpl>(StructImpl.class, "apple_binary_output") {};
+        new BuiltinProvider<StructImpl>("apple_binary_output", StructImpl.class) {};
     // We have to transform the output group dictionary into one that contains StarlarkValues
     // instead
     // of plain NestedSets because the Starlark caller may want to return this directly from their

@@ -60,7 +60,6 @@ public class XcodeConfigInfo extends NativeInfo
       DottedVersion macosMinimumOsVersion,
       DottedVersion xcodeVersion,
       Availability availability) {
-    super(PROVIDER);
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
     this.watchosSdkVersion = Preconditions.checkNotNull(watchosSdkVersion);
@@ -86,6 +85,11 @@ public class XcodeConfigInfo extends NativeInfo
     }
     builder.put(ExecutionRequirements.REQUIREMENTS_SET, "");
     this.executionRequirements = builder.buildImmutable();
+  }
+
+  @Override
+  public BuiltinProvider<XcodeConfigInfo> getProvider() {
+    return PROVIDER;
   }
 
   /** Indicates the platform(s) on which an Xcode version is available. */

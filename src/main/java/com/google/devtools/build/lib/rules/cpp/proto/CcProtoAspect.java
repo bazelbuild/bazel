@@ -126,7 +126,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryNativeProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
+                    .mandatoryBuiltinProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)

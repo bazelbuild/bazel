@@ -14,21 +14,25 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 
 /** Provider that contains the profile used for propeller. */
 @Immutable
 public final class PropellerOptimizeProvider extends NativeInfo {
-  public static final NativeProvider<PropellerOptimizeProvider> PROVIDER =
-      new NativeProvider<PropellerOptimizeProvider>(
-          PropellerOptimizeProvider.class, "PropellerOptimizeInfo") {};
+  public static final BuiltinProvider<PropellerOptimizeProvider> PROVIDER =
+      new BuiltinProvider<PropellerOptimizeProvider>(
+          "PropellerOptimizeInfo", PropellerOptimizeProvider.class) {};
 
   private final PropellerOptimizeInputFile propellerOptimizeInputFile;
 
   public PropellerOptimizeProvider(PropellerOptimizeInputFile propellerOptimizeInputFile) {
-    super(PROVIDER);
     this.propellerOptimizeInputFile = propellerOptimizeInputFile;
+  }
+
+  @Override
+  public BuiltinProvider<PropellerOptimizeProvider> getProvider() {
+    return PROVIDER;
   }
 
   public PropellerOptimizeInputFile getInputFile() {

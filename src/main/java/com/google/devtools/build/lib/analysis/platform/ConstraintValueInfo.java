@@ -46,10 +46,14 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @VisibleForSerialization
   ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
-    super(PROVIDER, location);
-
+    super(location);
     this.constraint = constraint;
     this.label = label;
+  }
+
+  @Override
+  public BuiltinProvider<ConstraintValueInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override

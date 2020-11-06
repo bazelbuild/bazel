@@ -35,8 +35,12 @@ public final class AndroidDeviceBrokerInfo extends NativeInfo
   private final String deviceBrokerType;
 
   public AndroidDeviceBrokerInfo(String deviceBrokerType) {
-    super(PROVIDER);
     this.deviceBrokerType = deviceBrokerType;
+  }
+
+  @Override
+  public AndroidDeviceBrokerInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   /**

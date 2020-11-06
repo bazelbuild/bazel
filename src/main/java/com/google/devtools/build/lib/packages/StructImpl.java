@@ -47,24 +47,16 @@ import net.starlark.java.syntax.Location;
  */
 public abstract class StructImpl implements Info, Structure, StructApi {
 
-  private final Provider provider;
   private final Location location;
 
   /**
-   * Constructs an {@link StructImpl}.
+   * Constructs a {@link StructImpl}.
    *
-   * @param provider the provider describing the type of this instance
    * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
-  protected StructImpl(Provider provider, @Nullable Location location) {
-    this.provider = provider;
+  protected StructImpl(@Nullable Location location) {
     this.location = location != null ? location : Location.BUILTIN;
-  }
-
-  @Override
-  public Provider getProvider() {
-    return provider;
   }
 
   @Override
@@ -83,9 +75,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
     }
     try {
       return type.cast(obj);
-    } catch (
-        @SuppressWarnings("UnusedException")
-        ClassCastException unused) {
+    } catch (ClassCastException unused) {
       throw Starlark.errorf(
           "for %s field, got %s, want %s", key, Starlark.type(obj), Starlark.classType(type));
     }

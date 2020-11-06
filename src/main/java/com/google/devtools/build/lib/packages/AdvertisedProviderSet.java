@@ -23,26 +23,26 @@ import java.util.Objects;
  * Captures the set of providers rules and aspects can advertise. It is either of:
  *
  * <ul>
- *   <li>a set of native and Starlark providers
+ *   <li>a set of builtin and Starlark providers
  *   <li>"can have any provider" set that alias rules have.
  * </ul>
  *
- * <p>Native providers should in theory only contain subclasses of {@link
+ * <p>Built-in providers should in theory only contain subclasses of {@link
  * com.google.devtools.build.lib.analysis.TransitiveInfoProvider}, but our current dependency
  * structure does not allow a reference to that class here.
  */
 @Immutable
 public final class AdvertisedProviderSet {
   private final boolean canHaveAnyProvider;
-  private final ImmutableSet<Class<?>> nativeProviders;
+  private final ImmutableSet<Class<?>> builtinProviders;
   private final ImmutableSet<StarlarkProviderIdentifier> starlarkProviders;
 
   private AdvertisedProviderSet(
       boolean canHaveAnyProvider,
-      ImmutableSet<Class<?>> nativeProviders,
+      ImmutableSet<Class<?>> builtinProviders,
       ImmutableSet<StarlarkProviderIdentifier> starlarkProviders) {
     this.canHaveAnyProvider = canHaveAnyProvider;
-    this.nativeProviders = nativeProviders;
+    this.builtinProviders = builtinProviders;
     this.starlarkProviders = starlarkProviders;
   }
 
@@ -54,17 +54,17 @@ public final class AdvertisedProviderSet {
           false, ImmutableSet.<Class<?>>of(), ImmutableSet.<StarlarkProviderIdentifier>of());
 
   public static AdvertisedProviderSet create(
-      ImmutableSet<Class<?>> nativeProviders,
+      ImmutableSet<Class<?>> builtinProviders,
       ImmutableSet<StarlarkProviderIdentifier> starlarkProviders) {
-    if (nativeProviders.isEmpty() && starlarkProviders.isEmpty()) {
+    if (builtinProviders.isEmpty() && starlarkProviders.isEmpty()) {
       return EMPTY;
     }
-    return new AdvertisedProviderSet(false, nativeProviders, starlarkProviders);
+    return new AdvertisedProviderSet(false, builtinProviders, starlarkProviders);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(canHaveAnyProvider, nativeProviders, starlarkProviders);
+    return Objects.hash(canHaveAnyProvider, builtinProviders, starlarkProviders);
   }
 
   @Override
@@ -79,7 +79,7 @@ public final class AdvertisedProviderSet {
 
     AdvertisedProviderSet that = (AdvertisedProviderSet) obj;
     return Objects.equals(this.canHaveAnyProvider, that.canHaveAnyProvider)
-        && Objects.equals(this.nativeProviders, that.nativeProviders)
+        && Objects.equals(this.builtinProviders, that.builtinProviders)
         && Objects.equals(this.starlarkProviders, that.starlarkProviders);
   }
 
@@ -89,8 +89,8 @@ public final class AdvertisedProviderSet {
       return "Any Provider";
     }
     return String.format(
-        "allowed native providers=%s, allowed Starlark providers=%s",
-        getNativeProviders(), getStarlarkProviders());
+        "allowed built-in providers=%s, allowed Starlark providers=%s",
+        getBuiltinProviders(), getStarlarkProviders());
   }
 
   /** Checks whether the rule can have any provider.
@@ -101,11 +101,9 @@ public final class AdvertisedProviderSet {
     return canHaveAnyProvider;
   }
 
-  /**
-   * Get all advertised native providers.
-   */
-  public ImmutableSet<Class<?>> getNativeProviders() {
-    return nativeProviders;
+  /** Get all advertised built-in providers. */
+  public ImmutableSet<Class<?>> getBuiltinProviders() {
+    return builtinProviders;
   }
 
   /** Get all advertised Starlark providers. */
@@ -119,13 +117,13 @@ public final class AdvertisedProviderSet {
 
   /**
    * Returns {@code true} if this provider set can have any provider, or if it advertises the
-   * specific native provider requested.
+   * specific built-in provider requested.
    */
-  public boolean advertises(Class<?> nativeProviderClass) {
+  public boolean advertises(Class<?> builtinProviderClass) {
     if (canHaveAnyProvider()) {
       return true;
     }
-    return nativeProviders.contains(nativeProviderClass);
+    return builtinProviders.contains(builtinProviderClass);
   }
 
   /**
@@ -142,11 +140,11 @@ public final class AdvertisedProviderSet {
   /** Builder for {@link AdvertisedProviderSet} */
   public static class Builder {
     private boolean canHaveAnyProvider;
-    private final ArrayList<Class<?>> nativeProviders;
+    private final ArrayList<Class<?>> builtinProviders;
     private final ArrayList<StarlarkProviderIdentifier> starlarkProviders;
 
     private Builder() {
-      nativeProviders = new ArrayList<>();
+      builtinProviders = new ArrayList<>();
       starlarkProviders = new ArrayList<>();
     }
 
@@ -157,28 +155,28 @@ public final class AdvertisedProviderSet {
       Preconditions.checkState(!canHaveAnyProvider, "Alias rules inherit from no other rules");
       Preconditions.checkState(!parentSet.canHaveAnyProvider(),
           "Cannot inherit from alias rules");
-      nativeProviders.addAll(parentSet.getNativeProviders());
+      builtinProviders.addAll(parentSet.getBuiltinProviders());
       starlarkProviders.addAll(parentSet.getStarlarkProviders());
       return this;
     }
 
-    public Builder addNative(Class<?> nativeProvider) {
-      this.nativeProviders.add(nativeProvider);
+    public Builder addBuiltin(Class<?> builtinProvider) {
+      this.builtinProviders.add(builtinProvider);
       return this;
     }
 
     public void canHaveAnyProvider() {
-      Preconditions.checkState(nativeProviders.isEmpty() && starlarkProviders.isEmpty());
+      Preconditions.checkState(builtinProviders.isEmpty() && starlarkProviders.isEmpty());
       this.canHaveAnyProvider = true;
     }
 
     public AdvertisedProviderSet build() {
       if (canHaveAnyProvider) {
-        Preconditions.checkState(nativeProviders.isEmpty() && starlarkProviders.isEmpty());
+        Preconditions.checkState(builtinProviders.isEmpty() && starlarkProviders.isEmpty());
         return ANY;
       }
       return AdvertisedProviderSet.create(
-          ImmutableSet.copyOf(nativeProviders), ImmutableSet.copyOf(starlarkProviders));
+          ImmutableSet.copyOf(builtinProviders), ImmutableSet.copyOf(starlarkProviders));
     }
 
     public Builder addStarlark(String providerName) {

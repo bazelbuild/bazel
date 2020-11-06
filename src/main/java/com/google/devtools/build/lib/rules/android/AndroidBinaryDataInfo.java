@@ -53,12 +53,16 @@ public class AndroidBinaryDataInfo extends NativeInfo
       AndroidResourcesInfo resourcesInfo,
       AndroidAssetsInfo assetsInfo,
       AndroidManifestInfo manifestInfo) {
-    super(PROVIDER);
     this.dataApk = dataApk;
     this.resourceProguardConfig = resourceProguardConfig;
     this.resourcesInfo = resourcesInfo;
     this.assetsInfo = assetsInfo;
     this.manifestInfo = manifestInfo;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

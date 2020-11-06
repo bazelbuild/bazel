@@ -109,12 +109,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   // Whether or not this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
 
-  /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
-  @Nullable
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
-    return providers.getProvider(providerClass);
-  }
-
   public TransitiveInfoProviderMap getProviders() {
     return providers;
   }
@@ -199,6 +193,14 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .filter(Objects::nonNull);
   }
 
+  /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
+  // TODO(adonovan): rename these three overloads of getProvider to avoid
+  // confusion with the unrelated no-arg Info.getProvider method.
+  @Nullable
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+    return providers.getProvider(providerClass);
+  }
+
   /**
    * Returns a provider of the specified class, fetched from the specified target or, if not found,
    * from the JavaInfo of the given target. JavaInfo can be found as a declared provider in
@@ -221,10 +223,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     return javaInfo.getProvider(providerClass);
   }
 
-  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
-    return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
-  }
-
   public static <T extends TransitiveInfoProvider> T getProvider(
       Class<T> providerClass, TransitiveInfoProviderMap providerMap) {
     T provider = providerMap.getProvider(providerClass);
@@ -236,6 +234,10 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       return null;
     }
     return javaInfo.getProvider(providerClass);
+  }
+
+  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
+    return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
   }
 
   public static <T extends TransitiveInfoProvider> List<T> getProvidersFromListOfTargets(
@@ -259,12 +261,17 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       boolean neverlink,
       ImmutableList<String> javaConstraints,
       Location location) {
-    super(PROVIDER, location);
+    super(location);
     this.directRuntimeJars = directRuntimeJars;
     this.transitiveOnlyRuntimeJars = transitiveOnlyRuntimeJars;
     this.providers = providers;
     this.neverlink = neverlink;
     this.javaConstraints = javaConstraints;
+  }
+
+  @Override
+  public JavaInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   public Boolean isNeverlink() {

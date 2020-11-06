@@ -48,7 +48,7 @@ public final class Allowlist {
     String attributeName = getAttributeNameFromAllowlistName(allowlistName).iterator().next();
     return attr(attributeName, LABEL)
         .cfg(HostTransition.createFactory())
-        .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
+        .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
 
   /**

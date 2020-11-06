@@ -43,10 +43,15 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   @VisibleForSerialization
   ConstraintSettingInfo(Label label, Label defaultConstraintValueLabel, Location location) {
-    super(PROVIDER, location);
+    super(location);
 
     this.label = label;
     this.defaultConstraintValueLabel = defaultConstraintValueLabel;
+  }
+
+  @Override
+  public BuiltinProvider<ConstraintSettingInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override

@@ -46,7 +46,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
             attr("packages", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes()
-                .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
         /* <!-- #BLAZE_RULE(java_package_configuration).ATTRIBUTE(javacopts) -->
         Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

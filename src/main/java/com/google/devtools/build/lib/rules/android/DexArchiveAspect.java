@@ -163,7 +163,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
                 ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
-            .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
+            .requireAspectsWithBuiltinProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(

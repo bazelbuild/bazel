@@ -42,16 +42,14 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String STARLARK_NAME = "BootClassPathInfo";
-
   /** Provider singleton constant. */
-  public static final BuiltinProvider<BootClassPathInfo> PROVIDER = new Provider();
+  public static final Provider PROVIDER = new Provider();
 
   /** Provider class for {@link BootClassPathInfo} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
     private Provider() {
-      super(STARLARK_NAME, BootClassPathInfo.class);
+      super("BootClassPathInfo", BootClassPathInfo.class);
     }
 
     @StarlarkMethod(
@@ -120,10 +118,15 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
       NestedSet<Artifact> auxiliary,
       Artifact system,
       Location location) {
-    super(PROVIDER, location);
+    super(location);
     this.bootclasspath = bootclasspath;
     this.auxiliary = auxiliary;
     this.system = system;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static BootClassPathInfo create(NestedSet<Artifact> bootclasspath) {

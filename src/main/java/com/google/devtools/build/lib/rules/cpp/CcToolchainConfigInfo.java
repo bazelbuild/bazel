@@ -83,7 +83,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       ImmutableList<Pair<String, String>> makeVariables,
       String builtinSysroot,
       String ccTargetOs) {
-    super(PROVIDER);
     this.actionConfigs = actionConfigs;
     this.features = features;
     this.artifactNamePatterns = artifactNamePatterns;
@@ -100,6 +99,11 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.makeVariables = makeVariables;
     this.builtinSysroot = builtinSysroot;
     this.ccTargetOs = ccTargetOs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {

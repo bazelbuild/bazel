@@ -113,12 +113,17 @@ public class PlatformInfo extends NativeInfo
       String remoteExecutionProperties,
       ImmutableMap<String, String> execProperties,
       Location location) {
-    super(PROVIDER, location);
+    super(location);
 
     this.label = label;
     this.constraints = constraints;
     this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
+  }
+
+  @Override
+  public BuiltinProvider<PlatformInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override

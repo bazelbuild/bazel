@@ -78,7 +78,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
       Location location) {
-    super(PROVIDER, location);
+    super(location);
     this.directProtoSources = directProtoSources;
     this.originalDirectProtoSources = originalDirectProtoSources;
     this.directProtoSourceRoot = directProtoSourceRoot;
@@ -94,6 +94,11 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     this.exportedProtoSourceRoots = exportedProtoSourceRoots;
     this.directDescriptorSet = directDescriptorSet;
     this.transitiveDescriptorSets = transitiveDescriptorSets;
+  }
+
+  @Override
+  public BuiltinProvider<ProtoInfo> getProvider() {
+    return PROVIDER;
   }
 
   /**
