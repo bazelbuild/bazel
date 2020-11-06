@@ -257,25 +257,31 @@ class RunfilesCreator {
     wstring dummy_target = runfiles_base_dir + L"\\dummy_target";
 
     // Try creating symlink with admin privilege
-    if (CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0)) {
-      DeleteFileOrDie(dummy_link);
-      return true;
+    if (!CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0)) {
+      // on a rare occasion the dummy_link may exist from a previous run
+      if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        wstring target, werror;
+        // only die when we cannot ensure this is a symlink
+        if (!ReadSymlink(dummy_link, &target, &werror)) {
+          die(L"The dummy_link exists but is not a symlink: %hs", werror.c_str());
+        }
+      }
+      // If we couldn't create symlink, print out an error message and exit.
+      else if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD) {
+        die(L"CreateSymbolicLinkW failed:\n%hs\n",
+            "Bazel needs to create symlink for building runfiles tree.\n"
+            "Creating symlink on Windows requires either of the following:\n"
+            "    1. Program is running with elevated privileges (Admin rights).\n"
+            "    2. The system version is Windows 10 Creators Update (1703) or "
+            "later and "
+            "developer mode is enabled.",
+            GetLastErrorString().c_str());
+      } else {
+        die(L"CreateSymbolicLinkW failed: %hs", GetLastErrorString().c_str());
+      }
     }
 
-    // If we couldn't create symlink, print out an error message and exit.
-    if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD) {
-      die(L"CreateSymbolicLinkW failed:\n%hs\n",
-          "Bazel needs to create symlink for building runfiles tree.\n"
-          "Creating symlink on Windows requires either of the following:\n"
-          "    1. Program is running with elevated privileges (Admin rights).\n"
-          "    2. The system version is Windows 10 Creators Update (1703) or "
-          "later and "
-          "developer mode is enabled.",
-          GetLastErrorString().c_str());
-    } else {
-      die(L"CreateSymbolicLinkW failed: %hs", GetLastErrorString().c_str());
-    }
-
+    DeleteFileOrDie(dummy_link);
     return true;
   }
 
