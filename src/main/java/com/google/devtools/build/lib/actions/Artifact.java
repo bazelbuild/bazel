@@ -896,7 +896,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return root.isExternalSourceRoot() ? getExecPath().subFragment(1) : getExecPath();
+      return root.isExternalSourceRoot() ? getExecPath().subFragment(2) : getExecPath();
     }
 
     @Override
@@ -911,7 +911,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRepositoryRelativePath() {
-      return root.isExternalSourceRoot() ? getExecPath().subFragment(2) : getExecPath();
+      return getRootRelativePath();
     }
 
     @Override

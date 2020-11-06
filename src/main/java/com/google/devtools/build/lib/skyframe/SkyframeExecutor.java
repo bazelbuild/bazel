@@ -102,7 +102,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
@@ -1191,31 +1190,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (PathFragment execPath : execPaths) {
       ContainingPackageLookupValue value = result.get(packageKeys.get(execPath));
       if (value.hasContainingPackage()) {
-        roots.put(
-            execPath,
-            maybeTransformRootForRepository(
-                value.getContainingPackageRoot(),
-                value.getContainingPackageName().getRepository()));
+        roots.put(execPath, value.getContainingPackageRoot());
       } else {
         roots.put(execPath, null);
       }
     }
     return roots;
-  }
-
-  // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
-  // from exec paths does not work, which can break the action cache for input-discovering actions.
-  static Root maybeTransformRootForRepository(Root packageRoot, RepositoryName repository) {
-    if (repository.isMain()) {
-      return packageRoot;
-    } else {
-      Path actualRootPath = packageRoot.asPath();
-      int segmentCount = repository.getSourceRoot().segmentCount();
-      for (int i = 0; i < segmentCount; i++) {
-        actualRootPath = actualRootPath.getParentDirectory();
-      }
-      return Root.fromPath(actualRootPath);
-    }
   }
 
   @VisibleForTesting
