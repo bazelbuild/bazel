@@ -46,9 +46,6 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /** The setting, that target build configuration needs to satisfy. */
   public abstract ImmutableList<ConfigMatchingProvider> targetSettings();
 
-  /** The setting, that exec build configuration needs to satisfy. */
-  public abstract ImmutableList<ConfigMatchingProvider> execSettings();
-
   /** The label of the toolchain to resolve for use in toolchain-aware rules. */
   public abstract Label toolchainLabel();
 
@@ -58,8 +55,6 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
     private ConstraintCollection.Builder execConstraints = ConstraintCollection.builder();
     private ConstraintCollection.Builder targetConstraints = ConstraintCollection.builder();
     private ImmutableList.Builder<ConfigMatchingProvider> targetSettings =
-        new ImmutableList.Builder<>();
-    private ImmutableList.Builder<ConfigMatchingProvider> execSettings =
         new ImmutableList.Builder<>();
     private Label toolchainLabel;
 
@@ -93,11 +88,6 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
 
     public Builder addTargetSettings(Iterable<ConfigMatchingProvider> targetSettings) {
       this.targetSettings.addAll(targetSettings);
-      return this;
-    }
-
-    public Builder addExecSettings(Iterable<ConfigMatchingProvider> execSettings) {
-      this.execSettings.addAll(execSettings);
       return this;
     }
 
@@ -135,7 +125,6 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
           execConstraints,
           targetConstraints,
           targetSettings.build(),
-          execSettings.build(),
           toolchainLabel);
     }
   }
@@ -152,14 +141,12 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
       ConstraintCollection execConstraints,
       ConstraintCollection targetConstraints,
       ImmutableList<ConfigMatchingProvider> targetSettings,
-      ImmutableList<ConfigMatchingProvider> execSettings,
       Label toolchainLabel) {
     return new AutoValue_DeclaredToolchainInfo(
         toolchainType,
         execConstraints,
         targetConstraints,
         targetSettings,
-        execSettings,
         toolchainLabel);
   }
 

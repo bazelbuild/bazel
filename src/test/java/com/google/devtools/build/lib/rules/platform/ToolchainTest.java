@@ -93,7 +93,7 @@ public class ToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolchain_withTargetSetting_matching() throws Exception {
+  public void testToolchain_targetSetting_matching() throws Exception {
     useConfiguration("--compilation_mode=opt");
     scratch.file(
         "toolchain/toolchain_def.bzl",
@@ -134,7 +134,7 @@ public class ToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolchain_withTargetSetting_nonmatching() throws Exception {
+  public void testToolchain_targetSetting_nonmatching() throws Exception {
     useConfiguration("--compilation_mode=fastbuild");
     scratch.file(
         "toolchain/toolchain_def.bzl",
