@@ -36,22 +36,8 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection protos : ruleContext.getPrerequisites("blacklisted_protos")) {
-      ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
-      if (protoInfo == null
-          && ruleContext
-              .getFragment(ProtoConfiguration.class)
-              .blacklistedProtosRequiresProtoInfo()) {
-        ruleContext.ruleError(
-            "'" + ruleContext.getLabel() + "' does not have mandatory provider 'ProtoInfo'.");
-      }
-      if (protoInfo != null) {
-        blacklistedProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
-      } else {
-        // Only add files from FileProvider if |protos| is not a proto_library to avoid adding
-        // the descriptor_set of proto_library to the list of blacklisted files.
-        blacklistedProtos.addTransitive(protos.getProvider(FileProvider.class).getFilesToBuild());
-      }
+    for (ProtoInfo protoInfo : ruleContext.getPrerequisites("blacklisted_protos", ProtoInfo.PROVIDER)) {
+      blacklistedProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
