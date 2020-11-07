@@ -289,7 +289,7 @@ public class ProtoCompileActionBuilder {
             "--allowed_public_imports",
             VectorArg.join(":")
                 .each(publicImportSources)
-                .mapped((s, args) -> s.getImportPath().getPathString()));
+                .mapped(EXPAND_TO_IMPORT_PATHS));
       }
     }
 
@@ -562,7 +562,7 @@ public class ProtoCompileActionBuilder {
             "--allowed_public_imports",
             VectorArg.join(":")
                 .each(protoInfo.getPublicImportSources())
-                .mapped((s, args) -> args.accept(s.getImportPath().getPathString())));
+                .mapped(EXPAND_TO_IMPORT_PATHS));
       }
     }
 
@@ -592,7 +592,7 @@ public class ProtoCompileActionBuilder {
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(strictImportableProtoSources)
-                .mapped((s, args) -> args.accept(s.getImportPath().getPathString())));
+                .mapped(EXPAND_TO_IMPORT_PATHS));
 
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
@@ -600,6 +600,10 @@ public class ProtoCompileActionBuilder {
       }
     }
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<ProtoSource> EXPAND_TO_IMPORT_PATHS =
+      (src, args) -> args.accept(src.getImportPath().getSafePathString());
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
@@ -619,7 +623,7 @@ public class ProtoCompileActionBuilder {
      */
     @Override
     public void expandToCommandLine(ProtoSource proto, Consumer<String> args) {
-      String importPath = proto.getImportPath().getPathString();
+      String importPath = proto.getImportPath().getSafePathString();
       args.accept("-I" + importPath + "=" + proto.getSourceFile().getExecPathString());
     }
   }
