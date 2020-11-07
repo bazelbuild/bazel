@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 HOST="${HOST-localhost}"
 PORT="${PORT-12345}"
 RUNFILES=$(cd ${JAVA_RUNFILES-$0.runfiles}/%{workspace_name} && pwd -P)
