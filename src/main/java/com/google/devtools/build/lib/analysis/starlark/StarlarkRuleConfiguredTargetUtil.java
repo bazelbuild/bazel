@@ -37,10 +37,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -223,7 +222,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       if (ex.getDeprecatedLocation() == null) {
         // Prefer target struct's creation location in error messages.
         if (target instanceof Info) {
-          loc = ((Info) target).getCreationLoc();
+          loc = ((Info) target).getCreationLocation();
         }
         ex = new EvalException(loc, ex.getMessage());
       }
@@ -300,7 +299,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // Either an old-style struct or a single declared provider (not in a list)
       Info info = (Info) target;
       // Use the creation location of this struct as a better reference in error messages
-      loc = info.getCreationLoc();
+      loc = info.getCreationLocation();
       if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
         if (context
@@ -405,9 +404,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
         builder.addNativeDeclaredProvider(info);
       }
 
-      if (info.getProvider() instanceof NativeProvider.WithLegacyStarlarkName) {
-        WithLegacyStarlarkName providerWithLegacyName =
-            (WithLegacyStarlarkName) info.getProvider();
+      if (info.getProvider() instanceof BuiltinProvider.WithLegacyStarlarkName) {
+        BuiltinProvider.WithLegacyStarlarkName providerWithLegacyName =
+            (BuiltinProvider.WithLegacyStarlarkName) info.getProvider();
         if (shouldAddWithLegacyKey(oldStyleProviders, providerWithLegacyName)) {
           builder.addStarlarkTransitiveInfo(providerWithLegacyName.getStarlarkName(), info);
         }
@@ -426,9 +425,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
     if (builder.containsProviderKey(info.getProvider().getKey())) {
       return false;
     }
-    if (info.getProvider() instanceof NativeProvider.WithLegacyStarlarkName) {
+    if (info.getProvider() instanceof BuiltinProvider.WithLegacyStarlarkName) {
       String canonicalLegacyKey =
-          ((WithLegacyStarlarkName) info.getProvider()).getStarlarkName();
+          ((BuiltinProvider.WithLegacyStarlarkName) info.getProvider()).getStarlarkName();
       // Add info using its modern key if it was specified using its canonical legacy key, or
       // if no provider was used using that canonical legacy key.
       return fieldName.equals(canonicalLegacyKey)
@@ -440,7 +439,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
   @SuppressWarnings("deprecation") // For legacy migrations
   private static boolean shouldAddWithLegacyKey(
-      StructImpl oldStyleProviders, WithLegacyStarlarkName provider)
+      StructImpl oldStyleProviders, BuiltinProvider.WithLegacyStarlarkName provider)
       throws EvalException {
     String canonicalLegacyKey = provider.getStarlarkName();
     // Add info using its canonical legacy key if no provider was specified using that canonical
@@ -480,7 +479,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
     Runfiles defaultRunfiles = null;
     Artifact executable = null;
 
-    Location loc = provider.getCreationLoc();
+    Location loc = provider.getCreationLocation();
 
     if (getProviderKey(loc, provider).equals(DefaultInfo.PROVIDER.getKey())) {
       DefaultInfo defaultInfo = (DefaultInfo) provider;

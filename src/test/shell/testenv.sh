@@ -100,6 +100,9 @@ langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
 
+# Platforms
+default_host_platform="@local_config_platform//:host"
+
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
 linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
@@ -110,6 +113,9 @@ python_server="$(rlocation io_bazel/src/test/shell/bazel/testing_server.py)"
 
 # Third-party
 protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
+
+# Skylib
+skylib_package="@bazel_skylib//"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
@@ -538,11 +544,11 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_proto",
-    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
-    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
+    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
     ],
 )
 EOF

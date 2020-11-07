@@ -183,6 +183,15 @@ public final class FlagAliasTest {
     assertThat(parser.getResidue()).isEqualTo(expectedResidue);
   }
 
+  // Regression test for b/172453517
+  @Test
+  public void aliasLogicSkipsNonDoubleDashArgs() {
+    ImmutableList<String> args = ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "-=");
+    optionHandler.parseOptions(args, eventHandler);
+    assertThat(eventHandler.getEvents())
+        .contains(Event.error("-= :: Unrecognized option: -=").withTag(BAD_OPTION_TAG));
+  }
+
   @Test
   public void setAliasOnCommandLine_useInRcFile() {
     ImmutableList<String> args =

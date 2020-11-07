@@ -27,13 +27,14 @@ import javax.annotation.concurrent.Immutable;
 /**
  * This event is fired after test filtering.
  *
- * The test filtering phase always expands test_suite rules, so
- * the set of active targets should never contain test_suites.
+ * <p>The test filtering phase always expands test_suite rules, so the set of active targets should
+ * never contain test_suites.
  */
 @Immutable
 public class TestFilteringCompleteEvent {
   private final Collection<ConfiguredTarget> targets;
   private final Collection<ConfiguredTarget> testTargets;
+  private final Collection<ConfiguredTarget> skippedTests;
   private final Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap;
 
   /**
@@ -41,14 +42,17 @@ public class TestFilteringCompleteEvent {
    *
    * @param targets The set of active targets that remain.
    * @param testTargets The collection of tests to be run. May be null.
+   * @param targetsToSkip The collection of tests that are to be skipped.
    * @param configurationMap A map from configuration keys of all targets to the configurations.
    */
   public TestFilteringCompleteEvent(
       Collection<? extends ConfiguredTarget> targets,
       Collection<? extends ConfiguredTarget> testTargets,
+      Collection<? extends ConfiguredTarget> targetsToSkip,
       Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap) {
     this.targets = ImmutableList.copyOf(targets);
     this.testTargets = testTargets == null ? null : ImmutableList.copyOf(testTargets);
+    this.skippedTests = ImmutableList.copyOf(targetsToSkip);
     this.configurationMap = configurationMap;
     if (testTargets == null) {
       return;
@@ -72,6 +76,11 @@ public class TestFilteringCompleteEvent {
    */
   public Collection<ConfiguredTarget> getTestTargets() {
     return testTargets;
+  }
+
+  /** Returns the set of tests that should be skipped. */
+  public Collection<ConfiguredTarget> getSkippedTests() {
+    return skippedTests;
   }
 
   public BuildConfiguration getConfigurationForTarget(ConfiguredTarget target) {

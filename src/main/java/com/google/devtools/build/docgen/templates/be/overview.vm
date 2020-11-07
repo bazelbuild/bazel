@@ -22,7 +22,7 @@ title: Build Encyclopedia
   <li>
     <a href="$expander.expandRef("make-variables")">"Make" variables</a>
     <ul class="be-toc">
-      <li><a href="$expander.expandRef("make-variables#make-var-substitution")">"Make" variable substitution</a></li>
+      <li><a href="$expander.expandRef("make-variables#use")">Use</a></li>
 
     </ul>
   </li>

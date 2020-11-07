@@ -229,7 +229,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "tuple", doc = "tuple")
-    public Tuple<Integer> getTuple() {
+    public Tuple getTuple() {
       return null;
     }
 

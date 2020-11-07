@@ -79,6 +79,11 @@ import net.starlark.java.eval.StarlarkInt;
  * since we seem to be doing fine so far without it), and not overly complicate BUILD files or rule
  * implementation functions.
  */
+// TODO(adonovan): update documentation here and elsewhere to use the term
+// "rule attribute values" or "valid attribute types" where appropriate,
+// and not "value in the build language", which is a much broader set of
+// possible Starlark values. Also link to the canonical set of valid attribute
+// types, both Starlark and native.
 public abstract class Type<T> {
 
   protected Type() {}

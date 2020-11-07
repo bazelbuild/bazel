@@ -211,6 +211,14 @@ public class Retrier {
   /**
    * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
    * case of success.
+   */
+  public <T> T execute(Callable<T> call) throws Exception {
+    return execute(call, newBackoff());
+  }
+
+  /**
+   * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
+   * case of success with give {@link Backoff}.
    *
    * <p>{@link InterruptedException} is not retried.
    *
@@ -222,8 +230,7 @@ public class Retrier {
    * @throws InterruptedException if the {@code call} throws an {@link InterruptedException} or the
    *     current thread's interrupted flag is set.
    */
-  public <T> T execute(Callable<T> call) throws Exception {
-    final Backoff backoff = newBackoff();
+  public <T> T execute(Callable<T> call, Backoff backoff) throws Exception {
     while (true) {
       final State circuitState;
       circuitState = circuitBreaker.state();

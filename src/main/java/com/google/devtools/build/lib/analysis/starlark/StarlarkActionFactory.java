@@ -454,7 +454,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf(
             "'command' must be of type string. passing a sequence of strings as 'command'"
                 + " is deprecated. To temporarily disable this check,"
-                + " set --incompatible_objc_framework_cleanup=false.");
+                + " set --incompatible_run_shell_command_string=false.");
       }
       Sequence<?> commandList = (Sequence) commandUnchecked;
       if (argumentList.size() > 0) {

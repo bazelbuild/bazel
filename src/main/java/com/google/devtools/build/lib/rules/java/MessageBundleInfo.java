@@ -76,9 +76,14 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
 
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  MessageBundleInfo(ImmutableList<Artifact> messages, Location location) {
-    super(PROVIDER, location);
+  MessageBundleInfo(ImmutableList<Artifact> messages, Location creationLocation) {
+    super(creationLocation);
     this.messages = Preconditions.checkNotNull(messages);
+  }
+
+  @Override
+  public BuiltinProvider<MessageBundleInfo> getProvider() {
+    return PROVIDER;
   }
 
   public ImmutableList<Artifact> getMessages() {

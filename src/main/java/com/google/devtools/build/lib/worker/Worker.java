@@ -159,7 +159,7 @@ class Worker {
     workerProtocol.putRequest(request);
   }
 
-  WorkResponse getResponse() throws IOException {
+  WorkResponse getResponse(int requestId) throws IOException {
     recordingInputStream.startRecording(4096);
     return workerProtocol.getResponse();
   }

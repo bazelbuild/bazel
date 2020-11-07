@@ -31,8 +31,9 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Flushables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -202,8 +203,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                     currentClientDescription);
             outErr.printErrLn(message);
             return createDetailedCommandResult(
-                message,
-                FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
+                message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
 
           default:
             throw new IllegalStateException();
@@ -225,8 +225,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         String message = "Server shut down " + shutdownReason;
         outErr.printErrLn(message);
         return createDetailedCommandResult(
-            message,
-            FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
+            message, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result =
           execExclusively(
@@ -352,8 +351,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         String message = "Starlark CPU profiler: " + ex.getMessage();
         outErr.printErrLn(message);
         return createDetailedCommandResult(
-            message,
-            FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
+            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
         Starlark.startCpuProfile(out, Duration.ofMillis(10));
@@ -361,18 +359,17 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         String message = Strings.nullToEmpty(ex.getMessage());
         outErr.printErrLn(message);
         return createDetailedCommandResult(
-            message,
-            FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
+            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
       }
     }
 
     BlazeCommandResult result =
         createDetailedCommandResult(
-            "Unknown command failure",
-            FailureDetails.Command.Code.COMMAND_FAILURE_UNKNOWN);
-    boolean afterCommandCalled = false;
+            "Unknown command failure", FailureDetails.Command.Code.COMMAND_FAILURE_UNKNOWN);
+    boolean needToCallAfterCommand = true;
     Reporter reporter = env.getReporter();
-    try (OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher()) {
+    OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher();
+    try {
       // Temporary: there are modules that output events during beforeCommand, but the reporter
       // isn't setup yet. Add the stored event handler to catch those events.
       reporter.addHandler(storedEventHandler);
@@ -598,26 +595,27 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           if (result.getDetailedExitCode().isSuccess()) { // don't clobber existing error
             result =
                 createDetailedCommandResult(
-                    message,
-                    FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE);
+                    message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE);
           }
         }
       }
 
-      afterCommandCalled = true;
+      needToCallAfterCommand = false;
       return runtime.afterCommand(env, result);
     } catch (Throwable e) {
-      outErr.printErr(
-          "Internal error thrown during build. Printing stack trace: "
-              + Throwables.getStackTraceAsString(e));
-      e.printStackTrace();
-      BugReport.printBug(outErr, e, commonOptions.oomMessage);
-      bugReporter.sendBugReport(e, args);
       logger.atSevere().withCause(e).log("Shutting down due to exception");
-      result = BlazeCommandResult.createShutdown(e);
+      Crash crash = Crash.from(e);
+      bugReporter.handleCrash(
+          crash,
+          CrashContext.keepAlive()
+              .withArgs(args)
+              .withExtraOomInfo(commonOptions.oomMessage)
+              .reportingTo(reporter));
+      needToCallAfterCommand = false; // We are crashing.
+      result = BlazeCommandResult.createShutdown(crash);
       return result;
     } finally {
-      if (!afterCommandCalled) {
+      if (needToCallAfterCommand) {
         BlazeCommandResult newResult = runtime.afterCommand(env, result);
         if (!newResult.equals(result)) {
           logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
@@ -626,6 +624,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());
       Flushables.flushQuietly(outErr.getErrorStream());
+
+      systemOutErrPatcher.close();
 
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
     }

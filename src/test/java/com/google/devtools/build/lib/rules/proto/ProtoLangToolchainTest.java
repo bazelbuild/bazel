@@ -142,6 +142,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
   @Test
   public void protoToolchainMixedBlacklist() throws Exception {
+    // Tests legacy behaviour.
+    useConfiguration("--incompatible_blacklisted_protos_requires_proto_info=false");
+
     scratch.file(
         "third_party/x/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -193,49 +196,5 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
     assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
-  }
-
-  @Test
-  public void testMigrationLabel() throws Exception {
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        // Don't use |ProtoCommon.PROTO_RULES_MIGRATION_LABEL| here
-        // so we don't accidentally change it without breaking a local test.
-        "    tags = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
-
-    getConfiguredTarget("//a:toolchain");
-  }
-
-  @Test
-  public void testMissingMigrationLabel() throws Exception {
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        ")");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:toolchain");
-    assertContainsEvent("The native Protobuf rules are deprecated.");
-  }
-
-  @Test
-  public void testMigrationLabelNotRequiredWhenDisabled() throws Exception {
-    useConfiguration("--noincompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        ")");
-
-    getConfiguredTarget("//a:toolchain");
   }
 }

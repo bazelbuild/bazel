@@ -19,7 +19,6 @@ import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -30,7 +29,7 @@ import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.eval.Structure;
 
 // Tests at //src/test/java/net/starlark/java/eval:testdata/json.sky
 
@@ -62,7 +61,7 @@ public final class Json implements StarlarkValue {
    *
    * <p>An application-defined subclass of StarlarkValue may define its own JSON encoding by
    * implementing the {@link Encodable} interface. Otherwise, the encoder tests for the {@link Map},
-   * {@link StarlarkIterable}, and {@link ClassObject} interfaces, in that order, resulting in
+   * {@link StarlarkIterable}, and {@link Structure} interfaces, in that order, resulting in
    * dict-like, list-like, and struct-like encoding, respectively. See the Starlark documentation
    * annotation for more detail.
    *
@@ -189,8 +188,8 @@ public final class Json implements StarlarkValue {
       }
 
       // e.g. struct
-      if (x instanceof ClassObject) {
-        ClassObject obj = (ClassObject) x;
+      if (x instanceof Structure) {
+        Structure obj = (Structure) x;
 
         // Sort keys for determinism.
         String[] fields = obj.getFieldNames().toArray(new String[0]);
@@ -367,7 +366,7 @@ public final class Json implements StarlarkValue {
           if (c != ']') {
             while (true) {
               Object elem = parse();
-              list.add(elem, (Location) null); // can't fail
+              list.addElement(elem); // can't fail
               c = next();
               if (c != ',') {
                 if (c != ']') {
@@ -400,7 +399,7 @@ public final class Json implements StarlarkValue {
               i++; // ':'
               Object value = parse();
               int sz = dict.size();
-              dict.put((String) key, value, (Location) null); // can't fail
+              dict.putEntry((String) key, value); // can't fail
               if (dict.size() == sz) {
                 throw Starlark.errorf("object has duplicate key: %s", Starlark.repr(key));
               }

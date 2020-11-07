@@ -47,12 +47,16 @@ public final class DebugPackageProvider extends NativeInfo
       @Nullable Artifact strippedArtifact,
       Artifact unstrippedArtifact,
       @Nullable Artifact dwpArtifact) {
-    super(PROVIDER);
     Preconditions.checkNotNull(unstrippedArtifact);
     this.targetLabel = targetLabel;
     this.strippedArtifact = strippedArtifact;
     this.unstrippedArtifact = unstrippedArtifact;
     this.dwpArtifact = dwpArtifact;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /** Returns the label for the *_binary target. */

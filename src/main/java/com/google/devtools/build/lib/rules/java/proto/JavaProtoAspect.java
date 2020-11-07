@@ -129,7 +129,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
             .add(
                 attr(JavaProtoAspectCommon.SPEED_PROTO_TOOLCHAIN_ATTR, LABEL)
-                    // TODO(carmi): reinstate mandatoryNativeProviders(ProtoLangToolchainProvider)
+                    // TODO(carmi): reinstate mandatoryBuiltinProviders(ProtoLangToolchainProvider)
                     // once it's in a Bazel release.
                     .legacyAllowAnyFileType()
                     .value(getSpeedProtoToolchainLabel(defaultSpeedProtoToolchainLabel)))
@@ -225,7 +225,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(
-                NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+                NestedSetBuilder.create(Order.STABLE_ORDER, sourceJar),
                 ImmutableList.of(sourceJar));
 
         aspect.addProvider(ruleOutputJarsProvider).addProvider(sourceJarsProvider);

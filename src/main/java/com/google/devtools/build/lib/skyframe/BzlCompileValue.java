@@ -188,8 +188,6 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
     @Override
     public int hashCode() {
-      // TODO(bazel-team): Consider optimizing e.g. by omitting root from the hash. Roots are not
-      // interned and in the common case there's only one.
       return Objects.hash(Key.class, root, label, kind);
     }
 
@@ -220,8 +218,6 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a key for loading a builtins .bzl. */
-  // TODO(#11437): Retrieve the builtins bzl from the root given by
-  // --experimental_builtins_bzl_path, instead of making the caller specify it here.
   public static Key keyForBuiltins(Root root, Label label) {
     return Key.create(root, label, Kind.BUILTINS);
   }

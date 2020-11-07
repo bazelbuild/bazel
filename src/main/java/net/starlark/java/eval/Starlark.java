@@ -162,6 +162,9 @@ public final class Starlark {
    * null becomes {@link #NONE}. Any other non-Starlark value causes the function to throw
    * IllegalArgumentException.
    *
+   * <p>Elements of Lists and Maps must be valid Starlark values; they are not recursively
+   * converted. (This avoids excessive unintended deep copying.)
+   *
    * <p>This function is applied to the results of StarlarkMethod-annotated Java methods.
    */
   public static Object fromJava(Object x, @Nullable Mutability mutability) {
@@ -322,6 +325,8 @@ public final class Starlark {
       return "sequence";
     } else if (c == StarlarkCallable.class) {
       return "callable";
+    } else if (c == Structure.class) {
+      return "structure";
     }
 
     StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(c);
@@ -329,16 +334,8 @@ public final class Starlark {
       return module.name();
     }
 
-    if (StarlarkCallable.class.isAssignableFrom(c)) {
-      // All callable values have historically been lumped together as "function".
-      // TODO(adonovan): eliminate this case.
-      // Built-in types that don't use StarlarkModule should report
-      // their own type string, but this is a breaking change as users often
-      // use type(x)=="function" for Starlark and built-in functions.
-      return "function";
-
-    } else if (c.equals(Object.class)) {
-      // "Unknown" is another unfortunate choice.
+    if (c.equals(Object.class)) {
+      // "unknown" is another unfortunate choice.
       // Object.class does mean "unknown" when talking about the type parameter
       // of a collection (List<Object>), but it also means "any" when used
       // as an argument to Sequence.cast, and more generally it means "value".
@@ -601,7 +598,7 @@ public final class Starlark {
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
-      callable = new BuiltinCallable(fn, desc.getName(), desc);
+      callable = new BuiltinFunction(fn, desc.getName(), desc);
     }
 
     thread.push(callable);
@@ -663,7 +660,7 @@ public final class Starlark {
    */
   public static boolean hasattr(StarlarkSemantics semantics, Object x, String name)
       throws EvalException {
-    return (x instanceof ClassObject && ((ClassObject) x).getValue(name) != null)
+    return (x instanceof Structure && ((Structure) x).getValue(name) != null)
         || CallUtils.getAnnotatedMethods(semantics, x.getClass()).containsKey(name);
   }
 
@@ -685,14 +682,14 @@ public final class Starlark {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
       } else {
-        return new BuiltinCallable(x, name, method);
+        return new BuiltinFunction(x, name, method);
       }
     }
 
     // user-defined field?
-    if (x instanceof ClassObject) {
-      ClassObject obj = (ClassObject) x;
-      Object field = obj.getValue(semantics, name);
+    if (x instanceof Structure) {
+      Structure struct = (Structure) x;
+      Object field = struct.getValue(semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);
       }
@@ -701,7 +698,7 @@ public final class Starlark {
         return defaultValue;
       }
 
-      String error = obj.getErrorMessageForUnknownField(name);
+      String error = struct.getErrorMessageForUnknownField(name);
       if (error != null) {
         throw Starlark.errorf("%s", error);
       }
@@ -722,8 +719,8 @@ public final class Starlark {
   public static StarlarkList<String> dir(Mutability mu, StarlarkSemantics semantics, Object x) {
     // Order the fields alphabetically.
     Set<String> fields = new TreeSet<>();
-    if (x instanceof ClassObject) {
-      fields.addAll(((ClassObject) x).getFieldNames());
+    if (x instanceof Structure) {
+      fields.addAll(((Structure) x).getFieldNames());
     }
     fields.addAll(CallUtils.getAnnotatedMethods(semantics, x.getClass()).keySet());
     return StarlarkList.copyOf(mu, fields);
@@ -808,7 +805,7 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
+      // We use the 2-arg (desc=null) BuiltinFunction constructor instead of passing
       // the descriptor that CallUtils.getAnnotatedMethod would return,
       // because most calls to addMethods implicitly pass StarlarkSemantics.DEFAULT,
       // which is probably the wrong semantics for the later call.
@@ -817,7 +814,7 @@ public final class Starlark {
       // statically available in the environment, but the thread's semantics determine
       // the dynamic behavior of the method call; this includes a run-time check for
       // whether the method was disabled by the semantics.
-      env.put(name, new BuiltinCallable(v, name));
+      env.put(name, new BuiltinFunction(v, name));
     }
   }
 
@@ -860,7 +857,7 @@ public final class Starlark {
    */
   public static Object execFileProgram(Program prog, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Tuple<Object> defaultValues = Tuple.empty();
+    Tuple defaultValues = Tuple.empty();
     StarlarkFunction toplevel =
         new StarlarkFunction(prog.getResolvedFunction(), defaultValues, module);
     return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
@@ -906,7 +903,7 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module) throws SyntaxError.Exception {
     Expression expr = Expression.parse(input, options);
     Program prog = Program.compileExpr(expr, module, options);
-    Tuple<Object> defaultValues = Tuple.empty();
+    Tuple defaultValues = Tuple.empty();
     return new StarlarkFunction(prog.getResolvedFunction(), defaultValues, module);
   }
 

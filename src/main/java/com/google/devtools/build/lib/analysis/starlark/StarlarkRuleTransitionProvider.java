@@ -35,7 +35,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -90,7 +89,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
           continue;
         }
         attributes.put(
-            Attribute.getStarlarkName(attribute.getPublicName()), Starlark.fromJava(val, null));
+            Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
       }
       attrObject =
           StructProvider.STRUCT.create(

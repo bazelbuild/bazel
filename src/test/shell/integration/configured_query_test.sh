@@ -1213,4 +1213,23 @@ EOF
   assert_contains "some_value" output
 }
 
+function test_bazelignore_error_cquery_nocrash() {
+  local -r pkg=$FUNCNAME
+
+  mkdir -p $pkg/repo
+  touch $pkg/repo/WORKSPACE
+  cat > $pkg/repo/BUILD <<EOF
+  toolchain_type(name = "toolchain_type")
+EOF
+
+  cat > $pkg/WORKSPACE <<EOF
+  local_repository(name = "repo", path = "./repo")
+EOF
+  bazel cquery --output=starlark --starlark:expr 'target' @repo//:toolchain_type >output \
+    2>"$TEST_log" && fail "Expected failure"
+
+  # A Bazel crash would have exit codes 3x.
+  assert_equals $? 1
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

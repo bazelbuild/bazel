@@ -923,6 +923,10 @@ cc_binary(
   srcs = ["ok.cc"],
 )
 EOF
+  # As long as the default workspace suffix runs cc_configure the local_config_cc toolchain suite will be evaluated.
+  # Ensure the fake cc_toolchain_suite target doesn't have any errors.
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
+    fail "Fake toolchain target causes analysis errors"
 
   # This only shows reliably for query due to ordering issues in how Bazel shows
   # errors.
@@ -1069,7 +1073,7 @@ EOF
 
   expect_log "$object_file$stdcpp$lm"
 
-  bazel build //foo \
+  bazel build --noincompatible_linkopts_to_linklibs //foo \
     || fail "Build failed but should have succeeded"
   tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
 

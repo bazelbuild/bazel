@@ -90,7 +90,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public Tuple<FileApi> createGoCompileActions(
+  public Tuple /* of FileApi */ createGoCompileActions(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
       Sequence<?> srcs,
@@ -99,7 +99,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public Tuple<FileApi> createGoCompileActionsGopkg(
+  public Tuple /* of FileApi */ createGoCompileActionsGopkg(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
       Sequence<?> srcs,

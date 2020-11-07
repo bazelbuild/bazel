@@ -109,7 +109,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                 ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
             .add(
                 attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryNativeProviders(
+                    .mandatoryBuiltinProviders(
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
@@ -192,7 +192,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(
-                NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+                NestedSetBuilder.create(Order.STABLE_ORDER, sourceJar),
                 ImmutableList.of(sourceJar));
 
         aspect.addProvider(ruleOutputJarsProvider).addProvider(sourceJarsProvider);

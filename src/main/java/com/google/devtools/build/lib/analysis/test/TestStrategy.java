@@ -253,7 +253,7 @@ public abstract class TestStrategy implements TestActionContext {
    * the "categorical timeouts" which are based on the --test_timeout flag. A rule picks its timeout
    * but ends up with the same effective value as all other rules in that bucket.
    */
-  protected final Duration getTimeout(TestRunnerAction testAction) {
+  protected static final Duration getTimeout(TestRunnerAction testAction) {
     BuildConfiguration configuration = testAction.getConfiguration();
     return configuration
         .getFragment(TestConfiguration.class)

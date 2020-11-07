@@ -15,7 +15,6 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Strings;
 import java.util.IllegalFormatException;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /** Internal declarations used by the evaluator. */
@@ -98,7 +97,7 @@ final class EvalUtils {
         } else if (x instanceof Tuple) {
           if (y instanceof Tuple) {
             // tuple + tuple
-            return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
+            return Tuple.concat((Tuple) x, (Tuple) y);
           }
 
         } else if (x instanceof StarlarkList) {
@@ -194,7 +193,7 @@ final class EvalUtils {
             return repeatString((String) y, xi);
           } else if (y instanceof Tuple) {
             //  int * tuple
-            return ((Tuple<?>) y).repeat(xi);
+            return ((Tuple) y).repeat(xi);
           } else if (y instanceof StarlarkList) {
             // int * list
             return ((StarlarkList<?>) y).repeat(xi, mu);
@@ -213,7 +212,7 @@ final class EvalUtils {
         } else if (x instanceof Tuple) {
           if (y instanceof StarlarkInt) {
             // tuple * int
-            return ((Tuple<?>) x).repeat((StarlarkInt) y);
+            return ((Tuple) x).repeat((StarlarkInt) y);
           }
 
         } else if (x instanceof StarlarkList) {
@@ -460,14 +459,14 @@ final class EvalUtils {
     if (object instanceof Dict) {
       @SuppressWarnings("unchecked")
       Dict<Object, Object> dict = (Dict<Object, Object>) object;
-      dict.put(key, value, (Location) null);
+      dict.putEntry(key, value);
 
     } else if (object instanceof StarlarkList) {
       @SuppressWarnings("unchecked")
       StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = Starlark.toInt(key, "list index");
       index = EvalUtils.getSequenceIndex(index, list.size());
-      list.set(index, value, (Location) null);
+      list.setElementAt(index, value);
 
     } else {
       throw Starlark.errorf(
@@ -478,8 +477,8 @@ final class EvalUtils {
 
   /** Updates the named field of x as if by the Starlark statement {@code x.field = value}. */
   static void setField(Object x, String field, Object value) throws EvalException {
-    if (x instanceof ClassObject) {
-      ((ClassObject) x).setField(field, value);
+    if (x instanceof Structure) {
+      ((Structure) x).setField(field, value);
     } else {
       throw Starlark.errorf("cannot set .%s field of %s value", field, Starlark.type(x));
     }

@@ -324,32 +324,6 @@ public class JavaCommon {
     }
   }
 
-  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext) {
-    if (!ruleContext.getFragment(JavaConfiguration.class).loadJavaRulesFromBzl()) {
-      return;
-    }
-
-    if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
-      registerMigrationRuleError(ruleContext);
-    }
-  }
-
-  private static boolean hasValidTag(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains("__JAVA_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
-  }
-
-  private static void registerMigrationRuleError(RuleContext ruleContext) {
-    ruleContext.ruleError(
-        "The native Java rules are deprecated. Please load "
-            + ruleContext.getRule().getRuleClass()
-            + " from the rules_java repository. See http://github.com/bazelbuild/rules_java and "
-            + "https://github.com/bazelbuild/bazel/issues/8741. You can temporarily bypass this "
-            + "error by setting --incompatible_load_java_rules_from_bzl=false.");
-  }
-
   /**
    * Returns transitive Java native libraries.
    *
@@ -596,7 +570,7 @@ public class JavaCommon {
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
-        && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
+        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
       ruleContext.attributeError("deps", "deps not allowed without srcs; move to runtime_deps?");
     }
 

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
@@ -21,11 +22,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -59,6 +62,8 @@ public class TopLevelConstraintSemantics {
   private final PackageManager packageManager;
   private final Function<Key, BuildConfiguration> configurationProvider;
   private final ExtendedEventHandler eventHandler;
+  private static final String TARGET_INCOMPATIBLE_ERROR_TEMPLATE =
+      "Target %s is incompatible and cannot be built, but was explicitly requested.%s";
 
   /**
    * Constructor with helper classes for loading targets.
@@ -86,6 +91,132 @@ public class TopLevelConstraintSemantics {
       this.environment = environment;
       this.culprit = culprit;
     }
+  }
+
+  /**
+   * Checks that the all top-level targets are compatible with the target platform.
+   *
+   * <p>If any target doesn't support the target platform it will be either marked as "to be
+   * skipped" or marked as "errored".
+   *
+   * <p>Targets that are incompatible with the target platform and are not explicitly requested on
+   * the command line should be skipped.
+   *
+   * <p>Targets that are incompatible with the target platform and *are* explicitly requested on the
+   * command line are errored. Having one or more errored targets will cause the entire build to
+   * fail with an error message.
+   *
+   * @param topLevelTargets the build's top-level targets
+   * @param explicitTargetPatterns the set of explicit target patterns specified by the user on the
+   *     command line. Every target must be in the unambiguous canonical form (i.e., with the "@"
+   *     prefix for all targets including in the main repository).
+   * @return the set of to-be-skipped and errored top-level targets.
+   * @throws ViewCreationFailedException if any top-level target was explicitly requested on the
+   *     command line.
+   */
+  public PlatformRestrictionsResult checkPlatformRestrictions(
+      ImmutableList<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<String> explicitTargetPatterns,
+      boolean keepGoing)
+      throws ViewCreationFailedException {
+    ImmutableSet.Builder<ConfiguredTarget> incompatibleTargets = ImmutableSet.builder();
+    ImmutableSet.Builder<ConfiguredTarget> incompatibleButRequestedTargets = ImmutableSet.builder();
+
+    for (ConfiguredTarget target : topLevelTargets) {
+      IncompatiblePlatformProvider incompatibleProvider =
+          target.getProvider(IncompatiblePlatformProvider.class);
+
+      // Move on to the next target if this one is compatible.
+      if (incompatibleProvider == null) {
+        continue;
+      }
+
+      // We need the label in unambiguous form here. I.e. with the "@" prefix for targets in the
+      // main repository. explicitTargetPatterns is also already in the unambiguous form to make
+      // comparison succeed regardless of the provided form.
+      String labelString = target.getLabel().getUnambiguousCanonicalForm();
+      if (explicitTargetPatterns.contains(labelString)) {
+        if (!keepGoing) {
+          // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
+          // targets in the main repository.
+          String targetIncompatibleMessage =
+              String.format(
+                  TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
+                  target.getLabel().toString(),
+                  reportOnIncompatibility(target));
+          throw new ViewCreationFailedException(
+              targetIncompatibleMessage,
+              FailureDetail.newBuilder()
+                  .setMessage(targetIncompatibleMessage)
+                  .setAnalysis(Analysis.newBuilder().setCode(Code.INCOMPATIBLE_TARGET_REQUESTED))
+                  .build());
+        }
+        this.eventHandler.handle(
+            Event.warn(String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, labelString, "")));
+        incompatibleButRequestedTargets.add(target);
+      } else {
+        // If this is not an explicitly requested target we can safely skip it.
+        incompatibleTargets.add(target);
+      }
+    }
+
+    return PlatformRestrictionsResult.builder()
+        .targetsToSkip(ImmutableSet.copyOf(incompatibleTargets.build()))
+        .targetsWithErrors(ImmutableSet.copyOf(incompatibleButRequestedTargets.build()))
+        .build();
+  }
+
+  /**
+   * Assembles the explanation for a platform incompatibility.
+   *
+   * <p>This is useful when trying to explain to the user why an explicitly requested target on the
+   * command line is considered incompatible. The goal is to print out the dependency chain and the
+   * constraint that wasn't satisfied so that the user can immediately figure out what happened.
+   *
+   * @param target the incompatible target that was explicitly requested on the command line.
+   * @return the verbose error message to show to the user.
+   */
+  private static String reportOnIncompatibility(ConfiguredTarget target) {
+    Preconditions.checkNotNull(target);
+
+    String message = "\nDependency chain:";
+    IncompatiblePlatformProvider provider = null;
+
+    // TODO(austinschuh): While the first eror is helpful, reporting all the errors at once would
+    // save the user bazel round trips.
+    while (target != null) {
+      message += "\n    " + target.getLabel();
+      provider = target.getProvider(IncompatiblePlatformProvider.class);
+      ImmutableList<ConfiguredTarget> targetList = provider.targetsResponsibleForIncompatibility();
+      if (targetList == null) {
+        target = null;
+      } else {
+        target = targetList.get(0);
+      }
+    }
+
+    message += "   <-- target platform didn't satisfy constraint";
+    if (provider.constraintsResponsibleForIncompatibility().size() == 1) {
+      message += " " + provider.constraintsResponsibleForIncompatibility().get(0).label();
+      return message;
+    }
+
+    message += "s [";
+
+    boolean first = true;
+    for (ConstraintValueInfo constraintValueInfo :
+        provider.constraintsResponsibleForIncompatibility()) {
+      if (first) {
+        first = false;
+      } else {
+        message += ", ";
+      }
+      message += constraintValueInfo.label();
+    }
+
+    message += "]";
+
+    return message;
   }
 
   /**

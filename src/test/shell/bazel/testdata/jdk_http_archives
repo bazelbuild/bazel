@@ -2,25 +2,25 @@
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_javac11_test_linux",
-    sha256 = "01e6912f7638c2ada1149fcf52979102c06982732a82044d925fc454d31998d8",
+    sha256 = "bd6e8b7091c1f61f2de7dfdf0c47996ffb019582f7c4147a851f59eee7c04e15",
     urls = [
-         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_linux-v10.1.zip",
+         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_linux-v10.3.zip",
     ],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_javac11_test_windows",
-    sha256 = "48bda6ed98762de16cc25bb5d104fd1eacefc2b7c4470c72609a745c12b8870b",
+    sha256 = "022cef618b138199d7b21740d495fbbd201483234b4818185aa6cdc6d162d9a4",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_windows-v10.1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_windows-v10.3.zip",
     ],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_javac11_test_darwin",
-    sha256 = "6a258df035a756eb721855980d6dbdb11ef818d9d293740dd9327f9e2b018bcf",
+    sha256 = "cd8f319b46876e7c3a814095ad9d91dd8589821480548ad48da11949f45a38e6",
     urls = [
-         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_darwin-v10.1.zip",
+         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_darwin-v10.3.zip",
     ],
 )
 

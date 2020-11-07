@@ -274,10 +274,7 @@ public final class EvaluationTest {
           }
 
           @Override
-          public Object call(
-              StarlarkThread thread,
-              Tuple<Object> args,
-              Dict<String, Object> kwargs) {
+          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
             return kwargs;
           }
         };

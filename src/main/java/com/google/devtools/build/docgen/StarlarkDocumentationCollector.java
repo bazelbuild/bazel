@@ -94,14 +94,14 @@ final class StarlarkDocumentationCollector {
     //    e.g. by looking at Starlark.UNIVERSE, something like this:
     //
     //    for (Map<String, Object> e : Starlark.UNIVERSE.entrySet()) {
-    //      if (e.getValue() instanceof BuiltinCallable) {
-    //        BuiltinCallable fn = (BuiltinCallable) e.getValue();
+    //      if (e.getValue() instanceof BuiltinFunction) {
+    //        BuiltinFunction fn = (BuiltinFunction) e.getValue();
     //        topLevelModuleDoc.addMethod(
     //          new StarlarkJavaMethodDoc("", fn.getJavaMethod(), fn.getAnnotation()));
     //      }
     //    }
     //
-    //    Note that BuiltinCallable doesn't actually have getJavaMethod.
+    //    Note that BuiltinFunction doesn't actually have getJavaMethod.
     //
     for (Class<?> candidateClass : classes) {
       if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {

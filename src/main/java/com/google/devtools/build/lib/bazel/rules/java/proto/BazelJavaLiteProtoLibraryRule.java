@@ -60,7 +60,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .add(
             attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
-                .mandatoryNativeProviders(
+                .mandatoryBuiltinProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ProtoLangToolchainProvider.class))
                 .value(getProtoToolchainLabel(DEFAULT_PROTO_TOOLCHAIN_LABEL)))

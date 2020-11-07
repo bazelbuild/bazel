@@ -14,9 +14,8 @@ filegroup(
 java_library(
     name = "eval",
     srcs = [
-        "BuiltinCallable.java",
+        "BuiltinFunction.java",
         "CallUtils.java",
-        "ClassObject.java",
         "CpuProfiler.java",
         "Debug.java",
         "Dict.java",
@@ -48,6 +47,7 @@ java_library(
         "StarlarkThread.java",
         "StarlarkValue.java",
         "StringModule.java",
+        "Structure.java",
         "Tuple.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],

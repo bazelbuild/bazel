@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelMapConverter;
@@ -333,7 +334,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "host_java_launcher",
       defaultValue = "null",
-      converter = LabelConverter.class,
+      converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java launcher used by tools that are executed during a build.")
@@ -342,7 +343,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "java_launcher",
       defaultValue = "null",
-      converter = LabelConverter.class,
+      converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -593,20 +594,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean disallowResourceJars;
 
   @Option(
-      name = "incompatible_load_java_rules_from_bzl",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, direct usage of the native Java rules is disabled. Please use "
-              + "the Starlark rules instead https://github.com/bazelbuild/rules_java")
-  public boolean loadJavaRulesFromBzl;
-
-  @Option(
       name = "experimental_java_header_input_pruning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -711,7 +698,6 @@ public class JavaOptions extends FragmentOptions {
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
     host.disallowResourceJars = disallowResourceJars;
-    host.loadJavaRulesFromBzl = loadJavaRulesFromBzl;
 
     host.javaRuntimeVersion = hostJavaRuntimeVersion;
     host.javaLanguageVersion = hostJavaLanguageVersion;

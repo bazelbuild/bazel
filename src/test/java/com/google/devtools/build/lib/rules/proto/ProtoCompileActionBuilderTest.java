@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -77,21 +76,20 @@ public class ProtoCompileActionBuilderTest {
       ImmutableList<ProtoSource> strictImportableSources) {
     return new ProtoInfo(
         /* directSources */ directProtoSources,
-        /* directDescriptorSet */ artifact("//:direct-descriptor-set", "direct-descriptor-set"),
         /* directProtoSourceRoot */ PathFragment.EMPTY_FRAGMENT,
         /* transitiveSources */ NestedSetBuilder.wrap(Order.STABLE_ORDER, transitiveProtoSources),
-        /* transitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* transitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* originalTransitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* transitiveProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
+        Order.STABLE_ORDER),
+        /* directDescriptorSet */ artifact("//:direct-descriptor-set", "direct-descriptor-set"),
+        /* transitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* exportedSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* strictImportableSources */ NestedSetBuilder.wrap(
             Order.STABLE_ORDER, strictImportableSources),
         /* publicImportSources */ NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, publicImportProtoSources),
-        /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
-            Order.STABLE_ORDER),
-        Location.BUILTIN);
+            Order.STABLE_ORDER, publicImportProtoSources));
   }
 
   @Test

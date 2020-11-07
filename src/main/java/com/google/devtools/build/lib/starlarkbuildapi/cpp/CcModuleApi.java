@@ -644,7 +644,7 @@ public interface CcModuleApi<
 
   @StarlarkMethod(
       name = "create_linker_input",
-      doc = "Creates a <code>LinkingContext</code>.",
+      doc = "Creates a <code>LinkerInput</code>.",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -1105,7 +1105,7 @@ public interface CcModuleApi<
             defaultValue = "None",
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
       })
-  Tuple<Object> createLinkingContextFromCompilationOutputs(
+  Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
       CcToolchainProviderT starlarkCcToolchainProvider,

@@ -2259,4 +2259,103 @@ EOF
   expect_log "INFO: Build completed successfully"
 }
 
+# This test uses the flag experimental_split_coverage_postprocessing. Without
+# the flag coverage won't work remotely. Without the flag, tests and coverage
+# post-processing happen in the same spawn, but only the runfiles tree of the
+# tests is made available to the spawn. The solution was not to merge the
+# runfiles tree which could cause its own problems but to split both into
+# different spawns. The reason why this only failed remotely and not locally was
+# because the coverage post-processing tool escaped the sandbox to find its own
+# runfiles. The error we would see here without the flag would be "Cannot find
+# runfiles". See #4685.
+function test_rbe_coverage_produces_report() {
+  mkdir -p java/factorial
+
+  JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
+  add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+  add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
+  if is_darwin; then
+      add_to_bazelrc "build --javabase=@openjdk14_darwin_archive//:runtime"
+      add_to_bazelrc "build --host_javabase=@openjdk14_darwin_archive//:runtime"
+  fi
+  JAVA_TOOLS_ZIP="released"
+  COVERAGE_GENERATOR_DIR="released"
+
+  cd java/factorial
+
+  cat > BUILD <<'EOF'
+java_library(
+    name = "fact",
+    srcs = ["Factorial.java"],
+)
+
+java_test(
+    name = "fact-test",
+    size = "small",
+    srcs = ["FactorialTest.java"],
+    test_class = "factorial.FactorialTest",
+    deps = [
+        ":fact",
+    ],
+)
+
+EOF
+
+  cat > Factorial.java <<'EOF'
+package factorial;
+
+public class Factorial {
+  public static int factorial(int x) {
+    return x <= 0 ? 1 : x * factorial(x-1);
+  }
+}
+EOF
+
+  cat > FactorialTest.java <<'EOF'
+package factorial;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+
+public class FactorialTest {
+  @Test
+  public void testFactorialOfZeroIsOne() throws Exception {
+    assertEquals(Factorial.factorial(3),6);
+  }
+}
+EOF
+  cd ../..
+
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+
+  bazel coverage \
+    --test_output=all \
+    --experimental_fetch_all_coverage_outputs \
+    --experimental_split_coverage_postprocessing \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --instrumentation_filter=//java/factorial \
+    //java/factorial:fact-test >& $TEST_log || fail "Shouldn't fail"
+
+  local expected_result="SF:java/factorial/Factorial.java
+FN:3,factorial/Factorial::<init> ()V
+FN:5,factorial/Factorial::factorial (I)I
+FNDA:0,factorial/Factorial::<init> ()V
+FNDA:1,factorial/Factorial::factorial (I)I
+FNF:2
+FNH:1
+BRDA:5,0,0,1
+BRDA:5,0,1,1
+BRF:2
+BRH:2
+DA:3,0
+DA:5,1
+LH:1
+LF:2
+end_of_record"
+
+  assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
+}
+
 run_suite "Remote execution and remote cache tests"

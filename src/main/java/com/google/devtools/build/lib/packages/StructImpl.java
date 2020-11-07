@@ -23,12 +23,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -45,30 +45,22 @@ import net.starlark.java.syntax.Location;
  * reported by {@code getFieldNames} their corresponding field values are equivalent, or accessing
  * them both returns an error.
  */
-public abstract class StructImpl implements Info, ClassObject, StructApi {
+public abstract class StructImpl implements Info, Structure, StructApi {
 
-  private final Provider provider;
   private final Location location;
 
   /**
-   * Constructs an {@link StructImpl}.
+   * Constructs a {@link StructImpl}.
    *
-   * @param provider the provider describing the type of this instance
    * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
-  protected StructImpl(Provider provider, @Nullable Location location) {
-    this.provider = provider;
+  protected StructImpl(@Nullable Location location) {
     this.location = location != null ? location : Location.BUILTIN;
   }
 
   @Override
-  public Provider getProvider() {
-    return provider;
-  }
-
-  @Override
-  public Location getCreationLoc() {
+  public Location getCreationLocation() {
     return location;
   }
 
@@ -83,9 +75,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
     try {
       return type.cast(obj);
-    } catch (
-        @SuppressWarnings("UnusedException")
-        ClassCastException unused) {
+    } catch (ClassCastException unused) {
       throw Starlark.errorf(
           "for %s field, got %s, want %s", key, Starlark.type(obj), Starlark.classType(type));
     }
@@ -198,16 +188,16 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       throws EvalException {
     if (value == Starlark.NONE) {
       sb.append("null");
-    } else if (value instanceof ClassObject) {
+    } else if (value instanceof Structure) {
       sb.append("{");
 
       String join = "";
-      for (String field : ((ClassObject) value).getFieldNames()) {
+      for (String field : ((Structure) value).getFieldNames()) {
         sb.append(join);
         join = ",";
         appendJSONStringLiteral(sb, field);
         sb.append(':');
-        printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
+        printJson(((Structure) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
     } else if (value instanceof Dict) {

@@ -345,6 +345,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateSpawnActionShellCommandList() throws Exception {
+    ev.setSemantics("--incompatible_run_shell_command_string=false");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
@@ -444,6 +445,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRunShellArgumentsWithCommandSequence() throws Exception {
+    ev.setSemantics("--incompatible_run_shell_command_string=false");
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
         "'arguments' must be empty if 'command' is a sequence of strings",
@@ -1426,7 +1428,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLacksAdvertisedNativeProvider() throws Exception {
+  public void testLacksAdvertisedBuiltinProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",
         "FooInfo = provider()",
@@ -1974,11 +1976,9 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
-    // This confusing message shows why we should distinguish
-    // built-ins and Starlark functions in their repr strings.
     thrown.expectMessage(
-        "in call to rule(), parameter 'implementation' got value of type 'function', want"
-            + " 'function'");
+        "in call to rule(), parameter 'implementation' got value of type"
+            + " 'builtin_function_or_method', want 'function'");
     getConfiguredTarget("//test:silly");
   }
 
@@ -3049,7 +3049,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "def _path(f): return f.path",
             "args.add_all([directory], map_each=_path)");
 
-    ev.setSemantics("--incompatible_run_shell_command_string");
+    ev.setSemantics("--incompatible_run_shell_command_string=false");
     // setBuildLanguageOptions reinitializes the thread -- set the ruleContext on the new one.
     setRuleContext(createRuleContext("//foo:foo"));
 

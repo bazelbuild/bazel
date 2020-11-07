@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
-import net.starlark.java.syntax.Location;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
@@ -61,19 +60,17 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return builder.build();
   }
 
-  // Direct.
   private final ImmutableList<ProtoSource> directSources;
-  private final Artifact directDescriptorSet;
-  private final PathFragment directProtoSourceRoot;
   private final ImmutableList<Artifact> directProtoSources;
   private final ImmutableList<Artifact> originalDirectProtoSources;
-
-  // Transitive.
+  private final PathFragment directProtoSourceRoot;
   private final NestedSet<ProtoSource> transitiveSources;
-  private final NestedSet<Artifact> transitiveDescriptorSets;
   private final NestedSet<Artifact> transitiveProtoSources;
   private final NestedSet<Artifact> originalTransitiveProtoSources;
   private final NestedSet<String> transitiveProtoSourceRoots;
+  private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
+  private final Artifact directDescriptorSet;
+  private final NestedSet<Artifact> transitiveDescriptorSets;
 
   // Layering checks.
   // TODO(yannic): Consider removing some of these. It should be sufficient to do
@@ -82,58 +79,47 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   private final NestedSet<ProtoSource> strictImportableSources;
   private final NestedSet<ProtoSource> publicImportSources;
 
-  // Misc (deprecated).
-  private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
-
   @AutoCodec.Instantiator
   public ProtoInfo(
-      // Direct.
       ImmutableList<ProtoSource> directSources,
-      Artifact directDescriptorSet,
       PathFragment directProtoSourceRoot,
-      // Transitive.
       NestedSet<ProtoSource> transitiveSources,
-      NestedSet<Artifact> transitiveDescriptorSets,
       NestedSet<Artifact> transitiveProtoSources,
       NestedSet<Artifact> originalTransitiveProtoSources,
       NestedSet<String> transitiveProtoSourceRoots,
+      NestedSet<Artifact> strictImportableProtoSourcesForDependents,
+      Artifact directDescriptorSet,
+      NestedSet<Artifact> transitiveDescriptorSets,
       // Layering checks.
       NestedSet<ProtoSource> exportedSources,
       NestedSet<ProtoSource> strictImportableSources,
-      NestedSet<ProtoSource> publicImportSources,
-      // Misc (deprecated).
-      NestedSet<Artifact> strictImportableProtoSourcesForDependents,
-      Location location) {
-    super(PROVIDER, location);
-
-    // Direct.
+      NestedSet<ProtoSource> publicImportSources) {
     this.directSources = directSources;
-    this.directDescriptorSet = directDescriptorSet;
+    this.directProtoSources = extractProtoSources(directSources);
+    this.originalDirectProtoSources = extractOriginalProtoSources(directSources);
     this.directProtoSourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(directProtoSourceRoot);
-
-    // Transitive.
     this.transitiveSources = transitiveSources;
-    this.transitiveDescriptorSets = transitiveDescriptorSets;
     this.transitiveProtoSources = transitiveProtoSources;
     this.originalTransitiveProtoSources = originalTransitiveProtoSources;
     this.transitiveProtoSourceRoots = transitiveProtoSourceRoots;
+    this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
+    this.directDescriptorSet = directDescriptorSet;
+    this.transitiveDescriptorSets = transitiveDescriptorSets;
 
     // Layering checks.
     this.exportedSources = exportedSources;
     this.strictImportableSources = strictImportableSources;
     this.publicImportSources = publicImportSources;
-
-    // Misc (deprecated).
-    this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
-
-    // Derived.
-    this.directProtoSources = extractProtoSources(directSources);
-    this.originalDirectProtoSources = extractOriginalProtoSources(directSources);
   }
 
   /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
   public ImmutableList<ProtoSource> getDirectSources() {
     return directSources;
+  }
+
+  @Override
+  public BuiltinProvider<ProtoInfo> getProvider() {
+    return PROVIDER;
   }
 
   /**

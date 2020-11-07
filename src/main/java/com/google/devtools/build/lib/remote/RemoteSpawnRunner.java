@@ -66,8 +66,9 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.GrpcRemoteExecutor.ExecuteOperationUpdateReceiver;
+import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -152,7 +153,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Nullable private final Reporter cmdlineReporter;
   private final RemoteExecutionCache remoteCache;
-  @Nullable private final GrpcRemoteExecutor remoteExecutor;
+  private final RemoteExecutionClient remoteExecutor;
   private final RemoteRetrier retrier;
   private final String buildRequestId;
   private final String commandId;
@@ -177,7 +178,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       String buildRequestId,
       String commandId,
       RemoteExecutionCache remoteCache,
-      GrpcRemoteExecutor remoteExecutor,
+      RemoteExecutionClient remoteExecutor,
       ListeningScheduledExecutorService retryService,
       DigestUtil digestUtil,
       Path logDir,
@@ -202,7 +203,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return "remote";
   }
 
-  class ExecutingStatusReporter implements ExecuteOperationUpdateReceiver {
+  class ExecutingStatusReporter implements OperationObserver {
     private boolean reportedExecuting = false;
     private final SpawnExecutionContext context;
 
@@ -211,7 +212,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     @Override
-    public void onNextOperation(Operation o) throws IOException {
+    public void onNext(Operation o) throws IOException {
       if (!reportedExecuting) {
         if (o.getMetadata().is(ExecuteOperationMetadata.class)) {
           ExecuteOperationMetadata metadata =

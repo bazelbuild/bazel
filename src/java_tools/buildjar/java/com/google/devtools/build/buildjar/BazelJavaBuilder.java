@@ -23,6 +23,8 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
+import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -40,8 +42,17 @@ public class BazelJavaBuilder {
   public static void main(String[] args) {
     BazelJavaBuilder builder = new BazelJavaBuilder();
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
-      WorkRequestHandler workerHandler = new WorkRequestHandler(builder::parseAndBuild);
-      System.exit(workerHandler.processRequests(System.in, System.out, System.err));
+      WorkRequestHandler workerHandler =
+          new WorkRequestHandler(
+              builder::parseAndBuild,
+              System.err,
+              new ProtoWorkerMessageProcessor(System.in, System.out));
+      try {
+        workerHandler.processRequests();
+      } catch (IOException e) {
+        System.err.println(e.getMessage());
+        System.exit(1);
+      }
     } else {
       PrintWriter pw =
           new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()));

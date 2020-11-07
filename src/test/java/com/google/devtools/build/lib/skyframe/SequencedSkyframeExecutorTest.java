@@ -93,8 +93,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
@@ -2635,7 +2635,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public <T extends Info> T get(NativeProvider<T> provider) {
+    public <T extends Info> T get(BuiltinProvider<T> provider) {
       return provider.getValueClass().cast(get(provider.getKey()));
     }
 

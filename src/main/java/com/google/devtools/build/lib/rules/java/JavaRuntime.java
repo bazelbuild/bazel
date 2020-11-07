@@ -45,7 +45,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
     filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs"));

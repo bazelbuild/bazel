@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -154,7 +155,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path extra = rootDirectory.getRelative("out/extra");
     FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
-    action.prepare(rootDirectory, /*bulkDeleter=*/ null);
+    action.prepare(rootDirectory, ArtifactPathResolver.IDENTITY, /*bulkDeleter=*/ null);
     assertThat(extra.exists()).isFalse();
   }
 

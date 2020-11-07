@@ -61,7 +61,6 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -633,6 +632,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             "generator_location",
             "features",
             "compatible_with",
+            "target_compatible_with",
             "restricted_to",
             "srcs",
             "tools",
@@ -2311,7 +2311,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     Object substitutionsUnchecked = ev.eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
-    assertThat(substitutionsUnchecked).isEqualTo(Dict.of((Mutability) null, "a", "b"));
+    assertThat(substitutionsUnchecked).isEqualTo(ImmutableMap.of("a", "b"));
   }
 
   private void setUpCoverageInstrumentedTest() throws Exception {
@@ -2421,6 +2421,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "actions.run_shell(command = 'foo', outputs = [file])",
           "actions.write(file, 'foo')",
           "check_placeholders('foo', [])",
+          "build_file_path",
           "runfiles()",
           "resolve_command(command = 'foo')",
           "resolve_tools()");
@@ -2994,5 +2995,24 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
     assertContainsEvent("Exec group name '" + badName + "' is not a valid name.");
+  }
+
+  @Test
+  public void testBuildFilePath() throws Exception {
+    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
+
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='foo', path='/foo')")
+            .build());
+
+    invalidatePackages(false);
+
+    setRuleContext(createRuleContext("@foo//bar:baz"));
+    Object result = ev.eval("ruleContext.build_file_path");
+    assertThat(result).isEqualTo("bar/BUILD");
   }
 }

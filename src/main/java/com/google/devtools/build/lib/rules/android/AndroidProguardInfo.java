@@ -38,8 +38,12 @@ public final class AndroidProguardInfo extends NativeInfo
   private final ImmutableList<Artifact> localProguardSpecs;
 
   public AndroidProguardInfo(ImmutableList<Artifact> localProguardSpecs) {
-    super(PROVIDER);
     this.localProguardSpecs = localProguardSpecs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

@@ -684,7 +684,7 @@ public class AndroidCommon {
             .setNeverlink(isNeverlink)
             .build();
 
-    // Do not convert the ResourceApk into native providers when it is created from
+    // Do not convert the ResourceApk into builtin providers when it is created from
     // Starlark via AndroidApplicationResourceInfo, because native dependency providers are not
     // created in the Starlark pipeline.
     if (resourceApk.isFromAndroidApplicationResourceInfo()

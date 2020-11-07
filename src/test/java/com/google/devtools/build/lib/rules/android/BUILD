@@ -362,7 +362,6 @@ java_test(
     tags = ["manual"],
     deps = [
         ":AndroidBuildViewTestCase",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

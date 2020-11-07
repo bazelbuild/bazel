@@ -170,22 +170,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalJavaProtoAddAllowedPublicImports;
 
     @Option(
-        name = "incompatible_load_proto_rules_from_bzl",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If enabled, direct usage of the native Protobuf rules is disabled. Please use "
-                + "the Starlark rules instead at https://github.com/bazelbuild/rules_proto")
-    public boolean loadProtoRulesFromBzl;
-
-    @Option(
         name = "incompatible_blacklisted_protos_requires_proto_info",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
@@ -199,7 +185,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
-      host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
       host.experimentalProtoDescriptorSetsIncludeSourceInfo =
@@ -309,10 +294,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean generatedProtosInVirtualImports() {
     return options.generatedProtosInVirtualImports;
-  }
-
-  public boolean loadProtoRulesFromBzl() {
-    return options.loadProtoRulesFromBzl;
   }
 
   public boolean blacklistedProtosRequiresProtoInfo() {

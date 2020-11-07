@@ -32,12 +32,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * Utility functions for proto_library and proto aspect implementations.
@@ -360,27 +358,6 @@ public class ProtoCommon {
     return ruleContext.getLabel().getPackageIdentifier().equals(source.getPackageIdentifier());
   }
 
-  public static void checkRuleHasValidMigrationTag(RuleContext ruleContext) {
-    if (!ruleContext.getFragment(ProtoConfiguration.class).loadProtoRulesFromBzl()) {
-      return;
-    }
-
-    if (!hasValidMigrationTag(ruleContext)) {
-      ruleContext.ruleError(
-          "The native Protobuf rules are deprecated. Please load "
-              + ruleContext.getRule().getRuleClass()
-              + " from the rules_proto repository."
-              + " See http://github.com/bazelbuild/rules_proto.");
-    }
-  }
-
-  private static boolean hasValidMigrationTag(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains(PROTO_RULES_MIGRATION_LABEL);
-  }
-
   /**
    * Creates the {@link ProtoInfo} for the {@code proto_library} rule associated with {@code
    * ruleContext}.
@@ -412,48 +389,42 @@ public class ProtoCommon {
           createLibraryWithoutVirtualSourceRoot(contextProtoSourceRoot, originalDirectProtoSources);
     }
 
-    // Direct.
     ImmutableList<ProtoSource> directSources = library.getSources();
-    Artifact directDescriptorSet =
-        ruleContext.getGenfilesArtifact(
-            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
     PathFragment directProtoSourceRoot = library.getSourceRoot();
-
-    // Transitive.
     NestedSet<ProtoSource> transitiveSources = computeTransitiveProtoSources(deps, library);
-    NestedSet<Artifact> transitiveDescriptorSets =
-        computeTransitiveDescriptorSets(directDescriptorSet, deps);
     NestedSet<Artifact> transitiveProtoSources =
         computeTransitiveProtoSourceArtifacts(directSources, deps);
     NestedSet<Artifact> transitiveOriginalProtoSources =
         computeTransitiveOriginalProtoSources(deps, originalDirectProtoSources);
     NestedSet<String> transitiveProtoSourceRoots =
         computeTransitiveProtoSourceRoots(deps, directProtoSourceRoot.getSafePathString());
+    NestedSet<Artifact> strictImportableProtosForDependents =
+        computeStrictImportableProtosForDependents(directSources, deps);
+    Artifact directDescriptorSet =
+        ruleContext.getGenfilesArtifact(
+            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
+    NestedSet<Artifact> transitiveDescriptorSets =
+        computeTransitiveDescriptorSets(directDescriptorSet, deps);
 
     // Layering checks.
     NestedSet<ProtoSource> exportedSources = computeExportedProtos(directSources, deps);
     NestedSet<ProtoSource> strictImportableSources =
         computeStrictImportableProtos(directSources, deps);
-    NestedSet<ProtoSource> publicImportSources = computePublicImportProtos(directSources, exports);
-
-    // Misc (deprecated).
-    NestedSet<Artifact> strictImportableProtoSourcesForDependents =
-        computeStrictImportableProtosForDependents(directSources, deps);
+    NestedSet<ProtoSource> publicImportSources = computePublicImportProtos(exports);
 
     return new ProtoInfo(
         directSources,
-        directDescriptorSet,
         directProtoSourceRoot,
         transitiveSources,
-        transitiveDescriptorSets,
         transitiveProtoSources,
         transitiveOriginalProtoSources,
         transitiveProtoSourceRoots,
+        strictImportableProtosForDependents,
+        directDescriptorSet,
+        transitiveDescriptorSets,
         exportedSources,
         strictImportableSources,
-        publicImportSources,
-        strictImportableProtoSourcesForDependents,
-        Location.BUILTIN);
+        publicImportSources);
   }
 
   public static Runfiles.Builder createDataRunfilesProvider(
@@ -541,9 +512,8 @@ public class ProtoCommon {
    * Returns the .proto files that are the direct srcs of the exported dependencies of this rule.
    */
   private static NestedSet<ProtoSource> computePublicImportProtos(
-      ImmutableList<ProtoSource> directSources, ImmutableList<ProtoInfo> exports) {
+      ImmutableList<ProtoInfo> exports) {
     NestedSetBuilder<ProtoSource> result = NestedSetBuilder.stableOrder();
-    result.addAll(directSources);
     for (ProtoInfo export : exports) {
       result.addTransitive(export.getExportedSources());
     }

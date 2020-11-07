@@ -172,7 +172,9 @@ public class CcToolchainProviderHelper {
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
     for (String s : toolchainConfigInfo.getCxxBuiltinIncludeDirectories()) {
       try {
-        builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot, toolsDirectory));
+        builtInIncludeDirectoriesBuilder.add(
+            resolveIncludeDir(
+                s, sysroot, toolsDirectory, configuration.isSiblingRepositoryLayout()));
       } catch (InvalidConfigurationException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -323,7 +325,10 @@ public class CcToolchainProviderHelper {
    * <p>If it is absolute, it remains unchanged.
    */
   static PathFragment resolveIncludeDir(
-      String s, PathFragment sysroot, PathFragment crosstoolTopPathFragment)
+      String s,
+      PathFragment sysroot,
+      PathFragment crosstoolTopPathFragment,
+      boolean siblingRepositoryLayout)
       throws InvalidConfigurationException {
     PathFragment pathPrefix;
     String pathString;
@@ -332,7 +337,7 @@ public class CcToolchainProviderHelper {
       String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
       try {
         // TODO(jungjw): This should probably be getExecPath.
-        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath();
+        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath(siblingRepositoryLayout);
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
       }

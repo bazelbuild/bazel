@@ -157,15 +157,15 @@ public class AspectDefinitionTest {
             .build();
     AdvertisedProviderSet expectedOkSet =
         AdvertisedProviderSet.builder()
-            .addNative(P1.class)
-            .addNative(P2.class)
-            .addNative(P3.class)
+            .addBuiltin(P1.class)
+            .addBuiltin(P2.class)
+            .addBuiltin(P3.class)
             .build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
         .isTrue();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addNative(P1.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
         .isFalse();
 
@@ -184,13 +184,13 @@ public class AspectDefinitionTest {
             .build();
 
     AdvertisedProviderSet expectedOkSet1 =
-        AdvertisedProviderSet.builder().addNative(P1.class).addNative(P2.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).addBuiltin(P2.class).build();
 
     AdvertisedProviderSet expectedOkSet2 =
-        AdvertisedProviderSet.builder().addNative(P3.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P3.class).build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addNative(P4.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
 
    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
        .isTrue();
@@ -208,7 +208,7 @@ public class AspectDefinitionTest {
         .build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addNative(P4.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
 
     assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
         .isFalse();

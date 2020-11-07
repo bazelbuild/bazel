@@ -23,6 +23,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** A provider for targets that produce an apk file. */
 @Immutable
@@ -37,8 +38,8 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
   private final Artifact apk;
   private final Artifact unsignedApk;
-  @Nullable
-  private final Artifact coverageMetadata;
+  private final Artifact deployJar;
+  @Nullable private final Artifact coverageMetadata;
   private final Artifact mergedManifest;
   private final ImmutableList<Artifact> signingKeys;
   @Nullable private final Artifact signingLineage;
@@ -46,17 +47,23 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   ApkInfo(
       Artifact apk,
       Artifact unsignedApk,
+      Artifact deployJar,
       @Nullable Artifact coverageMetadata,
       Artifact mergedManifest,
       List<Artifact> signingKeys,
       @Nullable Artifact signingLineage) {
-    super(PROVIDER);
     this.apk = apk;
     this.unsignedApk = unsignedApk;
+    this.deployJar = deployJar;
     this.coverageMetadata = coverageMetadata;
     this.mergedManifest = mergedManifest;
     this.signingKeys = ImmutableList.copyOf(signingKeys);
     this.signingLineage = signingLineage;
+  }
+
+  @Override
+  public ApkInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -68,6 +75,12 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   @Override
   public Artifact getUnsignedApk() {
     return unsignedApk;
+  }
+
+  /** Returns the deploy jar used to build the APK. */
+  @Override
+  public Artifact getDeployJar() {
+    return deployJar;
   }
 
   /** Returns the coverage metadata artifact generated in the transitive closure. */
@@ -109,7 +122,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
     @Override
     public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException {
-      return throwUnsupportedConstructorException();
+      throw Starlark.errorf("'%s' cannot be constructed from Starlark", getPrintableName());
     }
   }
 }

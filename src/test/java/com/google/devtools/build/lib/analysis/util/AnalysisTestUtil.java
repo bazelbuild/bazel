@@ -507,11 +507,7 @@ public final class AnalysisTestUtil {
     for (Artifact artifact : artifacts) {
       ArtifactRoot root = artifact.getRoot();
       if (root.isSourceRoot()) {
-        if (root.isExternalSourceRoot()) {
-          files.add("src(external) " + artifact.getRootRelativePath());
-        } else {
-          files.add("src " + artifact.getRootRelativePath());
-        }
+        files.add("src " + artifact.getExecPath());
       } else {
         String name = rootMap.getOrDefault(root.getRoot().toString(), "/");
         files.add(name + " " + artifact.getRootRelativePath());

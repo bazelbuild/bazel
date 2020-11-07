@@ -17,10 +17,8 @@ package net.starlark.java.eval;
 import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
@@ -275,45 +273,18 @@ final class StringModule implements StarlarkValue {
         @Param(name = "new", doc = "The string to replace with."),
         @Param(
             name = "count",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(
-                  type = NoneType.class), // TODO(#11244): remove once incompatible flag is deleted.
-            },
-            defaultValue = "unbound",
+            defaultValue = "-1",
             doc =
-                "The maximum number of replacements. If omitted, there is no limit."
-                    + "<p>If <code>--incompatible_string_replace_count</code> is true, a negative "
-                    + "value is ignored (so there's no limit) and a <code>None</code> value is an "
-                    + "error. Otherwise, a negative value is treated as 0 and a <code>None</code> "
-                    + "value is ignored. (See also issue <a "
-                    + "href='https://github.com/bazelbuild/bazel/issues/11244'>#11244</a>.)")
+                "The maximum number of replacements. If omitted, or if the value is negative, "
+                    + "there is no limit.")
       },
       useStarlarkThread = true)
   public String replace(
-      String self, String oldString, String newString, Object countUnchecked, StarlarkThread thread)
+      String self, String oldString, String newString, StarlarkInt countI, StarlarkThread thread)
       throws EvalException {
-    int count = Integer.MAX_VALUE;
-
-    StarlarkSemantics semantics = thread.getSemantics();
-    if (semantics.getBool(StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT)) {
-      if (countUnchecked == Starlark.NONE) {
-        throw Starlark.errorf(
-            "Cannot pass a None count to string.replace(); omit the count argument instead. (You "
-                + "can temporarily opt out of this change by setting "
-                + "--incompatible_string_replace_count=false.)");
-      }
-      if (countUnchecked != Starlark.UNBOUND) {
-        int x = Starlark.toInt(countUnchecked, "count");
-        if (x >= 0) {
-          count = x;
-        }
-      }
-    } else {
-      if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
-        // Negative has same effect as 0 below.
-        count = Starlark.toInt(countUnchecked, "count");
-      }
+    int count = countI.toInt("count");
+    if (count < 0) {
+      count = Integer.MAX_VALUE;
     }
 
     StringBuilder sb = new StringBuilder();
@@ -366,7 +337,7 @@ final class StringModule implements StarlarkValue {
     if (maxSplitO != Starlark.NONE) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
-    ArrayList<String> res = new ArrayList<>();
+    StarlarkList.Builder<String> res = StarlarkList.builder();
     int start = 0;
     while (true) {
       int end = self.indexOf(sep, start);
@@ -377,7 +348,7 @@ final class StringModule implements StarlarkValue {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return StarlarkList.copyOf(thread.mutability(), res);
+    return res.build(thread.mutability());
   }
 
   @StarlarkMethod(
@@ -431,7 +402,7 @@ final class StringModule implements StarlarkValue {
               + " separator, after). If the input string does not contain the separator, partition"
               + " returns (self, '', '').",
       parameters = {@Param(name = "self"), @Param(name = "sep", doc = "The string to split on.")})
-  public Tuple<String> partition(String self, String sep) throws EvalException {
+  public Tuple partition(String self, String sep) throws EvalException {
     return partitionCommon(self, sep, /*first=*/ true);
   }
 
@@ -443,7 +414,7 @@ final class StringModule implements StarlarkValue {
               + " separator, after). If the input string does not contain the separator,"
               + " rpartition returns ('', '', self).",
       parameters = {@Param(name = "self"), @Param(name = "sep", doc = "The string to split on.")})
-  public Tuple<String> rpartition(String self, String sep) throws EvalException {
+  public Tuple rpartition(String self, String sep) throws EvalException {
     return partitionCommon(self, sep, /*first=*/ false);
   }
 
@@ -451,7 +422,7 @@ final class StringModule implements StarlarkValue {
   // and returns a triple of substrings (before, separator, after).
   // If the input does not contain the separator,
   // it returns (input, "", "") if first, or ("", "", input), if !first.
-  private static Tuple<String> partitionCommon(String input, String separator, boolean first)
+  private static Tuple partitionCommon(String input, String separator, boolean first)
       throws EvalException {
     if (separator.isEmpty()) {
       throw Starlark.errorf("empty separator");
@@ -673,7 +644,7 @@ final class StringModule implements StarlarkValue {
       name = "splitlines",
       doc =
           "Splits the string at line boundaries ('\\n', '\\r\\n', '\\r') "
-              + "and returns the result as a list.",
+              + "and returns the result as a new mutable list.",
       parameters = {
         @Param(name = "self", doc = "This string."),
         @Param(
@@ -681,9 +652,10 @@ final class StringModule implements StarlarkValue {
             name = "keepends",
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
-      })
-  public Sequence<String> splitLines(String self, Boolean keepEnds) throws EvalException {
-    List<String> result = new ArrayList<>();
+      },
+      useStarlarkThread = true)
+  public Sequence<String> splitLines(String self, boolean keepEnds, StarlarkThread thread) {
+    StarlarkList.Builder<String> result = StarlarkList.builder();
     Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
     while (matcher.find()) {
       String line = matcher.group("line");
@@ -698,9 +670,9 @@ final class StringModule implements StarlarkValue {
         result.add(line);
       }
     }
-    // TODO(adonovan): spec should state immutability.
-    // Python[23] and go.starlark.net return a mutable list.
-    return StarlarkList.immutableCopyOf(result);
+    // TODO(adonovan): spec should state that result is mutable,
+    // as in Python[23] and go.starlark.net.
+    return result.build(thread.mutability());
   }
 
   @StarlarkMethod(
@@ -883,12 +855,13 @@ final class StringModule implements StarlarkValue {
               + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
               + "returned value might not be a list.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Sequence<String> elems(String self) throws EvalException {
-    ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+  public Sequence<String> elems(String self) {
+    // TODO(adonovan): opt: return a new type that is lazily iterable.
+    StarlarkList.Builder<String> res = StarlarkList.builder();
     for (char c : self.toCharArray()) {
-      builder.add(String.valueOf(c));
+      res.add(String.valueOf(c));
     }
-    return StarlarkList.immutableCopyOf(builder.build());
+    return res.buildImmutable();
   }
 
   @StarlarkMethod(
@@ -968,8 +941,7 @@ final class StringModule implements StarlarkValue {
       extraPositionals = @Param(name = "args", defaultValue = "()", doc = "List of arguments."),
       extraKeywords =
           @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."))
-  public String format(String self, Tuple<Object> args, Dict<String, Object> kwargs)
-      throws EvalException {
+  public String format(String self, Tuple args, Dict<String, Object> kwargs) throws EvalException {
     return new FormatParser().format(self, args, kwargs);
   }
 

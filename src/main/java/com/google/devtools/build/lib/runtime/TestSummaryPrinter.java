@@ -60,8 +60,16 @@ public class TestSummaryPrinter {
     for (Path path : summary.getPassedLogs()) {
       allLogs.add(testLogPathFormatter.getPathStringToPrint(path));
     }
-    printer.printLn("" + TestSummary.getStatusMode(summary.getStatus()) + summary.getStatus() + ": "
-        + Mode.DEFAULT + testName + " (see " + Joiner.on(' ').join(allLogs) + ")");
+    printer.printLn(
+        ""
+            + summary.getStatusMode()
+            + summary.getStatus()
+            + ": "
+            + Mode.DEFAULT
+            + testName
+            + " (see "
+            + Joiner.on(' ').join(allLogs)
+            + ")");
     printer.printLn(Mode.INFO + "INFO: " + Mode.DEFAULT + "From Testing " + testName);
 
     // Whether to output the target at all was checked by the caller.
@@ -90,12 +98,18 @@ public class TestSummaryPrinter {
     }
   }
 
-  private static String statusString(BlazeTestStatus status) {
-    return status.toString().replace('_', ' ');
+  private static String statusString(TestSummary summary) {
+    if (summary.isSkipped()) {
+      // If the test was skipped then its status will be something like NO_STATUS. That's not
+      // informative enough to a user. Instead, return "SKIPPED" for skipped tests.
+      return "SKIPPED";
+    }
+    return summary.getStatus().toString().replace('_', ' ');
   }
 
   /**
    * Prints summary status for a single test.
+   *
    * @param terminalPrinter The printer to print to
    */
   public static void print(
@@ -130,15 +144,19 @@ public class TestSummaryPrinter {
         || status == BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING) {
       return;
     }
-    String message = getCacheMessage(summary) + statusString(summary.getStatus());
+    String message = getCacheMessage(summary) + statusString(summary);
     String targetName = summary.getLabel().toString();
     if (withConfigurationName) {
       targetName += " (" + summary.getConfiguration().getMnemonic() + ")";
     }
     terminalPrinter.print(
         Strings.padEnd(targetName, 78 - message.length(), ' ')
-            + " " + TestSummary.getStatusMode(summary.getStatus()) + message + Mode.DEFAULT
-            + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "") + "\n");
+            + " "
+            + summary.getStatusMode()
+            + message
+            + Mode.DEFAULT
+            + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "")
+            + "\n");
 
     if (printFailedTestCases && summary.getStatus() == BlazeTestStatus.FAILED) {
       if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {

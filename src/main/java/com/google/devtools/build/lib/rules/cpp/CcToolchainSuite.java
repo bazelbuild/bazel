@@ -45,7 +45,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
-    String transformedCpu = cppConfiguration.getTransformedCpuFromOptions();
+    String transformedCpu = ruleContext.getConfiguration().getCpu();
     String compiler = cppConfiguration.getCompilerFromOptions();
     String key = transformedCpu + (compiler == null ? "" : ("|" + compiler));
     Map<String, Label> toolchains =

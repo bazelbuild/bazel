@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
@@ -322,6 +323,12 @@ public final class ConfiguredTargetFactory {
                     prerequisiteMap.values()))
             .build();
 
+    ConfiguredTarget incompatibleTarget =
+        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
+    if (incompatibleTarget != null) {
+      return incompatibleTarget;
+    }
+
     List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
@@ -588,7 +595,7 @@ public final class ConfiguredTargetFactory {
     if (advertisedProviders.canHaveAnyProvider()) {
       return;
     }
-    for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
+    for (Class<?> aClass : advertisedProviders.getBuiltinProviders()) {
       if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
         eventHandler.handle(
             Event.error(

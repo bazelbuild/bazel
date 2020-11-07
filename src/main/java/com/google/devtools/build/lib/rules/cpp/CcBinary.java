@@ -152,9 +152,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     private final CcInfo ccInfo;
 
     public CcLauncherInfo(CcInfo ccInfo, CcCompilationOutputs ccCompilationOutputs) {
-      super(PROVIDER);
       this.ccInfo = ccInfo;
       this.ccCompilationOutputs = ccCompilationOutputs;
+    }
+
+    @Override
+    public Provider getProvider() {
+      return PROVIDER;
     }
 
     public CcCompilationOutputs getCcCompilationOutputs(RuleContext ruleContext) {
@@ -1299,11 +1303,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           return null;
         }
 
-        @SuppressWarnings("rawtypes")
         NestedSet<Tuple> dynamicDeps =
             Depset.noneableCast(dynamicDepsField, Tuple.class, "dynamic_deps");
 
-        for (Tuple<?> exportsAndLinkerInput : dynamicDeps.toList()) {
+        for (Tuple exportsAndLinkerInput : dynamicDeps.toList()) {
           List<String> exportsFromDynamicDep =
               Sequence.noneableCast(
                   exportsAndLinkerInput.get(0), String.class, "exports_from_dynamic_dep");

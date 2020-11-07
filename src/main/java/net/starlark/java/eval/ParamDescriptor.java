@@ -46,7 +46,7 @@ final class ParamDescriptor {
       @Nullable String disabledByFlag) {
     this.name = name;
     // TODO(adonovan): apply the same validation logic to the default value
-    // as we do to caller-supplied values (see BuiltinCallable.checkParamValue).
+    // as we do to caller-supplied values (see BuiltinFunction.checkParamValue).
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.named = named;
     this.positional = positional;

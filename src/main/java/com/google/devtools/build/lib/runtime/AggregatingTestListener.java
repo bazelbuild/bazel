@@ -110,7 +110,11 @@ public class AggregatingTestListener {
         continue;
       }
       TestResultAggregator aggregator =
-          new TestResultAggregator(target, event.getConfigurationForTarget(target), policy);
+          new TestResultAggregator(
+              target,
+              event.getConfigurationForTarget(target),
+              policy,
+              event.getSkippedTests().contains(target));
       TestResultAggregator oldAggregator = aggregators.put(asKey(target), aggregator);
       Preconditions.checkState(
           oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
@@ -140,20 +144,39 @@ public class AggregatingTestListener {
     }
   }
 
+  private void targetSkipped(ConfiguredTargetKey configuredTargetKey) {
+    TestResultAggregator aggregator = aggregators.get(configuredTargetKey);
+    if (aggregator != null) {
+      aggregator.targetSkipped();
+    }
+  }
+
   @VisibleForTesting
   void buildComplete(
-      Collection<ConfiguredTarget> actualTargets, Collection<ConfiguredTarget> successfulTargets) {
+      Collection<ConfiguredTarget> actualTargets,
+      Collection<ConfiguredTarget> skippedTargets,
+      Collection<ConfiguredTarget> successfulTargets) {
     if (actualTargets == null || successfulTargets == null) {
       return;
     }
 
+    ImmutableSet<ConfiguredTarget> nonSuccessfulTargets =
+        Sets.difference(ImmutableSet.copyOf(actualTargets), ImmutableSet.copyOf(successfulTargets))
+            .immutableCopy();
     for (ConfiguredTarget target :
         Sets.difference(
-            ImmutableSet.copyOf(actualTargets), ImmutableSet.copyOf(successfulTargets))) {
+            ImmutableSet.copyOf(nonSuccessfulTargets), ImmutableSet.copyOf(skippedTargets))) {
       if (isAlias(target)) {
         continue;
       }
       targetFailure(asKey(target));
+    }
+
+    for (ConfiguredTarget target : skippedTargets) {
+      if (isAlias(target)) {
+        continue;
+      }
+      targetSkipped(asKey(target));
     }
   }
 
@@ -164,7 +187,8 @@ public class AggregatingTestListener {
       blazeHalted = true;
     }
     skipTargetsOnFailure = result.getStopOnFirstFailure();
-    buildComplete(result.getActualTargets(), result.getSuccessfulTargets());
+    buildComplete(
+        result.getActualTargets(), result.getSkippedTargets(), result.getSuccessfulTargets());
   }
 
   @Subscribe

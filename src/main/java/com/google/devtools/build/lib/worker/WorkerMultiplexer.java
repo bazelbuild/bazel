@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -49,7 +51,7 @@ public class WorkerMultiplexer extends Thread {
   /** A semaphore to protect {@code workerProcessResponse} object. */
   private Semaphore semWorkerProcessResponse;
   /**
-   * A map of semaphores corresponding to {@code WorkerProxy} objects. After sending the {@code
+   * A map of semaphores corresponding to {@code WorkRequest}s. After sending the {@code
    * WorkRequest}, {@code WorkerProxy} will wait on a semaphore to be released. {@code
    * WorkerMultiplexer} is responsible for releasing the corresponding semaphore in order to signal
    * {@code WorkerProxy} that the {@code WorkerResponse} has been received.
@@ -79,6 +81,8 @@ public class WorkerMultiplexer extends Thread {
    */
   private final Path logFile;
 
+  private SubprocessFactory subprocessFactory = null;
+
   WorkerMultiplexer(Path logFile) {
     semWorkerProcessResponse = new Semaphore(1);
     semResponseChecker = new Semaphore(1);
@@ -96,10 +100,7 @@ public class WorkerMultiplexer extends Thread {
    */
   public synchronized void createProcess(WorkerKey workerKey, Path workDir) throws IOException {
     // The process may have died in the meanwhile (e.g. between builds).
-    if (this.process != null && !this.process.isAlive()) {
-      this.process = null;
-    }
-    if (this.process == null) {
+    if (this.process == null || !this.process.isAlive()) {
       ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
       if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -107,7 +108,10 @@ public class WorkerMultiplexer extends Thread {
         newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
         args = ImmutableList.copyOf(newArgs);
       }
-      SubprocessBuilder processBuilder = new SubprocessBuilder();
+      SubprocessBuilder processBuilder =
+          subprocessFactory != null
+              ? new SubprocessBuilder(subprocessFactory)
+              : new SubprocessBuilder();
       processBuilder.setArgv(args);
       processBuilder.setWorkingDirectory(workDir.getPathFile());
       processBuilder.setStderr(logFile.getPathFile());
@@ -178,43 +182,53 @@ public class WorkerMultiplexer extends Thread {
    * Waits on a semaphore for the {@code WorkResponse} returned from worker process. This method is
    * called on the thread of a {@code WorkerProxy}.
    */
-  public InputStream getResponse(Integer workerId) throws IOException, InterruptedException {
-    semResponseChecker.acquire();
-    Semaphore waitForResponse = responseChecker.get(workerId);
-    semResponseChecker.release();
+  public InputStream getResponse(Integer requestId) throws IOException, InterruptedException {
+    try {
+      semResponseChecker.acquire();
+      Semaphore waitForResponse = responseChecker.get(requestId);
+      semResponseChecker.release();
 
-    if (waitForResponse == null) {
-      // If the multiplexer is interrupted when a {@code WorkerProxy} is trying to send a request,
-      // the request is not sent, so there is no need to wait for a response.
-      return null;
+      if (waitForResponse == null) {
+        // If the multiplexer is interrupted when a {@code WorkerProxy} is trying to send a request,
+        // the request is not sent, so there is no need to wait for a response.
+        return null;
+      }
+
+      // Wait for the multiplexer to get our response and release this semaphore. The semaphore will
+      // throw {@code InterruptedException} when the multiplexer is terminated.
+      waitForResponse.acquire();
+
+      if (isWorkerStreamClosed) {
+        return null;
+      }
+
+      if (isUnparseable) {
+        recordingStream.readRemaining();
+        throw new IOException(recordingStream.getRecordedDataAsString());
+      }
+
+      semWorkerProcessResponse.acquire();
+      InputStream response = workerProcessResponse.get(requestId);
+      semWorkerProcessResponse.release();
+      return response;
+    } finally {
+      // TODO(b/151767359): Make sure these also get cleared if a worker gets
+      semResponseChecker.acquire();
+      responseChecker.remove(requestId);
+      semResponseChecker.release();
+      semWorkerProcessResponse.acquire();
+      workerProcessResponse.remove(requestId);
+      semWorkerProcessResponse.release();
     }
-
-    // Wait for the multiplexer to get our response and release this semaphore. The semaphore will
-    // throw {@code InterruptedException} when the multiplexer is terminated.
-    waitForResponse.acquire();
-
-    if (isWorkerStreamClosed) {
-      return null;
-    }
-
-    if (isUnparseable) {
-      recordingStream.readRemaining();
-      throw new IOException(recordingStream.getRecordedDataAsString());
-    }
-
-    semWorkerProcessResponse.acquire();
-    InputStream response = workerProcessResponse.get(workerId);
-    semWorkerProcessResponse.release();
-    return response;
   }
 
   /**
-   * Resets the semaphore map for {@code workerId} before sending a request to the worker process.
+   * Resets the semaphore map for {@code requestId} before sending a request to the worker process.
    * This method is called on the thread of a {@code WorkerProxy}.
    */
-  public void resetResponseChecker(Integer workerId) throws InterruptedException {
+  public void resetResponseChecker(Integer requestId) throws InterruptedException {
     semResponseChecker.acquire();
-    responseChecker.put(workerId, new Semaphore(0));
+    responseChecker.put(requestId, new Semaphore(0));
     semResponseChecker.release();
   }
 
@@ -234,16 +248,18 @@ public class WorkerMultiplexer extends Thread {
       return;
     }
 
-    Integer workerId = parsedResponse.getRequestId();
+    int requestId = parsedResponse.getRequestId();
     ByteArrayOutputStream tempOs = new ByteArrayOutputStream();
     parsedResponse.writeDelimitedTo(tempOs);
 
     semWorkerProcessResponse.acquire();
-    workerProcessResponse.put(workerId, new ByteArrayInputStream(tempOs.toByteArray()));
+    workerProcessResponse.put(requestId, new ByteArrayInputStream(tempOs.toByteArray()));
     semWorkerProcessResponse.release();
 
+    // TODO(b/151767359): When allowing cancellation, remove responses that have no matching
+    // entry in responseChecker.
     semResponseChecker.acquire();
-    responseChecker.get(workerId).release();
+    responseChecker.get(requestId).release();
     semResponseChecker.release();
   }
 
@@ -274,13 +290,23 @@ public class WorkerMultiplexer extends Thread {
   private void releaseAllSemaphores() {
     try {
       semResponseChecker.acquire();
-      for (Integer workerId : responseChecker.keySet()) {
-        responseChecker.get(workerId).release();
+      for (Integer requestId : responseChecker.keySet()) {
+        responseChecker.get(requestId).release();
       }
     } catch (InterruptedException e) {
       // Do nothing
     } finally {
       semResponseChecker.release();
     }
+  }
+
+  /** For testing only, to verify that maps are cleared after responses are reaped. */
+  @VisibleForTesting
+  boolean noOutstandingRequests() {
+    return responseChecker.isEmpty() && workerProcessResponse.isEmpty();
+  }
+
+  public void setProcessFactory(SubprocessFactory factory) {
+    subprocessFactory = factory;
   }
 }

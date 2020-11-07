@@ -133,6 +133,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    public Builder setSkipped(boolean skipped) {
+      checkMutation(skipped);
+      summary.skipped = skipped;
+      return this;
+    }
+
     public Builder addCoverageFiles(List<Path> coverageFiles) {
       checkMutation(coverageFiles);
       summary.coverageFiles.addAll(coverageFiles);
@@ -342,6 +348,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private ConfiguredTarget target;
   private BuildConfiguration configuration;
   private BlazeTestStatus status;
+  private boolean skipped;
   // Currently only populated if --runs_per_test_detects_flakes is enabled.
   private Multimap<Integer, BlazeTestStatus> shardRunStatuses = ArrayListMultimap.create();
   private int numCached;
@@ -387,6 +394,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public BlazeTestStatus getStatus() {
     return status;
+  }
+
+  public boolean isSkipped() {
+    return skipped;
   }
 
   /**
@@ -525,7 +536,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return lastStopTimeMillis;
   }
 
-  static Mode getStatusMode(BlazeTestStatus status) {
+  Mode getStatusMode() {
+    if (skipped) {
+      return Mode.WARNING;
+    }
     return status == BlazeTestStatus.PASSED
         ? Mode.INFO
         : (status == BlazeTestStatus.FLAKY ? Mode.WARNING : Mode.ERROR);

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -447,6 +448,11 @@ public class BaseRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
                   .value(ImmutableList.of()))
+          .add(
+              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                  // This should be configurable to allow for complex types of restrictions.
+                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 

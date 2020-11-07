@@ -495,6 +495,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         factory.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
+        logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
         // Do nothing.
         // This throw happens if the builder requested the failed node, and then checked the
         // interrupted state later -- getValueOrThrow sets the interrupted bit after the failed

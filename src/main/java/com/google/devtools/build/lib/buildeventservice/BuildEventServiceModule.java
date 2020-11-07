@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -695,6 +696,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         .bepOptions(bepOptions)
         .clock(cmdEnv.getRuntime().getClock())
         .eventBus(cmdEnv.getEventBus())
+        .commandStartTime(Timestamps.fromMillis(cmdEnv.getCommandStartTime()))
         .build();
   }
 

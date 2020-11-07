@@ -30,13 +30,13 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 
 /** Interface for a context object given to rule implementation functions. */
@@ -291,7 +291,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   FileRootApi getGenfilesDirectory() throws EvalException;
 
   @StarlarkMethod(name = "outputs", structField = true, doc = OUTPUTS_DOC)
-  ClassObject outputs() throws EvalException;
+  Structure outputs() throws EvalException;
 
   @StarlarkMethod(
       name = "rule",
@@ -694,7 +694,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "for useful keys."),
       },
       useStarlarkThread = true)
-  Tuple<Object> resolveCommand(
+  Tuple resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
@@ -725,5 +725,5 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             positional = false,
             doc = "List of tools (list of targets)."),
       })
-  Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException;
+  Tuple resolveTools(Sequence<?> tools) throws EvalException;
 }

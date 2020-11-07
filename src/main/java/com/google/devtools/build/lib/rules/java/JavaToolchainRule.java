@@ -116,7 +116,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_multiplex_workers) -->
         True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(false))
+        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -264,7 +264,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .allowedFileTypes()
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.create())
-                .mandatoryNativeProviders(ImmutableList.of(JavaPackageConfigurationProvider.class)))
+                .mandatoryBuiltinProviders(
+                    ImmutableList.of(JavaPackageConfigurationProvider.class)))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(jacocorunner) -->
         Label of the JacocoCoverageRunner deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -282,6 +283,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
+                // TODO(b/170769708): set explicitly in Bazel and remove this default
+                .value(env.getToolsLabel("//tools/jdk:proguard_whitelister"))
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(java_runtime) -->
         The java_runtime to use with this toolchain. It defaults to java_runtime

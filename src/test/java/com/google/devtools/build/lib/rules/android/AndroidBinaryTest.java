@@ -4167,14 +4167,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     scratch.file(
         "java/com/google/android/postprocess.bzl",
         "def _impl(ctx):",
-        "  return [DefaultInfo(files=depset([ctx.attr.dep[ApkInfo].signed_apk]))]",
+        "  return [DefaultInfo(files=depset(",
+        "    [ctx.attr.dep[ApkInfo].signed_apk, ctx.attr.dep[ApkInfo].deploy_jar]))]",
         "postprocess = rule(implementation=_impl,",
         "              attrs={'dep': attr.label(providers=[ApkInfo])})");
     ConfiguredTarget postprocess = getConfiguredTarget("//java/com/google/android:postprocess");
     assertThat(postprocess).isNotNull();
     assertThat(
             prettyArtifactNames(postprocess.getProvider(FilesToRunProvider.class).getFilesToRun()))
-        .containsExactly("java/com/google/android/b1.apk");
+        .containsExactly("java/com/google/android/b1.apk", "java/com/google/android/b1_deploy.jar");
   }
 
   @Test
@@ -4611,6 +4612,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    resources_zip = ctx.actions.declare_file(ctx.label.name + '/resource_files.zip')",
         "    ctx.actions.write(resources_zip, 'empty resources zip')",
         "",
+        "    databinding_info = ctx.actions.declare_file(ctx.label.name + '/layout-info.zip')",
+        "    ctx.actions.write(databinding_info, 'empty databinding layout info zip')",
+        "",
         "    return [",
         "        DefaultInfo(files = depset([resource_apk, resource_proguard_config])),",
         "        AndroidApplicationResourceInfo(",
@@ -4622,6 +4626,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "            main_dex_proguard_config = None,",
         "            r_txt = r_txt,",
         "            resources_zip = resources_zip,",
+        "            databinding_info = databinding_info,",
         "        ),",
         "    ]",
         "",

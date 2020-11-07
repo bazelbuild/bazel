@@ -81,6 +81,14 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteExecutor;
 
   @Option(
+      name = "experimental_remote_execution_keepalive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to use keepalive for remote execution calls.")
+  public boolean remoteExecutionKeepalive;
+
+  @Option(
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",

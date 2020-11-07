@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
-import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
@@ -142,6 +141,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  extclasspath = [':extclasspath'],",
         "  javac = [':langtools'],",
         "  javabuilder = ['JavaBuilder_deploy.jar'],",
+        "  jacocorunner = ':JacocoCoverage',",
         "  header_compiler = ['turbine_deploy.jar'],",
         "  header_compiler_direct = ['TurbineDirect_deploy.jar'],",
         "  singlejar = ['SingleJar_deploy.jar'],",
@@ -156,6 +156,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  extclasspath = [':extclasspath'],",
         "  javac = [':langtools'],",
         "  javabuilder = ['JavaBuilder_deploy.jar'],",
+        "  jacocorunner = ':JacocoCoverage',",
         "  header_compiler = ['turbine_deploy.jar'],",
         "  header_compiler_direct = ['TurbineDirect_deploy.jar'],",
         "  singlejar = ['SingleJar_deploy.jar'],",
@@ -191,11 +192,17 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
-        "filegroup(name='JacocoCoverage', srcs = [])",
-        "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
-        "               'ijar', 'GenClass_deploy.jar',",
-        "               'turbine_deploy.jar', 'TurbineDirect_deploy.jar'])",
-        "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])",
+        "filegroup(name='JacocoCoverage', srcs = ['JacocoCoverage_deploy.jar'])",
+        "exports_files([",
+        "    'JavaBuilder_deploy.jar',",
+        "    'SingleJar_deploy.jar',",
+        "    'TestRunner_deploy.jar',",
+        "    'ijar',",
+        "    'GenClass_deploy.jar',",
+        "    'turbine_deploy.jar',",
+        "    'TurbineDirect_deploy.jar',",
+        "    'proguard_allowlister.par',",
+        "])",
         "toolchain_type(name = 'toolchain_type')",
         "toolchain_type(name = 'runtime_toolchain_type')",
         "toolchain(",
@@ -451,7 +458,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.of(
-        new CppConfigurationLoader(CpuTransformer.IDENTITY),
+        new CppConfigurationLoader(),
         new ShellConfiguration.Loader(
             BazelRuleClassProvider.SHELL_EXECUTABLE,
             ShellConfiguration.Options.class,

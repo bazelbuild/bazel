@@ -356,11 +356,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
-    invalidatePackages();
-
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
+    invalidatePackages();
 
     scratch.file("/foo/WORKSPACE");
     scratch.file(
@@ -374,16 +373,22 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles =
+        getTargetConfiguration()
+            .getGenfilesFragment(
+                siblingRepoLayout ? RepositoryName.create("@foo") : RepositoryName.MAIN)
+            .toString();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
     assertThat(aInfo.getTransitiveProtoSourceRoots().toList())
-        .containsExactly(".", genfiles + "/external/foo/x/_virtual_imports/x");
+        .containsExactly(
+            ".", genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x");
 
     ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
     assertThat(xInfo.getTransitiveProtoSourceRoots().toList())
-        .containsExactly(genfiles + "/external/foo/x/_virtual_imports/x");
+        .containsExactly(
+            genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x");
   }
 
   @Test
@@ -452,10 +457,15 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // or the exports of its deps)
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(
-            Iterables.transform(
-                c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(),
-                s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
+        Iterables.transform(
+            c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(),
+            s -> s.getSourceRoot().getSafePathString()))
+        .containsExactly(genfiles + "/a/_virtual_imports/a");
+    assertThat(
+        Iterables.transform(
+            c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(),
+            s -> s.getImportPath().getSafePathString()))
+        .containsExactly("a.proto");
   }
 
   private void testImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
@@ -960,52 +970,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   private Action getDescriptorWriteAction(String label) throws Exception {
     return getGeneratingAction(getDescriptorOutput(label));
-  }
-
-  @Test
-  public void testMigrationLabel() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_library(",
-        "    name = 'a',",
-        "    srcs = ['a.proto'],",
-        // Don't use |ProtoCommon.PROTO_RULES_MIGRATION_LABEL| here
-        // so we don't accidentally change it without breaking a local test.
-        "    tags = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
-
-    getConfiguredTarget("//a");
-  }
-
-  @Test
-  public void testMissingMigrationLabel() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a");
-    assertContainsEvent("The native Protobuf rules are deprecated.");
-  }
-
-  @Test
-  public void testMigrationLabelNotRequiredWhenDisabled() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    useConfiguration("--noincompatible_load_proto_rules_from_bzl");
-    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
-
-    getConfiguredTarget("//a");
   }
 
   @Test

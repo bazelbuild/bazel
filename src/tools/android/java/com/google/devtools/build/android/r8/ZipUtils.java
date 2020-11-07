@@ -43,6 +43,30 @@ public class ZipUtils {
     zip.closeEntry();
   }
 
+  private static ZipEntry copyEntryMetadata(ZipEntry entry) {
+    ZipEntry copy = new ZipEntry(entry.getName());
+    copy.setMethod(entry.getMethod());
+    if (entry.getSize() != -1) {
+      copy.setSize(entry.getSize());
+      if (entry.getMethod() == ZipEntry.STORED) {
+        copy.setCompressedSize(entry.getSize());
+      }
+    }
+    if (entry.getCrc() != -1) {
+      copy.setCrc(entry.getCrc());
+    }
+    if (entry.getCreationTime() != null) {
+      copy.setCreationTime(entry.getCreationTime());
+    }
+    if (entry.getLastModifiedTime() != null) {
+      copy.setLastModifiedTime(entry.getLastModifiedTime());
+    }
+    if (entry.getLastAccessTime() != null) {
+      copy.setLastAccessTime(entry.getLastAccessTime());
+    }
+    return copy;
+  }
+
   public static void copyEntries(
       Path input, ZipOutputStream zipOutputStream, Predicate<String> exclude) throws IOException {
     try (ZipInputStream zipInputStream =
@@ -50,7 +74,7 @@ public class ZipUtils {
       ZipEntry zipEntry;
       while ((zipEntry = zipInputStream.getNextEntry()) != null) {
         if (!exclude.test(zipEntry.getName())) {
-          zipOutputStream.putNextEntry(zipEntry);
+          zipOutputStream.putNextEntry(copyEntryMetadata(zipEntry));
           ByteStreams.copy(zipInputStream, zipOutputStream);
         }
       }

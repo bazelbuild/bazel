@@ -80,7 +80,7 @@ final class WorkerProxy extends Worker {
   @Override
   void putRequest(WorkRequest request) throws IOException {
     try {
-      workerMultiplexer.resetResponseChecker(workerId);
+      workerMultiplexer.resetResponseChecker(request.getRequestId());
       workerMultiplexer.putRequest(request);
     } catch (InterruptedException e) {
       /**
@@ -96,9 +96,9 @@ final class WorkerProxy extends Worker {
 
   /** Wait for WorkResponse from multiplexer. */
   @Override
-  WorkResponse getResponse() throws IOException {
+  WorkResponse getResponse(int requestId) throws IOException {
     try {
-      InputStream inputStream = workerMultiplexer.getResponse(workerId);
+      InputStream inputStream = workerMultiplexer.getResponse(requestId);
       if (inputStream == null) {
         return null;
       }
