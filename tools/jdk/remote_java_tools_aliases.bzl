@@ -16,11 +16,11 @@
 
 load("@rules_java//java:defs.bzl", "java_import")
 
+# TODO(ilist) use //src/conditions:linux after Bazel release
 def _get_args(target, attr, **kwargs):
     workspace_target_dict = {
         "//src/conditions:linux_x86_64": ["@remote_java_tools_linux//" + target],
         "//src/conditions:darwin": ["@remote_java_tools_darwin//" + target],
-        "//src/conditions:darwin_x86_64": ["@remote_java_tools_darwin//" + target],
         "//src/conditions:windows": ["@remote_java_tools_windows//" + target],
         # On different platforms the linux repository can be used.
         # The deploy jars inside the linux repository are platform-agnostic.

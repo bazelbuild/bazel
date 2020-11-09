@@ -26,8 +26,7 @@ NATIVE_SSL_TEST = ["NativeSslTest.java"]
 NATIVE_SSL_TEST_MAYBE = select({
     "//src/conditions:windows": NATIVE_SSL_TEST,
     "//src/conditions:darwin": NATIVE_SSL_TEST,
-    "//src/conditions:darwin_x86_64": NATIVE_SSL_TEST,
-    "//src/conditions:linux_x86_64": NATIVE_SSL_TEST,
+    "//src/conditions:linux": NATIVE_SSL_TEST,
     "//conditions:default": [],
 })
 
