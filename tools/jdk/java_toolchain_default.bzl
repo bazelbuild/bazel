@@ -93,11 +93,18 @@ def _to_label(k, v):
         return [Label(label) for label in v]
     return v
 
+# Replaces "{repo}" in all jvm_opts with value of repo.
+def _format_jvm_opts(original_dict, repo):
+    formatted_dict = dict(original_dict)
+    formatted_dict["jvm_opts"] = [opt.format(repo = repo) for opt in formatted_dict["jvm_opts"]]
+    return formatted_dict
+
 def java_toolchain_default(name, **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update({k: _to_label(k, v) for k, v in kwargs.items()})
+    toolchain_args = _format_jvm_opts(toolchain_args, Label("//x").workspace_name)
     native.java_toolchain(
         name = name,
         **toolchain_args
