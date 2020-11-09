@@ -71,6 +71,7 @@ public class FakeAppleCommon
         new ImmutableMap.Builder<String, Object>()
             .put("ios_device", "ios_device")
             .put("ios_simulator", "ios_simulator")
+            .put("macos", "macos")
             .put("tvos_device", "tvos_device")
             .put("tvos_simulator", "tvos_simulator")
             .put("watchos_device", "watchos_device")
