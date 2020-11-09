@@ -158,7 +158,7 @@ distdir_tar(
         "rules_nodejs-2.2.2.tar.gz",
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -199,7 +199,7 @@ distdir_tar(
         "rules_nodejs-2.2.2.tar.gz": "f2194102720e662dbf193546585d705e645314319554c6ce7e47d8b59f459e9c",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
+        "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -258,9 +258,9 @@ distdir_tar(
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
         ],
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
@@ -480,12 +480,10 @@ http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    # Commit 2d4c9528e0f453b5950eeaeac11d8d09f5a504d4 of 2020-02-06
-    sha256 = "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
-    strip_prefix = "bazel-skylib-2d4c9528e0f453b5950eeaeac11d8d09f5a504d4",
+    sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
     ],
 )
 
@@ -557,7 +555,7 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -591,7 +589,7 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
+        "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -626,9 +624,9 @@ distdir_tar(
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
         ],
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
