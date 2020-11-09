@@ -212,8 +212,7 @@ EOF
   bazel build @local_java_tools//:ijar_cc_binary || fail "ijar failed to build"
 }
 
-
-function test_java_toolchain_default() {
+function test_java_toolchain_default_manualConfiguration() {
   local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
   local java_tools_zip_file_url="file://${java_tools_rlocation}"
   if "$is_windows"; then
@@ -231,9 +230,146 @@ load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default")
 java_toolchain_default(
   name = "vanilla",
   javabuilder = ["//:VanillaJavaBuilder"],
+  jvm_opts = [],
 )
 EOF
   bazel build //:vanilla || fail "java_toolchain_default target failed to build"
 }
+
+function test_java_toolchain_default_manualConfigurationWithLocation() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  cat > BUILD <<EOF
+load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default", "JDK9_JVM_OPTS")
+java_toolchain_default(
+  name = "toolchain",
+  javac = ["//:javac_jar"],
+  jvm_opts = [
+      # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+      # G1 collector and having compact strings enabled.
+      "-XX:+UseParallelOldGC",
+      "-XX:-CompactStrings",
+      # override the javac in the JDK.
+      "--patch-module=java.compiler=\$(location {repo}//:java_compiler_jar)",
+      "--patch-module=jdk.compiler=\$(location {repo}//:jdk_compiler_jar)",
+  ] + JDK9_JVM_OPTS,
+  tools = [
+      "//:java_compiler_jar",
+      "//:jdk_compiler_jar",
+    ],
+)
+EOF
+  bazel build //:toolchain || fail "java_toolchain_default target failed to build"
+}
+
+function test_java_toolchain_default_jvm8Toolchain() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  cat > BUILD <<EOF
+load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default", "JVM8_TOOLCHAIN_CONFIGURATION")
+java_toolchain_default(
+  name = "jvm8_toolchain",
+  configuration = JVM8_TOOLCHAIN_CONFIGURATION,
+
+)
+EOF
+  bazel build //:jvm8_toolchain || fail "java_toolchain_default target failed to build"
+}
+
+function test_java_toolchain_default_javabuilderToolchain() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  cat > BUILD <<EOF
+load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default", "JAVABUILDER_TOOLCHAIN_CONFIGURATION")
+java_toolchain_default(
+  name = "javabuilder_toolchain",
+  configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION,
+
+)
+EOF
+  bazel build //:javabuilder_toolchain || fail "java_toolchain_default target failed to build"
+}
+
+function test_java_toolchain_default_vanillaToolchain() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  cat > BUILD <<EOF
+load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default", "VANILLA_TOOLCHAIN_CONFIGURATION")
+java_toolchain_default(
+  name = "vanilla_toolchain",
+  configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
+
+)
+EOF
+  bazel build //:vanilla_toolchain || fail "java_toolchain_default target failed to build"
+}
+
+
+
+function test_java_toolchain_default_prebuiltToolchain() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  cat > BUILD <<EOF
+load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default", "PREBUILT_TOOLCHAIN_CONFIGURATION")
+java_toolchain_default(
+  name = "prebuilt_toolchain",
+  configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
+
+)
+EOF
+  bazel build //:prebuilt_toolchain || fail "java_toolchain_default target failed to build"
+}
+
+
 
 run_suite "Java tools archive tests"
