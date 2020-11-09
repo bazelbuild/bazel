@@ -19,7 +19,6 @@ import com.google.auth.Credentials;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.Closeables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,6 +26,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -436,15 +436,14 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    final HashingOutputStream hashOut =
-        verifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
+    final DigestOutputStream digestOut =
+        verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        get(digest, hashOut != null ? hashOut : out, /* casDownload= */ true),
+        get(digest, digestOut != null ? digestOut : out, /* casDownload= */ true),
         (v) -> {
           try {
-            if (hashOut != null) {
-              Utils.verifyBlobContents(
-                  digest.getHash(), DigestUtil.hashCodeToString(hashOut.hash()));
+            if (digestOut != null) {
+              Utils.verifyBlobContents(digest, digestOut.digest());
             }
             out.flush();
             return Futures.immediateFuture(null);
