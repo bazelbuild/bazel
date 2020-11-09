@@ -9,13 +9,6 @@ This page contains resources that help you use Bazel with C++ projects. It links
 to a tutorial, build rules, and other information specific to building C++
 projects with Bazel.
 
-## Contents
-
-- [Working with Bazel](#working-with-bazel)
-- [Best practices](#best-practices)
-   - [BUILD files](#build-files)
-   - [Include paths](#include-paths)
-
 ## Working with Bazel
 
 The following resources will help you work with Bazel on C++ projects:
