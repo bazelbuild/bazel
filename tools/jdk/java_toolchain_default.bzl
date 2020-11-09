@@ -44,21 +44,87 @@ JDK9_JVM_OPTS = [
 # jdk.compiler module, and jvm_opts
 _BASE_TOOLCHAIN_CONFIGURATION = dict(
     forcibly_disable_header_compilation = False,
-    genclass = [Label("//:GenClass")],
-    header_compiler = [Label("//:TurbineDirect")],
-    header_compiler_direct = [Label("//:TurbineDirect")],
-    ijar = [Label("//:ijar")],
-    javabuilder = [Label("//:JavaBuilder")],
+    genclass = ["//:GenClass"],
+    header_compiler = ["//:TurbineDirect"],
+    header_compiler_direct = ["//:TurbineDirect"],
+    ijar = ["//:ijar"],
+    javabuilder = ["//:JavaBuilder"],
     javac_supports_workers = True,
-    jacocorunner = Label("//:jacoco_coverage_runner_filegroup"),
+    jacocorunner = "//:jacoco_coverage_runner_filegroup",
     jvm_opts = JDK9_JVM_OPTS,
     misc = _DEFAULT_JAVACOPTS,
-    singlejar = [Label("//:singlejar")],
+    singlejar = ["//:singlejar"],
     # Code to enumerate target JVM boot classpath uses host JVM. Because
     # java_runtime-s are involved, its implementation is in @bazel_tools.
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "8",
     target_version = "8",
+)
+
+JVM8_TOOLCHAIN_CONFIGURATION = dict(
+    javac = ["//:javac_jar"],
+    jvm_opts = ["-Xbootclasspath/p:$(location {repo}//:javac_jar)"],
+)
+
+JAVABUILDER_TOOLCHAIN_CONFIGURATION = dict(
+    javac = ["//:javac_jar"],
+    jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+        # G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
+        # override the javac in the JDK.
+        "--patch-module=java.compiler=$(location {repo}//:java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location {repo}//:jdk_compiler_jar)",
+    ] + JDK9_JVM_OPTS,
+    tools = [
+        "//:java_compiler_jar",
+        "//:jdk_compiler_jar",
+    ],
+)
+
+# The 'vanilla' toolchain is an unsupported alternative to the default.
+#
+# It does not provide any of the following features:
+#   * Error Prone
+#   * Strict Java Deps
+#   * Header Compilation
+#   * Reduced Classpath Optimization
+#
+# It uses the version of internal javac from the `--host_javabase` JDK instead
+# of providing a javac. Internal javac may not be source- or bug-compatible with
+# the javac that is provided with other toolchains.
+#
+# However it does allow using a wider range of `--host_javabase`s, including
+# versions newer than the current JDK.
+VANILLA_TOOLCHAIN_CONFIGURATION = dict(
+    forcibly_disable_header_compilation = True,
+    javabuilder = ["//:VanillaJavaBuilder"],
+    jvm_opts = [],
+)
+
+# The new toolchain is using all the pre-built tools, including
+# singlejar and ijar, even on remote execution. This toolchain
+# should be used only when host and execution platform are the
+# same, otherwise the binaries will not work on the execution
+# platform.
+PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
+    javac = ["//:javac_jar"],
+    jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+        # G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
+        # override the javac in the JDK.
+        "--patch-module=java.compiler=$(location {repo}//:java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location {repo}//:jdk_compiler_jar)",
+    ] + JDK9_JVM_OPTS,
+    tools = [
+        "//:java_compiler_jar",
+        "//:jdk_compiler_jar",
+    ],
+    ijar = ["//:ijar_prebuilt_binary"],
+    singlejar = ["//:prebuilt_singlejar"],
 )
 
 _LABEL_LISTS = [
@@ -87,10 +153,10 @@ _LABELS = [
 
 # Converts values to labels, so that they are resolved relative to this java_tools repository
 def _to_label(k, v):
-    if k in _LABELS and type(v) == type(Label("//a")):
+    if k in _LABELS and type(v) != type(Label("//a")):
         return Label(v)
     if k in _LABEL_LISTS and type(v) == type([Label("//a")]):
-        return [Label(label) for label in v]
+        return [Label(label) if type(label) == type("") else label for label in v]
     return v
 
 # Replaces "{repo}" in all jvm_opts with value of repo.
@@ -99,12 +165,14 @@ def _format_jvm_opts(original_dict, repo):
     formatted_dict["jvm_opts"] = [opt.format(repo = repo) for opt in formatted_dict["jvm_opts"]]
     return formatted_dict
 
-def java_toolchain_default(name, **kwargs):
+def java_toolchain_default(name, configuration = dict(), **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
-    toolchain_args.update({k: _to_label(k, v) for k, v in kwargs.items()})
-    toolchain_args = _format_jvm_opts(toolchain_args, Label("//x").workspace_name)
+    toolchain_args.update(configuration)
+    toolchain_args.update(kwargs)
+    toolchain_args = {k: _to_label(k, v) for k, v in toolchain_args.items()}
+    toolchain_args = _format_jvm_opts(toolchain_args, "@" + Label("//x").workspace_name)
     native.java_toolchain(
         name = name,
         **toolchain_args
