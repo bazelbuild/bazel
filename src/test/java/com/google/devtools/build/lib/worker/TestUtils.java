@@ -62,7 +62,7 @@ class TestUtils {
   }
 
   /** A worker that uses a fake subprocess for I/O. */
-  static class TestWorker extends Worker {
+  static class TestWorker extends SingleplexWorker {
     private final FakeSubprocess fakeSubprocess;
 
     TestWorker(

@@ -43,7 +43,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link Worker}. */
+/** Tests for {@link SingleplexWorker}. */
 @RunWith(JUnit4.class)
 public final class WorkerTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
@@ -89,7 +89,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_success() throws IOException {
+  public void testPutRequest_success() throws IOException, InterruptedException {
     WorkRequest request = WorkRequest.getDefaultInstance();
 
     TestWorker testWorker = createTestWorker(new byte[0], PROTO);
@@ -103,7 +103,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_success() throws IOException {
+  public void testGetResponse_success() throws IOException, InterruptedException {
     WorkResponse response = WorkResponse.getDefaultInstance();
 
     TestWorker testWorker = createTestWorker(serializeResponseToProtoBytes(response), PROTO);
@@ -113,7 +113,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_json_success() throws IOException {
+  public void testPutRequest_json_success() throws IOException, InterruptedException {
     TestWorker testWorker = createTestWorker(new byte[0], JSON);
     testWorker.putRequest(WorkRequest.getDefaultInstance());
 
@@ -122,7 +122,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_json_success() throws IOException {
+  public void testGetResponse_json_success() throws IOException, InterruptedException {
     TestWorker testWorker = createTestWorker("{}".getBytes(UTF_8), JSON);
     WorkResponse readResponse = testWorker.getResponse(0);
     WorkResponse response = WorkResponse.getDefaultInstance();
@@ -131,7 +131,8 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_json_populatedFields_success() throws IOException {
+  public void testPutRequest_json_populatedFields_success()
+      throws IOException, InterruptedException {
     WorkRequest request =
         WorkRequest.newBuilder()
             .addArguments("testRequest")
@@ -154,7 +155,8 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_json_populatedFields_success() throws IOException {
+  public void testGetResponse_json_populatedFields_success()
+      throws IOException, InterruptedException {
     TestWorker testWorker =
         createTestWorker(
             "{\"exitCode\":1,\"output\":\"test output\",\"requestId\":1}".getBytes(UTF_8), JSON);

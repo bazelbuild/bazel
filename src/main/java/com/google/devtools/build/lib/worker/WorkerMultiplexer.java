@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -47,18 +48,18 @@ public class WorkerMultiplexer extends Thread {
    * A map of {@code WorkResponse}s received from the worker process. They are stored in this map
    * until the corresponding {@code WorkerProxy} picks them up.
    */
-  private Map<Integer, InputStream> workerProcessResponse;
+  private final Map<Integer, InputStream> workerProcessResponse;
   /** A semaphore to protect {@code workerProcessResponse} object. */
-  private Semaphore semWorkerProcessResponse;
+  private final Semaphore semWorkerProcessResponse;
   /**
    * A map of semaphores corresponding to {@code WorkRequest}s. After sending the {@code
    * WorkRequest}, {@code WorkerProxy} will wait on a semaphore to be released. {@code
    * WorkerMultiplexer} is responsible for releasing the corresponding semaphore in order to signal
    * {@code WorkerProxy} that the {@code WorkerResponse} has been received.
    */
-  private Map<Integer, Semaphore> responseChecker;
+  private final Map<Integer, Semaphore> responseChecker;
   /** A semaphore to protect responseChecker object. */
-  private Semaphore semResponseChecker;
+  private final Semaphore semResponseChecker;
   /** The worker process that this WorkerMultiplexer should be talking to. */
   private Subprocess process;
   /**
@@ -81,7 +82,8 @@ public class WorkerMultiplexer extends Thread {
    */
   private final Path logFile;
 
-  private SubprocessFactory subprocessFactory = null;
+  /** For testing only, allow a way to fake subprocesses. */
+  private SubprocessFactory subprocessFactory;
 
   WorkerMultiplexer(Path logFile) {
     semWorkerProcessResponse = new Semaphore(1);
@@ -164,11 +166,6 @@ public class WorkerMultiplexer extends Thread {
     }
   }
 
-  /** Returns whether the worker subprocess is alive (not finished yet). */
-  public boolean isProcessAlive() {
-    return !this.process.finished();
-  }
-
   /**
    * Sends the WorkRequest to worker process. This method is called on the thread of a {@code
    * WorkerProxy}.
@@ -226,7 +223,7 @@ public class WorkerMultiplexer extends Thread {
    * Resets the semaphore map for {@code requestId} before sending a request to the worker process.
    * This method is called on the thread of a {@code WorkerProxy}.
    */
-  public void resetResponseChecker(Integer requestId) throws InterruptedException {
+  void resetResponseChecker(Integer requestId) throws InterruptedException {
     semResponseChecker.acquire();
     responseChecker.put(requestId, new Semaphore(0));
     semResponseChecker.release();
@@ -241,7 +238,7 @@ public class WorkerMultiplexer extends Thread {
     recordingStream.startRecording(4096);
     WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(recordingStream);
 
-    // This can only happen if the input stream is closed.
+    // A null parsedResponse can only happen if the input stream is closed.
     if (parsedResponse == null) {
       isWorkerStreamClosed = true;
       releaseAllSemaphores();
@@ -300,13 +297,30 @@ public class WorkerMultiplexer extends Thread {
     }
   }
 
+  String getRecordingStreamMessage() {
+    return recordingStream.getRecordedDataAsString();
+  }
+
+  /** Returns true if this process has died for other reasons than a call to {@code #destroy()}. */
+  boolean diedUnexpectedly() {
+    return process != null && !process.isAlive() && !isInterrupted;
+  }
+
+  /** Returns the exit value of multiplexer's process, if it has exited. */
+  Optional<Integer> getExitValue() {
+    return process != null && !process.isAlive()
+        ? Optional.of(process.exitValue())
+        : Optional.empty();
+  }
+
   /** For testing only, to verify that maps are cleared after responses are reaped. */
   @VisibleForTesting
   boolean noOutstandingRequests() {
     return responseChecker.isEmpty() && workerProcessResponse.isEmpty();
   }
 
-  public void setProcessFactory(SubprocessFactory factory) {
+  @VisibleForTesting
+  void setProcessFactory(SubprocessFactory factory) {
     subprocessFactory = factory;
   }
 }
