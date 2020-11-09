@@ -1,0 +1,127 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # BSD License
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
+
+# Below two rules are copied from src/main/native/BUILD.
+# Move to some common place?
+genrule(
+    name = "copy_link_jni_md_header",
+    srcs = select({
+        "@io_bazel//src/conditions:darwin": ["@io_bazel//tools/jdk:jni_md_header-darwin"],
+        "@io_bazel//src/conditions:freebsd": ["@io_bazel//tools/jdk:jni_md_header-freebsd"],
+        "@io_bazel//src/conditions:openbsd": ["@io_bazel//tools/jdk:jni_md_header-openbsd"],
+        "@io_bazel//src/conditions:windows": ["@io_bazel//tools/jdk:jni_md_header-windows"],
+        "@io_bazel//conditions:default": ["@io_bazel//tools/jdk:jni_md_header-linux"],
+    }),
+    outs = ["jni_md.h"],
+    cmd = "cp -f $< $@",
+)
+
+genrule(
+    name = "copy_link_jni_header",
+    srcs = ["@io_bazel//tools/jdk:jni_header"],
+    outs = ["jni.h"],
+    cmd = "cp -f $< $@",
+)
+
+cc_library(
+    name = "jni_headers",
+    hdrs = [
+        ":jni.h",
+        ":jni_md.h",
+    ],
+    includes = ["."],
+)
+
+filegroup(
+    name = "zstd_sources",
+    srcs = glob([
+        "src/main/native/**/*.c",
+        "src/main/native/**/*.h",
+    ]),
+)
+
+cc_binary(
+    name = "libzstd-jni.so",
+    srcs = [":zstd_sources"],
+    copts = [
+        "-std=c99",
+        "-Wundef",
+        "-Wshadow",
+        "-Wcast-align",
+        "-Wstrict-prototypes",
+        "-Wno-unused-variable",
+        "-Wpointer-arith",
+        "-Wno-maybe-uninitialized",
+    ],
+    includes = [
+        "src/main/native",
+        "src/main/native/common",
+        "src/main/native/legacy",
+    ],
+    linkshared = 1,
+    local_defines = [
+        "ZSTD_MULTITHREAD=1",
+        "ZSTD_LEGACY_SUPPORT=4",
+    ],
+    deps = [":jni_headers"],
+)
+
+cc_binary(
+    name = "zstd-jni.dll",
+    srcs = [":zstd_sources"],
+    includes = [
+        "src/main/native",
+        "src/main/native/common",
+        "src/main/native/legacy",
+    ],
+    linkshared = 1,
+    local_defines = [
+        "ZSTD_MULTITHREAD=1",
+        "ZSTD_LEGACY_SUPPORT=4",
+        "_JNI_IMPLEMENTATION_",
+    ],
+    deps = [":jni_headers"],
+)
+
+# TODO(bazel-team): Come up with a way to support platform-specific dynamic
+# library extensions.  This is issue #914.
+genrule(
+    name = "mac-compat",
+    srcs = [":libzstd-jni.so"],
+    outs = ["libzstd-jni.dylib"],
+    cmd = "cp $< $@",
+    output_to_bindir = 1,
+)
+
+filegroup(
+    name = "zstd-native-lib",
+    srcs = select({
+        "@io_bazel//src/conditions:darwin": ["libzstd-jni.dylib"],
+        "@io_bazel//src/conditions:windows": ["zstd-jni.dll"],
+        "@io_bazel//conditions:default": ["libzstd-jni.so"],
+    }),
+    visibility = [
+        "@io_bazel//src:__pkg__",
+    ],
+)
+
+java_library(
+    name = "zstd-jni",
+    srcs = glob(
+        [
+            "src/main/java/**/*.java",
+        ],
+    ),
+    data = [":zstd-native-lib"],
+    visibility = ["//visibility:public"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
+)
