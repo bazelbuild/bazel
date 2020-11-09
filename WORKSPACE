@@ -299,7 +299,7 @@ distdir_tar(
         ],
         # grpc/grpc
         "v1.32.0.tar.gz": [
-            #"https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
             "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         ],
         # c-ares/c-ares
@@ -657,7 +657,7 @@ distdir_tar(
         ],
         # grpc/grpc
         "v1.32.0.tar.gz": [
-            #"https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
             "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         ],
         # c-ares/c-ares
@@ -1154,7 +1154,7 @@ http_archive(
     sha256 = "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
     strip_prefix = "grpc-1.32.0",
     urls = [
-        #"https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
     ],
 )
