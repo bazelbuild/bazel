@@ -790,11 +790,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
      * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
-     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * fulfill {@link #mandatoryBuiltinProvidersList}, the build continues without error. Else the
      * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #mandatoryNativeProvidersList} build without error.
+     * fulfill {@link #mandatoryBuiltinProvidersList} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -810,11 +810,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
      * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
-     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * fulfill {@link #mandatoryBuiltinProvidersList}, the build continues without error. Else the
      * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #mandatoryNativeProvidersList} build without error.
+     * fulfill {@link #mandatoryBuiltinProvidersList} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -833,11 +833,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
      * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
-     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * fulfill {@link #mandatoryBuiltinProvidersList}, the build continues without error. Else the
      * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #mandatoryNativeProvidersList} build without error.
+     * fulfill {@link #mandatoryBuiltinProvidersList} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -887,18 +887,18 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * If this is a label or label-list attribute, then this sets the allowed rule types with
-     * warning for the labels occurring in the attribute. This must be a disjoint set from
-     * {@link #allowedRuleClasses}.
+     * warning for the labels occurring in the attribute. This must be a disjoint set from {@link
+     * #allowedRuleClasses}.
      *
      * <p>If the attribute contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * allowedRuleClasses()) and they fulfill {@link #mandatoryBuiltinProvidersList}}, the build
      * continues without error. Else the build fails during analysis.
      *
-     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that fulfill
+     * {@link #mandatoryBuiltinProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Collection<String> allowedRuleClasses) {
       return allowedRuleClassesWithWarning(
@@ -907,18 +907,18 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * If this is a label or label-list attribute, then this sets the allowed rule types with
-     * warning for the labels occurring in the attribute. This must be a disjoint set from
-     * {@link #allowedRuleClasses}.
+     * warning for the labels occurring in the attribute. This must be a disjoint set from {@link
+     * #allowedRuleClasses}.
      *
      * <p>If the attribute contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * allowedRuleClasses()) and they fulfill {@link #mandatoryBuiltinProvidersList}}, the build
      * continues without error. Else the build fails during analysis.
      *
-     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that fulfill
+     * {@link #mandatoryBuiltinProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(RuleClassNamePredicate allowedRuleClasses) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
@@ -948,25 +948,25 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets a list of lists of mandatory native providers. Every configured target occurring in this
-     * label type attribute has to provide all the providers from one of those lists, otherwise an
-     * error is produced during the analysis phase.
+     * Sets a list of lists of mandatory built-in providers. Every configured target occurring in
+     * this label type attribute has to provide all the providers from one of those lists, otherwise
+     * an error is produced during the analysis phase.
      */
-    public final Builder<TYPE> mandatoryNativeProvidersList(
+    public final Builder<TYPE> mandatoryBuiltinProvidersList(
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
           "must be a label-valued type");
 
       for (Iterable<Class<? extends TransitiveInfoProvider>> providers : providersList) {
-        this.requiredProvidersBuilder.addNativeSet(ImmutableSet.copyOf(providers));
+        this.requiredProvidersBuilder.addBuiltinSet(ImmutableSet.copyOf(providers));
       }
       return this;
     }
 
-    public Builder<TYPE> mandatoryNativeProviders(
+    public Builder<TYPE> mandatoryBuiltinProviders(
         Iterable<Class<? extends TransitiveInfoProvider>> providers) {
       if (providers.iterator().hasNext()) {
-        mandatoryNativeProvidersList(ImmutableList.of(providers));
+        mandatoryBuiltinProvidersList(ImmutableList.of(providers));
       }
       return this;
     }

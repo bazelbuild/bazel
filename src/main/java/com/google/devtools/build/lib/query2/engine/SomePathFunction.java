@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import java.util.List;
 
 /**
- * A somepath(x, y) query expression, which computes the set of nodes
- * on some arbitrary path from a target in set x to a target in set y.
+ * A somepath(x, y) query expression, which computes the set of nodes on some arbitrary path from a
+ * target in set x to a target in set y.
  *
  * <pre>expr ::= SOMEPATH '(' expr ',' expr ')'</pre>
  */

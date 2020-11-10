@@ -5,10 +5,6 @@ title: C++ toolchain configuration
 
 # C++ toolchain configuration
 
-* ToC
-{:toc}
-
-
 ## Overview
 
 To invoke the compiler with the right options, Bazel needs some knowledge about

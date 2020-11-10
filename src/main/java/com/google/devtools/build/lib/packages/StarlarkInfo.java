@@ -27,14 +27,16 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.Structure;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
-/** An Info (provider instance) for providers defined in Starlark. */
-public final class StarlarkInfo extends StructImpl implements HasBinary, Structure {
+/** An struct-like Info (provider instance) for providers defined in Starlark. */
+public final class StarlarkInfo extends StructImpl implements HasBinary {
 
+  // TODO(adonovan): move to sole use in js_common.provider(transpilation_mapping=...).
   public static final Depset.ElementType TYPE = Depset.ElementType.of(StarlarkInfo.class);
+
+  private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
@@ -47,14 +49,29 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, Structu
   // relation, and other observable behaviors).
   @Nullable private final String unknownFieldError;
 
+  // TODO(adonovan): restrict type of provider to StarlarkProvider?
+  // Do we ever need StarlarkInfos of BuiltinProviders? Such BuiltinProviders could
+  // be  moved to Starlark using bzl builtins injection.
+  // Alternatively: what about this implementation is specific to StarlarkProvider?
+  // It's really just a "generic" or "dynamic" representation of a struct,
+  // analogous to reflection versus generated message classes in the protobuf world.
+  // The efficient table algorithms would be a nice addition to the Starlark
+  // interpreter, to allow other clients to define their own fast structs
+  // (or to define a standard one). See also comments at Info about upcoming clean-ups.
   private StarlarkInfo(
       Provider provider,
       Object[] table,
       @Nullable Location loc,
       @Nullable String unknownFieldError) {
-    super(provider, loc);
+    super(loc);
+    this.provider = provider;
     this.table = table;
     this.unknownFieldError = unknownFieldError;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return provider;
   }
 
   // Converts a map to a table of sorted keys followed by corresponding values.
@@ -291,12 +308,12 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, Structu
    * <p>{@code unknownFieldError} is a string format, as for {@link
    * Provider#getErrorMessageFormatForUnknownField}.
    *
-   * @deprecated Do not use this method. Instead, create a new subclass of {@link NativeProvider}
+   * @deprecated Do not use this method. Instead, create a new subclass of {@link BuiltinProvider}
    *     with the desired error message format, and create a corresponding {@link NativeInfo}
    *     subclass.
    */
   // TODO(bazel-team): Make the special structs that need a custom error message use a different
-  // provider (subclassing NativeProvider) and a different StructImpl implementation. Then remove
+  // provider (subclassing BuiltinProvider) and a different StructImpl implementation. Then remove
   // this functionality, thereby saving a string pointer field for the majority of providers that
   // don't need it.
   @Deprecated

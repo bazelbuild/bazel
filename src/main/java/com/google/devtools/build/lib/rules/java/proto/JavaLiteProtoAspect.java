@@ -109,7 +109,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                 ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
             .add(
                 attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryNativeProviders(
+                    .mandatoryBuiltinProviders(
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))

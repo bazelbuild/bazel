@@ -225,7 +225,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     return new ActionExecutionException(message, e, this, false, code);
   }
 
-  protected static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+  public static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(message)

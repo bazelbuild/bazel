@@ -51,7 +51,6 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact rTxt,
       Artifact resourcesZip,
       Artifact databindingLayoutInfoZip) {
-    super(PROVIDER);
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -61,6 +60,11 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.rTxt = rTxt;
     this.resourcesZip = resourcesZip;
     this.databindingLayoutInfoZip = databindingLayoutInfoZip;
+  }
+
+  @Override
+  public AndroidApplicationResourceInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override

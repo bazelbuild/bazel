@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
-import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
@@ -459,7 +458,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.of(
-        new CppConfigurationLoader(CpuTransformer.IDENTITY),
+        new CppConfigurationLoader(),
         new ShellConfiguration.Loader(
             BazelRuleClassProvider.SHELL_EXECUTABLE,
             ShellConfiguration.Options.class,

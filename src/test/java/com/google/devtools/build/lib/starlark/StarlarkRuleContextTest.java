@@ -3013,6 +3013,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     setRuleContext(createRuleContext("@foo//bar:baz"));
     Object result = ev.eval("ruleContext.build_file_path");
-    assertThat(result).isEqualTo("foo/bar/BUILD");
+    assertThat(result).isEqualTo("bar/BUILD");
   }
 }

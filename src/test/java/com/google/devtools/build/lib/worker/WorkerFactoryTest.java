@@ -73,7 +73,7 @@ public class WorkerFactoryTest {
     WorkerKey nonProxiedWorkerKey =
         createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ false);
     Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
-    assertThat(nonProxiedWorker.getClass()).isEqualTo(Worker.class);
+    assertThat(nonProxiedWorker.getClass()).isEqualTo(SingleplexWorker.class);
 
     WorkerKey proxiedWorkerKey = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true);
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);

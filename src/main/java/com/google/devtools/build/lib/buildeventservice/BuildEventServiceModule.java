@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -586,8 +587,11 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       }
     }
 
-    if (!besStreamOptions.keepBackendConnections) {
+    // besStreamOptions can be null if we are crashing. Don't crash here too.
+    if (besStreamOptions != null && !besStreamOptions.keepBackendConnections) {
       clearBesClient();
+    } else if (besStreamOptions == null) {
+      BugReport.sendBugReport(new NullPointerException("besStreamOptions null: in a crash?"));
     }
   }
 

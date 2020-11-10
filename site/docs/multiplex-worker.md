@@ -15,13 +15,6 @@ the same worker process, which can then handle requests in parallel. For
 languages like Java and Scala, this saves JVM warm-up time and JIT compilation
 time.
 
-## Contents
-
-*  [Overview](#overview)
-*  [Writing multiplex-compatible rules](#writing-multiplex-compatible-rules)
-*  [Enabling multiplex workers](#enabling-multiplex-workers)
-   *  [WARNING](#warning)
-
 ## Overview
 
 We add two layers between the Bazel server and the worker process. For certain

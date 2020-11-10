@@ -146,19 +146,19 @@ distdir_tar(
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        "java_tools_javac11_linux-v10.2.zip",
-        "java_tools_javac11_windows-v10.2.zip",
-        "java_tools_javac11_darwin-v10.2.zip",
+        "java_tools_javac11_linux-v10.3.zip",
+        "java_tools_javac11_windows-v10.3.zip",
+        "java_tools_javac11_darwin-v10.3.zip",
         "coverage_output_generator-v2.5.zip",
         # bazelbuid/stardoc
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         # rules_sass
         "1.25.0.zip",
         # rules_nodejs
-        "rules_nodejs-1.3.0.tar.gz",
+        "rules_nodejs-2.2.2.tar.gz",
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -183,23 +183,25 @@ distdir_tar(
         "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
         # abseil/abseil-cpp
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
+        # com_github_luben_zstd_jni
+        "v1.4.5-11.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
-        "java_tools_javac11_linux-v10.2.zip": "55be249dfdaf09790004bb007f229437eb148a6633045dce1f6247dd04a92f6a",
-        "java_tools_javac11_windows-v10.2.zip": "007a376d7c58e73a8f91c5a7f74bf2e9d4bf2a530142bc74c8709a02f1f6cde3",
-        "java_tools_javac11_darwin-v10.2.zip": "03caa49238dd040d4bdae0a730d5c4027a3739aabf8f2c6840a160ea41890626",
+        "java_tools_javac11_linux-v10.3.zip": "bd6e8b7091c1f61f2de7dfdf0c47996ffb019582f7c4147a851f59eee7c04e15",
+        "java_tools_javac11_windows-v10.3.zip": "022cef618b138199d7b21740d495fbbd201483234b4818185aa6cdc6d162d9a4",
+        "java_tools_javac11_darwin-v10.3.zip": "cd8f319b46876e7c3a814095ad9d91dd8589821480548ad48da11949f45a38e6",
         "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
         # bazelbuild/stardoc
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         # rules_sass
         "1.25.0.zip": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
         # rules_nodejs
-        "rules_nodejs-1.3.0.tar.gz": "b6670f9f43faa66e3009488bbd909bc7bc46a5a9661a33f6bc578068d1837f37",
+        "rules_nodejs-2.2.2.tar.gz": "f2194102720e662dbf193546585d705e645314319554c6ce7e47d8b59f459e9c",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
+        "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -224,20 +226,22 @@ distdir_tar(
         "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": "9f385e146410a8150b6f4cb1a57eab7ec806ced48d427554b1e754877ff26c3e",
         # abseil/abseil-cpp
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
+        # com_github_luben_zstd_jni
+        "v1.4.5-11.tar.gz": "9a33de540e4a10a080a22ff918c1bc2f585647f73ea30694eb095a1844b3f052",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
             "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         ],
-        "java_tools_javac11_linux-v10.2.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_linux-v10.2.zip",
+        "java_tools_javac11_linux-v10.3.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_linux-v10.3.zip",
         ],
-        "java_tools_javac11_windows-v10.2.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_windows-v10.2.zip",
+        "java_tools_javac11_windows-v10.3.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_windows-v10.3.zip",
         ],
-        "java_tools_javac11_darwin-v10.2.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_darwin-v10.2.zip",
+        "java_tools_javac11_darwin-v10.3.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_darwin-v10.3.zip",
         ],
         "coverage_output_generator-v2.5.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
@@ -250,17 +254,17 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
             "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
         ],
-        "rules_nodejs-1.3.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
+        "rules_nodejs-2.2.2.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
+            "https://github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
         ],
         "android_tools_pkg-0.19.0rc3.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
         ],
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
@@ -299,7 +303,7 @@ distdir_tar(
         ],
         # grpc/grpc
         "v1.32.0.tar.gz": [
-            #"https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
             "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         ],
         # c-ares/c-ares
@@ -321,6 +325,11 @@ distdir_tar(
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": [
             "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
+        ],
+        # com_github_luben_zstd_jni
+        "v1.4.5-11.tar.gz": [
+            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
+            "https://github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
         ],
     },
 )
@@ -480,12 +489,10 @@ http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    # Commit 2d4c9528e0f453b5950eeaeac11d8d09f5a504d4 of 2020-02-06
-    sha256 = "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
-    strip_prefix = "bazel-skylib-2d4c9528e0f453b5950eeaeac11d8d09f5a504d4",
+    sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
     ],
 )
 
@@ -541,15 +548,28 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "com_github_luben_zstd_jni",
+    build_file = "//third_party/zstd-jni:BUILD.bazel",
+    patch_args = ["-p1"],
+    patches = ["//third_party/zstd-jni:zstd-jni_1.4.5-11.patch"],
+    sha256 = "9a33de540e4a10a080a22ff918c1bc2f585647f73ea30694eb095a1844b3f052",
+    strip_prefix = "zstd-jni-1.4.5-11",
+    urls = [
+        "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
+        "https://github.com/luben/zstd-jni/archive/v1.4.5-11.tar.gz",
+    ],
+)
+
 # For testing, have an distdir_tar with all the archives implicit in every
 # WORKSPACE, to that they don't have to be refetched for every test
 # calling `bazel sync`.
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "java_tools_javac11_linux-v10.2.zip",
-        "java_tools_javac11_windows-v10.2.zip",
-        "java_tools_javac11_darwin-v10.2.zip",
+        "java_tools_javac11_linux-v10.3.zip",
+        "java_tools_javac11_windows-v10.3.zip",
+        "java_tools_javac11_darwin-v10.3.zip",
         "coverage_output_generator-v2.5.zip",
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz",
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
@@ -557,7 +577,7 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -581,9 +601,9 @@ distdir_tar(
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
-        "java_tools_javac11_linux-v10.2.zip": "55be249dfdaf09790004bb007f229437eb148a6633045dce1f6247dd04a92f6a",
-        "java_tools_javac11_windows-v10.2.zip": "007a376d7c58e73a8f91c5a7f74bf2e9d4bf2a530142bc74c8709a02f1f6cde3",
-        "java_tools_javac11_darwin-v10.2.zip": "03caa49238dd040d4bdae0a730d5c4027a3739aabf8f2c6840a160ea41890626",
+        "java_tools_javac11_linux-v10.3.zip": "bd6e8b7091c1f61f2de7dfdf0c47996ffb019582f7c4147a851f59eee7c04e15",
+        "java_tools_javac11_windows-v10.3.zip": "022cef618b138199d7b21740d495fbbd201483234b4818185aa6cdc6d162d9a4",
+        "java_tools_javac11_darwin-v10.3.zip": "cd8f319b46876e7c3a814095ad9d91dd8589821480548ad48da11949f45a38e6",
         "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
@@ -591,7 +611,7 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
+        "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -614,9 +634,9 @@ distdir_tar(
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
     },
     urls = {
-        "java_tools_javac11_linux-v10.2.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_linux-v10.2.zip"],
-        "java_tools_javac11_windows-v10.2.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_windows-v10.2.zip"],
-        "java_tools_javac11_darwin-v10.2.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_darwin-v10.2.zip"],
+        "java_tools_javac11_linux-v10.3.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_linux-v10.3.zip"],
+        "java_tools_javac11_windows-v10.3.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_windows-v10.3.zip"],
+        "java_tools_javac11_darwin-v10.3.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_darwin-v10.3.zip"],
         "coverage_output_generator-v2.5.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip"],
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
@@ -626,9 +646,9 @@ distdir_tar(
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
         ],
         # bazelbuild/bazel-skylib
-        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "bazel-skylib-1.0.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
@@ -657,7 +677,7 @@ distdir_tar(
         ],
         # grpc/grpc
         "v1.32.0.tar.gz": [
-            #"https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
             "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         ],
         # c-ares/c-ares
@@ -724,10 +744,10 @@ http_archive(
 
 http_archive(
     name = "build_bazel_rules_nodejs",
-    sha256 = "b6670f9f43faa66e3009488bbd909bc7bc46a5a9661a33f6bc578068d1837f37",
+    sha256 = "f2194102720e662dbf193546585d705e645314319554c6ce7e47d8b59f459e9c",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
-        "https://github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
+        "https://github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
     ],
 )
 
@@ -921,10 +941,10 @@ http_archive(
     name = "remote_java_tools_linux_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "55be249dfdaf09790004bb007f229437eb148a6633045dce1f6247dd04a92f6a",
+    sha256 = "bd6e8b7091c1f61f2de7dfdf0c47996ffb019582f7c4147a851f59eee7c04e15",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_linux-v10.2.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.2/java_tools_javac11_linux-v10.2.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_linux-v10.3.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.3/java_tools_javac11_linux-v10.3.zip",
     ],
 )
 
@@ -933,10 +953,10 @@ http_archive(
     name = "remote_java_tools_windows_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "007a376d7c58e73a8f91c5a7f74bf2e9d4bf2a530142bc74c8709a02f1f6cde3",
+    sha256 = "022cef618b138199d7b21740d495fbbd201483234b4818185aa6cdc6d162d9a4",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_windows-v10.2.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.2/java_tools_javac11_windows-v10.2.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_windows-v10.3.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.3/java_tools_javac11_windows-v10.3.zip",
     ],
 )
 
@@ -945,10 +965,10 @@ http_archive(
     name = "remote_java_tools_darwin_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "03caa49238dd040d4bdae0a730d5c4027a3739aabf8f2c6840a160ea41890626",
+    sha256 = "cd8f319b46876e7c3a814095ad9d91dd8589821480548ad48da11949f45a38e6",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_darwin-v10.2.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.2/java_tools_javac11_darwin-v10.2.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_darwin-v10.3.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.3/java_tools_javac11_darwin-v10.3.zip",
     ],
 )
 
@@ -957,9 +977,9 @@ http_archive(
     name = "remote_java_tools_javac11_test_linux",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "55be249dfdaf09790004bb007f229437eb148a6633045dce1f6247dd04a92f6a",
+    sha256 = "bd6e8b7091c1f61f2de7dfdf0c47996ffb019582f7c4147a851f59eee7c04e15",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_linux-v10.2.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_linux-v10.3.zip",
     ],
 )
 
@@ -968,9 +988,9 @@ http_archive(
     name = "remote_java_tools_javac11_test_windows",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "007a376d7c58e73a8f91c5a7f74bf2e9d4bf2a530142bc74c8709a02f1f6cde3",
+    sha256 = "022cef618b138199d7b21740d495fbbd201483234b4818185aa6cdc6d162d9a4",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_windows-v10.2.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_windows-v10.3.zip",
     ],
 )
 
@@ -979,9 +999,9 @@ http_archive(
     name = "remote_java_tools_javac11_test_darwin",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "03caa49238dd040d4bdae0a730d5c4027a3739aabf8f2c6840a160ea41890626",
+    sha256 = "cd8f319b46876e7c3a814095ad9d91dd8589821480548ad48da11949f45a38e6",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.2/java_tools_javac11_darwin-v10.2.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.3/java_tools_javac11_darwin-v10.3.zip",
     ],
 )
 
@@ -1156,7 +1176,7 @@ http_archive(
     sha256 = "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
     strip_prefix = "grpc-1.32.0",
     urls = [
-        #"https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
     ],
 )

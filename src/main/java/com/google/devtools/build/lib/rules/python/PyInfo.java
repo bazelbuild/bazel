@@ -103,7 +103,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
   }
 
   @Override
-  public Location getCreationLoc() {
+  public Location getCreationLocation() {
     return location;
   }
 

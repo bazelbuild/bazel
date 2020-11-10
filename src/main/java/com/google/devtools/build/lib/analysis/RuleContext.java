@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -1091,28 +1090,8 @@ public final class RuleContext extends TargetContext
    * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, NativeProvider<T> starlarkKey) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
-  }
-
-  /**
-   * Returns all the declared providers (native and Starlark) for the specified constructor under
-   * the specified attribute of this target in the BUILD file.
-   */
-  public <T extends Info> List<T> getPrerequisites(
       String attributeName, BuiltinProvider<T> starlarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
-  }
-
-  /**
-   * Returns the declared provider (native and Starlark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file. May return null if there is no
-   * TransitiveInfoCollection under the specified attribute.
-   */
-  @Nullable
-  public <T extends Info> T getPrerequisite(String attributeName, NativeProvider<T> starlarkKey) {
-    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
-    return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
 
   /**
@@ -1125,7 +1104,6 @@ public final class RuleContext extends TargetContext
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
     return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
-
   /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file, and that contain the specified provider.
@@ -1134,15 +1112,6 @@ public final class RuleContext extends TargetContext
       Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
           String attributeName, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
-    return AnalysisUtils.filterByProvider(getPrerequisites(attributeName), classType);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, NativeProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName), classType);
   }
 

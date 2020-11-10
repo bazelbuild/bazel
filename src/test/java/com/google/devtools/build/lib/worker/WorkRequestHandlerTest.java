@@ -41,12 +41,16 @@ public class WorkRequestHandlerTest {
 
   @Test
   public void testNormalWorkRequest() throws IOException {
-    WorkRequestHandler handler = new WorkRequestHandler((args, err) -> 1);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    WorkRequestHandler handler =
+        new WorkRequestHandler(
+            (args, err) -> 1,
+            new PrintStream(new ByteArrayOutputStream()),
+            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    handler.respondToRequest(request, new PrintStream(out));
+    handler.respondToRequest(request);
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -57,12 +61,16 @@ public class WorkRequestHandlerTest {
 
   @Test
   public void testMultiplexWorkRequest() throws IOException {
-    WorkRequestHandler handler = new WorkRequestHandler((args, err) -> 0);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    WorkRequestHandler handler =
+        new WorkRequestHandler(
+            (args, err) -> 0,
+            new PrintStream(new ByteArrayOutputStream()),
+            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).setRequestId(42).build();
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    handler.respondToRequest(request, new PrintStream(out));
+    handler.respondToRequest(request);
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -73,17 +81,19 @@ public class WorkRequestHandlerTest {
 
   @Test
   public void testOutput() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
     WorkRequestHandler handler =
         new WorkRequestHandler(
             (args, err) -> {
               err.println("Failed!");
               return 1;
-            });
+            },
+            new PrintStream(new ByteArrayOutputStream()),
+            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    handler.respondToRequest(request, new PrintStream(out));
+    handler.respondToRequest(request);
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -94,16 +104,18 @@ public class WorkRequestHandlerTest {
 
   @Test
   public void testException() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
     WorkRequestHandler handler =
         new WorkRequestHandler(
             (args, err) -> {
               throw new RuntimeException("Exploded!");
-            });
+            },
+            new PrintStream(new ByteArrayOutputStream()),
+            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    handler.respondToRequest(request, new PrintStream(out));
+    handler.respondToRequest(request);
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));

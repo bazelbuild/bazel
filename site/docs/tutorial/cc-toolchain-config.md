@@ -5,9 +5,6 @@ title: Configuring C++ toolchains
 
 # Configuring C++ toolchains
 
-* ToC
-{:toc}
-
 ## Overview
 
 This tutorial uses an example scenario to describe how to configure C++

@@ -35,8 +35,12 @@ public final class UsesDataBindingProvider extends NativeInfo
   private final ImmutableList<Artifact> metadataOutputs;
 
   public UsesDataBindingProvider(Collection<Artifact> metadataOutputs) {
-    super(PROVIDER);
     this.metadataOutputs = ImmutableList.copyOf(metadataOutputs);
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

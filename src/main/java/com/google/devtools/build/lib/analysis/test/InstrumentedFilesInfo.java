@@ -57,7 +57,6 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       NestedSet<Pair<String, String>> reportedToActualSources) {
-    super(STARLARK_CONSTRUCTOR);
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;

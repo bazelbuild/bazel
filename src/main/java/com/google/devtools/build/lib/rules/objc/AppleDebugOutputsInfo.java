@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDebugOutputsApi;
 import java.util.HashMap;
 import java.util.Map;
@@ -64,8 +64,8 @@ public final class AppleDebugOutputsInfo extends NativeInfo
   public static final String STARLARK_NAME = "AppleDebugOutputs";
 
   /** Starlark constructor and identifier for AppleDebugOutputsInfo. */
-  public static final NativeProvider<AppleDebugOutputsInfo> STARLARK_CONSTRUCTOR =
-      new NativeProvider<AppleDebugOutputsInfo>(AppleDebugOutputsInfo.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<AppleDebugOutputsInfo> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<AppleDebugOutputsInfo>(STARLARK_NAME, AppleDebugOutputsInfo.class) {};
 
   private final ImmutableMap<String, Dict<String, Artifact>> outputsMap;
 
@@ -85,8 +85,12 @@ public final class AppleDebugOutputsInfo extends NativeInfo
    *     </ul>
    */
   private AppleDebugOutputsInfo(ImmutableMap<String, Dict<String, Artifact>> map) {
-    super(STARLARK_CONSTRUCTOR);
     this.outputsMap = map;
+  }
+
+  @Override
+  public BuiltinProvider<AppleDebugOutputsInfo> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /** Returns the multi-architecture dylib binary that apple_binary created. */

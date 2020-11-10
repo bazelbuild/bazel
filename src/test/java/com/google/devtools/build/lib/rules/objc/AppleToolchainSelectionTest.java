@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -36,24 +37,24 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionDefault() throws Exception {
     createLibraryTargetWriter("//a:lib").write();
-    CppConfiguration cppConfig =
-        getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
+    BuildConfiguration config = getAppleCrosstoolConfiguration();
+    CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
 
     assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
         .isEqualTo("//tools/osx/crosstool:crosstool");
-    assertThat(cppConfig.getTransformedCpuFromOptions()).isEqualTo("darwin_x86_64");
+    assertThat(config.getCpu()).isEqualTo("darwin_x86_64");
   }
 
   @Test
   public void testToolchainSelectionIosDevice() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
     createLibraryTargetWriter("//a:lib").write();
-    CppConfiguration cppConfig =
-        getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
+    BuildConfiguration config = getAppleCrosstoolConfiguration();
+    CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
 
     assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
         .isEqualTo("//tools/osx/crosstool:crosstool");
-    assertThat(cppConfig.getTransformedCpuFromOptions()).isEqualTo("ios_armv7");
+    assertThat(config.getCpu()).isEqualTo("ios_armv7");
   }
 
   @Test

@@ -1447,6 +1447,7 @@ load(":my_rule.bzl", "my_rule")
 my_rule(
   name = 'my_starlark_rule',
   output_jar = 'my_starlark_rule_lib.jar',
+  output_source_jar = 'my_starlark_rule_lib-src.jar',
   source_jars = ['my_starlark_rule_src.jar'],
 )
 EOF
@@ -1462,10 +1463,9 @@ def _impl(ctx):
   )
   source_jar = java_common.pack_sources(
     ctx.actions,
-    output_jar = ctx.file.output_jar,
+    output_source_jar = ctx.actions.declare_file(ctx.attr.output_source_jar),
     source_jars = ctx.files.source_jars,
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,
@@ -1478,9 +1478,9 @@ my_rule = rule(
   implementation = _impl,
   attrs = {
     'output_jar' : attr.label(allow_single_file=True),
+    'output_source_jar' : attr.string(),
     'source_jars' : attr.label_list(allow_files=['.jar']),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
-    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   }
 )
 EOF

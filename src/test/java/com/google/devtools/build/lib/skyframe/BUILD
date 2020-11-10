@@ -72,10 +72,6 @@ java_test(
             ["*.java"],
             exclude = CROSS_PLATFORM_WINDOWS_TESTS,
         ),
-        "//src/conditions:darwin_x86_64": glob(
-            ["*.java"],
-            exclude = CROSS_PLATFORM_WINDOWS_TESTS,
-        ),
         "//conditions:default": glob(
             ["*.java"],
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"] + CROSS_PLATFORM_WINDOWS_TESTS,
@@ -90,11 +86,6 @@ java_test(
     ],
     deps = select({
         "//src/conditions:darwin": [
-            "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
-            "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
-            "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
-        ],
-        "//src/conditions:darwin_x86_64": [
             "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
             "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
             "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",

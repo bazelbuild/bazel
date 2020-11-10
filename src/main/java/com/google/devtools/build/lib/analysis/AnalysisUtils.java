@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -93,23 +92,6 @@ public final class AnalysisUtils {
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final NativeProvider<T> starlarkKey) {
-    ImmutableList.Builder<T> result = ImmutableList.builder();
-    for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(starlarkKey);
-      if (prerequisiteProvider != null) {
-        result.add(prerequisiteProvider);
-      }
-    }
-    return result.build();
-  }
-
-  /**
-   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
-   * a set of transitive info collections.
-   */
-  public static <T extends Info> List<T> getProviders(
-      Iterable<? extends TransitiveInfoCollection> prerequisites,
       final BuiltinProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
@@ -127,12 +109,6 @@ public final class AnalysisUtils {
   public static <S extends TransitiveInfoCollection, C extends TransitiveInfoProvider> Iterable<S>
       filterByProvider(Iterable<S> prerequisites, final Class<C> provider) {
     return Iterables.filter(prerequisites, target -> target.getProvider(provider) != null);
-  }
-
-  /** Returns the iterable of collections that have the specified provider. */
-  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
-      Iterable<S> prerequisites, final NativeProvider<C> provider) {
-    return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
 
   /** Returns the iterable of collections that have the specified provider. */

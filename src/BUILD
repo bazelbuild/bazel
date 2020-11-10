@@ -24,7 +24,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
     outs = ["install_base_key" + suffix],
     cmd = select({
         "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
-        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
         "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
         # We avoid using the `head` tool's `-c` option, since it does not exist
         # on OpenBSD.
@@ -133,9 +132,6 @@ JAVA_TOOLS = [
                "//src/conditions:darwin": [
                    ":darwin_tools",
                ],
-               "//src/conditions:darwin_x86_64": [
-                   ":darwin_tools",
-               ],
                "//conditions:default": [
                    ":dummy_darwin_tools",
                ],
@@ -173,9 +169,6 @@ filegroup(
         "//src/conditions:darwin": [
             "@openjdk_macos//file",
         ],
-        "//src/conditions:darwin_x86_64": [
-            "@openjdk_macos//file",
-        ],
         "//src/conditions:windows": [
             "@openjdk_win//file",
         ],
@@ -195,9 +188,6 @@ filegroup(
         "//src/conditions:darwin": [
             "@openjdk_macos_minimal//file",
         ],
-        "//src/conditions:darwin_x86_64": [
-            "@openjdk_macos_minimal//file",
-        ],
         "//src/conditions:windows": [
             "@openjdk_win_minimal//file",
         ],
@@ -215,9 +205,6 @@ filegroup(
     name = "embedded_jdk_vanilla",
     srcs = select({
         "//src/conditions:darwin": [
-            "@openjdk_macos_vanilla//file",
-        ],
-        "//src/conditions:darwin_x86_64": [
             "@openjdk_macos_vanilla//file",
         ],
         "//src/conditions:windows": [
@@ -625,9 +612,8 @@ JAVA_VERSIONS = ("11",)
             "--platform",
         ] + select({
             "//src/conditions:darwin": ["darwin"],
-            "//src/conditions:darwin_x86_64": ["darwin_x86_64"],
             "//src/conditions:windows": ["windows"],
-            "//src/conditions:linux_x86_64": ["linux"],
+            "//src/conditions:linux": ["linux"],
             "//conditions:default": ["unknown"],
         }),
         data = [":java_tools_dist_java" + java_version],
@@ -716,9 +702,8 @@ JAVA_VERSIONS = ("11",)
             "--platform",
         ] + select({
             "//src/conditions:darwin": ["darwin"],
-            "//src/conditions:darwin_x86_64": ["darwin_x86_64"],
             "//src/conditions:windows": ["windows"],
-            "//src/conditions:linux_x86_64": ["linux"],
+            "//src/conditions:linux": ["linux"],
             "//conditions:default": ["unknown"],
         }),
         data = [":java_tools_java" + java_version + "_zip"],

@@ -9,22 +9,6 @@ This guide describes how to build or test an Xcode project with Bazel. It
 describes the differences between Xcode and Bazel, and provides the steps for
 converting an Xcode project to a Bazel project.
 
-## Contents
-
-- [Differences between Xcode and Bazel](#differences-between-xcode-and-bazel)
-- [Before you begin](#before-you-begin)
-   - [Analyze project dependencies](#analyze-project-dependencies)
-- [Build or test an Xcode project with Bazel](#build-or-test-an-xcode-project-with-bazel)
-   - [Step 1: Create the `WORKSPACE` file](#step-1-create-the-workspace-file)
-   - [Step 2: (Experimental) Integrate CocoaPod dependencies](#step-2-experimental-integrate-cocoapods-dependencies)
-   - [Step 3: Create a `BUILD` file:](#step-3-create-a-build-file)
-      - [Step 3a: Add the application target](#step-3a-add-the-application-target)
-      - [Step 3b: (Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
-      - [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
-   - [Step 4: (Optional) Granularize the build](#step-4-optional-granularize-the-build)
-   - [Step 5: Run the build](#step-5-run-the-build)
-   - [Step 6: Generate the Xcode project with Tulsi](#step-6-generate-the-xcode-project-with-tulsi)
-
 ## Differences between Xcode and Bazel
 
 *   Bazel requires you to explicitly specify every build target and its

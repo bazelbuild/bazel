@@ -114,14 +114,20 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     SpawnExecutionContext context =
         new SpawnExecutionContextImpl(spawn, actionExecutionContext, stopConcurrentSpawns, timeout);
 
-    SpawnCache cache = actionExecutionContext.getContext(SpawnCache.class);
+    // Avoid caching for runners which handle caching internally e.g. RemoteSpawnRunner.
+    SpawnCache cache =
+        spawnRunner.handlesCaching()
+            ? SpawnCache.NO_CACHE
+            : actionExecutionContext.getContext(SpawnCache.class);
+
     // In production, the getContext method guarantees that we never get null back. However, our
     // integration tests don't set it up correctly, so cache may be null in testing.
     if (cache == null) {
       cache = SpawnCache.NO_CACHE;
     }
-    // Avoid caching for runners which handle caching internally e.g. RemoteSpawnRunner
-    if (spawnRunner.handlesCaching()) {
+
+    // Avoid using the remote cache of a dynamic execution setup for the local runner.
+    if (context.speculating() && !cache.usefulInDynamicExecution()) {
       cache = SpawnCache.NO_CACHE;
     }
     SpawnResult spawnResult;

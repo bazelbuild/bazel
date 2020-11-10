@@ -18,8 +18,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodePropertiesApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -32,8 +32,8 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   public static final String STARLARK_NAME = "XcodeProperties";
 
   /** Starlark constructor and identifier for XcodeVersionProperties provider. */
-  public static final NativeProvider<XcodeVersionProperties> STARLARK_CONSTRUCTOR =
-      new NativeProvider<XcodeVersionProperties>(XcodeVersionProperties.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<XcodeVersionProperties> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<XcodeVersionProperties>(STARLARK_NAME, XcodeVersionProperties.class) {};
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
@@ -76,7 +76,6 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
       @Nullable String defaultMacosSdkVersion) {
-    super(STARLARK_CONSTRUCTOR);
     this.xcodeVersion = Optional.fromNullable(xcodeVersion);
     this.defaultIosSdkVersion =
         Strings.isNullOrEmpty(defaultIosSdkVersion)
@@ -94,6 +93,11 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
         Strings.isNullOrEmpty(defaultMacosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_MACOS_SDK_VERSION)
             : DottedVersion.fromStringUnchecked(defaultMacosSdkVersion);
+  }
+
+  @Override
+  public BuiltinProvider<XcodeVersionProperties> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /** Returns the xcode version, or null if the xcode version is unknown. */

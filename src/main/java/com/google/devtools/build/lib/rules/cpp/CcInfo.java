@@ -41,10 +41,14 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
       CcCompilationContext ccCompilationContext,
       CcLinkingContext ccLinkingContext,
       CcDebugInfoContext ccDebugInfoContext) {
-    super(PROVIDER);
     this.ccCompilationContext = ccCompilationContext;
     this.ccLinkingContext = ccLinkingContext;
     this.ccDebugInfoContext = ccDebugInfoContext;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

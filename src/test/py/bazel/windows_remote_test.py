@@ -187,7 +187,7 @@ class WindowsRemoteTest(test_base.TestBase):
         'java_runtime(',
         '    name = "jdk8",',
         '    srcs = [],',
-        '    java_home = "' + java_home + '",',
+        '    java_home = ' + repr(java_home) + ',',
         ')',
     ])
     self.ScratchFile(

@@ -153,7 +153,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Nullable private final Reporter cmdlineReporter;
   private final RemoteExecutionCache remoteCache;
-  @Nullable private final RemoteExecutionClient remoteExecutor;
+  private final RemoteExecutionClient remoteExecutor;
   private final RemoteRetrier retrier;
   private final String buildRequestId;
   private final String commandId;

@@ -55,8 +55,12 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
   private final Optional<ImmutableMap<Label, String>> flags;
 
   AndroidFeatureFlagSetProvider(Optional<? extends Map<Label, String>> flags) {
-    super(PROVIDER);
     this.flags = flags.transform(ImmutableMap::copyOf);
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static AndroidFeatureFlagSetProvider create(Optional<? extends Map<Label, String>> flags) {

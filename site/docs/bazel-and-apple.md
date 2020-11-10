@@ -9,12 +9,6 @@ This page contains resources that help you use Bazel to build macOS and iOS
 projects. It links to a tutorial, build rules, and other information specific to
 using Bazel to build and test for those platforms.
 
-## Contents
-
-- [Working with Bazel](#working-with-bazel)
-- [Migrating to Bazel](#migrating-to-bazel)
-- [Apple apps and new rules](#apple-apps-and-new-rules)
-
 ## Working with Bazel
 
 The following resources will help you work with Bazel on macOS and iOS projects:

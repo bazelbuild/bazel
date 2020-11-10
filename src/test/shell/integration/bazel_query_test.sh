@@ -624,6 +624,44 @@ EOF
   expect_log "$expected_error_msg"
 }
 
+function test_graphless_genquery_somepath_output_in_dependency_order() {
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "c", deps = [":b"])
+sh_library(name = "b", deps = [":a"])
+sh_library(name = "a")
+genquery(name = "somepath",
+         scope = ['//foo:c'],
+         expression = "somepath(//foo:c, //foo:a)")
+genquery(name = "allpaths",
+         scope = ['//foo:c'],
+         expression = "allpaths(//foo:c, //foo:a)")
+EOF
+
+  # Somepath in genquery needs to output in dependency order instead of
+  # lexicographical order (which is the default for all other expressions)
+  cat > foo/expected_sp_output <<EOF
+//foo:c
+//foo:b
+//foo:a
+EOF
+  bazel build --experimental_genquery_use_graphless_query \
+      //foo:somepath >& $TEST_log || fail "Expected success"
+  assert_equals "$(cat foo/expected_sp_output)" "$(cat bazel-bin/foo/somepath)"
+
+  # Allpaths in genquery outputs in lexicographical order (just like all other
+  # expressions) as the dependency order is not preserved during computation
+  # in GraphlessBlazeQueryEnvironment
+  cat > foo/expected_ap_output <<EOF
+//foo:a
+//foo:b
+//foo:c
+EOF
+  bazel build --experimental_genquery_use_graphless_query \
+      //foo:allpaths >& $TEST_log || fail "Expected success"
+  assert_equals "$(cat foo/expected_ap_output)" "$(cat bazel-bin/foo/allpaths)"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
 function test_rbuildfiles_can_handle_non_loading_phase_edges() {
   mkdir -p foo

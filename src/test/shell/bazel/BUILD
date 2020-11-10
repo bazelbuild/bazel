@@ -189,9 +189,8 @@ sh_test(
     ] + select({
         # --javabase and --host_javabase values
         "//src/conditions:darwin": ["@openjdk14_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk14_darwin_archive//:runtime"],
         "//src/conditions:windows": ["@openjdk14_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk14_linux_archive//:runtime"],
+        "//src/conditions:linux": ["@openjdk14_linux_archive//:runtime"],
     }),
     data = [
         ":test-deps",
@@ -213,9 +212,8 @@ sh_test(
     ] + select({
         # --javabase and --host_javabase values
         "//src/conditions:darwin": ["@openjdk15_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk15_darwin_archive//:runtime"],
         "//src/conditions:windows": ["@openjdk15_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk15_linux_archive//:runtime"],
+        "//src/conditions:linux": ["@openjdk15_linux_archive//:runtime"],
     }),
     data = [
         ":test-deps",
@@ -260,9 +258,8 @@ JAVA_VERSIONS = ("11", "14", "15")
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
             "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
         }),
         data = [
             ":test-deps",
@@ -289,9 +286,8 @@ JAVA_VERSIONS = ("11", "14", "15")
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
             "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
         }),
         data = [
             ":test-deps",
@@ -318,9 +314,8 @@ JAVA_VERSIONS = ("11", "14", "15")
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
             "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
         }),
         data = [
             ":test-deps",
@@ -521,9 +516,8 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = select({
             "//src/conditions:darwin": ["@remote_java_tools_javac11_test_darwin//:toolchain"],
-            "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac11_test_darwin//:toolchain"],
             "//src/conditions:windows": ["@remote_java_tools_javac11_test_windows//:toolchain"],
-            "//src/conditions:linux_x86_64": ["@remote_java_tools_javac11_test_linux//:toolchain"],
+            "//src/conditions:linux": ["@remote_java_tools_javac11_test_linux//:toolchain"],
         }) + [
             # java_tools zip to test
             "released",
@@ -532,9 +526,8 @@ sh_test(
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
             "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
         }),
         data = [
             ":test-deps",
@@ -562,9 +555,8 @@ sh_test(
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
             "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
         }),
         data = [
             ":test-deps",

@@ -50,6 +50,7 @@ java_library(
 java_library(
     name = "work_request_handlers",
     srcs = [
+        "ProtoWorkerMessageProcessor.java",
         "WorkRequestHandler.java",
     ],
     deps = [

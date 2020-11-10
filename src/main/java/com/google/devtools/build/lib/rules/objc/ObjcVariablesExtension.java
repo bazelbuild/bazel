@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 
@@ -21,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -199,7 +199,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     ImmutableSet<Artifact> ccLibs = ImmutableSet.copyOf(objcProvider.getCcLibraries());
     Predicate<Artifact> isNotCcLib = library -> !ccLibs.contains(library);
     Iterable<Artifact> objcLibraries =
-        Iterables.filter(objcProvider.getObjcLibraries(), isNotCcLib);
+        objcProvider.getObjcLibraries().stream().filter(isNotCcLib).collect(toImmutableList());
 
     builder.addStringSequenceVariable(
         OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME, Artifact.toExecPaths(objcLibraries));

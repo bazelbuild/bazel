@@ -24,13 +24,6 @@ In this tutorial you'll learn how to:
 *  Control target visibility across packages
 *  Reference targets through labels
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
-
-
 ## Before you begin
 
 To prepare for the tutorial, first [Install Bazel](../install.md) if

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -189,7 +189,7 @@ public enum ApplePlatform implements ApplePlatformApi {
 
   /** Returns a Starlark struct that contains the instances of this enum. */
   public static StructImpl getStarlarkStruct() {
-    Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platforms") {};
+    Provider constructor = new BuiltinProvider<StructImpl>("platforms", StructImpl.class) {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
       fields.put(type.starlarkKey, type);
@@ -259,7 +259,7 @@ public enum ApplePlatform implements ApplePlatformApi {
 
     /** Returns a Starlark struct that contains the instances of this enum. */
     public static StructImpl getStarlarkStruct() {
-      Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platform_types") {};
+      Provider constructor = new BuiltinProvider<StructImpl>("platform_types", StructImpl.class) {};
       HashMap<String, Object> fields = new HashMap<>();
       for (PlatformType type : values()) {
         fields.put(type.starlarkKey, type);

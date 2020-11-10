@@ -1428,7 +1428,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLacksAdvertisedNativeProvider() throws Exception {
+  public void testLacksAdvertisedBuiltinProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",
         "FooInfo = provider()",
