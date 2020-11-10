@@ -193,14 +193,6 @@ public class QueryOptions extends CommonQueryOptions {
   public TriState useGraphlessQuery;
 
   @Option(
-      name = "experimental_graphless_genquery_force_sort",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help = "If true, and graphless query is enabled, sorts the output alphabetically.")
-  public boolean forceSortForGraphlessGenquery;
-
-  @Option(
       name = "experimental_query_failure_exit_code_behavior",
       defaultValue = "three_and_seven",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
