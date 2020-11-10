@@ -63,7 +63,7 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
 
 JVM8_TOOLCHAIN_CONFIGURATION = dict(
     javac = ["//:javac_jar"],
-    jvm_opts = ["-Xbootclasspath/p:$(location {repo}//:javac_jar)"],
+    jvm_opts = ["-Xbootclasspath/p:$(location //:javac_jar)"],
 )
 
 JAVABUILDER_TOOLCHAIN_CONFIGURATION = dict(
@@ -74,8 +74,8 @@ JAVABUILDER_TOOLCHAIN_CONFIGURATION = dict(
         "-XX:+UseParallelOldGC",
         "-XX:-CompactStrings",
         # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location {repo}//:java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location {repo}//:jdk_compiler_jar)",
+        "--patch-module=java.compiler=$(location //:java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location //:jdk_compiler_jar)",
     ] + JDK9_JVM_OPTS,
     tools = [
         "//:java_compiler_jar",
@@ -116,8 +116,8 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         "-XX:+UseParallelOldGC",
         "-XX:-CompactStrings",
         # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location {repo}//:java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location {repo}//:jdk_compiler_jar)",
+        "--patch-module=java.compiler=$(location //:java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location //:jdk_compiler_jar)",
     ] + JDK9_JVM_OPTS,
     tools = [
         "//:java_compiler_jar",
@@ -159,11 +159,13 @@ def _to_label(k, v):
         return [Label(label) if type(label) == type("") else label for label in v]
     return v
 
-# Replaces "{repo}" in all jvm_opts with value of repo.
-def _format_jvm_opts(original_dict, repo):
-    formatted_dict = dict(original_dict)
-    formatted_dict["jvm_opts"] = [opt.format(repo = repo) for opt in formatted_dict["jvm_opts"]]
-    return formatted_dict
+# Makes labels in jvm_opts absolute, that is replaces " //:"  with " @repo//:".
+def _format_jvm_opts(toolchain_args, repo):
+    jvm_opts = toolchain_args["jvm_opts"]
+    if [opt for opt in jvm_opts if opt.find(" :") >= 0] != []:
+        fail("Relative labels are not supported in jvm_opts parameter.")
+    jvm_opts = [opt.replace(" //:", " @{repo}//:").format(repo = repo) for opt in jvm_opts]
+    return dict(toolchain_args, jvm_opts = jvm_opts)
 
 def java_toolchain_default(name, configuration = dict(), **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
@@ -172,7 +174,7 @@ def java_toolchain_default(name, configuration = dict(), **kwargs):
     toolchain_args.update(configuration)
     toolchain_args.update(kwargs)
     toolchain_args = {k: _to_label(k, v) for k, v in toolchain_args.items()}
-    toolchain_args = _format_jvm_opts(toolchain_args, "@" + Label("//x").workspace_name)
+    toolchain_args = _format_jvm_opts(toolchain_args, Label("//x").workspace_name)
     native.java_toolchain(
         name = name,
         **toolchain_args

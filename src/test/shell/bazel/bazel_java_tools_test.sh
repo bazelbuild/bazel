@@ -260,8 +260,8 @@ java_toolchain_default(
       "-XX:+UseParallelOldGC",
       "-XX:-CompactStrings",
       # override the javac in the JDK.
-      "--patch-module=java.compiler=\$(location {repo}//:java_compiler_jar)",
-      "--patch-module=jdk.compiler=\$(location {repo}//:jdk_compiler_jar)",
+      "--patch-module=java.compiler=\$(location //:java_compiler_jar)",
+      "--patch-module=jdk.compiler=\$(location //:jdk_compiler_jar)",
   ] + JDK9_JVM_OPTS,
   tools = [
       "//:java_compiler_jar",
