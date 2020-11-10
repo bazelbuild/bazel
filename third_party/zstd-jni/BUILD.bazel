@@ -10,6 +10,13 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
+config_setting(
+    name = "macos",
+    constraint_values = [
+        "@platforms//os:macos",
+    ],
+)
+
 # Below two rules are copied from src/main/native/BUILD.
 # Move to some common place?
 genrule(
@@ -60,8 +67,10 @@ cc_binary(
         "-Wstrict-prototypes",
         "-Wno-unused-variable",
         "-Wpointer-arith",
-        "-Wno-maybe-uninitialized",
-    ],
+    ] + select({
+        ":macos": ["-Wno-sometimes-uninitialized"],
+        "//conditions:default": ["-Wno-maybe-uninitialized"],
+    }),
     includes = [
         "src/main/native",
         "src/main/native/common",
