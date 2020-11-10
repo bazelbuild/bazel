@@ -870,7 +870,7 @@ public class CompilationSupport {
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        true,
+        /* withBaselineCoverage= */ true,
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
