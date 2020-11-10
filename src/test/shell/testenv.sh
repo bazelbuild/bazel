@@ -595,7 +595,7 @@ workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
   new_workspace_dir=${1:-$(mktemp -d ${TEST_TMPDIR}/workspace.XXXXXXXX)}
-  try_with_timeout rm -fr ${new_workspace_dir}
+  try_with_timeout rm -fr ${new_workspace_dir} > /dev/null 2>&1
   mkdir -p ${new_workspace_dir}
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
