@@ -47,13 +47,11 @@ public interface Provider extends ProviderApi {
   String getPrintableName();
 
   /**
-   * Returns an error message format string for instances to use for their {@link
+   * Returns an error message for instances to use for their {@link
    * net.starlark.java.eval.Structure#getErrorMessageForUnknownField(String)}.
-   *
-   * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */
-  default String getErrorMessageFormatForUnknownField() {
-    return String.format("'%s' value has no field or method '%%s'", getPrintableName());
+  default String getErrorMessageForUnknownField(String name) {
+    return String.format("'%s' value has no field or method '%s'", getPrintableName(), name);
   }
 
   /**

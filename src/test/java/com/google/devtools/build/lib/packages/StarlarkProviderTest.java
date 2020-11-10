@@ -39,8 +39,8 @@ public final class StarlarkProviderTest {
     assertThat(provider.isExported()).isFalse();
     assertThat(provider.getName()).isEqualTo("<no name>");
     assertThat(provider.getPrintableName()).isEqualTo("<no name>");
-    assertThat(provider.getErrorMessageFormatForUnknownField())
-        .isEqualTo("Object has no '%s' attribute.");
+    assertThat(provider.getErrorMessageForUnknownField("foo"))
+        .isEqualTo("'struct' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isFalse();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThrows(
@@ -56,8 +56,8 @@ public final class StarlarkProviderTest {
     assertThat(provider.isExported()).isTrue();
     assertThat(provider.getName()).isEqualTo("prov");
     assertThat(provider.getPrintableName()).isEqualTo("prov");
-    assertThat(provider.getErrorMessageFormatForUnknownField())
-        .isEqualTo("'prov' value has no field or method '%s'");
+    assertThat(provider.getErrorMessageForUnknownField("foo"))
+        .isEqualTo("'prov' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isTrue();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);

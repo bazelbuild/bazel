@@ -20,37 +20,33 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 
 /**
  * The provider for the built-in type {@code struct}.
  *
  * <p>Its singleton instance is {@link StructProvider#STRUCT}.
  */
-public final class StructProvider extends BuiltinProvider<StructImpl>
+public final class StructProvider extends BuiltinProvider<StarlarkInfo>
     implements StructApi.StructProviderApi {
 
-  /** "struct" function. */
+  /** Provider of "struct" instances. */
   public static final StructProvider STRUCT = new StructProvider();
 
-  StructProvider() {
-    super("struct", StructImpl.class);
+  private StructProvider() {
+    super("struct", StarlarkInfo.class);
   }
 
+  /** Implementation of {@code struct(**kwargs)} function exposed to Starlark. */
   @Override
   public StructImpl createStruct(Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    return create(kwargs, thread.getCallerLocation());
-  }
-
-  public StructImpl create(Map<String, Object> fields, Location location) throws EvalException {
-    if (fields.containsKey("to_json")) {
+    if (kwargs.containsKey("to_json")) {
       throw Starlark.errorf("cannot override built-in struct function 'to_json'");
     }
-    if (fields.containsKey("to_proto")) {
+    if (kwargs.containsKey("to_proto")) {
       throw Starlark.errorf("cannot override built-in struct function 'to_proto'");
     }
-    return StarlarkInfo.create(this, fields, location);
+    return StarlarkInfo.create(this, kwargs, thread.getCallerLocation());
   }
 
   /**
