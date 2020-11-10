@@ -1103,8 +1103,7 @@ EOF
   expect_log 'option_value: "666"'
 }
 
-# TODO(b/159359614): Enable.
-function DISABLED_test_empty_tree_in_named_files() {
+function test_empty_tree_in_named_files() {
   mkdir -p foo
   cat > foo/rule.bzl <<'EOF'
 def _leaf_impl(ctx):
