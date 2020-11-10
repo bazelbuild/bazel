@@ -90,10 +90,6 @@ public class NetworkTime {
           new ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(
               responseListener) {
 
-            /**
-             * This method must not throw any exceptions. Doing so will cause the wrapped call to
-             * silently hang indefinitely: https://github.com/grpc/grpc-java/pull/6107
-             */
             @Override
             public void onClose(Status status, Metadata trailers) {
               // There is a risk that networkTime.stop() would throw a IllegalStateException: if
@@ -103,8 +99,11 @@ public class NetworkTime {
                 networkTime.stop();
               } catch (RuntimeException e) {
                 logger.atWarning().withCause(e).log("Failed to stop networkTime");
+              } finally {
+                // Make sure to call super.onClose, otherwise gRPC will silently hang indefinitely.
+                // See https://github.com/grpc/grpc-java/pull/6107.
+                super.onClose(status, trailers);
               }
-              super.onClose(status, trailers);
             }
           },
           headers);
