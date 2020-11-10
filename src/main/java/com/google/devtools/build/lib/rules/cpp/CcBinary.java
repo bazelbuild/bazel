@@ -1049,23 +1049,25 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static NestedSet<Artifact> createDynamicLibrariesCopyActions(
       RuleContext ruleContext, Iterable<Artifact> dynamicLibrariesForRuntime) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (Artifact target : dynamicLibrariesForRuntime) {
+    for (Artifact lib : dynamicLibrariesForRuntime) {
       // If the binary and the DLL don't belong to the same package or the DLL is a source file,
       // we should copy the DLL to the binary's directory.
       if (!ruleContext
               .getLabel()
               .getPackageIdentifier()
-              .equals(target.getOwner().getPackageIdentifier())
-          || target.isSourceArtifact()) {
+              .equals(lib.getOwner().getPackageIdentifier())
+          || lib.isSourceArtifact()) {
+        String targetName = ruleContext.getTarget().getName();
+        PathFragment targetSubDir = PathFragment.create(targetName).getParentDirectory();
         // SymlinkAction on file is actually copy on Windows.
-        Artifact copy = ruleContext.getBinArtifact(target.getFilename());
+        Artifact copy = ruleContext.getBinArtifact(targetSubDir.getRelative(lib.getFilename()));
         ruleContext.registerAction(SymlinkAction.toArtifact(
-            ruleContext.getActionOwner(), target, copy, "Copying Execution Dynamic Library"));
+            ruleContext.getActionOwner(), lib, copy, "Copying Execution Dynamic Library"));
         result.add(copy);
       } else {
-        // If the target is already in the same directory as the binary, we don't need to copy it,
+        // If the library is already in the same directory as the binary, we don't need to copy it,
         // but we still add it the result.
-        result.add(target);
+        result.add(lib);
       }
     }
     return result.build();
