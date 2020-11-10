@@ -190,7 +190,7 @@ public class WorkerMultiplexerTest {
 
     WorkResponse fakedResponse1 = WorkResponse.newBuilder().setRequestId(3).build();
     WorkResponse fakedResponse2 = WorkResponse.newBuilder().setRequestId(42).build();
-    // Responses can arrive out of order
+    // Responses can arrive out of order, and before the workerproxies are ready to get them.
     fakedResponse2.writeDelimitedTo(workerOutputStream);
     fakedResponse1.writeDelimitedTo(workerOutputStream);
     workerOutputStream.flush();

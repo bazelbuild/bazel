@@ -162,7 +162,7 @@ class TestUtils {
 
     @Override
     public boolean isAlive() {
-      return wasDestroyed;
+      return !wasDestroyed;
     }
   }
 }
