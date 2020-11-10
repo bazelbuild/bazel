@@ -31,8 +31,8 @@ import net.starlark.java.annot.StarlarkMethod;
             + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
             + "<p>"
             + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"ProtoInfo\")` "
-            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
-            + "rules_proto</a>"
+            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
+            + "rules_proto</a>."
             + "</p>")
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */
