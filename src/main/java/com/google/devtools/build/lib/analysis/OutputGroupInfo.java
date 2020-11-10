@@ -137,8 +137,13 @@ public final class OutputGroupInfo extends StructImpl
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(STARLARK_CONSTRUCTOR, Location.BUILTIN);
+    super(Location.BUILTIN);
     this.outputGroups = outputGroups;
+  }
+
+  @Override
+  public OutputGroupInfoProvider getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   @Override

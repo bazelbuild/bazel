@@ -21,57 +21,32 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.TestUtils.FakeSubprocess;
+import com.google.devtools.build.lib.worker.TestUtils.TestWorker;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link Worker}. */
+/** Tests for {@link SingleplexWorker}. */
 @RunWith(JUnit4.class)
 public final class WorkerTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
-
-  /** A worker that uses a fake subprocess for I/O. */
-  private static class TestWorker extends Worker {
-    private final FakeSubprocess fakeSubprocess;
-
-    public TestWorker(
-        WorkerKey workerKey,
-        int workerId,
-        final Path workDir,
-        Path logFile,
-        FakeSubprocess fakeSubprocess) {
-      super(workerKey, workerId, workDir, logFile);
-      this.fakeSubprocess = fakeSubprocess;
-    }
-
-    @Override
-    Subprocess createProcess() {
-      return fakeSubprocess;
-    }
-  }
 
   private TestWorker workerForCleanup = null;
 
@@ -80,95 +55,6 @@ public final class WorkerTest {
     if (workerForCleanup != null) {
       workerForCleanup.destroy();
       workerForCleanup = null;
-    }
-  }
-
-  private WorkerKey createWorkerKey(WorkerProtocolFormat protocolFormat) {
-    return new WorkerKey(
-        /* args= */ ImmutableList.of("arg1", "arg2", "arg3"),
-        /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
-        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
-        /* mnemonic= */ "dummy",
-        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
-        /* mustBeSandboxed= */ true,
-        /* proxied= */ true,
-        protocolFormat);
-  }
-
-  /**
-   * The {@link Worker} object uses a {@link Subprocess} to interact with persistent worker
-   * binaries. Since this test is strictly testing {@link Worker} and not any outside persistent
-   * worker binaries, a {@link FakeSubprocess} instance is used to fake the {@link InputStream} and
-   * {@link OutputStream} that normally write and read from a persistent worker.
-   */
-  private static class FakeSubprocess implements Subprocess {
-    private final ByteArrayInputStream inputStream;
-    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    private final ByteArrayInputStream errStream = new ByteArrayInputStream(new byte[0]);
-    private boolean wasDestroyed = false;
-
-    public FakeSubprocess(byte[] bytes) throws IOException {
-      inputStream = new ByteArrayInputStream(bytes);
-    }
-
-    @Override
-    public InputStream getInputStream() {
-      return inputStream;
-    }
-
-    @Override
-    public OutputStream getOutputStream() {
-      return outputStream;
-    }
-
-    @Override
-    public InputStream getErrorStream() {
-      return errStream;
-    }
-
-    @Override
-    public boolean destroy() {
-      for (Closeable stream : new Closeable[] {inputStream, outputStream, errStream}) {
-        try {
-          stream.close();
-        } catch (IOException e) {
-          throw new IllegalStateException(e);
-        }
-      }
-
-      wasDestroyed = true;
-      return true;
-    }
-
-    @Override
-    public int exitValue() {
-      return 0;
-    }
-
-    @Override
-    public boolean finished() {
-      return true;
-    }
-
-    @Override
-    public boolean timedout() {
-      return false;
-    }
-
-    @Override
-    public void waitFor() throws InterruptedException {
-      // Do nothing.
-    }
-
-    @Override
-    public void close() {
-      // Do nothing.
-    }
-
-    @Override
-    public boolean isAlive() {
-      return wasDestroyed;
     }
   }
 
@@ -183,7 +69,7 @@ public final class WorkerTest {
     Preconditions.checkState(
         workerForCleanup == null, "createTestWorker can only be called once per test");
 
-    WorkerKey key = createWorkerKey(protocolFormat);
+    WorkerKey key = TestUtils.createWorkerKey(protocolFormat, fs);
 
     FakeSubprocess fakeSubprocess = new FakeSubprocess(outputStreamBytes);
 
@@ -203,13 +89,13 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_success() throws IOException {
+  public void testPutRequest_success() throws IOException, InterruptedException {
     WorkRequest request = WorkRequest.getDefaultInstance();
 
     TestWorker testWorker = createTestWorker(new byte[0], PROTO);
     testWorker.putRequest(request);
 
-    OutputStream stdout = testWorker.fakeSubprocess.getOutputStream();
+    OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     WorkRequest requestFromStdout =
         WorkRequest.parseDelimitedFrom(new ByteArrayInputStream(stdout.toString().getBytes(UTF_8)));
 
@@ -217,35 +103,36 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_success() throws IOException {
+  public void testGetResponse_success() throws IOException, InterruptedException {
     WorkResponse response = WorkResponse.getDefaultInstance();
 
     TestWorker testWorker = createTestWorker(serializeResponseToProtoBytes(response), PROTO);
-    WorkResponse readResponse = testWorker.getResponse();
+    WorkResponse readResponse = testWorker.getResponse(0);
 
     assertThat(readResponse).isEqualTo(response);
   }
 
   @Test
-  public void testPutRequest_json_success() throws IOException {
+  public void testPutRequest_json_success() throws IOException, InterruptedException {
     TestWorker testWorker = createTestWorker(new byte[0], JSON);
     testWorker.putRequest(WorkRequest.getDefaultInstance());
 
-    OutputStream stdout = testWorker.fakeSubprocess.getOutputStream();
+    OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     assertThat(stdout.toString()).isEqualTo("{}");
   }
 
   @Test
-  public void testGetResponse_json_success() throws IOException {
+  public void testGetResponse_json_success() throws IOException, InterruptedException {
     TestWorker testWorker = createTestWorker("{}".getBytes(UTF_8), JSON);
-    WorkResponse readResponse = testWorker.getResponse();
+    WorkResponse readResponse = testWorker.getResponse(0);
     WorkResponse response = WorkResponse.getDefaultInstance();
 
     assertThat(readResponse).isEqualTo(response);
   }
 
   @Test
-  public void testPutRequest_json_populatedFields_success() throws IOException {
+  public void testPutRequest_json_populatedFields_success()
+      throws IOException, InterruptedException {
     WorkRequest request =
         WorkRequest.newBuilder()
             .addArguments("testRequest")
@@ -260,7 +147,7 @@ public final class WorkerTest {
     TestWorker testWorker = createTestWorker(new byte[0], JSON);
     testWorker.putRequest(request);
 
-    OutputStream stdout = testWorker.fakeSubprocess.getOutputStream();
+    OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     String requestJsonString =
         "{\"arguments\":[\"testRequest\"],\"inputs\":"
             + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1}";
@@ -268,11 +155,12 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_json_populatedFields_success() throws IOException {
+  public void testGetResponse_json_populatedFields_success()
+      throws IOException, InterruptedException {
     TestWorker testWorker =
         createTestWorker(
             "{\"exitCode\":1,\"output\":\"test output\",\"requestId\":1}".getBytes(UTF_8), JSON);
-    WorkResponse readResponse = testWorker.getResponse();
+    WorkResponse readResponse = testWorker.getResponse(1);
     WorkResponse response =
         WorkResponse.newBuilder().setExitCode(1).setOutput("test output").setRequestId(1).build();
 
@@ -282,7 +170,7 @@ public final class WorkerTest {
   private void verifyGetResponseFailure(String responseString, String expectedError)
       throws IOException {
     TestWorker testWorker = createTestWorker(responseString.getBytes(UTF_8), JSON);
-    IOException ex = assertThrows(IOException.class, testWorker::getResponse);
+    IOException ex = assertThrows(IOException.class, () -> testWorker.getResponse(0));
     assertThat(ex).hasMessageThat().contains(expectedError);
   }
 

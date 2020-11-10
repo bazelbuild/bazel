@@ -23,6 +23,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** A provider for targets that produce an apk file. */
 @Immutable
@@ -51,7 +52,6 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
       Artifact mergedManifest,
       List<Artifact> signingKeys,
       @Nullable Artifact signingLineage) {
-    super(PROVIDER);
     this.apk = apk;
     this.unsignedApk = unsignedApk;
     this.deployJar = deployJar;
@@ -59,6 +59,11 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
     this.mergedManifest = mergedManifest;
     this.signingKeys = ImmutableList.copyOf(signingKeys);
     this.signingLineage = signingLineage;
+  }
+
+  @Override
+  public ApkInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -117,7 +122,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
     @Override
     public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException {
-      return throwUnsupportedConstructorException();
+      throw Starlark.errorf("'%s' cannot be constructed from Starlark", getPrintableName());
     }
   }
 }

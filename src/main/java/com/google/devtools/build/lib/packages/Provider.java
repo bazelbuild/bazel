@@ -20,7 +20,7 @@ import net.starlark.java.syntax.Location;
 /**
  * Declared Provider (a constructor for {@link Info}).
  *
- * <p>Declared providers can be declared either natively ({@link NativeProvider} or in Starlark
+ * <p>Declared providers can be declared either natively ({@link BuiltinProvider} or in Starlark
  * {@link StarlarkProvider}.
  *
  * <p>{@link Provider} serves both as "type identifier" for declared provider instances and as a
@@ -35,7 +35,7 @@ import net.starlark.java.syntax.Location;
 public interface Provider extends ProviderApi {
 
   /**
-   * Has this {@link Provider} been exported? All native providers are always exported. Starlark
+   * Has this {@link Provider} been exported? All built-in providers are always exported. Starlark
    * providers are exported if they are assigned to top-level name in a Starlark module.
    */
   boolean isExported();

@@ -207,7 +207,7 @@ action_listener(
   visibility = ["//visibility:public"],
 )
 
-extra_action(name = "echo-filename", cmd = "echo Hi \$(EXTRA_ACTION_FILE)")
+extra_action(name = "echo-filename", cmd = "echo Hi \\$(EXTRA_ACTION_FILE)")
 
 py_binary(name = "pybar", srcs=["pybar.py"],)
 

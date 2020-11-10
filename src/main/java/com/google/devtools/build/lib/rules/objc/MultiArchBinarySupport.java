@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -325,15 +324,6 @@ public class MultiArchBinarySupport {
       avoidArtifacts.addTransitive(avoidProvider.getProtoFiles());
     }
     return avoidArtifacts.build();
-  }
-
-  @Deprecated // Use BuiltinProvider instead.
-  private static <T extends Info> ImmutableList<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections, NativeProvider<T> providerClass) {
-    return Streams.stream(infoCollections)
-        .filter(infoCollection -> infoCollection.get(providerClass) != null)
-        .map(infoCollection -> infoCollection.get(providerClass))
-        .collect(ImmutableList.toImmutableList());
   }
 
   private static <T extends Info> ImmutableList<T> getTypedProviders(

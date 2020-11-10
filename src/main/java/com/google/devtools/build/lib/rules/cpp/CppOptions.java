@@ -888,15 +888,6 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalIncludesAttributeSubpackageTraversal;
 
   @Option(
-      name = "experimental_do_not_use_cpu_transformer",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, cpu transformer is not used for CppConfiguration")
-  public boolean doNotUseCpuTransformer;
-
-  @Option(
       name = "incompatible_disable_legacy_cc_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1108,7 +1099,6 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
-    host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;

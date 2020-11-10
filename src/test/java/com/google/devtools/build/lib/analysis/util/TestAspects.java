@@ -351,7 +351,7 @@ public class TestAspects {
           .add(
               attr("$dep", LABEL)
                   .value(Label.parseAbsoluteUnchecked("//extra:extra"))
-                  .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =

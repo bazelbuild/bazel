@@ -42,14 +42,17 @@ public final class AppleStaticLibraryInfo extends NativeInfo implements AppleSta
   private final ObjcProvider depsObjcProvider;
 
   /**
-   * Creates a new AppleStaticLibraryInfo provider that propagates the given
-   * {@code apple_static_library} information.
+   * Creates a new AppleStaticLibraryInfo provider that propagates the given {@code
+   * apple_static_library} information.
    */
-  public AppleStaticLibraryInfo(Artifact multiArchArchive,
-      ObjcProvider depsObjcProvider) {
-    super(STARLARK_CONSTRUCTOR);
+  public AppleStaticLibraryInfo(Artifact multiArchArchive, ObjcProvider depsObjcProvider) {
     this.multiArchArchive = multiArchArchive;
     this.depsObjcProvider = depsObjcProvider;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   @Override

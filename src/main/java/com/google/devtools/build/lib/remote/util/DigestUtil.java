@@ -19,7 +19,6 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -112,8 +111,8 @@ public class DigestUtil {
     return BaseEncoding.base16().lowerCase().encode(hash.asBytes());
   }
 
-  public HashingOutputStream newHashingOutputStream(OutputStream out) {
-    return new HashingOutputStream(hashFn.getHashFunction(), out);
+  public DigestOutputStream newDigestOutputStream(OutputStream out) {
+    return new DigestOutputStream(hashFn.getHashFunction(), out);
   }
 
   public static String toString(Digest digest) {

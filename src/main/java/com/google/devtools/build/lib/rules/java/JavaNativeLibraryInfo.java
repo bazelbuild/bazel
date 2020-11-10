@@ -40,8 +40,12 @@ public final class JavaNativeLibraryInfo
   private final NestedSet<LibraryToLink> transitiveJavaNativeLibraries;
 
   public JavaNativeLibraryInfo(NestedSet<LibraryToLink> transitiveJavaNativeLibraries) {
-    super(PROVIDER);
     this.transitiveJavaNativeLibraries = transitiveJavaNativeLibraries;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /**

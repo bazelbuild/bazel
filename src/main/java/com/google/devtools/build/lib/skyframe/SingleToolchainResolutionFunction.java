@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -135,6 +136,24 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     for (DeclaredToolchainInfo toolchain : toolchains) {
       // Make sure the type matches.
       if (!toolchain.toolchainType().typeLabel().equals(toolchainTypeLabel)) {
+        continue;
+      }
+
+      // Make sure the target setting matches.
+      if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
+        String mismatchValues =
+            toolchain.targetSettings().stream()
+                .filter(configProvider -> !configProvider.matches())
+                .map(configProvider -> configProvider.label().getName())
+                .collect(joining(", "));
+        debugMessage(
+            eventHandler,
+            "    Type %s: %s platform %s: Rejected toolchain %s; mismatching config settings: %s",
+            toolchainTypeLabel,
+            "target",
+            targetPlatform.label(),
+            toolchain.toolchainLabel(),
+            mismatchValues);
         continue;
       }
 

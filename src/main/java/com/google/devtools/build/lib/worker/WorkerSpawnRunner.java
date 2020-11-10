@@ -64,6 +64,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 /**
@@ -93,6 +94,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
+  private final AtomicInteger requestIdCounter = new AtomicInteger(1);
 
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
@@ -291,8 +293,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       List<String> flagfiles,
-      MetadataProvider inputFileCache,
-      int workerId)
+      MetadataProvider inputFileCache)
       throws IOException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
@@ -317,7 +318,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           .setDigest(digest)
           .build();
     }
-    return requestBuilder.setRequestId(workerId).build();
+    return requestBuilder.setRequestId(requestIdCounter.getAndIncrement()).build();
   }
 
   /**
@@ -418,8 +419,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Stopwatch queueStopwatch = Stopwatch.createStarted();
       try {
         worker = workers.borrowObject(key);
-        request =
-            createWorkRequest(spawn, context, flagFiles, inputFileCache, worker.getWorkerId());
+        request = createWorkRequest(spawn, context, flagFiles, inputFileCache);
       } catch (IOException e) {
         String message = "IOException while borrowing a worker from the pool:";
         throw createUserExecException(e, message, Code.BORROW_FAILURE);
@@ -464,7 +464,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         }
 
         try {
-          response = worker.getResponse();
+          response = worker.getResponse(request.getRequestId());
         } catch (IOException e) {
           // If protobuf or json reader couldn't parse the response, try to print whatever the
           // failing worker wrote to stdout - it's probably a stack trace or some kind of error

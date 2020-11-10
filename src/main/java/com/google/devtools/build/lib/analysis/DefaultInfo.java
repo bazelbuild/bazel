@@ -63,13 +63,18 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       Runfiles defaultRunfiles,
       Artifact executable,
       @Nullable FilesToRunProvider filesToRunProvider) {
-    super(PROVIDER, loc);
+    super(loc);
     this.files = files;
     this.runfiles = runfiles;
     this.dataRunfiles = dataRunfiles;
     this.defaultRunfiles = defaultRunfiles;
     this.executable = executable;
     this.filesToRunProvider = filesToRunProvider;
+  }
+
+  @Override
+  public DefaultInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   public static DefaultInfo build(

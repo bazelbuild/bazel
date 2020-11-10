@@ -8,18 +8,6 @@ title: Using the Android Native Development Kit with Bazel
 _If you're new to Bazel, please start with the [Building Android with
 Bazel](tutorial/android-app.html) tutorial._
 
-## Table of contents
-
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Quick start](#quick-start)
-- [Example setup](#example-setup)
-- [Configuring the STL](#configuring-the-stl)
-- [Configuring the target ABI](#configuring-the-target-abi)
-- [Selecting a C++ standard](#selecting-a-c-standard)
-- [How it works: introducing Android configuration transitions](#how-it-works-introducing-android-configuration-transitions)
-- [Building a `cc_library` for Android without using `android_binary`](#building-a-cc_library-for-android-without-using-android_binary)
-
 ## Overview
 
 Bazel can run in many different build configurations, including several that use

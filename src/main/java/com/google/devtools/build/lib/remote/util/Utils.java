@@ -173,13 +173,13 @@ public final class Utils {
         .catching(CacheNotFoundException.class, (e) -> null, MoreExecutors.directExecutor());
   }
 
-  public static void verifyBlobContents(String expectedHash, String actualHash) throws IOException {
-    if (!expectedHash.equals(actualHash)) {
+  public static void verifyBlobContents(Digest expected, Digest actual) throws IOException {
+    if (!expected.equals(actual)) {
       String msg =
           String.format(
-              "An output download failed, because the expected hash"
-                  + "'%s' did not match the received hash '%s'.",
-              expectedHash, actualHash);
+              "Output download failed: Expected digest '%s/%d' does not match "
+                  + "received digest '%s/%d'.",
+              expected.getHash(), expected.getSizeBytes(), actual.getHash(), actual.getSizeBytes());
       throw new IOException(msg);
     }
   }

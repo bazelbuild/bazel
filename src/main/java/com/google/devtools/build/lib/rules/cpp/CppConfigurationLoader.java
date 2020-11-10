@@ -35,17 +35,11 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     return ImmutableSet.of(CppOptions.class);
   }
 
-  private final CpuTransformer cpuTransformer;
-
-  /**
-   * Creates a new {@link CppConfigurationLoader} instance with the given {@link CpuTransformer}.
-   */
-  public CppConfigurationLoader(CpuTransformer cpuTransformer) {
-    this.cpuTransformer = cpuTransformer;
-  }
+  /** Creates a new {@link CppConfigurationLoader} instance. */
+  public CppConfigurationLoader() {}
 
   @Override
   public CppConfiguration create(BuildOptions options) throws InvalidConfigurationException {
-    return CppConfiguration.create(cpuTransformer, options);
+    return CppConfiguration.create(options);
   }
 }

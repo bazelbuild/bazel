@@ -69,7 +69,10 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    */
   public static ArtifactRoot asExternalSourceRoot(Root root) {
     Preconditions.checkArgument(
-        root.asPath().asFragment().endsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
+        root.asPath()
+            .asFragment()
+            .getParentDirectory()
+            .endsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
     return INTERNER.intern(
         new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.ExternalSource));
   }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -45,6 +47,10 @@ public class Toolchain implements RuleConfiguredTargetFactory {
     Iterable<ConstraintValueInfo> targetConstraints =
         PlatformProviderUtils.constraintValues(
             ruleContext.getPrerequisites(ToolchainRule.TARGET_COMPATIBLE_WITH_ATTR));
+    Iterable<ConfigMatchingProvider> targetSettings =
+        Iterables.transform(
+            ruleContext.getPrerequisites(ToolchainRule.TARGET_SETTING_ATTR),
+            target -> target.getProvider(ConfigMatchingProvider.class));
     Label toolchainLabel =
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
 
@@ -55,6 +61,7 @@ public class Toolchain implements RuleConfiguredTargetFactory {
               .toolchainType(toolchainType)
               .addExecConstraints(execConstraints)
               .addTargetConstraints(targetConstraints)
+              .addTargetSettings(targetSettings)
               .toolchainLabel(toolchainLabel)
               .build();
     } catch (DeclaredToolchainInfo.DuplicateConstraintException e) {

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -21,20 +22,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Set;
 
-/** A {@link Worker} that runs inside a sandboxed execution root. */
-final class SandboxedWorker extends Worker {
-  private final Path workDir;
+/** A {@link SingleplexWorker} that runs inside a sandboxed execution root. */
+final class SandboxedWorker extends SingleplexWorker {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private WorkerExecRoot workerExecRoot;
 
   SandboxedWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
     super(workerKey, workerId, workDir, logFile);
-    this.workDir = workDir;
-  }
-
-  @Override
-  void destroy() throws IOException {
-    super.destroy();
-    workDir.deleteTree();
   }
 
   @Override
@@ -56,5 +50,15 @@ final class SandboxedWorker extends Worker {
 
     workerExecRoot.copyOutputs(execRoot);
     workerExecRoot = null;
+  }
+
+  @Override
+  void destroy() {
+    super.destroy();
+    try {
+      workDir.deleteTree();
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Caught IOException while deleting workdir.");
+    }
   }
 }

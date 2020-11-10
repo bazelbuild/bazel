@@ -57,12 +57,16 @@ public final class DataBindingV2Provider extends NativeInfo
       NestedSet<Artifact> transitiveBRFiles,
       ImmutableList<LabelJavaPackagePair> labelAndJavaPackages,
       NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages) {
-    super(PROVIDER);
     this.classInfos = classInfos;
     this.setterStores = setterStores;
     this.transitiveBRFiles = transitiveBRFiles;
     this.labelAndJavaPackages = labelAndJavaPackages;
     this.transitiveLabelAndJavaPackages = transitiveLabelAndJavaPackages;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

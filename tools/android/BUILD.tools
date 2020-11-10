@@ -1,5 +1,6 @@
-load("//tools/python:private/defs.bzl", "py_library", "py_binary")
+load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load("//tools/python:private/version.bzl", "PY_BINARY_VERSION")
+load(":defs.bzl", "run_ijar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -106,7 +107,7 @@ alias(
         "use_d8_dexmerger": ":d8_dexmerger",
         "use_dx_dexmerger": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
         "//conditions:default": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
-    })
+    }),
 )
 
 alias(
@@ -167,12 +168,9 @@ java_import(
     visibility = ["//visibility:public"],
 )
 
-genrule(
+run_ijar(
     name = "ijar_desugared_java8_legacy_libs",
-    srcs = ["desugared_java8_legacy_libs"],
-    outs = ["desugared_java8_legacy_libs-ijar.jar"],
-    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
-    tools = ["@bazel_tools//tools/jdk:ijar"],
+    jar = "desugared_java8_legacy_libs.jar",
     visibility = ["//visibility:private"],
 )
 
@@ -302,8 +300,8 @@ py_binary(
     srcs = ["incremental_install.py"],
     python_version = PY_BINARY_VERSION,
     deps = [
-        "//third_party/py/concurrent:futures",
         "//third_party/py/abseil",
+        "//third_party/py/concurrent:futures",
     ],
 )
 

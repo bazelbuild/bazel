@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -25,15 +26,19 @@ import net.starlark.java.syntax.Location;
  * StarlarkCallable-annotated fields (not just methods) to Starlark code. Subclasses must be
  * immutable.
  */
+// TODO(adonovan): ensure that all subclasses are named *Info and not *Provider.
+// (Info is to object as Provider is to class.)
 @Immutable
 public abstract class NativeInfo extends StructImpl {
 
-  protected NativeInfo(Provider provider) {
-    this(provider, Location.BUILTIN);
+  protected NativeInfo() {
+    this(Location.BUILTIN);
   }
 
-  protected NativeInfo(Provider provider, Location loc) {
-    super(provider, loc);
+  // TODO(adonovan): most subclasses pass Location.BUILTIN most of the time.
+  // Make only those classes that pass a real location pay for it.
+  protected NativeInfo(@Nullable Location loc) {
+    super(loc);
   }
 
   @Override

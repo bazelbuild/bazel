@@ -134,8 +134,7 @@ java_runtime_files(
 # See test_jni in third_party/bazel/src/test/shell/bazel/bazel_java_test.sh for
 # an example of using Bazel to build a Java program that calls a C function.
 #
-# TODO(adonovan): add cases for //src/conditions:linux_arm when released in Bazel.
-# TODO(adonovan): why is there no //src/conditions target meaning "just linux"?
+# TODO(ilist): use //src:condition:linux when released in Bazel
 cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
@@ -292,7 +291,6 @@ alias(
     name = "proguard",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:proguard",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:proguard",
         "//src/conditions:windows": "@remote_java_tools_windows//:proguard",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
         # On different platforms the linux repository can be used because the
@@ -378,7 +376,6 @@ alias(
     name = "toolchain",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
@@ -389,7 +386,6 @@ alias(
     name = "remote_toolchain",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
@@ -508,7 +504,6 @@ alias(
     actual = select(
         {
             "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk11_macos//:jdk",
             "//src/conditions:windows": "@remotejdk11_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",

@@ -22,13 +22,6 @@ In this tutorial you'll learn how to:
 *  Reference targets through labels
 *  Deploy a target
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
-
-
 ## Before you begin
 
 ### Install Bazel

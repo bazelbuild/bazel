@@ -70,7 +70,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         .add(
             attr("blacklisted_protos", LABEL_LIST)
                 .allowedFileTypes()
-                .mandatoryNativeProviders(
+                .mandatoryBuiltinProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .advertiseProvider(ProtoLangToolchainProvider.class)

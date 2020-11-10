@@ -87,7 +87,6 @@ public final class AndroidSdkProvider extends NativeInfo
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
       @Nullable BootClassPathInfo system) {
-    super(PROVIDER);
     this.buildToolsVersion = buildToolsVersion;
     this.frameworkAidl = frameworkAidl;
     this.aidlLib = aidlLib;
@@ -106,6 +105,11 @@ public final class AndroidSdkProvider extends NativeInfo
     this.proguard = proguard;
     this.zipalign = zipalign;
     this.system = system;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /**

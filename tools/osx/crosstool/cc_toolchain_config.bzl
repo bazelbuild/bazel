@@ -5722,8 +5722,7 @@ def _impl(ctx):
         name = "oso_prefix_is_pwd",
         flag_sets = [
             flag_set(
-                actions = all_link_actions +
-                          ["objc-executable", "objc++-executable"],
+                actions = ["objc-executable", "objc++-executable"],
                 flag_groups = [flag_group(flags = ["OSO_PREFIX_MAP_PWD"])],
             ),
         ],

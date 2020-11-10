@@ -19,7 +19,7 @@ import com.google.auth.Credentials;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.hash.HashingOutputStream;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Closeables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -113,6 +114,7 @@ import javax.net.ssl.SSLEngine;
  * <p>The implementation currently does not support transfer encoding chunked.
  */
 public final class HttpCacheClient implements RemoteCacheClient {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static final String AC_PREFIX = "ac/";
   public static final String CAS_PREFIX = "cas/";
@@ -436,15 +438,14 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    final HashingOutputStream hashOut =
-        verifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
+    final DigestOutputStream digestOut =
+        verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        get(digest, hashOut != null ? hashOut : out, /* casDownload= */ true),
+        get(digest, digestOut != null ? digestOut : out, /* casDownload= */ true),
         (v) -> {
           try {
-            if (hashOut != null) {
-              Utils.verifyBlobContents(
-                  digest.getHash(), DigestUtil.hashCodeToString(hashOut.hash()));
+            if (digestOut != null) {
+              Utils.verifyBlobContents(digest, digestOut.digest());
             }
             out.flush();
             return Futures.immediateFuture(null);
@@ -509,9 +510,16 @@ public final class HttpCacheClient implements RemoteCacheClient {
                               if (!dataWritten.get() && authTokenExpired(response)) {
                                 // The error is due to an auth token having expired. Let's try
                                 // again.
-                                refreshCredentials();
-                                getAfterCredentialRefresh(downloadCmd, outerF);
-                                return;
+                                try {
+                                  refreshCredentials();
+                                  getAfterCredentialRefresh(downloadCmd, outerF);
+                                  return;
+                                } catch (IOException e) {
+                                  cause.addSuppressed(e);
+                                } catch (RuntimeException e) {
+                                  logger.atWarning().withCause(e).log("Unexpected exception");
+                                  cause.addSuppressed(e);
+                                }
                               } else if (cacheMiss(response.status())) {
                                 outerF.setException(new CacheNotFoundException(digest));
                                 return;
@@ -607,8 +615,15 @@ public final class HttpCacheClient implements RemoteCacheClient {
                                 // If the error is due to an expired auth token and we can reset
                                 // the input stream, then try again.
                                 if (authTokenExpired(response) && reset(in)) {
-                                  refreshCredentials();
-                                  uploadAfterCredentialRefresh(upload, result);
+                                  try {
+                                    refreshCredentials();
+                                    uploadAfterCredentialRefresh(upload, result);
+                                  } catch (IOException e) {
+                                    result.setException(e);
+                                  } catch (RuntimeException e) {
+                                    logger.atWarning().withCause(e).log("Unexpected exception");
+                                    result.setException(e);
+                                  }
                                 } else {
                                   result.setException(cause);
                                 }

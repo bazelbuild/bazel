@@ -42,11 +42,11 @@ filegroup(
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
-        "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
+        "//third_party/zstd-jni:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -142,6 +142,9 @@ distrib_java_import(
     name = "apache_commons_compress",
     enable_distributions = ["debian"],
     jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
+    deps = [
+        "@com_github_luben_zstd_jni//:zstd-jni",
+    ],
 )
 
 distrib_java_import(
@@ -513,7 +516,7 @@ distrib_jar_filegroup(
 java_import(
     name = "javax_activation",
     jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
-    srcjar = "javax_annotations/javax.activation-api-1.2.0-sources.jar",
+    srcjar = "javax_activation/javax.activation-api-1.2.0-sources.jar",
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -552,7 +555,6 @@ java_import(
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:windows": "*.so *.jnilib",
     "//src/conditions:darwin": "*.so *.dll",
-    "//src/conditions:darwin_x86_64": "*.so *.dll",
     "//src/conditions:linux_x86_64": "*.jnilib *.dll",
     # The .so file is an x86 one, so we can just remove it if the CPU is not x86
     "//src/conditions:arm": "*.so *.jnilib *.dll",

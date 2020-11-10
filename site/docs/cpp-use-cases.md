@@ -11,15 +11,6 @@ with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial
 [Introduction to Bazel: Build a C++ Project](tutorial/cpp.html).
 
-## Contents
-
-*  [Including multiple files in a target](#including-multiple-files-in-a-target)
-*  [Using transitive includes](#using-transitive-includes)
-*  [Adding include paths](#adding-include-paths)
-*  [Including external libraries](#including-external-libraries)
-*  [Writing and running C++ tests](#writing-and-running-c-tests)
-*  [Adding dependencies on precompiled libraries](#adding-dependencies-on-precompiled-libraries)
-
 ## Including multiple files in a target
 
 You can include multiple files in a single target with

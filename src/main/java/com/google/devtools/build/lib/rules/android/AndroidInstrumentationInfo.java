@@ -34,8 +34,12 @@ public class AndroidInstrumentationInfo extends NativeInfo
   private final ApkInfo target;
 
   AndroidInstrumentationInfo(ApkInfo target) {
-    super(PROVIDER);
     this.target = target;
+  }
+
+  @Override
+  public AndroidInstrumentationInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override

@@ -32,14 +32,17 @@ public final class AndroidNativeLibsInfo extends NativeInfo
 
   private static final String STARLARK_NAME = "AndroidNativeLibsInfo";
 
-  public static final AndroidNativeLibsInfoProvider PROVIDER =
-      new AndroidNativeLibsInfoProvider();
+  public static final AndroidNativeLibsInfoProvider PROVIDER = new AndroidNativeLibsInfoProvider();
 
   private final NestedSet<Artifact> nativeLibs;
 
   public AndroidNativeLibsInfo(NestedSet<Artifact> nativeLibs) {
-    super(PROVIDER);
     this.nativeLibs = nativeLibs;
+  }
+
+  @Override
+  public AndroidNativeLibsInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override

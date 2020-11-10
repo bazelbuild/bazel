@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
@@ -662,15 +661,6 @@ public abstract class AndroidStarlarkData
   }
 
   public static <T extends NativeInfo> Sequence<T> getProviders(
-      List<ConfiguredTarget> targets, NativeProvider<T> provider) {
-    return StarlarkList.immutableCopyOf(
-        targets.stream()
-            .map(target -> target.get(provider))
-            .filter(Objects::nonNull)
-            .collect(ImmutableList.toImmutableList()));
-  }
-
-  protected static <T extends NativeInfo> Sequence<T> getProviders(
       List<ConfiguredTarget> targets, BuiltinProvider<T> provider) {
     return StarlarkList.immutableCopyOf(
         targets.stream()

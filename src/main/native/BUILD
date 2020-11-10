@@ -4,7 +4,6 @@ genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
         "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
         "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
         "//src/conditions:openbsd": ["//tools/jdk:jni_md_header-openbsd"],
         "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
@@ -27,10 +26,6 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src/conditions:darwin": [
-            "unix_jni_darwin.cc",
-            "fsevents.cc",
-        ],
-        "//src/conditions:darwin_x86_64": [
             "unix_jni_darwin.cc",
             "fsevents.cc",
         ],
@@ -69,7 +64,6 @@ cc_binary(
     includes = ["."],  # For jni headers.
     linkopts = select({
         "//src/conditions:darwin": ["-framework CoreServices"],
-        "//src/conditions:darwin_x86_64": ["-framework CoreServices"],
         "//conditions:default": [],
     }),
     linkshared = 1,

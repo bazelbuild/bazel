@@ -171,10 +171,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   /**
    * Returns a path to the source code for this package relative to the corresponding source root.
-   * Returns pkgName if this is in the main repository or [repository name]/[pkgName] if not.
+   * Returns pkgName for all repositories.
    */
   public PathFragment getSourceRoot() {
-    return repository.getSourceRoot().getRelative(pkgName);
+    return pkgName;
   }
 
   /**

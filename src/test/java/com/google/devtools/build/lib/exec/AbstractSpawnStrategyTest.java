@@ -20,6 +20,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -181,6 +183,84 @@ public class AbstractSpawnStrategyTest {
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(spawnResult));
+  }
+
+  @Test
+  public void testExec_whenLocalCaches_usesNoCache() throws Exception {
+    when(spawnRunner.handlesCaching()).thenReturn(true);
+
+    SpawnCache cache = mock(SpawnCache.class);
+
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(FutureSpawn.immediate(spawnResult));
+
+    List<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+
+    assertThat(spawnResults).containsExactly(spawnResult);
+
+    // Must only be called exactly once.
+    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verifyZeroInteractions(cache);
+  }
+
+  @Test
+  public void testExec_usefulCacheInDynamicExecution() throws Exception {
+    when(spawnRunner.handlesCaching()).thenReturn(false);
+
+    SpawnCache cache = mock(SpawnCache.class);
+    when(cache.usefulInDynamicExecution()).thenReturn(true);
+    CacheHandle entry = mock(CacheHandle.class);
+    when(cache.lookup(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(entry);
+    when(entry.hasResult()).thenReturn(false);
+    when(entry.willStore()).thenReturn(true);
+
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(FutureSpawn.immediate(spawnResult));
+
+    List<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(execRoot, spawnRunner)
+            .exec(SIMPLE_SPAWN, actionExecutionContext, () -> {});
+
+    assertThat(spawnResults).containsExactly(spawnResult);
+
+    // Must only be called exactly once.
+    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(entry).store(eq(spawnResult));
+  }
+
+  @Test
+  public void testExec_nonUsefulCacheInDynamicExecution() throws Exception {
+    when(spawnRunner.handlesCaching()).thenReturn(false);
+
+    SpawnCache cache = mock(SpawnCache.class);
+    when(cache.usefulInDynamicExecution()).thenReturn(false);
+
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(FutureSpawn.immediate(spawnResult));
+
+    List<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(execRoot, spawnRunner)
+            .exec(SIMPLE_SPAWN, actionExecutionContext, () -> {});
+
+    assertThat(spawnResults).containsExactly(spawnResult);
+
+    // Must only be called exactly once.
+    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(cache).usefulInDynamicExecution();
+    verifyNoMoreInteractions(cache);
   }
 
   @Test

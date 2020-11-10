@@ -172,6 +172,7 @@ cc_autoconf = repository_rule(
         "GCOV",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
+        "USER",
     ] + MSVC_ENVVARS,
     implementation = cc_autoconf_impl,
     configure = True,

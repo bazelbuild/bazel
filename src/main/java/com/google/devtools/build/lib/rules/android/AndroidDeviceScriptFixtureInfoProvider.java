@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Information about an {@code android_device_script_fixture} to run as part of an {@code
@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 public class AndroidDeviceScriptFixtureInfoProvider extends NativeInfo {
 
   private static final String STARLARK_NAME = "DeviceScriptFixtureInfo";
-  public static final NativeProvider<AndroidDeviceScriptFixtureInfoProvider> STARLARK_CONSTRUCTOR =
-      new NativeProvider<AndroidDeviceScriptFixtureInfoProvider>(
-          AndroidDeviceScriptFixtureInfoProvider.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<AndroidDeviceScriptFixtureInfoProvider> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<AndroidDeviceScriptFixtureInfoProvider>(
+          STARLARK_NAME, AndroidDeviceScriptFixtureInfoProvider.class) {};
 
   private final Artifact fixtureScript;
   private final NestedSet<Artifact> supportApks;
@@ -38,11 +38,15 @@ public class AndroidDeviceScriptFixtureInfoProvider extends NativeInfo {
 
   public AndroidDeviceScriptFixtureInfoProvider(
       Artifact fixtureScript, NestedSet<Artifact> supportApks, boolean daemon, boolean strictExit) {
-    super(STARLARK_CONSTRUCTOR);
     this.fixtureScript = fixtureScript;
     this.supportApks = supportApks;
     this.daemon = daemon;
     this.strictExit = strictExit;
+  }
+
+  @Override
+  public BuiltinProvider<AndroidDeviceScriptFixtureInfoProvider> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   public Artifact getFixtureScript() {
