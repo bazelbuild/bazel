@@ -165,4 +165,15 @@ public interface SpawnCache extends ActionContext {
    */
   CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException;
+
+  /**
+   * Returns whether this cache implementation makes sense to use together with dynamic execution.
+   *
+   * <p>A cache that's part of the remote system used for dynamic execution should not also be used
+   * for the local speculative execution. However, a local cache or a separate remote cache-only
+   * system would be.
+   */
+  default boolean usefulInDynamicExecution() {
+    return true;
+  }
 }

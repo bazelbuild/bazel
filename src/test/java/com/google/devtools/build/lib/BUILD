@@ -81,6 +81,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
+        "//third_party:mockito",
     ],
 )
 
