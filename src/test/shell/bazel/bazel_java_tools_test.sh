@@ -271,4 +271,14 @@ EOF
   bazel build //:prebuilt_toolchain || fail "java_toolchain_default target failed to build"
 }
 
+function test_java_toolchain_default_notInTools() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:java_toolchain_default.bzl", "java_toolchain_default")
+filegroup(
+  name = "dummy",
+)
+EOF
+  (bazel build //:dummy && fail "java_toolchain_default accessible from @bazel_tools") || true
+}
+
 run_suite "Java tools archive tests"

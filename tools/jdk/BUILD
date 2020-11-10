@@ -440,7 +440,7 @@ filegroup(
         "default_java_toolchain.bzl",
         "fail_rule.bzl",
         "java_toolchain_alias.bzl",
-        "java_toolchain_default.bzl",
+        "java_toolchain_default.bzl.java_tools",
         "jdk.BUILD",
         "local_java_repository.bzl",
         "nosystemjdk/README",
