@@ -176,16 +176,6 @@ public class CompilationSupport {
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
-  /**
-   * Enabled if this target's rule is not a test rule. Binary stripping should not be applied in the
-   * link step. TODO(b/36562173): Replace this behavior with a condition on bundle creation.
-   *
-   * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which is
-   * the mechanism used to condition linker arguments here. Therefore, we expose
-   * "is_not_test_target" instead of the more intuitive "is_test_target".
-   */
-  private static final String IS_NOT_TEST_TARGET_FEATURE_NAME = "is_not_test_target";
-
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
 
   private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
@@ -556,9 +546,6 @@ public class CompilationSupport {
     if (getPchFile().isPresent()) {
       activatedCrosstoolSelectables.add("pch");
     }
-    if (!isTestRule) {
-      activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
-    }
     if (objcConfiguration.generateDsym()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
@@ -688,7 +675,6 @@ public class CompilationSupport {
   private final Map<String, NestedSet<Artifact>> outputGroupCollector;
   private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
-  private final boolean isTestRule;
   private final boolean usePch;
   private final IncludeProcessingType includeProcessingType;
   private Optional<ObjcProvider> objcProvider;
@@ -724,7 +710,6 @@ public class CompilationSupport {
       Map<String, NestedSet<Artifact>> outputGroupCollector,
       ImmutableList.Builder<Artifact> objectFilesCollector,
       CcToolchainProvider toolchain,
-      boolean isTestRule,
       boolean usePch)
       throws InterruptedException {
     this.ruleContext = ruleContext;
@@ -733,7 +718,6 @@ public class CompilationSupport {
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
-    this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
     this.objcProvider = Optional.absent();
@@ -763,7 +747,6 @@ public class CompilationSupport {
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
     private ImmutableList.Builder<Artifact> objectFilesCollector;
     private CcToolchainProvider toolchain;
-    private boolean isTestRule = false;
     private boolean usePch = true;
 
     /** Sets the {@link RuleContext} for the calling target. */
@@ -796,12 +779,6 @@ public class CompilationSupport {
      */
     public Builder doNotUsePch() {
       this.usePch = false;
-      return this;
-    }
-
-    /** Indicates that this CompilationSupport is for use in a test rule. */
-    public Builder setIsTestRule() {
-      this.isTestRule = true;
       return this;
     }
 
@@ -873,7 +850,6 @@ public class CompilationSupport {
           outputGroupCollector,
           objectFilesCollector,
           toolchain,
-          isTestRule,
           usePch);
     }
   }
@@ -894,7 +870,7 @@ public class CompilationSupport {
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        !isTestRule,
+        true,
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
@@ -1577,23 +1553,17 @@ public class CompilationSupport {
    */
   private void registerBinaryStripAction(Artifact binaryToLink, StrippingType strippingType) {
     final ImmutableList<String> stripArgs;
-    if (isTestRule) {
-      // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
-      // to strip off all symbols in XCTest bundle.
-      stripArgs = ImmutableList.of("-S");
-    } else {
-      switch (strippingType) {
-        case DYNAMIC_LIB:
-        case KERNEL_EXTENSION:
-          // For dylibs and kexts, must strip only local symbols.
-          stripArgs = ImmutableList.of("-x");
-          break;
-        case DEFAULT:
-          stripArgs = ImmutableList.<String>of();
-          break;
-        default:
-          throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
-      }
+    switch (strippingType) {
+      case DYNAMIC_LIB:
+      case KERNEL_EXTENSION:
+        // For dylibs and kexts, must strip only local symbols.
+        stripArgs = ImmutableList.of("-x");
+        break;
+      case DEFAULT:
+        stripArgs = ImmutableList.<String>of();
+        break;
+      default:
+        throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
     }
 
     Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();
