@@ -1113,7 +1113,7 @@ public class CompilationSupport {
    * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
    * are specified, additional optimizations will be performed on the linked binary: all-symbol
    * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags: {@code
-   * -dead_strip} and {@code -no_dead_strip_inits_and_terms}).
+   * -dead_strip}).
    *
    * @param objcProvider common information about this rule's attributes and its dependencies
    * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation

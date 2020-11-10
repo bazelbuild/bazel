@@ -5710,7 +5710,7 @@ def _impl(ctx):
                           ["objc-executable", "objc++-executable"],
                 flag_groups = [
                     flag_group(
-                        flags = ["-dead_strip", "-no_dead_strip_inits_and_terms"],
+                        flags = ["-dead_strip"],
                     ),
                 ],
             ),
