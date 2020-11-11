@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Optional;
 import java.util.Set;
 
@@ -78,48 +77,15 @@ final class WorkerProxy extends Worker {
 
   /** Send the WorkRequest to multiplexer. */
   @Override
-  void putRequest(WorkRequest request) throws IOException {
-    try {
-      workerMultiplexer.resetResponseChecker(request.getRequestId());
-      workerMultiplexer.putRequest(request);
-    } catch (InterruptedException e) {
-      /**
-       * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of
-       * override. InterruptedException will happen when Bazel is waiting for semaphore but user
-       * terminates the process, so we do nothing here.
-       */
-      logger.atWarning().withCause(e).log(
-          "InterruptedException was caught while sending worker request. "
-              + "It could because the multiplexer was interrupted.");
-    }
+  void putRequest(WorkRequest request) throws IOException, InterruptedException {
+    workerMultiplexer.resetResponseChecker(request.getRequestId());
+    workerMultiplexer.putRequest(request);
   }
 
   /** Wait for WorkResponse from multiplexer. */
   @Override
-  WorkResponse getResponse(int requestId) throws IOException {
-    try {
-      InputStream inputStream = workerMultiplexer.getResponse(requestId);
-      if (inputStream == null) {
-        return null;
-      }
-      return WorkResponse.parseDelimitedFrom(inputStream);
-    } catch (IOException e) {
-      throw new IOException(
-          "IOException was caught while waiting for worker response. "
-              + "It could because the worker returned unparseable response.");
-    } catch (InterruptedException e) {
-      /**
-       * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of
-       * override. InterruptedException will happen when Bazel is waiting for semaphore but user
-       * terminates the process, so we do nothing here.
-       */
-      logger.atWarning().withCause(e).log(
-          "InterruptedException was caught while waiting for work response. "
-              + "It could because the multiplexer was interrupted.");
-    }
-    // response can be null when the worker has already closed stdout at this point and thus
-    // the InputStream is at EOF.
-    return null;
+  WorkResponse getResponse(int requestId) throws IOException, InterruptedException {
+    return workerMultiplexer.getResponse(requestId);
   }
 
   @Override
