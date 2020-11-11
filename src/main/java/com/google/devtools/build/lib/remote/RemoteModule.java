@@ -1019,7 +1019,9 @@ public final class RemoteModule extends BlazeModule {
         env.getReporter().handle(Event.warn(e.getMessage()));
       }
 
-      if (creds != null && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")) {
+      if (creds != null
+          && remoteOptions.remoteCache != null
+          && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")) {
         env.getReporter()
             .handle(
                 Event.warn(
