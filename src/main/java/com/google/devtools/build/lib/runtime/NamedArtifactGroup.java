@@ -49,8 +49,8 @@ class NamedArtifactGroup implements BuildEvent {
   private final NestedSet<?> set; // of Artifact or ExpandedArtifact
 
   /**
-   * Create a {@link NamedArtifactGroup}. The set may contain as direct entries {@link Artifact} or
-   * {@link ExpandedArtifact}.
+   * Create a {@link NamedArtifactGroup}. Although the set may contain a mixture of Artifacts and
+   * ExpandedArtifacts, all its leaf successors ("direct elements") are ExpandedArtifacts.
    */
   NamedArtifactGroup(String name, CompletionContext completionContext, NestedSet<?> set) {
     this.name = name;
@@ -152,22 +152,45 @@ class NamedArtifactGroup implements BuildEvent {
         throw new IllegalStateException("Unexpected type in artifact set:  " + artifact);
       }
     }
-    for (NestedSet<?> succ : artifacts.getNonLeaves()) {
+    boolean noDirects = res.isEmpty();
+
+    ImmutableList<? extends NestedSet<?>> nonLeaves = artifacts.getNonLeaves();
+    for (NestedSet<?> succ : nonLeaves) {
       res.addTransitive(succ);
     }
-    return res.build();
+
+    NestedSet<?> result = res.build();
+
+    // If we have executed one call to res.addTransitive(x)
+    // and none to res.add, then res.build() simply returns x
+    // ("inlining"), which may violate our postcondition on elements.
+    // (This can happen if 'artifacts' contains one non-leaf successor
+    // and one or more leaf successors for which visitArtifacts is a no-op.)
+    //
+    // In that case we need to recursively apply the expansion. Ugh.
+    if (noDirects && nonLeaves.size() == 1) {
+      return expandSet(ctx, result);
+    }
+
+    return result;
   }
 
   private static final class ExpandedArtifact {
-    public final Artifact artifact;
+    final Artifact artifact;
     // These fields are used only for Fileset links.
-    @Nullable public final PathFragment relPath;
-    @Nullable public final Path target;
+    @Nullable final PathFragment relPath;
+    @Nullable final Path target;
 
-    public ExpandedArtifact(Artifact artifact, PathFragment relPath, Path target) {
+    ExpandedArtifact(Artifact artifact, PathFragment relPath, Path target) {
       this.artifact = artifact;
       this.relPath = relPath;
       this.target = target;
     }
+
+    // TODO(adonovan): define equals/hashCode. Consider:
+    // //foo generates bar/ (a tree artifact), with a single child, bar/baz, with this child an
+    // explicitly named artifact (see b/70354083). Both of these artifacts are in its "files to
+    // build". Then bar/ will be expanded to bar/baz, and we will have two identical (but not equal)
+    // ExpandedArtifact objects, leading to a duplicate emission of bar/baz in BEP.
   }
 }

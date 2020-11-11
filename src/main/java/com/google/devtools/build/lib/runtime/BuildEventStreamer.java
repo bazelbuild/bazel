@@ -374,7 +374,9 @@ public class BuildEventStreamer {
     if (name == null) {
       return;
     }
+
     set = NamedArtifactGroup.expandSet(ctx, set);
+    // Invariant: all leaf successors ("direct elements") of set are ExpandedArtifacts.
 
     // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
     // The method throws for smaller values.
@@ -384,6 +386,7 @@ public class BuildEventStreamer {
       // double the memory consumption of large nested sets.
       set = set.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
     }
+
     for (NestedSet<?> succ : set.getNonLeaves()) {
       maybeReportArtifactSet(ctx, succ);
     }

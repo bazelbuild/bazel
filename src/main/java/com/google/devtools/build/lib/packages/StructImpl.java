@@ -86,15 +86,16 @@ public abstract class StructImpl implements Info, Structure, StructApi {
    *
    * <p>By default, it is the one specified by the provider.
    */
-  protected String getErrorMessageFormatForUnknownField() {
-    return getProvider().getErrorMessageFormatForUnknownField();
-  }
-
   @Override
   public String getErrorMessageForUnknownField(String name) {
-    String suffix = "Available attributes: "
+    return getProvider().getErrorMessageForUnknownField(name) + allAttributesSuffix();
+  }
+
+  final String allAttributesSuffix() {
+    // TODO(adonovan): when is it appropriate for the error to show all attributes,
+    // and when to show a single spelling suggestion (the default)?
+    return "\nAvailable attributes: "
         + Joiner.on(", ").join(Ordering.natural().sortedCopy(getFieldNames()));
-    return String.format(getErrorMessageFormatForUnknownField(), name) + "\n" + suffix;
   }
 
   @Override

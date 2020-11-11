@@ -40,8 +40,7 @@ public class QueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the query results should be printed. Allowed values for query are: "
-              + "build, graph, label, label_kind, locations, maxrank, minrank, package, proto, xml."
-  )
+              + "build, graph, label, label_kind, location, maxrank, minrank, package, proto, xml.")
   public String outputFormat;
 
   @Option(
@@ -98,19 +97,22 @@ public class QueryOptions extends CommonQueryOptions {
   }
 
   @Option(
-    name = "order_output",
-    converter = OrderOutputConverter.class,
-    defaultValue = "auto",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full). "
-            + "The default is 'auto', meaning that results are output either dependency-ordered or "
-            + "fully ordered, depending on the output formatter (dependency-ordered for proto, "
-            + "minrank, maxrank, and graph, fully ordered for all others). When output is fully "
-            + "ordered, nodes that would otherwise be unordered by the output formatter are "
-            + "alphabetized before output."
-  )
+      name = "order_output",
+      converter = OrderOutputConverter.class,
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full)."
+              + " The default is 'auto', meaning that results are output either dependency-ordered"
+              + " or fully ordered, depending on the output formatter (dependency-ordered for"
+              + " proto, minrank, maxrank, and graph, fully ordered for all others). When output"
+              + " is fully ordered, nodes are printed in a fully deterministic (total) order."
+              + " First, all nodes are sorted alphabetically. Then, each node in the list is used"
+              + " as the start of a post-order depth-first search in which outgoing edges to"
+              + " unvisited nodes are traversed in alphabetical order of the successor nodes."
+              + " Finally, nodes are printed in the reverse of the order in which they were"
+              + " visited.")
   public OrderOutput orderOutput;
 
   @Option(

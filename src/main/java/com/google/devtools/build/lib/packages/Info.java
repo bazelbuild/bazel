@@ -27,16 +27,19 @@ import net.starlark.java.syntax.Location;
 // - Once to_{json,proto} are gone, StructApi can be deleted; structs should never again have
 //   methods.
 // - StructImpl.location can be pushed down into subclasses that need it, much as we did for
-//   StructImpl.provider in this CL.
-// - getErrorMessageFormatForUnknownField can become a method on provider.
-//   It should compute a string from a parameter, not use higher-order formatting.
+//   StructImpl.provider in CL 341102857.
 // - StructImpl is then really just a collection of helper functions for subclasses
-//   getValue(String, Class), repr, equals, hash. Move them, and merge it into Info interface.
+//   getValue(String, Class), repr, equals, hash. Move them, and merge it into Info interface,
+//   or rename it InfoStruct or StructuredInfo if we absolutely need inheritance.
 // - Move StructProvider.STRUCT and make StructProvider private.
 //   The StructProvider.createStruct method could be a simple function like depset, select.
 //   StructProviderApi could be eliminated.
 // - eliminate StarlarkInfo + StarlarkInfo.
-// - NativeInfo's two methods can (IIUC) be deleted immediately, and then NativeInfo itself.
+// - NativeInfo's get{FieldNames,Value} methods are not needed by the Starlark interpreter,
+//   since all its fields are annotated. They exist for the hash/eq/str implementations
+//   defined in StructImpl over all its subclasses, and for json.encode. More thought is
+//   needed on how to bridge between annotated methods and user-defined Structures so that
+//   they appear similar to clients like json.encode.
 //
 // Info (result of analysis)
 // - StructImpl (structure with fields, to_{json,proto}). Implements Structure, StructApi.

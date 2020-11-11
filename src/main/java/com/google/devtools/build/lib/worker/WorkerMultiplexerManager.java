@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
@@ -46,12 +47,13 @@ public class WorkerMultiplexerManager {
    * objects with the same {@code WorkerKey} talk to the same {@code WorkerMultiplexer}. Also,
    * record how many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
    */
-  public static WorkerMultiplexer getInstance(WorkerKey key, Path logFile)
+  public static WorkerMultiplexer getInstance(WorkerKey key, Path logFile, Reporter reporter)
       throws InterruptedException {
     semMultiplexer.acquire();
     multiplexerInstance.putIfAbsent(key, new InstanceInfo(logFile));
     multiplexerInstance.get(key).increaseRefCount();
     WorkerMultiplexer workerMultiplexer = multiplexerInstance.get(key).getWorkerMultiplexer();
+    workerMultiplexer.setReporter(reporter);
     semMultiplexer.release();
     return workerMultiplexer;
   }
@@ -74,6 +76,19 @@ public class WorkerMultiplexerManager {
       throw createUserExecException(e, message, Code.MULTIPLEXER_INSTANCE_REMOVAL_FAILURE);
     } finally {
       semMultiplexer.release();
+    }
+  }
+
+  /** Is called when a build is done, to do per-build cleanup. */
+  static void afterCommandCleanup() {
+    try {
+      semMultiplexer.acquire();
+      for (InstanceInfo i : multiplexerInstance.values()) {
+        i.getWorkerMultiplexer().setReporter(null);
+      }
+      semMultiplexer.release();
+    } catch (InterruptedException e) {
+      // Interrupted during cleanup, not much we can do.
     }
   }
 

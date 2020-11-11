@@ -66,7 +66,12 @@ public class EvalException extends Exception {
 
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
-    this((Location) null, cause);
+    this((Location) null, getCauseMessage(cause), cause);
+  }
+
+  private static String getCauseMessage(Throwable cause) {
+    String msg = cause.getMessage();
+    return msg != null ? msg : cause.toString();
   }
 
   // TODO(adonovan): delete all constructors below. Stop using Location.
@@ -95,23 +100,6 @@ public class EvalException extends Exception {
   public EvalException(@Nullable Location location, String message, @Nullable Throwable cause) {
     super(Preconditions.checkNotNull(message), cause);
     this.location = location;
-  }
-
-  /**
-   * Constructs an EvalException with an optional location (deprecated) using the same message as
-   * the cause exception.
-   *
-   * <p>See notes at {@link #EvalException(Location, String)}.
-   */
-  // TODO(adonovan): eliminate.
-  public EvalException(@Nullable Location location, Throwable cause) {
-    super(getCauseMessage(cause), cause);
-    this.location = location;
-  }
-
-  private static String getCauseMessage(Throwable cause) {
-    String msg = cause.getMessage();
-    return msg != null ? msg : cause.toString();
   }
 
   /** Returns the error message. Does not include location (deprecated), call stack, or cause. */
@@ -162,7 +150,7 @@ public class EvalException extends Exception {
   }
 
   /**
-   * A SourceReader reads the line of source denoted by a Location to be displayed in a formatted a
+   * A SourceReader reads the line of source denoted by a Location to be displayed in a formatted
    * stack trace.
    */
   public interface SourceReader {

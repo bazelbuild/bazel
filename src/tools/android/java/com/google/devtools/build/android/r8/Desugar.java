@@ -508,9 +508,6 @@ public class Desugar {
     if (options.alwaysRewriteLongCompare) {
       throw new AssertionError("--rewrite_calls_to_long_compare has no effect");
     }
-    if (!options.tolerateMissingDependencies) {
-      throw new AssertionError("--best_effort_tolerate_missing_deps must be enabled");
-    }
     if (options.desugarCoreLibs) {
       if (options.desugaredLibConfig == null) {
         throw new AssertionError(
