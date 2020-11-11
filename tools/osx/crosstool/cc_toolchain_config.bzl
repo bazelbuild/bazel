@@ -6009,7 +6009,7 @@ def _impl(ctx):
                                 "-Xlinker",
                                 "-bitcode_symbol_map",
                                 "-Xlinker",
-                                "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}",
+                                "%{bitcode_symbol_map_path}",
                             ],
                             expand_if_available = "bitcode_symbol_map_path",
                         ),
