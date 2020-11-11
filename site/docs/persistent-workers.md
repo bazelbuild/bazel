@@ -149,6 +149,9 @@ Persistent workers are implemented for multiple languages, including Java,
 [Kotlin](https://github.com/bazelbuild/rules_kotlin), and more. You can
 implement persistent workers in other languages and for other tools, as well.
 
+See the [creating persistent workers](creating-workers.html) page for
+information on how to make a worker.
+
 Each worker is a long-running process started by the Bazel server, which
 functions as a _wrapper_ around the actual _tool_ (typically a compiler). In
 order to benefit from persistent workers, the tool must support doing a sequence
