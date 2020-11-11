@@ -5,13 +5,11 @@ assert_eq(reversed('a'.elems()), ['a'])
 assert_eq(reversed('abc'.elems()), ['c', 'b', 'a'])
 assert_eq(reversed('__test  '.elems()), [' ', ' ', 't', 's', 'e', 't', '_', '_'])
 assert_eq(reversed('bbb'.elems()), ['b', 'b', 'b'])
-
+assert_eq(reversed({'one': 1, 'two': 2, 'three': 3}), ['three', 'two', 'one'])
 ---
-reversed(None) ### got .* 'NoneType', want 'sequence'
+reversed(None) ### got .* 'NoneType', want 'iterable'
 ---
-reversed(1) ### got .* 'int', want 'sequence'
----
-reversed({1: 3}) ### got .* 'dict', want 'sequence'
+reversed(1) ### got .* 'int', want 'iterable'
 ---
 
 x = ['a', 'b']

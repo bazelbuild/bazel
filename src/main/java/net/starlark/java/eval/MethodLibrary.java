@@ -222,13 +222,14 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "reversed",
       doc =
-          "Returns a list that contains the elements of the original sequence in reversed order."
-              + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
+          "Returns a new, unfrozen list that contains the elements of the original iterable"
+              + " sequence in reversed order.<pre class=\"language-python\">reversed([3, 5, 4]) =="
+              + " [4, 5, 3]</pre>",
       parameters = {
-        @Param(name = "sequence", doc = "The sequence (list or tuple) to be reversed."),
+        @Param(name = "sequence", doc = "The iterable sequence (e.g. list) to be reversed."),
       },
       useStarlarkThread = true)
-  public StarlarkList<?> reversed(Sequence<?> sequence, StarlarkThread thread)
+  public StarlarkList<?> reversed(StarlarkIterable<?> sequence, StarlarkThread thread)
       throws EvalException {
     Object[] array = Starlark.toArray(sequence);
     reverse(array);
