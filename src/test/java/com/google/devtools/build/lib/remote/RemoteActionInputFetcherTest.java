@@ -228,7 +228,7 @@ public class RemoteActionInputFetcherTest {
     });
     t.start();
     startSemaphore.acquire();
-    new Thread(t::interrupt).start();
+    t.interrupt();
     endSemaphore.acquire();
 
     assertThat(interrupted.get()).isTrue();
