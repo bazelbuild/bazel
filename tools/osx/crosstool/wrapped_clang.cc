@@ -217,9 +217,6 @@ int main(int argc, char *argv[]) {
       std::ofstream bitcode_symbol_map_file(bitcode_symbol_map);
       arg = bitcode_symbol_map;
     }
-    if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
-      arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
-    }
     if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
       arg = "-Wl,-oso_prefix," + std::string(cwd.get()) + "/";
     }
