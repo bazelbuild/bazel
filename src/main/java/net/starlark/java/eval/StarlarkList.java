@@ -158,7 +158,15 @@ public final class StarlarkList<E> extends AbstractList<E>
       return list;
     }
 
-    return wrap(mutability, Iterables.toArray(elems, Object.class));
+    Object[] array = Iterables.toArray(elems, Object.class);
+    checkElemsValid(array);
+    return wrap(mutability, array);
+  }
+
+  private static void checkElemsValid(Object[] elems) {
+    for (Object elem : elems) {
+      Starlark.checkValid(elem);
+    }
   }
 
   /**
@@ -173,11 +181,13 @@ public final class StarlarkList<E> extends AbstractList<E>
    * mutability} is null, the list is immutable.
    */
   public static <T> StarlarkList<T> of(@Nullable Mutability mutability, T... elems) {
+    checkElemsValid(elems);
     return wrap(mutability, Arrays.copyOf(elems, elems.length));
   }
 
   /** Returns an immutable {@code StarlarkList} with the given items. */
   public static <T> StarlarkList<T> immutableOf(T... elems) {
+    checkElemsValid(elems);
     return wrap(null, Arrays.copyOf(elems, elems.length));
   }
 
