@@ -143,7 +143,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         branchDone.acquire();
       } else {
         throw new DynamicInterruptedException(
-            "Execution stopped because other strategy finished first");
+            String.format(
+                "Execution stopped because %s strategy finished first",
+                strategyThatCancelled.get()));
       }
     }
   }
@@ -179,7 +181,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         // we only expect the exception types we validated above. Still, unchecked exceptions could
         // propagate, so just let them bubble up.
         Throwables.throwIfUnchecked(cause);
-        throw new AssertionError("Unexpected exception type from strategy.exec()");
+        throw new AssertionError(
+            String.format(
+                "Unexpected exception type %s from strategy.exec()", cause.getClass().getName()));
       }
     } catch (InterruptedException e) {
       branch.cancel(true);
@@ -430,7 +434,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       }
     }
     throw new RuntimeException(
-        "executorCreated not yet called or no default dynamic_local_strategy set");
+        String.format(
+            "executorCreated not yet called or no default dynamic_local_strategy set for %s",
+            spawn.getMnemonic()));
   }
 
   private static ImmutableList<SpawnResult> runRemotely(
@@ -449,7 +455,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       }
     }
     throw new RuntimeException(
-        "executorCreated not yet called or no default dynamic_remote_strategy set");
+        String.format(
+            "executorCreated not yet called or no default dynamic_remote_strategy set for %s",
+            spawn.getMnemonic()));
   }
 
   /**
