@@ -224,13 +224,13 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public char getSeparator() {
-    return '/';
+  public boolean isSeparator(char c) {
+    return c == '/' || c == '\\';
   }
 
   @Override
-  public boolean isSeparator(char c) {
-    return c == '/' || c == '\\';
+  public char additionalSeparator() {
+    return '\\';
   }
 
   @Override

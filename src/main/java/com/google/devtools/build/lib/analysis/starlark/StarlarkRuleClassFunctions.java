@@ -564,11 +564,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
         if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
-          throw new EvalException(
-              String.format(
-                  "Aspect parameter attribute '%s' must have type 'string' and use the "
-                      + "'values' restriction.",
-                  nativeName));
+          throw Starlark.errorf(
+              "Aspect parameter attribute '%s' must have type 'string' and use the 'values'"
+                  + " restriction.",
+              nativeName);
         }
         if (!hasDefault) {
           requiredParams.add(nativeName);
@@ -576,16 +575,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
           Object defaultVal = attribute.getDefaultValue(null);
           if (!allowed.apply(defaultVal)) {
-            throw new EvalException(
-                String.format(
-                    "Aspect parameter attribute '%s' has a bad default value: %s",
-                    nativeName, allowed.getErrorReason(defaultVal)));
+            throw Starlark.errorf(
+                "Aspect parameter attribute '%s' has a bad default value: %s",
+                nativeName, allowed.getErrorReason(defaultVal));
           }
         }
       } else if (!hasDefault) { // Implicit or late bound attribute
         String starlarkName = "_" + nativeName.substring(1);
-        throw new EvalException(
-            String.format("Aspect attribute '%s' has no default value.", starlarkName));
+        throw Starlark.errorf("Aspect attribute '%s' has no default value.", starlarkName);
       }
       if (attribute.getDefaultValueUnchecked() instanceof StarlarkComputedDefaultTemplate) {
         // Attributes specifying dependencies using computed value are currently not supported.
@@ -595,21 +592,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         // Current logic in StarlarkComputedDefault is not enough,
         // however {Conservative,Precise}AspectResolver can probably be improved to make that work.
         String starlarkName = "_" + nativeName.substring(1);
-        throw new EvalException(
-            String.format(
-                "Aspect attribute '%s' (%s) with computed default value is unsupported.",
-                starlarkName, attribute.getType()));
+        throw Starlark.errorf(
+            "Aspect attribute '%s' (%s) with computed default value is unsupported.",
+            starlarkName, attribute.getType());
       }
       attributes.add(attribute);
     }
 
     for (Object o : providesArg) {
       if (!StarlarkAttrModule.isProvider(o)) {
-        throw new EvalException(
-            String.format(
-                "Illegal argument: element in 'provides' is of unexpected type. "
-                    + "Should be list of providers, but got item of type %s. ",
-                Starlark.type(o)));
+        throw Starlark.errorf(
+            "Illegal argument: element in 'provides' is of unexpected type. "
+                + "Should be list of providers, but got item of type %s. ",
+            Starlark.type(o));
       }
     }
     return new StarlarkDefinedAspect(
@@ -816,7 +811,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       try {
         this.ruleClass = builder.build(ruleClassName, starlarkLabel + "%" + ruleClassName);
       } catch (IllegalArgumentException | IllegalStateException ex) {
-        throw new EvalException(definitionLocation, ex);
+        // TODO(adonovan): this catch statement is an abuse of exceptions. Be more specific.
+        String msg = ex.getMessage();
+        throw new EvalException(definitionLocation, msg != null ? msg : ex.toString(), ex);
       }
 
       this.builder = null;

@@ -1186,18 +1186,20 @@ genrule(
   ordered by the dependency order or rank.
 </p>
 <p>
-  When this flag is <code>deps</code>, bazel will print results ordered by the
-  dependency order. However, nodes that are unordered by the dependency order
-  (because there is no path from either one to the other) may be printed in any
-  order.
+  When this flag is <code>deps</code>, bazel prints results in some topological order&mdash;that is,
+  dependencies first. However, nodes that are unordered by the dependency order
+  (because there is no path from either one to the other) may be printed in any order.
 </p>
 <p>
-  When this flag is <code>full</code>, bazel will print results ordered by the
-  dependency order, with unordered nodes ordered alphabetically or reverse
-  alphabetically, depending on the output format. This may be slower than the
-  other options, and so should only be used when deterministic results are
-  important &mdash; it is guaranteed with this option that running the same query
-  multiple times will always produce the same output.
+  When this flag is <code>full</code>, bazel prints nodes in a fully deterministic (total) order.
+  First, all nodes are sorted alphabetically. Then, each node in the list is used as the start of a
+  post-order depth-first search in which outgoing edges to unvisited nodes are traversed in
+  alphabetical order of the successor nodes. Finally, nodes are printed in the reverse of the order
+  in which they were visited.
+</p>
+<p>
+  Printing nodes in this order may be slower, so it should be used only when determinism is
+  important.
 </p>
 
 <h3 id="output-build">Print the source form of targets as they would appear in BUILD</h3>

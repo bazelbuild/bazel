@@ -568,7 +568,7 @@ public final class Starlark {
     int i = 0;
     for (Map.Entry<String, Object> e : kwargs.entrySet()) {
       named[i++] = e.getKey();
-      named[i++] = e.getValue();
+      named[i++] = Starlark.checkValid(e.getValue());
     }
     return fastcall(thread, fn, args.toArray(), named);
   }

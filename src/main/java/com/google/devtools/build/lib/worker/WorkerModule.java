@@ -236,5 +236,6 @@ public class WorkerModule extends BlazeModule {
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
     }
+    WorkerMultiplexerManager.afterCommandCleanup();
   }
 }

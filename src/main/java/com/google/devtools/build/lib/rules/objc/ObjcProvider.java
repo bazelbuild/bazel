@@ -1345,8 +1345,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
 
     @Override
-    public String getErrorMessageFormatForUnknownField() {
-      return "ObjcProvider field '%s' could not be instantiated";
+    public String getErrorMessageForUnknownField(String name) {
+      return String.format("ObjcProvider field '%s' could not be instantiated", name);
     }
   }
 }

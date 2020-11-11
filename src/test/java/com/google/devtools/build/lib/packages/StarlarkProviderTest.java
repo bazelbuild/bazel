@@ -23,6 +23,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
@@ -39,8 +40,8 @@ public final class StarlarkProviderTest {
     assertThat(provider.isExported()).isFalse();
     assertThat(provider.getName()).isEqualTo("<no name>");
     assertThat(provider.getPrintableName()).isEqualTo("<no name>");
-    assertThat(provider.getErrorMessageFormatForUnknownField())
-        .isEqualTo("Object has no '%s' attribute.");
+    assertThat(provider.getErrorMessageForUnknownField("foo"))
+        .isEqualTo("'struct' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isFalse();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThrows(
@@ -56,8 +57,8 @@ public final class StarlarkProviderTest {
     assertThat(provider.isExported()).isTrue();
     assertThat(provider.getName()).isEqualTo("prov");
     assertThat(provider.getPrintableName()).isEqualTo("prov");
-    assertThat(provider.getErrorMessageFormatForUnknownField())
-        .isEqualTo("'prov' value has no field or method '%s'");
+    assertThat(provider.getErrorMessageForUnknownField("foo"))
+        .isEqualTo("'prov' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isTrue();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);
@@ -140,7 +141,8 @@ public final class StarlarkProviderTest {
               thread,
               provider,
               /*args=*/ ImmutableList.of(),
-              /*kwargs=*/ ImmutableMap.of("a", 1, "b", 2, "c", 3));
+              /*kwargs=*/ ImmutableMap.of(
+                  "a", StarlarkInt.of(1), "b", StarlarkInt.of(2), "c", StarlarkInt.of(3)));
       assertThat(result).isInstanceOf(StarlarkInfo.class);
       return (StarlarkInfo) result;
     }
@@ -149,8 +151,8 @@ public final class StarlarkProviderTest {
   /** Asserts that a {@link StarlarkInfo} has fields a=1, b=2, c=3 (and nothing else). */
   private static void assertHasExactlyValuesA1B2C3(StarlarkInfo info) throws Exception {
     assertThat(info.getFieldNames()).containsExactly("a", "b", "c");
-    assertThat(info.getValue("a")).isEqualTo(1);
-    assertThat(info.getValue("b")).isEqualTo(2);
-    assertThat(info.getValue("c")).isEqualTo(3);
+    assertThat(info.getValue("a")).isEqualTo(StarlarkInt.of(1));
+    assertThat(info.getValue("b")).isEqualTo(StarlarkInt.of(2));
+    assertThat(info.getValue("c")).isEqualTo(StarlarkInt.of(3));
   }
 }

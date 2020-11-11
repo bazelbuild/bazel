@@ -55,7 +55,8 @@ public final class PathFragment
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant public static final PathFragment EMPTY_FRAGMENT = new PathFragment("", 0);
-  public static final char SEPARATOR_CHAR = OS.getSeparator();
+  public static final char SEPARATOR_CHAR = '/';
+  private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
   public static final int INVALID_SEGMENT = -1;
 
   private final String normalizedPath;
@@ -739,8 +740,15 @@ public final class PathFragment
     if (baseName.equals(".") || baseName.equals("..")) {
       throw new IllegalArgumentException("baseName must not be '" + baseName + "'");
     }
-    if (baseName.indexOf('/') != -1) {
-      throw new IllegalArgumentException("baseName must not contain a slash: '" + baseName + "'");
+    if (baseName.indexOf(SEPARATOR_CHAR) != -1) {
+      throw new IllegalArgumentException(
+          "baseName must not contain " + SEPARATOR_CHAR + ": '" + baseName + "'");
+    }
+    if (ADDITIONAL_SEPARATOR_CHAR != 0) {
+      if (baseName.indexOf(ADDITIONAL_SEPARATOR_CHAR) != -1) {
+        throw new IllegalArgumentException(
+            "baseName must not contain " + ADDITIONAL_SEPARATOR_CHAR + ": '" + baseName + "'");
+      }
     }
   }
 

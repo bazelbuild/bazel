@@ -734,7 +734,10 @@ public final class MethodLibraryTest {
   public void testFail() throws Exception {
     ev.new Scenario()
         .testIfErrorContains("abc", "fail('abc')")
-        .testIfErrorContains("18", "fail(18)");
+        .testIfErrorContains("18", "fail(18)")
+        .testIfErrorContains("1 2 3", "fail(1, 2, 3)")
+        .testIfErrorContains("attribute foo: 1 2 3", "fail(1, 2, 3, attr='foo')") // deprecated
+        .testIfErrorContains("0 1 2 3", "fail(1, 2, 3, msg=0)"); // deprecated
   }
 
   @Test

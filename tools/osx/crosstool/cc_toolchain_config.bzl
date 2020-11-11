@@ -5371,7 +5371,7 @@ def _impl(ctx):
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
                 ],
-                flag_groups = [flag_group(flags = ["DEBUG_PREFIX_MAP_PWD=."])],
+                flag_groups = [flag_group(flags = ["-fdebug-compilation-dir", "."])],
             ),
         ],
     )
@@ -6009,7 +6009,7 @@ def _impl(ctx):
                                 "-Xlinker",
                                 "-bitcode_symbol_map",
                                 "-Xlinker",
-                                "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}",
+                                "%{bitcode_symbol_map_path}",
                             ],
                             expand_if_available = "bitcode_symbol_map_path",
                         ),

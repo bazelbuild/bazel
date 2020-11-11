@@ -47,6 +47,8 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
   // TODO(adonovan): make the provider determine the error message
   // (but: this has implications for struct+struct, the equivalence
   // relation, and other observable behaviors).
+  // Perhaps it should be a property of the StarlarkInfo instance, but
+  // defined by a subclass?
   @Nullable private final String unknownFieldError;
 
   // TODO(adonovan): restrict type of provider to StarlarkProvider?
@@ -251,16 +253,12 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
     return ImmutableList.copyOf(keys);
   }
 
-  /**
-   * Returns the custom (i.e. per-instance, as opposed to per-provider-type) error message string
-   * format used by this provider instance, or null if not set.
-   */
-  @Nullable
+  /** Returns the per-instance error message, if specified, or the provider's message otherwise. */
   @Override
-  protected String getErrorMessageFormatForUnknownField() {
+  public String getErrorMessageForUnknownField(String name) {
     return unknownFieldError != null
-        ? unknownFieldError
-        : super.getErrorMessageFormatForUnknownField();
+        ? String.format(unknownFieldError, name) + allAttributesSuffix()
+        : super.getErrorMessageForUnknownField(name);
   }
 
   @Override
@@ -315,7 +313,25 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
   // TODO(bazel-team): Make the special structs that need a custom error message use a different
   // provider (subclassing BuiltinProvider) and a different StructImpl implementation. Then remove
   // this functionality, thereby saving a string pointer field for the majority of providers that
-  // don't need it.
+  // don't need it. However, this is tricky: if the error message is a property of the provider,
+  // then each flavor of struct must have a distinct provider of a unique class, and this would be
+  // observable to Starlark code. What would be their names: "struct", or something else? Should
+  // struct+struct fail when different flavors are mixed (as happens today when adding info
+  // instances of different providers)? Or should it return a new struct picking the provider of one
+  // operand arbitrarily (as it does today for custom error strings)? Or ignore providers and return
+  // a plain old struct, always? Or only if they differ? Or should we abolish struct+struct
+  // altogether? In other words, the advice in the @deprecated tag above is not compatible.
+  //
+  // brandjon notes: nearly all the uses of custom errors are for objects that properly should be
+  // Structures but not structs. They only leveraged the struct machinery for historical reasons and
+  // convenience.
+  // For instance, ctx.attr should have a custom error message, but should not support concatenation
+  // (it fails today but only because you can't produce two ctx.attr's that don't have common
+  // fields). It also should not support to_json().
+  // It's possible someone was crazy enough to take ctx.attr.to_json(), but we can probably break
+  // that case without causing too much trouble.
+  // If we migrate all these cases of non-providers away, whatever is left should be happy to use a
+  // default error message, and we can eliminate this extra detail.
   @Deprecated
   public static StarlarkInfo createWithCustomMessage(
       Provider provider, Map<String, Object> values, String unknownFieldError) {
