@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;
@@ -145,14 +146,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
   void downloadFile(Path path, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    try {
-      downloadFileAsync(path, metadata).get();
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new IOException(e.getCause());
-    }
+    Utils.getFromFuture(downloadFileAsync(path, metadata));
   }
 
   private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata)
