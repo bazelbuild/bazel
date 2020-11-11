@@ -6171,6 +6171,7 @@ def _impl(ctx):
             compiler_input_flags_feature,
             compiler_output_flags_feature,
             objcopy_embed_flags_feature,
+            set_install_name,
         ]
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "darwin_arm64" or
@@ -6327,6 +6328,7 @@ def _impl(ctx):
             compiler_output_flags_feature,
             supports_pic_feature,
             objcopy_embed_flags_feature,
+            set_install_name,
         ]
     else:
         fail("Unreachable")
