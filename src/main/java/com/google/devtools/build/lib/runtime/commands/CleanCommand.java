@@ -35,12 +35,12 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
-import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -203,22 +203,27 @@ public final class CleanCommand implements BlazeCommand {
     env.getReporter()
         .handle(Event.info(null, pathItemName + " moved to " + tempPath + " for deletion"));
 
-    // Daemonize the shell and use the double-fork idiom to ensure that the shell
-    // exits even while the "rm -rf" command continues.
     String command =
         String.format(
-            "exec >&- 2>&- <&- && (/usr/bin/setsid /bin/rm -rf %s &)&",
-            ShellEscaper.escapeString(tempPath.getPathString()));
+            "/usr/bin/find %s -type d -not -perm -u=rwx -exec /bin/chmod -f u=rwx {} +; /bin/rm"
+                + " -rf %s",
+            tempBaseName, tempBaseName);
+    logger.atInfo().log("Executing daemonic shell command %s", command);
 
-    logger.atInfo().log("Executing shell command %s", ShellEscaper.escapeString(command));
-
-    // Doesn't throw iff command exited and was successful.
-    new CommandBuilder()
-        .addArg(command)
-        .useShell(true)
-        .setWorkingDir(tempPath.getParentDirectory())
-        .build()
-        .execute();
+    // Daemonize the shell to ensure that the shell exits even while the "rm
+    // -rf" command continues.
+    CommandResult result =
+        new CommandBuilder()
+            .addArg(
+                env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize").getPathString())
+            .addArgs("-l", "/dev/null")
+            .addArgs("-p", "/dev/null")
+            .addArg("--")
+            .addArgs("/bin/sh", "/bin/sh", "-c", command)
+            .setWorkingDir(tempPath.getParentDirectory())
+            .build()
+            .execute();
+    logger.atInfo().log("Shell command status: %s", result.getTerminationStatus());
   }
 
   private BlazeCommandResult actuallyClean(
