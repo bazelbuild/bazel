@@ -3913,7 +3913,7 @@ def _impl(ctx):
         default_link_flags_feature = feature(
             name = "default_link_flags",
             enabled = True,
-            flag_sets =[
+            flag_sets = [
                 flag_set(
                     actions = all_link_actions +
                               ["objc-executable", "objc++-executable"],
