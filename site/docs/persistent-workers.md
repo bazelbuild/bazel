@@ -273,7 +273,8 @@ In [this GitHub repo](https://github.com/Ubehebe/bazel-worker-examples), you can
 see example worker wrappers written in Java as well as in Python. If you are
 working in JavaScript or TypeScript, the [@bazel/worker
 package](https://www.npmjs.com/package/@bazel/worker) and
-[example](https://github.com/bazelbuild/rules_nodejs/tree/stable/examples/worker) might be helpful.
+[nodejs worker example](https://github.com/bazelbuild/rules_nodejs/tree/stable/examples/worker)
+might be helpful.
 
 ## How do workers affect sandboxing? <a name="sandboxing"></a>
 
