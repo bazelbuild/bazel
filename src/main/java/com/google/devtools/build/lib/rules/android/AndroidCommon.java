@@ -81,7 +81,7 @@ public class AndroidCommon {
 
   public static final InstrumentationSpec ANDROID_COLLECTION_SPEC =
       JavaCommon.JAVA_COLLECTION_SPEC.withDependencyAttributes(
-          "deps", "data", "exports", "runtime_deps", "binary_under_test");
+          "deps", "data", "exports", "instruments", "runtime_deps", "binary_under_test");
 
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("deps", "exports");
