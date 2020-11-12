@@ -635,6 +635,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Test exporting symbols using custom DEF file in cc_library.
     # Auto-generating DEF file should be disabled when custom DEF file specified
+    # Rename DLL shoud be disabled when when custom DEF file specified
     exit_code, _, stderr = self.RunBazel([
         'build', '//:lib', '-s', '--output_groups=dynamic_library',
         '--features=windows_export_all_symbols'
@@ -644,8 +645,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
     lib_if = os.path.join(bazel_bin, 'lib.if.lib')
     lib_def = os.path.join(bazel_bin, 'lib.gen.def')
+    lib_dll = os.path.join(bazel_bin, 'lib.dll')
     self.assertTrue(os.path.exists(lib_if))
     self.assertFalse(os.path.exists(lib_def))
+    self.assertTrue(os.path.exists(lib_dll))
 
     # Test specifying DEF file in cc_binary
     exit_code, _, stderr = self.RunBazel(['build', '//:lib_dy.dll', '-s'])
