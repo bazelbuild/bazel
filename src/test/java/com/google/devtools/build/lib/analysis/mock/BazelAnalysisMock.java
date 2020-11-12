@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
@@ -328,6 +327,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
+    ShellConfiguration.injectShellExecutableFinder(BazelRuleClassProvider.SHELL_EXECUTABLE);
   }
 
   /** Contents of {@code //tools/android/emulator/BUILD.tools}. */
@@ -459,10 +459,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.of(
         new CppConfigurationLoader(),
-        new ShellConfiguration.Loader(
-            BazelRuleClassProvider.SHELL_EXECUTABLE,
-            ShellConfiguration.Options.class,
-            StrictActionEnvOptions.class),
+        new ShellConfiguration.Loader(),
         new PythonConfigurationLoader(),
         new BazelPythonConfiguration.Loader(),
         new JavaConfigurationLoader(),

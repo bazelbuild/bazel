@@ -26,8 +26,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import java.io.Serializable;
-import javax.annotation.Nullable;
+import java.util.function.Function;
 
 /** A configuration fragment that tells where the shell is. */
 public class ShellConfiguration extends Fragment {
@@ -38,12 +37,26 @@ public class ShellConfiguration extends Fragment {
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
           .build();
 
+  private static Function<BuildOptions, PathFragment> shellExecutableFinder;
+
+  /**
+   * Injects a function for finding the shell executable path, given the current configuration's
+   * {@link BuildOptions} and whatever system-specific logic the provider wishes to use.
+   */
+  public static void injectShellExecutableFinder(Function<BuildOptions, PathFragment> finder) {
+    // It'd be nice not to have to set a global static field. But there are so many disparate calls
+    // to getShellExecutable() (in both the build's analysis phase and in the run command) that
+    // feeding this through instance variables is unwieldy. Fortunately this info is a function of
+    // the Blaze implementation and not something that might change between builds.
+    shellExecutableFinder = finder;
+  }
+
   private final PathFragment shellExecutable;
   private final boolean useShBinaryStubScript;
 
-  private ShellConfiguration(PathFragment shellExecutable, boolean useShBinaryStubScript) {
-    this.shellExecutable = shellExecutable;
-    this.useShBinaryStubScript = useShBinaryStubScript;
+  private ShellConfiguration(BuildOptions buildOptions) {
+    this.shellExecutable = shellExecutableFinder.apply(buildOptions);
+    this.useShBinaryStubScript = buildOptions.get(Options.class).useShBinaryStubScript;
   }
 
   public PathFragment getShellExecutable() {
@@ -91,52 +104,29 @@ public class ShellConfiguration extends Fragment {
     }
   }
 
-  /** the part of {@link ShellConfiguration} that determines where the shell is. */
-  public interface ShellExecutableProvider {
-    PathFragment getShellExecutable(BuildOptions options);
-  }
+  public static PathFragment determineShellExecutable(
+      OS os, Options options, PathFragment defaultShell) {
+    if (options.shellExecutable != null) {
+      return options.shellExecutable;
+    }
 
-  /** A shell executable whose path is hard-coded. */
-  public static ShellExecutableProvider hardcodedShellExecutable(String shell) {
-    return (ShellExecutableProvider & Serializable) (options) -> PathFragment.create(shell);
+    // Honor BAZEL_SH env variable for backwards compatibility.
+    String path = System.getenv("BAZEL_SH");
+    if (path != null) {
+      return PathFragment.create(path);
+    }
+    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+    // which may be different for remote execution. For now, this can be overridden with
+    // --shell_executable, so at least there's a workaround.
+    PathFragment result = OS_SPECIFIC_SHELL.get(os);
+    return result != null ? result : defaultShell;
   }
 
   /** The loader for {@link ShellConfiguration}. */
   public static class Loader implements ConfigurationFragmentFactory {
-    private final ShellExecutableProvider shellExecutableProvider;
-    private final ImmutableSet<Class<? extends FragmentOptions>> requiredOptions;
-
-    public Loader(ShellExecutableProvider shellExecutableProvider,
-        Class<? extends FragmentOptions>... requiredOptions) {
-      this.shellExecutableProvider = shellExecutableProvider;
-      this.requiredOptions = ImmutableSet.copyOf(requiredOptions);
-    }
-
-    @Nullable
     @Override
     public Fragment create(BuildOptions buildOptions) {
-      Options options = buildOptions.get(Options.class);
-      return new ShellConfiguration(
-          shellExecutableProvider.getShellExecutable(buildOptions),
-          options != null && options.useShBinaryStubScript);
-    }
-
-    public static PathFragment determineShellExecutable(
-        OS os, Options options, PathFragment defaultShell) {
-      if (options.shellExecutable != null) {
-        return options.shellExecutable;
-      }
-
-      // Honor BAZEL_SH env variable for backwards compatibility.
-      String path = System.getenv("BAZEL_SH");
-      if (path != null) {
-        return PathFragment.create(path);
-      }
-      // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
-      // which may be different for remote execution. For now, this can be overridden with
-      // --shell_executable, so at least there's a workaround.
-      PathFragment result = OS_SPECIFIC_SHELL.get(os);
-      return result != null ? result : defaultShell;
+      return new ShellConfiguration(buildOptions);
     }
 
     @Override
@@ -146,7 +136,7 @@ public class ShellConfiguration extends Fragment {
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return requiredOptions;
+      return ImmutableSet.of(Options.class);
     }
   }
 }

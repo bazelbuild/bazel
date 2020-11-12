@@ -64,7 +64,7 @@ public class ShellConfigurationTest extends BuildViewTestCase {
   private static PathFragment determineShellExecutable(OS os, PathFragment executableOption) {
     ShellConfiguration.Options options = Options.getDefaults(ShellConfiguration.Options.class);
     options.shellExecutable = executableOption;
-    return ShellConfiguration.Loader.determineShellExecutable(
+    return ShellConfiguration.determineShellExecutable(
         os, options, PathFragment.create("/bin/bash"));
   }
 }

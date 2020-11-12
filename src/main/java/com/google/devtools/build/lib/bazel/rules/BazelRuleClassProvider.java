@@ -25,11 +25,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
-import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -128,6 +129,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A rule class provider implementing the rules Bazel knows. */
@@ -163,17 +165,42 @@ public class BazelRuleClassProvider {
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
-  public static final ShellExecutableProvider SHELL_EXECUTABLE = (BuildOptions options) ->
-      ShellConfiguration.Loader.determineShellExecutable(
-          OS.getCurrent(),
-          options.get(ShellConfiguration.Options.class),
-          FALLBACK_SHELL);
+  public static final Function<BuildOptions, PathFragment> SHELL_EXECUTABLE =
+      (BuildOptions options) ->
+          ShellConfiguration.determineShellExecutable(
+              OS.getCurrent(), options.get(ShellConfiguration.Options.class), FALLBACK_SHELL);
+
+  /**
+   * {@link BuildConfigurationFunction} constructs {@link BuildOptions} out of the options required
+   * by the registered fragments. We create and register this fragment exclusively to ensure {@link
+   * StrictActionEnvOptions} is always available.
+   */
+  private static class StrictActionEnvConfiguration extends Fragment {
+    private StrictActionEnvConfiguration(BuildOptions buildOptions) {}
+
+    public static class Loader implements ConfigurationFragmentFactory {
+      @Override
+      public Fragment create(BuildOptions buildOptions) {
+        return new StrictActionEnvConfiguration(buildOptions);
+      }
+
+      @Override
+      public Class<? extends Fragment> creates() {
+        return StrictActionEnvConfiguration.class;
+      }
+
+      @Override
+      public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+        return ImmutableSet.of(StrictActionEnvOptions.class);
+      }
+    }
+  }
 
   public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
       (BuildOptions options) -> {
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();
-        PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
+        PathFragment shellExecutable = SHELL_EXECUTABLE.apply(options);
         TreeMap<String, String> env = new TreeMap<>();
 
         // All entries in the builder that have a value of null inherit the value from the client
@@ -238,20 +265,18 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
+          ShellConfiguration.injectShellExecutableFinder(SHELL_EXECUTABLE);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
               .addConfigurationOptions(ShellConfiguration.Options.class)
-              .addConfigurationFragment(
-                  new ShellConfiguration.Loader(
-                      SHELL_EXECUTABLE,
-                      ShellConfiguration.Options.class,
-                      StrictActionEnvOptions.class))
+              .addConfigurationFragment(new ShellConfiguration.Loader())
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
-              .addConfigurationOptions(StrictActionEnvOptions.class)
+              .addConfigurationFragment(new StrictActionEnvConfiguration.Loader())
+              .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
         }
 
