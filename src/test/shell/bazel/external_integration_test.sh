@@ -2519,4 +2519,43 @@ EOF
   bazel build a_bin >& $TEST_log  || fail "Expected build/run to succeed"
 }
 
+function test_query_external_packages() {
+  setup_skylib_support
+
+  mkdir -p external/nested
+  mkdir -p not-external
+
+  cat > external/BUILD <<EOF
+filegroup(
+    name = "a1",
+    srcs = [],
+)
+EOF
+  cat > external/nested/BUILD <<EOF
+filegroup(
+    name = "a2",
+    srcs = [],
+)
+EOF
+
+  cat > not-external/BUILD <<EOF
+filegroup(
+    name = "b",
+    srcs = [],
+)
+EOF
+
+  bazel query //... >& $TEST_log || fail "Expected build/run to succeed"
+  expect_log "//not-external:b"
+  expect_not_log "//external:a1"
+  expect_not_log "//external/nested:a2"
+
+  bazel query --experimental_sibling_repository_layout //... >& $TEST_log \ ||
+    fail "Expected build/run to succeed"
+  expect_log "//not-external:b"
+  # Targets in //external aren't supported yet.
+  expect_not_log "//external:a1"
+  expect_log "//external/nested:a2"
+}
+
 run_suite "external tests"
