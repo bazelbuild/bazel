@@ -7487,7 +7487,6 @@ def _impl(ctx):
                         flags = ["-dead_strip", "-no_dead_strip_inits_and_terms"],
                     ),
                 ],
-                with_features = [with_feature_set(features = ["is_not_test_target"])],
             ),
             flag_set(
                 actions = [
@@ -7563,8 +7562,6 @@ def _impl(ctx):
     )
 
     dbg_feature = feature(name = "dbg", implies = ["dbg_only_flag"])
-
-    is_not_test_target_feature = feature(name = "is_not_test_target")
 
     xcode_5_8_feature = feature(
         name = "xcode_5.8",
@@ -7882,7 +7879,6 @@ def _impl(ctx):
         language_objc_feature,
         language_feature,
         only_doth_headers_in_module_maps_feature,
-        is_not_test_target_feature,
         generate_dsym_file_feature,
         no_generate_debug_symbols_feature,
         generate_linkmap_feature,
