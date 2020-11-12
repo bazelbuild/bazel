@@ -56,10 +56,12 @@ final class LocationTemplateContext implements TemplateContext {
       Label root,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
+      boolean legacyExternalRunfiles,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       boolean windowsPath) {
     this.delegate = delegate;
-    this.functions = LocationExpander.allLocationFunctions(root, locationMap, execPaths);
+    this.functions =
+        LocationExpander.allLocationFunctions(root, locationMap, execPaths, legacyExternalRunfiles);
     this.repositoryMapping = repositoryMapping;
     this.windowsPath = windowsPath;
   }
@@ -78,6 +80,7 @@ final class LocationTemplateContext implements TemplateContext {
         Suppliers.memoize(
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
         execPaths,
+        ruleContext.getConfiguration().legacyExternalRunfiles(),
         ruleContext.getRule().getPackage().getRepositoryMapping(),
         windowsPath);
   }
