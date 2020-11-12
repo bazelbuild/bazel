@@ -327,11 +327,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        Artifact customDefFile = common.getWinDefFile();
-        String dllNameSuffix =
-            customDefFile != null
-                ? CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration)
-                : "";
+        String dllNameSuffix = CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration);
         linkingHelper.setLinkedDLLNameSuffix(dllNameSuffix);
         Artifact generatedDefFile = null;
 
@@ -355,7 +351,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         }
         linkingHelper.setDefFile(
             CppHelper.getWindowsDefFileForLinking(
-                ruleContext, customDefFile, generatedDefFile, featureConfiguration));
+                ruleContext, common.getWinDefFile(), generatedDefFile, featureConfiguration));
       }
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }
