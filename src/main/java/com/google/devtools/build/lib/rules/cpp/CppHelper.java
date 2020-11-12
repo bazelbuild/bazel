@@ -950,7 +950,7 @@ public class CppHelper {
     if (cppOptions.renameDLL
         && cppOptions.dynamicMode != DynamicMode.OFF
         && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-        && ruleContext.isAttrDefined("win_def_file", LABEL)) {
+        && !ruleContext.isAttrDefined("win_def_file", LABEL)) {
       Fingerprint digest = new Fingerprint();
       digest.addString(ruleContext.getRepository().getName());
       digest.addPath(ruleContext.getPackageDirectory());
