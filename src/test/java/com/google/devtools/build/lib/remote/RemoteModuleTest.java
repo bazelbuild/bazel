@@ -29,12 +29,14 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -521,6 +523,24 @@ public class RemoteModuleTest {
     Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
 
     assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_netrcWithoutRemoteCache() throws Exception {
+    String netrc = "/.netrc";
+    Map<String, String> clientEnv = ImmutableMap.of("NETRC", netrc);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(netrc, "machine foo.example.org login baruser password barpass");
+    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    Reporter reporter = new Reporter(new EventBus());
+
+    Credentials credentials =
+        RemoteModule.newCredentials(
+            clientEnv, fileSystem, reporter, authAndTLSOptions, remoteOptions);
+
+    assertThat(credentials).isNotNull();
   }
 
   private static void assertRequestMetadata(
