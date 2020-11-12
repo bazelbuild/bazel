@@ -147,9 +147,10 @@ public final class Tuple extends AbstractList<Object>
     return wrap(Arrays.copyOfRange(elems, from, to));
   }
 
+  /** Returns a new array of class Object[] containing the tuple elements. */
   @Override
   public Object[] toArray() {
-    return elems.length != 0 ? elems.clone() : elems;
+    return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : elems;
   }
 
   @Override

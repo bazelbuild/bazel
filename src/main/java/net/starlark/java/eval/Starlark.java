@@ -238,8 +238,8 @@ public final class Starlark {
   }
 
   /**
-   * Returns a new array containing the elements of Starlark iterable value {@code x}. A Starlark
-   * value is iterable if it implements {@link StarlarkIterable}.
+   * Returns a new array of class Object[] containing the elements of Starlark iterable value {@code
+   * x}. A Starlark value is iterable if it implements {@link StarlarkIterable}.
    */
   public static Object[] toArray(Object x) throws EvalException {
     // Specialize Sequence and Dict to avoid allocation and/or indirection.
