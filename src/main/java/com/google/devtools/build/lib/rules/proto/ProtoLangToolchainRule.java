@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
@@ -50,7 +50,11 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         passed to the proto-compiler:
         <code>--plugin=protoc-gen-PLUGIN=<executable>.</code>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("plugin", LABEL).exec().cfg(HostTransition.createFactory()).allowedFileTypes())
+        .add(
+            attr("plugin", LABEL)
+                .exec()
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(runtime) -->
         A language-specific library that the generated code is compiled against.
