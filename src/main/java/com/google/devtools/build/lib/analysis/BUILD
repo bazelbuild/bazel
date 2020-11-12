@@ -914,6 +914,7 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/fragment",
+        ":config/fragment_options",
         ":platform_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -930,7 +931,6 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/fragment",
-        ":config/fragment_options",
         ":config/fragment_provider",
         ":config/invalid_configuration_exception",
         ":platform_configuration",
@@ -1680,7 +1680,10 @@ java_library(
 
 java_library(
     name = "config/fragment_options",
-    srcs = ["config/FragmentOptions.java"],
+    srcs = [
+        "config/FragmentOptions.java",
+        "config/RequiresOptions.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",

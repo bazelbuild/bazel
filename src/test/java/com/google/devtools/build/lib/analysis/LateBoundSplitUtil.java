@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.analysis;
 
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -45,6 +45,7 @@ public class LateBoundSplitUtil {
 
   /** The {@link Fragment} that contains the options. */
   @AutoCodec
+  @RequiresOptions(options = {TestOptions.class})
   static class TestFragment extends Fragment {}
 
   /**
@@ -59,11 +60,6 @@ public class LateBoundSplitUtil {
     @Override
     public Class<? extends Fragment> creates() {
      return TestFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(TestOptions.class);
     }
   }
 

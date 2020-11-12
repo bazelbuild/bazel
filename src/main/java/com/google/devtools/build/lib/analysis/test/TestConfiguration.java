@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.OptionsDiffPredicate;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestTimeout;
@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Test-related options. */
+@RequiresOptions(options = {TestConfiguration.TestOptions.class})
 public class TestConfiguration extends Fragment {
   public static final OptionsDiffPredicate SHOULD_INVALIDATE_FOR_OPTION_DIFF =
       (options, changedOption, oldValue, newValue) -> {
@@ -310,11 +311,6 @@ public class TestConfiguration extends Fragment {
     public Class<? extends Fragment> creates() {
       return TestConfiguration.class;
     }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(TestOptions.class);
-    }
   }
 
   private final TestOptions options;
@@ -393,7 +389,9 @@ public class TestConfiguration extends Fragment {
     return options.fetchAllCoverageOutputs;
   }
 
-  public boolean incompatibleExclusiveTestSandboxed() { return options.incompatibleExclusiveTestSandboxed; }
+  public boolean incompatibleExclusiveTestSandboxed() {
+    return options.incompatibleExclusiveTestSandboxed;
+  }
 
   public boolean splitCoveragePostProcessing() {
     return options.splitCoveragePostProcessing;

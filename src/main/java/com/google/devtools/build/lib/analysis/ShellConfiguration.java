@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.function.Function;
 
 /** A configuration fragment that tells where the shell is. */
+@RequiresOptions(options = {ShellConfiguration.Options.class})
 public class ShellConfiguration extends Fragment {
   private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
       ImmutableMap.<OS, PathFragment>builder()
@@ -132,11 +133,6 @@ public class ShellConfiguration extends Fragment {
     @Override
     public Class<? extends Fragment> creates() {
       return ShellConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(Options.class);
     }
   }
 }

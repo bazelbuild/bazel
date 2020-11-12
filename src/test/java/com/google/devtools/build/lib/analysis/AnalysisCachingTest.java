@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
@@ -610,6 +611,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @StarlarkBuiltin(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
+  @RequiresOptions(options = {DiffResetOptions.class})
   private static final class DiffResetFragment extends Fragment implements StarlarkValue {}
 
   private static final class DiffResetFactory implements ConfigurationFragmentFactory {
@@ -621,11 +623,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     @Override
     public Class<? extends Fragment> creates() {
       return DiffResetFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(DiffResetOptions.class);
     }
   }
 

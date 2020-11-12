@@ -14,12 +14,10 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 
@@ -39,11 +37,5 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public Class<? extends Fragment> creates() {
     return ObjcConfiguration.class;
-  }
-
-  @Override
-  public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>of(
-        CppOptions.class, ObjcCommandLineOptions.class);
   }
 }

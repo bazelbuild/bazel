@@ -14,17 +14,18 @@
 
 package com.google.devtools.build.lib.rules.genquery;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 
 /** {@link Fragment} for {@link GenQuery}. */
+@RequiresOptions(options = {GenQueryConfiguration.GenQueryOptions.class})
 public class GenQueryConfiguration extends Fragment {
 
   /** GenQuery-specific options. */
@@ -50,11 +51,6 @@ public class GenQueryConfiguration extends Fragment {
     @Override
     public Class<? extends Fragment> creates() {
       return GenQueryConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(GenQueryOptions.class);
     }
   }
 

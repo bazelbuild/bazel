@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
+@RequiresOptions(options = {CppOptions.class, ObjcCommandLineOptions.class})
 public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =

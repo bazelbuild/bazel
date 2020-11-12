@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Bazel-specific Python configuration. */
 @Immutable
+@RequiresOptions(options = {BazelPythonConfiguration.Options.class, PythonOptions.class})
 public class BazelPythonConfiguration extends Fragment {
 
   /** Bazel-specific Python configuration options. */
@@ -123,11 +124,6 @@ public class BazelPythonConfiguration extends Fragment {
     @Override
     public Class<? extends Fragment> creates() {
       return BazelPythonConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(Options.class, PythonOptions.class);
     }
   }
 

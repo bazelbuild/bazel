@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -36,6 +35,7 @@ import javax.annotation.Nullable;
  * thereof).
  */
 @Immutable
+@RequiresOptions(options = {J2ObjcCommandLineOptions.class})
 public class J2ObjcConfiguration extends Fragment implements J2ObjcConfigurationApi {
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
@@ -78,11 +78,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     @Override
     public Class<? extends Fragment> creates() {
       return J2ObjcConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(J2ObjcCommandLineOptions.class);
     }
   }
 

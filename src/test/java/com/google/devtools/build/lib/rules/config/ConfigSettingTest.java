@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.rules.config;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -110,6 +110,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @AutoCodec
+  @RequiresOptions(options = {DummyTestOptions.class})
   static class DummyTestOptionsFragment extends Fragment {}
 
   private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
@@ -121,11 +122,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
     @Override
     public Class<? extends Fragment> creates() {
       return DummyTestOptionsFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(DummyTestOptions.class);
     }
   }
 

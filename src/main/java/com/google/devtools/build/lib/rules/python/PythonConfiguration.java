@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
@@ -33,6 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "py",
     doc = "A configuration fragment for Python.",
     category = DocCategory.CONFIGURATION_FRAGMENT)
+@RequiresOptions(options = {PythonOptions.class})
 public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;
