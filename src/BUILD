@@ -629,12 +629,20 @@ JAVA_VERSIONS = ("11",)
     # to build new Java 14 features. This is not used atm, as the toolchain for
     # javac 14 was duplicated, but it might be used in future Bazel releases to
     # support new javac release, so that we preserve this step for now.
-    genrule(
-        name = "create_java_tools_build_java" + java_version,
-        srcs = ["//tools/jdk:BUILD.java_tools"],
-        outs = ["remote_java_tools_java" + java_version + "/BUILD"],
-        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + java_version + "/g' $< > $@",
-    )
+    [
+        genrule(
+            name = "create_java_tools_build_java" + java_version,
+            srcs = ["//tools/jdk:BUILD.java_tools"],
+            outs = ["remote_java_tools_java" + java_version + "/BUILD"],
+            cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + java_version + "/g' $< > $@",
+        ),
+        genrule(
+            name = "create_java_tools_default_java" + java_version,
+            srcs = ["//tools/jdk:java_toolchain_default.bzl.java_tools"],
+            outs = ["remote_java_tools_java" + java_version + "/java_toolchain_default.bzl"],
+            cmd = "cp $< $@",
+        ),
+    ]
     for java_version in JAVA_VERSIONS
 ]
 
@@ -643,7 +651,7 @@ JAVA_VERSIONS = ("11",)
         name = "java_tools_java" + java_version + "_build_zip",
         srcs = [
             "remote_java_tools_java" + java_version + "/BUILD",
-            "//tools/jdk:java_toolchain_default.bzl",
+            "remote_java_tools_java" + java_version + "/java_toolchain_default.bzl",
         ],
         outs = ["java_tools_java_" + java_version + "_build.zip"],
         cmd = "zip -qjX $@ $(SRCS)",
