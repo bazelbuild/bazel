@@ -302,6 +302,7 @@ public abstract class CcModule
         isUsingLinkerNotArchiver,
         /* binDirectoryPath= */ null,
         convertFromNoneable(outputFile, /* defaultValue= */ null),
+        /* runtimeSolibName= */ null,
         isCreatingSharedLibrary,
         convertFromNoneable(paramFile, /* defaultValue= */ null),
         /* thinltoParamFile= */ null,

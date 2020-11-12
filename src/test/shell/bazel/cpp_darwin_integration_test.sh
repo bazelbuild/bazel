@@ -123,5 +123,42 @@ EOF
   return 0
 }
 
+function test_cc_test_with_explicit_install_name() {
+  mkdir -p cpp
+  cat > cpp/BUILD <<EOF
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+cc_test(
+  name = "test",
+  srcs = ["test.cc"],
+  deps = [":foo"],
+)
+EOF
+  cat > cpp/foo.h <<EOF
+  int foo();
+EOF
+  cat > cpp/foo.cc <<EOF
+  int foo() { return 0; }
+EOF
+  cat > cpp/test.cc <<EOF
+  #include "cpp/foo.h"
+  int main() {
+    return foo();
+  }
+EOF
+
+  bazel test --incompatible_macos_set_install_name //cpp:test || \
+      fail "bazel test //cpp:test failed"
+  # Ensure @rpath is correctly set in the binary.
+  ./bazel-bin/cpp/test || \
+      fail "//cpp:test workspace execution failed, expected return 0, got $?"
+  cd bazel-bin
+  ./cpp/test || \
+      fail "//cpp:test execution failed, expected 0, but $?"
+}
+
 run_suite "Tests for Bazel's C++ rules on Darwin"
 

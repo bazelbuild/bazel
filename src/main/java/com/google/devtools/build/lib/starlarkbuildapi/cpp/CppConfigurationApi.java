@@ -77,4 +77,12 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "    )<br/>"
               + ")</pre>")
   Label customMalloc();
+
+  @StarlarkMethod(
+      name = "do_not_use_macos_set_install_name",
+      structField = true,
+      // Only for migration purposes. Intentionally not documented.
+      documented = false,
+      doc = "Accessor for <code>--incompatible_macos_set_install_name</code>.")
+  boolean macosSetInstallName();
 }

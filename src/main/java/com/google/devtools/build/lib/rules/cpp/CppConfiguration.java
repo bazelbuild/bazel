@@ -753,4 +753,9 @@ public final class CppConfiguration extends Fragment
   public boolean generateLlvmLCov() {
     return cppOptions.generateLlvmLcov;
   }
+
+  @Override
+  public boolean macosSetInstallName() {
+    return cppOptions.macosSetInstallName;
+  }
 }

@@ -872,6 +872,8 @@ public class CppLinkActionBuilder {
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
               configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
+              SolibSymlinkAction.getDynamicLibrarySoname(
+                  output.getRootRelativePath(), /* preserveName= */ false),
               linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
               paramFile != null ? paramFile.getExecPathString() : null,
               thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
