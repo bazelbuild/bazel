@@ -1,11 +1,9 @@
 ---
 layout: documentation
-title: Configuring Bazel CI for testing rules against remote execution
+title: Configuring Bazel CI to test rules for remote execution
 ---
 
-# Configuring Bazel CI to test Bazel rules for remote execution
-
-## Overview
+# Configuring Bazel CI to test rules for remote execution
 
 This document is for owners and maintainers of Bazel rule repositories. It
 describes how to configure the Bazel Continuous Integration (CI) system for your
