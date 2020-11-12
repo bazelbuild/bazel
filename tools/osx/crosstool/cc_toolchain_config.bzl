@@ -6077,8 +6077,7 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-install_name",
-                            "@rpath/%{runtime_solib_name}",
+                            "-Wl,-install_name,@rpath/%{runtime_solib_name}",
                         ],
                         expand_if_available = "runtime_solib_name",
                     ),
