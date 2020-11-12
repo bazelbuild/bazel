@@ -245,7 +245,7 @@ public class ProtoCompileActionBuilder {
   CustomCommandLine.Builder createProtoCompilerCommandLine() {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
-    if (langPlugin != null) {
+    if (langPlugin != null && langPlugin.getExecutable() != null) {
       // We pass a separate langPlugin as there are plugins that cannot be overridden
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
       result.addFormatted(
