@@ -57,8 +57,21 @@ public final class Utils {
   /**
    * Returns the result of a {@link ListenableFuture} if successful, or throws any checked {@link
    * Exception} directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
+   *
+   * <p>Cancel the future on {@link InterruptedException}
    */
   public static <T> T getFromFuture(ListenableFuture<T> f)
+      throws IOException, InterruptedException {
+    return getFromFuture(f, /* cancelOnInterrupt */ true);
+  }
+
+  /**
+   * Returns the result of a {@link ListenableFuture} if successful, or throws any checked {@link
+   * Exception} directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
+   *
+   * @param cancelOnInterrupt cancel the future on {@link InterruptedException} if {@code true}.
+   */
+  public static <T> T getFromFuture(ListenableFuture<T> f, boolean cancelOnInterrupt)
       throws IOException, InterruptedException {
     try {
       return f.get();
@@ -74,6 +87,11 @@ public final class Utils {
         throw (RuntimeException) cause;
       }
       throw new IOException(cause);
+    } catch (InterruptedException e) {
+      if (cancelOnInterrupt) {
+        f.cancel(true);
+      }
+      throw e;
     }
   }
 

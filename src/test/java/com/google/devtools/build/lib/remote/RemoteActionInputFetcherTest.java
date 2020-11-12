@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -22,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -46,6 +51,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -184,6 +191,54 @@ public class RemoteActionInputFetcherTest {
     assertThat(a1.getPath().isExecutable()).isTrue();
     assertThat(a1.getPath().isReadable()).isTrue();
     assertThat(a1.getPath().isWritable()).isTrue();
+  }
+
+  @Test
+  public void testDownloadFile_onInterrupt_deletePartialDownloadedFile() throws Exception {
+    Semaphore startSemaphore = new Semaphore(0);
+    Semaphore endSemaphore = new Semaphore(0);
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<Digest, ByteString> cacheEntries = new HashMap<>();
+    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
+    RemoteCache remoteCache = mock(RemoteCache.class);
+    when(remoteCache.downloadFile(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Path path = invocation.getArgument(0);
+              Digest digest = invocation.getArgument(1);
+              ByteString content = cacheEntries.get(digest);
+              if (content == null) {
+                return Futures.immediateFailedFuture(new IOException("Not found"));
+              }
+              content.writeTo(path.getOutputStream());
+
+              startSemaphore.release();
+              return SettableFuture
+                  .create(); // A future that never complete so we can interrupt later
+            });
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(remoteCache, execRoot, RequestMetadata.getDefaultInstance());
+
+    AtomicBoolean interrupted = new AtomicBoolean(false);
+    Thread t =
+        new Thread(
+            () -> {
+              try {
+                actionInputFetcher.downloadFile(a1.getPath(), metadata.get(a1));
+              } catch (IOException ignored) {
+                interrupted.set(false);
+              } catch (InterruptedException e) {
+                interrupted.set(true);
+              }
+              endSemaphore.release();
+            });
+    t.start();
+    startSemaphore.acquire();
+    t.interrupt();
+    endSemaphore.acquire();
+
+    assertThat(interrupted.get()).isTrue();
+    assertThat(a1.getPath().exists()).isFalse();
   }
 
   private Artifact createRemoteArtifact(
