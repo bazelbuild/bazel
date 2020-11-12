@@ -1254,6 +1254,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLinkingContextOnWindows() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -1266,7 +1269,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
-        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"));
+        // The suffix of dynamic library is caculated based on repository name and package path
+        // to avoid conflicts with dynamic library from other packages.
+        ImmutableList.of("a.so", "libdep2_6b43f83676.so", "b.so", "e.so", "libdep1_6b43f83676.so"));
   }
 
   @Test

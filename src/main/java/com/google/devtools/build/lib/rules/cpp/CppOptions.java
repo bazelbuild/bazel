@@ -246,7 +246,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_avoid_conflict_dlls",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {

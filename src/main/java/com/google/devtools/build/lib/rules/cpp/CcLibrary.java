@@ -258,7 +258,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ruleContext,
               ccToolchain,
               ruleContext.getConfiguration(),
-              LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
+              LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
+              CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration)));
       if (CppHelper.useInterfaceSharedLibraries(
           cppConfiguration, ccToolchain, featureConfiguration)) {
         dynamicLibraries.add(
@@ -287,7 +288,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ruleContext,
               ccToolchain,
               ruleContext.getConfiguration(),
-              LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
+              LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
+              CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration)));
       if (CppHelper.useInterfaceSharedLibraries(
           cppConfiguration, ccToolchain, featureConfiguration)) {
         dynamicLibraries.add(

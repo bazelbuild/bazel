@@ -141,7 +141,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on Windows.
     import_library = os.path.join(bazel_bin, 'A.if.lib')
-    shared_library = os.path.join(bazel_bin, 'A.dll')
+    shared_library = os.path.join(bazel_bin, 'A_592cffea6a.dll')
     empty_def_file = os.path.join(bazel_bin, 'A.gen.empty.def')
 
     self.assertTrue(os.path.exists(import_library))
@@ -162,7 +162,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on Windows.
     import_library = os.path.join(bazel_bin, 'B.if.lib')
-    shared_library = os.path.join(bazel_bin, 'B.dll')
+    shared_library = os.path.join(bazel_bin, 'B_592cffea6a.dll')
     def_file = os.path.join(bazel_bin, 'B.gen.def')
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
@@ -177,7 +177,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     import_library = os.path.join(bazel_bin, 'B.if.lib')
-    shared_library = os.path.join(bazel_bin, 'B.dll')
+    shared_library = os.path.join(bazel_bin, 'B_592cffea6a.dll')
     empty_def_file = os.path.join(bazel_bin, 'B.gen.empty.def')
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
@@ -200,13 +200,13 @@ class BazelWindowsCppTest(test_base.TestBase):
     # a_import_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.if.lib')))
     # a_shared_library
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.dll')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_592cffea6a.dll')))
     # a_def_file
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.gen.empty.def')))
     # b_import_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.if.lib')))
     # b_shared_library
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.dll')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B_592cffea6a.dll')))
     # b_def_file
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.gen.def')))
     # c_exe
@@ -230,8 +230,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test if A.dll and B.dll are copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
     self.assertTrue(os.path.exists(main_bin))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/A.dll')))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/B.dll')))
+    self.assertTrue(
+        os.path.exists(os.path.join(bazel_bin, 'main/A_592cffea6a.dll')))
+    self.assertTrue(
+        os.path.exists(os.path.join(bazel_bin, 'main/B_592cffea6a.dll')))
 
     # Run the binary to see if it runs successfully
     exit_code, stdout, stderr = self.RunProgram([main_bin])
@@ -253,8 +255,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     # //main:main depends on both //lib:A and //:A
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//main:main', '--incompatible_avoid_conflict_dlls'])
+    exit_code, _, stderr = self.RunBazel(['build', '//main:main'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     # Run the binary to see if it runs successfully
@@ -367,13 +368,13 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    exit_code, _, stderr = self.RunBazel(['build', '//:main'])
+    exit_code, _, stderr = self.RunBazel(['build', '//:main', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     # Test if A.dll is copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main.exe')
     self.assertTrue(os.path.exists(main_bin))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.dll')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_adb8507c73.dll')))
 
     # Run the binary to see if it runs successfully
     exit_code, stdout, stderr = self.RunProgram([main_bin])
@@ -388,7 +389,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '//:A', '--output_groups=dynamic_library', '-s'])
     paramfile = os.path.join(
-        bazel_output, 'x64_windows-fastbuild/bin/A.dll-2.params')
+        bazel_output, 'x64_windows-fastbuild/bin/A_592cffea6a.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('/MD', ''.join(stderr))
     self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
@@ -398,7 +399,8 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel(
         ['build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library', '-s'])
-    paramfile = os.path.join(bazel_output, 'x64_windows-dbg/bin/A.dll-2.params')
+    paramfile = os.path.join(bazel_output,
+                             'x64_windows-dbg/bin/A_592cffea6a.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('/MDd', ''.join(stderr))
     self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
@@ -415,7 +417,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '--features=static_link_msvcrt', '-s'
     ])
     paramfile = os.path.join(
-        bazel_output, 'x64_windows-fastbuild/bin/A.dll-2.params')
+        bazel_output, 'x64_windows-fastbuild/bin/A_592cffea6a.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertNotIn('/MD', ''.join(stderr))
     self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
@@ -427,7 +429,8 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
-    paramfile = os.path.join(bazel_output, 'x64_windows-dbg/bin/A.dll-2.params')
+    paramfile = os.path.join(bazel_output,
+                             'x64_windows-dbg/bin/A_592cffea6a.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertNotIn('/MDd', ''.join(stderr))
     self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
@@ -506,8 +509,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(def_file))
     # A.dll and B.dll should be built and copied because they belong to
     # runtime_dynamic_libraries output group.
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/A.dll')))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/B.dll')))
+    self.assertTrue(
+        os.path.exists(os.path.join(bazel_bin, 'main/A_592cffea6a.dll')))
+    self.assertTrue(
+        os.path.exists(os.path.join(bazel_bin, 'main/B_592cffea6a.dll')))
     # hello_A and hello_B should not be exported.
     self.AssertFileContentNotContains(def_file, 'hello_A')
     self.AssertFileContentNotContains(def_file, 'hello_B')

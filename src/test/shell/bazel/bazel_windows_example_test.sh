@@ -119,7 +119,7 @@ function test_cpp_with_msys_gcc() {
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
     --compiler=msys-gcc
   assert_build_output \
-    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    ./bazel-bin/${cpp_pkg}/libhello-lib_7e140a9408.so ${cpp_pkg}:hello-lib\
     --compiler=msys-gcc --output_groups=dynamic_library
   assert_build ${cpp_pkg}:hello-world --compiler=msys-gcc
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
@@ -138,7 +138,7 @@ function test_cpp_with_mingw_gcc() {
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
     --compiler=mingw-gcc --experimental_strict_action_env
   assert_build_output \
-    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    ./bazel-bin/${cpp_pkg}/libhello-lib_7e140a9408.so ${cpp_pkg}:hello-lib\
     --compiler=mingw-gcc --output_groups=dynamic_library \
     --experimental_strict_action_env
   assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \

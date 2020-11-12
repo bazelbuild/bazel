@@ -1059,6 +1059,9 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testClangClParameters() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
