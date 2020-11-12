@@ -526,6 +526,18 @@ distrib_java_import(
 )
 
 java_import(
+    name = "reactive_streams",
+    jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
+)
+
+java_import(
+    name = "rxjava3",
+    jars = ["rxjava3/rxjava-3.0.9.jar"],
+    exports = [":reactive_streams"],
+    deps = [":reactive_streams"],
+)
+
+java_import(
     name = "jimfs",
     jars = ["jimfs/jimfs-1.1.jar"],
 )
