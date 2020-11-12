@@ -604,6 +604,18 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
+    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
