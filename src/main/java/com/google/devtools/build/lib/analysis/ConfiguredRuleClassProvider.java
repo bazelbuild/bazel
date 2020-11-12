@@ -204,7 +204,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
      * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
-      this.configurationOptions.addAll(factory.requiredOptions());
+      this.configurationOptions.addAll(Fragment.requiredOptions(factory.creates()));
       configurationFragmentFactories.add(factory);
       return this;
     }
@@ -598,7 +598,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
     Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
     for (ConfigurationFragmentFactory factory : configurationFragments) {
-      Set<Class<? extends FragmentOptions>> requiredOpts = factory.requiredOptions();
+      Set<Class<? extends FragmentOptions>> requiredOpts =
+          Fragment.requiredOptions(factory.creates());
       for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
         Integer previousBest = visitedOptionsClasses.get(optionsClass);
         if (previousBest != null && previousBest <= requiredOpts.size()) {

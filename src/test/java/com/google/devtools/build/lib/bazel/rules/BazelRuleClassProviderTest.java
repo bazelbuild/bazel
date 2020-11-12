@@ -64,7 +64,8 @@ public class BazelRuleClassProviderTest {
       // Check that every created fragment is present.
       assertThat(configurationFragments).contains(fragmentFactory.creates());
       // Check that every options class required for fragment creation is provided.
-      for (Class<? extends FragmentOptions> options : fragmentFactory.requiredOptions()) {
+      for (Class<? extends FragmentOptions> options :
+          Fragment.requiredOptions(fragmentFactory.creates())) {
         assertThat(configOptions).contains(options);
       }
     }

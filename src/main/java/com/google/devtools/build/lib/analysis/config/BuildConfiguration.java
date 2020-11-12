@@ -345,7 +345,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
         fragmentToRequiredOptions = ArrayListMultimap.create();
     for (ConfigurationFragmentFactory fragmentLoader :
         ((FragmentProvider) ruleClassProvider).getConfigurationFragments()) {
-      fragmentToRequiredOptions.putAll(fragmentLoader.creates(), fragmentLoader.requiredOptions());
+      fragmentToRequiredOptions.putAll(
+          fragmentLoader.creates(), Fragment.requiredOptions(fragmentLoader.creates()));
     }
     Set<Class<? extends FragmentOptions>> options = new HashSet<>();
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {

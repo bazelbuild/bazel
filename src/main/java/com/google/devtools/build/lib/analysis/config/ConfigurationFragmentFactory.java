@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 
 /**
@@ -34,18 +33,4 @@ public interface ConfigurationFragmentFactory {
 
   /** Returns the exact type of the fragment this factory creates. */
   Class<? extends Fragment> creates();
-
-  /**
-   * Returns the option classes needed to create this fragment.
-   *
-   * <p>Don't override this method. We're intending to remove it entirely in preference for {@link
-   * RequiresOptions}, which clears the way for removing {@link ConfigurationFragmentFactory}
-   * entirely.
-   */
-  default ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    Class<? extends Fragment> fragmentClass = creates();
-    return fragmentClass.isAnnotationPresent(RequiresOptions.class)
-        ? ImmutableSet.copyOf(fragmentClass.getAnnotation(RequiresOptions.class).options())
-        : ImmutableSet.of();
-  }
 }

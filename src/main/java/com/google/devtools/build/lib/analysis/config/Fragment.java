@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.List;
@@ -50,5 +51,13 @@ public abstract class Fragment implements StarlarkValue {
   @Nullable
   public String getOutputDirectoryName() {
     return null;
+  }
+
+  /** Returns the option classes needed to create a fragment. */
+  public static ImmutableSet<Class<? extends FragmentOptions>> requiredOptions(
+      Class<? extends Fragment> fragmentClass) {
+    return fragmentClass.isAnnotationPresent(RequiresOptions.class)
+        ? ImmutableSet.copyOf(fragmentClass.getAnnotation(RequiresOptions.class).options())
+        : ImmutableSet.of();
   }
 }

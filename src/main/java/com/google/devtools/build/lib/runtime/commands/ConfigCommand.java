@@ -384,7 +384,7 @@ public class ConfigCommand implements BlazeCommand {
       fragments.put(
           fragmentFactory.creates(),
           ImmutableSortedSet.copyOf(
-              (c1, c2) -> c1.getName().compareTo(c2.getName()), fragmentFactory.requiredOptions()));
+              comparing(Class::getName), Fragment.requiredOptions(fragmentFactory.creates())));
     }
     return fragments.build();
   }

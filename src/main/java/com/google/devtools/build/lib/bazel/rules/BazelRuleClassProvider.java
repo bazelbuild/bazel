@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
@@ -175,6 +176,7 @@ public class BazelRuleClassProvider {
    * by the registered fragments. We create and register this fragment exclusively to ensure {@link
    * StrictActionEnvOptions} is always available.
    */
+  @RequiresOptions(options = {StrictActionEnvOptions.class})
   private static class StrictActionEnvConfiguration extends Fragment {
     private StrictActionEnvConfiguration(BuildOptions buildOptions) {}
 
@@ -187,11 +189,6 @@ public class BazelRuleClassProvider {
       @Override
       public Class<? extends Fragment> creates() {
         return StrictActionEnvConfiguration.class;
-      }
-
-      @Override
-      public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-        return ImmutableSet.of(StrictActionEnvOptions.class);
       }
     }
   }
