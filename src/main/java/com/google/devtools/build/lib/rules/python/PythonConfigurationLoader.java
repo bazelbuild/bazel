@@ -25,18 +25,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public PythonConfiguration create(BuildOptions buildOptions)
       throws InvalidConfigurationException {
-    PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
-    PythonVersion pythonVersion = pythonOptions.getPythonVersion();
-    return new PythonConfiguration(
-        pythonVersion,
-        pythonOptions.getDefaultPythonVersion(),
-        pythonOptions.buildPythonZip,
-        pythonOptions.buildTransitiveRunfilesTrees,
-        /*py2OutputsAreSuffixed=*/ pythonOptions.incompatiblePy2OutputsAreSuffixed,
-        /*disallowLegacyPyProvider=*/ pythonOptions.incompatibleDisallowLegacyPyProvider,
-        /*useToolchains=*/ pythonOptions.incompatibleUsePythonToolchains,
-        /*loadPythonRulesFromBzl=*/ pythonOptions.loadPythonRulesFromBzl,
-        /*defaultToExplicitInitPy=*/ pythonOptions.incompatibleDefaultToExplicitInitPy);
+    return new PythonConfiguration(buildOptions);
   }
 
   @Override

@@ -43,7 +43,7 @@ public final class ConfigFeatureFlagConfiguration extends Fragment {
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
-      return new ConfigFeatureFlagConfiguration(FeatureFlagValue.getFlagValues(buildOptions));
+      return new ConfigFeatureFlagConfiguration(buildOptions);
     }
 
     @Override
@@ -56,6 +56,11 @@ public final class ConfigFeatureFlagConfiguration extends Fragment {
   @Nullable private final String flagHash;
 
   /** Creates a new configuration fragment from the given {@link ConfigFeatureFlagOptions}. */
+  public ConfigFeatureFlagConfiguration(BuildOptions buildOptions)
+      throws InvalidConfigurationException {
+    this(FeatureFlagValue.getFlagValues(buildOptions));
+  }
+
   @VisibleForTesting
   ConfigFeatureFlagConfiguration(ImmutableSortedMap<Label, String> flagValues) {
     this.flagValues = flagValues;

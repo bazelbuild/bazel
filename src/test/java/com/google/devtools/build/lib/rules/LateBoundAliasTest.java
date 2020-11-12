@@ -39,7 +39,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LateBoundAliasTest extends BuildViewTestCase {
 
-  private static final class TestFragment extends Fragment {}
+  private static final class TestFragment extends Fragment {
+    public TestFragment(BuildOptions buildOptions) {}
+  }
 
   private static final class TestFragmentOptionFactory implements ConfigurationFragmentFactory {
 
@@ -51,7 +53,7 @@ public class LateBoundAliasTest extends BuildViewTestCase {
     @Nullable
     @Override
     public Fragment create(BuildOptions buildOptions) {
-      return new TestFragment();
+      return new TestFragment(buildOptions);
     }
   }
 

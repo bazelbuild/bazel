@@ -72,7 +72,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(BuildOptions buildOptions) {
-      return new J2ObjcConfiguration(buildOptions.get(J2ObjcCommandLineOptions.class));
+      return new J2ObjcConfiguration(buildOptions);
     }
 
     @Override
@@ -87,7 +87,8 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   private final boolean experimentalShorterHeaderPath;
   @Nullable private final Label deadCodeReport;
 
-  private J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
+  public J2ObjcConfiguration(BuildOptions buildOptions) {
+    J2ObjcCommandLineOptions j2ObjcOptions = buildOptions.get(J2ObjcCommandLineOptions.class);
     this.translationFlags =
         ImmutableList.<String>builder()
             .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)

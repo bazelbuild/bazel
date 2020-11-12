@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.SwiftConfigurationAp
 public class SwiftConfiguration extends Fragment implements SwiftConfigurationApi {
   private final ImmutableList<String> copts;
 
-  private SwiftConfiguration(SwiftCommandLineOptions options) {
-    this.copts = ImmutableList.copyOf(options.copts);
+  public SwiftConfiguration(BuildOptions buildOptions) {
+    this.copts = ImmutableList.copyOf(buildOptions.get(SwiftCommandLineOptions.class).copts);
   }
 
   @Override
@@ -52,9 +52,7 @@ public class SwiftConfiguration extends Fragment implements SwiftConfigurationAp
     @Override
     public SwiftConfiguration create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      SwiftCommandLineOptions options = buildOptions.get(SwiftCommandLineOptions.class);
-
-      return new SwiftConfiguration(options);
+      return new SwiftConfiguration(buildOptions);
     }
 
     @Override

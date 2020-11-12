@@ -118,7 +118,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
 
-  JavaConfiguration(JavaOptions javaOptions) throws InvalidConfigurationException {
+  public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
+    JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;

@@ -612,12 +612,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @StarlarkBuiltin(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
   @RequiresOptions(options = {DiffResetOptions.class})
-  private static final class DiffResetFragment extends Fragment implements StarlarkValue {}
+  private static final class DiffResetFragment extends Fragment implements StarlarkValue {
+    public DiffResetFragment(BuildOptions buildOptions) {}
+  }
 
   private static final class DiffResetFactory implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(BuildOptions options) {
-      return new DiffResetFragment();
+    public Fragment create(BuildOptions buildOptions) {
+      return new DiffResetFragment(buildOptions);
     }
 
     @Override

@@ -440,13 +440,12 @@ public final class TrimmableTestConfigurationFragments {
   @RequiresOptions(options = {AOptions.class})
   public static final class AConfig extends Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            AConfig.class, (options) -> new AConfig(options.get(AOptions.class).alpha));
+        new FragmentLoader<>(AConfig.class, AConfig::new);
 
     private final String value;
 
-    public AConfig(String value) {
-      this.value = value;
+    public AConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(AOptions.class).alpha;
     }
 
     @Override
@@ -470,13 +469,12 @@ public final class TrimmableTestConfigurationFragments {
   @RequiresOptions(options = {BOptions.class})
   public static final class BConfig extends Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            BConfig.class, (options) -> new BConfig(options.get(BOptions.class).bravo));
+        new FragmentLoader<>(BConfig.class, BConfig::new);
 
     private final String value;
 
-    public BConfig(String value) {
-      this.value = value;
+    public BConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(BOptions.class).bravo;
     }
 
     @Override
@@ -500,13 +498,12 @@ public final class TrimmableTestConfigurationFragments {
   @RequiresOptions(options = {COptions.class})
   public static final class CConfig extends Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            CConfig.class, (options) -> new CConfig(options.get(COptions.class).charlie));
+        new FragmentLoader<>(CConfig.class, CConfig::new);
 
     private final String value;
 
-    public CConfig(String value) {
-      this.value = value;
+    public CConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(COptions.class).charlie;
     }
 
     @Override
@@ -530,13 +527,12 @@ public final class TrimmableTestConfigurationFragments {
   @RequiresOptions(options = {DOptions.class})
   public static final class DConfig extends Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            DConfig.class, (options) -> new DConfig(options.get(DOptions.class).delta));
+        new FragmentLoader<>(DConfig.class, DConfig::new);
 
     private final String value;
 
-    public DConfig(String value) {
-      this.value = value;
+    public DConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(DOptions.class).delta;
     }
 
     @Override
@@ -563,13 +559,12 @@ public final class TrimmableTestConfigurationFragments {
   @RequiresOptions(options = {EOptions.class})
   public static final class EConfig extends Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            EConfig.class, (options) -> new EConfig(options.get(EOptions.class).echo));
+        new FragmentLoader<>(EConfig.class, EConfig::new);
 
     private final String value;
 
-    public EConfig(String value) {
-      this.value = value;
+    public EConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(EOptions.class).echo;
     }
 
     @Override

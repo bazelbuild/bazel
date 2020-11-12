@@ -200,7 +200,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Override
     public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      return new ProtoConfiguration(buildOptions.get(Options.class));
+      return new ProtoConfiguration(buildOptions);
     }
 
     @Override
@@ -214,7 +214,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   private final ImmutableList<String> ccProtoLibrarySourceSuffixes;
   private final Options options;
 
-  private ProtoConfiguration(Options options) {
+  private ProtoConfiguration(BuildOptions buildOptions) {
+    Options options = buildOptions.get(Options.class);
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
     this.ccProtoLibrarySourceSuffixes = ImmutableList.copyOf(options.ccProtoLibrarySourceSuffixes);

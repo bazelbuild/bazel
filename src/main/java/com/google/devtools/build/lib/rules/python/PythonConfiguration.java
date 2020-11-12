@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -56,25 +57,19 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final boolean defaultToExplicitInitPy;
 
-  PythonConfiguration(
-      PythonVersion version,
-      PythonVersion defaultVersion,
-      TriState buildPythonZip,
-      boolean buildTransitiveRunfilesTrees,
-      boolean py2OutputsAreSuffixed,
-      boolean disallowLegacyPyProvider,
-      boolean useToolchains,
-      boolean loadPythonRulesFromBzl,
-      boolean defaultToExplicitInitPy) {
-    this.version = version;
-    this.defaultVersion = defaultVersion;
-    this.buildPythonZip = buildPythonZip;
-    this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
-    this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
-    this.disallowLegacyPyProvider = disallowLegacyPyProvider;
-    this.useToolchains = useToolchains;
-    this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
-    this.defaultToExplicitInitPy = defaultToExplicitInitPy;
+  public PythonConfiguration(BuildOptions buildOptions) {
+    PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
+    PythonVersion pythonVersion = pythonOptions.getPythonVersion();
+
+    this.version = pythonVersion;
+    this.defaultVersion = pythonOptions.getDefaultPythonVersion();
+    this.buildPythonZip = pythonOptions.buildPythonZip;
+    this.buildTransitiveRunfilesTrees = pythonOptions.buildTransitiveRunfilesTrees;
+    this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
+    this.disallowLegacyPyProvider = pythonOptions.incompatibleDisallowLegacyPyProvider;
+    this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
+    this.loadPythonRulesFromBzl = pythonOptions.loadPythonRulesFromBzl;
+    this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
   }
 
   @Override

@@ -955,7 +955,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
-      return new AndroidConfiguration(buildOptions.get(Options.class));
+      return new AndroidConfiguration(buildOptions);
     }
 
     @Override
@@ -1011,7 +1011,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
 
-  private AndroidConfiguration(Options options) throws InvalidConfigurationException {
+  private AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
+    Options options = buildOptions.get(Options.class);
     this.sdk = options.sdk;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;

@@ -53,7 +53,7 @@ public class AndroidLocalTestConfiguration extends Fragment {
     @Nullable
     @Override
     public Fragment create(BuildOptions buildOptions) {
-      return new AndroidLocalTestConfiguration(buildOptions.get(Options.class));
+      return new AndroidLocalTestConfiguration(buildOptions);
     }
 
     @Override
@@ -64,8 +64,9 @@ public class AndroidLocalTestConfiguration extends Fragment {
 
   private final boolean androidLocalTestBinaryResources;
 
-  private AndroidLocalTestConfiguration(Options options) {
-    this.androidLocalTestBinaryResources = options.androidLocalTestBinaryResources;
+  private AndroidLocalTestConfiguration(BuildOptions buildOptions) {
+    this.androidLocalTestBinaryResources =
+        buildOptions.get(Options.class).androidLocalTestBinaryResources;
   }
 
   public boolean useAndroidLocalTestBinaryResources() {

@@ -171,7 +171,7 @@ public final class CppConfiguration extends Fragment
 
   private final CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer;
 
-  static CppConfiguration create(BuildOptions options) throws InvalidConfigurationException {
+  public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
     CoreOptions commonOptions = options.get(CoreOptions.class);
@@ -219,64 +219,29 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    return new CppConfiguration(
-        commonOptions.cpu,
-        fdoPath,
-        fdoProfileLabel,
-        csFdoAbsolutePath,
-        ImmutableList.copyOf(cppOptions.conlyoptList),
-        ImmutableList.copyOf(cppOptions.coptList),
-        ImmutableList.copyOf(cppOptions.cxxoptList),
-        linkoptsBuilder.build(),
-        ImmutableList.copyOf(cppOptions.ltoindexoptList),
-        ImmutableList.copyOf(cppOptions.ltobackendoptList),
-        cppOptions,
-        (cppOptions.stripBinaries == StripMode.ALWAYS
-            || (cppOptions.stripBinaries == StripMode.SOMETIMES
-                && compilationMode == CompilationMode.FASTBUILD)),
-        compilationMode,
-        commonOptions.collectCodeCoverage,
-        commonOptions.isHost || commonOptions.isExec,
-        (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)),
-        commonOptions.fatApkSplitSanitizer);
-  }
-
-  private CppConfiguration(
-      String cpu,
-      PathFragment fdoPath,
-      Label fdoOptimizeLabel,
-      PathFragment csFdoAbsolutePath,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      ImmutableList<String> cxxopts,
-      ImmutableList<String> linkopts,
-      ImmutableList<String> ltoindexOptions,
-      ImmutableList<String> ltobackendOptions,
-      CppOptions cppOptions,
-      boolean stripBinaries,
-      CompilationMode compilationMode,
-      boolean collectCodeCoverage,
-      boolean isToolConfiguration,
-      boolean appleGenerateDsym,
-      CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer) {
-    this.cpu = cpu;
+    this.cpu = commonOptions.cpu;
     this.fdoPath = fdoPath;
-    this.fdoOptimizeLabel = fdoOptimizeLabel;
+    this.fdoOptimizeLabel = fdoProfileLabel;
     this.csFdoAbsolutePath = csFdoAbsolutePath;
-    this.conlyopts = conlyopts;
-    this.copts = copts;
-    this.cxxopts = cxxopts;
-    this.linkopts = linkopts;
-    this.ltoindexOptions = ltoindexOptions;
-    this.ltobackendOptions = ltobackendOptions;
+    this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
+    this.copts = ImmutableList.copyOf(cppOptions.coptList);
+    this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
+    this.linkopts = linkoptsBuilder.build();
+    this.ltoindexOptions = ImmutableList.copyOf(cppOptions.ltoindexoptList);
+    this.ltobackendOptions = ImmutableList.copyOf(cppOptions.ltobackendoptList);
     this.cppOptions = cppOptions;
-    this.stripBinaries = stripBinaries;
+    this.stripBinaries =
+        cppOptions.stripBinaries == StripMode.ALWAYS
+            || (cppOptions.stripBinaries == StripMode.SOMETIMES
+                && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
-    this.collectCodeCoverage = collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
-    this.appleGenerateDsym = appleGenerateDsym;
-    this.fatApkSplitSanitizer = fatApkSplitSanitizer;
+    this.collectCodeCoverage = commonOptions.collectCodeCoverage;
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 =
+        commonOptions.isHost || commonOptions.isExec;
+    this.appleGenerateDsym =
+        (cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
+    this.fatApkSplitSanitizer = commonOptions.fatApkSplitSanitizer;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */

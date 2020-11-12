@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public JavaConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
-    return new JavaConfiguration(buildOptions.get(JavaOptions.class));
+    return new JavaConfiguration(buildOptions);
   }
 
   @Override

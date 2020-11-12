@@ -109,16 +109,7 @@ public class BazelPythonConfiguration extends Fragment {
     @Override
     public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      BazelPythonConfiguration pythonConfiguration
-          = new BazelPythonConfiguration(buildOptions.get(Options.class));
-
-      String pythonPath = pythonConfiguration.getPythonPath();
-      if (!pythonPath.startsWith("python") && !PathFragment.create(pythonPath).isAbsolute()) {
-        throw new InvalidConfigurationException(
-            "python_path must be an absolute path when it is set.");
-      }
-
-      return pythonConfiguration;
+      return new BazelPythonConfiguration(buildOptions);
     }
 
     @Override
@@ -129,8 +120,13 @@ public class BazelPythonConfiguration extends Fragment {
 
   private final Options options;
 
-  private BazelPythonConfiguration(Options options) {
-    this.options = options;
+  private BazelPythonConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
+    this.options = buildOptions.get(Options.class);
+    String pythonPath = getPythonPath();
+    if (!pythonPath.startsWith("python") && !PathFragment.create(pythonPath).isAbsolute()) {
+      throw new InvalidConfigurationException(
+          "python_path must be an absolute path when it is set.");
+    }
   }
 
   @Override

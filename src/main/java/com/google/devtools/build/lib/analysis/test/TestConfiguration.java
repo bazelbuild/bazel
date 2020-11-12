@@ -301,10 +301,11 @@ public class TestConfiguration extends Fragment {
     @Override
     public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
+      // TODO(gregce): Have TestConfiguration set itself to a non-functional state if this is true.
       if (!buildOptions.contains(TestOptions.class)) {
         return null;
       }
-      return new TestConfiguration(buildOptions.get(TestOptions.class));
+      return new TestConfiguration(buildOptions);
     }
 
     @Override
@@ -316,7 +317,8 @@ public class TestConfiguration extends Fragment {
   private final TestOptions options;
   private final ImmutableMap<TestTimeout, Duration> testTimeout;
 
-  private TestConfiguration(TestOptions options) {
+  private TestConfiguration(BuildOptions buildOptions) {
+    TestOptions options = buildOptions.get(TestOptions.class);
     this.options = options;
     this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
   }

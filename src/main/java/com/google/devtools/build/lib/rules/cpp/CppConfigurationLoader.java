@@ -33,6 +33,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
 
   @Override
   public CppConfiguration create(BuildOptions options) throws InvalidConfigurationException {
-    return CppConfiguration.create(options);
+    return new CppConfiguration(options);
   }
 }

@@ -111,12 +111,22 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @AutoCodec
   @RequiresOptions(options = {DummyTestOptions.class})
-  static class DummyTestOptionsFragment extends Fragment {}
+  static class DummyTestOptionsFragment extends Fragment {
+    private final BuildOptions buildOptions;
+
+    public DummyTestOptionsFragment(BuildOptions buildOptions) {
+      this.buildOptions = buildOptions;
+    }
+    // Getter required to satisfy AutoCodec.
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
+    }
+  }
 
   private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(BuildOptions buildOptions) {
-      return new DummyTestOptionsFragment();
+      return new DummyTestOptionsFragment(buildOptions);
     }
 
     @Override

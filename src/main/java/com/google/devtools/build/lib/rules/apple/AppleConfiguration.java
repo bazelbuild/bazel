@@ -80,7 +80,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  private AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
+  private AppleConfiguration(BuildOptions buildOptions) {
+    AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
+    String iosCpu = iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu);
     this.options = options;
     this.iosCpu = iosCpu;
     this.appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
@@ -433,11 +435,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     return options.hashCode();
   }
 
-  @VisibleForTesting
-  static AppleConfiguration create(AppleCommandLineOptions appleOptions, String cpu) {
-    return new AppleConfiguration(appleOptions, iosCpuFromCpu(cpu));
-  }
-
   /**
    * Compute the platform-type-to-bitcode-mode mapping from the pairs that were passed on the
    * command line.
@@ -473,9 +470,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public AppleConfiguration create(BuildOptions buildOptions) {
-      AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
-      String cpu = buildOptions.get(CoreOptions.class).cpu;
-      return AppleConfiguration.create(appleOptions, cpu);
+      return new AppleConfiguration(buildOptions);
     }
 
     @Override

@@ -44,8 +44,7 @@ public class GenQueryConfiguration extends Fragment {
   static class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
-      return new GenQueryConfiguration(
-          buildOptions.get(GenQueryOptions.class).compressInMemoryResults);
+      return new GenQueryConfiguration(buildOptions);
     }
 
     @Override
@@ -56,8 +55,9 @@ public class GenQueryConfiguration extends Fragment {
 
   private final boolean inMemoryCompressionEnabled;
 
-  GenQueryConfiguration(boolean inMemoryCompressionEnabled) {
-    this.inMemoryCompressionEnabled = inMemoryCompressionEnabled;
+  public GenQueryConfiguration(BuildOptions buildOptions) {
+    this.inMemoryCompressionEnabled =
+        buildOptions.get(GenQueryOptions.class).compressInMemoryResults;
   }
 
   /** Returns whether or not genquery stored in memory can be stored in compressed form. */

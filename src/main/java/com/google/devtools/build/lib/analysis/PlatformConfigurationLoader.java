@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -25,14 +24,7 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
   @Override
   public PlatformConfiguration create(BuildOptions buildOptions)
       throws InvalidConfigurationException {
-    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
-
-    return new PlatformConfiguration(
-        platformOptions.computeHostPlatform(),
-        ImmutableList.copyOf(platformOptions.extraExecutionPlatforms),
-        platformOptions.computeTargetPlatform(),
-        ImmutableList.copyOf(platformOptions.extraToolchains),
-        platformOptions.targetFilterToAdditionalExecConstraints);
+    return new PlatformConfiguration(buildOptions);
   }
 
   @Override

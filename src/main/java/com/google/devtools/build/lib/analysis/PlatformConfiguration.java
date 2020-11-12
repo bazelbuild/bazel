@@ -37,17 +37,15 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   private final ImmutableList<String> extraToolchains;
   private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
-  PlatformConfiguration(
-      Label hostPlatform,
-      ImmutableList<String> extraExecutionPlatforms,
-      Label targetPlatform,
-      ImmutableList<String> extraToolchains,
-      List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints) {
-    this.hostPlatform = hostPlatform;
-    this.extraExecutionPlatforms = extraExecutionPlatforms;
-    this.targetPlatform = targetPlatform;
-    this.extraToolchains = extraToolchains;
-    this.targetFilterToAdditionalExecConstraints = targetFilterToAdditionalExecConstraints;
+  public PlatformConfiguration(BuildOptions buildOptions) {
+    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+
+    this.hostPlatform = platformOptions.computeHostPlatform();
+    this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
+    this.targetPlatform = platformOptions.computeTargetPlatform();
+    this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
+    this.targetFilterToAdditionalExecConstraints =
+        platformOptions.targetFilterToAdditionalExecConstraints;
   }
 
   @Override

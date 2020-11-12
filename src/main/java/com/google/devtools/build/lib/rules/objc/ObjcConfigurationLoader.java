@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 
 /**
  * A loader that creates ObjcConfiguration instances based on Objective-C configurations and
@@ -28,10 +26,7 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public ObjcConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
-    CoreOptions options = buildOptions.get(CoreOptions.class);
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
-    ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
-    return new ObjcConfiguration(cppOptions, objcOptions, options);
+    return new ObjcConfiguration(buildOptions);
   }
 
   @Override

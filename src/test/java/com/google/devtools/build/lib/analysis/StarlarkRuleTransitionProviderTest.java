@@ -47,7 +47,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
    * A fragment containing flags that exhibit different flag behaviors for easy testing purposes.
    */
   @RequiresOptions(options = {DummyTestOptions.class})
-  private static class DummyTestFragment extends Fragment {}
+  private static class DummyTestFragment extends Fragment {
+    public DummyTestFragment(BuildOptions buildOptions) {}
+  }
 
   /** Flags that exhibit an variety of flag behaviors. */
   public static class DummyTestOptions extends FragmentOptions {
@@ -90,7 +92,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     @Override
     public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
-      return new DummyTestFragment();
+      return new DummyTestFragment(buildOptions);
     }
 
     @Override

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -70,8 +71,11 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean compileInfoMigration;
   private final boolean avoidHardcodedCompilationFlags;
 
-  ObjcConfiguration(
-      CppOptions cppOptions, ObjcCommandLineOptions objcOptions, CoreOptions options) {
+  ObjcConfiguration(BuildOptions buildOptions) {
+    CoreOptions options = buildOptions.get(CoreOptions.class);
+    CppOptions cppOptions = buildOptions.get(CppOptions.class);
+    ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
+
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
