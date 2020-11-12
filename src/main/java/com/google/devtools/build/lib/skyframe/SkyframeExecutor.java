@@ -1410,7 +1410,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Sets the eventBus to use for posting events. */
-  public void setEventBus(EventBus eventBus) {
+  public void setEventBus(@Nullable EventBus eventBus) {
     this.eventBus.set(eventBus);
   }
 
