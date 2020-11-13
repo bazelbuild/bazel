@@ -71,7 +71,7 @@ public final class JavaRuntimeRule implements RuleDefinition {
 Specifies the configuration for a Java runtime.
 </p>
 
-<h4 id="java_runtime">Example:</h4>
+<h4 id="java_runtime_example">Example:</h4>
 
 <pre class="code">
 java_runtime(
