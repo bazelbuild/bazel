@@ -42,7 +42,23 @@ assert_eq(str(len), "<built-in function len>")
 x = {}.pop
 x() ###  missing 1 required positional argument: key
 ---
+# Arguments are evaluated in left-to-right order.
+# See https://github.com/bazelbuild/starlark/issues/13.
+order = []
 
+def id(x):
+  order.append(x)
+  return x
+
+def f(*args, **kwargs):
+  return args, kwargs
+
+assert_eq(
+  f(id(1), id(2), x=id(3), *[id(4)], **dict(z=id(5))),
+  ((1, 2, 4), {"x": 3, "z": 5}))
+assert_eq(order, [1, 2, 3, 4, 5])
+
+---
 # getattr
 
 assert_eq(getattr("abc", "upper")(), "ABC")
