@@ -12,8 +12,16 @@ filegroup(
 #   Support for rules which enable users to define configuration
 java_library(
     name = "config",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "FeatureFlagValue.java",
+            "ConfigFeatureFlagOptions.java",
+        ],
+    ),
     deps = [
+        ":config_feature_flag_options",
+        ":feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -57,6 +65,29 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config_feature_flag_options",
+    srcs = ["ConfigFeatureFlagOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
+    name = "feature_flag_value",
+    srcs = ["FeatureFlagValue.java"],
+    deps = [
+        ":config_feature_flag_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
