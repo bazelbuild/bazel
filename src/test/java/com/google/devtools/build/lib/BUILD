@@ -112,7 +112,7 @@ java_test(
 
 java_test(
     name = "concurrent_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["concurrent/*.java"]),
     flaky = True,
     tags = [
