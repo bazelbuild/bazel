@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcDebugInfoContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
@@ -60,7 +61,8 @@ public class BazelCcModule extends CcModule
         LibraryToLink,
         CcLinkingContext,
         CcToolchainVariables,
-        CcToolchainConfigInfo> {
+        CcToolchainConfigInfo,
+        CcDebugInfoContext> {
 
   @Override
   public CppSemantics getSemantics() {

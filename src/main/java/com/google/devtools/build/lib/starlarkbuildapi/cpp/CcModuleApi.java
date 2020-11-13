@@ -51,7 +51,8 @@ public interface CcModuleApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-        CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
+        CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
+        DebugInfoT extends CcDebugInfoContextApi>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -1121,4 +1122,28 @@ public interface CcModuleApi<
       Object grepIncludes,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
+
+  @StarlarkMethod(
+      name = "create_debug_context",
+      doc = "Create debug context",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "compilation_outputs", positional = true, named = false, defaultValue = "[]"),
+      })
+  DebugInfoT createCcDebugInfoFromStarlark(
+      CompilationOutputsT compilationOutputs, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "merge_debug_context",
+      doc = "Merge debug contexts",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "debug_contexts", defaultValue = "[]"),
+      })
+  DebugInfoT mergeCcDebugInfoFromStarlark(
+      Sequence<?> debugInfos, // <DebugInfoT> expected
+      StarlarkThread thread)
+      throws EvalException;
 }

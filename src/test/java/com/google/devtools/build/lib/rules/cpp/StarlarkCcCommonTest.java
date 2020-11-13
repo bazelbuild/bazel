@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static org.junit.Assert.assertThrows;
 
@@ -6664,5 +6665,85 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
     assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
     assertThat(debugPackageProvider.getDwpArtifact().getFilename()).isEqualTo("w.dwp");
+  }
+
+  @Test
+  public void testCcDebugContextDisabled() throws Exception {
+    scratch.file(
+        "b/BUILD",
+        "load('//my_rules:rule.bzl', 'cc_compile_rule')",
+        "cc_compile_rule(",
+        "  name='b_lib',",
+        "  srcs = ['b_lib.cc'],",
+        ")");
+    scratch.file("my_rules/BUILD");
+    scratch.file(
+        "my_rules/rule.bzl",
+        "def _impl(ctx):",
+        "  comp_context = cc_common.create_compilation_context()",
+        "  comp_outputs = cc_common.create_compilation_outputs()",
+        "  debug_info = cc_common.create_debug_context(comp_outputs)",
+        "  return [CcInfo(compilation_context = comp_context, debug_info = debug_info)]",
+        "cc_compile_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "  },",
+        ")");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:b_lib"));
+    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use CcDebugInfo");
+  }
+
+  @Test
+  public void testCcDebugContext() throws Exception {
+    useConfiguration("--fission=yes");
+    scratch.file(
+        "b/BUILD",
+        "load('//bazel_internal/test_rules/cc:rule.bzl', 'cc_compile_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_compile_rule(",
+        "  name='b_lib',",
+        "  srcs = ['b_lib.cc'],",
+        ")");
+    scratch.file("bazel_internal/test_rules/cc/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx=ctx,",
+        "    cc_toolchain=toolchain,",
+        "    requested_features=ctx.features + ['per_object_debug_info'],",
+        "    unsupported_features=ctx.disabled_features)",
+        "  (comp_context, comp_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "  )",
+        "  debug_info = cc_common.create_debug_context(comp_outputs)",
+        "  return [CcInfo(compilation_context = comp_context, debug_context = debug_info)]",
+        "cc_compile_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_cc_toolchain': attr.label(default=Label('//b:alias')),",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "  },",
+        "  fragments = ['cpp'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//b:b_lib");
+    assertThat(
+            target
+                .get(CcInfo.PROVIDER)
+                .getCcDebugInfoContext()
+                .getTransitiveDwoFiles()
+                .toList()
+                .stream()
+                .map(Artifact::getFilename))
+        .containsExactly("b_lib.dwo");
+    assertThat(
+            target.get(CcInfo.PROVIDER).getCcDebugInfoContext().getTransitivePicDwoFiles().toList())
+        .isEmpty();
   }
 }

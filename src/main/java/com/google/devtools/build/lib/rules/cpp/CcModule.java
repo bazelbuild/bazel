@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -75,6 +76,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -84,7 +86,17 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 
-/** A module that contains Starlark utilities for C++ support. */
+/**
+ * A module that contains Starlark utilities for C++ support.
+ *
+ * <p>The Bazel team is planning to rewrite all native rules in Starlark. Many of these rules use
+ * C++ functionality that is not presently exposed to the public Starlark C++ API. To speed up the
+ * transition to Starlark, we are exposing functionality "as is" but preventing its use externally
+ * until we are comfortable with the API which would need to be supported long term.
+ *
+ * <p>We are not opposed to gradually adding to and improving the public C++ API but nothing should
+ * merged without following proper design processes and discussions.
+ */
 public abstract class CcModule
     implements CcModuleApi<
         StarlarkActionFactory,
@@ -99,10 +111,14 @@ public abstract class CcModule
         ConstraintValueInfo,
         StarlarkRuleContext,
         CcToolchainConfigInfo,
-        CcCompilationOutputs> {
+        CcCompilationOutputs,
+        CcDebugInfoContext> {
 
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library");
+
+  private static final ImmutableList<String> CC_DEBUG_INFO_API_ALLOWLIST =
+      ImmutableList.of("bazel_internal/test_rules/cc");
 
   /** Enum for strings coming in from Starlark representing languages */
   protected enum Language {
@@ -1678,6 +1694,31 @@ public abstract class CcModule
           ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw Starlark.errorf("%s", e.getMessage());
+    }
+  }
+
+  @Override
+  public CcDebugInfoContext createCcDebugInfoFromStarlark(
+      CcCompilationOutputs ccCompilationOutputs, StarlarkThread thread) throws EvalException {
+    checkCcDebugInfoRuleInAllowlist(thread);
+    return CcDebugInfoContext.from(ccCompilationOutputs);
+  }
+
+  @Override
+  public CcDebugInfoContext mergeCcDebugInfoFromStarlark(
+      Sequence<?> debugInfos, StarlarkThread thread) throws EvalException {
+    checkCcDebugInfoRuleInAllowlist(thread);
+    return CcDebugInfoContext.merge(
+        Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
+  }
+
+  public static void checkCcDebugInfoRuleInAllowlist(StarlarkThread thread) throws EvalException {
+    String rulePackage =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label()
+            .getPackageName();
+    if (!CC_DEBUG_INFO_API_ALLOWLIST.contains(rulePackage)) {
+      throw Starlark.errorf("Rule in '%s' cannot use CcDebugInfo", rulePackage);
     }
   }
 
