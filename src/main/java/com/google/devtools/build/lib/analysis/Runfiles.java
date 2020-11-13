@@ -536,7 +536,7 @@ public final class Runfiles implements RunfilesApi {
     // win. That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses output-dir-relative paths.
     for (Artifact artifact : artifacts.toList()) {
-      result.put(artifact.getOutputDirRelativePath(false), artifact);
+      result.put(artifact.getOutputDirRelativePath(true), artifact);
     }
     return result;
   }
