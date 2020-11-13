@@ -40,6 +40,9 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
   static final StarlarkInt ZERO = StarlarkInt.of(0);
 
+  /** Only nested classes of {@code StarlarkInt} are allowed to inherit it. */
+  private StarlarkInt() {}
+
   /** Returns the Starlark int value that represents x. */
   public static StarlarkInt of(int x) {
     int index = x - LEAST_SMALLINT; // (may overflow)
