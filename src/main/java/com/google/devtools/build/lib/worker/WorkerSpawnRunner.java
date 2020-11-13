@@ -419,6 +419,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Stopwatch queueStopwatch = Stopwatch.createStarted();
       try {
         worker = workers.borrowObject(key);
+        worker.setReporter(workerOptions.workerVerbose ? reporter : null);
         request = createWorkRequest(spawn, context, flagFiles, inputFileCache);
       } catch (IOException e) {
         String message = "IOException while borrowing a worker from the pool:";

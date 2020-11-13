@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -64,6 +65,12 @@ public abstract class Worker {
   SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
     return workerKey.getWorkerFilesWithHashes();
   }
+
+  /**
+   * Sets the reporter this {@code Worker} should report anomalous events to, or clears it. We
+   * expect the reporter to be cleared at end of build.
+   */
+  void setReporter(ExtendedEventHandler reporter) {}
 
   /**
    * Performs the necessary steps to prepare for execution. Once this is done, the worker should be

@@ -55,8 +55,7 @@ public class WorkerMultiplexerTest {
   @Test
   public void testGetResponse_noOutstandingRequests() throws IOException, InterruptedException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test1", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
@@ -81,8 +80,7 @@ public class WorkerMultiplexerTest {
   public void testGetResponse_basicConcurrency()
       throws IOException, InterruptedException, ExecutionException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test2", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
@@ -120,8 +118,7 @@ public class WorkerMultiplexerTest {
   public void testGetResponse_slowMultiplexer()
       throws IOException, InterruptedException, ExecutionException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test3", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStrean = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStrean);
@@ -180,8 +177,7 @@ public class WorkerMultiplexerTest {
   public void testGetResponse_slowProxy()
       throws IOException, InterruptedException, ExecutionException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test4", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
