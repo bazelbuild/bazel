@@ -1756,7 +1756,7 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testFunctionCallRecursion() throws Exception {
+  public void testRecursionDisallowedByDefault() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
             "function 'f' called recursively",
@@ -1767,6 +1767,22 @@ public final class StarlarkEvaluationTest {
             "def g(n):",
             "  if n > 0: f(n - 1)",
             "main()");
+  }
+
+  @Test
+  public void testRecursionAllowedWithOption() throws Exception {
+    ParserInput input =
+        ParserInput.fromLines(
+            "def fac(n): return 1 if n < 2 else n * fac(n - 1)", //
+            "x = fac(5)");
+    Module module = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkSemantics semantics =
+          StarlarkSemantics.builder().setBool(StarlarkSemantics.ALLOW_RECURSION, true).build();
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(module.getGlobal("x")).isEqualTo(StarlarkInt.of(120));
   }
 
   @Test

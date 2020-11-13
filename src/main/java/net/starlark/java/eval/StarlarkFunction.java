@@ -143,7 +143,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     if (thread.mutability().isFrozen()) {
       throw Starlark.errorf("Trying to call in frozen environment");
     }
-    if (thread.isRecursiveCall(this)) {
+    if (!thread.isRecursionAllowed() && thread.isRecursiveCall(this)) {
       throw Starlark.errorf("function '%s' called recursively", getName());
     }
 
