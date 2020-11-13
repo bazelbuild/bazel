@@ -20,7 +20,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
@@ -109,9 +108,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    * SandboxedSpawnStrategy.StopConcurrentSpawns} lambda passed to the spawn runners. Each strategy
    * may call this at most once.
    *
-   * @param branch the future of the branch running the spawn
+   * @param branchToCancel the future of the branch running the spawn which needs to be cancelled
    * @param branchDone semaphore that is expected to receive a permit once {@code branch} terminates
    *     (after {@link InterruptedException} bubbles up through its call stack)
+   * @param cancellingBranch the future of the branch running the spawn with the strategy that is
+   *     performing the cancellation.
    * @param cancellingStrategy identifier of the strategy that is performing the cancellation. Used
    *     to prevent cross-cancellations and to check that the same strategy doesn't issue the
    *     cancellation twice.
@@ -123,11 +124,20 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    *     us
    */
   private static void stopBranch(
-      Future<ImmutableList<SpawnResult>> branch,
+      Future<ImmutableList<SpawnResult>> branchToCancel,
       Semaphore branchDone,
+      Future<ImmutableList<SpawnResult>> cancellingBranch,
       DynamicMode cancellingStrategy,
       AtomicReference<DynamicMode> strategyThatCancelled)
       throws InterruptedException {
+    if (cancellingBranch.isCancelled()) {
+      // TODO(b/173020239): Determine why stopBranch() can be called when cancellingBranch is
+      // cancelled.
+      throw new DynamicInterruptedException(
+          String.format(
+              "Execution of %s strategy stopped because it was cancelled but not interrupted",
+              cancellingStrategy));
+    }
     // This multi-step, unlocked access to "strategyThatCancelled" is valid because, for a given
     // value of "cancellingStrategy", we do not expect concurrent calls to this method. (If there
     // are, we are in big trouble.)
@@ -139,14 +149,13 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
       // branch just has to give up execution.
       if (strategyThatCancelled.compareAndSet(null, cancellingStrategy)) {
-        boolean cancelled = branch.cancel(true);
-        checkState(cancelled, "Failed to cancel other branch from %s", cancellingStrategy);
+        branchToCancel.cancel(true);
         branchDone.acquire();
       } else {
         throw new DynamicInterruptedException(
             String.format(
-                "Execution stopped because %s strategy finished first",
-                strategyThatCancelled.get()));
+                "Execution of %s strategy stopped because %s strategy finished first",
+                cancellingStrategy, strategyThatCancelled.get()));
       }
     }
   }
@@ -292,12 +301,13 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     Semaphore remoteDone = new Semaphore(0);
 
     AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>(null);
+    SettableFuture<ImmutableList<SpawnResult>> localBranch = SettableFuture.create();
     SettableFuture<ImmutableList<SpawnResult>> remoteBranch = SettableFuture.create();
 
     AtomicBoolean localStarting = new AtomicBoolean(true);
     AtomicBoolean remoteStarting = new AtomicBoolean(true);
 
-    ListenableFuture<ImmutableList<SpawnResult>> localBranch =
+    localBranch.setFuture(
         executorService.submit(
             new Branch(DynamicMode.LOCAL, actionExecutionContext) {
               @Override
@@ -318,12 +328,16 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                       context,
                       () ->
                           stopBranch(
-                              remoteBranch, remoteDone, DynamicMode.LOCAL, strategyThatCancelled));
+                              remoteBranch,
+                              remoteDone,
+                              localBranch,
+                              DynamicMode.LOCAL,
+                              strategyThatCancelled));
                 } finally {
                   localDone.release();
                 }
               }
-            });
+            }));
     localBranch.addListener(
         () -> {
           if (localStarting.compareAndSet(true, false)) {
@@ -358,6 +372,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                               stopBranch(
                                   localBranch,
                                   localDone,
+                                  remoteBranch,
                                   DynamicMode.REMOTE,
                                   strategyThatCancelled));
                   delayLocalExecution.set(true);
