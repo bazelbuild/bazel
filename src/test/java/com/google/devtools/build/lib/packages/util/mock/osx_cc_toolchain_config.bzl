@@ -7484,7 +7484,7 @@ def _impl(ctx):
                 actions = _ALL_LINK_ACTIONS,
                 flag_groups = [
                     flag_group(
-                        flags = ["-dead_strip", "-no_dead_strip_inits_and_terms"],
+                        flags = ["-dead_strip"],
                     ),
                 ],
             ),
