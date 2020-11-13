@@ -521,7 +521,6 @@ It's an error for multiple conditions to match unless one is an unambiguous
 If you need a `select` branch to match when multiple conditions match, use the
 [Skylib](https://github.com/bazelbuild/bazel-skylib) macro
 [config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group):
-```
 
 ```python
 config_setting(
@@ -542,7 +541,7 @@ sh_binary(
     deps = select({
         ":config1_and_2": [":standard_lib"],
         "//conditions:default": [":other_lib"],
-        }),
+    }),
 )
 ```
 
