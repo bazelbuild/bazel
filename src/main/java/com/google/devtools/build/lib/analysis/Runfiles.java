@@ -1087,7 +1087,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     for (Artifact artifact : getArtifacts().toList()) {
-      fp.addPath(artifact.getOutputDirRelativePath(false));
+      fp.addPath(artifact.getRunfilesPath());
       fp.addPath(artifact.getExecPath());
     }
 
