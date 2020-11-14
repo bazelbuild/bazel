@@ -38,6 +38,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
