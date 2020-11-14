@@ -740,15 +740,28 @@ public final class PathFragment
     if (baseName.equals(".") || baseName.equals("..")) {
       throw new IllegalArgumentException("baseName must not be '" + baseName + "'");
     }
+    try {
+      checkSeparators(baseName);
+    } catch (InvalidBaseNameException e) {
+      throw new IllegalArgumentException("baseName " + e.getMessage() + ": '" + baseName + "'", e);
+    }
+  }
+
+  public static void checkSeparators(String baseName) throws InvalidBaseNameException {
     if (baseName.indexOf(SEPARATOR_CHAR) != -1) {
-      throw new IllegalArgumentException(
-          "baseName must not contain " + SEPARATOR_CHAR + ": '" + baseName + "'");
+      throw new InvalidBaseNameException("must not contain " + SEPARATOR_CHAR);
     }
     if (ADDITIONAL_SEPARATOR_CHAR != 0) {
       if (baseName.indexOf(ADDITIONAL_SEPARATOR_CHAR) != -1) {
-        throw new IllegalArgumentException(
-            "baseName must not contain " + ADDITIONAL_SEPARATOR_CHAR + ": '" + baseName + "'");
+        throw new InvalidBaseNameException("must not contain " + ADDITIONAL_SEPARATOR_CHAR);
       }
+    }
+  }
+
+  /** Indicates that a path fragment's base name had invalid characters. */
+  public static class InvalidBaseNameException extends Exception {
+    private InvalidBaseNameException(String message) {
+      super(message);
     }
   }
 

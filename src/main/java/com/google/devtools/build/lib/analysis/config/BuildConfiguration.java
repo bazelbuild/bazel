@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -230,7 +231,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
       String repositoryName,
-      boolean siblingRepositoryLayout) {
+      boolean siblingRepositoryLayout)
+      throws InvalidMnemonicException {
     this(
         directories,
         fragmentsMap,
@@ -252,7 +254,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
       RepositoryName mainRepositoryName,
-      boolean siblingRepositoryLayout) {
+      boolean siblingRepositoryLayout)
+      throws InvalidMnemonicException {
     // this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
     this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
@@ -324,17 +327,20 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
     BuildOptions options =
         buildOptions.trim(getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
-    BuildConfiguration newConfig =
-        new BuildConfiguration(
-            getDirectories(),
-            fragmentsMap,
-            options,
-            BuildOptions.diffForReconstruction(defaultBuildOptions, options),
-            reservedActionMnemonics,
-            actionEnv,
-            mainRepositoryName.strippedName(),
-            siblingRepositoryLayout);
-    return newConfig;
+    try {
+      return new BuildConfiguration(
+          getDirectories(),
+          fragmentsMap,
+          options,
+          BuildOptions.diffForReconstruction(defaultBuildOptions, options),
+          reservedActionMnemonics,
+          actionEnv,
+          mainRepositoryName.strippedName(),
+          siblingRepositoryLayout);
+    } catch (InvalidMnemonicException e) {
+      throw new IllegalStateException(
+          "Invalid mnemonic unexpected when cloning: " + this + ", " + fragmentClasses, e);
+    }
   }
 
   /** Returns the config fragment options classes used by the given fragment types. */

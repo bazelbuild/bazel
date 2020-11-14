@@ -15,16 +15,20 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.PathFragment.InvalidBaseNameException;
 import java.util.ArrayList;
+import java.util.Map;
 
 /**
  * Logic for figuring out what base directories to place outputs generated from a given
@@ -141,7 +145,8 @@ public class OutputDirectories {
       CoreOptions options,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
       RepositoryName mainRepositoryName,
-      boolean siblingRepositoryLayout) {
+      boolean siblingRepositoryLayout)
+      throws InvalidMnemonicException {
     this.directories = directories;
     this.mnemonic = buildMnemonic(options, fragments);
     this.outputDirName =
@@ -167,16 +172,44 @@ public class OutputDirectories {
     this.mainRepository = mainRepositoryName;
   }
 
-  private String buildMnemonic(
-      CoreOptions options, ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments) {
+  private static String buildMnemonic(
+      CoreOptions options, ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
+      throws InvalidMnemonicException {
     // See explanation at declaration for outputRoots.
-    String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
     ArrayList<String> nameParts = new ArrayList<>();
-    for (Fragment fragment : fragments.values()) {
-      nameParts.add(fragment.getOutputDirectoryName());
+    for (Map.Entry<Class<? extends Fragment>, Fragment> entry : fragments.entrySet()) {
+      String outputDirectoryName = entry.getValue().getOutputDirectoryName();
+      if (Strings.isNullOrEmpty(outputDirectoryName)) {
+        continue;
+      }
+      try {
+        PathFragment.checkSeparators(outputDirectoryName);
+      } catch (InvalidBaseNameException e) {
+        throw new InvalidMnemonicException(
+            "Output directory name '"
+                + outputDirectoryName
+                + "' specified by "
+                + entry.getKey().getSimpleName(),
+            e);
+      }
+      nameParts.add(outputDirectoryName);
     }
-    nameParts.add(options.compilationMode + platformSuffix);
+    String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
+    try {
+      PathFragment.checkSeparators(platformSuffix);
+    } catch (InvalidBaseNameException e) {
+      throw new InvalidMnemonicException("Platform suffix '" + platformSuffix + "'", e);
+    }
+    String shortString = options.compilationMode + platformSuffix;
+    nameParts.add(shortString);
     if (options.transitionDirectoryNameFragment != null) {
+      try {
+        PathFragment.checkSeparators(options.transitionDirectoryNameFragment);
+      } catch (InvalidBaseNameException e) {
+        throw new InvalidMnemonicException(
+            "Transition directory name fragment '" + options.transitionDirectoryNameFragment + "'",
+            e);
+      }
       nameParts.add(options.transitionDirectoryNameFragment);
     }
     return Joiner.on('-').skipNulls().join(nameParts);
@@ -282,4 +315,14 @@ public class OutputDirectories {
   BlazeDirectories getDirectories() {
     return directories;
   }
+
+  /** Indicates a failure to construct the mnemonic for an output directory. */
+  public static class InvalidMnemonicException extends InvalidConfigurationException {
+    InvalidMnemonicException(String message, InvalidBaseNameException e) {
+      super(
+          message + " is invalid as part of a path: " + e.getMessage(),
+          Code.INVALID_OUTPUT_DIRECTORY_MNEMONIC);
+    }
+  }
 }
+

@@ -2090,10 +2090,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               toConfigurationKey(platformMappingValue, depFragments, toOption);
           BuildConfigurationValue configValue =
               ((BuildConfigurationValue) configsResult.get(configKey));
-          // configValue will be null here if there was an exception thrown during configuration
-          // creation. This will be reported elsewhere.
           if (configValue != null) {
             builder.put(key, configValue.getConfiguration());
+          } else if (configsResult.errorMap().containsKey(configKey)) {
+            ErrorInfo configError = configsResult.getError(configKey);
+            if (configError.getException() instanceof InvalidConfigurationException) {
+              // Wrap underlying exception to make it clearer to developers which line of code
+              // actually threw exception.
+              InvalidConfigurationException underlying =
+                  (InvalidConfigurationException) configError.getException();
+              throw new InvalidConfigurationException(underlying.getDetailedExitCode(), underlying);
+            }
           }
         }
       }
@@ -2211,17 +2218,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try {
       result =
           callUninterruptibly(
-              new Callable<EvaluationResult<SkyValue>>() {
-                @Override
-                public EvaluationResult<SkyValue> call() throws Exception {
-                  synchronized (valueLookupLock) {
-                    try {
-                      skyframeBuildView.enableAnalysis(true);
-                      return evaluate(
-                          skyKeys, keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
-                    } finally {
-                      skyframeBuildView.enableAnalysis(false);
-                    }
+              () -> {
+                synchronized (valueLookupLock) {
+                  try {
+                    skyframeBuildView.enableAnalysis(true);
+                    return evaluate(
+                        skyKeys, keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
+                  } finally {
+                    skyframeBuildView.enableAnalysis(false);
                   }
                 }
               });

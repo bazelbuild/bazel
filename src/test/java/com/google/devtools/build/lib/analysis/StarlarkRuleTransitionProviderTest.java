@@ -1467,4 +1467,44 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertThat(ruleTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
         .containsExactly("CppOptions");
   }
+
+  /**
+   * Unit test for an invalid output directory from a mnemonic via a dep transition. Integration
+   * test for top-level transition in //src/test/shell/integration:starlark_configurations_test#
+   * test_invalid_mnemonic_from_transition_top_level. Has to be an integration test because the
+   * error is emitted in BuildTool.
+   */
+  @Test
+  public void invalidMnemonicFromDepTransition() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:cpu': '//bad:cpu'}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:cpu'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "my_rule(name = 'bottom')",
+        "genrule(name = 'test', srcs = [':bottom'], outs = ['out'], cmd = 'touch $@')");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent(
+        "Output directory name '//bad:cpu' specified by CppConfiguration is invalid as part of a "
+            + "path: must not contain /");
+  }
 }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -105,17 +106,21 @@ public class BuildConfigurationFunction implements SkyFunction {
     ActionEnvironment actionEnvironment =
       ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(options);
 
-    BuildConfiguration config =
-        new BuildConfiguration(
-            directories,
-            fragmentsMap,
-            options,
-            key.getOptionsDiff(),
-            ruleClassProvider.getReservedActionMnemonics(),
-            actionEnvironment,
-            workspaceNameValue.getName(),
-            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
-    return new BuildConfigurationValue(config);
+    try {
+      return new BuildConfigurationValue(
+          new BuildConfiguration(
+              directories,
+              fragmentsMap,
+              options,
+              key.getOptionsDiff(),
+              ruleClassProvider.getReservedActionMnemonics(),
+              actionEnvironment,
+              workspaceNameValue.getName(),
+              starlarkSemantics.getBool(
+                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
+    } catch (InvalidMnemonicException e) {
+      throw new BuildConfigurationFunctionException(e);
+    }
   }
 
   private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key)
