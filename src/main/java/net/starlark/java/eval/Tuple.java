@@ -60,6 +60,7 @@ public final class Tuple extends AbstractList<Object>
 
   /** Returns a Tuple that wraps the specified array, which must not be subsequently modified. */
   static Tuple wrap(Object[] array) {
+    Starlark.checkValidElementsIfAssertionsEnabled(array);
     return array.length == 0 ? empty() : new Tuple(array);
   }
 
@@ -68,6 +69,7 @@ public final class Tuple extends AbstractList<Object>
     if (seq instanceof Tuple) {
       return (Tuple) seq;
     }
+    Starlark.checkValidElementsIfAssertionsEnabled(seq);
     return wrap(Iterables.toArray(seq, Object.class));
   }
 
@@ -76,6 +78,7 @@ public final class Tuple extends AbstractList<Object>
     if (elems.length == 0) {
       return empty();
     }
+    Starlark.checkValidElementsIfAssertionsEnabled(elems);
     return new Tuple(Arrays.copyOf(elems, elems.length));
   }
 
@@ -186,6 +189,8 @@ public final class Tuple extends AbstractList<Object>
    */
   // TODO(adonovan): move this somewhere more appropriate.
   static <T> ImmutableList<T> wrapImmutable(Object[] array) {
+    Starlark.checkValidElementsIfAssertionsEnabled(array);
+
     // Construct an ImmutableList that shares the array.
     // ImmutableList relies on the implementation of Collection.toArray
     // not subsequently modifying the returned array.

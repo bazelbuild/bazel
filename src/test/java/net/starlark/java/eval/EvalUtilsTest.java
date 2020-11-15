@@ -44,7 +44,7 @@ public final class EvalUtilsTest {
   public void testDataTypeNames() throws Exception {
     assertThat(Starlark.type("foo")).isEqualTo("string");
     assertThat(Starlark.type(StarlarkInt.of(3))).isEqualTo("int");
-    assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(Starlark.type(Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)))).isEqualTo("tuple");
     assertThat(Starlark.type(StarlarkList.empty())).isEqualTo("list");
     assertThat(Starlark.type(Dict.empty())).isEqualTo("dict");
     assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");

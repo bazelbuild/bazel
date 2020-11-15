@@ -39,6 +39,9 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
     ],
+    jvm_flags = [
+        "-Dstarlark.assertValid=true",
+    ],
 )
 
 # Script-based tests of the Starlark interpreter.

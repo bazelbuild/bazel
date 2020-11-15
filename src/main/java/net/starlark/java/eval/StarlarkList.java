@@ -161,14 +161,8 @@ public final class StarlarkList<E> extends AbstractList<E>
     }
 
     Object[] array = Iterables.toArray(elems, Object.class);
-    checkElemsValid(array);
+    Starlark.checkValidElementsIfAssertionsEnabled(array);
     return wrap(mutability, array);
-  }
-
-  private static void checkElemsValid(Object[] elems) {
-    for (Object elem : elems) {
-      Starlark.checkValid(elem);
-    }
   }
 
   /**
@@ -183,13 +177,13 @@ public final class StarlarkList<E> extends AbstractList<E>
    * mutability} is null, the list is immutable.
    */
   public static <T> StarlarkList<T> of(@Nullable Mutability mutability, T... elems) {
-    checkElemsValid(elems);
+    Starlark.checkValidElementsIfAssertionsEnabled(elems);
     return wrap(mutability, Arrays.copyOf(elems, elems.length));
   }
 
   /** Returns an immutable {@code StarlarkList} with the given items. */
   public static <T> StarlarkList<T> immutableOf(T... elems) {
-    checkElemsValid(elems);
+    Starlark.checkValidElementsIfAssertionsEnabled(elems);
     return wrap(null, Arrays.copyOf(elems, elems.length));
   }
 
@@ -334,6 +328,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param element the element to add
    */
   public void addElement(E element) throws EvalException {
+    Starlark.checkValidIfAssertionsEnabled(element);
     Starlark.checkMutable(this);
     grow(size + 1);
     elems[size++] = element;
@@ -346,6 +341,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param element the element to add
    */
   public void addElementAt(int index, E element) throws EvalException {
+    Starlark.checkValidIfAssertionsEnabled(element);
     Starlark.checkMutable(this);
     grow(size + 1);
     System.arraycopy(elems, index, elems, index + 1, size - index);
@@ -359,6 +355,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param elements the elements to add
    */
   public void addElements(Iterable<? extends E> elements) throws EvalException {
+    Starlark.checkValidElementsIfAssertionsEnabled(elements);
     Starlark.checkMutable(this);
     if (elements instanceof StarlarkList) {
       StarlarkList<?> that = (StarlarkList) elements;
@@ -404,6 +401,7 @@ public final class StarlarkList<E> extends AbstractList<E>
               + "It is an error if there is no such item.",
       parameters = {@Param(name = "x", doc = "The object to remove.")})
   public NoneType removeElement(Object x) throws EvalException {
+    Starlark.checkValidIfAssertionsEnabled(x);
     for (int i = 0; i < size; i++) {
       if (elems[i].equals(x)) {
         removeElementAt(i);
@@ -418,6 +416,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * index < size()}.
    */
   public void setElementAt(int index, E value) throws EvalException {
+    Starlark.checkValidIfAssertionsEnabled(value);
     Starlark.checkMutable(this);
     Preconditions.checkArgument(index < size);
     elems[index] = value;

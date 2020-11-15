@@ -408,8 +408,8 @@ public final class Dict<K, V>
     Dict<K, V> dict = new Dict<>(mu);
     for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
       dict.contents.put(
-          Starlark.checkValid(e.getKey()), //
-          Starlark.checkValid(e.getValue()));
+          Starlark.checkValidIfAssertionsEnabled(e.getKey()), //
+          Starlark.checkValidIfAssertionsEnabled(e.getValue()));
     }
     return dict;
   }
@@ -430,8 +430,8 @@ public final class Dict<K, V>
 
     /** Adds an entry (k, v) to the builder, overwriting any previous entry with the same key . */
     public Builder<K, V> put(K k, V v) {
-      items.add(Starlark.checkValid(k));
-      items.add(Starlark.checkValid(v));
+      items.add(Starlark.checkValidIfAssertionsEnabled(k));
+      items.add(Starlark.checkValidIfAssertionsEnabled(v));
       return this;
     }
 
@@ -486,6 +486,9 @@ public final class Dict<K, V>
    * @throws EvalException if the key is invalid or the dict is frozen
    */
   public void putEntry(K key, V value) throws EvalException {
+    Starlark.checkValidIfAssertionsEnabled(key);
+    Starlark.checkValidIfAssertionsEnabled(value);
+
     Starlark.checkMutable(this);
     Starlark.checkHashable(key);
     contents.put(key, value);
@@ -502,6 +505,7 @@ public final class Dict<K, V>
     for (Map.Entry<K2, V2> e : map.entrySet()) {
       K2 k = e.getKey();
       Starlark.checkHashable(k);
+      Starlark.checkValidIfAssertionsEnabled(e.getValue());
       contents.put(k, e.getValue());
     }
   }

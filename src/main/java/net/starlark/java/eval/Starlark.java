@@ -112,6 +112,45 @@ public final class Starlark {
     return x;
   }
 
+  /**
+   * When this property is set to true, the interpreter validates the objects compatibility
+   * with the interpreter ({@link #valid(Object)} at public API boundaries.
+   *
+   * <p>This property is off by default.
+   *
+   * <p>This is a {@code static final} variable to help JVM optimizer to inline it.
+   */
+  static final boolean ASSERT_VALID = Boolean.getBoolean("starlark.assertValid");
+
+  /**
+   * Check elements are valid ({@link #checkValid(Object)} if {@code starlark.checkValid} system
+   * property is true.
+   */
+  public static <T> T checkValidIfAssertionsEnabled(T x) {
+    if (ASSERT_VALID) {
+      checkValid(x);
+    }
+    return x;
+  }
+
+  /** Check the valid is valid ({@link #checkValid(Object)} if {@code starlark.checkValid} system property is true. */
+  static void checkValidElementsIfAssertionsEnabled(Iterable<?> xs) {
+    if (ASSERT_VALID) {
+      for (Object x : xs) {
+        checkValid(x);
+      }
+    }
+  }
+
+  /** Check the valid is valid ({@link #checkValid(Object)} if {@code starlark.checkValid} system property is true. */
+  static void checkValidElementsIfAssertionsEnabled(Object[] xs) {
+    if (ASSERT_VALID) {
+      for (Object x : xs) {
+        checkValid(x);
+      }
+    }
+  }
+
   /** Reports whether {@code x} is Java null or Starlark None. */
   public static boolean isNullOrNone(Object x) {
     return x == null || x == NONE;
@@ -150,7 +189,7 @@ public final class Starlark {
     if (x instanceof StarlarkValue) {
       ((StarlarkValue) x).checkHashable();
     } else {
-      Starlark.checkValid(x);
+      Starlark.checkValidIfAssertionsEnabled(x);
       // String and Boolean are hashable.
     }
   }
@@ -268,7 +307,7 @@ public final class Starlark {
       // Iterables.size runs in constant time if x implements Collection.
       return Iterables.size((Iterable<?>) x);
     } else {
-      checkValid(x);
+      checkValidIfAssertionsEnabled(x);
       return -1; // valid but not a sequence
     }
   }
@@ -568,7 +607,7 @@ public final class Starlark {
     int i = 0;
     for (Map.Entry<String, Object> e : kwargs.entrySet()) {
       named[i++] = e.getKey();
-      named[i++] = Starlark.checkValid(e.getValue());
+      named[i++] = Starlark.checkValidIfAssertionsEnabled(e.getValue());
     }
     return fastcall(thread, fn, args.toArray(), named);
   }
@@ -691,7 +730,7 @@ public final class Starlark {
       Structure struct = (Structure) x;
       Object field = struct.getValue(semantics, name);
       if (field != null) {
-        return Starlark.checkValid(field);
+        return Starlark.checkValidIfAssertionsEnabled(field);
       }
 
       if (defaultValue != null) {

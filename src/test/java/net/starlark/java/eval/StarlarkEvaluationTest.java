@@ -1433,6 +1433,9 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testFieldReturnsNonStarlarkValue() throws Exception {
+    // `-Dstarlark.assertValid=true` must be specified when running tests
+    assertThat(Starlark.ASSERT_VALID).isTrue();
+
     ev.update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
     RuntimeException e = assertThrows(RuntimeException.class, () -> ev.eval("s.bad"));
     assertThat(e)
