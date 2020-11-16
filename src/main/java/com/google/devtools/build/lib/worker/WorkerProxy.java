@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +56,7 @@ final class WorkerProxy extends Worker {
   }
 
   @Override
-  void setReporter(ExtendedEventHandler reporter) {
+  void setReporter(EventHandler reporter) {
     workerMultiplexer.setReporter(reporter);
   }
 
@@ -83,8 +83,7 @@ final class WorkerProxy extends Worker {
 
   /** Send the WorkRequest to multiplexer. */
   @Override
-  void putRequest(WorkRequest request) throws IOException, InterruptedException {
-    workerMultiplexer.putResponseChecker(request.getRequestId());
+  void putRequest(WorkRequest request) throws IOException {
     workerMultiplexer.putRequest(request);
   }
 
