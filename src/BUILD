@@ -549,7 +549,6 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-    "//third_party/jarjar:jarjar_command_deploy.jar",
 ] + select({
     "//src/conditions:arm": ["//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar"],
     "//conditions:default": [],
@@ -582,7 +581,6 @@ JAVA_VERSIONS = ("11",)
             "//src/tools/singlejar:embedded_java_tools",
             "//third_party/checker_framework_dataflow:srcs",
             "//third_party/checker_framework_javacutil:srcs",
-            "//third_party/jarjar:srcs",
             "//third_party/ijar:transitive_sources",
             "//third_party/java/jacoco:transitive_sources",
             "//third_party/java/proguard:srcs",

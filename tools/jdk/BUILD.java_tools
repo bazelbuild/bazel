@@ -139,11 +139,6 @@ filegroup(
 )
 
 filegroup(
-    name = "JarJar",
-    srcs = ["java_tools/jarjar_command_deploy.jar"],
-)
-
-filegroup(
     name = "Turbine",
     srcs = ["java_tools/turbine_deploy.jar"],
 )
@@ -494,13 +489,6 @@ cc_library(
         "java_tools/src/main/native/windows/file.h",
         "java_tools/src/main/native/windows/util.h",
     ],
-    strip_include_prefix = "java_tools",
-)
-
-cc_library(
-    name = "lib-util",
-    srcs = ["java_tools/src/main/native/windows/util.cc"],
-    hdrs = ["java_tools/src/main/native/windows/util.h"],
     strip_include_prefix = "java_tools",
 )
 
