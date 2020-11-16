@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.skyframe.SkyframeLabelVisitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -78,7 +77,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
   private final PathFragment relativeWorkingDirectory;
-  private final TransitivePackageLoader transitivePackageLoader;
+  private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
   private final Digraph<Target> graph = new Digraph<>();
@@ -101,7 +100,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    * @param settings a set of enabled settings
    */
   public BlazeQueryEnvironment(
-      TransitivePackageLoader transitivePackageLoader,
+      QueryTransitivePackagePreloader queryTransitivePackagePreloader,
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
@@ -116,7 +115,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
-    this.transitivePackageLoader = transitivePackageLoader;
+    this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
@@ -361,12 +360,12 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private void preloadTransitiveClosure(ThreadSafeMutableSet<Target> targets, int maxDepth)
       throws InterruptedException {
-    if (maxDepth >= MAX_DEPTH_FULL_SCAN_LIMIT && transitivePackageLoader != null) {
+    if (maxDepth >= MAX_DEPTH_FULL_SCAN_LIMIT && queryTransitivePackagePreloader != null) {
       // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
       // preloading will be outweighed by the cost of doing more work than necessary.
       Set<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
-      ((SkyframeLabelVisitor) transitivePackageLoader)
-          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, /* errorOnCycles= */ false);
+      queryTransitivePackagePreloader.preloadTransitiveTargets(
+          eventHandler, labels, keepGoing, loadingPhaseThreads);
     }
   }
 

@@ -270,7 +270,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     return env.getRuntime()
         .getQueryEnvironmentFactory()
         .create(
-            env.getPackageManager().newTransitiveLoader(),
+            env.getPackageManager().transitiveLoader(),
             env.getSkyframeExecutor(),
             targetProviderForQueryEnvironment,
             env.getPackageManager(),

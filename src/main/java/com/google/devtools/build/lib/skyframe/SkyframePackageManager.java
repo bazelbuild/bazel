@@ -25,43 +25,32 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.skyframe.CyclesReporter;
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Skyframe-based package manager.
- *
- * <p>This is essentially a compatibility shim between the native Skyframe and non-Skyframe
- * parts of Blaze and should not be long-lived.
- */
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
-
   private final SkyframePackageLoader packageLoader;
-  private final SkyframeTransitivePackageLoader transitiveLoader;
+  private final QueryTransitivePackagePreloader transitiveLoader;
   private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
-  private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesLoaded;
   private final SkyframeExecutor skyframeExecutor;
 
   public SkyframePackageManager(
       SkyframePackageLoader packageLoader,
-      SkyframeTransitivePackageLoader transitiveLoader,
+      QueryTransitivePackagePreloader transitiveLoader,
       AtomicReference<UnixGlob.FilesystemCalls> syscalls,
-      AtomicReference<CyclesReporter> skyframeCyclesReporter,
       AtomicReference<PathPackageLocator> pkgLocator,
       AtomicInteger numPackagesLoaded,
       SkyframeExecutor skyframeExecutor) {
     this.packageLoader = packageLoader;
     this.transitiveLoader = transitiveLoader;
-    this.skyframeCyclesReporter = skyframeCyclesReporter;
     this.pkgLocator = pkgLocator;
     this.syscalls = syscalls;
     this.numPackagesLoaded = numPackagesLoaded;
@@ -123,8 +112,8 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   }
 
   @Override
-  public TransitivePackageLoader newTransitiveLoader() {
-    return new SkyframeLabelVisitor(transitiveLoader, skyframeCyclesReporter);
+  public QueryTransitivePackagePreloader transitiveLoader() {
+    return transitiveLoader;
   }
 
   @Override

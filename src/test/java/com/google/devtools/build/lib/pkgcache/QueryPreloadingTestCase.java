@@ -11,29 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -48,7 +39,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,43 +46,16 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Before;
 
-abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCase {
-  // Convenience constants, so test args are readable vs true/false
+/** Base test class for query preloading tests. */
+public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
+  // Convenience constant, so test args are readable vs true/false
   protected static final boolean KEEP_GOING = true;
-  protected static final boolean EXPECT_ERROR = true;
-  protected TransitivePackageLoader visitor = null;
+  protected QueryTransitivePackagePreloader visitor = null;
   protected CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
   @Override
   protected FileSystem createFileSystem() {
     return fs;
-  }
-
-  protected Collection<Event> assertNewBuildFileConflict() throws Exception {
-    reporter.removeHandler(failFastHandler); // expect errors
-    scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['//pkg2:q/sub'])");
-    scratch.file("pkg2/BUILD", "sh_library(name = 'q/sub')");
-
-    assertLabelsVisited(
-        ImmutableSet.of("//pkg:x", "//pkg2:q/sub"),
-        ImmutableSet.of("//pkg:x"),
-        !EXPECT_ERROR,
-        !KEEP_GOING);
-
-    scratch.file("pkg2/q/BUILD");
-    syncPackages();
-
-    EventCollector warningCollector = new EventCollector(EventKind.WARNING);
-    reporter.addHandler(warningCollector);
-    assertLabelsVisitedWithErrors(ImmutableSet.of("//pkg:x"), ImmutableSet.of("//pkg:x"));
-    assertContainsEvent("Label '//pkg2:q/sub' crosses boundary of subpackage 'pkg2/q'");
-    assertContainsEvent("no such target '//pkg2:q/sub'");
-    Collection<Event> warnings = Lists.newArrayList(warningCollector);
-    // Check stability (not redundant).
-    assertLabelsVisitedWithErrors(ImmutableSet.of("//pkg:x"), ImmutableSet.of("//pkg:x"));
-    assertContainsEvent("Label '//pkg2:q/sub' crosses boundary of subpackage 'pkg2/q'");
-
-    return warnings;
   }
 
   /**
@@ -103,7 +66,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
    */
   protected void assertLabelsVisitedWithErrors(
       Set<String> expectedLabels, Set<String> startingLabels) throws Exception {
-    assertLabelsVisited(expectedLabels, startingLabels, EXPECT_ERROR, KEEP_GOING);
+    assertLabelsVisited(expectedLabels, startingLabels, KEEP_GOING);
   }
 
   /**
@@ -122,22 +85,19 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
    *
    * @param expectedLabels The expected set of labels visited.
    * @param startingLabelStrings Visit the transitive closure of each of these labels.
-   * @param expectError Whether the visitation should succeed.
    * @param keepGoing Whether the visitation continues after encountering
    *        errors.
    */
   protected void assertLabelsVisited(
       Set<String> expectedLabels,
       Set<String> startingLabelStrings,
-      boolean expectError,
       boolean keepGoing)
       throws Exception {
     Set<Label> startingLabels = asLabelSet(startingLabelStrings);
 
     // Spawn a lot of threads to help uncover concurrency issues
-    boolean result = visitor.sync(reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200);
+    visitor.preloadTransitiveTargets(reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200);
 
-    assertThat(result).isNotEqualTo(expectError);
     assertExpectedTargets(expectedLabels, startingLabels);
   }
 
@@ -170,23 +130,11 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
       nodesToVisit =
           Iterables.filter(
               Iterables.concat(graph.getDirectDeps(existingNodes).values()),
-              new Predicate<SkyKey>() {
-                @Override
-                public boolean apply(SkyKey skyKey) {
-                  return skyKey.functionName().equals(SkyFunctions.TRANSITIVE_TARGET);
-                }
-              });
+              skyKey -> skyKey.functionName().equals(TransitiveTargetKey.NAME));
     }
     visitedNodes.addAll(startingKeys);
     return ImmutableSet.copyOf(
-        Collections2.transform(
-            visitedNodes,
-            new Function<SkyKey, Label>() {
-              @Override
-              public Label apply(SkyKey skyKey) {
-                return ((TransitiveTargetKey) skyKey).getLabel();
-              }
-            }));
+        Collections2.transform(visitedNodes, skyKey -> ((TransitiveTargetKey) skyKey).getLabel()));
   }
 
   /**
@@ -197,21 +145,18 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
    *
    * @param expectedLabels The expected set of labels visited.
    * @param startingLabels Visit the transitive closure of each of these labels.
-   * @param expectError Whether the visitation should succeed.
    * @param keepGoing Whether the visitation continues after encountering
    *        errors.
    */
   protected void assertLabelsAreSubsetOfLabelsVisited(
       Set<String> expectedLabels,
       Set<String> startingLabels,
-      boolean expectError,
       boolean keepGoing)
       throws Exception {
     Set<Label> labels = asLabelSet(startingLabels);
 
     // Spawn a lot of threads to help uncover concurrency issues
-    boolean result = visitor.sync(reporter, labels, keepGoing, 200);
-    assertThat(result).isNotEqualTo(expectError);
+    visitor.preloadTransitiveTargets(reporter, labels, keepGoing, 200);
     assertThat(getVisitedLabels(asLabelSet(startingLabels), skyframeExecutor))
         .containsAtLeastElementsIn(asLabelSet(expectedLabels));
   }
@@ -226,25 +171,14 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
             reporter, modifiedFileSet, Root.fromPath(rootDirectory));
   }
 
-  protected Set<Target> asTargetSet(Iterable<String> strLabels)
-      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
-    Set<Target> targets = new HashSet<>();
-    for (String strLabel : strLabels) {
-      Label label = Label.parseAbsolute(strLabel, ImmutableMap.of());
-      targets.add(getSkyframeExecutor().getPackageManager().getTarget(reporter, label));
-    }
-    return targets;
-  }
-
   @Before
-  public final void initializeVisitor() throws Exception {
+  public final void initializeVisitor() {
     setUpSkyframe(ConstantRuleVisibility.PRIVATE);
-    this.visitor = skyframeExecutor.pkgLoader();
+    this.visitor = skyframeExecutor.getPackageManager().transitiveLoader();
   }
 
   protected static class CustomInMemoryFs extends InMemoryFileSystem {
-
-    private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
+    private final Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

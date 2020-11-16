@@ -11,30 +11,34 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
+import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationContext;
-import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-/** Loads transitive packages for skyframe clients. */
-class SkyframeTransitivePackageLoader {
-
+/**
+ * Preloads transitive packages for query: prepopulates Skyframe with {@link TransitiveTargetValue}
+ * objects for the transitive closure of requested targets. To be used when doing a large traversal
+ * that benefits from loading parallelism.
+ */
+public class QueryTransitivePackagePreloader {
   private final Supplier<BuildDriver> buildDriverSupplier;
 
   // Needs a Supplier because the SkyframeExecutor creates the BuildDriver on demand.
-  public SkyframeTransitivePackageLoader(Supplier<BuildDriver> buildDriverSupplier) {
+  public QueryTransitivePackagePreloader(Supplier<BuildDriver> buildDriverSupplier) {
     this.buildDriverSupplier = buildDriverSupplier;
   }
 
   /** Loads the specified {@link TransitiveTargetValue}s. */
-  EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(
+  public void preloadTransitiveTargets(
       ExtendedEventHandler eventHandler,
       Iterable<Label> labelsToVisit,
       boolean keepGoing,
@@ -51,6 +55,6 @@ class SkyframeTransitivePackageLoader {
             .setEventHandler(eventHandler)
             .setUseForkJoinPool(true)
             .build();
-    return buildDriverSupplier.get().evaluate(valueNames, evaluationContext);
+    buildDriverSupplier.get().evaluate(valueNames, evaluationContext);
   }
 }

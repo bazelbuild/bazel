@@ -39,7 +39,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
           SkyFunctions.isSkyFunction(SkyFunctions.LOAD_STARLARK_ASPECT),
-          SkyFunctions.isSkyFunction(SkyFunctions.TRANSITIVE_TARGET),
+          SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME),
           SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
 
   TargetCycleReporter(PackageProvider packageProvider) {

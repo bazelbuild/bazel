@@ -129,10 +129,10 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -318,7 +318,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
   protected SkyframeProgressReceiver progressReceiver;
-  private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
+  private CyclesReporter cyclesReporter = null;
 
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
@@ -421,9 +421,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),
-            new SkyframeTransitivePackageLoader(this::getDriver),
+            new QueryTransitivePackagePreloader(this::getDriver),
             syscalls,
-            cyclesReporter,
             pkgLocator,
             numPackagesLoaded,
             this);
@@ -540,7 +539,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
-    map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
+    map.put(TransitiveTargetKey.NAME, new TransitiveTargetFunction(ruleClassProvider));
     map.put(Label.TRANSITIVE_TRAVERSAL, getTransitiveTraversalFunction());
     map.put(
         SkyFunctions.CONFIGURED_TARGET,
@@ -1371,7 +1370,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
-    cyclesReporter.set(createCyclesReporter());
+    cyclesReporter = createCyclesReporter();
   }
 
   private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
@@ -2434,14 +2433,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return a -> result.get(ActionLookupConflictFindingValue.key(a)) != null;
   }
 
-  /** Returns a Skyframe-based {@link SkyframeTransitivePackageLoader} implementation. */
-  @VisibleForTesting
-  TransitivePackageLoader pkgLoader() {
-    checkActive();
-    return new SkyframeLabelVisitor(
-        new SkyframeTransitivePackageLoader(this::getDriver), cyclesReporter);
-  }
-
   /**
    * For internal use in queries: performs a graph update to make sure the transitive closure of the
    * specified {@code universeKey} is present in the graph, and returns the {@link
@@ -2747,7 +2738,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   CyclesReporter getCyclesReporter() {
-    return cyclesReporter.get();
+    return cyclesReporter;
   }
 
   /** Convenience method with same semantics as {@link CyclesReporter#reportCycles}. */
