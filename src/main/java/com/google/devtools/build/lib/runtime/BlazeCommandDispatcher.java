@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -621,6 +622,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
         }
       }
+
+      try {
+        Profiler.instance().stop();
+        MemoryProfiler.instance().stop();
+      } catch (IOException e) {
+        env.getReporter()
+            .handle(Event.error("Error while writing profile file: " + e.getMessage()));
+      }
+
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());
       Flushables.flushQuietly(outErr.getErrorStream());
