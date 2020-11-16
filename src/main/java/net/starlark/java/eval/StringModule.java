@@ -69,7 +69,11 @@ final class StringModule implements StarlarkValue {
   static String slice(String s, int start, int stop, int step) {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
-    if (step == 1) { // common case
+    if (n == 0) {
+      return "";
+    } else if (n == 1) {
+      return memoizedCharToString(s.charAt(indices.at(0)));
+    } else if (step == 1) { // common case
       return s.substring(indices.at(0), indices.at(n));
     } else {
       char[] res = new char[n];
@@ -77,6 +81,24 @@ final class StringModule implements StarlarkValue {
         res[i] = s.charAt(indices.at(i));
       }
       return new String(res);
+    }
+  }
+
+  // Practically the most strings in Starlark are ASCII strings.
+  // This is a cache of single-char strings to avoid allocation in s[i] operation.
+  private static final String[] ASCII_CHAR_STRINGS = new String[0x80];
+  static {
+    for (int i = 0; i != ASCII_CHAR_STRINGS.length; ++i) {
+      ASCII_CHAR_STRINGS[i] = String.valueOf((char) i);
+    }
+  }
+
+  /** Semantically equivalent to {@link String#valueOf(char)} but faster for ASCII strings. */
+  static String memoizedCharToString(char c) {
+    if (c < ASCII_CHAR_STRINGS.length) {
+      return ASCII_CHAR_STRINGS[c];
+    } else {
+      return String.valueOf(c);
     }
   }
 
@@ -861,7 +883,7 @@ final class StringModule implements StarlarkValue {
     char[] chars = self.toCharArray();
     Object[] strings = new Object[chars.length];
     for (int i = 0; i < chars.length; i++) {
-      strings[i] = String.valueOf(chars[i]);
+      strings[i] = memoizedCharToString(chars[i]);
     }
     return StarlarkList.wrap(null, strings);
   }

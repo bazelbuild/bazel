@@ -443,7 +443,7 @@ final class EvalUtils {
       String string = (String) object;
       int index = Starlark.toInt(key, "string index");
       index = getSequenceIndex(index, string.length());
-      return string.substring(index, index + 1);
+      return StringModule.memoizedCharToString(string.charAt(index));
     } else {
       throw Starlark.errorf(
           "type '%s' has no operator [](%s)", Starlark.type(object), Starlark.type(key));
