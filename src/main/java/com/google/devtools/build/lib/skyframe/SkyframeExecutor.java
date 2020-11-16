@@ -2173,11 +2173,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       EvaluationResult<SkyValue> newlyLoaded =
           evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
       if (newlyLoaded.hasError()) {
+        Map.Entry<SkyKey, ErrorInfo> errorEntry =
+            Preconditions.checkNotNull(
+                Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
         throw new TransitionException(
             new NoSuchPackageException(
-                ((PackageValue.Key) newlyLoaded.getError().getRootCauseOfException()).argument(),
+                ((PackageValue.Key) errorEntry.getKey()).argument(),
                 "Unable to find build setting package",
-                newlyLoaded.getError().getException()));
+                errorEntry.getValue().getException()));
       }
       buildSettingPackageKeys.forEach(
           k -> buildSettingPackages.put(k, (PackageValue) newlyLoaded.get(k)));
@@ -2572,16 +2575,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             throw new BuildFileContainsErrorsException(
                 pkgName, "Cycle encountered while loading package " + pkgName);
           }
-          Throwable e = error.getException();
+          Throwable e = Preconditions.checkNotNull(error.getException(), "%s %s", pkgName, error);
           // PackageFunction should be catching, swallowing, and rethrowing all transitive
           // errors as NoSuchPackageExceptions or constructing packages with errors, since we're in
           // keep_going mode.
-          Throwables.propagateIfInstanceOf(e, NoSuchPackageException.class);
+          Throwables.throwIfInstanceOf(e, NoSuchPackageException.class);
           throw new IllegalStateException(
               "Unexpected Exception type from PackageValue for '"
                   + pkgName
-                  + "'' with root causes: "
-                  + error.getRootCauses().toList().toString(),
+                  + "'' with error: "
+                  + error,
               e);
         }
         return result.get(key).getPackage();

@@ -90,7 +90,6 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     Throwable e = errorInfo.getException();
-    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
     assertThat(e).isInstanceOf(NoSuchPackageException.class);
     assertThat(e).hasMessageThat().contains("bork");
   }

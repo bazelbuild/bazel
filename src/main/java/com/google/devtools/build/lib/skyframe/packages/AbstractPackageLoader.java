@@ -410,11 +410,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return (NoSuchPackageException) e;
     }
     throw new IllegalStateException(
-        "Unexpected Exception type from PackageValue for '"
-            + pkgId
-            + "'' with root causes: "
-            + error.getRootCauses().toList().toString(),
-        e);
+        "Unexpected Exception type from PackageValue for '" + pkgId + "'' with error: " + error, e);
   }
 
   private BuildDriver makeFreshDriver() {

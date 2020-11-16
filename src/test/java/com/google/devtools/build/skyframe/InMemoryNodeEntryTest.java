@@ -47,9 +47,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class InMemoryNodeEntryTest {
   private static final NestedSet<TaggedEvents> NO_EVENTS =
-      NestedSetBuilder.<TaggedEvents>emptySet(Order.STABLE_ORDER);
-  private static final NestedSet<Postable> NO_POSTS =
-      NestedSetBuilder.<Postable>emptySet(Order.STABLE_ORDER);
+      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private static final NestedSet<Postable> NO_POSTS = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   private static SkyKey key(String name) {
     return GraphTester.toSkyKey(name);
@@ -137,9 +136,9 @@ public class InMemoryNodeEntryTest {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
-    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
-        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
-        key("cause"));
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT));
     ErrorInfo errorInfo = ErrorInfo.fromException(exception, false);
     assertThat(setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L)).isEmpty();
     assertThat(entry.isDone()).isTrue();
@@ -152,9 +151,9 @@ public class InMemoryNodeEntryTest {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
-    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
-        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
-        key("cause"));
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT));
     ErrorInfo errorInfo = ErrorInfo.fromException(exception, false);
     setValue(entry, new SkyValue() {}, errorInfo, /*graphVersion=*/0L);
     assertThat(entry.isDone()).isTrue();
@@ -429,9 +428,8 @@ public class InMemoryNodeEntryTest {
     assertThrows(
         "Cannot add same dep twice",
         IllegalStateException.class,
-        () ->
-            // We only check for duplicates when we request all the reverse deps.
-            entry.getReverseDepsForDoneEntry());
+        // We only check for duplicates when we request all the reverse deps.
+        entry::getReverseDepsForDoneEntry);
   }
 
   @Test
@@ -446,9 +444,8 @@ public class InMemoryNodeEntryTest {
     assertThrows(
         "Cannot add same dep twice",
         IllegalStateException.class,
-        () ->
-            // We only check for duplicates when we request all the reverse deps.
-            entry.getReverseDepsForDoneEntry());
+        // We only check for duplicates when we request all the reverse deps.
+        entry::getReverseDepsForDoneEntry);
   }
 
   @Test
@@ -551,12 +548,15 @@ public class InMemoryNodeEntryTest {
     entry.signalDep(ONE_VERSION, /*childForDebugging=*/ null);
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
-    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
-        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
-        key("cause"));
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT));
     entry.markRebuilding();
-    setValue(entry, new IntegerValue(5), ErrorInfo.fromException(exception, false),
-        /*graphVersion=*/1L);
+    setValue(
+        entry,
+        new IntegerValue(5),
+        ErrorInfo.fromException(exception, false),
+        /*graphVersion=*/ 1L);
     assertThat(entry.isDone()).isTrue();
     assertWithMessage("Version increments when setValue changes")
         .that(entry.getVersion())
@@ -613,9 +613,9 @@ public class InMemoryNodeEntryTest {
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(ZERO_VERSION, dep);
-    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
-        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
-        key("cause"));
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT));
     ErrorInfo errorInfo = ErrorInfo.fromException(exception, false);
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
     entry.markDirty(DirtyType.DIRTY);
@@ -693,9 +693,9 @@ public class InMemoryNodeEntryTest {
     entry.signalDep(ZERO_VERSION, dep);
     // Oops! Evaluation terminated with an error, but we're going to set this entry's value anyway.
     entry.removeUnfinishedDeps(ImmutableSet.of(dep2, dep3, dep5));
-    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
-        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
-        key("key"));
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT));
     setValue(entry, null, ErrorInfo.fromException(exception, false), 0L);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
