@@ -1483,9 +1483,7 @@ public final class CcCompilationHelper {
         configuration, featureConfiguration, builder, ruleErrorConsumer);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     SpecialArtifact dotdTreeArtifact = null;
-    // The MSVC compiler won't generate .d file, instead we parse the output of /showIncludes flag.
-    // Therefore, dotdTreeArtifact should be null in this case.
-    if (!featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+    if (builder.dotdFilesEnabled()) {
       dotdTreeArtifact =
           CppHelper.getDotdOutputTreeArtifact(
               actionConstructionContext, label, sourceArtifact, outputName, usePic);

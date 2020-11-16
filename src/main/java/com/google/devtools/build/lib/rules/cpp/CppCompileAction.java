@@ -567,7 +567,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   .setCmdlineIncludes(getCmdlineIncludes(options))
                   .build());
 
-      if (useHeaderModules) {
+      if (getDotdFile() == null) {
         // If we aren't looking at .d files later, remove undeclared inputs now.
         additionalInputs =
             filterDiscoveredHeaders(actionExecutionContext, additionalInputs, headerInfo);
