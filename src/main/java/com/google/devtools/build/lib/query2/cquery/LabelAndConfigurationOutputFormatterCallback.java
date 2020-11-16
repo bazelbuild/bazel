@@ -51,7 +51,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       output =
           output
-              .append(configuredTarget.label())
+              .append(configuredTarget.originalLabel())
               .append(" (")
               .append(shortId(getConfiguration(configuredTarget.configurationKey())))
               .append(")");

@@ -245,7 +245,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
             Event.error(
                 String.format(
                     "Starlark evaluation error for %s: %s",
-                    target.label(), ex.getMessageWithStack())));
+                    target.originalLabel(), ex.getMessageWithStack())));
         continue;
       }
     }

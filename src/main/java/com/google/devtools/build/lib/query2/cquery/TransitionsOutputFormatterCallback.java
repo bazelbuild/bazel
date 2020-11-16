@@ -100,13 +100,13 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                   + " flag explicitly to 'lite' or 'full'"));
       return;
     }
-    partialResult.forEach(ct -> partialResultMap.put(ct.label(), accessor.getTarget(ct)));
+    partialResult.forEach(ct -> partialResultMap.put(ct.originalLabel(), accessor.getTarget(ct)));
     for (KeyedConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.label());
+      Target target = partialResultMap.get(configuredTarget.originalLabel());
       BuildConfiguration config = getConfiguration(configuredTarget.configurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + String.format("%s (%s)", configuredTarget.label(), shortId(config)));
+              + String.format("%s (%s)", configuredTarget.originalLabel(), shortId(config)));
       if (!(configuredTarget.configuredTarget() instanceof RuleConfiguredTarget)) {
         continue;
       }

@@ -48,8 +48,8 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
         private final Comparator<KeyedConfiguredTarget> configuredTargetOrdering =
             (ct1, ct2) -> {
               // Order graph output first by target label, then by configuration hash.
-              Label label1 = ct1.label();
-              Label label2 = ct2.label();
+              Label label1 = ct1.originalLabel();
+              Label label2 = ct2.originalLabel();
               return label1.equals(label2)
                   ? ct1.configurationChecksum().compareTo(ct2.configurationChecksum())
                   : label1.compareTo(label2);
@@ -61,7 +61,7 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
           // hashes.
           KeyedConfiguredTarget ct = node.getLabel();
           return String.format(
-              "%s (%s)", ct.label(), shortId(getConfiguration(ct.configurationKey())));
+              "%s (%s)", ct.originalLabel(), shortId(getConfiguration(ct.configurationKey())));
         }
 
         @Override

@@ -54,6 +54,6 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<KeyedCo
 
   @Override
   public String getLabel(KeyedConfiguredTarget target) {
-    return target.label().toString();
+    return target.originalLabel().toString();
   }
 }

@@ -460,7 +460,7 @@ public class ConfiguredTargetQueryEnvironment
   @Override
   public Label getCorrectLabel(KeyedConfiguredTarget target) {
     // Dereference any aliases that might be present.
-    return target.configuredTarget().getOriginalLabel();
+    return target.actualLabel();
   }
 
   @Nullable

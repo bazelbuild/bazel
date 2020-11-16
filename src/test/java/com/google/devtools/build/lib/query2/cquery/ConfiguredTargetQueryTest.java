@@ -104,7 +104,7 @@ public abstract class ConfiguredTargetQueryTest
 
     Iterator<KeyedConfiguredTarget> resultIterator = result.iterator();
     KeyedConfiguredTarget first = resultIterator.next();
-    if (first.label().toString().equals("//test:foo.java")) {
+    if (first.originalLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();
     } else {

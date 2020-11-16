@@ -20,8 +20,12 @@ public abstract class KeyedConfiguredTarget {
 
   public abstract ConfiguredTarget configuredTarget();
 
-  public Label label() {
+  public Label originalLabel() {
     return configuredTarget().getOriginalLabel();
+  }
+
+  public Label actualLabel() {
+    return configuredTarget().getActual().getLabel();
   }
 
   public BuildConfigurationValue.Key configurationKey() {

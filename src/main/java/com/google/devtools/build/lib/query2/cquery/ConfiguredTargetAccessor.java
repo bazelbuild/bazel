@@ -75,12 +75,12 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
 
   @Override
   public String getLabel(KeyedConfiguredTarget target) {
-    return target.label().toString();
+    return target.originalLabel().toString();
   }
 
   @Override
   public String getPackage(KeyedConfiguredTarget target) {
-    return target.label().getPackageIdentifier().getPackageFragment().toString();
+    return target.originalLabel().getPackageIdentifier().getPackageFragment().toString();
   }
 
   @Override
@@ -121,7 +121,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     Multimap<Label, KeyedConfiguredTarget> depsByLabel =
         Multimaps.index(
             queryEnvironment.getFwdDeps(ImmutableList.of(actualConfiguredTarget)),
-            KeyedConfiguredTarget::label);
+            KeyedConfiguredTarget::originalLabel);
 
     Rule rule = (Rule) getTarget(actualConfiguredTarget);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions =
@@ -178,7 +178,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     Target target = null;
     try {
       // Dereference any aliases that might be present.
-      Label label = configuredTarget.label();
+      Label label = configuredTarget.actualLabel();
       target =
           ((PackageValue) walkableGraph.getValue(PackageValue.key(label.getPackageIdentifier())))
               .getPackage()

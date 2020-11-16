@@ -198,7 +198,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "rule_with_dep(name = 'dep')");
 
     KeyedConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
-    assertThat(dep.label()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
+    assertThat(dep.originalLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
   }
 
   @Test
@@ -229,7 +229,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
     // Note: {@link AliasConfiguredTarget#getLabel} returns the label of the "actual" value not the
     // label of the alias.
-    assertThat(other.label()).isEqualTo(myRule.label());
+    assertThat(other.originalLabel()).isEqualTo(myRule.originalLabel());
 
     // Regression test for b/73496081 in which alias-ed configured targets were skipping filtering.
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
@@ -413,7 +413,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(result).hasSize(2);
 
     ImmutableList<KeyedConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
-    int myDepIndex = stableOrderList.get(0).label().toString().equals("//test:mydep") ? 0 : 1;
+    int myDepIndex = stableOrderList.get(0).originalLabel().toString().equals("//test:mydep") ? 0 : 1;
     BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
     BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
 
@@ -507,7 +507,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     Iterator<KeyedConfiguredTarget> resultIterator = result.iterator();
     KeyedConfiguredTarget first = resultIterator.next();
-    if (first.label().toString().equals("//test:foo.java")) {
+    if (first.originalLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();
     } else {
@@ -537,7 +537,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     // not the one down this dependency path.
     helper.setUniverseScope("//test:buildme");
     Set<KeyedConfiguredTarget> result = eval("somepath(//test:buildme, //test:mydep)");
-    assertThat(result.stream().map(ct -> ct.label().toString()).collect(Collectors.toList()))
+    assertThat(result.stream().map(ct -> ct.originalLabel().toString()).collect(Collectors.toList()))
         .contains("//test:mydep");
   }
 
