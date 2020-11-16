@@ -105,6 +105,26 @@ public class CircularDependencyTest extends BuildViewTestCase {
     assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:14");
   }
 
+  @Test
+  public void cycleThroughVisibility() throws Exception {
+    String expectedEvent =
+        "in filegroup rule //cycle:v: cycle in dependency graph:\n"
+            + "    //cycle:v\n"
+            + "    //cycle:t\n"
+            + ".-> //cycle:v\n"
+            + "|   //cycle:t\n"
+            + "`-- //cycle:v\n"
+            + "The cycle is caused by a visibility edge from //cycle:t to the non-package_group"
+            + " target //cycle:v. Note that visibility labels are supposed to be package_group"
+            + " targets, which prevents cycles of this form.";
+    checkError(
+        "cycle",
+        "v",
+        expectedEvent,
+        "filegroup(name='t', visibility=[':v'])",
+        "filegroup(name='v', srcs=[':t'])");
+  }
+
   /**
    * Test to detect implicit input/output file overlap in rules.
    */

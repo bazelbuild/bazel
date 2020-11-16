@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,49 +13,73 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
 
 /**
- * Reports cycles between {@link TransitiveTargetValue}s. These indicates cycles between targets
- * (e.g. '//a:foo' depends on '//b:bar' and '//b:bar' depends on '//a:foo').
+ * Reports cycles between targets. These may be in the form of {@link ConfiguredTargetValue}s or
+ * {@link TransitiveTargetValue}s.
  */
-class TransitiveTargetCycleReporter extends AbstractLabelCycleReporter {
-  private static final Predicate<SkyKey> IS_SUPPORTED_SKY_KEY =
+class TargetCycleReporter extends AbstractLabelCycleReporter {
+
+  private static final Predicate<SkyKey> SUPPORTED_SKY_KEY =
       Predicates.or(
+          SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
+          SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
+          SkyFunctions.isSkyFunction(SkyFunctions.LOAD_STARLARK_ASPECT),
           SkyFunctions.isSkyFunction(SkyFunctions.TRANSITIVE_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
 
-  TransitiveTargetCycleReporter(PackageProvider packageProvider) {
+  TargetCycleReporter(PackageProvider packageProvider) {
     super(packageProvider);
-  }
-
-  @Override
-  protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return Iterables.all(Iterables.concat(ImmutableList.of(topLevelKey),
-        cycleInfo.getPathToCycle(), cycleInfo.getCycle()),
-        IS_SUPPORTED_SKY_KEY);
-  }
-
-  @Override
-  protected Label getLabel(SkyKey key) {
-    return ((TransitiveTargetKey) key).getLabel();
   }
 
   @Override
   protected boolean shouldSkipOnPathToCycle(SkyKey key) {
     return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName());
+  }
+
+  @Override
+  protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
+    return SUPPORTED_SKY_KEY.apply(topLevelKey)
+        && cycleInfo.getPathToCycle().stream().allMatch(SUPPORTED_SKY_KEY)
+        && cycleInfo.getCycle().stream().allMatch(SUPPORTED_SKY_KEY);
+  }
+
+  @Override
+  public String prettyPrint(SkyKey key) {
+    if (key instanceof ConfiguredTargetKey) {
+      return ((ConfiguredTargetKey) key.argument()).prettyPrint();
+    } else if (key instanceof AspectKey) {
+      return ((AspectKey) key.argument()).prettyPrint();
+    } else if (key instanceof AspectValueKey) {
+      return ((AspectValueKey) key).getDescription();
+    } else {
+      return getLabel(key).toString();
+    }
+  }
+
+  @Override
+  public Label getLabel(SkyKey key) {
+    if (key instanceof ActionLookupKey) {
+      return Preconditions.checkNotNull(((ActionLookupKey) key.argument()).getLabel(), key);
+    } else if (key instanceof TransitiveTargetKey) {
+      return ((TransitiveTargetKey) key).getLabel();
+    } else {
+      throw new UnsupportedOperationException(key.toString());
+    }
   }
 
   @Override
@@ -82,10 +106,13 @@ class TransitiveTargetCycleReporter extends AbstractLabelCycleReporter {
       // This is inefficient but it's no big deal since we only do this when there's a cycle.
       if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
           && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {
-        return "\nThe cycle is caused by a visibility edge from " + currentTarget.getLabel()
-            + " to the non-package-group target " + nextTarget.getLabel() + " . Note that "
-            + "visibility labels are supposed to be package group targets (which prevents cycles "
-            + "of this form)";
+        return "\nThe cycle is caused by a visibility edge from "
+            + currentTarget.getLabel()
+            + " to the non-package_group target "
+            + nextTarget.getLabel()
+            + ". Note that "
+            + "visibility labels are supposed to be package_group targets, which prevents cycles "
+            + "of this form.";
       }
       currentTarget = nextTarget;
     }

@@ -2737,9 +2737,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private CyclesReporter createCyclesReporter() {
     return new CyclesReporter(
-        new TransitiveTargetCycleReporter(packageManager),
+        new TargetCycleReporter(packageManager),
         new ActionArtifactCycleReporter(packageManager),
-        new ConfiguredTargetCycleReporter(packageManager),
         new TestExpansionCycleReporter(packageManager),
         new RegisteredToolchainsCycleReporter(),
         // TODO(ulfjack): The StarlarkModuleCycleReporter swallows previously reported cycles
