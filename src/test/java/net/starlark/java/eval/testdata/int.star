@@ -139,10 +139,20 @@ compound()
 
 # unary operators
 
+assert_eq(+0, 0)
 assert_eq(+4, 4)
-assert_eq(-4, -4)
-assert_eq(++4, 4)
 assert_eq(+-4, -4)
+
+assert_eq(-0, 0)
+assert_eq(-4, 0 - 4)
+assert_eq(-(0 - 4), 4)
+assert_eq(-minint, 0 - minint)
+assert_eq(-maxint, 0 - maxint)
+assert_eq(-minlong, 0 - minlong)
+assert_eq(-maxlong, 0 - maxlong)
+
+assert_eq(++4, 4)
+assert_eq(+-4, 0 - 4)
 assert_eq(-+-4, 4)
 
 ---

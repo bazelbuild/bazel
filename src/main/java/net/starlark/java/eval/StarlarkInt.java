@@ -618,6 +618,13 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       return StarlarkInt.of(-xl);
     }
 
+    if (x instanceof Int64) {
+      long xl = ((Int64) x).v;
+      if (xl != Long.MIN_VALUE) {
+        return StarlarkInt.of(-xl);
+      }
+    }
+
     BigInteger xbig = x.toBigInteger();
     BigInteger ybig = xbig.negate();
     return StarlarkInt.of(ybig);
