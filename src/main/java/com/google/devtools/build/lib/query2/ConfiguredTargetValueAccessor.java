@@ -138,8 +138,8 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
-    return ConfiguredTargetAccessor.getTargetFromConfiguredTarget(
-        configuredTargetValue.getConfiguredTarget(), walkableGraph);
+    return ConfiguredTargetAccessor.getTarget(
+        configuredTargetValue.getConfiguredTarget().getOriginalLabel(), walkableGraph);
   }
 
   /** Returns the AspectValues that are attached to the given configuredTarget. */

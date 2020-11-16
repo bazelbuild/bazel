@@ -17,7 +17,6 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
@@ -81,7 +80,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
@@ -91,7 +90,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
     CqueryOptions.Transitions verbosity = options.transitions;
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       eventHandler.handle(
@@ -100,22 +100,19 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                   + " flag explicitly to 'lite' or 'full'"));
       return;
     }
-    partialResult.forEach(
-        ct ->
-            partialResultMap.put(
-                ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
-    for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
-      BuildConfiguration config = getConfiguration(configuredTarget.getConfigurationKey());
+    partialResult.forEach(ct -> partialResultMap.put(ct.label(), accessor.getTarget(ct)));
+    for (KeyedConfiguredTarget configuredTarget : partialResult) {
+      Target target = partialResultMap.get(configuredTarget.label());
+      BuildConfiguration config = getConfiguration(configuredTarget.configurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + String.format("%s (%s)", configuredTarget.getOriginalLabel(), shortId(config)));
-      if (!(configuredTarget instanceof RuleConfiguredTarget)) {
+              + String.format("%s (%s)", configuredTarget.label(), shortId(config)));
+      if (!(configuredTarget.configuredTarget() instanceof RuleConfiguredTarget)) {
         continue;
       }
       OrderedSetMultimap<DependencyKind, DependencyKey> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
+          ((RuleConfiguredTarget) configuredTarget.configuredTarget()).getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
       ToolchainCollection<ToolchainContext> toolchainContexts =
@@ -194,9 +191,9 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
-  private String getRuleClassTransition(ConfiguredTarget ct, Target target) {
+  private String getRuleClassTransition(KeyedConfiguredTarget ct, Target target) {
     String output = "";
-    if (ct instanceof RuleConfiguredTarget) {
+    if (ct.configuredTarget() instanceof RuleConfiguredTarget) {
       TransitionFactory<Rule> factory =
           target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
       if (factory != null) {

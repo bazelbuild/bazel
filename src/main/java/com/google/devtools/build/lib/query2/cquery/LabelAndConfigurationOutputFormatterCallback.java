@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -31,7 +30,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       boolean showKind) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.showKind = showKind;
@@ -43,23 +42,23 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) {
-    for (ConfiguredTarget configuredTarget : partialResult) {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult) {
+    for (KeyedConfiguredTarget configuredTarget : partialResult) {
       StringBuilder output = new StringBuilder();
       if (showKind) {
-        Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
+        Target actualTarget = accessor.getTarget(configuredTarget);
         output = output.append(actualTarget.getTargetKind()).append(" ");
       }
       output =
           output
-              .append(configuredTarget.getOriginalLabel())
+              .append(configuredTarget.label())
               .append(" (")
-              .append(shortId(getConfiguration(configuredTarget.getConfigurationKey())))
+              .append(shortId(getConfiguration(configuredTarget.configurationKey())))
               .append(")");
 
       if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         RequiredConfigFragmentsProvider configFragmentsProvider =
-            configuredTarget.getProvider(RequiredConfigFragmentsProvider.class);
+            configuredTarget.configuredTarget().getProvider(RequiredConfigFragmentsProvider.class);
         String requiredFragmentsOutput =
             configFragmentsProvider != null
                 ? String.join(", ", configFragmentsProvider.getRequiredConfigFragments())

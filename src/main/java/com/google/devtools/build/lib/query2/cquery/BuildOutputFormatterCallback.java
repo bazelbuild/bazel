@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -42,7 +41,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor) {
+      TargetAccessor<KeyedConfiguredTarget> accessor) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
   }
 
@@ -72,29 +71,29 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
-  private ConfiguredAttributeMapper getAttributeMap(ConfiguredTarget ct)
+  private ConfiguredAttributeMapper getAttributeMap(KeyedConfiguredTarget ct)
       throws InterruptedException {
-    Rule associatedRule = accessor.getTargetFromConfiguredTarget(ct).getAssociatedRule();
+    Rule associatedRule = accessor.getTarget(ct).getAssociatedRule();
     if (associatedRule == null) {
       return null;
-    } else if (ct instanceof AliasConfiguredTarget) {
+    } else if (ct.configuredTarget() instanceof AliasConfiguredTarget) {
       return ConfiguredAttributeMapper.of(
-          associatedRule, ((AliasConfiguredTarget) ct).getConfigConditions());
-    } else if (ct instanceof OutputFileConfiguredTarget) {
+          associatedRule, ((AliasConfiguredTarget) ct.configuredTarget()).getConfigConditions());
+    } else if (ct.configuredTarget() instanceof OutputFileConfiguredTarget) {
       return ConfiguredAttributeMapper.of(
           associatedRule,
           accessor
-              .getGeneratingConfiguredTarget((OutputFileConfiguredTarget) ct)
+              .getGeneratingConfiguredTarget((OutputFileConfiguredTarget) ct.configuredTarget())
               .getConfigConditions());
     } else {
-      Verify.verify(ct instanceof RuleConfiguredTarget);
+      Verify.verify(ct.configuredTarget() instanceof RuleConfiguredTarget);
       return ConfiguredAttributeMapper.of(
-          associatedRule, ((RuleConfiguredTarget) ct).getConfigConditions());
+          associatedRule, ((RuleConfiguredTarget) ct.configuredTarget()).getConfigConditions());
     }
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
       throws InterruptedException, IOException {
     BuildOutputFormatter.TargetOutputter outputter =
         new TargetOutputter(
@@ -105,8 +104,8 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
             // and which path is chosen, which people may find even more informative.
             (rule, attr) -> false,
             System.lineSeparator());
-    for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = accessor.getTargetFromConfiguredTarget(configuredTarget);
+    for (KeyedConfiguredTarget configuredTarget : partialResult) {
+      Target target = accessor.getTarget(configuredTarget);
       outputter.output(target, new CqueryAttributeReader(getAttributeMap(configuredTarget)));
     }
   }

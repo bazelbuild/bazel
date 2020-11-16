@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
  * <p>Depending on the choice of {@code K}, this enables potential memory optimizations.
  */
 @ThreadSafe
+@FunctionalInterface
 public interface KeyExtractor<T, K> {
   /** Extracts an unique key that can be used to dedupe the given {@code element}. */
   K extractKey(T element);
