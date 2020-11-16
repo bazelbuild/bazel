@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -120,7 +121,8 @@ public class CleanCommandRecommendsAsyncTest {
 
     runtime.overrideCommands(ImmutableList.of(new CleanCommand(os)));
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
-    dispatcher.exec(commandLine, "test", outErr);
+    BlazeCommandResult result = dispatcher.exec(commandLine, "test", outErr);
+    assertThat(result.isSuccess()).isTrue();
     String output = outErr.toString();
 
     if (expectSuggestion) {
