@@ -56,6 +56,7 @@ public interface AndroidSdkProviderApi<
       doc = "",
       documented = false,
       allowReturnNones = true)
+  @Nullable
   FileT getFrameworkAidl();
 
   @StarlarkMethod(

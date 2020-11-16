@@ -24,6 +24,7 @@ import com.google.errorprone.annotations.DoNotCall;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -195,6 +196,7 @@ public final class StarlarkEvaluationTest {
     }
 
     @StarlarkMethod(name = "nullfunc_working", documented = false, allowReturnNones = true)
+    @Nullable
     public StarlarkValue nullfuncWorking() {
       return null;
     }
@@ -343,7 +345,6 @@ public final class StarlarkEvaluationTest {
     @StarlarkMethod(
         name = "proxy_methods_object",
         doc = "Returns a struct containing all callable method objects of this mock",
-        allowReturnNones = true,
         useStarlarkThread = true)
     public Structure proxyMethodsObject(StarlarkThread thread)
         throws EvalException, InterruptedException {

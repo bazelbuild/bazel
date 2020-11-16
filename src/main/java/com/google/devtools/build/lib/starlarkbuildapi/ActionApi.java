@@ -68,6 +68,7 @@ public interface ActionApi extends StarlarkValue {
               + "and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Sequence<String> getStarlarkArgv() throws EvalException;
 
   @StarlarkMethod(
@@ -83,6 +84,7 @@ public interface ActionApi extends StarlarkValue {
               + " For such action types, this is <code>None</code>.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
   /**
@@ -118,6 +120,7 @@ public interface ActionApi extends StarlarkValue {
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Dict<String, String> getStarlarkSubstitutions();
 
   @StarlarkMethod(

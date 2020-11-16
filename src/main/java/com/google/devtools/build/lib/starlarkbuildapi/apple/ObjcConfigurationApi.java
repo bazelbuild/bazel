@@ -35,6 +35,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       allowReturnNones = true,
       doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
+  @Nullable
   String getIosSimulatorDevice();
 
   @StarlarkMethod(
@@ -42,6 +43,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       allowReturnNones = true,
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
+  @Nullable
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
@@ -55,6 +57,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             named = false,
             doc = "The apple platform type."),
       })
+  @Nullable
   String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
 
   @StarlarkMethod(
@@ -68,6 +71,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             named = false,
             doc = "The apple platform type."),
       })
+  @Nullable
   DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
 
   @StarlarkMethod(

@@ -548,6 +548,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       },
       allowReturnNones = true,
       useStarlarkThread = true)
+  @Nullable
   String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
       throws EvalException;
 

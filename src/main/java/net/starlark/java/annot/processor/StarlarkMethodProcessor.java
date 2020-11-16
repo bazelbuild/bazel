@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -157,6 +158,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
                   + " may be specified.");
         }
         hasFlag = true;
+      }
+
+      if (annot.allowReturnNones() != (method.getAnnotation(Nullable.class) != null)) {
+        errorf(method, "Method must be annotated with @Nullable iff allowReturnNones is set.");
       }
 
       checkParameters(method, annot);

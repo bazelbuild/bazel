@@ -113,6 +113,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "C++ compiler.",
       allowReturnNones = true)
+  @Nullable
   public String getCompiler();
 
   @StarlarkMethod(
@@ -120,6 +121,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "libc version string.",
       allowReturnNones = true)
+  @Nullable
   public String getTargetLibc();
 
   @StarlarkMethod(
@@ -127,6 +129,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "Target CPU of the C++ toolchain.",
       allowReturnNones = true)
+  @Nullable
   public String getTargetCpu();
 
   @StarlarkMethod(
@@ -134,5 +137,6 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "The GNU System Name.",
       allowReturnNones = true)
+  @Nullable
   public String getTargetGnuSystemName();
 }

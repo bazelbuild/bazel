@@ -28,5 +28,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:jsr305",
     ],
 )

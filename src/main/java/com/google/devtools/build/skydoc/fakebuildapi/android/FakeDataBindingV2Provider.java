@@ -45,8 +45,8 @@ public class FakeDataBindingV2Provider implements DataBindingV2ProviderApi<FileA
     return null;
   }
 
-  @Nullable
   @Override
+  @Nullable
   public ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages() {
     return null;
   }

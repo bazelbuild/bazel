@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -355,6 +356,7 @@ public interface JavaCommonApi<
             valueWhenDisabled = "None"),
       },
       allowReturnNones = true)
+  @Nullable
   FileApi packSources(
       StarlarkActionFactoryT actions,
       Object outputJar,

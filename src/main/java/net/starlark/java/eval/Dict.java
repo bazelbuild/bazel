@@ -180,7 +180,6 @@ public final class Dict<K, V>
             named = true,
             doc = "The default value to use (instead of None) if the key is not found.")
       },
-      allowReturnNones = true,
       useStarlarkThread = true)
   // TODO(adonovan): This method is named get2 as a temporary workaround for a bug in
   // StarlarkAnnotations.getStarlarkMethod. The two 'get' methods cause it to get

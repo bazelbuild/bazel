@@ -72,6 +72,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   ImmutableList<FileT> getLocalAssets();
 
   /** Returns the local asset dir for the target. */
@@ -81,6 +82,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   String getLocalAssetDir();
 
   @StarlarkMethod(
