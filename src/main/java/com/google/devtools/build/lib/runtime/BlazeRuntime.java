@@ -677,13 +677,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
     }
 
-    try {
-      Profiler.instance().stop();
-      MemoryProfiler.instance().stop();
-    } catch (IOException e) {
-      env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
-    }
-
     env.getReporter().clearEventBus();
     retainedHeapLimiter.resetEventHandler();
     actionKeyContext.clear();
