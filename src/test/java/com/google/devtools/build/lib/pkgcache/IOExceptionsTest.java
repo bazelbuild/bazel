@@ -67,7 +67,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(ImmutableSet.of(key), evaluationContext);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
-    boolean hasTransitiveError = (value == null) || value.getTransitiveRootCauses() != null;
+    boolean hasTransitiveError = (value == null) || value.encounteredLoadingError();
     return !result.hasError() && !hasTransitiveError;
   }
 
