@@ -67,7 +67,6 @@ JVM8_TOOLCHAIN_CONFIGURATION = dict(
 )
 
 JAVABUILDER_TOOLCHAIN_CONFIGURATION = dict(
-    javac = ["//:javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
@@ -109,7 +108,6 @@ VANILLA_TOOLCHAIN_CONFIGURATION = dict(
 # same, otherwise the binaries will not work on the execution
 # platform.
 PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
-    javac = ["//:javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
