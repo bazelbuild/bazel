@@ -128,5 +128,6 @@ public class CleanCommandRecommendsAsyncTest {
     } else {
       assertThat(output).doesNotContain(EXPECTED_SUGGESTION);
     }
+    assertThat(false).isTrue();
   }
 }
