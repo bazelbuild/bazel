@@ -81,7 +81,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
 
   @SuppressWarnings("deprecation")
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
-    return of(proto.hasValue() ? proto.getValue() : null, proto.getMappedStringValue());
+    return of(proto.hasValue() ? proto.getValue() : null, proto.getMappedStringValueMap());
   }
 
   public static XmlResourceValue from(Value proto, Visibility visibility) {
