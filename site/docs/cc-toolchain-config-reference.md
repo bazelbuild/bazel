@@ -1105,8 +1105,8 @@ conditions.
 #### Legacy features patching logic
 
 <p>
-  Bazel does following changes to the features and their order to stay backwards
-  compatible:
+  Bazel applies the following changes to the toolchain's features for backwards
+  compatibility:
 
   <ul>
     <li>Moves <code>legacy_compile_flags</code> feature to the top of the toolchain</li>
