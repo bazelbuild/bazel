@@ -184,6 +184,11 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
+    protected long toLongFast() throws Overflow {
+      return v;
+    }
+
+    @Override
     public BigInteger toBigInteger() {
       return BigInteger.valueOf(v);
     }
@@ -220,6 +225,11 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
     @Override
     public long toLong(String what) {
+      return v;
+    }
+
+    @Override
+    protected long toLongFast() throws Overflow {
       return v;
     }
 
@@ -318,6 +328,15 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     throw Starlark.errorf("got %s for %s, want value in the signed 64-bit range", this, what);
   }
 
+  // Allocate the exception object once. This is just an overflow flag, it is never visible to users.
+  private static final class Overflow extends Throwable {}
+  private static final Overflow OVERFLOW = new Overflow();
+
+  /** Similar to {@link #toLong(String)}, but faster: exception is not allocated and stack trace is not collected. */
+  protected long toLongFast() throws Overflow {
+    throw OVERFLOW;
+  }
+
   /** Returns the nearest IEEE-754 double-precision value closest to this int, which may be ±Inf. */
   public double toDouble() {
     if (this instanceof Int32) {
@@ -403,6 +422,12 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     if (x instanceof Int32 && y instanceof Int32) {
       return Integer.compare(((Int32) x).v, ((Int32) y).v);
     }
+
+    try {
+      return Long.compare(x.toLongFast(), y.toLongFast());
+    } catch (Overflow unused) {
+    }
+
     return x.toBigInteger().compareTo(y.toBigInteger());
   }
 
@@ -412,6 +437,17 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       long xl = ((Int32) x).v;
       long yl = ((Int32) y).v;
       return StarlarkInt.of(xl + yl);
+    }
+
+    try {
+      long xl = x.toLongFast();
+      long yl = y.toLongFast();
+      long zl = xl + yl;
+      boolean overflow = ((xl ^ zl) & (yl ^ zl)) < 0; // see Hacker's Delight, chapter 2
+      if (!overflow) {
+        return StarlarkInt.of(zl);
+      }
+    } catch (Overflow unused) {
     }
 
     BigInteger xbig = x.toBigInteger();
@@ -426,6 +462,17 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       long xl = ((Int32) x).v;
       long yl = ((Int32) y).v;
       return StarlarkInt.of(xl - yl);
+    }
+
+    try {
+      long xl = x.toLongFast();
+      long yl = y.toLongFast();
+      long zl = xl - yl;
+      boolean overflow = ((xl ^ yl) & (xl ^ zl)) < 0; // see Hacker's Delight, chapter 2
+      if (!overflow) {
+        return StarlarkInt.of(zl);
+      }
+    } catch (Overflow unused) {
     }
 
     BigInteger xbig = x.toBigInteger();
