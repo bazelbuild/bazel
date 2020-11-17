@@ -448,23 +448,6 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     return StarlarkInt.of(zbig);
   }
 
-  /** Returns x / y (real division). */
-  public static StarlarkInt divide(StarlarkInt x, StarlarkInt y) throws EvalException {
-    if (y == ZERO) {
-      throw Starlark.errorf("real division by zero");
-    }
-    if (x instanceof Int32 && y instanceof Int32) {
-      long xl = ((Int32) x).v;
-      long yl = ((Int32) y).v;
-      return StarlarkInt.of(xl / yl);
-    }
-
-    BigInteger xbig = x.toBigInteger();
-    BigInteger ybig = y.toBigInteger();
-    BigInteger zbig = xbig.divide(ybig);
-    return StarlarkInt.of(zbig);
-  }
-
   /** Returns x // y (floor of integer division). */
   public static StarlarkInt floordiv(StarlarkInt x, StarlarkInt y) throws EvalException {
     if (y == ZERO) {
