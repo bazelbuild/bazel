@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
@@ -119,6 +120,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    * @param strategyThatCancelled name of the first strategy that executed this method, or a null
    *     reference if this is the first time this method is called. If not null, we expect the value
    *     referenced by this to be different than {@code cancellingStrategy}, or else we have a bug.
+   * @param options The options for dynamic execution.
+   * @param context The context of this action execution.
+   * @param spawn The spawn being executed.
    * @throws InterruptedException if we get interrupted for any reason trying to cancel the future
    * @throws DynamicInterruptedException if we lost a race against another strategy trying to cancel
    *     us
@@ -128,7 +132,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       Semaphore branchDone,
       Future<ImmutableList<SpawnResult>> cancellingBranch,
       DynamicMode cancellingStrategy,
-      AtomicReference<DynamicMode> strategyThatCancelled)
+      AtomicReference<DynamicMode> strategyThatCancelled,
+      DynamicExecutionOptions options,
+      ActionExecutionContext context,
+      Spawn spawn)
       throws InterruptedException {
     if (cancellingBranch.isCancelled()) {
       // TODO(b/173020239): Determine why stopBranch() can be called when cancellingBranch is
@@ -149,6 +156,16 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
       // branch just has to give up execution.
       if (strategyThatCancelled.compareAndSet(null, cancellingStrategy)) {
+        if (options.debugSpawnScheduler) {
+          context
+              .getEventHandler()
+              .handle(
+                  Event.info(
+                      String.format(
+                          "%s action finished %sly",
+                          spawn.getMnemonic(), strategyThatCancelled.get())));
+        }
+
         branchToCancel.cancel(true);
         branchDone.acquire();
       } else {
@@ -332,7 +349,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                               remoteDone,
                               localBranch,
                               DynamicMode.LOCAL,
-                              strategyThatCancelled));
+                              strategyThatCancelled,
+                              DynamicSpawnStrategy.this.options,
+                              actionExecutionContext,
+                              spawn));
                 } finally {
                   localDone.release();
                 }
@@ -374,7 +394,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                                   localDone,
                                   remoteBranch,
                                   DynamicMode.REMOTE,
-                                  strategyThatCancelled));
+                                  strategyThatCancelled,
+                                  DynamicSpawnStrategy.this.options,
+                                  actionExecutionContext,
+                                  spawn));
                   delayLocalExecution.set(true);
                   return spawnResults;
                 } finally {
