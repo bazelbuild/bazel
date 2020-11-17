@@ -191,7 +191,7 @@ public interface TestActionContext extends ActionContext {
      * attempts are exhausted and then run with another strategy for another set of attempts. This
      * is rarely used, and should ideally be removed.
      */
-    default TestRunnerSpawn getFallbackRunner() throws ExecException {
+    default TestRunnerSpawn getFallbackRunner() throws ExecException, InterruptedException {
       return null;
     }
 
@@ -200,7 +200,7 @@ public interface TestActionContext extends ActionContext {
      * allows a test to run with a different strategy on flaky retries (for example, enabling test
      * fail-fast mode to save up resources).
      */
-    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException {
+    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException, InterruptedException {
       return this;
     }
   }

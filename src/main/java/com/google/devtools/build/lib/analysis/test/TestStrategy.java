@@ -141,14 +141,11 @@ public abstract class TestStrategy implements TestActionContext {
    * @return the command line as string list.
    * @throws ExecException if {@link #expandedArgsFromAction} throws
    */
-  public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
+  public static ImmutableList<String> getArgs(TestRunnerAction testAction)
+      throws ExecException, InterruptedException {
     try {
       return expandedArgsFromAction(testAction);
-    } catch (CommandLineExpansionException | InterruptedException e) {
-      // TODO(b/168033469): plumb InterruptedException up through callers.
-      if (e instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
+    } catch (CommandLineExpansionException e) {
       throw new UserExecException(
           e,
           FailureDetail.newBuilder()

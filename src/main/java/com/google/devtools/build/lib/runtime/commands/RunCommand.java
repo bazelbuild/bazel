@@ -463,6 +463,11 @@ public class RunCommand implements BlazeCommand  {
       } catch (ExecException e) {
         return reportAndCreateFailureResult(
             env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE);
+      } catch (InterruptedException e) {
+        String message = "run: argument expansion interrupted";
+        env.getReporter().handle(Event.error(message));
+        return BlazeCommandResult.detailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(message));
       }
     } else {
       workingDir = runfilesDir;

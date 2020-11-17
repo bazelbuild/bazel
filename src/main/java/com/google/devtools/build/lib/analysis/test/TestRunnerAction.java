@@ -1224,7 +1224,7 @@ public class TestRunnerAction extends AbstractAction
         TestRunnerSpawn testRunnerSpawn,
         int numAttempts,
         int maxAttempts)
-        throws ExecException {
+        throws ExecException, InterruptedException {
       checkState(result != Result.PASSED, "Should not compute retry runner if last result passed");
       if (result.canRetry() && numAttempts < maxAttempts) {
         TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner();
