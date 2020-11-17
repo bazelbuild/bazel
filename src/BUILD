@@ -12,6 +12,7 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
     name = "install_base_key-file" + suffix,
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+        "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         # TODO(brandjon): ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
@@ -94,6 +95,14 @@ py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
     deps = [":create_embedded_tools_lib"],
+)
+
+# Script for turning builtins_bzl sources into a zip file for unioning into the
+# package zip / install base.
+sh_binary(
+    name = "zip_builtins",
+    srcs = ["zip_builtins.sh"],
+    visibility = ["//src/main/starlark/builtins_bzl:__pkg__"],
 )
 
 # The tools Bazel uses to compile Java.
@@ -315,14 +324,15 @@ filegroup(
 
 [genrule(
     name = "package-zip" + suffix,
+    # This script assumes the following arg order: 1) embedded tools zip (if it
+    # exists), 2) the deploy jar, 3) the install base key, 4) the builtins bzl
+    # zip, 5) the platforms archive, 6) everything else to be bundled.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
-        # The script assumes that the embedded tools zip (if exists) is the
-        # first item here, the deploy jar the second, install base key is the
-        # third, and platforms archive is the fourth.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
+        "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
         ":platforms_archive",
-        # Ordinary items follow:
+        # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
@@ -439,6 +449,7 @@ filegroup(
         "//src/main/java/net/starlark/java/lib/json:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
+        "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
