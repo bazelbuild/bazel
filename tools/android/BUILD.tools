@@ -1,6 +1,6 @@
 load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load("//tools/python:private/version.bzl", "PY_BINARY_VERSION")
-load(":defs.bzl", "run_ijar")
+load(":defs.bzl", "run_ijar", "run_singlejar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -142,22 +142,16 @@ filegroup(
 
 # javac needs this Jar to compile lambdas, method references, and type annotations.
 # These classes are not part of the android.jar.
-genrule(
+run_singlejar(
     name = "gen_java_base_extras_jar",
     srcs = [
         "@bazel_tools//tools/jdk:platformclasspath",
     ],
-    outs = ["java_base_extras.jar"],
-    cmd = """
-    $(location @bazel_tools//tools/jdk:singlejar) \
-        --exclude_build_data \
-        --dont_change_compression \
-        --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
-        --include_prefixes "java/lang/invoke/" \
-        --include_prefixes "java/lang/annotation/" \
-        --normalize \
-        --output $@""",
-    tools = ["@bazel_tools//tools/jdk:singlejar"],
+    out = "java_base_extras.jar",
+    include_prefixes = [
+        "java/lang/invoke/",
+        "java/lang/annotation/",
+    ],
     visibility = ["//visibility:private"],
 )
 
