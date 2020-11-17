@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -172,8 +171,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
       String message = "canonicalization interrupted";
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              message, Interrupted.Code.PACKAGE_LOADING_SYNC));
+          InterruptedFailureDetails.detailedExitCode(message));
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());

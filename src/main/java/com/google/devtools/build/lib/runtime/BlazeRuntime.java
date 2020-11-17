@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
@@ -653,8 +652,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       logger.atInfo().withCause(e).log("Interrupted in afterCommand");
       afterCommandResult =
           BlazeCommandResult.detailedExitCode(
-              InterruptedFailureDetails.detailedExitCode(
-                  "executor completion interrupted", Code.EXECUTOR_COMPLETION));
+              InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
       Thread.currentThread().interrupt();
     }
 

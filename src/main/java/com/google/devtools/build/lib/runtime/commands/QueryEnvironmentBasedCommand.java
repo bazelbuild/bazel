@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
 import com.google.devtools.build.lib.runtime.TargetProviderForQueryEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
@@ -98,8 +97,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     try {
       env.syncPackageLoading(options);
     } catch (InterruptedException e) {
-      return reportAndCreateInterruptResult(
-          env, "query interrupted", Interrupted.Code.PACKAGE_LOADING_SYNC);
+      return reportAndCreateInterruptResult(env, "query interrupted");
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
@@ -191,8 +189,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               env.getReporter().handle(Event.error(e.getMessage()));
               return BlazeCommandResult.detailedExitCode(DetailedExitCode.of(e.getFailureDetail()));
             } catch (InterruptedException e) {
-              return reportAndCreateInterruptResult(
-                  env, "query interrupted", Interrupted.Code.AFTER_QUERY);
+              return reportAndCreateInterruptResult(env, "query interrupted");
             }
             if (queryEvalResult.getSuccess()) {
               return BlazeCommandResult.success();
@@ -291,10 +288,9 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult reportAndCreateInterruptResult(
-      CommandEnvironment env, String message, Interrupted.Code detailedCode) {
+      CommandEnvironment env, String message) {
     env.getReporter().handle(Event.error(message));
-    return BlazeCommandResult.detailedExitCode(
-        InterruptedFailureDetails.detailedExitCode(message, detailedCode));
+    return BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message));
   }
 
   private static BlazeCommandResult reportAndCreateFailureResult(

@@ -390,7 +390,7 @@ public class RunCommand implements BlazeCommand  {
         env.getReporter().handle(Event.error("Interrupted"));
         return BlazeCommandResult.failureDetail(
             FailureDetail.newBuilder()
-                .setInterrupted(Interrupted.newBuilder().setCode(Interrupted.Code.RUN_COMMAND))
+                .setInterrupted(Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED))
                 .build());
       }
     }
@@ -750,7 +750,7 @@ public class RunCommand implements BlazeCommand  {
       String message = "run command interrupted";
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(message, Interrupted.Code.RUN_COMMAND));
+          InterruptedFailureDetails.detailedExitCode(message));
     } catch (NoSuchTargetException | NoSuchPackageException e) {
       env.getReporter().handle(Event.error("Failed to find a target to validate. " + e));
       throw new IllegalStateException("Failed to find a target to validate", e);

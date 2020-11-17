@@ -159,8 +159,7 @@ public final class CleanCommand implements BlazeCommand {
       String message = "clean interrupted";
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              message, FailureDetails.Interrupted.Code.CLEAN_COMMAND));
+          InterruptedFailureDetails.detailedExitCode(message));
     }
   }
 
