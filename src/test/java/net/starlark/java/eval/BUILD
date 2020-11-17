@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_test")
 
 package(default_testonly = 1)
 
@@ -48,6 +48,21 @@ java_test(
     data = glob(["testdata/*.star"]),
     jvm_flags = ["-Dfile.encoding=UTF8"],
     use_testrunner = False,
+    deps = [
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+    ],
+)
+
+# Script-based benchmarks of the Starlark interpreter.
+java_binary(
+    name = "Benchmarks",
+    srcs = ["Benchmarks.java"],
+    data = glob(["testdata/bench_*.star"]),
+    jvm_flags = ["-Dfile.encoding=UTF8"],
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
