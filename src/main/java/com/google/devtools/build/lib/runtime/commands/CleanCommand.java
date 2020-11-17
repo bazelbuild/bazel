@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -140,35 +141,10 @@ public final class CleanCommand implements BlazeCommand {
           createFailureDetail(message, Code.ARGUMENTS_NOT_RECOGNIZED));
     }
 
-    Options cleanOptions = options.getOptions(Options.class);
-    boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
-
-    // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
-    // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
-    // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
-    // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
-    // and exec(2).
-    boolean asyncSupport = os == OS.LINUX;
-    if (async && !asyncSupport) {
-      String fallbackName = cleanOptions.expunge ? "--expunge" : "synchronous clean";
-      env.getReporter()
-          .handle(
-              Event.info(
-                  null /*location*/,
-                  "--async cannot be used on non-Linux platforms, falling back to "
-                      + fallbackName));
-      async = false;
-    }
-
-    String cleanBanner =
-        (async || !asyncSupport)
-            ? "Starting clean."
-            : "Starting clean (this may take a while). "
-                + "Consider using --async if the clean takes more than several minutes.";
-
+    Options cleanOptions = options.getOptions(Options.class);
+    boolean async = canUseAsync(cleanOptions.async, cleanOptions.expunge, os, env.getReporter());
     env.getEventBus().post(new CleanStartingEvent(options));
-    env.getReporter().handle(Event.info(null /*location*/, cleanBanner));
 
     try {
       String symlinkPrefix =
@@ -186,6 +162,33 @@ public final class CleanCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(
               message, FailureDetails.Interrupted.Code.CLEAN_COMMAND));
     }
+  }
+
+  @VisibleForTesting
+  public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
+    // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
+    // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
+    // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
+    // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
+    // and exec(2).
+    boolean asyncSupport = os == OS.LINUX;
+    if (async && !asyncSupport) {
+      String fallbackName = expunge ? "--expunge" : "synchronous clean";
+      reporter.handle(
+          Event.info(
+              null /*location*/,
+              "--async cannot be used on non-Linux platforms, falling back to " + fallbackName));
+      async = false;
+    }
+
+    String cleanBanner =
+        (async || !asyncSupport)
+            ? "Starting clean."
+            : "Starting clean (this may take a while). "
+                + "Consider using --async if the clean takes more than several minutes.";
+    reporter.handle(Event.info(/* location= */ null, cleanBanner));
+
+    return async;
   }
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
