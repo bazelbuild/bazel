@@ -149,7 +149,6 @@ public abstract class FoundationTestCase {
         "    source_version = '6',",
         "    target_version = '6',",
         "    bootclasspath = ['rt.jar'],",
-        "    extclasspath = ['ext/lib.jar'],",
         "    xlint = ['toto'],",
         "    misc = ['-Xmaxerrs 500'],",
         "    compatible_javacopts = {",

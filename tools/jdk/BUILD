@@ -313,17 +313,6 @@ alias(
     actual = "@local_jdk//:bootclasspath",
 )
 
-alias(
-    name = "extclasspath",
-    actual = "@local_jdk//:extdir",
-)
-
-# TODO(cushon): migrate to extclasspath and delete
-alias(
-    name = "extdir",
-    actual = "@local_jdk//:extdir",
-)
-
 filegroup(
     name = "langtools",
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],

@@ -60,8 +60,7 @@ import java.util.List;
 public final class BazelAnalysisMock extends AnalysisMock {
   public static final AnalysisMock INSTANCE = new BazelAnalysisMock();
 
-  private BazelAnalysisMock() {
-  }
+  private BazelAnalysisMock() {}
 
   @Override
   public List<String> getWorkspaceContents(MockToolsConfig config) {
@@ -137,7 +136,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  source_version = '8',",
         "  target_version = '8',",
         "  bootclasspath = [':bootclasspath'],",
-        "  extclasspath = [':extclasspath'],",
         "  javac = [':langtools'],",
         "  javabuilder = ['JavaBuilder_deploy.jar'],",
         "  jacocorunner = ':JacocoCoverage',",
@@ -152,7 +150,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  source_version = '8',",
         "  target_version = '8',",
         "  bootclasspath = [':bootclasspath'],",
-        "  extclasspath = [':extclasspath'],",
         "  javac = [':langtools'],",
         "  javabuilder = ['JavaBuilder_deploy.jar'],",
         "  jacocorunner = ':JacocoCoverage',",
