@@ -140,11 +140,6 @@ function test_java_tools_has_javac() {
   expect_path_in_java_tools "javac-9+181-r4173-1.srcjar"
 }
 
-function test_java_tools_has_jarjar() {
-  expect_path_in_java_tools "third_party/jarjar"
-  expect_path_in_java_tools "third_party/jarjar/java/com/tonicsystems/jarjar"
-}
-
 # TOODO(iirina): Re-enable this and update jacoco version after #8376 is merged.
 function DISABLED_test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946-src.jar"

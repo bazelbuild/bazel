@@ -467,11 +467,6 @@ py_test(
     ],
 )
 
-remote_java_tools_java_import(
-    name = "JarJar",
-    target = ":JarJar",
-)
-
 test_suite(
     name = "windows_tests",
     tags = [
