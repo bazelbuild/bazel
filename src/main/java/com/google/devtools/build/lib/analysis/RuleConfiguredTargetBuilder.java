@@ -100,11 +100,11 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
-   * Returns null if there were rule errors reported.
+   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder. Returns
+   * null if there were rule errors reported.
    */
   @Nullable
-  public ConfiguredTarget build() throws ActionConflictException {
+  public ConfiguredTarget build() throws ActionConflictException, InterruptedException {
     // If allowing analysis failures, the current target may not propagate all of the
     // expected providers; be lenient on such cases (for example, avoid precondition checks).
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
@@ -377,7 +377,8 @@ public final class RuleConfiguredTargetBuilder {
     }
   }
 
-  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
+  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider)
+      throws InterruptedException {
     int explicitShardCount =
         ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
     if (explicitShardCount < 0

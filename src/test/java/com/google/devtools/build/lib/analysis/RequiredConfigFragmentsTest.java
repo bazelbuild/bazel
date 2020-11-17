@@ -221,7 +221,8 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     }
 
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws ActionConflictException, InterruptedException {
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addProvider(RunfilesProvider.EMPTY)
           .build();

@@ -60,7 +60,8 @@ public final class TestTargetExecutionSettings {
       Artifact instrumentedFileManifest,
       Artifact persistentTestRunnerFlagFile,
       int shards,
-      int runs) {
+      int runs)
+      throws InterruptedException {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
@@ -74,11 +75,6 @@ public final class TestTargetExecutionSettings {
       ImmutableList.Builder<String> testTargetArgs = new ImmutableList.Builder<>();
       try {
         testTargetArgs.addAll(targetArgs.arguments());
-      } catch (InterruptedException unused) {
-        Thread.currentThread().interrupt();
-        // Don't fail the build and ignore the runfiles arguments.
-        // TODO(b/168033469): dubious; reconsider.
-        ruleContext.ruleError("Interrupted while expanding test target arguments");
       } catch (CommandLineExpansionException e) {
         // Don't fail the build and ignore the runfiles arguments.
         ruleContext.ruleError("Could not expand test target arguments: " + e.getMessage());
