@@ -155,7 +155,7 @@ public abstract class FoundationTestCase {
         "        'appengine': ['-XDappengineCompatible'],",
         "        'android': ['-XDandroidCompatible'],",
         "    },",
-        "    javac = [':javac_canary.jar'],",
+        "    tools = [':javac_canary.jar'],",
         "    javabuilder = [':JavaBuilder_deploy.jar'],",
         "    header_compiler = [':turbine_canary_deploy.jar'],",
         "    header_compiler_direct = [':turbine_graal'],",

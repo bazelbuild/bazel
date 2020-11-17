@@ -43,7 +43,6 @@ java_toolchain(
     genclass = [":dummy_binary"],
     ijar = [":dummy_binary"],
     javabuilder = [":dummy_binary"],
-    javac = [":dummy_binary"],
     singlejar = [":dummy_binary"],
 )
 

@@ -61,7 +61,6 @@ java_toolchain(
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
     jvm_opts = [
         # Prevent "Could not reserve enough space for object heap" errors on Windows.
         "-Xmx512m",

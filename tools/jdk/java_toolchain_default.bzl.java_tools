@@ -62,7 +62,7 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
 )
 
 JVM8_TOOLCHAIN_CONFIGURATION = dict(
-    javac = ["//:javac_jar"],
+    tools = ["//:javac_jar"],
     jvm_opts = ["-Xbootclasspath/p:$(location //:javac_jar)"],
 )
 
@@ -127,7 +127,6 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
 
 _LABEL_LISTS = [
     "bootclasspath",
-    "extclasspath",
     "javac",
     "tools",
     "javabuilder",

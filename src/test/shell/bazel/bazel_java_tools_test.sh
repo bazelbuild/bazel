@@ -204,7 +204,6 @@ function test_java_toolchain_default_manualConfigurationWithLocation() {
 load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default", "JDK9_JVM_OPTS")
 java_toolchain_default(
   name = "toolchain",
-  javac = ["//:javac_jar"],
   jvm_opts = [
       # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
       # G1 collector and having compact strings enabled.
