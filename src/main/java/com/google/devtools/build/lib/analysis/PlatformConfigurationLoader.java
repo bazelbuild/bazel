@@ -14,19 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 
 /** A loader that creates {@link PlatformConfiguration} instances based on command-line options. */
 public class PlatformConfigurationLoader implements ConfigurationFragmentFactory {
-  @Override
-  public PlatformConfiguration create(BuildOptions buildOptions)
-      throws InvalidConfigurationException {
-    return new PlatformConfiguration(buildOptions);
-  }
-
   @Override
   public Class<? extends Fragment> creates() {
     return PlatformConfiguration.class;

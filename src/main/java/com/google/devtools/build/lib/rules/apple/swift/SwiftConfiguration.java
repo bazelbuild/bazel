@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.SwiftConfigurationApi;
@@ -49,12 +48,6 @@ public class SwiftConfiguration extends Fragment implements SwiftConfigurationAp
 
   /** Loads {@link SwiftConfiguration} from build options. */
   public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public SwiftConfiguration create(BuildOptions buildOptions)
-        throws InvalidConfigurationException {
-      return new SwiftConfiguration(buildOptions);
-    }
-
     @Override
     public Class<? extends Fragment> creates() {
       return SwiftConfiguration.class;

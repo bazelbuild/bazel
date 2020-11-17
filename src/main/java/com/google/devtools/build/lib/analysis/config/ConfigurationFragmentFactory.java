@@ -13,24 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import javax.annotation.Nullable;
-
 /**
  * A factory that instantiates configuration fragments, and which knows some "static" information
  * about these fragments.
  */
 public interface ConfigurationFragmentFactory {
-  /**
-   * Creates a configuration fragment from the given command-line options.
-   *
-   * <p>{@code buildOptions} is only guaranteed to hold those {@link FragmentOptions} that are
-   * listed by {@link #requiredOptions}.
-   *
-   * @return the configuration fragment, or null if some required dependencies are missing.
-   */
-  @Nullable
-  Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException;
-
   /** Returns the exact type of the fragment this factory creates. */
   Class<? extends Fragment> creates();
 }

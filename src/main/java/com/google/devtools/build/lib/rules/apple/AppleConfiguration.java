@@ -80,7 +80,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  private AppleConfiguration(BuildOptions buildOptions) {
+  public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
     String iosCpu = iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu);
     this.options = options;
@@ -468,11 +468,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * Loads {@link AppleConfiguration} from build options.
    */
   public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public AppleConfiguration create(BuildOptions buildOptions) {
-      return new AppleConfiguration(buildOptions);
-    }
-
     @Override
     public Class<? extends Fragment> creates() {
       return AppleConfiguration.class;

@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -42,11 +41,6 @@ public class GenQueryConfiguration extends Fragment {
   }
 
   static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
-      return new GenQueryConfiguration(buildOptions);
-    }
-
     @Override
     public Class<? extends Fragment> creates() {
       return GenQueryConfiguration.class;

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -198,12 +197,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
    */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(BuildOptions buildOptions)
-        throws InvalidConfigurationException {
-      return new ProtoConfiguration(buildOptions);
-    }
-
-    @Override
     public Class<? extends Fragment> creates() {
       return ProtoConfiguration.class;
     }
@@ -214,7 +207,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   private final ImmutableList<String> ccProtoLibrarySourceSuffixes;
   private final Options options;
 
-  private ProtoConfiguration(BuildOptions buildOptions) {
+  public ProtoConfiguration(BuildOptions buildOptions) {
     Options options = buildOptions.get(Options.class);
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);

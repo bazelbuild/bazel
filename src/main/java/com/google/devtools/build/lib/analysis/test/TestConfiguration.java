@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
@@ -299,16 +298,6 @@ public class TestConfiguration extends Fragment {
   /** Configuration loader for test options */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(BuildOptions buildOptions)
-        throws InvalidConfigurationException {
-      // TODO(gregce): Have TestConfiguration set itself to a non-functional state if this is true.
-      if (!buildOptions.contains(TestOptions.class)) {
-        return null;
-      }
-      return new TestConfiguration(buildOptions);
-    }
-
-    @Override
     public Class<? extends Fragment> creates() {
       return TestConfiguration.class;
     }
@@ -316,11 +305,23 @@ public class TestConfiguration extends Fragment {
 
   private final TestOptions options;
   private final ImmutableMap<TestTimeout, Duration> testTimeout;
+  private final boolean shouldInclude;
 
-  private TestConfiguration(BuildOptions buildOptions) {
-    TestOptions options = buildOptions.get(TestOptions.class);
-    this.options = options;
-    this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+  public TestConfiguration(BuildOptions buildOptions) {
+    this.shouldInclude = buildOptions.contains(TestOptions.class);
+    if (shouldInclude) {
+      TestOptions options = buildOptions.get(TestOptions.class);
+      this.options = options;
+      this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+    } else {
+      this.options = null;
+      this.testTimeout = null;
+    }
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return shouldInclude;
   }
 
   /** Returns test timeout mapping as set by --test_timeout options. */

@@ -71,7 +71,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean compileInfoMigration;
   private final boolean avoidHardcodedCompilationFlags;
 
-  ObjcConfiguration(BuildOptions buildOptions) {
+  public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
     CppOptions cppOptions = buildOptions.get(CppOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);

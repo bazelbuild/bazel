@@ -46,7 +46,7 @@ public class LateBoundSplitUtil {
   /** The {@link Fragment} that contains the options. */
   @AutoCodec
   @RequiresOptions(options = {TestOptions.class})
-  static class TestFragment extends Fragment {
+  public static class TestFragment extends Fragment {
     private final BuildOptions buildOptions;
 
     public TestFragment(BuildOptions buildOptions) {
@@ -62,11 +62,6 @@ public class LateBoundSplitUtil {
    * The fragment's loader.
    */
   static class FragmentLoader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new TestFragment(buildOptions);
-    }
-
     @Override
     public Class<? extends Fragment> creates() {
      return TestFragment.class;

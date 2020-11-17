@@ -55,7 +55,7 @@ public class ShellConfiguration extends Fragment {
   private final PathFragment shellExecutable;
   private final boolean useShBinaryStubScript;
 
-  private ShellConfiguration(BuildOptions buildOptions) {
+  public ShellConfiguration(BuildOptions buildOptions) {
     this.shellExecutable = shellExecutableFinder.apply(buildOptions);
     this.useShBinaryStubScript = buildOptions.get(Options.class).useShBinaryStubScript;
   }
@@ -125,11 +125,6 @@ public class ShellConfiguration extends Fragment {
 
   /** The loader for {@link ShellConfiguration}. */
   public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new ShellConfiguration(buildOptions);
-    }
-
     @Override
     public Class<? extends Fragment> creates() {
       return ShellConfiguration.class;

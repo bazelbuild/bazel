@@ -107,12 +107,6 @@ public class BazelPythonConfiguration extends Fragment {
    */
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(BuildOptions buildOptions)
-        throws InvalidConfigurationException {
-      return new BazelPythonConfiguration(buildOptions);
-    }
-
-    @Override
     public Class<? extends Fragment> creates() {
       return BazelPythonConfiguration.class;
     }
@@ -120,7 +114,7 @@ public class BazelPythonConfiguration extends Fragment {
 
   private final Options options;
 
-  private BazelPythonConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
+  public BazelPythonConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     this.options = buildOptions.get(Options.class);
     String pythonPath = getPythonPath();
     if (!pythonPath.startsWith("python") && !PathFragment.create(pythonPath).isAbsolute()) {

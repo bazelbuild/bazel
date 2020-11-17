@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import javax.annotation.Nullable;
 
 /** Configuration fragment for android_local_test. */
 @Immutable
@@ -49,13 +48,6 @@ public class AndroidLocalTestConfiguration extends Fragment {
    * com.google.devtools.build.lib.rules.android.AndroidLocalTestConfiguration}.
    */
   public static final class Loader implements ConfigurationFragmentFactory {
-
-    @Nullable
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new AndroidLocalTestConfiguration(buildOptions);
-    }
-
     @Override
     public Class<? extends Fragment> creates() {
       return AndroidLocalTestConfiguration.class;
@@ -64,7 +56,7 @@ public class AndroidLocalTestConfiguration extends Fragment {
 
   private final boolean androidLocalTestBinaryResources;
 
-  private AndroidLocalTestConfiguration(BuildOptions buildOptions) {
+  public AndroidLocalTestConfiguration(BuildOptions buildOptions) {
     this.androidLocalTestBinaryResources =
         buildOptions.get(Options.class).androidLocalTestBinaryResources;
   }

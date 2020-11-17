@@ -13,21 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 
 /**
  * A factory implementation for {@link PythonConfiguration} objects.
  */
 public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
-  @Override
-  public PythonConfiguration create(BuildOptions buildOptions)
-      throws InvalidConfigurationException {
-    return new PythonConfiguration(buildOptions);
-  }
-
   @Override
   public Class<? extends Fragment> creates() {
     return PythonConfiguration.class;

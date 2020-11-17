@@ -23,6 +23,10 @@ import net.starlark.java.eval.StarlarkValue;
 /**
  * An interface for language-specific configurations.
  *
+ * <p>Implementations must have a constructor that takes a single {@link BuildOptions} argument. If
+ * the constructor reads any {@link FragmentOptions} from this argument, the fragment must declare
+ * them via {@link RequiresOptions}.
+ *
  * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
  * declare {@link com.google.common.collect.ImmutableList} signatures on their interfaces vs. {@link
  * List}). This is because fragment instances may be shared across configurations.
@@ -31,6 +35,15 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @Immutable
 public abstract class Fragment implements StarlarkValue {
+
+  /**
+   * When a fragment doesn't want to be part of the configuration (for example, when its required
+   * options are missing and the fragment determines this means the configuration doesn't need it),
+   * it should override this method.
+   */
+  public boolean shouldInclude() {
+    return true;
+  }
 
   @Override
   public boolean isImmutable() {

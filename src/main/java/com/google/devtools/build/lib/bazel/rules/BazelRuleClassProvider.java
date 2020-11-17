@@ -177,15 +177,11 @@ public class BazelRuleClassProvider {
    * StrictActionEnvOptions} is always available.
    */
   @RequiresOptions(options = {StrictActionEnvOptions.class})
-  private static class StrictActionEnvConfiguration extends Fragment {
-    private StrictActionEnvConfiguration(BuildOptions buildOptions) {}
+  public static class StrictActionEnvConfiguration extends Fragment {
+    public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
 
+    /** Loader. */
     public static class Loader implements ConfigurationFragmentFactory {
-      @Override
-      public Fragment create(BuildOptions buildOptions) {
-        return new StrictActionEnvConfiguration(buildOptions);
-      }
-
       @Override
       public Class<? extends Fragment> creates() {
         return StrictActionEnvConfiguration.class;

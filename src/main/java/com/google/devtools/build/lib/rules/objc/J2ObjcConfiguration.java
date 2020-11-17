@@ -71,11 +71,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new J2ObjcConfiguration(buildOptions);
-    }
-
-    @Override
     public Class<? extends Fragment> creates() {
       return J2ObjcConfiguration.class;
     }

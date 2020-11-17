@@ -13,21 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 
 /**
  * A loader that creates JavaConfiguration instances based on JavaBuilder configurations and
  * command-line options.
  */
 public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
-  @Override
-  public JavaConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
-    return new JavaConfiguration(buildOptions);
-  }
-
   @Override
   public Class<? extends Fragment> creates() {
     return JavaConfiguration.class;

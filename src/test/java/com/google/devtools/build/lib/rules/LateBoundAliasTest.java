@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,7 +38,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LateBoundAliasTest extends BuildViewTestCase {
 
-  private static final class TestFragment extends Fragment {
+  /** Test fragment. */
+  public static final class TestFragment extends Fragment {
     public TestFragment(BuildOptions buildOptions) {}
   }
 
@@ -48,12 +48,6 @@ public class LateBoundAliasTest extends BuildViewTestCase {
     @Override
     public Class<? extends Fragment> creates() {
       return TestFragment.class;
-    }
-
-    @Nullable
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new TestFragment(buildOptions);
     }
   }
 

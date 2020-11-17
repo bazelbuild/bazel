@@ -14,21 +14,14 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 
 /**
  * A loader that creates ObjcConfiguration instances based on Objective-C configurations and
  * command-line options.
  */
 public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
-  @Override
-  public ObjcConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
-    return new ObjcConfiguration(buildOptions);
-  }
-
   @Override
   public Class<? extends Fragment> creates() {
     return ObjcConfiguration.class;

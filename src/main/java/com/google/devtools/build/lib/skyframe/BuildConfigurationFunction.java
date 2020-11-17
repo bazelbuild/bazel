@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -167,9 +168,20 @@ public class BuildConfigurationFunction implements SkyFunction {
 
   private Fragment makeFragment(FragmentKey fragmentKey) throws InvalidConfigurationException {
     BuildOptions buildOptions = fragmentKey.getBuildOptions();
-    ConfigurationFragmentFactory factory = getFactory(fragmentKey.getFragmentClass());
-    Fragment fragment = factory.create(buildOptions);
-    return fragment != null ? fragment : NULL_MARKER;
+    Class<? extends Fragment> fragmentClass = getFactory(fragmentKey.getFragmentClass()).creates();
+    String noConstructorPattern = "%s lacks constructor(BuildOptions)";
+    try {
+      Fragment fragment =
+          fragmentClass.getConstructor(BuildOptions.class).newInstance(buildOptions);
+      return fragment.shouldInclude() ? fragment : NULL_MARKER;
+    } catch (InvocationTargetException e) {
+      if (e.getCause() instanceof InvalidConfigurationException) {
+        throw (InvalidConfigurationException) e.getCause();
+      }
+      throw new IllegalStateException(String.format(noConstructorPattern, fragmentClass), e);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(String.format(noConstructorPattern, fragmentClass), e);
+    }
   }
 
   private ConfigurationFragmentFactory getFactory(Class<? extends Fragment> fragmentType) {

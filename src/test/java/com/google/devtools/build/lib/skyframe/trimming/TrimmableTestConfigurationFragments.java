@@ -71,7 +71,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.List;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
@@ -407,21 +406,14 @@ public final class TrimmableTestConfigurationFragments {
   private static final class FragmentLoader<FragmentT extends Fragment>
       implements ConfigurationFragmentFactory {
     private final Class<FragmentT> fragmentType;
-    private final Function<BuildOptions, FragmentT> fragmentMaker;
 
-    FragmentLoader(Class<FragmentT> fragmentType, Function<BuildOptions, FragmentT> fragmentMaker) {
+    FragmentLoader(Class<FragmentT> fragmentType) {
       this.fragmentType = fragmentType;
-      this.fragmentMaker = fragmentMaker;
     }
 
     @Override
     public Class<? extends Fragment> creates() {
       return fragmentType;
-    }
-
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return fragmentMaker.apply(buildOptions);
     }
   }
 
@@ -439,8 +431,7 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "alpha", doc = "Test config fragment.")
   @RequiresOptions(options = {AOptions.class})
   public static final class AConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(AConfig.class, AConfig::new);
+    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(AConfig.class);
 
     private final String value;
 
@@ -468,8 +459,7 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "bravo", doc = "Test config fragment.")
   @RequiresOptions(options = {BOptions.class})
   public static final class BConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(BConfig.class, BConfig::new);
+    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(BConfig.class);
 
     private final String value;
 
@@ -497,8 +487,7 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "charlie", doc = "Test config fragment.")
   @RequiresOptions(options = {COptions.class})
   public static final class CConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(CConfig.class, CConfig::new);
+    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(CConfig.class);
 
     private final String value;
 
@@ -526,8 +515,7 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "delta", doc = "Test config fragment.")
   @RequiresOptions(options = {DOptions.class})
   public static final class DConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(DConfig.class, DConfig::new);
+    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(DConfig.class);
 
     private final String value;
 
@@ -558,8 +546,7 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "echo", doc = "Test config fragment.")
   @RequiresOptions(options = {EOptions.class})
   public static final class EConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(EConfig.class, EConfig::new);
+    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(EConfig.class);
 
     private final String value;
 
