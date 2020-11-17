@@ -63,6 +63,10 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
       return fp.hexDigestAndReset();
     } catch (CommandLineExpansionException e) {
       return KEY_ERROR;
+    } catch (InterruptedException unused) {
+      Thread.currentThread().interrupt();
+      // TODO(b/168033469): fix: this is not safe wrt caching of failures.
+      return KEY_ERROR;
     }
   }
 
@@ -78,5 +82,5 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException;
+      throws CommandLineExpansionException, InterruptedException;
 }

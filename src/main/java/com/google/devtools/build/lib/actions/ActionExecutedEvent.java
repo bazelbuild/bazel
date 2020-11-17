@@ -225,6 +225,11 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     } catch (CommandLineExpansionException e) {
       // Command-line not available, so just not report it
       logger.atInfo().withCause(e).log("Could not compute commandline of reported action");
+    } catch (InterruptedException unused) {
+      // Command-line not available, so just not report it
+      // TODO(b/168033469): dubious; reconsider.
+      Thread.currentThread().interrupt();
+      logger.atInfo().log("Interrupted while expanding action command line");
     }
     return GenericBuildEvent.protoChaining(this).setAction(actionBuilder.build()).build();
   }

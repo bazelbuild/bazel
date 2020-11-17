@@ -933,7 +933,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
 
@@ -1316,7 +1316,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     computeKey(
         actionKeyContext,
         fp,
@@ -1349,7 +1349,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
       NestedSet<Artifact> inputsForInvalidation,
-      boolean validateTopLevelHeaderInclusions) {
+      boolean validateTopLevelHeaderInclusions)
+      throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(actionClassId);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);

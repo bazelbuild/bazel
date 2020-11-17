@@ -36,6 +36,7 @@ java_library(
             "ArtifactResolver.java",
             "ArtifactRoot.java",
             "Artifacts.java",
+            "CommandLineExpansionException.java",
             "CommandLineItem.java",
             "ExecutionRequirements.java",
             "FileArtifactValue.java",
@@ -194,7 +195,11 @@ java_library(
 
 java_library(
     name = "commandline_item",
-    srcs = ["CommandLineItem.java"],
+    srcs = [
+        "CommandLineExpansionException.java",
+        "CommandLineItem.java",
+    ],
+    deps = ["//third_party:jsr305"],
 )
 
 java_library(

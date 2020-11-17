@@ -69,7 +69,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  Sequence<String> getStarlarkArgv() throws EvalException;
+  Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "args",
@@ -85,7 +85,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
+  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException, InterruptedException;
 
   /**
    * If the action writes a file whose content is known at analysis time, returns that content;
@@ -110,7 +110,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  String getStarlarkContent() throws IOException, EvalException;
+  String getStarlarkContent() throws IOException, EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "substitutions",

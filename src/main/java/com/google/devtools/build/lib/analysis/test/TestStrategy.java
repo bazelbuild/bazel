@@ -144,7 +144,11 @@ public abstract class TestStrategy implements TestActionContext {
   public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
     try {
       return expandedArgsFromAction(testAction);
-    } catch (CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | InterruptedException e) {
+      // TODO(b/168033469): plumb InterruptedException up through callers.
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       throw new UserExecException(
           e,
           FailureDetail.newBuilder()
@@ -163,7 +167,7 @@ public abstract class TestStrategy implements TestActionContext {
    * @throws CommandLineExpansionException
    */
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
     // consider the target configuration, not the machine Bazel happens to run on. Change this to

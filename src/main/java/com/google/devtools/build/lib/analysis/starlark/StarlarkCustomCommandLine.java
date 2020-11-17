@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -63,8 +62,6 @@ import net.starlark.java.syntax.Location;
 /** Supports ctx.actions.args() from Starlark. */
 @AutoCodec
 public class StarlarkCustomCommandLine extends CommandLine {
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final StarlarkSemantics starlarkSemantics;
   private final ImmutableList<Object> arguments;
@@ -189,7 +186,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<String> builder,
         @Nullable ArtifactExpander artifactExpander,
         StarlarkSemantics starlarkSemantics)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       final List<Object> originalValues;
@@ -376,7 +373,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         Fingerprint fingerprint,
         StarlarkSemantics starlarkSemantics,
         @Nullable ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       StarlarkCallable mapEach =
@@ -392,9 +389,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
-          } catch (UncheckedCommandLineExpansionException e) {
-            // We wrap the CommandLineExpansionException below, unwrap here
-            throw e.cause;
           } finally {
             // The cache holds an entry for a NestedSet for every (map_fn, hasArtifactExpanderBit).
             // Clearing the artifactExpander itself saves us from storing the contents of it in the
@@ -611,8 +605,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return argi;
     }
 
-    private int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint)
-        throws CommandLineExpansionException {
+    private int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint) {
       Object object = arguments.get(argi++);
       String stringValue = CommandLineItem.expandToCommandLine(object);
       fingerprint.addString(stringValue);
@@ -706,13 +699,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
   }
 
   @Override
-  public Iterable<String> arguments() throws CommandLineExpansionException {
+  public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
     return arguments(null);
   }
 
   @Override
   public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     List<String> result = new ArrayList<>();
 
     // If we're grouping arguments, keep track of the result indexes corresponding to the
@@ -769,7 +762,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fingerprint)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     for (int argi = 0; argi < arguments.size(); ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
@@ -827,7 +820,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Location loc,
       @Nullable ArtifactExpander artifactExpander,
       StarlarkSemantics starlarkSemantics)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     try (Mutability mu = Mutability.create("map_each")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       // TODO(b/77140311): Error if we issue print statements.
@@ -876,10 +869,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // before printing it.
       throw new CommandLineExpansionException(
           errorMessage(e.getMessageWithStack(), loc, e.getCause()));
-    } catch (InterruptedException e) {
-      logger.atWarning().withCause(e).log("Interrupted while applying map_each at %s", loc);
-      Thread.currentThread().interrupt();
-      throw new CommandLineExpansionException(errorMessage("Thread was interrupted", loc, null));
     }
   }
 
@@ -910,21 +899,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void expandToCommandLine(Object object, Consumer<String> args) {
+    public void expandToCommandLine(Object object, Consumer<String> args)
+        throws CommandLineExpansionException, InterruptedException {
       Preconditions.checkState(artifactExpander != null || !hasArtifactExpander);
-      try {
-        applyMapEach(
-            mapFn,
-            maybeExpandDirectory(object),
-            args,
-            location,
-            artifactExpander,
-            starlarkSemantics);
-      } catch (CommandLineExpansionException e) {
-        // Rather than update CommandLineItem#expandToCommandLine and the numerous callers,
-        // we wrap this in a runtime exception and handle it above
-        throw new UncheckedCommandLineExpansionException(e);
-      }
+      applyMapEach(
+          mapFn, maybeExpandDirectory(object), args, location, artifactExpander, starlarkSemantics);
     }
 
     private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
@@ -1000,14 +979,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return null;
     }
     return causeMessage;
-  }
-
-  private static class UncheckedCommandLineExpansionException extends RuntimeException {
-    final CommandLineExpansionException cause;
-
-    UncheckedCommandLineExpansionException(CommandLineExpansionException cause) {
-      this.cause = cause;
-    }
   }
 
   /**

@@ -146,7 +146,7 @@ public class ProtoCompileActionBuilderTest {
   }
 
   @Test
-  public void commandline_derivedArtifact() {
+  public void commandline_derivedArtifact() throws Exception {
     // Verify that the command line contains the correct path to a generated protocol buffers.
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -395,7 +395,7 @@ public class ProtoCompileActionBuilderTest {
    * the external repo root, and physical should be the physical file location.
    */
   @Test
-  public void testIncludeMapsOfExternalFiles() {
+  public void testIncludeMapsOfExternalFiles() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
@@ -439,7 +439,8 @@ public class ProtoCompileActionBuilderTest {
 
   private static Iterable<String> protoArgv(
       Iterable<ProtoSource> transitiveSources,
-      @Nullable Iterable<ProtoSource> importableProtoSources) {
+      @Nullable Iterable<ProtoSource> importableProtoSources)
+      throws Exception {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     NestedSet<ProtoSource> importableProtoSourceSet =
         importableProtoSources != null

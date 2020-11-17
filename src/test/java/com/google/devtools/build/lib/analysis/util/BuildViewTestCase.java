@@ -798,7 +798,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Locates the first parameter file used by the action and returns its args. */
   @Nullable
   protected final Iterable<String> paramFileArgsForAction(Action action)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CommandLine commandLine = paramFileCommandLineForAction(action);
     return commandLine != null ? commandLine.arguments() : null;
   }
@@ -810,7 +810,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   @Nullable
   protected final Iterable<String> paramFileArgsOrActionArgs(CommandAction action)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CommandLine commandLine = paramFileCommandLineForAction(action);
     return commandLine != null ? commandLine.arguments() : action.getArguments();
   }
@@ -818,7 +818,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Locates the first parameter file used by the action and returns its contents. */
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
-      throws CommandLineExpansionException, IOException {
+      throws CommandLineExpansionException, InterruptedException, IOException {
     if (action instanceof SpawnAction) {
       CommandLines commandLines = ((SpawnAction) action).getCommandLines();
       for (CommandLineAndParamFileInfo pair : commandLines.getCommandLines()) {
@@ -920,7 +920,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     SpawnAction a = getGeneratingSpawnAction(artifact);
     return a.getArguments();
   }

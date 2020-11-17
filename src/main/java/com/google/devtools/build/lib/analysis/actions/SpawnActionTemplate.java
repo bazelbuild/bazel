@@ -126,7 +126,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     TreeFileArtifact inputTreeFileArtifact =
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "dummy_for_key");
     TreeFileArtifact outputTreeFileArtifact =

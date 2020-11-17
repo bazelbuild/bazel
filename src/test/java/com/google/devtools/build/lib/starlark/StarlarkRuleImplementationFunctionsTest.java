@@ -3086,12 +3086,13 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     };
   }
 
-  private String getDigest(CommandLine commandLine) throws CommandLineExpansionException {
+  private String getDigest(CommandLine commandLine)
+      throws CommandLineExpansionException, InterruptedException {
     return getDigest(commandLine, /*artifactExpander=*/ null);
   }
 
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
     commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
     return fingerprint.hexDigestAndReset();

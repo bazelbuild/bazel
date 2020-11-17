@@ -230,5 +230,5 @@ public interface Action extends ActionExecutionMetadata {
    * different thread than the one this action is executed on.
    */
   ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException;
+      throws CommandLineExpansionException, InterruptedException;
 }

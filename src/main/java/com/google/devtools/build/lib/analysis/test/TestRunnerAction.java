@@ -370,7 +370,7 @@ public class TestRunnerAction extends AbstractAction
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     // TODO(b/150305897): use addUUID?
     fp.addString(GUID);
     fp.addIterableStrings(executionSettings.getArgs().arguments());
@@ -947,7 +947,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public List<String> getArguments() throws CommandLineExpansionException {
+  public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
     return TestStrategy.expandedArgsFromAction(this);
   }
 

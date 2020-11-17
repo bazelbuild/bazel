@@ -173,11 +173,12 @@ public class RunCommand implements BlazeCommand  {
 
   /**
    * Compute the arguments the binary should be run with by concatenating the arguments in its
-   * {@code args=} attribute and the arguments on the Blaze command line.
+   * {@code args} attribute and the arguments on the Blaze command line.
    */
+  // TODO(bazel-team): audit the use of null values by caller. It looks unsafe.
   @Nullable
-  private List<String> computeArgs(CommandEnvironment env, ConfiguredTarget targetToRun,
-      List<String> commandLineArgs) {
+  private List<String> computeArgs(
+      CommandEnvironment env, ConfiguredTarget targetToRun, List<String> commandLineArgs) {
     List<String> args = Lists.newArrayList();
 
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
@@ -186,6 +187,10 @@ public class RunCommand implements BlazeCommand  {
       CommandLine targetArgs = runfilesSupport.getArgs();
       try {
         Iterables.addAll(args, targetArgs.arguments());
+      } catch (InterruptedException ex) {
+        // TODO(b/173521404): report a specific FailureDetail for "interrupted".
+        env.getReporter().handle(Event.error("Interrupted while expanding target command line"));
+        return null;
       } catch (CommandLineExpansionException e) {
         env.getReporter().handle(Event.error("Could not expand target command line: " + e));
         return null;

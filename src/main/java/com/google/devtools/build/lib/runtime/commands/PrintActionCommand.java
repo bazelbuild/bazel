@@ -217,6 +217,10 @@ public final class PrintActionCommand implements BlazeCommand {
                   actionGraph,
                   env.getSkyframeExecutor().getActionKeyContext());
             }
+          } catch (InterruptedException unused) {
+            env.getReporter().handle(Event.error("Interrupted"));
+            // TODO(b/173521404): report code for INTERRUPTED.
+            throw new PrintActionException("Interrupted", Code.COMMAND_LINE_EXPANSION_FAILURE);
           } catch (CommandLineExpansionException e) {
             String message = "Error expanding command line: " + e;
             env.getReporter().handle(Event.error(null, message));
@@ -237,7 +241,7 @@ public final class PrintActionCommand implements BlazeCommand {
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext,
         List<String> files)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       Set<String> filesDesired = new LinkedHashSet<>(files);
       ActionFilter filter = new DefaultActionFilter(filesDesired, actionMnemonicMatcher);
       gatherActionsForFile(configuredTarget, filter, env, actionGraph, actionKeyContext);
@@ -248,7 +252,7 @@ public final class PrintActionCommand implements BlazeCommand {
         Target target,
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       if (!(target instanceof Rule)) {
         return;
       }
@@ -283,7 +287,7 @@ public final class PrintActionCommand implements BlazeCommand {
         CommandEnvironment env,
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       NestedSet<Artifact> artifacts = OutputGroupInfo.get(configuredTarget)
           .getOutputGroup(OutputGroupInfo.FILES_TO_COMPILE);
 

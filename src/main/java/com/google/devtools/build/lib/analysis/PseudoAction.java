@@ -97,12 +97,9 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
-    try {
-      return super.getExtraActionInfo(actionKeyContext).setExtension(infoExtension, getInfo());
-    } catch (CommandLineExpansionException e) {
-      throw new AssertionError("PseudoAction command line expansion cannot fail");
-    }
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException, InterruptedException {
+    return super.getExtraActionInfo(actionKeyContext).setExtension(infoExtension, getInfo());
   }
 
   public static Artifact getDummyOutput(RuleContext ruleContext) {

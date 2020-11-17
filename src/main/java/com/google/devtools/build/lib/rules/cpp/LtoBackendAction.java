@@ -210,7 +210,8 @@ public final class LtoBackendAction extends SpawnAction {
   protected void computeKey(
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
-      Fingerprint fp) {
+      Fingerprint fp)
+      throws InterruptedException {
     fp.addString(GUID);
     try {
       fp.addStrings(getArguments());

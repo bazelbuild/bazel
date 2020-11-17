@@ -107,7 +107,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * <p>2019-01-10, @leba: Using this method for aquery since it's not performance-critical and the
    * includeParamFile option is flag-guarded with warning regarding output size to user.
    */
-  public Iterable<String> getArguments() throws CommandLineExpansionException {
+  public Iterable<String> getArguments()
+      throws CommandLineExpansionException, InterruptedException {
     Preconditions.checkState(
         !hasInputArtifactToExpand,
         "This action contains a CommandLine with TreeArtifacts: %s, which must be expanded using "
@@ -117,14 +118,15 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public String getStringContents() throws CommandLineExpansionException, IOException {
+  public String getStringContents()
+      throws CommandLineExpansionException, InterruptedException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ParameterFile.writeParameterFile(out, getArguments(), type, ISO_8859_1);
     return new String(out.toByteArray(), ISO_8859_1);
   }
 
   @Override
-  public String getStarlarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     if (hasInputArtifactToExpand) {
       // Tree artifact information isn't available at analysis time.
       return null;
@@ -138,7 +140,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     final Iterable<String> arguments;
     try {
       ArtifactExpander artifactExpander = Preconditions.checkNotNull(ctx.getArtifactExpander());
@@ -179,7 +181,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());

@@ -153,7 +153,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
             sourceTreeArtifact,
