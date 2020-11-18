@@ -12,6 +12,9 @@ tasks:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
+      - "//:bazel-distfile.zip"
+      - "//scripts/packages/debian:bazel-debian.deb"
+      - "//scripts/packages:with-jdk/install.sh"
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
