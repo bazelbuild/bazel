@@ -35,7 +35,8 @@ public class KnownNestedSets extends BaseCache<Object, AnalysisProtos.DepSetOfFi
   }
 
   @Override
-  AnalysisProtos.DepSetOfFiles createProto(Object nestedSetObject, String id) {
+  AnalysisProtos.DepSetOfFiles createProto(Object nestedSetObject, String id)
+      throws InterruptedException {
     NestedSet<?> nestedSet = (NestedSet) nestedSetObject;
     AnalysisProtos.DepSetOfFiles.Builder depSetBuilder = AnalysisProtos.DepSetOfFiles
         .newBuilder()

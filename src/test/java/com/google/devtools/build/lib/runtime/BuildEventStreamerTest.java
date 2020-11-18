@@ -168,7 +168,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     @Override
     public synchronized void sendBuildEvent(BuildEvent event) {
       events.add(event);
-      eventsAsProtos.add(event.asStreamProto(getTestBuildEventContext(this.artifactGroupNamer)));
+      try {
+        eventsAsProtos.add(event.asStreamProto(getTestBuildEventContext(this.artifactGroupNamer)));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("interrupts not supported in test instance");
+      }
     }
 
     @Override
@@ -1404,7 +1409,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testActionExcutedEventProtoLogs() {
+  public void testActionExcutedEventProtoLogs() throws Exception {
     String metadataLogName = "action_metadata";
     Path testPath1 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-1");
     Path testPath2 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-2");

@@ -37,7 +37,7 @@ abstract class BaseCache<K, P> {
     return data;
   }
 
-  String dataToId(K data) {
+  String dataToId(K data) throws InterruptedException {
     K key = transformToKey(data);
     String id = cache.get(key);
     if (id == null) {
@@ -52,7 +52,7 @@ abstract class BaseCache<K, P> {
     return id;
   }
 
-  abstract P createProto(K key, String id);
+  abstract P createProto(K key, String id) throws InterruptedException;
 
   abstract void addToActionGraphBuilder(P proto);
 }

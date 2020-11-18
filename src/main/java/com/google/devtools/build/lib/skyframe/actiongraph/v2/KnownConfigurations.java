@@ -26,7 +26,7 @@ public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
   }
 
   @Override
-  Configuration createProto(BuildEvent config, int id) throws IOException {
+  Configuration createProto(BuildEvent config, int id) throws InterruptedException {
     BuildEventStreamProtos.Configuration configProto =
         config.asStreamProto(/*context=*/ null).getConfiguration();
     return Configuration.newBuilder()
