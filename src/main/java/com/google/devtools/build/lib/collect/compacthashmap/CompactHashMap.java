@@ -623,6 +623,11 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
 
     @Override
+    public boolean contains(Object o) {
+      return containsKey(o);
+    }
+
+    @Override
     @SuppressWarnings("unchecked") // keys contains only Ks
     public void forEach(Consumer<? super K> action) {
       checkNotNull(action);
