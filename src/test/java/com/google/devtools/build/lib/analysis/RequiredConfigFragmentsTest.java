@@ -184,7 +184,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         RuleContext ruleContext,
         AspectParameters params,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
       String customDefine = ruleContext.attributes().get("custom_define", Type.STRING);
       if (!customDefine.isEmpty()) {

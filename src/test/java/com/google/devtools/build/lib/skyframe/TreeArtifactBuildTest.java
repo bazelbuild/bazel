@@ -1040,7 +1040,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(

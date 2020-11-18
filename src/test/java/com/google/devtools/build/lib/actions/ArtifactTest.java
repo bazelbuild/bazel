@@ -191,6 +191,9 @@ public class ArtifactTest {
                 actionGraph.registerAction(action);
               } catch (ActionConflictException e) {
                 throw new IllegalStateException(e);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Didn't expect interrupt in test", e);
               }
             }
           }

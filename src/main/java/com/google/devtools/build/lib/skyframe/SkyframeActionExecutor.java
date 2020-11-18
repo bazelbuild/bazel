@@ -499,7 +499,8 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
+      @Nullable Object skyframeDepsResult)
+      throws InterruptedException {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
@@ -567,7 +568,7 @@ public final class SkyframeActionExecutor {
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       ArtifactPathResolver pathResolver)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Token token;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
@@ -650,7 +651,7 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       Token token,
       Map<String, String> clientEnv)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
       return;
     }

@@ -311,7 +311,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         return Preconditions.checkNotNull(latestResult);
       }
 
-      private void setGeneratingActions() throws ActionConflictException {
+      private void setGeneratingActions() throws ActionConflictException, InterruptedException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
           differencer.inject(
               ImmutableMap.of(

@@ -81,7 +81,8 @@ public final class Actions {
    * class, the key, and the list of inputs and outputs.
    */
   public static boolean canBeShared(
-      ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
+      ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b)
+      throws InterruptedException {
     if (!a.isShareable() || !b.isShareable()) {
       return false;
     }
@@ -125,7 +126,8 @@ public final class Actions {
   static boolean canBeSharedLogForPotentialFalsePositives(
       ActionKeyContext actionKeyContext,
       ActionAnalysisMetadata actionA,
-      ActionAnalysisMetadata actionB) {
+      ActionAnalysisMetadata actionB)
+      throws InterruptedException {
     boolean canBeShared = canBeShared(actionKeyContext, actionA, actionB);
     if (canBeShared) {
       Optional<Artifact> treeArtifactInput =
@@ -182,7 +184,7 @@ public final class Actions {
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext,
         actions,
@@ -209,7 +211,7 @@ public final class Actions {
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey,
       @Nullable Collection<OutputFile> outputFiles)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext,
         actions,
@@ -224,7 +226,7 @@ public final class Actions {
       boolean allowSharedAction,
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     ActionLookupData firstKey = output.getGeneratingActionKey();
     Preconditions.checkState(
         firstKey.getActionLookupKey().equals(otherKey.getActionLookupKey()),
@@ -260,7 +262,7 @@ public final class Actions {
       ActionLookupKey actionLookupKey,
       boolean allowSharedAction,
       @Nullable Collection<OutputFile> outputFiles)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     Map<PathFragment, Artifact.DerivedArtifact> seenArtifacts = new HashMap<>();
     @Nullable ImmutableMap<String, Label> outputFileNames = null;
     if (outputFiles != null && !outputFiles.isEmpty()) {

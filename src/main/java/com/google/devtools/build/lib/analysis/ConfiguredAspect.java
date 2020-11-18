@@ -218,7 +218,7 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    public ConfiguredAspect build() throws ActionConflictException {
+    public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
         for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {

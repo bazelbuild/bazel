@@ -27,7 +27,8 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
 
   @Override
   public final String getKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      throws InterruptedException {
     // Only cache the key when it is given all necessary information to compute a correct key.
     // Practically, most of the benefit of the cache comes from execution, which does provide the
     // artifactExpander.
@@ -46,7 +47,8 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
   }
 
   private String computeActionKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      throws InterruptedException {
     try {
       Fingerprint fp = new Fingerprint();
       computeKey(actionKeyContext, artifactExpander, fp);
@@ -62,10 +64,6 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
       // Compute the actual key and store it.
       return fp.hexDigestAndReset();
     } catch (CommandLineExpansionException e) {
-      return KEY_ERROR;
-    } catch (InterruptedException unused) {
-      Thread.currentThread().interrupt();
-      // TODO(b/168033469): fix: this is not safe wrt caching of failures.
       return KEY_ERROR;
     }
   }
