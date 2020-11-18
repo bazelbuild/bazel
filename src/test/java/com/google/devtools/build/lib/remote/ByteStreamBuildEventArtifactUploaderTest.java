@@ -333,7 +333,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
     ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
-    when(uploader.uploadBlobAsync(any(), any(), anyBoolean()))
+    when(uploader.uploadBlobAsync(any(HashCode.class), any(), anyBoolean()))
         .thenReturn(Futures.immediateFuture(null));
     ByteStreamBuildEventArtifactUploader artifactUploader =
         newArtifactUploader(uploader, digestQuerier);
