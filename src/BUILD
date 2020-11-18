@@ -110,7 +110,6 @@ sh_binary(
 JAVA_TOOLS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    "//third_party/jarjar:embedded_build_and_license",
 ]
 
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
