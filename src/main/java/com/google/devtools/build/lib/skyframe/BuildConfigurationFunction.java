@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
@@ -168,7 +167,7 @@ public class BuildConfigurationFunction implements SkyFunction {
 
   private Fragment makeFragment(FragmentKey fragmentKey) throws InvalidConfigurationException {
     BuildOptions buildOptions = fragmentKey.getBuildOptions();
-    Class<? extends Fragment> fragmentClass = getFactory(fragmentKey.getFragmentClass()).creates();
+    Class<? extends Fragment> fragmentClass = fragmentKey.getFragmentClass();
     String noConstructorPattern = "%s lacks constructor(BuildOptions)";
     try {
       Fragment fragment =
@@ -182,16 +181,6 @@ public class BuildConfigurationFunction implements SkyFunction {
     } catch (ReflectiveOperationException e) {
       throw new IllegalStateException(String.format(noConstructorPattern, fragmentClass), e);
     }
-  }
-
-  private ConfigurationFragmentFactory getFactory(Class<? extends Fragment> fragmentType) {
-    for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-      if (factory.creates().equals(fragmentType)) {
-        return factory;
-      }
-    }
-    throw new IllegalStateException(
-        "There is no factory for fragment: " + fragmentType.getSimpleName());
   }
 
   @Override

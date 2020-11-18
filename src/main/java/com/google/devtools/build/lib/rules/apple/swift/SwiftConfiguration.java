@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.apple.swift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -44,13 +43,5 @@ public class SwiftConfiguration extends Fragment implements SwiftConfigurationAp
   @Override
   public ImmutableList<String> getCopts() {
     return copts;
-  }
-
-  /** Loads {@link SwiftConfiguration} from build options. */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return SwiftConfiguration.class;
-    }
   }
 }

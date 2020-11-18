@@ -349,10 +349,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     Multimap<Class<? extends Fragment>, Class<? extends FragmentOptions>>
         fragmentToRequiredOptions = ArrayListMultimap.create();
-    for (ConfigurationFragmentFactory fragmentLoader :
+    for (Class<? extends Fragment> fragmentClass :
         ((FragmentProvider) ruleClassProvider).getConfigurationFragments()) {
-      fragmentToRequiredOptions.putAll(
-          fragmentLoader.creates(), Fragment.requiredOptions(fragmentLoader.creates()));
+      fragmentToRequiredOptions.putAll(fragmentClass, Fragment.requiredOptions(fragmentClass));
     }
     Set<Class<? extends FragmentOptions>> options = new HashSet<>();
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {

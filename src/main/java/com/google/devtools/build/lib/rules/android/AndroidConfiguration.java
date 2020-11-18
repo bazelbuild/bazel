@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -948,14 +947,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
       return host;
-    }
-  }
-
-  /** Configuration loader for the Android fragment. */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return AndroidConfiguration.class;
     }
   }
 

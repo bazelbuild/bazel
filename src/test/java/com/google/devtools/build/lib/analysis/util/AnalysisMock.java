@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -103,9 +102,6 @@ public abstract class AnalysisMock extends LoadingMock {
     // Do nothing by default.
   }
 
-  /** Returns the default factories for configuration fragments used in tests. */
-  public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
-
   @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
 
@@ -176,11 +172,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
       delegate.setupMockToolsRepository(config);
-    }
-
-    @Override
-    public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
-      return delegate.getDefaultConfigurationFragmentFactories();
     }
 
     @Override

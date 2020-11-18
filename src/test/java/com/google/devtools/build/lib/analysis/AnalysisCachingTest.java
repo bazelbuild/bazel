@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -617,20 +616,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public DiffResetFragment(BuildOptions buildOptions) {}
   }
 
-  private static final class DiffResetFactory implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return DiffResetFragment.class;
-    }
-  }
-
   private void setupDiffResetTesting() throws Exception {
     ImmutableSet<OptionDefinition> optionsThatCanChange =
         ImmutableSet.of(
             DiffResetOptions.PROBABLY_IRRELEVANT_OPTION, DiffResetOptions.ALSO_IRRELEVANT_OPTION);
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(new DiffResetFactory());
+    builder.addConfigurationFragment(DiffResetFragment.class);
     builder.overrideShouldInvalidateCacheForOptionDiffForTesting(
         (newOptions, changedOption, oldValue, newValue) -> {
           return !optionsThatCanChange.contains(changedOption);

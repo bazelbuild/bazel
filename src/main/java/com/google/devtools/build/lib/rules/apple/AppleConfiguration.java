@@ -21,7 +21,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -462,16 +461,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     }
 
     return modes;
-  }
-
-  /**
-   * Loads {@link AppleConfiguration} from build options.
-   */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return AppleConfiguration.class;
-    }
   }
 
   /**

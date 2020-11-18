@@ -19,7 +19,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -292,14 +291,6 @@ public class TestConfiguration extends Fragment {
       // trimTestConfiguration is a global analysis option and should be platform-agnostic
       hostOptions.trimTestConfiguration = this.trimTestConfiguration;
       return hostOptions;
-    }
-  }
-
-  /** Configuration loader for test options */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return TestConfiguration.class;
     }
   }
 

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -41,17 +40,6 @@ public class AndroidLocalTestConfiguration extends Fragment {
               + " for testing purposes."
     )
     public boolean androidLocalTestBinaryResources;
-  }
-
-  /**
-   * Loader class for {@link
-   * com.google.devtools.build.lib.rules.android.AndroidLocalTestConfiguration}.
-   */
-  public static final class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return AndroidLocalTestConfiguration.class;
-    }
   }
 
   private final boolean androidLocalTestBinaryResources;

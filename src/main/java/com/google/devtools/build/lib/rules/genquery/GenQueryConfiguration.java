@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.genquery;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -38,13 +37,6 @@ public class GenQueryConfiguration extends Fragment {
             "If true, the in-memory representation of genquery results may be compressed as "
                 + "is necessary. Can save sufficient memory at the expense of more CPU usage.")
     public boolean compressInMemoryResults;
-  }
-
-  static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return GenQueryConfiguration.class;
-    }
   }
 
   private final boolean inMemoryCompressionEnabled;

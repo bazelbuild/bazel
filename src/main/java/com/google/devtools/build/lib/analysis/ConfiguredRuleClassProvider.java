@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -100,8 +99,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     private Label preludeLabel;
     private String runfilesPrefix;
     private String toolsRepository;
-    private final List<ConfigurationFragmentFactory> configurationFragmentFactories =
-        new ArrayList<>();
+    private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final Set<Class<? extends FragmentOptions>> configurationOptions =
         new LinkedHashSet<>();
@@ -198,22 +196,22 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     }
 
     /**
-     * Adds a configuration fragment factory and all build options required by its fragment.
+     * Adds a configuration fragment and all build options required by its fragment.
      *
      * <p>Note that configuration fragments annotated with a Starlark name must have a unique name;
      * no two different configuration fragments can share the same name.
      */
-    public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
-      this.configurationOptions.addAll(Fragment.requiredOptions(factory.creates()));
-      configurationFragmentFactories.add(factory);
+    public Builder addConfigurationFragment(Class<? extends Fragment> fragmentClass) {
+      this.configurationOptions.addAll(Fragment.requiredOptions(fragmentClass));
+      configurationFragmentClasses.add(fragmentClass);
       return this;
     }
 
     /**
      * Adds configuration options that aren't required by configuration fragments.
      *
-     * <p>If {@link #addConfigurationFragment(ConfigurationFragmentFactory)} adds a fragment factory
-     * that also requires these options, this method is redundant.
+     * <p>If {@link #addConfigurationFragment} adds a fragment that also requires these options,
+     * this method is redundant.
      */
     public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
       this.configurationOptions.add(configurationOptions);
@@ -418,7 +416,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           defaultWorkspaceFileSuffix.toString(),
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
-          ImmutableList.copyOf(configurationFragmentFactories),
+          ImmutableList.copyOf(configurationFragmentClasses),
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
           toolchainTaggedTrimmingTransition,
@@ -491,7 +489,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
 
   /** The set of configuration fragment factories. */
-  private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
+  private final ImmutableList<Class<? extends Fragment>> configurationFragmentClasses;
 
   /**
    * Maps build option names to matching config fragments. This is used to determine correct
@@ -546,7 +544,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       String defaultWorkspaceFileSuffix,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
-      ImmutableList<ConfigurationFragmentFactory> configurationFragments,
+      ImmutableList<Class<? extends Fragment>> configurationFragmentClasses,
       ImmutableList<Class<? extends Fragment>> universalFragments,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
@@ -569,8 +567,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
-    this.configurationFragmentFactories = configurationFragments;
-    this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragments);
+    this.configurationFragmentClasses = configurationFragmentClasses;
+    this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragmentClasses);
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
@@ -582,7 +580,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.configurationFragmentMap = createFragmentMap(configurationFragments);
+    this.configurationFragmentMap = createFragmentMap(configurationFragmentClasses);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
   }
@@ -594,12 +592,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
    * that's all that's needed to satisfy the config_setting.
    */
   private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
-      Iterable<ConfigurationFragmentFactory> configurationFragments) {
+      ImmutableList<Class<? extends Fragment>> configurationFragments) {
     Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
     Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
-    for (ConfigurationFragmentFactory factory : configurationFragments) {
-      Set<Class<? extends FragmentOptions>> requiredOpts =
-          Fragment.requiredOptions(factory.creates());
+    for (Class<? extends Fragment> fragment : configurationFragments) {
+      Set<Class<? extends FragmentOptions>> requiredOpts = Fragment.requiredOptions(fragment);
       for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
         Integer previousBest = visitedOptionsClasses.get(optionsClass);
         if (previousBest != null && previousBest <= requiredOpts.size()) {
@@ -611,7 +608,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         visitedOptionsClasses.put(optionsClass, requiredOpts.size());
         for (Field field : optionsClass.getFields()) {
           if (field.isAnnotationPresent(Option.class)) {
-            result.put(field.getAnnotation(Option.class).name(), factory.creates());
+            result.put(field.getAnnotation(Option.class).name(), fragment);
           }
         }
       }
@@ -663,8 +660,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   /** Returns the set of configuration fragments provided by this module. */
   @Override
-  public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
-    return configurationFragmentFactories;
+  public ImmutableList<Class<? extends Fragment>> getConfigurationFragments() {
+    return configurationFragmentClasses;
   }
 
   @Nullable
@@ -751,10 +748,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
-      Iterable<ConfigurationFragmentFactory> configurationFragmentFactories) {
+      Iterable<Class<? extends Fragment>> configurationFragments) {
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
-    for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
-      Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
+    for (Class<? extends Fragment> fragmentClass : configurationFragments) {
       StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
@@ -834,9 +830,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   public ImmutableSortedSet<Class<? extends Fragment>> getAllFragments() {
     ImmutableSortedSet.Builder<Class<? extends Fragment>> fragmentsBuilder =
         ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
-    for (ConfigurationFragmentFactory factory : getConfigurationFragments()) {
-      fragmentsBuilder.add(factory.creates());
-    }
+    fragmentsBuilder.addAll(getConfigurationFragments());
     fragmentsBuilder.addAll(getUniversalFragments());
     return fragmentsBuilder.build();
   }

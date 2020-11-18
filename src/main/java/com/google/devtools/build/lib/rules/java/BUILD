@@ -14,7 +14,6 @@ java_library(
         "GenericBuildInfoPropertiesTranslator.java",
         "JavaBinary.java",
         "JavaCcLinkParamsProvider.java",
-        "JavaConfigurationLoader.java",
         "JavaImport.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",

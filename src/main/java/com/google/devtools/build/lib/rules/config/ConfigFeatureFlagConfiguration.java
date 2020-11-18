@@ -20,7 +20,6 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -36,17 +35,6 @@ import javax.annotation.Nullable;
  */
 @RequiresOptions(options = {ConfigFeatureFlagOptions.class})
 public final class ConfigFeatureFlagConfiguration extends Fragment {
-  /**
-   * A configuration fragment loader able to create instances of {@link
-   * ConfigFeatureFlagConfiguration} from {@link ConfigFeatureFlagOptions}.
-   */
-  public static final class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return ConfigFeatureFlagConfiguration.class;
-    }
-  }
-
   private final ImmutableSortedMap<Label, String> flagValues;
   @Nullable private final String flagHash;
 

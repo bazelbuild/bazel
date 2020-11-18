@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -138,8 +137,7 @@ public class TransitiveTargetFunction
       // Declared by the rule class:
       ConfigurationFragmentPolicy configurationFragmentPolicy =
           rule.getRuleClassObject().getConfigurationFragmentPolicy();
-      for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-        Class<? extends Fragment> fragment = factory.creates();
+      for (Class<? extends Fragment> fragment : ruleClassProvider.getConfigurationFragments()) {
         // isLegalConfigurationFragment considers both natively declared fragments and Starlark
         // (named) fragments.
         if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)) {

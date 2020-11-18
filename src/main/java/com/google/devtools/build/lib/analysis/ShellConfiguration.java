@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -121,13 +120,5 @@ public class ShellConfiguration extends Fragment {
     // --shell_executable, so at least there's a workaround.
     PathFragment result = OS_SPECIFIC_SHELL.get(os);
     return result != null ? result : defaultShell;
-  }
-
-  /** The loader for {@link ShellConfiguration}. */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return ShellConfiguration.class;
-    }
   }
 }

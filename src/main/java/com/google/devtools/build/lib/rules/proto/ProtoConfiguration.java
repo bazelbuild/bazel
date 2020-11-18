@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -189,16 +188,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
           experimentalJavaProtoAddAllowedPublicImports;
       host.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
       return host;
-    }
-  }
-
-  /**
-   * Loader class for proto.
-   */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return ProtoConfiguration.class;
     }
   }
 

@@ -112,7 +112,6 @@ java_library(
         ":options_diff_predicate",
         ":package_specification_provider",
         ":platform_configuration",
-        ":platform_configuration_loader",
         ":platform_options",
         ":print_action_visitor",
         ":provider_collection",
@@ -927,20 +926,6 @@ java_library(
 )
 
 java_library(
-    name = "platform_configuration_loader",
-    srcs = ["PlatformConfigurationLoader.java"],
-    deps = [
-        ":config/build_options",
-        ":config/fragment",
-        ":config/fragment_provider",
-        ":config/invalid_configuration_exception",
-        ":platform_configuration",
-        ":platform_options",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "platform_options",
     srcs = ["PlatformOptions.java"],
     deps = [
@@ -1701,17 +1686,12 @@ java_library(
 java_library(
     name = "config/fragment_provider",
     srcs = [
-        "config/ConfigurationFragmentFactory.java",
         "config/FragmentProvider.java",
     ],
     deps = [
-        ":config/build_options",
         ":config/fragment",
-        ":config/fragment_options",
-        ":config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -2287,8 +2267,6 @@ java_library(
         ":config/core_option_converters",
         ":config/fragment",
         ":config/fragment_options",
-        ":config/fragment_provider",
-        ":config/invalid_configuration_exception",
         ":config/per_label_options",
         ":options_diff_predicate",
         ":test/test_sharding_strategy",

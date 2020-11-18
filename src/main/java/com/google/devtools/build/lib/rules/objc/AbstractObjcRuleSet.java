@@ -43,11 +43,11 @@ public abstract class AbstractObjcRuleSet implements RuleSet {
 
     builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
 
-    builder.addConfigurationFragment(new ObjcConfigurationLoader());
-    builder.addConfigurationFragment(new AppleConfiguration.Loader());
-    builder.addConfigurationFragment(new SwiftConfiguration.Loader());
+    builder.addConfigurationFragment(ObjcConfiguration.class);
+    builder.addConfigurationFragment(AppleConfiguration.class);
+    builder.addConfigurationFragment(SwiftConfiguration.class);
     // j2objc shouldn't be here!
-    builder.addConfigurationFragment(new J2ObjcConfiguration.Loader());
+    builder.addConfigurationFragment(J2ObjcConfiguration.class);
 
     builder.addNativeAspectClass(objcProtoAspect);
     builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));

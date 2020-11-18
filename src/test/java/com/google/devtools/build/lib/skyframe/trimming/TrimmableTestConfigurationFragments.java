@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -188,7 +187,7 @@ public final class TrimmableTestConfigurationFragments {
         .setPrelude("//:prelude.bzl")
         // must be part of BuildOptions for various reasons e.g. dynamic configs
         .addConfigurationOptions(CoreOptions.class)
-        .addConfigurationFragment(new TestConfiguration.Loader())
+        .addConfigurationFragment(TestConfiguration.class)
         // needed for the default workspace
         .addRuleDefinition(new WorkspaceBaseRule())
         .addRuleDefinition(new BindRule())
@@ -367,11 +366,11 @@ public final class TrimmableTestConfigurationFragments {
                     });
 
     builder
-        .addConfigurationFragment(AConfig.FACTORY)
-        .addConfigurationFragment(BConfig.FACTORY)
-        .addConfigurationFragment(CConfig.FACTORY)
-        .addConfigurationFragment(DConfig.FACTORY)
-        .addConfigurationFragment(EConfig.FACTORY)
+        .addConfigurationFragment(AConfig.class)
+        .addConfigurationFragment(BConfig.class)
+        .addConfigurationFragment(CConfig.class)
+        .addConfigurationFragment(DConfig.class)
+        .addConfigurationFragment(EConfig.class)
         .addRuleDefinition(transitionRule)
         .addRuleDefinition(alphaRule)
         .addRuleDefinition(bravoRule)
@@ -402,21 +401,6 @@ public final class TrimmableTestConfigurationFragments {
     }
   }
 
-  /** General purpose fragment loader for the test fragments in this file. */
-  private static final class FragmentLoader<FragmentT extends Fragment>
-      implements ConfigurationFragmentFactory {
-    private final Class<FragmentT> fragmentType;
-
-    FragmentLoader(Class<FragmentT> fragmentType) {
-      this.fragmentType = fragmentType;
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return fragmentType;
-    }
-  }
-
   /** Set of test options. */
   public static final class AOptions extends FragmentOptions {
     @Option(
@@ -431,8 +415,6 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "alpha", doc = "Test config fragment.")
   @RequiresOptions(options = {AOptions.class})
   public static final class AConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(AConfig.class);
-
     private final String value;
 
     public AConfig(BuildOptions buildOptions) {
@@ -459,8 +441,6 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "bravo", doc = "Test config fragment.")
   @RequiresOptions(options = {BOptions.class})
   public static final class BConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(BConfig.class);
-
     private final String value;
 
     public BConfig(BuildOptions buildOptions) {
@@ -487,8 +467,6 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "charlie", doc = "Test config fragment.")
   @RequiresOptions(options = {COptions.class})
   public static final class CConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(CConfig.class);
-
     private final String value;
 
     public CConfig(BuildOptions buildOptions) {
@@ -515,8 +493,6 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "delta", doc = "Test config fragment.")
   @RequiresOptions(options = {DOptions.class})
   public static final class DConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(DConfig.class);
-
     private final String value;
 
     public DConfig(BuildOptions buildOptions) {
@@ -546,8 +522,6 @@ public final class TrimmableTestConfigurationFragments {
   @StarlarkBuiltin(name = "echo", doc = "Test config fragment.")
   @RequiresOptions(options = {EOptions.class})
   public static final class EConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY = new FragmentLoader<>(EConfig.class);
-
     private final String value;
 
     public EConfig(BuildOptions buildOptions) {

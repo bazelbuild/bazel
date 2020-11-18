@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.rules.python;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -99,16 +98,6 @@ public class BazelPythonConfiguration extends Fragment {
     @Override
     public FragmentOptions getHost() {
       return clone(); // host options are the same as target options
-    }
-  }
-
-  /**
-   * Loader for the Bazel-specific Python configuration.
-   */
-  public static final class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return BazelPythonConfiguration.class;
     }
   }
 

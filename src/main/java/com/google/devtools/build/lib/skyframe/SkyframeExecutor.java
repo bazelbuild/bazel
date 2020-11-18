@@ -1931,7 +1931,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // TODO(gregce): support trimmed configs.
     ImmutableSortedSet<Class<? extends Fragment>> allFragments =
         ruleClassProvider.getConfigurationFragments().stream()
-            .map(factory -> factory.creates())
             .collect(
                 ImmutableSortedSet.toImmutableSortedSet(BuildConfiguration.lexicalFragmentSorter));
 
@@ -2918,7 +2917,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     FragmentClassSet allFragments =
         FragmentClassSet.of(
             ruleClassProvider.getConfigurationFragments().stream()
-                .map(factory -> factory.creates())
                 .collect(
                     ImmutableSortedSet.toImmutableSortedSet(
                         BuildConfiguration.lexicalFragmentSorter)));

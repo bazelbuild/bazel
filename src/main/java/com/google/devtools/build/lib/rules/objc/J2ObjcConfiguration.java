@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
@@ -65,16 +64,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
 
   static final String INVALID_TRANSLATION_FLAGS_MSG_TEMPLATE =
       "J2Objc translation flags: %s not supported. Unsupported flags are: %s";
-
-  /**
-   * Configuration loader for {@link J2ObjcConfiguration}.
-   */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Class<? extends Fragment> creates() {
-      return J2ObjcConfiguration.class;
-    }
-  }
 
   private final ImmutableList<String> translationFlags;
   private final boolean removeDeadCode;

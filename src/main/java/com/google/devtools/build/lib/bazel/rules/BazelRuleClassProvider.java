@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -111,7 +110,7 @@ import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
-import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
+import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
@@ -179,14 +178,6 @@ public class BazelRuleClassProvider {
   @RequiresOptions(options = {StrictActionEnvOptions.class})
   public static class StrictActionEnvConfiguration extends Fragment {
     public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
-
-    /** Loader. */
-    public static class Loader implements ConfigurationFragmentFactory {
-      @Override
-      public Class<? extends Fragment> creates() {
-        return StrictActionEnvConfiguration.class;
-      }
-    }
   }
 
   public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
@@ -265,10 +256,10 @@ public class BazelRuleClassProvider {
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
               .addConfigurationOptions(ShellConfiguration.Options.class)
-              .addConfigurationFragment(new ShellConfiguration.Loader())
+              .addConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
-              .addConfigurationFragment(new StrictActionEnvConfiguration.Loader())
+              .addConfigurationFragment(StrictActionEnvConfiguration.class)
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
         }
@@ -284,7 +275,7 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationOptions(ProtoConfiguration.Options.class);
-          builder.addConfigurationFragment(new ProtoConfiguration.Loader());
+          builder.addConfigurationFragment(ProtoConfiguration.class);
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
 
@@ -342,8 +333,8 @@ public class BazelRuleClassProvider {
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
-          builder.addConfigurationFragment(new AndroidConfiguration.Loader());
-          builder.addConfigurationFragment(new AndroidLocalTestConfiguration.Loader());
+          builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
           DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
@@ -423,8 +414,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfigurationFragment(new PythonConfigurationLoader());
-          builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
+          builder.addConfigurationFragment(PythonConfiguration.class);
+          builder.addConfigurationFragment(BazelPythonConfiguration.class);
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());

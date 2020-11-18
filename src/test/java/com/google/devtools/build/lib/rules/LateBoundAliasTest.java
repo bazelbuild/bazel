@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,14 +40,6 @@ public class LateBoundAliasTest extends BuildViewTestCase {
   /** Test fragment. */
   public static final class TestFragment extends Fragment {
     public TestFragment(BuildOptions buildOptions) {}
-  }
-
-  private static final class TestFragmentOptionFactory implements ConfigurationFragmentFactory {
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return TestFragment.class;
-    }
   }
 
   private static final class TestLateBoundDefault extends LabelLateBoundDefault<TestFragment> {
@@ -73,7 +64,7 @@ public class LateBoundAliasTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(new TestFragmentOptionFactory());
+    builder.addConfigurationFragment(TestFragment.class);
     builder.addRuleDefinition(new MyTestRule());
     return builder.build();
   }
