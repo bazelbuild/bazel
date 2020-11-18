@@ -197,7 +197,8 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "rule_with_dep(name = 'actual', dep = ':dep')",
         "rule_with_dep(name = 'dep')");
 
-    KeyedConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
+    Set<KeyedConfiguredTarget> results = eval("labels('dep', '//test:alias')");
+    KeyedConfiguredTarget dep = Iterables.getOnlyElement(results);
     assertThat(dep.originalLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
   }
 
@@ -229,7 +230,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
     // Note: {@link AliasConfiguredTarget#getLabel} returns the label of the "actual" value not the
     // label of the alias.
-    assertThat(other.originalLabel()).isEqualTo(myRule.originalLabel());
+    assertThat(other.actualLabel()).isEqualTo(myRule.actualLabel());
 
     // Regression test for b/73496081 in which alias-ed configured targets were skipping filtering.
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
