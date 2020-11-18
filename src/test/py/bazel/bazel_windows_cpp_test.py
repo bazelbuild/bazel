@@ -683,11 +683,25 @@ class BazelWindowsCppTest(test_base.TestBase):
         'cc_import(',
         '  name = "a_import",',
         '  shared_library = "A.dll",',
+        '  visibility = ["//:__subpackages__"],',
+        ')',
+        ''
+        'filegroup(',
+        '  name = "bin_src",',
+        '  srcs = ["bin.cc"],',
+        '  visibility = ["//:__subpackages__"],',
         ')',
         '',
         'cc_binary(',
         '  name = "bin",',
-        '  srcs = ["bin.cc"],',
+        '  srcs = ["//:bin_src"],',
+        '  deps = ["//:a_import"],',
+        ')',
+    ])
+    self.ScratchFile('package/BUILD', [
+        'cc_binary(',
+        '  name = "dir1/dir2/bin",',
+        '  srcs = ["//:bin_src"],',
         '  deps = ["//:a_import"],',
         ')',
     ])
@@ -700,14 +714,18 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel([
         'build',
         '//:bin',
+        '//package:dir1/dir2/bin',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
     bazel_bin = self.getBazelInfo('bazel-bin')
-    a_dll = os.path.join(bazel_bin, 'A.dll')
-    # Even though A.dll is in the same package as bin.exe, but it still should
+    # Even though A.dll is in the same package as bin.exe, it still should
     # be copied to the output directory of bin.exe.
+    a_dll = os.path.join(bazel_bin, 'A.dll')
     self.assertTrue(os.path.exists(a_dll))
+
+    nested_a_dll = os.path.join(bazel_bin, 'package/dir1/dir2/A.dll')
+    self.assertTrue(os.path.exists(nested_a_dll))
 
   def testCppErrorShouldBeVisible(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
