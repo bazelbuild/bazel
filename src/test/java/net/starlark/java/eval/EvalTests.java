@@ -32,5 +32,6 @@ import org.junit.runners.Suite;
   StarlarkMutableTest.class,
   StarlarkThreadDebuggingTest.class,
   StarlarkThreadTest.class,
+  TupleTest.class,
 })
 public class EvalTests {}

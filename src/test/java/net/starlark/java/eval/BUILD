@@ -22,6 +22,7 @@ java_test(
         "MethodLibraryTest.java",
         "MutabilityTest.java",
         "PrinterTest.java",
+        "TupleTest.java",
         "StarlarkAnnotationsTest.java",
         "StarlarkEvaluationTest.java",
         "StarlarkFlagGuardingTest.java",

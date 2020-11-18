@@ -18,8 +18,13 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -336,5 +341,45 @@ public final class StarlarkListTest {
     StarlarkList<Object> list = StarlarkList.of(mu, "a", "b");
     list.addElement(StarlarkInt.of(1)); // no ArrayStoreException
     assertThat(list.toString()).isEqualTo("[\"a\", \"b\", 1]");
+  }
+
+  @Test
+  public void testToArrayWithObjectArrayParam() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.newList(mu);
+
+    for (int i = 0; i != 10; ++i) {
+      for (int arrayLength : new int[] { 0, list.size() / 2, list.size(), list.size() * 2 }) {
+        for (Class<?> arrayElementClass : new Class[] { Object.class, String.class }) {
+          Object[] input = (Object[]) Array.newInstance(arrayElementClass, arrayLength);
+          Arrays.fill(input, "x");
+
+          Object[] output = list.toArray(input);
+          assertThat(input.getClass()).isEqualTo(output.getClass());
+          if (input.length < list.size()) {
+            // assert input is unchanged
+            for (Object o : input) {
+              assertThat(o).isEqualTo("x");
+            }
+
+            Object[] expected = IntStream.range(0, list.size()).mapToObj(Integer::toString).toArray();
+            assertThat(output).isEqualTo(expected);
+          } else {
+            assertThat(output).isSameInstanceAs(input);
+            for (int j = 0; j != output.length; ++j) {
+              if (j < list.size()) {
+                assertThat(output[j]).isEqualTo(Integer.toString(j));
+              } else {
+                assertThat(output[j]).isNull();
+              }
+            }
+          }
+        }
+      }
+
+      // Note we add elements in loop instead of recreating a list
+      // to also check that code works correctly when list capacity exceeds size.
+      list.addElement(Integer.toString(i));
+    }
   }
 }

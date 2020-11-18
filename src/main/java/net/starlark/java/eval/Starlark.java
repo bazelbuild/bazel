@@ -238,6 +238,8 @@ public final class Starlark {
     throw errorf("type '%s' is not iterable", type(x));
   }
 
+  private static final Object[] EMPTY_ARRAY = {};
+
   /**
    * Returns a new array of class Object[] containing the elements of Starlark iterable value {@code
    * x}. A Starlark value is iterable if it implements {@link StarlarkIterable}.
@@ -245,7 +247,9 @@ public final class Starlark {
   public static Object[] toArray(Object x) throws EvalException {
     // Specialize Sequence and Dict to avoid allocation and/or indirection.
     if (x instanceof Sequence) {
-      return ((Sequence<?>) x).toArray(new Object[((Sequence) x).size()]);
+      // Returned array type must be exactly Object[], not Object[] subclass,
+      // so calling `toArray()` is not enough.
+      return ((Sequence<?>) x).toArray(EMPTY_ARRAY);
     } else if (x instanceof Dict) {
       return ((Dict<?, ?>) x).keySet().toArray();
     } else {
