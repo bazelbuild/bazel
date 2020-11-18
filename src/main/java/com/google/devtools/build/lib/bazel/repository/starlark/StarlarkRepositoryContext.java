@@ -652,7 +652,10 @@ public class StarlarkRepositoryContext
     env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
       throw Starlark.errorf(
-          "Program argument of which() may not contains a / or a \\ ('%s' given)", program);
+          "Program argument of which() may not contain a / or a \\ ('%s' given)", program);
+    }
+    if (program.length() == 0) {
+      throw Starlark.errorf("Program argument of which() may not be empty");
     }
     try {
       StarlarkPath commandPath = findCommandOnPath(program);
