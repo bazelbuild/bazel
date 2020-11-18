@@ -244,7 +244,7 @@ public final class Starlark {
   public static Object[] toArray(Object x) throws EvalException {
     // Specialize Sequence and Dict to avoid allocation and/or indirection.
     if (x instanceof Sequence) {
-      return ((Sequence<?>) x).toArray();
+      return ((Sequence<?>) x).toArray(new Object[((Sequence) x).size()]);
     } else if (x instanceof Dict) {
       return ((Dict<?, ?>) x).keySet().toArray();
     } else {

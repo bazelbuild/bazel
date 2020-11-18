@@ -78,6 +78,7 @@ public final class StarlarkList<E> extends AbstractList<E>
   // but without the extra indirection of using ArrayList.
 
   // elems[0:size] holds the logical elements, and elems[size:] are not used.
+  // elems.getClass() == Object[].class. This is necessary to avoid ArrayStoreException.
   private int size;
   private int iteratorCount; // number of active iterators (unused once frozen)
   private Object[] elems = EMPTY_ARRAY; // elems[i] == null  iff  i >= size
@@ -88,15 +89,16 @@ public final class StarlarkList<E> extends AbstractList<E>
   private static final Object[] EMPTY_ARRAY = {};
 
   private StarlarkList(@Nullable Mutability mutability, Object[] elems, int size) {
+    Preconditions.checkArgument(elems.getClass() == Object[].class);
     this.elems = elems;
     this.size = size;
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 
   /**
-   * Takes ownership of the supplied array and returns a new StarlarkList instance that initially
-   * wraps the array. The caller must not subsequently modify the array, but the StarlarkList
-   * instance may do so.
+   * Takes ownership of the supplied array of class Object[].class, and returns a new StarlarkList
+   * instance that initially wraps the array. The caller must not subsequently modify the array, but
+   * the StarlarkList instance may do so.
    */
   static <T> StarlarkList<T> wrap(@Nullable Mutability mutability, Object[] elems) {
     return new StarlarkList<>(mutability, elems, elems.length);
@@ -184,13 +186,13 @@ public final class StarlarkList<E> extends AbstractList<E>
    */
   public static <T> StarlarkList<T> of(@Nullable Mutability mutability, T... elems) {
     checkElemsValid(elems);
-    return wrap(mutability, Arrays.copyOf(elems, elems.length));
+    return wrap(mutability, Arrays.copyOf(elems, elems.length, Object[].class));
   }
 
   /** Returns an immutable {@code StarlarkList} with the given items. */
   public static <T> StarlarkList<T> immutableOf(T... elems) {
     checkElemsValid(elems);
-    return wrap(null, Arrays.copyOf(elems, elems.length));
+    return wrap(null, Arrays.copyOf(elems, elems.length, Object[].class));
   }
 
   @Override

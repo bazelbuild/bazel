@@ -321,12 +321,20 @@ public final class StarlarkListTest {
 
   @Test
   public void testWrapTakesOwnershipOfArray() throws EvalException {
-    String[] wrapped = {"hello"};
+    Object[] wrapped = {"hello"};
     Mutability mutability = Mutability.create("test");
-    StarlarkList<String> mutableList = StarlarkList.wrap(mutability, wrapped);
+    StarlarkList<Object> mutableList = StarlarkList.wrap(mutability, wrapped);
 
     // Big no-no, but we're proving a point.
     wrapped[0] = "goodbye";
-    assertThat((List<String>) mutableList).containsExactly("goodbye");
+    assertThat((List<?>) mutableList).containsExactly("goodbye");
+  }
+
+  @Test
+  public void testOfReturnsListWhoseArrayElementTypeIsObject() throws EvalException {
+    Mutability mu = Mutability.create("test");
+    StarlarkList<Object> list = StarlarkList.of(mu, "a", "b");
+    list.addElement(StarlarkInt.of(1)); // no ArrayStoreException
+    assertThat(list.toString()).isEqualTo("[\"a\", \"b\", 1]");
   }
 }
