@@ -219,6 +219,12 @@ public final class Benchmarks {
     // TODO(adonovan): opt: extrapolate and predict the number of iterations
     // in the remaining time budget, being wary of extrapolation error.
     for (b.n = 1; b.time < budgetNanos; b.n <<= 1) {
+      if (b.n <= 0) {
+        System.err.printf(
+            "In %s: function is too fast; likely a loop over `range(b.n)` is missing\n", name);
+        return null;
+      }
+
       try {
         b.start(thread);
         Starlark.fastcall(thread, f, new Object[] {b}, new Object[0]);
