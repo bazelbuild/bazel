@@ -175,26 +175,16 @@ public class RunCommand implements BlazeCommand  {
    * Compute the arguments the binary should be run with by concatenating the arguments in its
    * {@code args} attribute and the arguments on the Blaze command line.
    */
-  // TODO(bazel-team): audit the use of null values by caller. It looks unsafe.
   @Nullable
-  private List<String> computeArgs(
-      CommandEnvironment env, ConfiguredTarget targetToRun, List<String> commandLineArgs) {
+  private List<String> computeArgs(ConfiguredTarget targetToRun, List<String> commandLineArgs)
+      throws InterruptedException, CommandLineExpansionException {
     List<String> args = Lists.newArrayList();
 
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
     RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
     if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
       CommandLine targetArgs = runfilesSupport.getArgs();
-      try {
-        Iterables.addAll(args, targetArgs.arguments());
-      } catch (InterruptedException ex) {
-        // TODO(b/173521404): report a specific FailureDetail for "interrupted".
-        env.getReporter().handle(Event.error("Interrupted while expanding target command line"));
-        return null;
-      } catch (CommandLineExpansionException e) {
-        env.getReporter().handle(Event.error("Could not expand target command line: " + e));
-        return null;
-      }
+      Iterables.addAll(args, targetArgs.arguments());
     }
     args.addAll(commandLineArgs);
     return args;
@@ -464,15 +454,15 @@ public class RunCommand implements BlazeCommand  {
         return reportAndCreateFailureResult(
             env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE);
       } catch (InterruptedException e) {
-        String message = "run: argument expansion interrupted";
+        String message = "run: command line expansion interrupted";
         env.getReporter().handle(Event.error(message));
         return BlazeCommandResult.detailedExitCode(
             InterruptedFailureDetails.detailedExitCode(message));
       }
     } else {
       workingDir = runfilesDir;
-      List<String> args = computeArgs(env, targetToRun, commandLineArgs);
       try {
+        List<String> args = computeArgs(targetToRun, commandLineArgs);
         constructCommandLine(
             cmdLine, prettyCmdLine, env, configuration, targetToRun, runUnderTarget, args);
       } catch (NoShellFoundException e) {
@@ -482,6 +472,14 @@ public class RunCommand implements BlazeCommand  {
                 + " --shell_executable=<path> flag to specify its path, e.g."
                 + " --shell_executable=/bin/bash",
             Code.NO_SHELL_SPECIFIED);
+      } catch (InterruptedException e) {
+        String message = "run: command line expansion interrupted";
+        env.getReporter().handle(Event.error(message));
+        return BlazeCommandResult.detailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(message));
+      } catch (CommandLineExpansionException e) {
+        return reportAndCreateFailureResult(
+            env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE);
       }
     }
 
