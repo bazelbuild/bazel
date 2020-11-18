@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -105,6 +107,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -440,67 +443,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Filters discovered headers according to declared rule inputs. This fundamentally mirrors the
-   * behavior of {@link #validateInclusions} and just removes inputs that would be considered
-   * invalid from {@code headers}. That way, the compiler does not get access to them (assuming a
-   * sand-boxed environment) and can diagnose the missing headers.
-   */
-  private NestedSet<Artifact> filterDiscoveredHeaders(
-      ActionExecutionContext actionExecutionContext,
-      NestedSet<Artifact> headers,
-      List<CcCompilationContext.HeaderInfo> headerInfo) {
-    Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers.toList());
-
-    // Remove all declared headers and find out which modules were used while at it.
-    CcCompilationContext.HeadersAndModules headersAndModules =
-        ccCompilationContext.computeDeclaredHeadersAndUsedModules(
-            usePic, undeclaredHeaders, headerInfo);
-    usedModules = ImmutableList.copyOf(headersAndModules.modules);
-    undeclaredHeaders.removeAll(headersAndModules.headers);
-
-    // Note that this (compared to validateInclusions) does not take mandatoryInputs into account.
-    // The reason is that these by definition get added to the action input and thus are available
-    // anyway. Not having to look at them here saves us from requiring and ArtifactExpander, which
-    // actionExecutionContext doesn't have at this point. This only works as long as mandatory
-    // inputs do not contain headers that are built into a module.
-    for (Artifact source : getIncludeScannerSources()) {
-      undeclaredHeaders.remove(source);
-    }
-    for (Artifact header : additionalPrunableHeaders.toList()) {
-      undeclaredHeaders.remove(header);
-    }
-    if (undeclaredHeaders.isEmpty()) {
-      return headers;
-    }
-
-    Iterable<PathFragment> ignoreDirs =
-        cppConfiguration.isStrictSystemIncludes()
-            ? getBuiltInIncludeDirectories()
-            : getValidationIgnoredDirs();
-    Set<Artifact> missing = Sets.newHashSet();
-    // Lazily initialize, so that compiles that properly declare all their files profit.
-    Set<PathFragment> declaredIncludeDirs = null;
-    for (Artifact header : undeclaredHeaders) {
-      if (FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)) {
-        continue;
-      }
-      if (declaredIncludeDirs == null) {
-        declaredIncludeDirs = ccCompilationContext.getLooseHdrsDirs().toSet();
-      }
-      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
-        missing.add(header);
-      }
-    }
-    if (missing.isEmpty()) {
-      return headers;
-    }
-
-    return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER,
-        Iterables.filter(headers.toList(), header -> !missing.contains(header)));
-  }
-
-  /**
    * This method returns null when a required SkyValue is missing and a Skyframe restart is
    * required.
    */
@@ -545,13 +487,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       List<CcCompilationContext.HeaderInfo> headerInfo =
           ccCompilationContext.getTransitiveHeaderInfos();
-      IncludeScanningHeaderData.Builder includeScanningHeaderData =
+      IncludeScanningHeaderData.Builder includeScanningHeaderDataBuilder =
           ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
               useHeaderModules,
               headerInfo);
-      if (includeScanningHeaderData == null) {
+      if (includeScanningHeaderDataBuilder == null) {
         return null;
       }
       // In theory, we could verify include paths even earlier, but we want to avoid the restart
@@ -559,18 +501,17 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (needsIncludeValidation) {
         verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
       }
-      additionalInputs =
-          findUsedHeaders(
-              actionExecutionContext,
-              includeScanningHeaderData
-                  .setSystemIncludeDirs(systemIncludeDirs)
-                  .setCmdlineIncludes(getCmdlineIncludes(options))
-                  .build());
+      IncludeScanningHeaderData includeScanningHeaderData =
+          includeScanningHeaderDataBuilder
+              .setSystemIncludeDirs(systemIncludeDirs)
+              .setCmdlineIncludes(getCmdlineIncludes(options))
+              .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate(actionExecutionContext))
+              .build();
+      additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
 
-      if (getDotdFile() == null) {
-        // If we aren't looking at .d files later, remove undeclared inputs now.
-        additionalInputs =
-            filterDiscoveredHeaders(actionExecutionContext, additionalInputs, headerInfo);
+      if (useHeaderModules) {
+        usedModules =
+            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), headerInfo);
       }
     }
 
@@ -651,6 +592,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     usedModules = null;
     return additionalInputs;
+  }
+
+  private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
+      ActionExecutionContext actionExecutionContext) {
+    if (getDotdFile() != null) {
+      // If we'll looking at .d files later, don't remove undeclared inputs now.
+      return null;
+    }
+    Iterable<PathFragment> ignoreDirs =
+        cppConfiguration.isStrictSystemIncludes()
+            ? getBuiltInIncludeDirectories()
+            : getValidationIgnoredDirs();
+    ImmutableSet<Artifact> additionalPrunableHeadersSet = additionalPrunableHeaders.toSet();
+    Supplier<ImmutableSet<PathFragment>> looseHdrDirs =
+        Suppliers.memoize(ccCompilationContext.getLooseHdrsDirs()::toSet);
+    return header ->
+        additionalPrunableHeadersSet.contains(header)
+            || FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)
+            || isDeclaredIn(cppConfiguration, actionExecutionContext, header, looseHdrDirs.get());
   }
 
   /**
