@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A java compiler configuration containing the flags required for compilation. */
@@ -191,31 +192,23 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
         javaOptions.experimentalTurbineAnnotationProcessing;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
-      if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--javabase=%s is no longer supported, use --platforms instead (see #7849)",
-                javaOptions.javaBase));
-      }
-      if (!javaOptions.getHostJavaBase().equals(javaOptions.defaultHostJavaBase())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--host_javabase=%s is no longer supported, use --platforms instead (see #7849)",
-                javaOptions.getHostJavaBase()));
-      }
-      if (!javaOptions.javaToolchain.equals(javaOptions.defaultJavaToolchain())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--java_toolchain=%s is no longer supported, use --platforms instead (see #7849)",
-                javaOptions.javaToolchain));
-      }
-      if (!javaOptions.hostJavaToolchain.equals(javaOptions.defaultJavaToolchain())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--host_java_toolchain=%s is no longer supported, use --platforms instead (see"
-                    + " #7849)",
-                javaOptions.hostJavaToolchain));
-      }
+      checkLegacyToolchainFlagIsUnset(
+          "javabase", javaOptions.javaBase, javaOptions.defaultJavaBase());
+      checkLegacyToolchainFlagIsUnset(
+          "host_javabase", javaOptions.getHostJavaBase(), javaOptions.defaultHostJavaBase());
+      checkLegacyToolchainFlagIsUnset(
+          "java_toolchain", javaOptions.javaToolchain, javaOptions.defaultJavaToolchain());
+      checkLegacyToolchainFlagIsUnset(
+          "host_java_toolchain", javaOptions.hostJavaToolchain, javaOptions.defaultJavaToolchain());
+    }
+  }
+
+  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label, Label defaultValue)
+      throws InvalidConfigurationException {
+    if (!Objects.equals(label, defaultValue)) {
+      throw new InvalidConfigurationException(
+          String.format(
+              "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
     }
   }
 
