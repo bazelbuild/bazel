@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -74,6 +75,9 @@ public class RemoteActionInputFetcherTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
+    Path dev = fs.getPath("/dev");
+    dev.createDirectory();
+    dev.setWritable(false);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     options = Options.getDefaults(RemoteOptions.class);
@@ -123,6 +127,23 @@ public class RemoteActionInputFetcherTest {
     Path p = execRoot.getRelative(a.getExecPath());
     assertThat(FileSystemUtils.readContent(p, StandardCharsets.UTF_8)).isEqualTo("hello world");
     assertThat(p.isExecutable()).isFalse();
+    assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+  }
+
+  @Test
+  public void testStagingEmptyVirtualActionInput() throws Exception {
+    // arrange
+    MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
+    RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(remoteCache, execRoot, RequestMetadata.getDefaultInstance());
+
+    // act
+    actionInputFetcher.prefetchFiles(
+        ImmutableList.of(SpawnInputExpander.EMPTY_FILE), metadataProvider);
+
+    // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
     assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
