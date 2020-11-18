@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.sun.management.ThreadMXBean;
 import java.io.File;
@@ -61,7 +62,7 @@ import net.starlark.java.syntax.SyntaxError;
 public final class Benchmarks {
 
   private static final String HELP =
-      "Usage: Benchmarks [--help] [--filter regex] [--seconds float]\n"
+      "Usage: Benchmarks [--help] [--filter regex] [--seconds float] [--iterations count]\n"
           + "Runs Starlark benchmarks matching the filter for the specified (approximate) time,\n"
           + "and reports various performance measures.\n"
           + "The optional filter is a regular expression applied to the string FILE:FUNC,\n"
@@ -72,7 +73,8 @@ public final class Benchmarks {
 
   public static void main(String[] args) throws Exception {
     Pattern filter = null; // default: all
-    long budgetNanos = 1_000_000_000;
+    long budgetNanos = -1;
+    int iterations = -1;
 
     // parse flags
     int i;
@@ -107,13 +109,31 @@ public final class Benchmarks {
         if (!(0 <= budgetNanos && budgetNanos <= 1e13)) {
           fail("--seconds out of range");
         }
-
+      } else if (args[i].equals("--iterations")) {
+        if (++i == args.length) {
+          fail("--iterations needs an argument");
+        }
+        try {
+          iterations = Integer.parseInt(args[i]);
+        } catch (NumberFormatException e) {
+          fail("for --iterations, got '%s', want an integer number of iterations", args[i]);
+        }
+        if (!(0 < iterations && iterations <= 1e25)) {
+          fail("--iterations out of range");
+        }
       } else {
         fail("unknown flag: %s", args[i]);
       }
     }
     if (i < args.length) {
       fail("unexpected arguments");
+    }
+
+    if (iterations >= 0 && budgetNanos >= 0) {
+      fail("cannot specify both --seconds and --iterations");
+    }
+    if (iterations < 0 && budgetNanos < 0) {
+      budgetNanos = 1_000_000_000;
     }
 
     // Read testdata/bench_* files.
@@ -185,7 +205,7 @@ public final class Benchmarks {
       for (Map.Entry<String, StarlarkFunction> e : benchmarks.entrySet()) {
         String name = e.getKey();
         System.out.flush(); // help user identify a slow benchmark
-        Benchmark b = run(name, e.getValue(), budgetNanos);
+        Benchmark b = run(name, e.getValue(), budgetNanos, iterations);
         if (b == null) {
           ok = false;
           continue;
@@ -212,19 +232,19 @@ public final class Benchmarks {
     System.exit(1);
   }
 
-  // Runs benchmark function f for the specified time budget
-  // (which we may exceed by a factor of two).
-  private static Benchmark run(String name, StarlarkFunction f, long budgetNanos) {
+  // Runs benchmark function f for the specified time budget (which we may exceed by a factor of two)
+  // or number of iterations, exactly one of which must be nonnegative.
+  private static Benchmark run(String name, StarlarkFunction f, long budgetNanos, int iterations) {
+    // Exactly one of the parameters must be specified.
+    Preconditions.checkState((budgetNanos >= 0) != (iterations > 0));
+
     Mutability mu = Mutability.create("test");
     StarlarkThread thread = new StarlarkThread(mu, semantics);
 
     Benchmark b = new Benchmark();
 
-    // Keep doubling the number of iterations until we exceed the deadline.
-    // TODO(adonovan): opt: extrapolate and predict the number of iterations
-    // in the remaining time budget, being wary of extrapolation error.
-    for (b.n = 1; b.time < budgetNanos; b.n <<= 1) {
-      if (b.n <= 0) {
+    for (b.n = iterations >= 0 ? iterations : 1; ; ) {
+      if (iterations < 0 && b.n <= 0) {
         System.err.printf(
             "In %s: function is too fast; likely a loop over `range(b.n)` is missing\n", name);
         return null;
@@ -247,6 +267,18 @@ public final class Benchmarks {
         ex.printStackTrace();
         return null;
       }
+
+      if (iterations >= 0) {
+        break;
+      }
+      if (b.time >= budgetNanos) {
+        break;
+      }
+
+      // Keep doubling the number of iterations until we exceed the deadline.
+      // TODO(adonovan): opt: extrapolate and predict the number of iterations
+      // in the remaining time budget, being wary of extrapolation error.
+      b.n <<= 1;
     }
 
     return b;
