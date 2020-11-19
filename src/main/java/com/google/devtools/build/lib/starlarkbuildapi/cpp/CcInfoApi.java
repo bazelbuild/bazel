@@ -52,7 +52,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   CcLinkingContextApi<?> getCcLinkingContext();
 
   @StarlarkMethod(
-      name = "get_debug_context",
+      name = "debug_context",
       documented = false,
       doc = "Returns the <code>DebugContext</code>",
       useStarlarkThread = true)
