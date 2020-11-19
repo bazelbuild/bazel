@@ -3254,7 +3254,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
-        "--experimental_dynamic_configs=on",
+        // TODO(b/173547615): Re-enable this flag or delete.
+        // "--experimental_dynamic_configs=on",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
@@ -3296,7 +3297,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
       throws Exception {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
-        "--experimental_dynamic_configs=on",
+        // TODO(b/173547615): Re-enable this flag or delete.
+        // "--experimental_dynamic_configs=on",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
