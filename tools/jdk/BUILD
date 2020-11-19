@@ -264,7 +264,6 @@ alias(
     name = "toolchain_hostjdk8",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain_hostjdk8",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain_hostjdk8",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain_hostjdk8",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain_hostjdk8",
     }),
@@ -307,7 +306,6 @@ alias(
     name = "toolchain_vanilla",
     actual = select({
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain_vanilla",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain_vanilla",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain_vanilla",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain_vanilla",
     }),
@@ -320,7 +318,6 @@ RELEASES = (8, 9, 10, 11)
         name = "toolchain_java%d" % release,
         actual = select({
             "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain_java%d" % release,
-            "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain_java%d" % release,
             "//src/conditions:windows": "@remote_java_tools_windows//:toolchain_java%d" % release,
             "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain_java%d" % release,
         }),
