@@ -749,7 +749,7 @@ final class Eval {
       throws EvalException, InterruptedException {
     final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
     final StarlarkList<Object> list =
-        comp.isDict() ? null : StarlarkList.of(fr.thread.mutability());
+        comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
 
     // Save previous value (if any) of local variables bound in a 'for' clause
     // so we can restore them later.
