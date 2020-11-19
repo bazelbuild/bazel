@@ -197,7 +197,17 @@ remote_java_tools_java_import(
 )
 
 remote_java_tools_java_import(
+    name = "JacocoCoverage",
+    target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
+)
+
+remote_java_tools_java_import(
     name = "TestRunner",
+    target = ":java_tools/Runner_deploy.jar",
+)
+
+remote_java_tools_filegroup(
+    name = "TestRunner_deploy.jar",
     target = ":java_tools/Runner_deploy.jar",
 )
 
