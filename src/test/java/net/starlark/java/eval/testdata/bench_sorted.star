@@ -12,10 +12,10 @@ def _bench_sort(b, size):
         copy = orig[:]  # TODO(adonovan): move allocation outside loop
         sorted(copy)
 
-def bench_sort_large(b):
+def bench_large(b):
     "Sort an array of a million ints."
     _bench_sort(b, 1000000)
 
-def bench_sort_small(b):
+def bench_small(b):
     "Sort an array of ten ints."
     _bench_sort(b, 10)

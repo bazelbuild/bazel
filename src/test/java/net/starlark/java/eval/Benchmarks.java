@@ -63,7 +63,10 @@ public final class Benchmarks {
   private static final String HELP =
       "Usage: Benchmarks [--help] [--filter regex] [--seconds float]\n"
           + "Runs Starlark benchmarks matching the filter for the specified (approximate) time,\n"
-          + "and reports various performance measures.";
+          + "and reports various performance measures.\n"
+          + "The optional filter is a regular expression applied to the string FILE:FUNC,\n"
+          + "where FILE is the base name of the file and FUNC is the name of the function,\n"
+          + "for example 'bench_int.star:bench_add32'.\n";
 
   private static boolean ok = true;
 
@@ -120,7 +123,8 @@ public final class Benchmarks {
     }
     File testdata = new File(src, "test/java/net/starlark/java/eval/testdata");
     for (File file : testdata.listFiles()) {
-      if (!(file.getName().startsWith("bench_") && file.getName().endsWith(".star"))) {
+      String basename = file.getName();
+      if (!(basename.startsWith("bench_") && basename.endsWith(".star"))) {
         continue;
       }
 
@@ -159,8 +163,9 @@ public final class Benchmarks {
       TreeMap<String, StarlarkFunction> benchmarks = new TreeMap<>();
       for (Map.Entry<String, Object> e : module.getExportedGlobals().entrySet()) {
         if (e.getKey().startsWith("bench_") && e.getValue() instanceof StarlarkFunction) {
-          if (filter == null || filter.matcher(e.getKey()).find()) {
-            benchmarks.put(e.getKey(), (StarlarkFunction) e.getValue());
+          String name = e.getKey();
+          if (filter == null || filter.matcher(basename + ":" + name).find()) {
+            benchmarks.put(name, (StarlarkFunction) e.getValue());
           }
         }
       }
