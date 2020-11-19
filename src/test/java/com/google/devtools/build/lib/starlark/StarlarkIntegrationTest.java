@@ -2653,7 +2653,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:extension.bzl', 'dep_rule', 'outer_rule_test')",
+        "load('//test:extension.bzl', 'dep_rule', 'outer_rule')",
         "",
         "outer_rule(name = 'r', dep = ':inner')",
         "dep_rule(name = 'inner')");

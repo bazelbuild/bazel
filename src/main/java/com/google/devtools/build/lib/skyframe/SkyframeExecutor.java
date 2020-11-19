@@ -223,7 +223,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.syntax.StarlarkFile;
 
 /**
  * A helper object to support Skyframe-driven execution.
@@ -274,8 +273,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
       newPkgFunctionCache();
   // Cache of parsed BUILD files, for PackageFunction. Same motivation as above.
-  private final Cache<PackageIdentifier, StarlarkFile> buildFileSyntaxCache =
-      newBuildFileSyntaxCache();
+  private final Cache<PackageIdentifier, PackageFunction.CompiledBuildFile> compiledBuildFileCache =
+      newCompiledBuildFileCache();
 
   // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
@@ -530,7 +529,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             packageManager,
             showLoadingProgress,
             packageFunctionCache,
-            buildFileSyntaxCache,
+            compiledBuildFileCache,
             numPackagesLoaded,
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
@@ -1126,7 +1125,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return CacheBuilder.newBuilder().build();
   }
 
-  protected Cache<PackageIdentifier, StarlarkFile> newBuildFileSyntaxCache() {
+  protected Cache<PackageIdentifier, PackageFunction.CompiledBuildFile>
+      newCompiledBuildFileCache() {
     return CacheBuilder.newBuilder().build();
   }
 
@@ -1367,7 +1367,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // never had a chance to restart (e.g. due to user interrupt, or an error in a --nokeep_going
     // build), these may have stale entries.
     packageFunctionCache.invalidateAll();
-    buildFileSyntaxCache.invalidateAll();
+    compiledBuildFileCache.invalidateAll();
     bzlCompileCache.invalidateAll();
 
     numPackagesLoaded.set(0);

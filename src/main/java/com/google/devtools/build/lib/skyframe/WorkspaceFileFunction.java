@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -40,6 +41,8 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKe
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -237,20 +240,28 @@ public class WorkspaceFileFunction implements SkyFunction {
             prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = asts.get(key.getIndex());
-      PackageFunction.BzlLoadResult bzlLoadResult =
-          PackageFunction.fetchLoadsFromBuildFile(
-              workspaceFile,
-              rootPackage,
-              /*repoMapping=*/ ImmutableMap.of(),
-              ast,
-              /*preludeLabel=*/ null,
-              key.getIndex(),
-              env,
-              bzlLoadFunctionForInlining);
-      if (bzlLoadResult == null) {
+
+      // Parse the labels in the file's load statements.
+      ImmutableList<Pair<String, Label>> loads =
+          BzlLoadFunction.getLoadLabels(
+              env.getListener(), ast, rootPackage, /*repoMapping=*/ ImmutableMap.of());
+      if (loads == null) {
+        throw PackageFunction.PackageFunctionException.builder()
+            .setType(PackageFunction.PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+            .setPackageIdentifier(rootPackage)
+            .setMessage("malformed load statements")
+            .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
+            .buildCause();
+      }
+
+      // Load .bzl modules in parallel.
+      ImmutableMap<String, Module> loadedModules =
+          PackageFunction.loadBzlModules(
+              workspaceFile, rootPackage, loads, key.getIndex(), env, bzlLoadFunctionForInlining);
+      if (loadedModules == null) {
         return null;
       }
-      parser.execute(ast, bzlLoadResult.loadedModules, key);
+      parser.execute(ast, loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {

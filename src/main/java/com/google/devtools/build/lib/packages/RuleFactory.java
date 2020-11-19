@@ -329,7 +329,7 @@ public class RuleFactory {
       String attributeName = args.getName(attributeAccessor);
       builder.put(attributeName, args.getValue(attributeAccessor));
     }
-    String generatorName = pkgBuilder.getGeneratorNameByLocation().get(generatorLocation);
+    String generatorName = pkgBuilder.getGeneratorNameByLocation(generatorLocation);
     if (generatorName == null) {
       generatorName = (String) args.getAttributeValue("name");
     }

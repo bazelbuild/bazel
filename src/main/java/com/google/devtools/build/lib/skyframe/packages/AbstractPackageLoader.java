@@ -113,7 +113,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.syntax.StarlarkFile;
 
 /**
  * Abstract base class of a {@link PackageLoader} implementation that has no incrementality or
@@ -441,7 +440,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new AtomicReference<>(new TimestampGranularityMonitor(BlazeClock.instance()));
     Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
         CacheBuilder.newBuilder().build();
-    Cache<PackageIdentifier, StarlarkFile> astCache = CacheBuilder.newBuilder().build();
     AtomicReference<FilesystemCalls> syscallCacheRef =
         new AtomicReference<>(
             PerBuildSyscallCache.newBuilder().setConcurrencyLevel(legacyGlobbingThreads).build());
@@ -500,7 +498,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 cachingPackageLocator,
                 /*showLoadingProgress=*/ new AtomicBoolean(false),
                 packageFunctionCache,
-                astCache,
+                /*compiledBuildFileCache=*/ CacheBuilder.newBuilder().build(),
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
                 /*bzlLoadFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
