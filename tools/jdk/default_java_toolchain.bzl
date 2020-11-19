@@ -12,18 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Bazel rules for creating Java toolchains."""
+"""Deprecated: Bazel rules for creating Java toolchains. Use java_toolchain_default.bzl."""
 
 load("@remote_java_tools_darwin//:java_toolchain_default.bzl", java_toolchain_default_macos = "java_toolchain_default")
 load("@remote_java_tools_windows//:java_toolchain_default.bzl", java_toolchain_default_windows = "java_toolchain_default")
 load("@remote_java_tools_linux//:java_toolchain_default.bzl", "JAVABUILDER_TOOLCHAIN_CONFIGURATION", java_toolchain_default_linux = "java_toolchain_default")
 
 def default_java_toolchain(name, configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION, **kwargs):
-    """Defines a remote java_toolchain with appropriate defaults for Bazel."""
+    """Deprecated: Defines a remote java_toolchain with appropriate defaults for Bazel.
 
-    java_toolchain_default_macos(name + "_darwin", configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION, **kwargs)
-    java_toolchain_default_windows(name + "_windows", configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION, **kwargs)
-    java_toolchain_default_linux(name + "_linux", configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION, **kwargs)
+    Use use java_toolchain_default instead."""
+
+    java_toolchain_default_macos(name + "_darwin", configuration = configuration, **kwargs)
+    java_toolchain_default_windows(name + "_windows", configuration = configuration, **kwargs)
+    java_toolchain_default_linux(name + "_linux", configuration = configuration, **kwargs)
 
     native.alias(
         name = name,
