@@ -61,6 +61,7 @@ java_library(
         "SkyframeAnalysisResult.java",
         "SkyframeBuildView.java",
         "SkyframeDependencyResolver.java",
+        "SkyframeEvalWithOrderedListAEFDelegator.java",
         "SkyframeExecutor.java",
         "SkyframeExecutorFactory.java",
         "SkyframeExecutorWrappingWalkableGraph.java",
@@ -188,6 +189,7 @@ java_library(
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":skyframe_aware_action",
+        ":skyframe_experimental_options",
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
         ":starlark_builtins_value",
@@ -237,7 +239,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
@@ -807,6 +808,7 @@ java_library(
     deps = [
         ":artifact_nested_set_key",
         ":artifact_nested_set_value",
+        ":skyframe_experimental_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -2824,4 +2826,9 @@ java_library(
 java_library(
     name = "already_reported_exception",
     srcs = ["AlreadyReportedException.java"],
+)
+
+java_library(
+    name = "skyframe_experimental_options",
+    srcs = ["SkyframeExperimentalOptions.java"],
 )

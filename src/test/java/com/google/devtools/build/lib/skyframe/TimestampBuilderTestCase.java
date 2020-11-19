@@ -263,7 +263,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(Artifact.ARTIFACT, new ArtifactFunction(() -> true))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
-                    new ActionExecutionFunction(skyframeActionExecutor, directories, tsgmRef))
+                    new ActionExecutionFunction(skyframeActionExecutor, directories, tsgmRef, null))
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null, null))
