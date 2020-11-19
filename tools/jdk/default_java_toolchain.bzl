@@ -30,7 +30,6 @@ def default_java_toolchain(name, configuration = JAVABUILDER_TOOLCHAIN_CONFIGURA
         actual = select({
             "@bazel_tools//src/conditions:linux_x86_64": name + "_linux",
             "@bazel_tools//src/conditions:darwin": name + "_darwin",
-            "@bazel_tools//src/conditions:darwin_x86_64": name + "_darwin",
             "@bazel_tools//src/conditions:windows": name + "_windows",
             # On different platforms the linux repository can be used.
             # The deploy jars inside the linux repository are platform-agnostic.
