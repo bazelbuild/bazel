@@ -38,7 +38,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -387,16 +386,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<Void> uploadFile(Digest digest, Path path) {
     return uploader.uploadBlobAsync(
-        HashCode.fromString(digest.getHash()),
-        Chunker.builder().setInput(digest.getSizeBytes(), path).build(),
-        /* forceUpload= */ true);
+        digest, Chunker.builder().setInput(digest.getSizeBytes(), path).build(), /* forceUpload= */ true);
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
     return uploader.uploadBlobAsync(
-        HashCode.fromString(digest.getHash()),
-        Chunker.builder().setInput(data.toByteArray()).build(),
-        /* forceUpload= */ true);
+        digest, Chunker.builder().setInput(data.toByteArray()).build(), /* forceUpload= */ true);
   }
 }

@@ -84,7 +84,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
   /** Contains the hash codes of already uploaded blobs. **/
   @GuardedBy("lock")
-  private final Set<Digest> uploadedBlobs = new HashSet<>();
+  private final Set<HashCode> uploadedBlobs = new HashSet<>();
 
   @GuardedBy("lock")
   private final Map<Digest, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
@@ -201,6 +201,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
   }
 
   @Deprecated
+  @VisibleForTesting
   public ListenableFuture<Void> uploadBlobAsync(
       HashCode hash, Chunker chunker, boolean forceUpload) {
     Digest digest =
@@ -229,7 +230,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     synchronized (lock) {
       checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
 
-      if (!forceUpload && uploadedBlobs.contains(digest)) {
+      if (!forceUpload && uploadedBlobs.contains(HashCode.fromString(digest.getHash()))) {
         return Futures.immediateFuture(null);
       }
 
@@ -243,7 +244,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               startAsyncUpload(digest, chunker),
               (v) -> {
                 synchronized (lock) {
-                  uploadedBlobs.add(digest);
+                  uploadedBlobs.add(HashCode.fromString(digest.getHash()));
                 }
                 return null;
               },
@@ -298,6 +299,15 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       chunker.reset();
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
+    }
+
+    if (chunker.getSize() != digest.getSizeBytes()) {
+      return Futures.immediateFailedFuture(
+          new IllegalStateException(
+              String.format(
+                  "Expected chunker size of %d, got %d",
+                  digest.getSizeBytes(),
+                  chunker.getSize())));
     }
 
     UUID uploadId = UUID.randomUUID();
