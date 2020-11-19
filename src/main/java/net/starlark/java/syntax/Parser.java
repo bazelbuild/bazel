@@ -159,6 +159,12 @@ final class Parser {
     return prev != null ? prev : s;
   }
 
+  // Store a string in the global string interner.
+  // Use carefully because global interning is not free.
+  private String internGlobally(String s) {
+    return StarlarkStringInterner.intern(s);
+  }
+
   // Returns a token's string form as used in error messages.
   private static String tokenString(TokenKind kind, @Nullable Object value) {
     return kind == TokenKind.STRING
@@ -434,7 +440,7 @@ final class Parser {
     // **kwargs
     if (token.kind == TokenKind.STAR_STAR) {
       int starStarOffset = nextToken();
-      Identifier id = parseIdent();
+      Identifier id = parseIdent(false);
       return new Parameter.StarStar(locs, starStarOffset, id);
     }
 
@@ -442,14 +448,14 @@ final class Parser {
     if (token.kind == TokenKind.STAR) {
       int starOffset = nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
-        Identifier id = parseIdent();
+        Identifier id = parseIdent(false);
         return new Parameter.Star(locs, starOffset, id);
       }
       return new Parameter.Star(locs, starOffset, null);
     }
 
     // name=default
-    Identifier id = parseIdent();
+    Identifier id = parseIdent(false);
     if (token.kind == TokenKind.EQUALS) {
       nextToken(); // TODO: save token pos?
       Expression expr = parseTest();
@@ -499,7 +505,7 @@ final class Parser {
   private Expression parseSelectorSuffix(Expression e) {
     int dotOffset = expect(TokenKind.DOT);
     if (token.kind == TokenKind.IDENTIFIER) {
-      Identifier id = parseIdent();
+      Identifier id = parseIdent(true);
       return new DotExpression(locs, e, dotOffset, id);
     }
 
@@ -592,7 +598,7 @@ final class Parser {
         return parseStringLiteral();
 
       case IDENTIFIER:
-        return parseIdent();
+        return parseIdent(false);
 
       case LBRACKET: // [...]
         return parseListMaker();
@@ -854,7 +860,7 @@ final class Parser {
     return makeErrorExpression(lbraceOffset, end);
   }
 
-  private Identifier parseIdent() {
+  private Identifier parseIdent(boolean intern) {
     if (token.kind != TokenKind.IDENTIFIER) {
       int start = token.start;
       int end = expect(TokenKind.IDENTIFIER);
@@ -862,6 +868,9 @@ final class Parser {
     }
 
     String name = (String) token.value;
+    if (intern) {
+      name = internGlobally(name);
+    }
     int offset = nextToken();
     return new Identifier(locs, name, offset);
   }
@@ -1190,7 +1199,7 @@ final class Parser {
   // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
   private DefStatement parseDefStatement() {
     int defOffset = expect(TokenKind.DEF);
-    Identifier ident = parseIdent();
+    Identifier ident = parseIdent(false);
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters();
     expect(TokenKind.RPAREN);
