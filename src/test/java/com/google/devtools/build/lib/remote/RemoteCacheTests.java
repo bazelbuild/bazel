@@ -1206,32 +1206,34 @@ public class RemoteCacheTests {
   }
 
   @Test
-  public void testDownloadFileWithSymlinkTemplate() throws Exception {
-    // Test that when a symlink template is provided, we don't actually download files to disk.
-    // Instead, a symbolic link should be created that points to a location where the file may
+  public void testDownloadFileWithHardLinkTemplate() throws Exception {
+    // Test that when a hard link template is provided, we don't actually download files to disk.
+    // Instead, a hard link should be created that points to a location where the file may
     // actually be found. That location could, for example, be backed by a FUSE file system that
     // exposes the Content Addressable Storage.
 
     // arrange
     final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
 
-    Digest helloDigest = digestUtil.computeAsUtf8("hello-contents");
-    cas.put(helloDigest, "hello-contents".getBytes(StandardCharsets.UTF_8));
+    Path casDirectory = fs.getPath("/cas");
+    casDirectory.createDirectory();
+    OutputStream helloFile = casDirectory
+        .getRelative("a378b939ad2e1d470a9a28b34b0e256b189e85cb236766edc1d46ec3b6ca82e5-14")
+        .getOutputStream();
+    helloFile.write("hello-contents".getBytes(StandardCharsets.UTF_8));
+    helloFile.close();
 
-    Path file = fs.getPath("/execroot/symlink-to-file");
+    Path file = fs.getPath("/execroot/hard-link-to-file");
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDownloadSymlinkTemplate = "/home/alice/cas/{hash}-{size_bytes}";
+    options.remoteDownloadHardLinkTemplate = "/cas/{hash}-{size_bytes}";
     RemoteCache remoteCache = new InMemoryRemoteCache(cas, options, digestUtil);
 
     // act
-    Utils.getFromFuture(remoteCache.downloadFile(file, helloDigest));
+    Utils.getFromFuture(remoteCache.downloadFile(file, digestUtil.computeAsUtf8("hello-contents")));
 
     // assert
-    assertThat(file.isSymbolicLink()).isTrue();
-    assertThat(file.readSymbolicLink())
-        .isEqualTo(
-            PathFragment.create(
-                "/home/alice/cas/a378b939ad2e1d470a9a28b34b0e256b189e85cb236766edc1d46ec3b6ca82e5-14"));
+    assertThat(file.exists()).isTrue();
+    assertThat(file.getFileSize()).isEqualTo(14);
   }
 
   @Test

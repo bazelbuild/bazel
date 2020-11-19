@@ -78,6 +78,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -452,16 +453,22 @@ public class RemoteCache implements AutoCloseable {
       return COMPLETED_SUCCESS;
     }
 
-    if (!options.remoteDownloadSymlinkTemplate.isEmpty()) {
+    if (!options.remoteDownloadHardLinkTemplate.isEmpty()) {
       // Don't actually download files from the CAS. Instead, create a
-      // symbolic link that points to a location where CAS objects may
-      // be found. This could, for example, be a FUSE file system.
-      path.createSymbolicLink(
-          path.getRelative(
-              options
-                  .remoteDownloadSymlinkTemplate
-                  .replace("{hash}", digest.getHash())
-                  .replace("{size_bytes}", String.valueOf(digest.getSizeBytes()))));
+      // hard link against a location where CAS objects may be found.
+      // This requires that the exec root is placed on the same file
+      // system as the CAS objects.
+      Path destination = path.getRelative(
+          options.remoteDownloadHardLinkTemplate
+              .replace("{hash}", digest.getHash())
+              .replace("{size_bytes}", String.valueOf(digest.getSizeBytes())));
+      try {
+        destination.createHardLink(path);
+      } catch (FileAlreadyExistsException e) {
+        // A temporary file from a previous call exists.
+        path.delete();
+        destination.createHardLink(path);
+      }
       return COMPLETED_SUCCESS;
     }
 
