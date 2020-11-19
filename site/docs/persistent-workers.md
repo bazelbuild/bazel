@@ -3,25 +3,38 @@ layout: documentation
 title: Persistent workers
 ---
 
-# Persistent workers
+# Overview
 
-_Persistent workers_ (often called _workers_ for short) is an
+A persistent worker is a long-running process started by the Bazel server, which
+functions as a _wrapper_ around the actual _tool_ (typically a compiler), or is
+the _tool_ itself. In order to benefit from persistent workers, the tool must
+support doing a sequence of compilations, and the wrapper needs to translate
+between the tool's API and the request/response format described below. The same
+worker might be called with and without the `--persistent_worker` flag
+in the same build, and is responsible for appropriately starting and talking to
+the tool, as well as shutting down workers on exit. Each worker instance is
+assigned (but not chrooted to) a separate working directory under
+`<outputBase>/bazel-workers`.
+
+Using persistent workers is an
 [execution strategy](https://docs.bazel.build/versions/master/user-manual.html#strategy-options)
 that decreases start-up overhead, allows more JIT compilation, and enables
 caching of for example the abstract syntax trees in the action execution. This
 strategy achieves these improvements by sending multiple requests to a
-long-running process. Persistent workers are available for
-[Java (built-in)](https://cs.opensource.google/bazel/bazel/+/master:src/java_tools/buildjar/java/com/google/devtools/build/buildjar/BazelJavaBuilder.java),
+long-running process.
+
+Persistent workers are implemented for multiple languages, including Java,
 [TypeScript](https://bazelbuild.github.io/rules_nodejs/TypeScript.html),
-[Scala](https://github.com/bazelbuild/rules_scala), and more.
+[Scala](https://github.com/bazelbuild/rules_scala),
+[Kotlin](https://github.com/bazelbuild/rules_kotlin), and more.
 
 ## Using persistent workers <a name="usage"></a>
 
 [Bazel 0.27 and higher](https://blog.bazel.build/2019/06/19/list-strategy.html)
-by default uses persistent workers when executing builds, though remote
+uses persistent workers by default when executing builds, though remote
 execution takes precedence. For actions that do not support persistent workers,
-Bazel falls back to regular workers instead. You can explicitly set your build
-to use persistent workers by setting the `worker`
+Bazel falls back to starting a tool instance for each action. You can explicitly
+set your build to use persistent workers by setting the `worker`
 [strategy](user-manual.html#strategy-options) for the applicable tool mnemonics.
 As a best practice, this example includes specifying `local` as a fallback to
 the `worker` strategy:
@@ -143,79 +156,8 @@ For Android builds, see details at the
 
 ## Implementing persistent workers<a name="implementation"></a>
 
-Persistent workers are implemented for multiple languages, including Java,
-[TypeScript](https://bazelbuild.github.io/rules_nodejs/TypeScript.html),
-[Scala](https://github.com/bazelbuild/rules_scala),
-[Kotlin](https://github.com/bazelbuild/rules_kotlin), and more. You can
-implement persistent workers in other languages and for other tools, as well.
-
 See the [creating persistent workers](creating-workers.html) page for
 information on how to make a worker.
-
-Each worker is a long-running process started by the Bazel server, which
-functions as a _wrapper_ around the actual _tool_ (typically a compiler). In
-order to benefit from persistent workers, the tool must support doing a sequence
-of compilations, and the wrapper needs to translate between the tool's API and
-the request/response format described below. The wrapper must recognize the
-`--persistent_worker` command-line flag and only make itself persistent if that
-flag is passed, otherwise it must do a one-shot compilation and exit. The same
-worker program might be called with and without the `--persistent_worker` flag
-in the same build, and is responsible for appropriately spawning and talking to
-the tool, as well as shutting down workers on exit. Each worker instance is
-assigned (but not chrooted to) a separate working directory under
-`<outputBase>/bazel-workers`.
-
-The Bazel server communicates with the worker using stdin/stdout. It supports
-the use of protocol buffers or JSON strings. Support for JSON is experimental
-and thus subject to change. It is guarded behind the
-`--experimental_worker_allow_json_protocol` flag.
-
-When using protobuf, the compilation requests are sent as
-[`WorkerRequest`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/worker_protocol.proto)
-protocol buffers in standard binary format, and responses are similarly returned
-as
-[`WorkerResponse`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/worker_protocol.proto)
-protocol buffers. Each protocol buffer is preceded by its length in varint
-format (see
-[`MessageLite.writeDelimitedTo()`](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/MessageLite.html#writeDelimitedTo-java.io.OutputStream-).
-
-JSON requests uphold the same structure as the protobuf, but uses standard JSON.
-Bazel stores the requests as protobufs and converts them to JSON using
-[protobuf's JSON format](https://source.corp.google.com/piper///depot/google3/java/com/google/protobuf/util/JsonFormat.java)
-Responses are parsed by a JSON parser into the same structure as the
-WorkResponse protobuf, then converted to proto manually.
-JSON requests and responses are not preceded by a size indicator.
-
-The request's `args` field should contain a list of strings that describe
-the action to be done. The `inputs` field may contain input file names and their
-hash digests, allowing the caching of intermediate results without having to
-recompute the digest.
-
-<p class="warning">Because responses are sent on stdout, neither the worker nor the underlying tool should write other messages into that stream.</p>
-
-Writing other things to stdout crashes the worker. Any output that should be
-shown to the user can be put in the `output` field of the response, and output
-that should be logged should go to stderr. The wrapper should make sure that
-what the tool writes on stdout is appropriately redirected.
-
-To enable the `worker` strategy for an action, the `execution_requirements` for
-that action must include `{"supports-workers": "1"}`. It can also include a
-`requires-worker-protocol` requirement specifying whether Bazel should
-communicate with that worker using `json` or `proto`. This is required for JSON
-but is optional for proto since proto is the default. You can also add a
-`worker-key-mnemonic` to the `execution_requirements` section, allowing the
-mnemonic for workers to be separate from the mnemonic for the action. This can
-be useful when the same executable is used for several mnemonics, though it
-limits how much the user can control when to use workers.
-
-The action definition must also contain an `arguments` definition with a
-flag-file (`@`-preceded) argument at the end. Any non-flag-file arguments are
-_startup flags_ that will be passed to the worker on startup, allowing
-configuration common to all requests. The flag-file argument is used to read
-arguments for each request, including possible _non-startup flags_. To pass an
-argument starting with a literal `@`, start the argument with `@@` instead. If
-an argument is also an external repository label, it will not be considered a
-flag-file argument.
 
 This example shows a Starlark configuration for a worker that uses JSON:
 
@@ -247,12 +189,15 @@ inputs: [
 ]
 ```
 
-The worker receives this on stdin in JSON format (because
-"requires-worker-protocol" is set to JSON, and
+The worker receives this on `stdin` in JSON format (because
+`requires-worker-protocol` is set to JSON, and
 `--experimental_worker_allow_json_protocol` is passed to the build to enable
-this option). To communicate with the associated worker using binary-encoded
-protobuf instead of json, `requires-worker-protocol` would be set to `proto`,
-like this:
+this option). The worker then performs the action, and sends a JSON-formatted
+`WorkResponse` to Bazel on its stdout. Bazel then parses this response and
+manually converts it to a `WorkResponse` proto. To communicate
+with the associated worker using binary-encoded protobuf instead of JSON,
+`requires-worker-protocol` would be set to `proto`, like this:
+
 ```
   execution_requirements = {
     "supports-workers" : "1" ,

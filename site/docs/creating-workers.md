@@ -10,29 +10,38 @@ If you have repeated actions in your build that have a high startup cost or
 would benefit from cross-action caching, you may want to implement your own
 persistent worker to perform these actions.
 
+The Bazel server communicates with the worker using `stdin`/`stdout`. It
+supports the use of protocol buffers or JSON strings. Support for JSON is
+experimental and thus subject to change. It is guarded behind the
+`--experimental_worker_allow_json_protocol` flag.
+
 The worker implementation has two parts:
 
-* The [worker](#making-the-worker),
+* The [worker](#making-the-worker).
 * The [rule that uses the worker](#making-the-rule-that-uses-the-worker).
 
 ## Making the worker
 
-A worker upholds a few requirements:
+A persistent worker upholds a few requirements:
 
 * It reads [WorkRequests](https://github.com/bazelbuild/bazel/blob/6d1b9725b1e201ca3f25d8ec2a730a20aab62c6e/src/main/protobuf/worker_protocol.proto#L35)
-from its `stdin`.
+  from its `stdin`.
 * It writes [WorkResponses](https://github.com/bazelbuild/bazel/blob/6d1b9725b1e201ca3f25d8ec2a730a20aab62c6e/src/main/protobuf/worker_protocol.proto#L49)
-(and only `WorkResponse`s) to its `stdout`.
-* It accepts the `--persistent_worker` flag.
+  (and only `WorkResponse`s) to its `stdout`.
+* It accepts the `--persistent_worker` flag. The wrapper must recognize the
+  `--persistent_worker` command-line flag and only make itself persistent if
+  that flag is passed, otherwise it must do a one-shot compilation and exit.
 
-If your program upholds these requirements, it can be used as a worker!
+If your program upholds these requirements, it can be used as a persistent worker!
+
+
 
 ### Work requests
 
-A `WorkRequest` contains a list of arguments to the worker, a list of path-digest
-pairs representing the inputs the worker can access (this isn’t enforced, but
-you can use this info for caching), and a request id, which is 0 for singleplex
-workers.
+A `WorkRequest` contains a list of arguments to the worker, a list of
+path-digest pairs representing the inputs the worker can access (this isn’t
+enforced, but you can use this info for caching), and a request id, which is 0
+for singleplex workers.
 
 ```json
 {
@@ -47,10 +56,12 @@ workers.
 
 ### Work responses
 
-A `WorkResponse` should contain the same request id, a zero or nonzero exit
-code, and an output string that contains any errors encountered in processing
-or executing the request. Workers may write additional output to `stderr`, but
-they must only write `WorkResponse`s to `stdout`.
+A `WorkResponse` contains a request id, a zero or nonzero exit
+code, and an output string that describes any errors encountered in processing
+or executing the request. The `output` field contains a short
+description; complete logs may be written to the worker's `stderr`. Because
+workers may only write `WorkResponses` to `stdout`, it's common for the worker
+to redirect the `stdout` of any tools it uses to `stderr`.
 
 ```json
 {
@@ -72,6 +83,16 @@ id, so the request id must be specified if it is nonzero. This is a valid
 }
 ```
 
+**Notes**
+
+* Each protocol buffer is preceded by its length in `varint` format (see
+[`MessageLite.writeDelimitedTo()`](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/MessageLite.html#writeDelimitedTo-java.io.OutputStream-).
+* JSON requests and responses are not preceded by a size indicator.
+* JSON requests uphold the same structure as the protobuf, but use standard
+ JSON.
+* Bazel stores requests as protobufs and converts them to JSON using
+[protobuf's JSON format](https://cs.opensource.google/protobuf/protobuf/+/master:java/util/src/main/java/com/google/protobuf/util/JsonFormat.java)
+
 ## Making the rule that uses the worker
 
 You'll also need to create a rule that generates actions to be performed by the
@@ -81,10 +102,10 @@ In addition, the rule needs to contain a reference to the worker itself, and
 there are some requirements for the actions it produces.
 
 ### Referring to the worker
-The rule that uses the worker needs to contain a field that refers to the worker itself,
-so you'll need to create an instance of a `\*\_binary` rule to define your
-worker. If your worker is called `MyWorker.Java`, this might be the associated
-rule:
+The rule that uses the worker needs to contain a field that refers to the worker
+itself, so you'll need to create an instance of a `\*\_binary` rule to define
+your worker. If your worker is called `MyWorker.Java`, this might be the
+associated rule:
 
 ```python
 java_binary(
@@ -133,12 +154,17 @@ actions have a couple of requirements.
   a valid execution requirement, though it’s not required for proto workers,
   since they are the default.
 
-  You can also set a "worker-key-mnemonic" in the execution requirements. This
+  You can also set a `worker-key-mnemonic` in the execution requirements. This
   may be useful if you're reusing the executable for multiple action types and
   want to distinguish actions by this worker.
 
 * Temporary files generated in the course of the action should be saved to the
   worker's directory. This enables sandboxing.
+
+
+**Note**: To pass an argument starting with a literal `@`, start the argument
+with `@@` instead. If an argument is also an external repository label, it will
+not be considered a flagfile argument.
 
 Assuming a rule definition with "worker" attribute described above, in addition
 to a "srcs" attribute representing the inputs, an "output" attribute
@@ -157,6 +183,9 @@ ctx.actions.run(
   arguments=ctx.attr.args + [“@flagfile”]
  )
 ```
+
+For another example, see [Implementing persistent workers](persistent-workers.html#implementation).
+
 ## Examples
 
 The Bazel code base uses [Java compiler workers](https://github.com/bazelbuild/bazel/blob/a4251eab6988d6cf4f5e35681fbe2c1b0abe48ef/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/BazelJavaBuilder.java),
@@ -168,5 +197,6 @@ callback.
 For an example of a rule that uses a worker, take a look at Bazel's
 [worker integration test](https://github.com/bazelbuild/bazel/blob/22b4dbcaf05756d506de346728db3846da56b775/src/test/shell/integration/bazel_worker_test.sh#L106).
 
-External contributors have implemented workers in a variety of languages; you
-can [find many more examples on GitHub](https://github.com/search?q=bazel+workrequest&type=Code)!
+External contributors have implemented workers in a variety of languages; take a
+look at [Polyglot implementations of Bazel persistent workers](https://github.com/Ubehebe/bazel-worker-examples).
+You can [find many more examples on GitHub](https://github.com/search?q=bazel+workrequest&type=Code)!
