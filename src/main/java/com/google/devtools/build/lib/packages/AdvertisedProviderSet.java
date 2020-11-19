@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Objects;
 
@@ -109,6 +110,30 @@ public final class AdvertisedProviderSet {
   /** Get all advertised Starlark providers. */
   public ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviders() {
     return starlarkProviders;
+  }
+
+  /**
+   * Adds the fingerprints of this {@link AdvertisedProviderSet} into {@code fp}.
+   *
+   * <p>Fingerprints of {@link AdvertisedProviderSet} must have the following properties:
+   *
+   * <ul>
+   *   <li>If {@code aps1.equals(aps2)} then {@code aps1} and {@code aps2} have the same
+   *       fingerprint.
+   *   <li>If {@code !aps1.equals(aps2)} then {@code aps1} and {@code aps2} don't have the same
+   *       fingerprint (except for unintentional digest collisions).
+   * </ul>
+   *
+   * <p>In other words, {@link #fingerprint} is a proxy for {@link #equals}. These properties *do
+   * not* need to be maintained across Blaze versions (e.g. there's no need to worry about
+   * historical serialized fingerprints).
+   */
+  public void fingerprint(Fingerprint fp) {
+    fp.addBoolean(canHaveAnyProvider);
+    // #builtinProviders and #starlarkProviders are ordered according to the calls to the builder
+    // methods, and that order is assumed to be deterministic.
+    builtinProviders.forEach(clazz -> fp.addString(clazz.getCanonicalName()));
+    starlarkProviders.forEach(starlarkProvider -> starlarkProvider.fingerprint(fp));
   }
 
   public static Builder builder() {
