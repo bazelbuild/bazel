@@ -108,6 +108,21 @@ public final class ScriptTest {
     return new MutableStruct(kwargs);
   }
 
+  @StarlarkMethod(
+      name = "freeze",
+      documented = false,
+      parameters = {
+        @Param(name = "x"),
+      }
+  )
+  public void freeze(Object x) throws EvalException {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).unsafeShallowFreeze();
+    } else {
+      throw Starlark.errorf("Value is not freezable: %s", Starlark.type(x));
+    }
+  }
+
   private static boolean ok = true;
 
   public static void main(String[] args) throws Exception {
@@ -167,7 +182,7 @@ public final class ScriptTest {
 
         StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
         Module module = Module.withPredeclared(semantics, predeclared.build());
-        try (Mutability mu = Mutability.create("test")) {
+        try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
           StarlarkThread thread = new StarlarkThread(mu, semantics);
           thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
           Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
