@@ -642,8 +642,17 @@ final class Eval {
         result = fn(fr).getModule().getGlobal(id.getName());
         break;
       case PREDECLARED:
-        // TODO(adonovan): call getPredeclared
-        result = fn(fr).getModule().get(id.getName());
+        // TODO(adonovan): don't call getGlobal. This requires the Resolver to distinguish
+        // "predeclared" vars from "already defined module globals" instead of lumping them
+        // together via getNames. The latter odd category exists in the REPL, and
+        // in EvaluationTestCase, which calls Starlark.execFile repeatedly on the same Module.
+        // The REPL could just create a new module for each chunk, whose predeclared vars
+        // are the previous module's globals, but things may be trickier in EvaluationTestCase.
+        Module module = fn(fr).getModule();
+        result = module.getGlobal(id.getName());
+        if (result == null) {
+          result = module.getPredeclared(id.getName());
+        }
         break;
       default:
         throw new IllegalStateException(bind.toString());

@@ -172,7 +172,8 @@ public final class Module implements Resolver.Module {
    * `load`).
    */
   // TODO(adonovan): whether bindings are exported should be decided by the resolver;
-  //  non-exported bindings should never be added to the module.  Delete this.
+  //  non-exported bindings should never be added to the module.  Delete this,
+  //  once loads bind locally (then all globals will be exported).
   public ImmutableMap<String, Object> getExportedGlobals() {
     ImmutableMap.Builder<String, Object> result = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Object> entry : globals.entrySet()) {
@@ -191,12 +192,14 @@ public final class Module implements Resolver.Module {
     // TODO(adonovan): opt: change the resolver to request names on
     //  demand to avoid all this set copying.
     HashSet<String> names = new HashSet<>();
-    for (Map.Entry<String, Object> bind : getTransitiveBindings().entrySet()) {
+    names.addAll(Starlark.UNIVERSE.keySet());
+    for (Map.Entry<String, Object> bind : getPredeclaredBindings().entrySet()) {
       if (bind.getValue() instanceof FlagGuardedValue) {
         continue; // disabled
       }
       names.add(bind.getKey());
     }
+    names.addAll(globals.keySet());
     return names;
   }
 
@@ -210,41 +213,11 @@ public final class Module implements Resolver.Module {
   }
 
   /**
-   * Returns a new map containing the predeclared (including universal) and global bindings of this
-   * module.
-   */
-  // TODO(adonovan): eliminate; clients should explicitly choose getPredeclared or getGlobals.
-  public Map<String, Object> getTransitiveBindings() {
-    // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
-    LinkedHashMap<String, Object> env = new LinkedHashMap<>();
-    env.putAll(Starlark.UNIVERSE);
-    env.putAll(predeclared);
-    env.putAll(globals);
-    return env;
-  }
-
-  /**
    * Returns the value of the specified global variable, or null if not bound. Does not look in the
    * predeclared environment.
    */
   public Object getGlobal(String name) {
     return globals.get(name);
-  }
-
-  /**
-   * Returns the value of the named variable in the module global environment (as if by {@link
-   * #getGlobal}), or if not bound there, in the predeclared environment (as if by {@link
-   * #getPredeclared}, or if not bound there, null.
-   */
-  public Object get(String name) {
-    // TODO(adonovan): delete this whole function, and getTransitiveBindings.
-    // With proper resolution, the interpreter will know whether
-    // to look in the module or the predeclared/universal environment.
-    Object v = getGlobal(name);
-    if (v != null) {
-      return v;
-    }
-    return getPredeclared(name);
   }
 
   /** Updates a global binding in the module environment. */

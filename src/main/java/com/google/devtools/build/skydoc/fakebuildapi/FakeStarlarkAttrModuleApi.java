@@ -21,7 +21,6 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -270,11 +269,17 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
    * name will be set to "Unknown Provider".
    */
   private static String providerName(ProviderApi provider, StarlarkThread thread) {
-    Map<String, Object> bindings =
-        Module.ofInnermostEnclosingStarlarkFunction(thread).getTransitiveBindings();
-    for (Entry<String, Object> envEntry : bindings.entrySet()) {
-      if (provider.equals(envEntry.getValue())) {
-        return envEntry.getKey();
+    Module bzl = Module.ofInnermostEnclosingStarlarkFunction(thread);
+    // user-defined provider?
+    for (Map.Entry<String, Object> e : bzl.getGlobals().entrySet()) {
+      if (provider.equals(e.getValue())) {
+        return e.getKey();
+      }
+    }
+    // predeclared provider? (e.g. DefaultInfo)
+    for (Map.Entry<String, Object> e : bzl.getPredeclaredBindings().entrySet()) {
+      if (provider.equals(e.getValue())) {
+        return e.getKey();
       }
     }
     return "Unknown Provider";
