@@ -913,7 +913,7 @@ message RunCommand {
     NO_TARGET_SPECIFIED = 1 [(metadata) = { exit_code: 2 }];
     TOO_MANY_TARGETS_SPECIFIED = 2 [(metadata) = { exit_code: 2 }];
     TARGET_NOT_EXECUTABLE = 3 [(metadata) = { exit_code: 2 }];
-    TARGET_BUILT_BUT_PATH_NOT_EXECUTABLE = 4 [(metadata) = { exit_code: 37 }];
+    TARGET_BUILT_BUT_PATH_NOT_EXECUTABLE = 4 [(metadata) = { exit_code: 1 }];
     TARGET_BUILT_BUT_PATH_VALIDATION_FAILED = 5
         [(metadata) = { exit_code: 36 }];
     RUN_UNDER_TARGET_NOT_BUILT = 6 [(metadata) = { exit_code: 2 }];
