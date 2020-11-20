@@ -17,7 +17,6 @@ package net.starlark.java.eval;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -136,8 +135,9 @@ public final class StarlarkThread {
     // location (loc) should not be overrwritten.
     private boolean errorLocationSet;
 
-    // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
-    Map<String, Object> locals;
+    // The locals of this frame, if fn is a StarlarkFunction, otherwise null.
+    // Set by StarlarkFunction.fastcall.
+    @Nullable Object[] locals;
 
     @Nullable private Object profileSpan; // current span of walltime call profiler
 
@@ -177,7 +177,16 @@ public final class StarlarkThread {
 
     @Override
     public ImmutableMap<String, Object> getLocals() {
-      return ImmutableMap.copyOf(this.locals);
+      // TODO(adonovan): provide a more efficient API.
+      ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+      if (fn instanceof StarlarkFunction) {
+        for (int i = 0; i < locals.length; i++) {
+          if (locals[i] != null) {
+            env.put(((StarlarkFunction) fn).rfn.getLocals().get(i).getName(), locals[i]);
+          }
+        }
+      }
+      return env.build();
     }
 
     @Override
@@ -212,14 +221,6 @@ public final class StarlarkThread {
     // Notify debug tools of the thread's first push.
     if (callstack.size() == 1 && Debug.threadHook != null) {
       Debug.threadHook.onPushFirst(this);
-    }
-
-    if (fn instanceof StarlarkFunction) {
-      StarlarkFunction sfn = (StarlarkFunction) fn;
-      fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getParameterNames().size());
-    } else {
-      // built-in function
-      fr.locals = ImmutableMap.of();
     }
 
     fr.loc = fn.getLocation();

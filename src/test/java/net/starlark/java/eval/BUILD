@@ -30,6 +30,7 @@ java_test(
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
     ],
+    jvm_flags = ["-Dfile.encoding=UTF8"],
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",

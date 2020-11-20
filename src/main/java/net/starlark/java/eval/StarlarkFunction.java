@@ -35,7 +35,7 @@ import net.starlark.java.syntax.StringLiteral;
     doc = "The type of functions declared in Starlark.")
 public final class StarlarkFunction implements StarlarkCallable {
 
-  private final Resolver.Function rfn;
+  final Resolver.Function rfn;
   private final Module module; // a function closes over its defining module
   private final Tuple defaultValues;
 
@@ -152,11 +152,8 @@ public final class StarlarkFunction implements StarlarkCallable {
     Object[] arguments = processArgs(thread.mutability(), positional, named);
 
     StarlarkThread.Frame fr = thread.frame(0);
-    ImmutableList<String> names = rfn.getParameterNames();
-    for (int i = 0; i < names.size(); ++i) {
-      fr.locals.put(names.get(i), arguments[i]);
-    }
-
+    fr.locals = new Object[rfn.getLocals().size()];
+    System.arraycopy(arguments, 0, fr.locals, 0, rfn.getParameterNames().size());
     return Eval.execFunctionBody(fr, rfn.getBody());
   }
 

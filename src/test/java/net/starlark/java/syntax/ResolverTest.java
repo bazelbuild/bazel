@@ -13,8 +13,10 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static net.starlark.java.syntax.LexerTest.assertContainsError;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import org.junit.Test;
@@ -384,5 +386,55 @@ public class ResolverTest {
         "pre(*0, *0)");
 
     assertValid("pre(0, a=0, *0, **0)");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex() throws Exception {
+    checkBindings(
+        "xᴳ₀ = 0", //
+        "yᴳ₁ = 1",
+        "zᴳ₂ = 2",
+        "xᴳ₀(xᴳ₀, yᴳ₁, preᴾ₀)",
+        "[xᴸ₀ for xᴸ₀ in xᴳ₀ if yᴳ₁]",
+        "def fᴳ₃(xᴸ₀ = xᴳ₀):",
+        "  xᴸ₀ = yᴸ₁",
+        "  yᴸ₁ = zᴳ₂");
+
+    // Note: loads bind globally, for now.
+    checkBindings("load('module', aᴳ₀='a', bᴳ₁='b')");
+
+    checkBindings(
+        "aᴳ₀, bᴳ₁ = 0, 0", //
+        "def fᴳ₂(aᴸ₀=bᴳ₁):",
+        "  aᴸ₀, bᴳ₁",
+        "  [(aᴸ₁, bᴳ₁) for aᴸ₁ in aᴸ₀]");
+
+    checkBindings("load('module', aᴳ₀='a', bᴳ₁='b')");
+  }
+
+  // checkBindings verifies the binding (scope and index) of each identifier.
+  // Every variable must be followed by a superscript letter (its scope)
+  // and a subscript numeral (its index). They are replaced by spaces, the
+  // file is resolved, and then the computed information is written over
+  // the spaces. The resulting string must match the input.
+  private void checkBindings(String... lines) throws Exception {
+    String src = Joiner.on("\n").join(lines);
+    StarlarkFile file = resolveFile(src.replaceAll("[₀₁₂₃₄₅₆₇₈₉ᴳᴸᴾᶠᶜ]", " "));
+    if (!file.ok()) {
+      throw new AssertionError("resolution failed: " + file.errors());
+    }
+    String[] out = new String[] {src};
+    new NodeVisitor() {
+      @Override
+      public void visit(Identifier id) {
+        // Replace ...x__... with ...xᴸ₀...
+        out[0] =
+            out[0].substring(0, id.getEndOffset())
+                + "ᴸᴳᶜᶠᴾ".charAt(id.getBinding().getScope().ordinal()) // follow order of enum
+                + "₀₁₂₃₄₅₆₇₈₉".charAt(id.getBinding().index) // 10 is plenty
+                + out[0].substring(id.getEndOffset() + 2);
+      }
+    }.visit(file);
+    assertThat(out[0]).isEqualTo(src);
   }
 }

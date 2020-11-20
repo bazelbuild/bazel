@@ -44,19 +44,30 @@ import net.starlark.java.spelling.SpellChecker;
  */
 public final class Resolver extends NodeVisitor {
 
-  // TODO(adonovan): use "keyword" (not "named") and "required" (not "mandatory") terminology
-  // everywhere, including the spec.
+  // TODO(adonovan):
+  // - use "keyword" (not "named") and "required" (not "mandatory") terminology everywhere,
+  //   including the spec.
+  // - move the "no if statements at top level" check to bazel's check{Build,*}Syntax
+  //   (that's a spec change), or put it behind a FileOptions flag (no spec change).
+  // - remove restriction on nested def:
+  //   1. use FREE for scope of references to outer LOCALs, which become CELLs.
+  //   2. implement closures in eval/.
+  // - make loads bind locals by default.
 
   /** Scope discriminates the scope of a binding: global, local, etc. */
   public enum Scope {
-    // TODO(adonovan): Add UNIVERSAL, FREE, CELL.
-    // (PREDECLARED vs UNIVERSAL allows us to represent the app-dependent and fixed parts of the
-    // predeclared environment separately, reducing the amount of copying.)
+    // TODO(adonovan): Add UNIVERSAL. Separating PREDECLARED from UNIVERSAL allows
+    // us to represent the app-dependent and fixed parts of the predeclared
+    // environment separately, reducing the amount of copying.
 
     /** Binding is local to a function, comprehension, or file (e.g. load). */
     LOCAL,
     /** Binding occurs outside any function or comprehension. */
     GLOBAL,
+    /** Binding is local to a function, comprehension, or file, plus its nested functions. */
+    CELL, // TODO(adonovan): implement nested def
+    /** Binding is a CELL of some enclosing function. */
+    FREE, // TODO(adonovan): implement nested def
     /** Binding is predeclared by the core or application. */
     PREDECLARED;
 
@@ -74,7 +85,7 @@ public final class Resolver extends NodeVisitor {
 
     private final Scope scope;
     @Nullable private final Identifier first; // first binding use, if syntactic
-    private final int index; // within its block (currently unused)
+    final int index; // index within function (LOCAL) or module (GLOBAL)
 
     private Binding(Scope scope, @Nullable Identifier first, int index) {
       this.scope = scope;
@@ -82,9 +93,20 @@ public final class Resolver extends NodeVisitor {
       this.index = index;
     }
 
+    /** Returns the name of this binding's identifier. */
+    @Nullable
+    public String getName() {
+      return first != null ? first.getName() : null;
+    }
+
     /** Returns the scope of the binding. */
     public Scope getScope() {
       return scope;
+    }
+
+    /** Returns the index of a binding within its function (LOCAL) or module (GLOBAL). */
+    public int getIndex() {
+      return index;
     }
 
     @Override
@@ -108,6 +130,7 @@ public final class Resolver extends NodeVisitor {
     private final int numKeywordOnlyParams;
     private final ImmutableList<String> parameterNames;
     private final boolean isToplevel;
+    private final ImmutableList<Binding> locals;
 
     private Function(
         String name,
@@ -116,7 +139,8 @@ public final class Resolver extends NodeVisitor {
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
-        int numKeywordOnlyParams) {
+        int numKeywordOnlyParams,
+        List<Binding> locals) {
       this.name = name;
       this.location = loc;
       this.params = params;
@@ -132,6 +156,7 @@ public final class Resolver extends NodeVisitor {
       this.parameterNames = names.build();
 
       this.isToplevel = name.equals("<toplevel>");
+      this.locals = ImmutableList.copyOf(locals);
     }
 
     /**
@@ -141,6 +166,11 @@ public final class Resolver extends NodeVisitor {
      */
     public String getName() {
       return name;
+    }
+
+    /** Returns the function's local bindings, parameters first. */
+    public ImmutableList<Binding> getLocals() {
+      return locals;
     }
 
     /** Returns the location of the function's identifier. */
@@ -230,12 +260,14 @@ public final class Resolver extends NodeVisitor {
 
   private static class Block {
     private final Map<String, Binding> bindings = new HashMap<>();
+    private final ArrayList<Binding> locals; // of enclosing function
     private final Scope scope;
     @Nullable private final Block parent;
 
-    Block(Scope scope, @Nullable Block parent) {
+    Block(Scope scope, @Nullable Block parent, ArrayList<Binding> locals) {
       this.scope = scope;
       this.parent = parent;
+      this.locals = locals;
     }
   }
 
@@ -253,7 +285,7 @@ public final class Resolver extends NodeVisitor {
     this.module = module;
     this.options = options;
 
-    this.block = new Block(Scope.PREDECLARED, null);
+    this.block = new Block(Scope.PREDECLARED, /*parent=*/ null, /*locals=*/ null);
     for (String name : module.getNames()) {
       block.bindings.put(name, PREDECLARED);
     }
@@ -277,7 +309,7 @@ public final class Resolver extends NodeVisitor {
    * in order).
    */
   // TODO(adonovan): eliminate this first pass by using go.starlark.net one-pass approach.
-  private void createBindings(Iterable<Statement> stmts) {
+  private void createBindingsForBlock(Iterable<Statement> stmts) {
     for (Statement stmt : stmts) {
       createBindings(stmt);
     }
@@ -286,19 +318,19 @@ public final class Resolver extends NodeVisitor {
   private void createBindings(Statement stmt) {
     switch (stmt.kind()) {
       case ASSIGNMENT:
-        createBindings(((AssignmentStatement) stmt).getLHS());
+        createBindingsForLHS(((AssignmentStatement) stmt).getLHS());
         break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
-        createBindings(ifStmt.getThenBlock());
+        createBindingsForBlock(ifStmt.getThenBlock());
         if (ifStmt.getElseBlock() != null) {
-          createBindings(ifStmt.getElseBlock());
+          createBindingsForBlock(ifStmt.getElseBlock());
         }
         break;
       case FOR:
         ForStatement forStmt = (ForStatement) stmt;
-        createBindings(forStmt.getVars());
-        createBindings(forStmt.getBody());
+        createBindingsForLHS(forStmt.getVars());
+        createBindingsForBlock(forStmt.getBody());
         break;
       case DEF:
         DefStatement def = (DefStatement) stmt;
@@ -341,7 +373,7 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  private void createBindings(Expression lhs) {
+  private void createBindingsForLHS(Expression lhs) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
       bind(id);
     }
@@ -502,11 +534,13 @@ public final class Resolver extends NodeVisitor {
     Comprehension.For for0 = (Comprehension.For) clauses.get(0);
     visit(for0.getIterable());
 
-    openBlock(Scope.LOCAL);
+    // A comprehension defines a distinct lexical block in the same function.
+    openBlock(Scope.LOCAL, this.block.locals);
+
     for (Comprehension.Clause clause : clauses) {
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
-        createBindings(forClause.getVars());
+        createBindingsForLHS(forClause.getVars());
       }
     }
     for (int i = 0; i < clauses.size(); i++) {
@@ -553,7 +587,8 @@ public final class Resolver extends NodeVisitor {
     }
 
     // Enter function block.
-    openBlock(Scope.LOCAL);
+    ArrayList<Binding> locals = new ArrayList<>();
+    openBlock(Scope.LOCAL, locals);
 
     // Check parameter order and convert to run-time order:
     // positionals, keyword-only, *args, **kwargs.
@@ -627,7 +662,7 @@ public final class Resolver extends NodeVisitor {
       bindParam(params, starStar);
     }
 
-    createBindings(body);
+    createBindingsForBlock(body);
     visitAll(body);
     closeBlock();
 
@@ -638,7 +673,8 @@ public final class Resolver extends NodeVisitor {
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
-        numKeywordOnlyParams);
+        numKeywordOnlyParams,
+        locals);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -700,8 +736,13 @@ public final class Resolver extends NodeVisitor {
     }
 
     // new binding
-    // TODO(adonovan): accumulate locals in the enclosing function/file block.
-    bind = new Binding(block.scope, id, block.bindings.size());
+    if (block.scope == Scope.LOCAL) {
+      // Accumulate local bindings in the enclosing function.
+      bind = new Binding(block.scope, id, block.locals.size());
+      block.locals.add(bind);
+    } else { // GLOBAL
+      bind = new Binding(block.scope, id, block.bindings.size());
+    }
     block.bindings.put(id.getName(), bind);
     id.setBinding(bind);
     return false;
@@ -741,35 +782,30 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  private void resolveToplevelStatements(List<Statement> statements) {
-    // Check that load() statements are on top.
-    if (options.requireLoadStatementsFirst()) {
-      checkLoadAfterStatement(statements);
-    }
-
-    openBlock(Scope.GLOBAL);
-
-    // Add a binding for each variable defined by statements, not including definitions that appear
-    // in sub-scopes of the given statements (function bodies and comprehensions).
-    createBindings(statements);
-
-    // Second pass: ensure that all symbols have been defined.
-    visitAll(statements);
-    closeBlock();
-  }
-
   /**
    * Performs static checks, including resolution of identifiers in {@code file} in the environment
    * defined by {@code module}. The StarlarkFile is mutated. Errors are appended to {@link
    * StarlarkFile#errors}.
    */
   public static void resolveFile(StarlarkFile file, Module module) {
+    Resolver r = new Resolver(file.errors, module, file.getOptions());
+
+    ArrayList<Binding> locals = new ArrayList<>();
+    r.openBlock(Scope.GLOBAL, locals);
+
     ImmutableList<Statement> stmts = file.getStatements();
 
-    Resolver r = new Resolver(file.errors, module, file.getOptions());
-    r.resolveToplevelStatements(stmts);
-    // Check that no closeBlock was forgotten.
-    Preconditions.checkState(r.block.parent == null);
+    // Check that load() statements are on top.
+    if (r.options.requireLoadStatementsFirst()) {
+      r.checkLoadAfterStatement(stmts);
+    }
+
+    // First pass: creating bindings for statements in this block.
+    r.createBindingsForBlock(stmts);
+
+    // Second pass: visit all references.
+    r.visitAll(stmts);
+    r.closeBlock();
 
     // If the final statement is an expression, synthesize a return statement.
     int n = stmts.size();
@@ -791,7 +827,8 @@ public final class Resolver extends NodeVisitor {
             /*body=*/ stmts,
             /*hasVarargs=*/ false,
             /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0));
+            /*numKeywordOnlyParams=*/ 0,
+            locals));
   }
 
   /**
@@ -804,7 +841,10 @@ public final class Resolver extends NodeVisitor {
     List<SyntaxError> errors = new ArrayList<>();
     Resolver r = new Resolver(errors, module, options);
 
+    ArrayList<Binding> locals = new ArrayList<>();
+    r.openBlock(Scope.LOCAL, locals); // for bindings in list comprehensions
     r.visit(expr);
+    r.closeBlock();
 
     if (!errors.isEmpty()) {
       throw new SyntaxError.Exception(errors);
@@ -818,12 +858,13 @@ public final class Resolver extends NodeVisitor {
         ImmutableList.of(ReturnStatement.make(expr)),
         /*hasVarargs=*/ false,
         /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0);
+        /*numKeywordOnlyParams=*/ 0,
+        locals);
   }
 
-  /** Open a new lexical block that will contain the future declarations. */
-  private void openBlock(Scope scope) {
-    block = new Block(scope, block);
+  /** Open a new lexical block for future bindings. Local bindings will be added to locals. */
+  private void openBlock(Scope scope, ArrayList<Binding> locals) {
+    block = new Block(scope, block, locals);
   }
 
   /** Close a lexical block (and lose all declarations it contained). */
