@@ -154,10 +154,10 @@ class GenRuleTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
-        '  name = "xx",',
+        '  name = "x",',
         '  srcs = ["hello source"],',
         '  outs = ["hello copied"],',
-        '  cmd_bat = "echo copy \\"$<\\" \\"$@\\"",',
+        '  cmd_bat = "copy \\"$<\\" \\"$@\\"",',
         ')',
     ])
     self.ScratchFile('foo/hello source', ['hello world'])
@@ -166,7 +166,7 @@ class GenRuleTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:xx', '--verbose_failures'])
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     copied = os.path.join(bazel_bin, 'foo', 'hello copied')
