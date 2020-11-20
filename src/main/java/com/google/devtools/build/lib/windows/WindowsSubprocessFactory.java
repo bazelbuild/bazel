@@ -39,7 +39,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
 
     // DO NOT quote argv0, createProcess will do it for us.
     String argv0 = processArgv0(argv.get(0));
-    String argvRest = argv.size() > 1 ? escapeArgvRest(argv.subList(1, argv.size())) : "";
+    String argvRest = argv.size() > 1 ? escapeArgvRest(argv.subList(1, argv.size()), (argv0 == "cmd.exe")) : "";
     byte[] env = convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
@@ -68,7 +68,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
         builder.getTimeoutMillis());
   }
 
-  private String escapeArgvRest(List<String> argv) {
+  private String escapeArgvRest(List<String> argv, boolean isCmd) {
     StringBuilder result = new StringBuilder();
     boolean first = true;
     for (String arg : argv) {
@@ -77,7 +77,12 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
       } else {
         result.append(" ");
       }
-      result.append(ShellUtils.windowsEscapeArg(arg));
+      if (isCmd) {
+        result.append(arg);
+      }
+      else {
+        result.append(ShellUtils.windowsEscapeArg(arg));
+      }
     }
     return result.toString();
   }
