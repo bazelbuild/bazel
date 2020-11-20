@@ -136,6 +136,14 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public String remoteDownloader;
 
   @Option(
+      name = "experimental_remote_downloader_local_fallback",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to fall back to the local downloader if remote downloader fails.")
+  public boolean remoteDownloaderLocalFallback;
+
+  @Option(
       name = "remote_header",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "null",
