@@ -191,10 +191,10 @@ public final class Resolver extends NodeVisitor {
 
     /**
      * isToplevel indicates that this is the <toplevel> function containing top-level statements of
-     * a file. It causes assignments to unresolved identifiers to update the module, not the lexical
-     * frame.
+     * a file.
      */
-    // TODO(adonovan): remove this hack when identifier resolution is accurate.
+    // TODO(adonovan): remove this when we remove Bazel's "export" hack,
+    // or switch to a compiled representation of function bodies.
     public boolean isToplevel() {
       return isToplevel;
     }
@@ -371,9 +371,7 @@ public final class Resolver extends NodeVisitor {
     for (Block b = block; b != null; b = b.parent) {
       Binding bind = b.bindings.get(id.getName());
       if (bind != null) {
-        if (options.recordScope()) {
-          id.setBinding(bind);
-        }
+        id.setBinding(bind);
         return;
       }
     }
@@ -697,9 +695,7 @@ public final class Resolver extends NodeVisitor {
         }
       }
 
-      if (options.recordScope()) {
-        id.setBinding(bind);
-      }
+      id.setBinding(bind);
       return true;
     }
 
@@ -707,9 +703,7 @@ public final class Resolver extends NodeVisitor {
     // TODO(adonovan): accumulate locals in the enclosing function/file block.
     bind = new Binding(block.scope, id, block.bindings.size());
     block.bindings.put(id.getName(), bind);
-    if (options.recordScope()) {
-      id.setBinding(bind);
-    }
+    id.setBinding(bind);
     return false;
   }
 

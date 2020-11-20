@@ -322,25 +322,8 @@ final class Eval {
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
     Resolver.Binding bind = id.getBinding();
-    // Legacy hack for incomplete identifier resolution.
-    // In a <toplevel> function, assignments to unresolved identifiers
-    // update the module, except for load statements and comprehensions,
-    // which should both be file-local.
-    // Load statements don't yet use assignIdentifier,
-    // so we need consider only comprehensions.
-    // In effect, we do the missing resolution using fr.compcount.
-    Resolver.Scope scope;
-    if (bind == null) {
-      scope =
-          fn(fr).isToplevel() && fr.compcount == 0
-              ? Resolver.Scope.GLOBAL //
-              : Resolver.Scope.LOCAL;
-    } else {
-      scope = bind.getScope();
-    }
-
     String name = id.getName();
-    switch (scope) {
+    switch (bind.getScope()) {
       case LOCAL:
         fr.locals.put(name, value);
         break;
@@ -353,7 +336,7 @@ final class Eval {
         module.exportedGlobals.add(name);
         break;
       default:
-        throw new IllegalStateException(scope.toString());
+        throw new IllegalStateException(bind.getScope().toString());
     }
   }
 
@@ -766,7 +749,6 @@ final class Eval {
         }
       }
     }
-    fr.compcount++;
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
@@ -823,7 +805,6 @@ final class Eval {
       }
     }
     new Lambda().execClauses(0);
-    fr.compcount--;
 
     // Restore outer scope variables.
     // This loop implicitly undefines comprehension variables.

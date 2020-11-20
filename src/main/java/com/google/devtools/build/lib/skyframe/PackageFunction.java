@@ -1399,8 +1399,6 @@ public class PackageFunction implements SkyFunction {
     // Options for processing BUILD files.
     FileOptions options =
         FileOptions.builder()
-            // TODO(adonovan): remove recordScope opt-out.
-            .recordScope(false) // don't mutate BUILD syntax
             .requireLoadStatementsFirst(false)
             .allowToplevelRebinding(true)
             .restrictStringEscapes(

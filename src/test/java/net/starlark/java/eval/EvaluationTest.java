@@ -396,29 +396,10 @@ public final class EvaluationTest {
 
   @Test
   public void testListComprehensionDefinitionOrder() throws Exception {
-    // This exercises the .bzl file behavior. This is a dynamic error.
-    // (The error message for BUILD files is slightly different (no "local")
-    // because it doesn't record the scope in the syntax tree.)
     ev.new Scenario()
         .testIfErrorContains(
-            "local variable 'y' is referenced before assignment", //
+            "local variable 'y' is referenced before assignment",
             "[x for x in (1, 2) if y for y in (3, 4)]");
-
-    // This is the corresponding test for BUILD files.
-    EvalException ex =
-        assertThrows(
-            EvalException.class, () -> execBUILD("[x for x in (1, 2) if y for y in (3, 4)]"));
-    assertThat(ex).hasMessageThat().isEqualTo("variable 'y' is referenced before assignment");
-  }
-
-  private static void execBUILD(String... lines)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    ParserInput input = ParserInput.fromLines(lines);
-    FileOptions options = FileOptions.builder().recordScope(false).build();
-    try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      Starlark.execFile(input, options, Module.create(), thread);
-    }
   }
 
   @Test
