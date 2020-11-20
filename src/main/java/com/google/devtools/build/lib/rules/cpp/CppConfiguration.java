@@ -31,11 +31,16 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
@@ -55,8 +60,13 @@ public final class CppConfiguration extends Fragment
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
 
   /**
-   * An enumeration of all the tools that comprise a toolchain.
+   * Packages that can use the extended parameters in CppConfiguration See javadoc for {@link
+   * com.google.devtools.build.lib.rules.cpp.CcModule}
    */
+  public static final ImmutableList<String> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
+      ImmutableList.of();
+
+  /** An enumeration of all the tools that comprise a toolchain. */
   public enum Tool {
     AR("ar"),
     CPP("cpp"),
@@ -724,5 +734,54 @@ public final class CppConfiguration extends Fragment
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;
+  }
+
+  private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
+      throws EvalException {
+    String rulePackage =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label()
+            .getPackageName();
+    if (!EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
+      throw Starlark.errorf(
+          "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
+    }
+  }
+
+  @Override
+  public boolean forcePicStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "force_pic");
+    return forcePic();
+  }
+
+  @Override
+  public boolean generateLlvmLcovStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "generate_llvm_lcov");
+    return generateLlvmLCov();
+  }
+
+  @Override
+  public String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "fdo_instrument");
+    return getFdoInstrument();
+  }
+
+  @Override
+  public boolean processHeadersInDependenciesStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "process_headers_in_dependencies");
+    return processHeadersInDependencies();
+  }
+
+  @Override
+  public boolean saveFeatureStateStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "save_feature_state");
+    return saveFeatureState();
+  }
+
+  @Override
+  public boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkInExpandedApiAllowlist(thread, "fission_active_for_current_compilation_mode");
+    return fissionIsActiveForCurrentCompilationMode();
   }
 }
