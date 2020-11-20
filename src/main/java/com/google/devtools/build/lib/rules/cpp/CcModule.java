@@ -117,7 +117,7 @@ public abstract class CcModule
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library");
 
-  private static final ImmutableList<String> CC_DEBUG_INFO_API_ALLOWLIST =
+  private static final ImmutableList<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableList.of("bazel_internal/test_rules/cc");
 
   /** Enum for strings coming in from Starlark representing languages */
@@ -1717,8 +1717,19 @@ public abstract class CcModule
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label()
             .getPackageName();
-    if (!CC_DEBUG_INFO_API_ALLOWLIST.contains(rulePackage)) {
+    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(rulePackage)) {
       throw Starlark.errorf("Rule in '%s' cannot use CcDebugInfo", rulePackage);
+    }
+  }
+
+  public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
+      throws EvalException {
+    String rulePackage =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label()
+            .getPackageName();
+    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(rulePackage)) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", rulePackage);
     }
   }
 
