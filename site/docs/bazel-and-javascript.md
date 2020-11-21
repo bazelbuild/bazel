@@ -9,8 +9,6 @@ This page contains resources that help you use Bazel with JavaScript projects.
 It links to build rules and other information specific to building JavaScript
 with Bazel.
 
-## Working with Bazel
-
 The following resources will help you work with Bazel on JavaScript projects:
 
 *  [Building JavaScript/TypeScript with Bazel](build-javascript.html)

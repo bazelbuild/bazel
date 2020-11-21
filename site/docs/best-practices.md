@@ -3,7 +3,7 @@ layout: documentation
 title: Best practices
 ---
 
-# Best practices for Bazel
+# Best Practices
 
 This document assumes that you are familiar with Bazel and provides advice on structuring your
 projects to take full advantage of Bazel's features.
@@ -32,9 +32,9 @@ should be tagged as specifically as possible (e.g., "`requires-osx`"). This tagg
 targets to be filtered at a more fine-grained level than the "manual" tag and allows someone
 inspecting the BUILD file to understand what a target's restrictions are.
 
-## Third party dependencies
+## Third-party dependencies
 
-You may declare third party dependencies:
+You may declare third-party dependencies:
 
 *   Either declare them as remote repositories in the WORKSPACE file.
 *   Or put them in a directory called `third_party/` under your workspace directory.
@@ -58,7 +58,7 @@ dependency issues: if one library depends on `guava-19.0` and one depends on `gu
 could end up with a library that tries to depend on two different versions. If you created a
 misleading alias to point both targets to one guava library, then the BUILD files are misleading.
 
-## `.bazelrc`
+## Using the `.bazelrc` file
 
 For project-specific options, use the configuration file your
 `<workspace>/.bazelrc` (see [bazelrc format](guide.html#bazelrc)).
