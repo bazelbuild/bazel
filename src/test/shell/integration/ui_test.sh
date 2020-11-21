@@ -592,4 +592,44 @@ EOF
   done
 }
 
+function test_interleaved_errors_and_progress() {
+  # Background process necessary to interrupt Bazel doesn't go well on Windows.
+  [[ "$is_windows" == true ]] && return
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+genrule(name = 'sleep', outs = ['sleep.out'], cmd = 'sleep 10000')
+genrule(name = 'fail',
+        outs = ['fail.out'],
+        srcs = [':multiline.sh'],
+        cmd = '$(location :multiline.sh)'
+)
+EOF
+  cat > foo/multiline.sh <<'EOF'
+echo "This
+is
+a
+multiline error message
+before
+failure"
+false
+EOF
+  chmod +x foo/multiline.sh
+  bazel build -k //foo:all --curses=yes >& "$TEST_log" &
+  pid="$!"
+  while ! grep -q "multiline error message" "$TEST_log" ; do
+    sleep 1
+  done
+  while ! grep -q "Executing genrule //foo:sleep" "$TEST_log" ; do
+    sleep 1
+  done
+  kill -SIGINT "$pid"
+  wait "$pid" || exit_code="$?"
+  [[ "$exit_code" == 8 ]] || fail "Should have been interrupted: $exit_code"
+  tr -s <"$TEST_log" '\n' '@' |
+      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@\[2 / 3\] Executing genrule //foo:sleep;' \
+      || fail "Unified genrule error message not found"
+  # Make sure server is still usable.
+  bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"
