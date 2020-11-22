@@ -66,12 +66,19 @@ public class ExampleWorkerOptions extends OptionsBase {
     public boolean writeCounter;
 
     @Option(
-      name = "print_inputs",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false",
-      help = "Writes a list of input files and their digests."
-    )
+        name = "print_requests",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Prints out all requests.")
+    public boolean printRequests;
+
+    @Option(
+        name = "print_inputs",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Writes a list of input files and their digests.")
     public boolean printInputs;
 
     @Option(

@@ -55,6 +55,9 @@ public class ExampleWorker {
   // Keep state across multiple builds.
   static final LinkedHashMap<String, String> inputs = new LinkedHashMap<>();
 
+  // Contains the request currently being worked on.
+  private static WorkRequest currentRequest;
+
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
       OptionsParser parser =
@@ -92,6 +95,8 @@ public class ExampleWorker {
           break;
         }
 
+        currentRequest = request;
+
         inputs.clear();
         for (Input input : request.getInputsList()) {
           inputs.put(input.getPath(), input.getDigest().toStringUtf8());
@@ -127,6 +132,7 @@ public class ExampleWorker {
         } finally {
           System.setOut(originalStdOut);
           System.setErr(originalStdErr);
+          currentRequest = null;
         }
 
         if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
@@ -196,6 +202,10 @@ public class ExampleWorker {
       for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
       }
+    }
+
+    if (options.printRequests) {
+      outputs.add("REQUEST: " + currentRequest);
     }
 
     if (options.printEnv) {
