@@ -6,11 +6,17 @@ title: Rules
 # Rules
 
 A **rule** defines a series of [**actions**](#actions) that Bazel performs on
-inputs to produce a set of outputs. For example, a C++ binary rule might:
+inputs to produce a set of outputs, which are referenced in
+[**providers**](#providers) returned by the rule's
+[**implementation function**](#implementation-function). For example, a C++
+binary rule might:
 
-1. Take a set of `.cpp` files (the inputs)
-2. Run `g++` on them (the action)
-3. Return an executable file (the output).
+1.  Take a set of `.cpp` source files (inputs).
+2.  Run `g++` on the source files (action).
+3.  Return the `DefaultInfo` provider with the executable output and
+    other files to make available at runtime.
+4.  Return the `CcInfo` provider with C++-specific information gathered from
+    the target and its dependencies.
 
 From Bazel's perspective, `g++` and the standard C++ libraries are also inputs
 to this rule. As a rule writer, you must consider not only the user-provided
@@ -43,9 +49,6 @@ external commands. Rather, it registers [actions](#actions) that will be used
 later during the execution phase to build the rule's outputs, if they are
 needed.
 
-Rules also produce and pass along information that may be useful to other rules
-in the form of [providers](#providers).
-
 ## Rule creation
 
 In a `.bzl` file, use the [rule](lib/globals.html#rule)
@@ -67,7 +70,7 @@ load('//some/pkg:whatever.bzl', 'my_rule')
 
 An attribute is a rule argument, such as `srcs` or `deps`. You must list the
 names and schemas of all attributes when you define a rule. Attribute schemas
-are created using the [attr](lib/attr.html) module.
+are created using the [`attr`](lib/attr.html) module.
 
 ```python
 sum = rule(
@@ -95,65 +98,66 @@ sum(
 Here `other-target` is a dependency of `my-target`, and therefore `other-target`
 will be analyzed first.
 
-There are two special kinds of attributes:
+### Dependency attributes
 
-* *Dependency attributes*, such as `attr.label` and `attr.label_list`,
-  declare a dependency from the target that owns the attribute to the target
-  whose label appears in the attribute's value. This kind of attribute forms the
-  basis of the target graph.
+Rules that process source code usually define the following attributes:
 
-* *Output attributes*, such as `attr.output` and `attr.output_list`, declare an
-  output file that the target generates. Although they refer to the output file
-  by label, they do not create a dependency relationship between targets. Output
-  attributes are used relatively rarely, in favor of other ways of declaring
-  output files that do not require the user to specify a label.
+*  `srcs` specifies source files processed by a target's actions. Often,
+    the attribute schema specifies which file extensions are expected for
+    the sort of source file the rule processes.
+*  `deps` specifies code dependencies for a target. The attrbitue schema should
+    specify which [providers](#providers) those dependencies must provide.
+*   `data` specifies files to be made available at runtime to any executable
+    which depends on a target. That should allow arbitrary files to be
+    specified.
 
-Both dependency attributes and output attributes take in label values. These may
-be specified as either [`Label`](lib/Label.html) objects or as simple strings.
-If a string is given, it will be converted to a `Label` using the
-[constructor](lib/Label.html#Label). The repository, and possibly the path, will
-be resolved relative to the defined target.
-
-If an attribute schema is defined in the rule but no value for that attribute is
-given when the rule is instantiated, then the rule implementation function will
-see a placeholder value in `ctx.attr`. The placeholder value depends on the type
-of attribute. If the schema specifies a `default` value, that value will be used
-instead of the placeholder. The schema may also specify `mandatory=True`, in
-which case it is illegal for the user to not give an explicit value. It is not
-useful for an attribute schema with `mandatory` to also have a `default`.
-
-The following attributes are automatically added to every rule: `deprecation`,
-`features`, `name`, `tags`, `testonly`, `visibility`. Test rules also have the
-following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
-`timeout`.
-
-<a name="private-attributes"></a>
-
-### Private attributes and implicit dependencies
-
-A dependency attribute with a default value is called an *implicit dependency*.
-The name comes from the fact that it is a part of the target graph that the user
-does not specify in a BUILD file. Implicit dependencies are useful for
-hard-coding a relationship between a rule and a tool (such as a compiler), since
-most of the time a user is not interested in specifying what tool the rule uses.
-From the rule's point of view, the tool is still an input, just like any source
-file or other dependency.
-
-Sometimes we want to not only provide a default value, but prevent the user from
-overriding this default. To do this, you can make the attribute *private* by
-giving it a name that begins with an underscore (`_`). Private attributes must
-have default values. It generally only makes sense to use private attributes for
-implicit dependencies.
+These are *dependency attributes*, defined with
+[`attr.label_list`](lib/attr.html#label_list), which specify dependencies
+between a target and the targets whose labels (or the corresponding
+[`Label`](lib/Label.html) objects) are listed in that attribute when the target
+is defined. The repository, and possibly the path, for these labels is resolved
+relative to the defined target. You can use [`attr.label`](lib/attr.html#label)
+instead for attributes which specify a single dependency.
 
 ```python
 metal_binary = rule(
     implementation = _metal_binary_impl,
     attrs = {
-        "srcs": attr.label_list(),
+        "srcs": attr.label_list(allow_files = [".metal"]),
+        "deps": attr.label_list(providers = [MetalInfo]),
+        "data": attr.label_list(allow_files = True),
+        ...
+    },
+)
+```
+
+<a name="private-attributes"></a>
+
+### Private attributes and implicit dependencies
+
+A dependency attribute with a default value creates an *implicit dependency*.
+It is implicit because it's a part of the target graph that the user does not
+specify in a BUILD file. Implicit dependencies are useful for hard-coding a
+relationship between a rule and a tool (such as a compiler), since most of the
+time a user is not interested in specifying what tool the rule uses. Inside the
+rule's implementation function, this is treated the same as other dependencies.
+
+If you want to provide an implcit dependency without allowing the user to
+override that value, you can make the attribute *private* by giving it a name
+that begins with an underscore (`_`). Private attributes must have default
+values. It generally only makes sense to use private attributes for implicit
+dependencies.
+
+```python
+metal_binary = rule(
+    implementation = _metal_binary_impl,
+    attrs = {
+        ...
         "_compiler": attr.label(
             default = Label("//tools:metalc"),
             allow_single_file = True,
             executable = True,
+            cfg = "exec",
         ),
     },
 )
@@ -166,8 +170,23 @@ though the user did not pass its label as an input. Since `_compiler` is a
 private attribute, we know for sure that `ctx.attr._compiler` will always point
 to `//tools:metalc` in all targets of this rule type. Alternatively, we could
 have named the attribute `compiler` without the underscore and kept the default
-value. This lets users substitute a different compiler if necessary, but
-requires no awareness of the compiler's label otherwise.
+value. That would let users substitute a different compiler if necessary, but
+require no awareness of the compiler's label otherwise.
+
+### Output attributes
+
+*Output attributes*, such as [`attr.output`](lib/attr.html#output) and
+[`attr.output_list`](lib/attr.html#output_list), declare an output file that the
+target generates. This differs from the dependency attributes in two ways:
+
+*   It defines the referenced target instead of referring to a target defined
+    elsewhere.
+*   The referenced output depends on the defined target, instead of the other
+    way around.
+
+Typically, output attributes are only used when a rule needs to create outputs
+with user-defined names which cannot be based on the target name. If a rule
+has one output attribute, it is typically named `out` or `outs`.
 
 ## Implementation function
 
@@ -195,7 +214,7 @@ with `ctx.label.name` and `ctx.label.package`. The `ctx` object also contains
 some helper functions. See its [documentation](lib/ctx.html) for a complete
 list.
 
-Rule implementation functions are usually private (i.e., named with a leading
+Rule implementation functions are usually private (named with a leading
 underscore) because they tend not to be reused. Conventionally, they are named
 the same as their rule, but suffixed with `_impl`.
 
@@ -256,10 +275,10 @@ and the action graph.
 
 A generated file that is addressable by a label is called a *predeclared
 output*. Rules can specify predeclared outputs via
-[`output`](lib/attr.html#output) or [`output_list`](lib/attr.html#output_list)
-attributes. In that case, the user explicitly chooses labels for outputs when
-they instantiate the rule. To obtain file objects for output attributes, use
-the corresponding attribute of [`ctx.outputs`](lib/ctx.html#outputs).
+[output attributes](#output-attributes). In that case, the user explicitly
+chooses labels for outputs when they instantiate the rule. To obtain file
+objects for output attributes, use the corresponding attribute of
+[`ctx.outputs`](lib/ctx.html#outputs).
 
 During the analysis phase, a rule's implementation function can create
 additional outputs. Since all labels have to be known during the loading phase,
@@ -267,6 +286,8 @@ these additional outputs have no labels. Non-predeclared outputs are created
 using [`ctx.actions.declare_file`](lib/actions.html#declare_file),
 [`ctx.actions.write`](lib/actions.html#write), and
 [`ctx.actions.declare_directory`](lib/actions.html#declare_directory).
+Often, the names of outputs are based on the target's name,
+[`ctx.label.name`](lib/ctx.html#label).
 
 All outputs can be passed along in [providers](#providers) to make them
 available to a target's consumers, whether or not they have a label. A target's
@@ -274,6 +295,13 @@ available to a target's consumers, whether or not they have a label. A target's
 [`DefaultInfo`](lib/DefaultInfo.html). If `DefaultInfo` is not returned by a
 rule implementation or the `files` parameter is not specified,
 `DefaultInfo.files` defaults to all *predeclared* outputs.
+
+Rules that perform actions should provide default outputs, even if those outputs
+are not expected to be directly used. Because actions that are not in the graph
+of requested outputs are pruned, if an output is only used by a target's
+consumers, those actions may not be performed if a target is built in
+isolation. This makes debugging more difficult because rebuilding just the
+failing target won't reproduce the failure.
 
 There are also two **deprecated** ways of using predeclared outputs:
 
@@ -284,13 +312,12 @@ There are also two **deprecated** ways of using predeclared outputs:
     label as input for rules which consume the output instead of a predeclared
     output's label.
 
-*   For [executable rules](#executable-rules-and-test-rules),
-    `ctx.outputs.executable` refers to a predeclared executable output with the
-    same name as the rule target. Prefer declaring the output explicitly, for
-    example with `ctx.actions.declare_file(ctx.label.name)`, and ensure that the
-    command that generates the executable sets its permissions to allow
-    execution. Explicitly pass the executable output to the `executable`
-    parameter of `DefaultInfo`.
+*   For [executable rules](#executable-rules), `ctx.outputs.executable` refers
+    to a predeclared executable output with the same name as the rule target.
+    Prefer declaring the output explicitly, for example with
+    `ctx.actions.declare_file(ctx.label.name)`, and ensure that the command that
+    generates the executable sets its permissions to allow execution. Explicitly
+    pass the executable output to the `executable` parameter of `DefaultInfo`.
 
 [See example of predeclared outputs](https://github.com/bazelbuild/examples/blob/master/rules/predeclared_outputs/hash.bzl)
 
@@ -577,91 +604,59 @@ steps:
 
 ## Runfiles
 
-Runfiles are a set of files used by the (often executable) output of a rule
-during runtime (as opposed to build time, i.e. when the binary itself is
-generated). During the
-[execution phase](concepts.md#evaluation-model), Bazel creates a directory tree
-containing symlinks pointing to the runfiles. This stages the environment for
-the binary so it can access the runfiles during runtime.
+Runfiles are a set of files used by a target at runtime (as opposed to build
+time). During the [execution phase](concepts.md#evaluation-model), Bazel creates
+a directory tree containing symlinks pointing to the runfiles. This stages the
+environment for the binary so it can access the runfiles during runtime.
 
 Runfiles can be added manually during rule creation.
 [`runfiles`](lib/runfiles.html) objects can be created by the `runfiles` method
-on the rule context, [`ctx.runfiles`](lib/ctx.html#runfiles).
+on the rule context, [`ctx.runfiles`](lib/ctx.html#runfiles) and passed to the
+`runfiles` parameter on `DefaultInfo`. The executable output of
+[executable rules](#executable-rules) is implicitly added to the runfiles.
 
-### Basic usage
-
-Use `runfiles` objects to specify a set of files that are needed in an
-executable's environment at runtime. Do this by passing a `runfiles` object to
-the `runfiles` parameter of the `DefaultInfo` object returned by your rule.
-
-Construct `runfiles` objects using `ctx.runfiles` with parameters
-`files` and `transitive_files`.
-
-Example:
+Some rules specify attributes, generally named
+[`data`](../be/common-definitions.html#common-attributes.data), whose outputs
+are added to a targets' runfiles. Runfiles should also be merged in from any
+targets which provide runtime dependencies (including `deps` and `data`).
 
 ```python
-def _rule_implementation(ctx):
-  ...
-  runfiles = ctx.runfiles(
-      files = [ctx.file.some_data_file],
-      transitive_files = ctx.attr.something[SomeProviderInfo].depset_of_files,
-  )
-
-  return [DefaultInfo(runfiles=runfiles)]
+def _impl(ctx):
+    ...
+    # The files parameter of ctx.runfiles takes a list of Files, the
+    # transitive_files parameter takes a list of depsets of Files.
+    runfiles = ctx.runfiles(files = ctx.files.data)
+    # Runfiles can be merged in from dependencies with runfiles.merge.
+    for target in ctx.attr.data + ctx.attr.deps:
+        runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
+    return [DefaultInfo(..., runfiles = runfiles)]
 ```
 
-The specified `files` and `transitive_files` will be available to the
-executable's runtime environment. The location of these files relative to
-the execution root may be obtained in a couple of ways. **Note that the
-following recommendations only work for obtaining relative runfiles paths
-when running an executable on the command line with `bazel run`**:
+### Runfiles location
 
-* If relevant files are themselves valid targets (and thus have a corresponding
-label), you may use [`ctx.expand_location`](lib/ctx.html#expand_location).
-* Use [`file.short_path`](lib/File.html#short_path).
-
-See [basic example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/execute.bzl).
-
-### Libraries with runfiles
-
-Non-executable rule outputs can also have runfiles. For example, a
-library might need some external files during runtime, and every dependent
-binary should know about them. In such cases, it's recommended to propagate
-these files via a custom provider; propagate the files themselves via a
-`depset`; avoid propagating the `runfiles` object type in anything other than
-`DefaultInfo`, as it generally adds unnecessary complexity. (There are
-exceptions listed later!)
-
-See [example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/library.bzl).
-
-### Tools with runfiles
-
-A build action might use an executable that requires runfiles (such executables
-are nicknamed "tools"). For such cases, depend on this executable target
-via an attribute which has `executable = True` specified. The executable file
-will then be available under `ctx.executable.<attr_name>`. By passing this file
-to the `executable` parameter of the action registration function, the
-executable's runfiles will be implicitly added to the execution environment.
-
-The runfiles directory structure for tools is different than for basic
-executables (executables simply run with `bazel run`).
-
-* The tool executable file exists in a root-relative path derived from its
-label. This full relative path can be obtained via
-`ctx.executable.<attr_name>.path`.
-* The runfiles for the tool exist in a `.runfiles` directory which resides
-adjacent to the tool's path. An individual runfile can thus be found at the
-following path relative to the execution root.
+When an executable target is run with `bazel run`, the root of the runfiles
+directory is adjacent to the executable. The paths relate as follows:
 
 ```python
 # Given executable_file and runfile_file:
 runfiles_root = executable_file.path + ".runfiles"
 workspace_name = ctx.workspace_name
 runfile_path = runfile_file.short_path
-execution_root_relative_path = "%s/%s/%s" % (runfiles_root, workspace_name, runfile_path)
+execution_root_relative_path = "%s/%s/%s" % (
+    runfiles_root, workspace_name, runfile_path)
 ```
 
-See [example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/tool.bzl).
+The path to a `File` under the runfiles directory corresponds to
+[`File.short_path`](lib/File.html#short_path).
+
+The binary called directly with `bazel run` is adjacent to the root of the
+`runfiles` directory. However, binaries called *from* the runfiles can't make
+the same assumption. To mitigate this, each binary should provide a way to
+accept its runfiles root as a parameter using an environment or command line
+argument/flag. This allows binaries to pass the correct canonical runfiles root
+to the binaries it calls. If that's not set, a binary can guess that it was
+the first binary called and look for an adjacent runfiles directory.
+
 
 ### Runfiles symlinks
 
@@ -699,57 +694,31 @@ targets. This is especially risky if your tool is likely to be used transitively
 by another tool; symlink names must be unique across the runfiles of a tool
 and all of its dependencies!
 
-### Tools depending on tools
-
-A tool (executable used for action registration) may depend on another
-tool with its own runfiles. (For purposes of this explanation, we nickname
-the primary tool the "root tool" and the tool it depends on a "subtool".)
-
-Merge the runfiles of subtools with the root tool by using
-[`runfiles.merge`](lib/runfiles.html#merge). Acquire the runfiles of subtools
-via [`DefaultInfo.default_runfiles`](lib/DefaultInfo.html#default_runfiles)
-
-Example code:
-
-```python
-def _mytool_impl(ctx):
-  ...
-  my_runfiles = ctx.runfiles(files = mytool_files)
-  for subtool in ctx.attr.subtools:
-    subtool_runfiles = subtool[DefaultInfo].default_runfiles
-    my_runfiles = my_runfiles.merge(subtool_runfiles)
-  ...
-  return [DefaultInfo(runfiles = my_runfiles))]
-```
-
-The runfiles directory structure is a bit more difficult to manage for
-subtools. The runfiles directory is always adjacent to the *root* tool being
-run -- not an individual subtool. To simplify subtool tool logic, it's
-recommended that each subtool optionally accept its runfiles root as a
-parameter (via environment or command line argument/flag). A root tool can thus
-pass the correct canonical runfiles root to any of its subtools.
-
-This scenario is complex and thus best demonstrated by
-[an example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/complex_tool.bzl).
-
 ### Runfiles features to avoid
 
 [`ctx.runfiles`](lib/ctx.html#runfiles) and the [`runfiles`](lib/runfiles.html)
 type have a complex set of features, many of which are kept for legacy reasons.
 We make the following recommendations to reduce complexity:
 
-* **Avoid** use of the `collect_data` and `collect_default` modes of
-[`ctx.runfiles`](lib/ctx.html#runfiles). These modes implicitly collect runfiles
-across certain hardcoded dependency edges in confusing ways. Instead, manually
-collect files along relevant dependency edges and add them to your runfiles
-using `files` or `transitive_files` parameters of `ctx.runfiles`.
-* **Avoid** use of the `data_runfiles` and `default_runfiles` of the `DefaultInfo`
-constructor. Specify `DefaultInfo(runfiles = ...)` instead. The distinction
-between "default" and "data" runfiles is maintained for legacy reasons, but
-is unimportant for new usage.
-* When retrieving `runfiles` from `DefaultInfo` (generally only for merging
-runfiles between the current rule and its dependencies), use
-`DefaultInfo.default_runfiles`. **not** `DefaultInfo.data_runfiles`.
+*   **Avoid** use of the `collect_data` and `collect_default` modes of
+   [`ctx.runfiles`](lib/ctx.html#runfiles). These modes implicitly collect
+   runfiles across certain hardcoded dependency edges in confusing ways.
+   Instead, add files using the `files` or `transitive_files` parameters of
+   `ctx.runfiles`, or by mergining in runfiles from dependencies with
+   `runfiles = runfiles.merge(dep[DefaultInfo].default_runfiles)`.
+
+*   **Avoid** use of the `data_runfiles` and `default_runfiles` of the
+    `DefaultInfo` constructor. Specify `DefaultInfo(runfiles = ...)` instead.
+    The distinction between "default" and "data" runfiles is maintained for
+    legacy reasons. For example, some rules put their default outputs in
+    `data_runfiles`, but not `default_runfiles`. Instead of using
+    `data_runfiles`, rules should *both* include default outputs and
+    merge in `default_runfiles` from attributes which provide runfiles
+    (often [`data`](../be/common-definitions.html#common-attributes.data)).
+
+*   When retrieving `runfiles` from `DefaultInfo` (generally only for merging
+    runfiles between the current rule and its dependencies), use
+    `DefaultInfo.default_runfiles`, **not** `DefaultInfo.data_runfiles`.
 
 ## Requesting output files
 
@@ -873,6 +842,8 @@ if ctx.configuration.coverage_enabled:
         # Do something to turn on coverage for this compile action
 ```
 
+<a name="executable-rules"></a>
+
 ## Executable rules and test rules
 
 Executable rules define targets that can be invoked by a `bazel run` command.
@@ -888,7 +859,9 @@ Both kinds of rules must produce an executable output file (which may or may not
 be predeclared) that will be invoked by the `run` or `test` commands. To tell
 Bazel which of a rule's outputs to use as this executable, pass it as the
 `executable` argument of a returned [`DefaultInfo`](lib/DefaultInfo.html)
-provider.
+provider. That `executable` is added to the default outputs of the rule (so
+you don't need to pass that to both `executable` and `files`). It's also
+implicitly added to `runfiles`.
 
 The action that generates this file must set the executable bit on the file. For
 a `ctx.actions.run()` or `ctx.actions.run_shell()` action this should be done by
