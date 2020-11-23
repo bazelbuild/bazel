@@ -602,7 +602,6 @@ public interface JavaCommonApi<
   @StarlarkMethod(
       name = "BootClassPathInfo",
       doc = "The provider used to supply bootclasspath information",
-      structField = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      structField = true)
   ProviderApi getBootClassPathInfo();
 }
