@@ -124,7 +124,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
 
     Rule rule = (Rule) getTargetFromConfiguredTarget(actualConfiguredTarget);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-        ((RuleConfiguredTarget) actualConfiguredTarget).getConfigConditions();
+        actualConfiguredTarget.getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
         ConfiguredAttributeMapper.of(rule, configConditions);
     if (!attributeMapper.has(attrName)) {
