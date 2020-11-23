@@ -257,7 +257,60 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testStarlarkExportsObjcProviderToNativeRule() throws Exception {
+  public void testStarlarkExportsObjcProviderToNativeRulePreMigration() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   objc_provider = dep.objc",
+        "   return [objc_provider]",
+        "swift_library = rule(implementation = my_rule_impl,",
+        "   attrs = {",
+        "   'deps': attr.label_list(allow_files = False, mandatory = False, providers = ['objc'])",
+        "})");
+
+    scratch.file("examples/apple_starlark/a.m");
+    scratch.file(
+        "examples/apple_starlark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'swift_library')",
+        "swift_library(",
+        "   name='my_target',",
+        "   deps=[':lib'],",
+        ")",
+        "objc_library(",
+        "   name = 'lib',",
+        "   srcs = ['a.m'],",
+        "   defines = ['mock_define']",
+        ")",
+        "objc_library(",
+        "   name = 'lib_root',",
+        "   deps = [':my_target']",
+        ")",
+        "apple_binary(",
+        "   name = 'bin',",
+        "   platform_type = 'ios',",
+        "   deps = [':lib_root']",
+        ")");
+
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
+    ConfiguredTarget libRootTarget = getConfiguredTarget("//examples/apple_starlark:lib_root");
+    ObjcProvider libRootObjcProvider = libRootTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(libRootObjcProvider.define().toList()).contains("mock_define");
+
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_starlark:bin");
+    AppleExecutableBinaryInfo executableProvider =
+        binaryTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
+
+    assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
+        .contains("examples/apple_starlark/liblib.a");
+  }
+
+  @Test
+  public void testStarlarkExportsObjcProviderToNativeRulePostMigration() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -289,6 +342,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   deps = [':my_target']",
         ")");
 
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_starlark:bin");
     AppleExecutableBinaryInfo executableProvider =
         binaryTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
@@ -299,7 +353,46 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesObjc() throws Exception {
+  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesObjcPreMigration()
+      throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   objc_provider = apple_common.new_objc_provider(define=depset(['mock_define']))",
+        "   return [objc_provider]",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {})");
+
+    scratch.file("examples/apple_starlark/a.m");
+    scratch.file(
+        "examples/apple_starlark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "   name='my_target'",
+        ")",
+        "objc_library(",
+        "   name = 'lib',",
+        "   srcs = ['a.m'],",
+        "   deps = [':my_target']",
+        ")",
+        "apple_binary(",
+        "   name = 'bin',",
+        "   platform_type = 'ios',",
+        "   deps = [':lib']",
+        ")");
+
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
+    ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_starlark:lib");
+    ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(libObjcProvider.define().toList()).contains("mock_define");
+  }
+
+  @Test
+  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesObjcPostMigration()
+      throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -328,6 +421,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   deps = [':lib']",
         ")");
 
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
     ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_starlark:lib");
     ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(libObjcProvider.get(ObjcProvider.LINKOPT).toList()).contains("mock_linkopt");
@@ -1199,7 +1293,52 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testStarlarkCanCreateObjcProviderWithStrictDeps() throws Exception {
+  public void testStarlarkCanCreateObjcProviderWithStrictDepsPreMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
+            "   strict_includes = depset(['path1'])",
+            "   propagated_includes = depset(['path2'])",
+            "   strict_provider = apple_common.new_objc_provider\\",
+            "(include=strict_includes)",
+            "   created_provider = apple_common.new_objc_provider\\",
+            "(include=propagated_includes, direct_dep_providers=[strict_provider])",
+            "   return [created_provider]");
+
+    ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(starlarkProvider.include())
+        .containsExactly(PathFragment.create("path1"), PathFragment.create("path2"));
+    assertThat(starlarkProvider.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("path1"));
+
+    scratch.file(
+        "examples/objc_starlark2/BUILD",
+        "objc_library(",
+        "   name = 'direct_dep',",
+        "   deps = ['//examples/objc_starlark:my_target']",
+        ")",
+        "objc_library(",
+        "   name = 'indirect_dep',",
+        "   deps = [':direct_dep']",
+        ")");
+
+    ObjcProvider starlarkProviderDirectDepender =
+        getConfiguredTarget("//examples/objc_starlark2:direct_dep")
+            .get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(starlarkProviderDirectDepender.include())
+        .containsExactly(PathFragment.create("path2"));
+
+    ObjcProvider starlarkProviderIndirectDepender =
+        getConfiguredTarget("//examples/objc_starlark2:indirect_dep")
+            .get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(starlarkProviderIndirectDepender.include())
+        .containsExactly(PathFragment.create("path2"));
+  }
+
+  @Test
+  public void testStarlarkCanCreateObjcProviderWithStrictDepsPostMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
     setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(

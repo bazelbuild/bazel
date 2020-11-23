@@ -68,6 +68,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
+  private final boolean compileInfoMigration;
   private final boolean avoidHardcodedCompilationFlags;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
@@ -100,6 +101,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.shouldScanIncludes = objcOptions.scanIncludes;
+    this.compileInfoMigration = objcOptions.incompatibleObjcCompileInfoMigration;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
   }
@@ -259,5 +261,10 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   /** Returns true iff we should do "include scanning" during this build. */
   public boolean shouldScanIncludes() {
     return shouldScanIncludes;
+  }
+
+  /** Whether native rules can assume compile info has been migrated to CcInfo. */
+  public boolean compileInfoMigration() {
+    return compileInfoMigration;
   }
 }

@@ -69,8 +69,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     assertThat(objcProtoProvider).isNotNull();
   }
 
-  @Test
-  public void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
+  private void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file(
@@ -101,6 +100,19 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     assertThat(objcProtoProvider.getProtobufHeaderSearchPaths().toList())
         .containsExactly(includePath, genIncludePath);
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPreMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
+    testObjcProtoAspectPropagatesProtobufProvider();
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPostMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    testObjcProtoAspectPropagatesProtobufProvider();
   }
 
   @Test
