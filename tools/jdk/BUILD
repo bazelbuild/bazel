@@ -540,7 +540,7 @@ OS_TOOLCHAIN_MAP = {
 [config_setting(
     name = "java_runtime_version_%s" % VER,
     values = {"java_runtime_version": VER},
-) for VER in ("8", "9", "10", "11", "14")]
+) for VER in ("8", "9", "10", "11", "14", "15")]
 
 JDKS = {
     "linux": [
@@ -584,6 +584,7 @@ JDKS11_ONLY = {
                     "java_runtime_version_10": "@remotejdk11_%s//:jdk" % os,
                     "java_runtime_version_11": "@remotejdk11_%s//:jdk" % os,
                     "java_runtime_version_14": "@remotejdk14_%s//:jdk" % os,
+                    "java_runtime_version_15": "@remotejdk15_%s//:jdk" % os,
                     "//conditions:default": ":jdk",
                 }),
             toolchain_type = ":runtime_toolchain_type",

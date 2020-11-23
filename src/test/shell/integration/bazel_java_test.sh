@@ -45,39 +45,12 @@ EOF
 }
 
 function test_host_javabase() {
-  cat >>WORKSPACE <<EOF
-register_toolchains("//:host_toolchain")
-EOF
   mkdir -p foobar/bin
   cat << EOF > BUILD
-load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
-
 java_runtime(
     name = "host_javabase",
     java_home = "$PWD/foobar",
     visibility = ["//visibility:public"],
-)
-
-constraint_setting(
-    name = "myconstraint",
-)
-
-constraint_value(
-    name = "myconstraint_value1",
-    constraint_setting = ":myconstraint",
-)
-
-toolchain(
-    name = "host_toolchain",
-    exec_compatible_with = [":myconstraint_value1"],
-    toolchain = ":host_javabase",
-    toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
-)
-
-platform(
-    name = "myplatform",
-    # HOST_CONSTRAINTS are needed for CC toolchain resolution.
-    constraint_values = HOST_CONSTRAINTS + [":myconstraint_value1"],
 )
 EOF
 
@@ -92,7 +65,7 @@ EOF
 
   # We expect the given host_javabase to appear in the command line of
   # java_library actions.
-  bazel aquery --output=text --host_javabase=//:host_javabase --host_platform=//:myplatform //java:javalib  >& $TEST_log
+  bazel aquery --output=text --host_javabase=//:host_javabase //java:javalib >& $TEST_log
   expect_log "exec .*foobar/bin/java"
 
   # If we don't specify anything, we expect the embedded JDK to be used.
@@ -102,7 +75,7 @@ EOF
   expect_log "exec external/remotejdk11_.*/bin/java"
 
   bazel aquery --output=text --host_javabase=//:host_javabase \
-    --host_platform=//:myplatform //java:javalib >& $TEST_log
+    //java:javalib >& $TEST_log
   expect_log "exec .*foobar/bin/java"
   expect_not_log "exec external/remotejdk_.*/bin/java"
 
@@ -123,19 +96,12 @@ default_java_toolchain(
     javabuilder = ["@bazel_tools//tools/jdk:vanillajavabuilder"],
     jvm_opts = [],
     visibility = ["//visibility:public"],
+    java_runtime = ":javabase",
 )
 java_runtime(
     name = "javabase",
     java_home = "$PWD/zoo",
     visibility = ["//visibility:public"],
-)
-toolchain(
-    name = "runtime_toolchain",
-    target_compatible_with = [
-        "@bazel_tools//platforms:located_on_target_and_host",
-    ],
-    toolchain = ":javabase",
-    toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
 )
 toolchain(
     name = "java_toolchain",
