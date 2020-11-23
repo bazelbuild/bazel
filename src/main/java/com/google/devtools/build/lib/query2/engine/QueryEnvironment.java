@@ -17,7 +17,9 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 import java.util.List;
@@ -157,6 +159,11 @@ public interface QueryEnvironment<T> {
 
     /** Returns the argument index of the expression that is used as the input to be filtered. */
     public abstract int getExpressionToFilterIndex();
+  }
+
+  @FunctionalInterface
+  interface TargetLookup {
+    Target getTarget(Label label) throws TargetNotFoundException, InterruptedException;
   }
 
   /**

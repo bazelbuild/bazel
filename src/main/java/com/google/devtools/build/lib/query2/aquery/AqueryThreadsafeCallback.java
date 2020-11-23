@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.query2.ConfiguredTargetValueAccessor;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;

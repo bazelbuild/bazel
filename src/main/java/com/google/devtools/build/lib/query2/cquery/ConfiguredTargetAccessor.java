@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ExecGroup;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -169,25 +168,15 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   public Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {
-    return getTargetFromConfiguredTarget(configuredTarget, walkableGraph);
-  }
-
-  public static Target getTargetFromConfiguredTarget(
-      ConfiguredTarget configuredTarget, WalkableGraph walkableGraph) {
-    Target target = null;
+    // Dereference any aliases that might be present.
+    Label label = configuredTarget.getOriginalLabel();
     try {
-      // Dereference any aliases that might be present.
-      Label label = configuredTarget.getOriginalLabel();
-      target =
-          ((PackageValue) walkableGraph.getValue(PackageValue.key(label.getPackageIdentifier())))
-              .getPackage()
-              .getTarget(label.getName());
-    } catch (NoSuchTargetException e) {
+      return queryEnvironment.getTarget(label);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Thread interrupted in the middle of getting a Target.", e);
+    } catch (TargetNotFoundException e) {
       throw new IllegalStateException("Unable to get target from package in accessor.", e);
-    } catch (InterruptedException e2) {
-      throw new IllegalStateException("Thread interrupted in the middle of getting a Target.", e2);
     }
-    return target;
   }
 
   /** Returns the rule that generates the given output file. */
