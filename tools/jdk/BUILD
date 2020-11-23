@@ -504,7 +504,7 @@ alias(
 [config_setting(
     name = "java_language_version_%s" % VER,
     values = {"java_language_version": VER},
-) for VER in ("8", "9", "10", "11", "14")]
+) for VER in ("8", "9", "10", "11", "14", "15")]
 
 OS_TOOLCHAIN_MAP = {
     "linux": "@remote_java_tools_linux//:toolchain",
@@ -522,12 +522,13 @@ OS_TOOLCHAIN_MAP = {
             "@platforms//cpu:x86_64",
         ],
         toolchain = select({
-            "java_language_version_8": "%s_java_8" % toolchain_label,
-            "java_language_version_9": "%s_java_9" % toolchain_label,
-            "java_language_version_10": "%s_java_10" % toolchain_label,
-            "java_language_version_11": "%s_java_11" % toolchain_label,
+            "java_language_version_8": "%s_java8" % toolchain_label,
+            "java_language_version_9": "%s_java9" % toolchain_label,
+            "java_language_version_10": "%s_java10" % toolchain_label,
+            "java_language_version_11": "%s_java11" % toolchain_label,
             "java_language_version_14": "%s_jdk_14" % toolchain_label,
-            "//conditions:default": "%s_java_8" % toolchain_label,
+            "java_language_version_15": "%s_jdk_15" % toolchain_label,
+            "//conditions:default": "%s_java8" % toolchain_label,
         }),
         toolchain_type = ":toolchain_type",
     )
