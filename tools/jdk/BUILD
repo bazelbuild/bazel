@@ -506,116 +506,12 @@ alias(
     values = {"java_language_version": VER},
 ) for VER in ("8", "9", "10", "11", "14")]
 
-TOOLCHAINS = {
-    "linux": "@remote_java_tools_linux",
-    "windows": "@remote_java_tools_windows",
-    "darwin": "@remote_java_tools_darwin",
-}
-
-RELEASES = ("8", "9", "10", "11")
-
-# This does the same as default_javatoolchain, but without selects
-# The definition of default_javatoolchain is slightly different than the one in toolchain distribution
-
-[
-    java_toolchain(
-        name = "toolchain_java_%s_%s" % (os, release),
-        bootclasspath = [":platformclasspath"],
-        forcibly_disable_header_compilation = 0,
-        genclass = ["%s//:GenClass" % repo],
-        header_compiler = ["%s//:Turbine" % repo],
-        header_compiler_direct = ["%s//:TurbineDirect" % repo],
-        ijar = ["%s//:ijar" % repo],  # TODO has selects
-        jacocorunner = "%s//:jacoco_coverage_runner_filegroup" % repo,
-        javabuilder = ["%s//:JavaBuilder" % repo],
-        javac = ["%s//:javac_jar" % repo],
-        javac_supports_workers = 1,
-        jvm_opts = [
-            # Allow JavaBuilder to access internal javac APIs.
-            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-            "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-
-            # override the javac in the JDK.
-            "--patch-module=java.compiler=$(location %s//:java_compiler_jar)" % repo,
-            "--patch-module=jdk.compiler=$(location %s//:jdk_compiler_jar)" % repo,
-
-            # quiet warnings from com.google.protobuf.UnsafeUtil,
-            # see: https://github.com/google/protobuf/issues/3781
-            # and: https://github.com/bazelbuild/bazel/issues/5599
-            "--add-opens=java.base/java.nio=ALL-UNNAMED",
-            "--add-opens=java.base/java.lang=ALL-UNNAMED",
-        ],
-        misc = [
-            "-XDskipDuplicateBridges=true",
-            "-g",
-            "-parameters",
-        ],
-        singlejar = ["%s//:singlejar" % repo],  # TODO has selects
-        source_version = release,
-        target_version = release,
-        tools = [
-            "%s//:java_compiler_jar" % repo,
-            "%s//:jdk_compiler_jar" % repo,
-        ],
-    )
-    for os, repo in TOOLCHAINS.items()
-    for release in RELEASES
-]
-
-[
-    java_toolchain(
-        name = "toolchain_java_%s_%s" % (os, release),
-        bootclasspath = [":platformclasspath"],
-        forcibly_disable_header_compilation = 0,
-        genclass = ["%s//:GenClass" % repo],
-        header_compiler = ["%s//:Turbine" % repo],
-        header_compiler_direct = ["%s//:TurbineDirect" % repo],
-        ijar = ["%s//:ijar" % repo],  # TODO has selects
-        jacocorunner = "%s//:jacoco_coverage_runner_filegroup" % repo,
-        javabuilder = ["%s//:JavaBuilder" % repo],
-        javac_supports_workers = 1,
-        jvm_opts = [
-            # Allow JavaBuilder to access internal javac APIs.
-            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-            "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-
-            # quiet warnings from com.google.protobuf.UnsafeUtil,
-            # see: https://github.com/google/protobuf/issues/3781
-            # and: https://github.com/bazelbuild/bazel/issues/5599
-            "--add-opens=java.base/java.nio=ALL-UNNAMED",
-            "--add-opens=java.base/java.lang=ALL-UNNAMED",
-        ],
-        misc = [
-            "-XDskipDuplicateBridges=true",
-            "-g",
-            "-parameters",
-        ],
-        singlejar = ["%s//:singlejar" % repo],  # TODO has selects
-        source_version = release,
-        target_version = release,
-    )
-    for os, repo in TOOLCHAINS.items()
-    for release in ("14",)
-]
-
 OS_TOOLCHAIN_MAP = {
-    "linux": "toolchain_java_linux",
-    "freebsd": "toolchain_java_linux",
-    "openbsd": "toolchain_java_linux",  #TODO different jvm_opts
-    "windows": "toolchain_java_windows",
-    "macos": "toolchain_java_darwin",
+    "linux": "@remote_java_tools_linux//:toolchain",
+    "freebsd": "@remote_java_tools_linux//:toolchain",
+    "openbsd": "@remote_java_tools_linux//:toolchain",  #TODO different jvm_opts
+    "windows": "@remote_java_tools_windows//:toolchain",
+    "macos": "@remote_java_tools_darwin//:toolchain",
 }
 
 [
@@ -626,12 +522,12 @@ OS_TOOLCHAIN_MAP = {
             "@platforms//cpu:x86_64",
         ],
         toolchain = select({
-            "java_language_version_8": "%s_8" % toolchain_label,
-            "java_language_version_9": "%s_9" % toolchain_label,
-            "java_language_version_10": "%s_10" % toolchain_label,
-            "java_language_version_11": "%s_11" % toolchain_label,
-            "java_language_version_14": "%s_14" % toolchain_label,
-            "//conditions:default": "%s_8" % toolchain_label,
+            "java_language_version_8": "%s_java_8" % toolchain_label,
+            "java_language_version_9": "%s_java_9" % toolchain_label,
+            "java_language_version_10": "%s_java_10" % toolchain_label,
+            "java_language_version_11": "%s_java_11" % toolchain_label,
+            "java_language_version_14": "%s_jdk_14" % toolchain_label,
+            "//conditions:default": "%s_java_8" % toolchain_label,
         }),
         toolchain_type = ":toolchain_type",
     )
@@ -644,20 +540,6 @@ OS_TOOLCHAIN_MAP = {
     name = "java_runtime_version_%s" % VER,
     values = {"java_runtime_version": VER},
 ) for VER in ("8", "9", "10", "11", "14")]
-
-#toolchain(
-#    name = "local_runtime",
-#    target_compatible_with = [
-#        "@bazel_tools//platforms:located_on_target_and_host",
-#    ],
-#    toolchain = ":jdk",
-#    toolchain_type = ":runtime_toolchain_type",
-#)
-
-config_setting(
-    name = "local_jdk",
-    constraint_values = ["@bazel_tools//platforms:located_on_target_and_host"],
-)
 
 JDKS = {
     "linux": [
@@ -701,8 +583,7 @@ JDKS11_ONLY = {
                     "java_runtime_version_10": "@remotejdk11_%s//:jdk" % os,
                     "java_runtime_version_11": "@remotejdk11_%s//:jdk" % os,
                     "java_runtime_version_14": "@remotejdk14_%s//:jdk" % os,
-                    "local_jdk": ":jdk",
-                    "//conditions:default": "@remotejdk11_%s//:jdk" % os,
+                    "//conditions:default": ":jdk",
                 }),
             toolchain_type = ":runtime_toolchain_type",
         ),
@@ -715,10 +596,7 @@ JDKS11_ONLY = {
         toolchain(
             name = toolchain_name,
             exec_compatible_with = constraints,
-            toolchain = select({
-                "local_jdk": ":jdk",
-                "//conditions:default": "@%s//:jdk" % toolchain_name,
-            }),
+            toolchain = "@%s//:jdk" % toolchain_name,
             toolchain_type = ":runtime_toolchain_type",
         ),
     )
