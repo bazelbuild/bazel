@@ -39,6 +39,7 @@ import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -858,8 +859,22 @@ public final class Starlark {
   public static Object execFileProgram(Program prog, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Tuple defaultValues = Tuple.empty();
-    StarlarkFunction toplevel =
-        new StarlarkFunction(prog.getResolvedFunction(), defaultValues, module);
+
+    Resolver.Function rfn = prog.getResolvedFunction();
+
+    // A given Module may be passed to execFileProgram multiple times in sequence,
+    // for different compiled Programs. (This happens in the REPL, and in
+    // EvaluationTestCase scenarios. It is not true of the go.starlark.net
+    // implementation, and it complicates things significantly.
+    // It would be nice to stop doing that.)
+    //
+    // Therefore StarlarkFunctions from different Programs (files) but initializing
+    // the same Module need different mappings from the Program's numbering of
+    // globals to the Module's numbering of globals, and to access a global requires
+    // two array lookups.
+    int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals());
+
+    StarlarkFunction toplevel = new StarlarkFunction(rfn, defaultValues, module, globalIndex);
     return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
 
@@ -904,7 +919,9 @@ public final class Starlark {
     Expression expr = Expression.parse(input, options);
     Program prog = Program.compileExpr(expr, module, options);
     Tuple defaultValues = Tuple.empty();
-    return new StarlarkFunction(prog.getResolvedFunction(), defaultValues, module);
+    Resolver.Function rfn = prog.getResolvedFunction();
+    int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
+    return new StarlarkFunction(rfn, defaultValues, module, globalIndex);
   }
 
   /**

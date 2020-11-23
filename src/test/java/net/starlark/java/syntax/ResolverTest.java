@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static net.starlark.java.syntax.LexerTest.assertContainsError;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +34,7 @@ public class ResolverTest {
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    Resolver.resolveFile(file, () -> ImmutableSet.of("pre"));
+    Resolver.resolveFile(file, Resolver.moduleWithPredeclared("pre"));
     return file;
   }
 
@@ -185,6 +184,11 @@ public class ResolverTest {
     List<SyntaxError> errors = getResolutionErrors("a = 1", "a = 2");
     assertContainsError(errors, ":2:1: cannot reassign global 'a'");
     assertContainsError(errors, ":1:1: 'a' previously declared here");
+
+    // global 'pre' shadows predeclared of same name.
+    errors = getResolutionErrors("pre; pre = 1; pre = 2");
+    assertContainsError(errors, ":1:15: cannot reassign global 'pre'");
+    assertContainsError(errors, ":1:6: 'pre' previously declared here");
   }
 
   @Test
@@ -403,6 +407,11 @@ public class ResolverTest {
     // Note: loads bind globally, for now.
     checkBindings("load('module', aᴳ₀='a', bᴳ₁='b')");
 
+    // If a name is bound globally, all toplevel references
+    // resolve to it, even those that precede it.
+    checkBindings("preᴾ₀");
+    checkBindings("preᴳ₀; preᴳ₀=1; preᴳ₀");
+
     checkBindings(
         "aᴳ₀, bᴳ₁ = 0, 0", //
         "def fᴳ₂(aᴸ₀=bᴳ₁):",
@@ -419,7 +428,7 @@ public class ResolverTest {
   // the spaces. The resulting string must match the input.
   private void checkBindings(String... lines) throws Exception {
     String src = Joiner.on("\n").join(lines);
-    StarlarkFile file = resolveFile(src.replaceAll("[₀₁₂₃₄₅₆₇₈₉ᴳᴸᴾᶠᶜ]", " "));
+    StarlarkFile file = resolveFile(src.replaceAll("[₀₁₂₃₄₅₆₇₈₉ᴸᴳᶜᶠᴾᵁ]", " "));
     if (!file.ok()) {
       throw new AssertionError("resolution failed: " + file.errors());
     }
@@ -430,8 +439,8 @@ public class ResolverTest {
         // Replace ...x__... with ...xᴸ₀...
         out[0] =
             out[0].substring(0, id.getEndOffset())
-                + "ᴸᴳᶜᶠᴾ".charAt(id.getBinding().getScope().ordinal()) // follow order of enum
-                + "₀₁₂₃₄₅₆₇₈₉".charAt(id.getBinding().index) // 10 is plenty
+                + "ᴸᴳᶜᶠᴾᵁ".charAt(id.getBinding().getScope().ordinal()) // follow order of enum
+                + "₀₁₂₃₄₅₆₇₈₉".charAt(id.getBinding().getIndex()) // 10 is plenty
                 + out[0].substring(id.getEndOffset() + 2);
       }
     }.visit(file);

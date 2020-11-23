@@ -90,9 +90,8 @@ final class Eval {
         if (stmt instanceof AssignmentStatement) {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
-            String name = id.getName();
-            Object value = fn(fr).getModule().getGlobal(name);
-            fr.thread.postAssignHook.assign(name, value);
+            Object value = fn(fr).getGlobal(id.getBinding().getIndex());
+            fr.thread.postAssignHook.assign(id.getName(), value);
           }
         }
       }
@@ -176,10 +175,13 @@ final class Eval {
       defaults = EMPTY;
     }
 
+    // Nested functions use the same globalIndex as their enclosing function,
+    // since both were compiled from the same Program.
+    StarlarkFunction fn = fn(fr);
     assignIdentifier(
         fr,
         node.getIdentifier(),
-        new StarlarkFunction(rfn, Tuple.wrap(defaults), fn(fr).getModule()));
+        new StarlarkFunction(rfn, Tuple.wrap(defaults), fn.getModule(), fn.globalIndex));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -231,7 +233,7 @@ final class Eval {
       // simply assign(binding.getLocalName(), value).
       // Currently, we update the module but not module.exportedGlobals;
       // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
-      fn(fr).getModule().setGlobal(binding.getLocalName().getName(), value);
+      fn(fr).setGlobal(binding.getLocalName().getBinding().getIndex(), value);
     }
   }
 
@@ -330,11 +332,8 @@ final class Eval {
         // Updates a module binding and sets its 'exported' flag.
         // (Only load bindings are not exported.
         // But exportedGlobals does at run time what should be done in the resolver.)
-        // TODO(adonovan): use a flat array for Module.globals too.
-        Module module = fn(fr).getModule();
-        String name = id.getName();
-        module.setGlobal(name, value);
-        module.exportedGlobals.add(name);
+        fn(fr).setGlobal(bind.getIndex(), value);
+        fn(fr).getModule().exportedGlobals.add(id.getName());
         break;
       default:
         throw new IllegalStateException(bind.getScope().toString());
@@ -639,20 +638,13 @@ final class Eval {
         result = fr.locals[bind.getIndex()];
         break;
       case GLOBAL:
-        result = fn(fr).getModule().getGlobal(id.getName());
+        result = fn(fr).getGlobal(bind.getIndex());
         break;
       case PREDECLARED:
-        // TODO(adonovan): don't call getGlobal. This requires the Resolver to distinguish
-        // "predeclared" vars from "already defined module globals" instead of lumping them
-        // together via getNames. The latter odd category exists in the REPL, and
-        // in EvaluationTestCase, which calls Starlark.execFile repeatedly on the same Module.
-        // The REPL could just create a new module for each chunk, whose predeclared vars
-        // are the previous module's globals, but things may be trickier in EvaluationTestCase.
-        Module module = fn(fr).getModule();
-        result = module.getGlobal(id.getName());
-        if (result == null) {
-          result = module.getPredeclared(id.getName());
-        }
+        result = fn(fr).getModule().getPredeclared(id.getName());
+        break;
+      case UNIVERSAL:
+        result = Starlark.UNIVERSE.get(id.getName());
         break;
       default:
         throw new IllegalStateException(bind.toString());

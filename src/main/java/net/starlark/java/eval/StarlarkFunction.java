@@ -36,13 +36,26 @@ import net.starlark.java.syntax.StringLiteral;
 public final class StarlarkFunction implements StarlarkCallable {
 
   final Resolver.Function rfn;
+  final int[] globalIndex; // index in Module.globals of ith Program global (binding index)
   private final Module module; // a function closes over its defining module
   private final Tuple defaultValues;
 
-  StarlarkFunction(Resolver.Function rfn, Tuple defaultValues, Module module) {
+  StarlarkFunction(Resolver.Function rfn, Tuple defaultValues, Module module, int[] globalIndex) {
     this.rfn = rfn;
+    this.globalIndex = globalIndex;
     this.module = module;
     this.defaultValues = defaultValues;
+  }
+
+  // Sets a global variable, given its index in this function's compiled Program.
+  void setGlobal(int progIndex, Object value) {
+    module.setGlobalByIndex(globalIndex[progIndex], value);
+  }
+
+  // Gets the value of a global variable, given its index in this function's compiled Program.
+  @Nullable
+  Object getGlobal(int progIndex) {
+    return module.getGlobalByIndex(globalIndex[progIndex]);
   }
 
   boolean isToplevel() {
