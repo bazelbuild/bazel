@@ -197,7 +197,6 @@ java_library(
         "LocationExpander.java",
         "LocationTemplateContext.java",
         "OutputGroupInfo.java",
-        "PlatformConfiguration.java",
         "PrerequisiteArtifacts.java",
         "PseudoAction.java",
         "RuleConfiguredTargetBuilder.java",
