@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -42,14 +41,6 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
 
   @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
-
-  @StarlarkMethod(
-      name = "javac_jar",
-      doc = "The javac jar.",
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  FileApi getJavacJar();
 
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();

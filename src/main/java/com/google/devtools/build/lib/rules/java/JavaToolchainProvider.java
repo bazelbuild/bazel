@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.Iterator;
 import javax.annotation.Nullable;
@@ -78,7 +77,6 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
       BootClassPathInfo bootclasspath,
-      @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
       @Nullable FilesToRunProvider headerCompiler,
@@ -102,7 +100,6 @@ public class JavaToolchainProvider extends ToolchainInfo
     return new JavaToolchainProvider(
         label,
         bootclasspath,
-        javac,
         tools,
         javaBuilder,
         headerCompiler,
@@ -133,7 +130,6 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   private final Label label;
   private final BootClassPathInfo bootclasspath;
-  @Nullable private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
   @Nullable private final FilesToRunProvider headerCompiler;
@@ -165,7 +161,6 @@ public class JavaToolchainProvider extends ToolchainInfo
   JavaToolchainProvider(
       Label label,
       BootClassPathInfo bootclasspath,
-      @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
       @Nullable FilesToRunProvider headerCompiler,
@@ -196,7 +191,6 @@ public class JavaToolchainProvider extends ToolchainInfo
 
     this.label = label;
     this.bootclasspath = bootclasspath;
-    this.javac = javac;
     this.tools = tools;
     this.javaBuilder = javaBuilder;
     this.headerCompiler = headerCompiler;
@@ -233,12 +227,6 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** @return the target Java bootclasspath */
   public BootClassPathInfo getBootclasspath() {
     return bootclasspath;
-  }
-
-  /** Returns the {@link Artifact} of the javac jar */
-  @Nullable
-  public Artifact getJavac() {
-    return javac;
   }
 
   /** Returns the {@link Artifact}s of compilation tools. */
@@ -426,12 +414,6 @@ public class JavaToolchainProvider extends ToolchainInfo
       }
     }
     return JAVA_SPECIFICATION_VERSION.value();
-  }
-
-  @Override
-  @Nullable
-  public FileApi getJavacJar() {
-    return getJavac();
   }
 
   @Override
