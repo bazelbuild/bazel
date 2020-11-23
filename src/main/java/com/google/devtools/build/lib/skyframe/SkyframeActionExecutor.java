@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -111,6 +112,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -1260,26 +1262,41 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * Ensure that no symlinks exists between the output root and the output file. These are all
-   * expected to be regular directories. Violations of this expectations can only come from state
-   * left behind by previous invocations or external filesystem mutation.
+   * Create an output directory and ensure that no symlinks exists between the output root and the
+   * output file. These are all expected to be regular directories. Violations of this expectations
+   * can only come from state left behind by previous invocations or external filesystem mutation.
    */
-  private void symlinkCheck(
+  private void createAndCheckForSymlinks(
       final Path dir, final Artifact outputFile, ActionExecutionContext context)
       throws IOException {
     PathFragment root = outputFile.getRoot().getRoot().asPath().asFragment();
     Path curDir = context.getPathResolver().convertPath(dir);
     Set<PathFragment> checkDirs = new HashSet<>();
+    List<Path> dirsToCreate = new ArrayList<>();
+
+    // If the output root has not been created yet, do so now.
+    if (!knownRegularDirectories.contains(root)) {
+      outputFile.getRoot().getRoot().asPath().createDirectoryAndParents();
+      knownRegularDirectories.add(root);
+    }
+
     while (!curDir.asFragment().equals(root)) {
       // Fast path: Somebody already checked that this is a regular directory this invocation.
       if (knownRegularDirectories.contains(curDir.asFragment())) {
         break;
       }
-      if (!curDir.isDirectory(Symlinks.NOFOLLOW)) {
+      FileStatus stat = curDir.statNullable(Symlinks.NOFOLLOW);
+      if (stat != null && !stat.isDirectory()) {
         throw new IOException(curDir + " is not a regular directory");
+      }
+      if (stat == null) {
+        dirsToCreate.add(curDir);
       }
       checkDirs.add(curDir.asFragment());
       curDir = curDir.getParentDirectory();
+    }
+    for (Path path : Lists.reverse(dirsToCreate)) {
+      path.createDirectory();
     }
 
     // Defer adding to known regular directories until we've checked all parent directories.
@@ -1300,10 +1317,7 @@ public final class SkyframeActionExecutor {
 
         if (done.add(outputDir)) {
           try {
-            if (!knownRegularDirectories.contains(outputDir.asFragment())) {
-              outputDir.createDirectoryAndParents();
-              symlinkCheck(outputDir, outputFile, context);
-            }
+            createAndCheckForSymlinks(outputDir, outputFile, context);
             continue;
           } catch (IOException e) {
             /* Fall through to plan B. */
