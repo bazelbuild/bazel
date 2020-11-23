@@ -32,7 +32,7 @@ or
 
 import hashlib
 import os
-from queue import Queue
+import Queue
 import shutil
 import sys
 import tempfile
