@@ -13,12 +13,9 @@
 // limitations under the License.
 package net.starlark.java.cmd;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import java.io.BufferedReader;
 import java.io.FileOutputStream;
+import java.io.IOError;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.time.Duration;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -29,6 +26,14 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+
+import javax.annotation.Nullable;
 
 /**
  * Main is a standalone interpreter for the core Starlark language. It does not yet support load
@@ -42,8 +47,6 @@ class Main {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
-  private static final BufferedReader reader =
-      new BufferedReader(new InputStreamReader(System.in, UTF_8));
   private static final StarlarkThread thread;
   private static final Module module = Module.create();
 
@@ -57,32 +60,53 @@ class Main {
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
   }
 
-  private static String prompt() {
-    StringBuilder input = new StringBuilder();
-    System.out.print(START_PROMPT);
-    try {
-      String lineSeparator = "";
-      while (true) {
-        String line = reader.readLine();
-        if (line == null) {
-          return null;
+  @Nullable
+  private static String prompt(LineReader reader) {
+    while (true) {
+      StringBuilder input = new StringBuilder();
+      String prompt = START_PROMPT;
+      try {
+        String lineSeparator = "";
+        while (true) {
+          String line = reader.readLine(prompt);
+          if (line.isEmpty()) {
+            return input.toString();
+          }
+          input.append(lineSeparator).append(line);
+          lineSeparator = "\n";
+          prompt = CONTINUATION_PROMPT;
         }
-        if (line.isEmpty()) {
-          return input.toString();
-        }
-        input.append(lineSeparator).append(line);
-        lineSeparator = "\n";
-        System.out.print(CONTINUATION_PROMPT);
+      } catch (UserInterruptException unused) {
+        System.err.println("KeyboardInterrupt");
+      } catch (EndOfFileException unused) {
+        return null;
       }
+    }
+  }
+
+  @Nullable
+  private static LineReader buildLineReader() {
+    try {
+      Terminal terminal = TerminalBuilder.terminal();
+      LineReaderBuilder builder = LineReaderBuilder.builder().terminal(terminal);
+      builder.terminal(terminal);
+      // By default jline moves cursor for a short time to the matching paren
+      builder.variable(LineReader.BLINK_MATCHING_PAREN, false);
+      String userHome = System.getProperty("user.home");
+      if (userHome != null) {
+        // Persist history by default
+        builder.variable(LineReader.HISTORY_FILE, userHome + "/.starlark_java_history");
+      }
+      return builder.build();
     } catch (IOException e) {
-      System.err.format("Error reading line: %s\n", e);
+      System.err.println("Failed to initialize terminal: " + e.getMessage());
       return null;
     }
   }
 
   /** Provide a REPL evaluating Starlark code. */
   @SuppressWarnings("CatchAndPrintStackTrace")
-  private static void readEvalPrintLoop() {
+  private static int readEvalPrintLoop() {
     System.err.println("Welcome to Starlark (java.starlark.net)");
     String line;
 
@@ -91,23 +115,39 @@ class Main {
     // integration with the lexer so that it consumes new
     // lines only until the parse is complete.
 
-    while ((line = prompt()) != null) {
-      ParserInput input = ParserInput.fromString(line, "<stdin>");
+    LineReader reader = buildLineReader();
+    if (reader == null) {
+      return 1;
+    }
+    try {
+      while ((line = prompt(reader)) != null) {
+        ParserInput input = ParserInput.fromString(line, "<stdin>");
+        try {
+          Object result = Starlark.execFile(input, OPTIONS, module, thread);
+          if (result != Starlark.NONE) {
+            System.out.println(Starlark.repr(result));
+          }
+        } catch (SyntaxError.Exception ex) {
+          for (SyntaxError error : ex.errors()) {
+            System.err.println(error);
+          }
+        } catch (EvalException ex) {
+          // TODO(adonovan): provide a SourceReader. Requires that we buffer the
+          // entire history so that line numbers don't reset in each chunk.
+          System.err.println(ex.getMessageWithStack());
+        } catch (InterruptedException ex) {
+          System.err.println("Interrupted");
+        }
+      }
+      return 0;
+    } catch (IOError e) {
+      // jline throws IOError: https://github.com/jline/jline3/issues/608
+      System.err.println("I/O error: " + e.getMessage());
+      return 1;
+    } finally {
       try {
-        Object result = Starlark.execFile(input, OPTIONS, module, thread);
-        if (result != Starlark.NONE) {
-          System.out.println(Starlark.repr(result));
-        }
-      } catch (SyntaxError.Exception ex) {
-        for (SyntaxError error : ex.errors()) {
-          System.err.println(error);
-        }
-      } catch (EvalException ex) {
-        // TODO(adonovan): provide a SourceReader. Requires that we buffer the
-        // entire history so that line numbers don't reset in each chunk.
-        System.err.println(ex.getMessageWithStack());
-      } catch (InterruptedException ex) {
-        System.err.println("Interrupted");
+        reader.getTerminal().close();
+      } catch (IOException unused) {
       }
     }
   }
@@ -178,8 +218,7 @@ class Main {
       if (cmd != null) {
         exit = execute(ParserInput.fromString(cmd, "<command-line>"));
       } else {
-        readEvalPrintLoop();
-        exit = 0;
+        exit = readEvalPrintLoop();
       }
     } else if (cmd == null) {
       try {

@@ -28,5 +28,7 @@ java_binary(
     deps = [
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:jline-reader",
+        "//third_party:jsr305",
     ],
 )
