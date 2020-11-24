@@ -30,14 +30,19 @@ set -euo pipefail
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
-  declare -r is_windows=true
+  declare -r platform=windows
+  ;;
+linux*)
+  declare -r platform=linux
   ;;
 *)
-  declare -r is_windows=false
+  declare -r platform=other
   ;;
 esac
 
-if "$is_windows"; then
+echo Platform: $platform
+
+if [[ "$platform" == "windows" ]]; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 fi
@@ -55,7 +60,7 @@ zip_path=${PWD}/bazel-bin/src/java_tools.zip
 bazel build //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
-if "$is_windows"; then
+if [[ "$platform" == "windows" ]]; then
     # Windows needs "file:///c:/foo/bar".
     file_url="file:///$(cygpath -m ${zip_path})"
     prebuilt_file_url="file:///$(cygpath -m ${prebuilt_zip_path})"
@@ -67,7 +72,7 @@ fi
 
 # Skip for now, as the test is broken on Windows.
 # See https://github.com/bazelbuild/bazel/issues/12244 for details
-if ! "$is_windows"; then
+if [[ "$platform" != "windows" ]]; then
     for java_version in 11 14 15; do
         bazel test --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
@@ -76,18 +81,19 @@ if ! "$is_windows"; then
     done
 fi
 
-
-bazel run //src:upload_java_tools -- \
-    --commit_hash ${commit_hash} \
-    --timestamp ${timestamp} \
-    --bazel_version ${bazel_version}
-
 bazel run //src:upload_java_tools_prebuilt -- \
     --commit_hash ${commit_hash} \
     --timestamp ${timestamp} \
     --bazel_version ${bazel_version}
 
-bazel run //src:upload_java_tools_dist -- \
-    --commit_hash ${commit_hash} \
-    --timestamp ${timestamp} \
-    --bazel_version ${bazel_version}
+if [[ "$platform" == "linux" ]]; then
+    bazel run //src:upload_java_tools -- \
+        --commit_hash ${commit_hash} \
+        --timestamp ${timestamp} \
+        --bazel_version ${bazel_version}
+
+    bazel run //src:upload_java_tools_dist -- \
+        --commit_hash ${commit_hash} \
+        --timestamp ${timestamp} \
+        --bazel_version ${bazel_version}
+fi
