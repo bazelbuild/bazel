@@ -162,6 +162,17 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
+    name = "remote_java_tools",
+    sha256 = "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools-v11.0-rc1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.4/java_tools_javac11-v10.4.zip",
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remote_java_tools_linux",
     sha256 = "63d25d64e93f27142f9af031f6334712f47ad12d781c7950525547eeea0aa10b",
     urls = [

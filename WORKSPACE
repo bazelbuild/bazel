@@ -146,6 +146,7 @@ distdir_tar(
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+        "java_tools-v11.0-rc1.zip",
         "java_tools_linux-v11.0-rc1.zip",
         "java_tools_windows-v11.0-rc1.zip",
         "java_tools_darwin-v11.0-rc1.zip",
@@ -187,6 +188,7 @@ distdir_tar(
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
+        "java_tools-v11.0-rc1.zip": "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
         "java_tools_linux-v11.0-rc1.zip": "63d25d64e93f27142f9af031f6334712f47ad12d781c7950525547eeea0aa10b",
         "java_tools_windows-v11.0-rc1.zip": "3592275623f4b024da44bd8c8c777448d5a8e27395ab36ed3e5973c263491945",
         "java_tools_darwin-v11.0-rc1.zip": "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
@@ -229,6 +231,9 @@ distdir_tar(
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
             "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+        ],
+        "java_tools-v11.0-rc1.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools-v11.0-rc1.zip",
         ],
         "java_tools_linux-v11.0-rc1.zip": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools_linux-v11.0-rc1.zip",
@@ -545,6 +550,7 @@ http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
+        "java_tools-v11.0-rc1.zip",
         "java_tools_linux-v11.0-rc1.zip",
         "java_tools_windows-v11.0-rc1.zip",
         "java_tools_darwin-v11.0-rc1.zip",
@@ -579,6 +585,7 @@ distdir_tar(
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
+        "java_tools-v11.0-rc1.zip": "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
         "java_tools_linux-v11.0-rc1.zip": "63d25d64e93f27142f9af031f6334712f47ad12d781c7950525547eeea0aa10b",
         "java_tools_windows-v11.0-rc1.zip": "3592275623f4b024da44bd8c8c777448d5a8e27395ab36ed3e5973c263491945",
         "java_tools_darwin-v11.0-rc1.zip": "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
@@ -612,6 +619,7 @@ distdir_tar(
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
     },
     urls = {
+        "java_tools-v11.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools-v11.0-rc1.zip"],
         "java_tools_linux-v11.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools_linux-v11.0-rc1.zip"],
         "java_tools_windows-v11.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools_windows-v11.0-rc1.zip"],
         "java_tools_darwin-v11.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools_darwin-v11.0-rc1.zip"],
@@ -916,6 +924,18 @@ http_archive(
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 http_archive(
+    name = "remote_java_tools_for_testing",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools-v11.0-rc1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.4/java_tools_javac11-v10.4.zip",
+    ],
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
     name = "remote_java_tools_linux_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
@@ -952,7 +972,18 @@ http_archive(
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    name = "remote_java_tools_javac11_test_linux",
+    name = "remote_java_tools_test",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools-v11.0-rc1.zip",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "remote_java_tools_test_linux",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "63d25d64e93f27142f9af031f6334712f47ad12d781c7950525547eeea0aa10b",
@@ -963,7 +994,7 @@ http_archive(
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    name = "remote_java_tools_javac11_test_windows",
+    name = "remote_java_tools_test_windows",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "3592275623f4b024da44bd8c8c777448d5a8e27395ab36ed3e5973c263491945",
@@ -974,7 +1005,7 @@ http_archive(
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    name = "remote_java_tools_javac11_test_darwin",
+    name = "remote_java_tools_test_darwin",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",

@@ -378,7 +378,6 @@ sh_test(
     name = "bazel_java_tools_dist_test",
     size = "small",
     srcs = ["bazel_java_tools_dist_test.sh"],
-    args = ["javac11"],
     data = [
         ":test-deps",
         "//src:java_tools_dist.zip",
