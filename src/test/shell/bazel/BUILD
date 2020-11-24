@@ -183,9 +183,10 @@ sh_test(
     srcs = ["bazel_java14_test.sh"],
     args = [
         # --java_toolchain and --host_java_toolchain values
-        "@local_java_tools//:toolchain_jdk_14",
+        "@bazel_tools//tools/jdk:toolchain_jdk_14",
         # java_tools zip to test
-        "src/java_tools_java11.zip",
+        "src/java_tools.zip",
+        "src/java_tools_prebuilt.zip",
     ] + select({
         # --javabase and --host_javabase values
         "//src/conditions:darwin": ["@openjdk14_darwin_archive//:runtime"],
@@ -194,7 +195,8 @@ sh_test(
     }),
     data = [
         ":test-deps",
-        "//src:java_tools_java11_zip",
+        "//src:java_tools_zip",
+        "//src:java_tools_prebuilt_zip",
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -206,9 +208,10 @@ sh_test(
     srcs = ["bazel_java15_test.sh"],
     args = [
         # --java_toolchain and --host_java_toolchain values
-        "@local_java_tools//:toolchain_jdk_15",
+        "@bazel_tools//tools/jdk:toolchain_jdk_15",
         # java_tools zip to test
-        "src/java_tools_java11.zip",
+        "src/java_tools.zip",
+        "src/java_tools_prebuilt.zip",
     ] + select({
         # --javabase and --host_javabase values
         "//src/conditions:darwin": ["@openjdk15_darwin_archive//:runtime"],
@@ -217,7 +220,8 @@ sh_test(
     }),
     data = [
         ":test-deps",
-        "//src:java_tools_java11_zip",
+        "//src:java_tools_zip",
+        "//src:java_tools_prebuilt_zip",
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -349,25 +353,25 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java_tools_javac11_test",
+    name = "bazel_java_tools_test",
     size = "medium",
     srcs = ["bazel_java_tools_test.sh"],
-    args = ["java11"],
     data = [
         ":test-deps",
-        "//src:java_tools_java11.zip",
+        "//src:java_tools.zip",
+        "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
 sh_test(
-    name = "bazel_java_tools_dist_javac11_test",
+    name = "bazel_java_tools_dist_test",
     size = "small",
     srcs = ["bazel_java_tools_dist_test.sh"],
     args = ["javac11"],
     data = [
         ":test-deps",
-        "//src:java_tools_dist_javac11.zip",
+        "//src:java_tools_dist.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
