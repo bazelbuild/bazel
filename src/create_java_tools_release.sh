@@ -89,7 +89,7 @@ for platform in "linux" "windows" "darwin"; do
   # Download the file locally to compute its sha256sum (needed to update the
   # java_tools in Bazel).
   # Don't overwrite existing file.
-  local_zip="$tmp_dir/java_tools_$platform.zip"
+  local_zip="$tmp_dir/java_tools$platform.zip"
   gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
   echo "${release_artifact} ${file_hash}"
