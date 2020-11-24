@@ -360,6 +360,21 @@ java_import(
 )
 
 java_import(
+    name = "jline-terminal",
+    jars = ["jline/jline-terminal-3.17.1.jar"],
+    srcjar = "jline/jline-terminal-3.17.1-sources.jar",
+)
+
+java_import(
+    name = "jline-reader",
+    jars = ["jline/jline-reader-3.17.1.jar"],
+    srcjar = "jline/jline-reader-3.17.1-sources.jar",
+    exports = [
+        ":jline-terminal",
+    ],
+)
+
+java_import(
     name = "threeten",
     jars = [
         "error_prone/threeten-extra-1.5.0.jar",
