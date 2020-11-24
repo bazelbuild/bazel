@@ -303,7 +303,8 @@ JAVA_VERSIONS = ("11", "14", "15")
         }),
         data = [
             ":test-deps",
-            "//src:java_tools_java11_zip",
+            "//src:java_tools_zip",
+            "//src:java_tools_prebuilt_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
@@ -574,7 +575,8 @@ sh_test(
         }),
         data = [
             ":test-deps",
-            "//src:java_tools_java11_zip",
+            "//src:java_tools_zip",
+            "//src:java_tools_prebuilt_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
