@@ -109,14 +109,14 @@ if [[ $release == "true" ]]; then
   # Don't overwrite existing file.
   gsutil -q cp -n "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
 else
-  tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools.* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+  tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
 
   gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
   release_artifact="${rc_url}"
 
   # Copy the associated zip file that contains the sources of the release zip.
   # Don't overwrite existing file.
-  tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java/java_tools.* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+  tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
   gsutil -q cp -n ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
 fi
 
