@@ -26,7 +26,7 @@ http_archive(
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_test_darwin",
-    sha256 = "45125eb17841ff0e800b8ac6b551b9e72f85cc10233547dc91d80edf144b7afc",
+    sha256 = "647c4416f8bad1b84899148c5845998a04aeb78804df80203c0890d7d0fb0191",
     urls = [
          "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.0/java_tools_darwin-v11.0-rc1.zip",
     ],
