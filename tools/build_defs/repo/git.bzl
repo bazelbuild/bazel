@@ -31,7 +31,7 @@ def _clone_or_update(ctx):
     root = ctx.path(".")
     directory = str(root)
     if ctx.attr.strip_prefix:
-        directory = root.get_child(".tmp")
+        directory = root.get_child(".tmp_git_root")
 
     git_ = git_repo(ctx, directory)
 
