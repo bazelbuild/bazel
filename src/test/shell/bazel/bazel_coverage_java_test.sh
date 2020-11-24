@@ -40,7 +40,7 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
     if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == file* ]]; then
         JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="${JAVA_TOOLS_PREBUILT_ZIP}"
     else
-        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/JAVA_TOOLS_PREBUILT_ZIP)"
+        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
     fi
 fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
@@ -70,12 +70,16 @@ http_archive(
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
 )
 http_archive(
-    name = "remote_java_tools_" + select({
-            "//src/conditions:darwin": "darwin",
-            "//src/conditions:windows": "windows",
-            "//src/conditions:linux": "linux",
-          }),
-    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+    name = "remote_java_tools_linux",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
     fi

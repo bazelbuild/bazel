@@ -581,8 +581,10 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
+
         tags = [
             "no_windows",
+            "manual", # TODO(ilist): reenable after java_tools release
         ],
     )
     for java_version in JAVA_VERSIONS
