@@ -128,7 +128,7 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         "@remote_java_tools//:jdk_compiler_jar",
     ],
     ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
-    singlejar = ["@bazel_tools//tools:prebuilt_singlejar"],
+    singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
 )
 
 

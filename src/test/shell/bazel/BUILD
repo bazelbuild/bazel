@@ -200,11 +200,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    # TODO(ilist): reenable after java_tools release
-    tags = [
-        "local",
-        "manual",
-    ],
+    tags = ["local"],
 )
 
 sh_test(
@@ -229,11 +225,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    # TODO(ilist): reenable after java_tools release
-    tags = [
-        "local",
-        "manual",
-    ],
+    tags = ["local"],
 )
 
 sh_test(
@@ -283,8 +275,6 @@ JAVA_VERSIONS = ("11", "14", "15")
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
-        # TODO(ilist): reenable after java_tools release
-        tags = ["manual"],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -315,8 +305,6 @@ JAVA_VERSIONS = ("11", "14", "15")
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
-        # TODO(ilist): reenable after java_tools release
-        tags = ["manual"],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -586,10 +574,7 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
-        tags = [
-            "manual",  # TODO(ilist): reenable after java_tools release
-            "no_windows",
-        ],
+        tags = ["no_windows"],
     )
     for java_version in JAVA_VERSIONS
 ]
