@@ -107,6 +107,14 @@ http_archive(
     name = "remote_java_tools_linux",
     urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
 EOF
   fi
 

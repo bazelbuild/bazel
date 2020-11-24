@@ -200,7 +200,8 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["local"],
+    # TODO(ilist): reenable after java_tools release
+    tags = ["local", "manual"],
 )
 
 sh_test(
@@ -225,7 +226,8 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["local"],
+    # TODO(ilist): reenable after java_tools release
+    tags = ["local", "manual"],
 )
 
 sh_test(
@@ -236,6 +238,7 @@ sh_test(
     srcs = ["bazel_java_test.sh"],
     args = [
         "@bazel_tools//tools/jdk:toolchain",
+        "released",
         "released",
     ],
     data = [
@@ -511,6 +514,7 @@ sh_test(
         "@bazel_tools//tools/jdk:toolchain",
         "released",
         "released",
+        "released",
     ],
     data = [
         ":test-deps",
@@ -526,11 +530,8 @@ sh_test(
     sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "_toolchain_released_test",
         srcs = ["bazel_coverage_java_test.sh"],
-        args = select({
-            "//src/conditions:darwin": ["@remote_java_tools_javac11_test_darwin//:toolchain"],
-            "//src/conditions:windows": ["@remote_java_tools_javac11_test_windows//:toolchain"],
-            "//src/conditions:linux": ["@remote_java_tools_javac11_test_linux//:toolchain"],
-        }) + [
+        args = [
+            "@bazel_tools//tools/jdk:toolchain",
             # java_tools zip to test
             "released",
             # coverage_report_generator to test
@@ -559,9 +560,10 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # --java_toolchain
-            "@local_java_tools//:toolchain",
-            # java_tools zip to test
-            "src/java_tools_java11.zip",
+            "@bazel_tools//tools/jdk:toolchain",
+            # java_tools zips to test
+            "src/java_tools.zip",
+            "src/java_tools_prebuilt.zip",
             # coverage output generator to test
             "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
             # --javabase value
