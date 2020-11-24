@@ -303,8 +303,9 @@ public final class UiEventHandler implements EventHandler {
             stream.write(event.getMessageBytes());
             stream.flush();
           } else {
-            writeToStream(stream, event.getKind(), event.getMessageBytes());
-            if (showProgress && cursorControl) {
+            boolean clearedProgress =
+                writeToStream(stream, event.getKind(), event.getMessageBytes());
+            if (clearedProgress && showProgress && cursorControl) {
               addProgressBar();
             }
             terminal.flush();
@@ -452,14 +453,14 @@ public final class UiEventHandler implements EventHandler {
     handleInternal(event);
   }
 
-  private void writeToStream(OutputStream stream, EventKind eventKind, byte[] message)
+  private boolean writeToStream(OutputStream stream, EventKind eventKind, byte[] message)
       throws IOException {
     int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
     ByteArrayOutputStream outLineBuffer =
         eventKind == EventKind.STDOUT ? stdoutLineBuffer : stderrLineBuffer;
     if (eolIndex < 0) {
       outLineBuffer.write(message);
-      return;
+      return false;
     }
 
     clearProgressBar();
@@ -473,6 +474,7 @@ public final class UiEventHandler implements EventHandler {
     stream.flush();
 
     outLineBuffer.write(message, eolIndex + 1, message.length - eolIndex - 1);
+    return true;
   }
 
   private void setEventKindColor(EventKind kind) throws IOException {
