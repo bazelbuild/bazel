@@ -28,6 +28,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.SyntaxError;
 
 /**
@@ -71,6 +73,30 @@ class Main {
           return input.toString();
         }
         input.append(lineSeparator).append(line);
+
+        // Read lines until input produces valid statements, unless it is if/def/for
+        // (which can be multiline), in which case we must wait for an empty line.
+        // TODO(adonovan): parse a compound statement, like the Python and
+        //   go.starlark.net REPLs. This requires a new grammar production, and
+        //   integration with the lexer so that it consumes new
+        //   lines only until the parse is complete.
+        StarlarkFile starlarkFile = StarlarkFile.parse(ParserInput.fromString(input.toString(), "<stdin>"));
+        if (starlarkFile.ok()) {
+          if (starlarkFile.getStatements().isEmpty()) {
+            return input.toString();
+          }
+
+          Statement lastStatement = starlarkFile.getStatements().get(starlarkFile.getStatements().size() - 1);
+          switch (lastStatement.kind()) {
+            case IF:
+            case DEF:
+            case FOR:
+              break;
+            default:
+              return input.toString();
+          }
+        }
+
         lineSeparator = "\n";
         System.out.print(CONTINUATION_PROMPT);
       }
@@ -85,11 +111,6 @@ class Main {
   private static void readEvalPrintLoop() {
     System.err.println("Welcome to Starlark (java.starlark.net)");
     String line;
-
-    // TODO(adonovan): parse a compound statement, like the Python and
-    // go.starlark.net REPLs. This requires a new grammar production, and
-    // integration with the lexer so that it consumes new
-    // lines only until the parse is complete.
 
     while ((line = prompt()) != null) {
       ParserInput input = ParserInput.fromString(line, "<stdin>");
