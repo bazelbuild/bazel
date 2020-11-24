@@ -104,7 +104,7 @@ EOF
 zip -rv "${tmp_zip}" "${readme_file}"
 
 gsutil_cmd="gsutil"
-if [[ "$platform" == "windows" ]]; then
+if "$is_windows"; then
   gsutil_cmd="gsutil.cmd"
 fi
 
