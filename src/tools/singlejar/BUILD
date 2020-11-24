@@ -60,11 +60,20 @@ genrule(
 
 genrule(
     name = "singlejar_zip",
-    srcs = SOURCES + [":singlejar_local"],
+    srcs = SOURCES,
     outs = ["singlejar.zip"],
     cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
     tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "singlejar_deploy_zip",
+    srcs = [":singlejar_local"],
+    outs = ["singlejar_deploy.zip"],
+    cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
+    tools = ["//src:zip_files"],
+    visibility = ["//src:__pkg__"],
 )
 
 cc_binary(

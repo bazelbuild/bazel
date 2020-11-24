@@ -48,35 +48,46 @@ bazel_version=$(bazel info release | cut -d' ' -f2)
 
 # Passing the same commit_hash and timestamp to all targets to mark all the artifacts
 # uploaded on GCS with the same identifier.
-for java_version in 11; do
 
-    bazel build //src:java_tools_java${java_version}_zip
-    zip_path=${PWD}/bazel-bin/src/java_tools_java${java_version}.zip
+bazel build //src:java_tools_zip
+zip_path=${PWD}/bazel-bin/src/java_tools.zip
 
-    if "$is_windows"; then
-        # Windows needs "file:///c:/foo/bar".
-        file_url="file:///$(cygpath -m ${zip_path})"
-    else
-        # Non-Windows needs "file:///foo/bar".
-        file_url="file://${zip_path}"
-    fi
+bazel build //src:java_tools_prebuilt_zip
+prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
-    # Skip for now, as the test is broken on Windows.
-    # See https://github.com/bazelbuild/bazel/issues/12244 for details
-    if not "$is_windows"; then
+if "$is_windows"; then
+    # Windows needs "file:///c:/foo/bar".
+    file_url="file:///$(cygpath -m ${zip_path})"
+    prebuilt_file_url="file:///$(cygpath -m ${prebuilt_zip_path})"
+else
+    # Non-Windows needs "file:///foo/bar".
+    file_url="file://${zip_path}"
+    prebuilt_file_url="file://${prebuilt_zip_path}"
+fi
+
+# Skip for now, as the test is broken on Windows.
+# See https://github.com/bazelbuild/bazel/issues/12244 for details
+if ! "$is_windows"; then
+    for java_version in 11 14 15; do
         bazel test --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
-            --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}"
-    fi
+            --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}" \
+            --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL="${prebuilt_file_url}"
+    done
+fi
 
-    bazel run //src:upload_java_tools_java${java_version} -- \
-        --java_tools_zip src/java_tools_java${java_version}.zip \
-        --commit_hash ${commit_hash} \
-        --timestamp ${timestamp} \
-        --bazel_version ${bazel_version}
 
-    bazel run //src:upload_java_tools_dist_java${java_version} -- \
-        --commit_hash ${commit_hash} \
-        --timestamp ${timestamp} \
-        --bazel_version ${bazel_version}
-done
+bazel run //src:upload_java_tools -- \
+    --commit_hash ${commit_hash} \
+    --timestamp ${timestamp} \
+    --bazel_version ${bazel_version}
+
+bazel run //src:upload_java_tools_prebuilt -- \
+    --commit_hash ${commit_hash} \
+    --timestamp ${timestamp} \
+    --bazel_version ${bazel_version}
+
+bazel run //src:upload_java_tools_dist -- \
+    --commit_hash ${commit_hash} \
+    --timestamp ${timestamp} \
+    --bazel_version ${bazel_version}
