@@ -535,6 +535,7 @@ sh_test(
             "@bazel_tools//tools/jdk:toolchain",
             # java_tools zip to test
             "released",
+            "released",
             # coverage_report_generator to test
             "released",
             # --javabase value

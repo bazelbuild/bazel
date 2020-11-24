@@ -419,6 +419,7 @@ filegroup(
     srcs = [
         "BUILD.java_langtools",
         "BUILD.java_tools",
+        "BUILD.java_tools_prebuilt",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
