@@ -19,7 +19,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
@@ -163,18 +161,12 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     @Override
     protected void addAttributes(
         Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
-      // We know <code>currentTarget</code> will be one of these two types of configured targets
+      // We know <code>currentTarget</code> will be either an AliasConfiguredTarget or
+      // RuleConfiguredTarget,
       // because this method is only triggered in ProtoOutputFormatter.toTargetProtoBuffer when
       // the target in currentTarget is an instanceof Rule.
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-      if (currentTarget instanceof AliasConfiguredTarget) {
-        configConditions = ((AliasConfiguredTarget) currentTarget).getConfigConditions();
-      } else if (currentTarget instanceof RuleConfiguredTarget) {
-        configConditions = ((RuleConfiguredTarget) currentTarget).getConfigConditions();
-      } else {
-        // Other subclasses of ConfiguredTarget don't have attribute information.
-        return;
-      }
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+          currentTarget.getConfigConditions();
       ConfiguredAttributeMapper attributeMapper =
           ConfiguredAttributeMapper.of(rule, configConditions);
       for (Attribute attr : sortAttributes(rule.getAttributes())) {

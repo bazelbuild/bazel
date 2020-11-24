@@ -1672,8 +1672,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static ConfiguredAttributeMapper getMapperFromConfiguredTargetAndTarget(
       ConfiguredTargetAndData ctad) {
     return ConfiguredAttributeMapper.of(
-        (Rule) ctad.getTarget(),
-        ((RuleConfiguredTarget) ctad.getConfiguredTarget()).getConfigConditions());
+        (Rule) ctad.getTarget(), ctad.getConfiguredTarget().getConfigConditions());
   }
 
   public static Label makeLabel(String label) {

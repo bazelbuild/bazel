@@ -115,7 +115,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
       OrderedSetMultimap<DependencyKind, DependencyKey> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
+          configuredTarget.getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
       ToolchainCollection<ToolchainContext> toolchainContexts =

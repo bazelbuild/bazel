@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import javax.annotation.Nullable;
@@ -90,5 +92,13 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    */
   default Label getOriginalLabel() {
     return getLabel();
+  }
+
+  /**
+   * The configuration conditions that trigger this configured target's configurable attributes. For
+   * targets that do not support configurable attributes, this will be an empty map.
+   */
+  default ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
+    return ImmutableMap.of();
   }
 }

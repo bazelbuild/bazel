@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrintActionVisitor;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
@@ -389,7 +388,6 @@ public final class PrintActionCommand implements BlazeCommand {
 
       // C++ header files show up in the dependency on the Target, but not the ConfiguredTarget, so
       // we also check the target's header files there.
-      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
       Rule rule;
       try {
         rule =
@@ -404,7 +402,7 @@ public final class PrintActionCommand implements BlazeCommand {
       }
 
       List<Label> hdrs =
-          ConfiguredAttributeMapper.of(rule, ruleConfiguredTarget.getConfigConditions())
+          ConfiguredAttributeMapper.of(rule, configuredTarget.getConfigConditions())
               .get("hdrs", BuildType.LABEL_LIST);
       if (hdrs != null) {
         for (Label hdrLabel : hdrs) {

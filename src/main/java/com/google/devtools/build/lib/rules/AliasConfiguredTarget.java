@@ -84,6 +84,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
     return true; // immutable and Starlark-hashable
   }
 
+  @Override
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }
