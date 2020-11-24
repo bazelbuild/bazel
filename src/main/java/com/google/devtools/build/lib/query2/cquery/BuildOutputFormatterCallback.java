@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
 import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -77,9 +74,6 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
     Rule associatedRule = accessor.getTargetFromConfiguredTarget(ct).getAssociatedRule();
     if (associatedRule == null) {
       return null;
-    } else if (ct instanceof AliasConfiguredTarget) {
-      return ConfiguredAttributeMapper.of(
-          associatedRule, ((AliasConfiguredTarget) ct).getConfigConditions());
     } else if (ct instanceof OutputFileConfiguredTarget) {
       return ConfiguredAttributeMapper.of(
           associatedRule,
@@ -87,9 +81,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
               .getGeneratingConfiguredTarget((OutputFileConfiguredTarget) ct)
               .getConfigConditions());
     } else {
-      Verify.verify(ct instanceof RuleConfiguredTarget);
-      return ConfiguredAttributeMapper.of(
-          associatedRule, ((RuleConfiguredTarget) ct).getConfigConditions());
+      return ConfiguredAttributeMapper.of(associatedRule, ct.getConfigConditions());
     }
   }
 

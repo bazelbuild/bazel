@@ -695,6 +695,7 @@ java_library(
     name = "configured_target",
     srcs = ["ConfiguredTarget.java"],
     deps = [
+        ":config/config_matching_provider",
         ":transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
