@@ -131,8 +131,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
       throw new QueryException(
           caller,
           String.format(
-              "%s %s of type %s does not have attribute '%s'",
-              errorMsgPrefix, actualConfiguredTarget, rule.getRuleClass(), attrName),
+              "%sconfigured target of type %s does not have attribute '%s'",
+              errorMsgPrefix, rule.getRuleClass(), attrName),
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
     ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
