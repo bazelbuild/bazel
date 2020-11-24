@@ -160,18 +160,13 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testLabelsFunction_errorsOnBadAttribute() throws Exception {
     setUpLabelsFunctionTests();
 
-    ConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
-    String targetConfiguration = myRule.getConfigurationChecksum();
-
     // Test that the proper error is thrown when requesting an attribute that doesn't exist.
     EvalThrowsResult evalThrowsResult = evalThrows("labels('fake_attr', //test:my_rule)", true);
     assertConfigurableQueryCode(evalThrowsResult.getFailureDetail(), Code.ATTRIBUTE_MISSING);
     assertThat(evalThrowsResult.getMessage())
         .isEqualTo(
-            String.format(
-                "in 'fake_attr' of rule //test:my_rule:  ConfiguredTarget(//test:my_rule, %s) "
-                    + "of type rule_with_transitions does not have attribute 'fake_attr'",
-                targetConfiguration));
+            "in 'fake_attr' of rule //test:my_rule: configured target of type"
+                + " rule_with_transitions does not have attribute 'fake_attr'");
   }
 
   @Test
