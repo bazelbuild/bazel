@@ -2,6 +2,10 @@ load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchai
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "JDK8_JVM_OPTS",
+    "JVM8_TOOLCHAIN_CONFIGURATION",
+    "DEFAULT_TOOLCHAIN_CONFIGURATION",
+    "VANILLA_TOOLCHAIN_CONFIGURATION",
+    "PREBUILT_TOOLCHAIN_CONFIGURATION",
     "bootclasspath",
     "default_java_toolchain",
     "java_runtime_files",
@@ -13,11 +17,6 @@ load(
     "java_toolchain_alias",
     "legacy_java_runtime_alias",
     "legacy_java_toolchain_alias",
-)
-load(
-    "//tools/jdk:remote_java_tools_aliases.bzl",
-    "remote_java_tools_filegroup",
-    "remote_java_tools_java_import",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
@@ -180,12 +179,39 @@ alias(
     actual = "@local_jdk//:javadoc",
 )
 
+config_setting(
+    name = "remote",
+    values = {"define": "EXECUTOR=remote"},
+)
+
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
-remote_java_tools_filegroup(
+alias(
     name = "ijar",
-    target = ":ijar",
+    actual = select({
+        ":remote": "@remote_java_tools//:ijar_cc_binary",
+        "//conditions:default": ":ijar_prebuilt_binary_or_cc_binary",
+    }),
+)
+
+alias(
+    name = "ijar_prebuilt_binary_or_cc_binary",
+    actual = select({
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:ijar_prebuilt_binary",
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:ijar_prebuilt_binary",
+        "//src/conditions:windows": "@remote_java_tools_windows//:ijar_prebuilt_binary",
+        "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
+    }),
+)
+
+alias(
+    name = "ijar_prebuilt_binary",
+    actual = select({
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:ijar_prebuilt_binary",
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:ijar_prebuilt_binary",
+        "//src/conditions:windows": "@remote_java_tools_windows//:ijar_prebuilt_binary",
+    }),
 )
 
 # On Windows, Java implementation of singlejar is used. We create a little
@@ -194,108 +220,123 @@ remote_java_tools_filegroup(
 # the native singlejar is used on windows), this file group can be reused since
 # on Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent.
-remote_java_tools_filegroup(
+alias(
     name = "singlejar",
-    target = ":singlejar",
+    actual = select({
+        ":remote": "@remote_java_tools//:singlejar_cc_bin",
+        "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
+    }),
+)
+
+alias(
+    name = "singlejar_prebuilt_or_cc_binary",
+    actual = select({
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
+        "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
+        "//conditions:default": "singlejar_cc_bin",
+    }),
+)
+
+alias(
+    name = "prebuilt_singlejar",
+    actual = select({
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
+        "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
+    }),
 )
 
 exports_files(["BUILD.java_tools"])
 
-remote_java_tools_filegroup(
+alias(
     name = "genclass",
-    target = ":GenClass",
+    actual = "@remote_java_tools//:GenClass",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "GenClass_deploy.jar",
-    target = ":java_tools/GenClass_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/GenClass_deploy.jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "bazel-singlejar_deploy.jar",
-    target = ":java_tools/bazel-singlejar_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/bazel-singlejar_deploy.jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "turbine",
-    target = ":Turbine",
+    actual = "@remote_java_tools//:Turbine",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "turbine_deploy.jar",
-    target = ":java_tools/turbine_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/turbine_deploy.jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "turbine_direct",
-    target = ":TurbineDirect",
+    actual = "@remote_java_tools//:TurbineDirect",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "turbine_direct_binary_deploy.jar",
-    target = ":java_tools/turbine_direct_binary_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/turbine_direct_binary_deploy.jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "javabuilder",
-    target = ":JavaBuilder",
+    actual = "@remote_java_tools//:JavaBuilder",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "JavaBuilder_deploy.jar",
-    target = ":java_tools/JavaBuilder_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/JavaBuilder_deploy.jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "vanillajavabuilder",
-    target = ":VanillaJavaBuilder",
+    actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "javac_jar",
-    target = ":javac_jar",
+    actual = "@remote_java_tools//:javac_jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "jdk_compiler_jar",
-    target = ":jdk_compiler_jar",
+    actual = "@remote_java_tools//:jdk_compiler_jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "java_compiler_jar",
-    target = ":java_compiler_jar",
+    actual = "@remote_java_tools//:java_compiler_jar",
 )
 
-remote_java_tools_java_import(
+alias(
     name = "JacocoCoverageRunner",
-    target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar",
 )
 
-remote_java_tools_java_import(
+alias(
     name = "JacocoCoverage",
-    target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar",
 )
 
-remote_java_tools_java_import(
+alias(
     name = "TestRunner",
-    target = ":java_tools/Runner_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/Runner_deploy.jar",
 )
 
-remote_java_tools_filegroup(
+alias(
     name = "TestRunner_deploy.jar",
-    target = ":java_tools/Runner_deploy.jar",
+    actual = "@remote_java_tools//:java_tools/Runner_deploy.jar",
 )
 
 alias(
     name = "proguard",
-    actual = select({
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:proguard",
-        "//src/conditions:windows": "@remote_java_tools_windows//:proguard",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
-        # On different platforms the linux repository can be used because the
-        # proguard deploy jar is platform-agnostic.
-        "//conditions:default": "@remote_java_tools_linux//:proguard",
-    }),
+    actual = "@remote_java_tools//:proguard",
 )
 
 BOOTCLASS_JARS = [
@@ -347,7 +388,7 @@ bootclasspath(
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    jvm_opts = JDK8_JVM_OPTS,
+    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
     source_version = "8",
     target_version = "8",
 )
@@ -356,28 +397,19 @@ default_java_toolchain(
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
     name = "legacy_toolchain",
+    configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
     source_version = "8",
     target_version = "8",
 )
 
-alias(
+default_java_toolchain(
     name = "toolchain",
-    actual = select({
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
-        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
-    }),
+    configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
 )
 
 alias(
     name = "remote_toolchain",
-    actual = select({
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
-        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
-    }),
+    actual = ":toolchain",
 )
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
@@ -396,11 +428,7 @@ alias(
 # versions newer than the current embedded JDK.
 default_java_toolchain(
     name = "toolchain_vanilla",
-    forcibly_disable_header_compilation = True,
-    javabuilder = [":vanillajavabuilder"],
-    jvm_opts = [],
-    source_version = "",
-    target_version = "",
+    configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
 )
 
 RELEASES = (8, 9, 10, 11)
@@ -408,11 +436,33 @@ RELEASES = (8, 9, 10, 11)
 [
     default_java_toolchain(
         name = "toolchain_java%d" % release,
+        configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
         source_version = "%s" % release,
         target_version = "%s" % release,
     )
     for release in RELEASES
 ]
+
+# A toolchain that targets java 14.
+default_java_toolchain(
+    name = "toolchain_jdk_14",
+    configuration = dict(),
+    source_version = "14",
+    target_version = "14",
+)
+
+# A toolchain that targets java 15.
+default_java_toolchain(
+    name = "toolchain_jdk_15",
+    configuration = dict(),
+    source_version = "15",
+    target_version = "15",
+)
+
+default_java_toolchain(
+    name = "prebuilt_toolchain",
+    configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
+)
 
 filegroup(
     name = "srcs",
@@ -431,7 +481,6 @@ filegroup(
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.pgcfg",
-        "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
     ],
 )
