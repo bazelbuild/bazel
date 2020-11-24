@@ -408,11 +408,6 @@ alias(
 filegroup(name = "empty")
 
 alias(
-    name = "jarjar_bin",
-    actual = "//third_party/java/jarjar:jarjar_bin",
-)
-
-alias(
     name = "instrumentation_test_entry_point",
     actual = "@android_test_support//:instrumentation_test_runner",
 )
