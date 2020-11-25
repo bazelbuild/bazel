@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -21,9 +21,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetAccessor;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetLookup;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
@@ -48,13 +49,16 @@ import java.util.Set;
 public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
 
   private final WalkableGraph walkableGraph;
+  private final TargetLookup targetLookup;
   private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
 
   public ConfiguredTargetValueAccessor(
       WalkableGraph walkableGraph,
+      TargetLookup targetLookup,
       KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey> configuredTargetKeyExtractor) {
     this.walkableGraph = walkableGraph;
+    this.targetLookup = targetLookup;
     this.configuredTargetKeyExtractor = configuredTargetKeyExtractor;
   }
 
@@ -138,8 +142,15 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
-    return ConfiguredTargetAccessor.getTargetFromConfiguredTarget(
-        configuredTargetValue.getConfiguredTarget(), walkableGraph);
+    // Dereference any aliases that might be present.
+    Label label = configuredTargetValue.getConfiguredObject().getOriginalLabel();
+    try {
+      return targetLookup.getTarget(label);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Thread interrupted in the middle of getting a Target.", e);
+    } catch (TargetNotFoundException e) {
+      throw new IllegalStateException("Unable to get target from package in accessor.", e);
+    }
   }
 
   /** Returns the AspectValues that are attached to the given configuredTarget. */
