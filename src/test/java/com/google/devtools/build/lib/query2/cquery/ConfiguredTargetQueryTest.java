@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -39,10 +38,11 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ConfiguredTargetQueryEnvironment}. */
 @RunWith(JUnit4.class)
-public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredTarget> {
+public abstract class ConfiguredTargetQueryTest
+    extends PostAnalysisQueryTest<KeyedConfiguredTarget> {
 
   @Override
-  protected QueryHelper<ConfiguredTarget> createQueryHelper() {
+  protected QueryHelper<KeyedConfiguredTarget> createQueryHelper() {
     if (helper != null) {
       getHelper().cleanUp();
     }
@@ -62,10 +62,10 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Co
   }
 
   @Override
-  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfiguration getConfiguration(KeyedConfiguredTarget kct) {
     return getHelper()
         .getSkyframeExecutor()
-        .getConfiguration(getHelper().getReporter(), ct.getConfigurationKey());
+        .getConfiguration(getHelper().getReporter(), kct.getConfigurationKey());
   }
 
   /** SplitTransition on --test_arg */
@@ -98,12 +98,12 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Co
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 
-    Set<ConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
+    Set<KeyedConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<ConfiguredTarget> resultIterator = result.iterator();
-    ConfiguredTarget first = resultIterator.next();
+    Iterator<KeyedConfiguredTarget> resultIterator = result.iterator();
+    KeyedConfiguredTarget first = resultIterator.next();
     if (first.getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();

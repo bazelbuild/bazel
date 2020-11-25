@@ -56,6 +56,13 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return interner.intern(new ConfiguredTargetKey(label, configurationKey));
   }
 
+  public Builder toBuilder() {
+    return builder()
+        .setConfigurationKey(getConfigurationKey())
+        .setLabel(getLabel())
+        .setToolchainContextKey(getToolchainContextKey());
+  }
+
   @Override
   public final Label getLabel() {
     return label;
@@ -67,7 +74,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   @Nullable
-  final BuildConfigurationValue.Key getConfigurationKey() {
+  public final BuildConfigurationValue.Key getConfigurationKey() {
     return configurationKey;
   }
 

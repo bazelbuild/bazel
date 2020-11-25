@@ -140,7 +140,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor)
+      TargetAccessor<KeyedConfiguredTarget> accessor)
       throws QueryException, InterruptedException {
     super(eventHandler, options, out, skyframeExecutor, accessor);
 
@@ -226,15 +226,18 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
-    for (ConfiguredTarget target : partialResult) {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
+    for (KeyedConfiguredTarget target : partialResult) {
       try {
         StarlarkThread thread =
             new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
         thread.setMaxExecutionSteps(500_000L);
 
         // Invoke formatFn with `target` argument.
-        Object result = Starlark.fastcall(thread, this.formatFn, new Object[] {target}, NO_ARGS);
+        Object result =
+            Starlark.fastcall(
+                thread, this.formatFn, new Object[] {target.getConfiguredTarget()}, NO_ARGS);
 
         addResult(Starlark.str(result));
       } catch (EvalException ex) {

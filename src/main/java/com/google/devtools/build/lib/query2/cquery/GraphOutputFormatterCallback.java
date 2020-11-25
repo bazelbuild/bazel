@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -37,15 +36,16 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
   /** Interface for finding a configured target's direct dependencies. */
   @FunctionalInterface
   public interface DepsRetriever {
-    Iterable<ConfiguredTarget> getDirectDeps(ConfiguredTarget taget) throws InterruptedException;
+    Iterable<KeyedConfiguredTarget> getDirectDeps(KeyedConfiguredTarget target)
+        throws InterruptedException;
   }
 
   private final DepsRetriever depsRetriever;
 
-  private final GraphOutputWriter.NodeReader<ConfiguredTarget> nodeReader =
-      new NodeReader<ConfiguredTarget>() {
+  private final GraphOutputWriter.NodeReader<KeyedConfiguredTarget> nodeReader =
+      new NodeReader<KeyedConfiguredTarget>() {
 
-        private final Comparator<ConfiguredTarget> configuredTargetOrdering =
+        private final Comparator<KeyedConfiguredTarget> configuredTargetOrdering =
             (ct1, ct2) -> {
               // Order graph output first by target label, then by configuration hash.
               Label label1 = ct1.getLabel();
@@ -56,16 +56,16 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
             };
 
         @Override
-        public String getLabel(Node<ConfiguredTarget> node) {
+        public String getLabel(Node<KeyedConfiguredTarget> node) {
           // Node payloads are ConfiguredTargets. Output node labels are target labels + config
           // hashes.
-          ConfiguredTarget ct = node.getLabel();
+          KeyedConfiguredTarget kct = node.getLabel();
           return String.format(
-              "%s (%s)", ct.getLabel(), shortId(getConfiguration(ct.getConfigurationKey())));
+              "%s (%s)", kct.getLabel(), shortId(getConfiguration(kct.getConfigurationKey())));
         }
 
         @Override
-        public Comparator<ConfiguredTarget> comparator() {
+        public Comparator<KeyedConfiguredTarget> comparator() {
           return configuredTargetOrdering;
         }
       };
@@ -75,30 +75,31 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       DepsRetriever depsRetriever) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.depsRetriever = depsRetriever;
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
     // Transform the cquery-backed graph into a Digraph to make it suitable for GraphOutputWriter.
     // Note that this involves an extra iteration over the entire query result subgraph. We could
     // conceptually merge transformation and output writing into the same iteration if needed.
-    Digraph<ConfiguredTarget> graph = new Digraph<>();
-    ImmutableSet<ConfiguredTarget> allNodes = ImmutableSet.copyOf(partialResult);
-    for (ConfiguredTarget configuredTarget : partialResult) {
-      Node<ConfiguredTarget> node = graph.createNode(configuredTarget);
-      for (ConfiguredTarget dep : depsRetriever.getDirectDeps(configuredTarget)) {
+    Digraph<KeyedConfiguredTarget> graph = new Digraph<>();
+    ImmutableSet<KeyedConfiguredTarget> allNodes = ImmutableSet.copyOf(partialResult);
+    for (KeyedConfiguredTarget configuredTarget : partialResult) {
+      Node<KeyedConfiguredTarget> node = graph.createNode(configuredTarget);
+      for (KeyedConfiguredTarget dep : depsRetriever.getDirectDeps(configuredTarget)) {
         if (allNodes.contains(dep)) {
-          Node<ConfiguredTarget> depNode = graph.createNode(dep);
+          Node<KeyedConfiguredTarget> depNode = graph.createNode(dep);
           graph.addEdge(node, depNode);
         }
       }
     }
 
-    GraphOutputWriter<ConfiguredTarget> graphWriter =
+    GraphOutputWriter<KeyedConfiguredTarget> graphWriter =
         new GraphOutputWriter<>(
             nodeReader,
             options.getLineTerminator(),
