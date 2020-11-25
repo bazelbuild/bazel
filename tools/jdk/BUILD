@@ -256,12 +256,12 @@ alias(
 
 alias(
     name = "GenClass_deploy.jar",
-    actual = "@remote_java_tools//:java_tools/GenClass_deploy.jar",
+    actual = "@remote_java_tools//:GenClass",
 )
 
 alias(
     name = "bazel-singlejar_deploy.jar",
-    actual = "@remote_java_tools//:java_tools/bazel-singlejar_deploy.jar",
+    actual = "@remote_java_tools//:SingleJar",
 )
 
 alias(
@@ -271,7 +271,7 @@ alias(
 
 alias(
     name = "turbine_deploy.jar",
-    actual = "@remote_java_tools//:java_tools/turbine_deploy.jar",
+    actual = "@remote_java_tools//:Turbine",
 )
 
 alias(
@@ -281,7 +281,7 @@ alias(
 
 alias(
     name = "turbine_direct_binary_deploy.jar",
-    actual = "@remote_java_tools//:java_tools/turbine_direct_binary_deploy.jar",
+    actual = "@remote_java_tools//:TurbineDirect",
 )
 
 alias(
@@ -291,7 +291,7 @@ alias(
 
 alias(
     name = "JavaBuilder_deploy.jar",
-    actual = "@remote_java_tools//:java_tools/JavaBuilder_deploy.jar",
+    actual = "@remote_java_tools//:JavaBuilder",
 )
 
 alias(
@@ -316,22 +316,22 @@ alias(
 
 alias(
     name = "JacocoCoverageRunner",
-    actual = "@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar",
+    actual = "@remote_java_tools//:jacoco_coverage_runner",
 )
 
 alias(
     name = "JacocoCoverage",
-    actual = "@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar",
+    actual = "@remote_java_tools//:jacoco_coverage_runner",
 )
 
-alias(
+java_import(
     name = "TestRunner",
-    actual = "@remote_java_tools//:java_tools/Runner_deploy.jar",
+    jars = ["@remote_java_tools//:Runner"],
 )
 
 alias(
     name = "TestRunner_deploy.jar",
-    actual = "@remote_java_tools//:java_tools/Runner_deploy.jar",
+    actual = "@remote_java_tools//:Runner",
 )
 
 alias(
