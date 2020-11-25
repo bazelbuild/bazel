@@ -470,42 +470,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertHasRequirement(action, ExecutionRequirements.REQUIRES_DARWIN);
   }
 
-  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport(boolean compileInfoMigration)
-      throws Exception {
-    ConfiguredTarget lib =
-        compileInfoMigration
-            ? addLibWithDepOnFrameworkImportPostMigration()
-            : addLibWithDepOnFrameworkImportPreMigration();
+  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {
+    ConfiguredTarget lib = addLibWithDepOnFrameworkImport();
     return createBinaryTargetWriter("//bin:bin")
         .setList("deps", lib.getLabel().toString())
         .write();
 
   }
 
-  private ConfiguredTarget addLibWithDepOnFrameworkImportPreMigration() throws Exception {
-    scratch.file(
-        "fx/defs.bzl",
-        "def _custom_static_framework_import_impl(ctx):",
-        "  return [apple_common.new_objc_provider(",
-        "      framework_search_paths=depset(ctx.attr.framework_search_paths))]",
-        "custom_static_framework_import = rule(",
-        "    _custom_static_framework_import_impl,",
-        "    attrs={'framework_search_paths': attr.string_list()},",
-        ")");
-    scratch.file(
-        "fx/BUILD",
-        "load(':defs.bzl', 'custom_static_framework_import')",
-        "custom_static_framework_import(",
-        "    name = 'fx',",
-        "    framework_search_paths = ['fx/fx1.framework', 'fx/fx2.framework'],",
-        ")");
-    return createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("deps", "//fx:fx")
-        .write();
-  }
-
-  private ConfiguredTarget addLibWithDepOnFrameworkImportPostMigration() throws Exception {
+  private ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",

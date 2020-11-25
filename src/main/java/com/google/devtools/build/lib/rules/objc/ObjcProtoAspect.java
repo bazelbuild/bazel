@@ -96,20 +96,9 @@ public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredA
 
       // Propagate protobuf's headers and search paths so the BinaryLinkingTargetFactory subclasses
       // (i.e. objc_binary) don't have to depend on it.
-      ObjcConfiguration objcConfiguration =
-          ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
-      CcCompilationContext protobufCcCompilationContext;
-      if (objcConfiguration.compileInfoMigration()) {
-        CcInfo protobufCcInfo =
-            ruleContext.getPrerequisite(ObjcRuleClasses.PROTO_LIB_ATTR, CcInfo.PROVIDER);
-        protobufCcCompilationContext = protobufCcInfo.getCcCompilationContext();
-      } else {
-        ObjcProvider protobufObjcProvider =
-            ruleContext.getPrerequisite(
-                ObjcRuleClasses.PROTO_LIB_ATTR,
-                ObjcProvider.STARLARK_CONSTRUCTOR);
-        protobufCcCompilationContext = protobufObjcProvider.getCcCompilationContext();
-      }
+      CcInfo protobufCcInfo =
+          ruleContext.getPrerequisite(ObjcRuleClasses.PROTO_LIB_ATTR, CcInfo.PROVIDER);
+      CcCompilationContext protobufCcCompilationContext = protobufCcInfo.getCcCompilationContext();
       aspectObjcProtoProvider.addProtobufHeaders(
           protobufCcCompilationContext.getDeclaredIncludeSrcs());
       aspectObjcProtoProvider.addProtobufHeaderSearchPaths(
