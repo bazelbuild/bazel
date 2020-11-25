@@ -4,15 +4,15 @@ licenses(["notice"])  # Apache 2.0
 
 alias(
     name = "javac_jar",
-    actual = "@remote_java_tools//:java_tools/javac-9+181-r4173-1.jar",
+    actual = "@remote_java_tools//:javac_jar",
 )
 
 alias(
     name = "jdk_compiler_jar",
-    actual = "@remote_java_tools//:java_tools/jdk_compiler.jar",
+    actual = "@remote_java_tools//:jdk_compiler_jar",
 )
 
-aliac(
+alias(
     name = "java_compiler_jar",
-    actual = "@remote_java_tools//:java_tools/java_compiler.jar",
+    actual = "@remote_java_tools//:java_compiler_jar",
 )
