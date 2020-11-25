@@ -98,11 +98,10 @@ class MetricsCollector {
       System.gc();
       MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
       memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
-      Optional<Long> peakPostGcHeapSize =
-          PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed();
-      if (peakPostGcHeapSize.isPresent()) {
-        memoryMetrics.setPeakPostGcHeapSize(peakPostGcHeapSize.get());
-      }
+    }
+    Optional<Long> peakPostGcHeapSize = PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed();
+    if (peakPostGcHeapSize.isPresent()) {
+      memoryMetrics.setPeakPostGcHeapSize(peakPostGcHeapSize.get());
     }
     return memoryMetrics.build();
   }
