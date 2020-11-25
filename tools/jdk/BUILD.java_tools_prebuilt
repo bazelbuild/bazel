@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-exports_files(glob(["**/*.jar"]))
-
 licenses(["notice"])  # Apache 2.0
 
 config_setting(
@@ -9,11 +7,11 @@ config_setting(
     constraint_values = ["@platforms//os:windows"],
 )
 
-alias(
+filegroup(
     name = "prebuilt_singlejar",
-    actual = select({
-        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
-        "//conditions:default": "java_tools/src/tools/singlejar/singlejar_local",
+    srcs = select({
+        ":windows": ["java_tools/src/tools/singlejar/singlejar_local.exe"],
+        "//conditions:default": ["java_tools/src/tools/singlejar/singlejar_local"],
     }),
 )
 
