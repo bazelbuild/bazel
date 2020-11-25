@@ -69,6 +69,8 @@ EOF
 #define TARGET "World"
 EOF
   cat > lib/lib.c <<'EOF'
+#include <stdio.h>
+
 int greet(char *s) {
   printf("Hello %s\n", s);
   return 0;
