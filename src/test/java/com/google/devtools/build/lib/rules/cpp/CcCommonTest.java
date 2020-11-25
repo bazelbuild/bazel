@@ -840,7 +840,7 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
     CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h");
+        .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
@@ -887,9 +887,10 @@ public class CcCommonTest extends BuildViewTestCase {
             .getCcCompilationContext();
 
     assertThat(ActionsTestUtil.prettyArtifactNames(relative.getDeclaredIncludeSrcs()))
-        .containsExactly("third_party/a/_virtual_includes/relative/b.h");
+        .containsExactly("third_party/a/_virtual_includes/relative/b.h", "third_party/a/v1/b.h");
     assertThat(ActionsTestUtil.prettyArtifactNames(absolute.getDeclaredIncludeSrcs()))
-        .containsExactly("third_party/a/_virtual_includes/absolute/a/v1/b.h");
+        .containsExactly(
+            "third_party/a/_virtual_includes/absolute/a/v1/b.h", "third_party/a/v1/b.h");
   }
 
   @Test

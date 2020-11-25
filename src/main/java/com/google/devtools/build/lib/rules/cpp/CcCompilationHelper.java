@@ -949,9 +949,9 @@ public final class CcCompilationHelper {
           virtualToOriginalHeaders.add(
               Pair.of(virtualHeader.getExecPathString(), originalHeader.getExecPathString()));
         }
-      } else {
-        moduleHeadersBuilder.add(originalHeader);
       }
+
+      moduleHeadersBuilder.add(originalHeader);
     }
 
     ImmutableList<Artifact> moduleMapHeaders = moduleHeadersBuilder.build();
