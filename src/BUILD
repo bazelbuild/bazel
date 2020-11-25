@@ -676,7 +676,6 @@ JAVA_VERSIONS = ("11",)
             ":jars_java_tools_java" + java_version + ".zip",
             "//src/tools/singlejar:singlejar_transitive_zip",
             "//third_party/ijar:ijar_transitive_zip",
-            "//third_party/ijar:ijar_deploy_zip",
             "//third_party/java/jacoco:jacoco_jars_zip",
             "//third_party/java/proguard:proguard_zip",
         ],
