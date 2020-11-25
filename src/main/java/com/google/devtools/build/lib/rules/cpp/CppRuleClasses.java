@@ -418,7 +418,7 @@ public class CppRuleClasses {
    */
   public static final String DO_NOT_SPLIT_LINKING_CMDLINE = "do_not_split_linking_cmdline";
 
-  public static final String COMPIILER_PARAM_FILE = "compiler_param_file";
+  public static final String COMPILER_PARAM_FILE = "compiler_param_file";
 
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple

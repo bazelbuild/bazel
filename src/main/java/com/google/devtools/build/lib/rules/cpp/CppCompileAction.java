@@ -298,7 +298,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.usedModules = null;
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       paramFilePath =
           outputFile
               .getExecPath()
@@ -1361,7 +1361,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       try {
         paramFileActionInput =
             new ParamFileActionInput(

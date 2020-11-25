@@ -1048,7 +1048,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPIILER_PARAM_FILE));
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
     scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     assertThat(
