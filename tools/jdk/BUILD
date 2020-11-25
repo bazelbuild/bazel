@@ -234,7 +234,7 @@ alias(
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
         "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
         "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
-        "//conditions:default": "singlejar_cc_bin",
+        "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
 )
 
