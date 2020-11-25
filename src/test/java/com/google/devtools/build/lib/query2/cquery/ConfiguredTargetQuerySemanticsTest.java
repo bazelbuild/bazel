@@ -23,7 +23,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -120,9 +119,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     setUpLabelsFunctionTests();
 
     // Test that this retrieves the correctly configured version(s) of the dep(s).
-    ConfiguredTarget patchDep =
+    KeyedConfiguredTarget patchDep =
         Iterables.getOnlyElement(eval("labels('patch_dep', //test:my_rule)"));
-    ConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
     String targetConfiguration = myRule.getConfigurationChecksum();
     assertThat(patchDep.getConfigurationChecksum()).doesNotMatch(targetConfiguration);
   }
@@ -131,13 +130,13 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testLabelsFunction_splitTransitionAttribute() throws Exception {
     setUpLabelsFunctionTests();
 
-    ConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
     String targetConfiguration = myRule.getConfigurationChecksum();
 
-    Collection<ConfiguredTarget> splitDeps = eval("labels('split_dep', //test:my_rule)");
+    Collection<KeyedConfiguredTarget> splitDeps = eval("labels('split_dep', //test:my_rule)");
     assertThat(splitDeps).hasSize(2);
-    for (ConfiguredTarget ct : splitDeps) {
-      assertThat(ct.getConfigurationChecksum()).doesNotMatch(targetConfiguration);
+    for (KeyedConfiguredTarget kct : splitDeps) {
+      assertThat(kct.getConfigurationChecksum()).doesNotMatch(targetConfiguration);
     }
   }
 
@@ -145,14 +144,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testLabelsFunction_labelListAttribute() throws Exception {
     setUpLabelsFunctionTests();
 
-    ConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
     String targetConfiguration = myRule.getConfigurationChecksum();
 
     // Test that this works for label_lists as well.
-    Set<ConfiguredTarget> deps = eval("labels('patch_dep_list', //test:my_rule)");
+    Set<KeyedConfiguredTarget> deps = eval("labels('patch_dep_list', //test:my_rule)");
     assertThat(deps).hasSize(2);
-    for (ConfiguredTarget ct : deps) {
-      assertThat(ct.getConfigurationChecksum()).doesNotMatch(targetConfiguration);
+    for (KeyedConfiguredTarget kct : deps) {
+      assertThat(kct.getConfigurationChecksum()).doesNotMatch(targetConfiguration);
     }
   }
 
@@ -193,7 +192,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "rule_with_dep(name = 'actual', dep = ':dep')",
         "rule_with_dep(name = 'dep')");
 
-    ConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
+    KeyedConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
     assertThat(dep.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
   }
 
@@ -221,11 +220,12 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "alias(name = 'other_impl_dep', actual = 'impl_dep')",
         "simple_rule(name='impl_dep')");
 
-    ConfiguredTarget other = Iterables.getOnlyElement(eval("//test:other_my_rule"));
-    ConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
-    // Note: {@link AliasConfiguredTarget#getLabel} returns the label of the "actual" value not the
-    // label of the alias.
-    assertThat(other.getLabel()).isEqualTo(myRule.getLabel());
+    KeyedConfiguredTarget other = Iterables.getOnlyElement(eval("//test:other_my_rule"));
+    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    // Note: {@link KeyedConfiguredTarget#getLabel} returns the label of the "actual" value not the
+    // label of the alias, so we need to check the underlying label.
+    assertThat(other.getConfiguredTarget().getLabel())
+        .isEqualTo(myRule.getConfiguredTarget().getLabel());
 
     // Regression test for b/73496081 in which alias-ed configured targets were skipping filtering.
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
@@ -246,7 +246,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     writeFile("test/BUILD", "rule_class_transition(name='rule_class')");
 
-    Set<ConfiguredTarget> ruleClass = eval("//test:rule_class");
+    Set<KeyedConfiguredTarget> ruleClass = eval("//test:rule_class");
     TestOptions testOptions =
         getConfiguration(Iterables.getOnlyElement(ruleClass)).getOptions().get(TestOptions.class);
     assertThat(testOptions.testArguments).containsExactly("SET BY PATCH");
@@ -405,10 +405,10 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     // setting --universe_scope we ensure only the transitioned version exists.
     helper.setUniverseScope("//test:buildme");
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    Set<ConfiguredTarget> result = eval("deps(//test:buildme, 1)");
+    Set<KeyedConfiguredTarget> result = eval("deps(//test:buildme, 1)");
     assertThat(result).hasSize(2);
 
-    ImmutableList<ConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
+    ImmutableList<KeyedConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
     int myDepIndex = stableOrderList.get(0).getLabel().toString().equals("//test:mydep") ? 0 : 1;
     BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
     BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
@@ -432,11 +432,12 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     createConfigRulesAndBuild();
     writeFile("mytest/BUILD", "simple_rule(name = 'mytarget')");
 
-    Set<ConfiguredTarget> result = eval("//mytest:mytarget");
+    Set<KeyedConfiguredTarget> result = eval("//mytest:mytarget");
     String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
     String hashPrefix = configHash.substring(0, configHash.length() / 2);
 
-    Set<ConfiguredTarget> resultFromPrefix = eval("config(//mytest:mytarget," + hashPrefix + ")");
+    Set<KeyedConfiguredTarget> resultFromPrefix =
+        eval("config(//mytest:mytarget," + hashPrefix + ")");
     assertThat(resultFromPrefix).containsExactlyElementsIn(result);
   }
 
@@ -445,7 +446,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     createConfigRulesAndBuild();
     writeFile("mytest/BUILD", "simple_rule(name = 'mytarget')");
 
-    Set<ConfiguredTarget> result = eval("//mytest:mytarget");
+    Set<KeyedConfiguredTarget> result = eval("//mytest:mytarget");
     String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
     String rightPrefix = configHash.substring(0, configHash.length() / 2);
     char lastChar = rightPrefix.charAt(rightPrefix.length() - 1);
@@ -496,12 +497,12 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 
-    Set<ConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
+    Set<KeyedConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<ConfiguredTarget> resultIterator = result.iterator();
-    ConfiguredTarget first = resultIterator.next();
+    Iterator<KeyedConfiguredTarget> resultIterator = result.iterator();
+    KeyedConfiguredTarget first = resultIterator.next();
     if (first.getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();
@@ -531,8 +532,8 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     // cases cquery prefers the top-level configured one, which won't produce a match since that's
     // not the one down this dependency path.
     helper.setUniverseScope("//test:buildme");
-    Set<ConfiguredTarget> result = eval("somepath(//test:buildme, //test:mydep)");
-    assertThat(result.stream().map(ct -> ct.getLabel().toString()).collect(Collectors.toList()))
+    Set<KeyedConfiguredTarget> result = eval("somepath(//test:buildme, //test:mydep)");
+    assertThat(result.stream().map(kct -> kct.getLabel().toString()).collect(Collectors.toList()))
         .contains("//test:mydep");
   }
 
@@ -577,7 +578,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "simple_rule(name='foo', deps = [':bar'])",
         "simple_rule(name='bar')");
 
-    Set<ConfiguredTarget> result =
+    Set<KeyedConfiguredTarget> result =
         eval("somepath(//test:top, filter(//test:bar, deps(//test:top)))");
     assertThat(result).isNotEmpty();
   }
@@ -597,7 +598,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "simple_rule(name = 'simple')");
 
     helper.setUniverseScope("//test:transitioner,//test:simple");
-    Set<ConfiguredTarget> result = eval("//test:simple");
+    Set<KeyedConfiguredTarget> result = eval("//test:simple");
     assertThat(result.size()).isEqualTo(2);
   }
 
@@ -619,7 +620,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "simple_rule(name = 'simple')");
 
     helper.setUniverseScope("//test:transitioner,//test:simple");
-    Set<ConfiguredTarget> result = eval("config(//test:simple, target)");
+    Set<KeyedConfiguredTarget> result = eval("config(//test:simple, target)");
     assertThat(result.size()).isEqualTo(1);
   }
 }

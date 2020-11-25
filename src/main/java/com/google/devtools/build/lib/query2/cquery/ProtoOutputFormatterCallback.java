@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -66,14 +65,14 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private AnalysisProtos.CqueryResult.Builder protoResult;
 
-  private ConfiguredTarget currentTarget;
+  private KeyedConfiguredTarget currentTarget;
 
   ProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
@@ -132,10 +131,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getHashFunction());
-    for (ConfiguredTarget configuredTarget : partialResult) {
+    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
       AnalysisProtos.ConfiguredTarget.Builder builder =
           AnalysisProtos.ConfiguredTarget.newBuilder();
 
@@ -143,12 +143,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       // for all its work with targets, ProtoOuputFormatterCallbackTest doesn't test any of the
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
       // we will want to add relevant tests.
-      currentTarget = configuredTarget;
-      builder.setTarget(
-          formatter.toTargetProtoBuffer(accessor.getTargetFromConfiguredTarget(configuredTarget)));
+      currentTarget = keyedConfiguredTarget;
+      builder.setTarget(formatter.toTargetProtoBuffer(accessor.getTarget(keyedConfiguredTarget)));
 
       if (options.protoIncludeConfigurations) {
-        String checksum = configuredTarget.getConfigurationChecksum();
+        String checksum = keyedConfiguredTarget.getConfigurationChecksum();
         builder.setConfiguration(
             AnalysisProtos.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
       }
@@ -166,7 +165,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       // because this method is only triggered in ProtoOutputFormatter.toTargetProtoBuffer when
       // the target in currentTarget is an instanceof Rule.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          currentTarget.getConfigConditions();
+          currentTarget.getConfiguredTarget().getConfigConditions();
       ConfiguredAttributeMapper attributeMapper =
           ConfiguredAttributeMapper.of(rule, configConditions);
       for (Attribute attr : sortAttributes(rule.getAttributes())) {
