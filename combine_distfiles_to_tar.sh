@@ -41,7 +41,7 @@ do
 done
 
 ID_OPTS="--group=0 --owner=0"
-if [ "$(uname -s)" == "Darwin" ]; then
+if [ "$(uname -s)" = "Darwin" ]; then
   ID_OPTS="--gid=0 --uid=0"
 fi
 
