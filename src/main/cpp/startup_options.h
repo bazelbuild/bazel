@@ -155,6 +155,10 @@ class StartupOptions {
   // output_base.
   std::string output_user_root;
 
+  // Blaze's execroot base.  See the BlazeDirectories Java class for
+  // details.
+  blaze_util::Path exec_root_base;
+
   // Override more finegrained rc file flags and ignore them all.
   bool ignore_all_rc_files;
 

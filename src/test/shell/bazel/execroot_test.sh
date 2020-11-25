@@ -208,4 +208,24 @@ EOF
     || fail "build failed"
 }
 
+function test_exec_root_base {
+  mkdir src
+  cat > src/WORKSPACE << 'EOF'
+workspace(name = "myworkspace")
+EOF
+  cat > src/BUILD << 'EOF'
+genrule(
+    name = "foo",
+    outs = ["foo.out"],
+    cmd = "touch $@",
+)
+EOF
+
+  execroot="$(pwd)/execroot"
+  (cd src && bazel --exec_root_base="${execroot}" build //:foo) ||
+      fail "Build failed"
+  test -f ${execroot}/myworkspace/bazel-out/*/bin/foo.out ||
+      fail "Bazel did not store the exec root in the right place"
+}
+
 run_suite "execution root tests"

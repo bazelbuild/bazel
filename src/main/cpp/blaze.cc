@@ -455,6 +455,8 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   result.push_back("--install_md5=" + install_md5);
   result.push_back("--output_base=" +
                    startup_options.output_base.AsCommandLineArgument());
+  result.push_back("--exec_root_base=" +
+                   startup_options.exec_root_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(workspace));
   result.push_back("--default_system_javabase=" + GetSystemJavabase());
@@ -1365,6 +1367,11 @@ static void UpdateConfiguration(const string &install_md5,
   if (startup_options->failure_detail_out.IsEmpty()) {
     startup_options->failure_detail_out =
         startup_options->output_base.GetRelative("failure_detail.rawproto");
+  }
+
+  if (startup_options->exec_root_base.IsEmpty()) {
+    startup_options->exec_root_base =
+        startup_options->output_base.GetRelative("execroot");
   }
 }
 

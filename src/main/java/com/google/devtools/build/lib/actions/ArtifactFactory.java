@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class ArtifactFactory implements ArtifactResolver {
 
-  private final Path execRootParent;
+  private final Path execRootBase;
   private final Path externalSourceBase;
   private final PathFragment derivedPathPrefix;
   private boolean siblingRepositoryLayout = false;
@@ -119,14 +119,11 @@ public class ArtifactFactory implements ArtifactResolver {
   /**
    * Constructs a new artifact factory that will use a given execution root when creating artifacts.
    *
-   * @param execRootParent the execution root's parent path. This will be [output_base]/execroot.
+   * @param execRootBase the execution root's base path. This will be [output_base]/execroot.
    */
-  public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
-    this.execRootParent = execRootParent;
-    this.externalSourceBase =
-        execRootParent
-            .getParentDirectory()
-            .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
+  public ArtifactFactory(Path execRootBase, Path outputBase, String derivedPathPrefix) {
+    this.execRootBase = execRootBase;
+    this.externalSourceBase = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
@@ -181,18 +178,18 @@ public class ArtifactFactory implements ArtifactResolver {
         rootRelativePath.isAbsolute() == root.getRoot().isAbsolute(), rootRelativePath);
     Preconditions.checkArgument(!rootRelativePath.containsUplevelReferences(), rootRelativePath);
     Preconditions.checkArgument(
-        root.getRoot().asPath().startsWith(execRootParent),
-        "%s must start with %s, root = %s, root fs = %s, execRootParent fs = %s",
+        root.getRoot().asPath().startsWith(execRootBase),
+        "%s must start with %s, root = %s, root fs = %s, execRootBase fs = %s",
         root.getRoot(),
-        execRootParent,
+        execRootBase,
         root,
         root.getRoot().asPath().getFileSystem(),
-        execRootParent.getFileSystem());
+        execRootBase.getFileSystem());
     Preconditions.checkArgument(
-        !root.getRoot().asPath().equals(execRootParent),
+        !root.getRoot().asPath().equals(execRootBase),
         "%s %s %s",
         root.getRoot(),
-        execRootParent,
+        execRootBase,
         root);
     // TODO(bazel-team): this should only accept roots from derivedRoots.
     //Preconditions.checkArgument(derivedRoots.contains(root), "%s not in %s", root, derivedRoots);
@@ -202,10 +199,10 @@ public class ArtifactFactory implements ArtifactResolver {
    * Returns an artifact for a tool at the given root-relative path under the given root, creating
    * it if not found. This method only works for normalized, relative paths.
    *
-   * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
+   * <p>The root must be below the execRootBase, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
-  // TODO(bazel-team): Don't allow root == execRootParent.
+  // TODO(bazel-team): Don't allow root == execRootBase.
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     return getDerivedArtifact(rootRelativePath, root, owner, /*contentBasedPath=*/ false);
@@ -232,7 +229,7 @@ public class ArtifactFactory implements ArtifactResolver {
    * root-relative path under the given root, creating it if not found. This method only works for
    * normalized, relative paths.
    *
-   * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
+   * <p>The root must be below the execRootBase, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
   public Artifact.DerivedArtifact getFilesetArtifact(
@@ -251,7 +248,7 @@ public class ArtifactFactory implements ArtifactResolver {
    * Returns an artifact that represents a TreeArtifact; that is, a directory containing some tree
    * of ArtifactFiles unknown at analysis time.
    *
-   * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
+   * <p>The root must be below the execRootBase, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
   public Artifact.SpecialArtifact getTreeArtifact(
@@ -270,7 +267,7 @@ public class ArtifactFactory implements ArtifactResolver {
    * Returns an artifact that represents an unresolved symlink; that is, an artifact whose value is
    * a symlink and is never dereferenced.
    *
-   * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
+   * <p>The root must be below the execRootBase, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
   public Artifact.SpecialArtifact getSymlinkArtifact(

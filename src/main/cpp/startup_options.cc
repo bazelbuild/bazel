@@ -161,6 +161,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("max_idle_secs");
   RegisterUnaryStartupFlag("output_base");
   RegisterUnaryStartupFlag("output_user_root");
+  RegisterUnaryStartupFlag("exec_root_base");
   RegisterUnaryStartupFlag("server_jvm_out");
   RegisterUnaryStartupFlag("failure_detail_out");
 }
@@ -273,6 +274,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--output_user_root")) != NULL) {
     output_user_root = blaze::AbsolutePathFromFlag(value);
     option_sources["output_user_root"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg,
+                                     "--exec_root_base")) != NULL) {
+    exec_root_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    option_sources["exec_root_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--server_jvm_out")) != NULL) {
     server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));

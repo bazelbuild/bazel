@@ -58,6 +58,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ArtifactTest {
   private Scratch scratch;
+  private Path outputBase;
   private Path execDir;
   private ArtifactRoot rootDir;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -65,6 +66,7 @@ public class ArtifactTest {
   @Before
   public final void setRootDir() throws Exception  {
     scratch = new Scratch();
+    outputBase = scratch.dir("/base");
     execDir = scratch.dir("/base/exec");
     rootDir = ArtifactRoot.asDerivedRoot(execDir, "root");
   }
@@ -299,7 +301,7 @@ public class ArtifactTest {
     Root root = Root.fromPath(scratch.dir("/"));
     ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
     ArtifactFactory artifactFactory =
-        new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
+        new ArtifactFactory(execDir, outputBase, "blaze-out");
     ArtifactResolverSupplier artifactResolverSupplierForTest =
         new ArtifactResolverSupplier() {
           @Override

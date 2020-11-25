@@ -444,6 +444,7 @@ function run_bazel_jar() {
       --batch \
       --install_base=${ARCHIVE_DIR} \
       --output_base=${OUTPUT_DIR}/out \
+      --exec_root_base=${OUTPUT_DIR}/execroot \
       --failure_detail_out=${OUTPUT_DIR}/failure_detail.rawproto \
       --output_user_root=${OUTPUT_DIR}/user_root \
       --install_md5= \

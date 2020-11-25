@@ -507,6 +507,7 @@ genrule(
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
+        "--exec_root_base=$${TMP}/execroot " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>/dev/null && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"

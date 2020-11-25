@@ -1143,6 +1143,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
+    PathFragment execRootBase = startupOptions.execRootBase;
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
@@ -1161,12 +1162,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       throw new IllegalArgumentException(
           "Bad --output_base option specified: '" + outputBase + "'");
     }
+    if (execRootBase != null && !execRootBase.isAbsolute()) { // (includes "" default case)
+      throw new IllegalArgumentException(
+          "Bad --exec_root_base option specified: '" + execRootBase + "'");
+    }
 
     FileSystem fs = null;
     Path execRootBasePath = null;
     for (BlazeModule module : blazeModules) {
       BlazeModule.ModuleFileSystem moduleFs =
-          module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
+          module.getFileSystem(options, execRootBase);
       if (moduleFs != null) {
         execRootBasePath = moduleFs.virtualExecRootBase();
         Preconditions.checkState(fs == null, "more than one module returns a file system");
@@ -1226,7 +1231,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
     if (execRootBasePath == null) {
-      execRootBasePath = outputBasePath.getRelative(ServerDirectories.EXECROOT);
+      execRootBasePath = fs.getPath(execRootBase);
     }
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {

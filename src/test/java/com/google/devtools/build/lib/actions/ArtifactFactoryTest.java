@@ -71,7 +71,8 @@ public class ArtifactFactoryTest {
 
   @Before
   public final void createFiles() throws Exception  {
-    execRoot = scratch.dir("/output/workspace");
+    Path outputBase = scratch.dir("/output/workspace");
+    execRoot = scratch.dir("/output/workspace/execroot");
     clientRoot = Root.fromPath(scratch.dir("/client/workspace"));
     clientRoRoot = Root.fromPath(scratch.dir("/client/RO/workspace"));
     alienRoot = Root.fromPath(scratch.dir("/client/workspace"));
@@ -89,7 +90,7 @@ public class ArtifactFactoryTest {
     alienPackage = PackageIdentifier.create("@alien", alienPath);
     alienRelative = alienPath.getRelative("alien.txt");
 
-    artifactFactory = new ArtifactFactory(execRoot.getParentDirectory(), "bazel-out");
+    artifactFactory = new ArtifactFactory(execRoot, outputBase, "bazel-out");
     setupRoots();
   }
 
