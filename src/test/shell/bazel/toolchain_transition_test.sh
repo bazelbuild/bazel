@@ -354,6 +354,9 @@ EOF
   expect_log 'extra_lib: message: extra_lib foo, target_dep: target, tool_dep: exec-alpha'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/11993
+# This was causing cquery to not correctly generate ConfiguredTargetKeys for
+# toolchains, leading to the message "Targets were missing from graph"
 function test_toolchain_transition_cquery() {
   write_constraints
   write_platforms
