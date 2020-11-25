@@ -178,6 +178,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
   /** Returns the rule that generates the given output file. */
   RuleConfiguredTarget getGeneratingConfiguredTarget(KeyedConfiguredTarget kct)
       throws InterruptedException {
+    Preconditions.checkArgument(kct.getConfiguredTarget() instanceof OutputFileConfiguredTarget);
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)
                 walkableGraph.getValue(
