@@ -76,8 +76,8 @@ cc_binary(
 )
 
 cc_binary(
-  name = "bad",
-  srcs = ["bad.cc"],
+  name = "still_ok",
+  srcs = ["still_ok.cc"],
   deps = ["@foo//foo"],
 )
 EOF
@@ -90,7 +90,7 @@ int main() {
 }
 EOF
 
-  cat > bad.cc <<EOF
+  cat > still_ok.cc <<EOF
 #include <stdio.h>
 #include "foo/v1/foo.h"
 int main() {
@@ -98,8 +98,34 @@ int main() {
 }
 EOF
 
-  bazel build :bad && fail "Should not have found include at repository-relative path"
   bazel build :ok || fail "Should have found include at synthetic path"
+  bazel build :still_ok \
+    || fail "Should have found include at repository-relative path"
+}
+
+
+function test_include_validation_sandbox_disabled() {
+  local workspace="${FUNCNAME[0]}"
+  mkdir -p "${workspace}"/lib
+
+  create_workspace_with_default_repos "${workspace}/WORKSPACE"
+  cat >> "${workspace}/BUILD" << EOF
+cc_library(
+    name = "foo",
+    srcs = ["lib/foo.cc"],
+    hdrs = ["lib/foo.h"],
+    strip_include_prefix = "lib",
+)
+EOF
+  cat >> "${workspace}/lib/foo.cc" << EOF
+#include "foo.h"
+EOF
+
+  touch "${workspace}/lib/foo.h"
+
+  cd "${workspace}"
+  bazel build --spawn_strategy=standalone //:foo  &>"$TEST_log" \
+    || fail "Build failed but should have succeeded"
 }
 
 function test_tree_artifact_headers_are_invalidated() {
