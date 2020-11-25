@@ -114,6 +114,11 @@ public class TestTargetProperties {
       }
     }
 
+    if (TargetUtils.isNoTestloasdTestRule(rule)) {
+      executionInfo.put(ExecutionRequirements.LOCAL, "");
+      executionInfo.put(ExecutionRequirements.NO_TESTLOASD, "");
+    }
+
     if (executionRequirements != null) {
       // This will overwrite whatever TargetUtils put there, which might be confusing.
       executionInfo.putAll(executionRequirements.getExecutionInfo());
