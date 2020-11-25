@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 # Test the toolchain transition.
-#
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -353,6 +352,31 @@ EOF
   # The toolchain's dependencies should use alpha for exec.
   # Make sure the exec platform does not propagate to further dependencies.
   expect_log 'extra_lib: message: extra_lib foo, target_dep: target, tool_dep: exec-alpha'
+}
+
+function test_toolchain_transition_cquery() {
+  write_constraints
+  write_platforms
+  write_toolchains
+  write_rule
+
+  cat >BUILD.bazel <<EOF
+package(default_visibility = ["//visibility:public"])
+
+load("//rule:rule.bzl", "sample")
+
+sample(
+    name = "sample",
+    message = "Hello",
+)
+EOF
+
+  bazel cquery \
+    --platforms=//platform:target \
+    --host_platform=//platform:host \
+     'deps(//:sample)' &> $TEST_log || fail "Build failed"
+
+  expect_not_log "Targets were missing from graph"
 }
 
 run_suite "toolchain transition tests"
