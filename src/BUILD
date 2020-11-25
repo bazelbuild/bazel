@@ -621,7 +621,7 @@ genrule(
     srcs = [
         ":jars_java_tools.zip",
         "//src/tools/singlejar:singlejar_transitive_zip",
-        "//third_party/ijar:ijar_transitive_zip",
+        "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
