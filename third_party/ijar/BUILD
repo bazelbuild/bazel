@@ -130,7 +130,7 @@ genrule(
         "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
-    outs = ["ijar_srcs_with_deps.zip"],
+    outs = ["ijar_with_deps.zip"],
     cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
     tools = ["//src:merge_zip_files"],
     visibility = ["//visibility:public"],
