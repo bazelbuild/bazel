@@ -5,16 +5,7 @@ exports_files(glob(["**/*.jar"]))
 licenses(["notice"])  # Apache 2.0
 
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
-load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_toolchain")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-load(
-    ":java_toolchain_default.bzl",
-    "JAVABUILDER_TOOLCHAIN_CONFIGURATION",
-    "JVM8_TOOLCHAIN_CONFIGURATION",
-    "PREBUILT_TOOLCHAIN_CONFIGURATION",
-    "VANILLA_TOOLCHAIN_CONFIGURATION",
-    "java_toolchain_default",
-)
 
 SUPRESSED_WARNINGS = select({
     ":windows": [],
@@ -23,80 +14,6 @@ SUPRESSED_WARNINGS = select({
         "-Wno-old-style-cast",
     ],
 })
-
-java_toolchain_default(
-    name = "toolchain",
-    configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION,
-)
-
-java_toolchain_default(
-    name = "toolchain_hostjdk8",
-    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-    source_version = "8",
-    target_version = "8",
-)
-
-# Default to the Java 8 language level.
-# TODO(cushon): consider if/when we should increment this?
-java_toolchain_default(
-    name = "legacy_toolchain",
-    configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION,
-    source_version = "8",
-    target_version = "8",
-)
-
-# Needed for openbsd / JVM8
-java_toolchain_default(
-    name = "legacy_toolchain_jvm8",
-    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-    source_version = "8",
-    target_version = "8",
-)
-
-java_toolchain_default(
-    name = "toolchain_vanilla",
-    configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
-)
-
-RELEASES = (8, 9, 10, 11)
-
-[
-    (
-        java_toolchain_default(
-            name = "toolchain_java%d" % release,
-            configuration = JAVABUILDER_TOOLCHAIN_CONFIGURATION,
-            source_version = "%s" % release,
-            target_version = "%s" % release,
-        ),
-        # Needed for openbsd / JVM8
-        java_toolchain_default(
-            name = "toolchain_java%d_jvm8" % release,
-            configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-            source_version = "%s" % release,
-            target_version = "%s" % release,
-        ),
-    )
-    for release in RELEASES
-]
-
-# A toolchain that targets java 14.
-java_toolchain_default(
-    name = "toolchain_jdk_14",
-    source_version = "14",
-    target_version = "14",
-)
-
-# A toolchain that targets java 15.
-java_toolchain_default(
-    name = "toolchain_jdk_15",
-    source_version = "15",
-    target_version = "15",
-)
-
-java_toolchain_default(
-    name = "prebuilt_toolchain",
-    configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
-)
 
 filegroup(
     name = "GenClass",
@@ -227,43 +144,6 @@ java_import(
 )
 
 config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
-)
-
-config_setting(
-    name = "linux_x86_64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
-config_setting(
-    name = "darwin_x86_64",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
-config_setting(
-    name = "darwin_arm64",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:arm64",
-    ],
-)
-
-config_setting(
-    name = "darwin_arm64e",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:arm64e",
-    ],
-)
-
-config_setting(
     name = "windows",
     constraint_values = ["@platforms//os:windows"],
 )
@@ -278,62 +158,6 @@ config_setting(
     name = "openbsd",
     constraint_values = ["@platforms//os:openbsd"],
     visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "singlejar",
-    actual = select({
-        "//:remote": ":singlejar_cc_bin",
-        "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
-    }),
-)
-
-alias(
-    name = "singlejar_prebuilt_or_cc_binary",
-    actual = select({
-        ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin_arm64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin_arm64e": "java_tools/src/tools/singlejar/singlejar_local",
-        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
-        "//conditions:default": "singlejar_cc_bin",
-    }),
-)
-
-alias(
-    name = "prebuilt_singlejar",
-    actual = select({
-        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
-        "//conditions:default": "java_tools/src/tools/singlejar/singlejar_local",
-    }),
-)
-
-alias(
-    name = "ijar",
-    actual = select({
-        ":remote": ":ijar_cc_binary",
-        "//conditions:default": ":prebuilt_binary_or_cc_binary",
-    }),
-)
-
-alias(
-    name = "prebuilt_binary_or_cc_binary",
-    actual = select({
-        ":linux_x86_64": ":ijar_prebuilt_binary",
-        ":darwin_x86_64": ":ijar_prebuilt_binary",
-        ":darwin_arm64": ":ijar_prebuilt_binary",
-        ":darwin_arm64e": ":ijar_prebuilt_binary",
-        ":windows": ":ijar_prebuilt_binary",
-        "//conditions:default": ":ijar_cc_binary",
-    }),
-)
-
-filegroup(
-    name = "ijar_prebuilt_binary",
-    srcs = select({
-        ":windows": ["java_tools/ijar/ijar.exe"],
-        "//conditions:default": ["java_tools/ijar/ijar"],
-    }),
 )
 
 cc_library(

@@ -1,10 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 # Description:
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
-
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 filegroup(
     name = "srcs",
@@ -60,11 +59,20 @@ genrule(
 
 genrule(
     name = "singlejar_zip",
-    srcs = SOURCES + [":singlejar_local"],
+    srcs = SOURCES,
     outs = ["singlejar.zip"],
     cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
     tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "singlejar_deploy_zip",
+    srcs = [":singlejar_local"],
+    outs = ["singlejar_deploy.zip"],
+    cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
+    tools = ["//src:zip_files"],
+    visibility = ["//src:__pkg__"],
 )
 
 cc_binary(

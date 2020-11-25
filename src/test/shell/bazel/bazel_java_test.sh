@@ -71,6 +71,18 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
+JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
+  if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == file* ]]; then
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="${JAVA_TOOLS_PREBUILT_ZIP}"
+  elif "$is_windows"; then
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file:///$(rlocation io_bazel/JAVA_TOOLS_PREBUILT_ZIP)"
+  else
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/JAVA_TOOLS_PREBUILT_ZIP)"
+  fi
+fi
+JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
+
 if [[ $# -gt 0 ]]; then
   JAVABASE_VALUE="$1"; shift
   add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
@@ -88,8 +100,20 @@ EOF
   if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
-    name = "local_java_tools",
+    name = "remote_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_linux",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
   fi

@@ -183,9 +183,10 @@ sh_test(
     srcs = ["bazel_java14_test.sh"],
     args = [
         # --java_toolchain and --host_java_toolchain values
-        "@local_java_tools//:toolchain_jdk_14",
+        "@bazel_tools//tools/jdk:toolchain_jdk_14",
         # java_tools zip to test
-        "src/java_tools_java11.zip",
+        "src/java_tools.zip",
+        "src/java_tools_prebuilt.zip",
     ] + select({
         # --javabase and --host_javabase values
         "//src/conditions:darwin": ["@openjdk14_darwin_archive//:runtime"],
@@ -194,11 +195,16 @@ sh_test(
     }),
     data = [
         ":test-deps",
-        "//src:java_tools_java11_zip",
+        "//src:java_tools_prebuilt_zip",
+        "//src:java_tools_zip",
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["local"],
+    # TODO(ilist): reenable after java_tools release
+    tags = [
+        "local",
+        "manual",
+    ],
 )
 
 sh_test(
@@ -206,9 +212,10 @@ sh_test(
     srcs = ["bazel_java15_test.sh"],
     args = [
         # --java_toolchain and --host_java_toolchain values
-        "@local_java_tools//:toolchain_jdk_15",
+        "@bazel_tools//tools/jdk:toolchain_jdk_15",
         # java_tools zip to test
-        "src/java_tools_java11.zip",
+        "src/java_tools.zip",
+        "src/java_tools_prebuilt.zip",
     ] + select({
         # --javabase and --host_javabase values
         "//src/conditions:darwin": ["@openjdk15_darwin_archive//:runtime"],
@@ -217,11 +224,16 @@ sh_test(
     }),
     data = [
         ":test-deps",
-        "//src:java_tools_java11_zip",
+        "//src:java_tools_prebuilt_zip",
+        "//src:java_tools_zip",
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["local"],
+    # TODO(ilist): reenable after java_tools release
+    tags = [
+        "local",
+        "manual",
+    ],
 )
 
 sh_test(
@@ -232,6 +244,7 @@ sh_test(
     srcs = ["bazel_java_test.sh"],
     args = [
         "@bazel_tools//tools/jdk:toolchain",
+        "released",
         "released",
     ],
     data = [
@@ -252,9 +265,10 @@ JAVA_VERSIONS = ("11", "14", "15")
         srcs = ["bazel_java_test.sh"],
         args = [
             # --java_toolchain
-            "@local_java_tools//:toolchain",
-            # java_tools zip to test
-            "src/java_tools_java11.zip",
+            "@bazel_tools//tools/jdk:toolchain",
+            # java_tools zips to test
+            "src/java_tools.zip",
+            "src/java_tools_prebuilt.zip",
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
@@ -263,11 +277,14 @@ JAVA_VERSIONS = ("11", "14", "15")
         }),
         data = [
             ":test-deps",
-            "//src:java_tools_java11_zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
+        # TODO(ilist): reenable after java_tools release
+        tags = ["manual"],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -280,9 +297,10 @@ JAVA_VERSIONS = ("11", "14", "15")
         srcs = ["bazel_java_test.sh"],
         args = [
             # --java_toolchain
-            "@local_java_tools//:prebuilt_toolchain",
-            # java_tools zip to test
-            "src/java_tools_java11.zip",
+            "@bazel_tools//tools/jdk:prebuilt_toolchain",
+            # java_tools zips to test
+            "src/java_tools.zip",
+            "src/java_tools_prebuilt.zip",
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
@@ -291,11 +309,14 @@ JAVA_VERSIONS = ("11", "14", "15")
         }),
         data = [
             ":test-deps",
-            "//src:java_tools_java11_zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
+        # TODO(ilist): reenable after java_tools release
+        tags = ["manual"],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -308,9 +329,10 @@ JAVA_VERSIONS = ("11", "14", "15")
         srcs = ["bazel_java_test.sh"],
         args = [
             # --java_toolchain
-            "@local_java_tools//:toolchain",
-            # java_tools zip to test
+            "@bazel_tools//tools/jdk:toolchain",
+            # java_tools zips to test
             "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
+            "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL)",
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
@@ -341,25 +363,25 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java_tools_javac11_test",
+    name = "bazel_java_tools_test",
     size = "medium",
     srcs = ["bazel_java_tools_test.sh"],
-    args = ["java11"],
     data = [
         ":test-deps",
-        "//src:java_tools_java11.zip",
+        "//src:java_tools.zip",
+        "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
 sh_test(
-    name = "bazel_java_tools_dist_javac11_test",
+    name = "bazel_java_tools_dist_test",
     size = "small",
     srcs = ["bazel_java_tools_dist_test.sh"],
     args = ["javac11"],
     data = [
         ":test-deps",
-        "//src:java_tools_dist_javac11.zip",
+        "//src:java_tools_dist.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
@@ -499,6 +521,7 @@ sh_test(
         "@bazel_tools//tools/jdk:toolchain",
         "released",
         "released",
+        "released",
     ],
     data = [
         ":test-deps",
@@ -514,12 +537,10 @@ sh_test(
     sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "_toolchain_released_test",
         srcs = ["bazel_coverage_java_test.sh"],
-        args = select({
-            "//src/conditions:darwin": ["@remote_java_tools_javac11_test_darwin//:toolchain"],
-            "//src/conditions:windows": ["@remote_java_tools_javac11_test_windows//:toolchain"],
-            "//src/conditions:linux": ["@remote_java_tools_javac11_test_linux//:toolchain"],
-        }) + [
+        args = [
+            "@bazel_tools//tools/jdk:toolchain",
             # java_tools zip to test
+            "released",
             "released",
             # coverage_report_generator to test
             "released",
@@ -547,9 +568,10 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # --java_toolchain
-            "@local_java_tools//:toolchain",
-            # java_tools zip to test
-            "src/java_tools_java11.zip",
+            "@bazel_tools//tools/jdk:toolchain",
+            # java_tools zips to test
+            "src/java_tools.zip",
+            "src/java_tools_prebuilt.zip",
             # coverage output generator to test
             "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
             # --javabase value
@@ -560,11 +582,13 @@ sh_test(
         }),
         data = [
             ":test-deps",
-            "//src:java_tools_java11_zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = [
+            "manual",  # TODO(ilist): reenable after java_tools release
             "no_windows",
         ],
     )
