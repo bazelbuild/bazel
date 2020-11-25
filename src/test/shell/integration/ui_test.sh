@@ -632,4 +632,22 @@ EOF
   bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"
 }
 
+function test_progress_bar_after_stderr() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+genrule(name = 'fail', outs = ['fail.out'], cmd = 'false')
+sh_test(name = 'foo', data = [':fail'], srcs = ['foo.sh'])
+EOF
+  touch foo/foo.sh
+  chmod +x foo/foo.sh
+  # Build event file needed so UI considers build to continue after failure.
+  ! bazel test --build_event_json_file=bep.json --curses=yes --color=yes \
+      //foo:foo &> "$TEST_log" || fail "Expected failure"
+  # Expect to see a failure message with an "erase line" control code prepended.
+  expect_log $'\e'"\[K"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully"
+  # We should not see a build failure message without an "erase line" to start.
+  # TODO(janakr): Fix the excessive printing of this failure message.
+  expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

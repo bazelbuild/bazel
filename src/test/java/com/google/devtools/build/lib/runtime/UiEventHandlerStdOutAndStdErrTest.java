@@ -64,6 +64,12 @@ public class UiEventHandlerStdOutAndStdErrTest {
 
   @Before
   public void createUiEventHandler() {
+    UiOptions uiOptions = new UiOptions();
+    uiOptions.eventFilters = ImmutableList.of();
+    createUiEventHandler(uiOptions);
+  }
+
+  private void createUiEventHandler(UiOptions uiOptions) {
     output = new FlushCollectingOutputStream();
 
     OutErr outErr = null;
@@ -78,8 +84,6 @@ public class UiEventHandlerStdOutAndStdErrTest {
         break;
     }
 
-    UiOptions uiOptions = new UiOptions();
-    uiOptions.eventFilters = ImmutableList.of();
     uiEventHandler =
         new UiEventHandler(outErr, uiOptions, new ManualClock(), /*workspacePathFragment=*/ null);
     uiEventHandler.buildStarted(new BuildStartingEvent(/*env=*/ null, mock(BuildRequest.class)));
@@ -152,6 +156,24 @@ public class UiEventHandlerStdOutAndStdErrTest {
     uiEventHandler.handle(output(" there!\nmore text"));
 
     output.assertFlushed("hello there!\n");
+  }
+
+  // This test only exercises progress bar code when testing stderr output, since we don't make
+  // any assertions on stderr (where the progress bar is written) when testing stdout.
+  @Test
+  public void noChangeOnUnflushedWrite() {
+    UiOptions uiOptions = new UiOptions();
+    uiOptions.showProgress = true;
+    uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
+    uiOptions.eventFilters = ImmutableList.of();
+    createUiEventHandler(uiOptions);
+    if (testedOutput == TestedOutput.STDERR) {
+      assertThat(output.flushed).hasSize(1);
+      output.flushed.clear();
+    }
+    // Unterminated strings are saved in memory and not pushed out at all.
+    assertThat(output.flushed).isEmpty();
+    assertThat(output.writtenSinceFlush).isEmpty();
   }
 
   private Event output(String message) {
