@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include "src/main/cpp/rc_file.h"
 
 #include <memory>
@@ -55,6 +62,7 @@ class RcFileTest : public ::testing::Test {
       : workspace_(blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"),
                                         "workspace")),
         cwd_(blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "cwd")),
+        home_(blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "home")),
         binary_dir_(
             blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "bazeldir")),
         binary_path_(blaze_util::JoinPath(binary_dir_, "bazel")),
@@ -64,6 +72,12 @@ class RcFileTest : public ::testing::Test {
     ASSERT_TRUE(blaze_util::MakeDirectories(workspace_, 0755));
     ASSERT_TRUE(blaze_util::MakeDirectories(cwd_, 0755));
     ASSERT_TRUE(blaze_util::ChangeDirectory(cwd_));
+    ASSERT_TRUE(blaze_util::MakeDirectories(home_, 0755));
+#if defined(_WIN32)
+    ASSERT_NE(::SetEnvironmentVariable("HOME", home_.c_str()), 0);
+#else
+    ASSERT_EQ(setenv("HOME", home_.c_str(), 1), 0);
+#endif
 #if defined(_WIN32) || defined(__CYGWIN__)
     // GetCwd returns a short path on Windows, so we store this expectation now
     // to keep assertions sane in the tests.
@@ -97,6 +111,10 @@ class RcFileTest : public ::testing::Test {
     for (const std::string& file : files) {
       blaze_util::UnlinkPath(file);
     }
+    blaze_util::GetAllFilesUnder(home_, &files);
+    for (const std::string& file : files) {
+      blaze_util::UnlinkPath(file);
+    }
     blaze_util::GetAllFilesUnder(binary_dir_, &files);
     for (const std::string& file : files) {
       blaze_util::UnlinkPath(file);
@@ -126,8 +144,15 @@ class RcFileTest : public ::testing::Test {
     return false;
   }
 
-  // TODO(b/36168162): Make it possible to configure the home directory so we
-  // can test --home_rc as well.
+  bool SetUpHomeRcFile(const std::string& contents,
+                       std::string* rcfile_path) const {
+    const std::string home_rc_path = blaze_util::JoinPath(home_, ".bazelrc");
+    if (blaze_util::WriteFile(contents, home_rc_path, 0755)) {
+      *rcfile_path = blaze_util::MakeCanonical(home_rc_path.c_str());
+      return true;
+    }
+    return false;
+  }
 
   bool SetUpLegacyMasterRcFileInWorkspace(const std::string& contents,
                                           std::string* rcfile_path) const {
@@ -155,6 +180,7 @@ class RcFileTest : public ::testing::Test {
 
   const std::string workspace_;
   std::string cwd_;
+  const std::string home_;
   const std::string binary_dir_;
   const std::string binary_path_;
   const std::unique_ptr<WorkspaceLayout> workspace_layout_;
@@ -169,6 +195,8 @@ TEST_F(GetRcFileTest, GetRcFilesLoadsAllDefaultBazelrcs) {
   ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+  std::string home_rc;
+  ASSERT_TRUE(SetUpHomeRcFile("", &home_rc));
 
   const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
   std::string error = "check that this string is not modified";
@@ -183,7 +211,8 @@ TEST_F(GetRcFileTest, GetRcFilesLoadsAllDefaultBazelrcs) {
   // is not passed and therefore is not relevant.
   EXPECT_THAT(parsed_rcs,
               ElementsAre(Pointee(CanonicalSourcePathsAre(system_rc)),
-                          Pointee(CanonicalSourcePathsAre(workspace_rc))));
+                          Pointee(CanonicalSourcePathsAre(workspace_rc)),
+                          Pointee(CanonicalSourcePathsAre(home_rc))));
 }
 
 TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
@@ -191,6 +220,8 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
   ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+  std::string home_rc;
+  ASSERT_TRUE(SetUpHomeRcFile("", &home_rc));
 
   const CommandLine cmd_line =
       CommandLine(binary_path_, {"--nosystem_rc"}, "build", {});
@@ -203,7 +234,8 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
   EXPECT_EQ("check that this string is not modified", error);
 
   EXPECT_THAT(parsed_rcs,
-              ElementsAre(Pointee(CanonicalSourcePathsAre(workspace_rc))));
+              ElementsAre(Pointee(CanonicalSourcePathsAre(workspace_rc)),
+                          Pointee(CanonicalSourcePathsAre(home_rc))));
 }
 
 TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRc) {
@@ -211,6 +243,8 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRc) {
   ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+  std::string home_rc;
+  ASSERT_TRUE(SetUpHomeRcFile("", &home_rc));
 
   const CommandLine cmd_line =
       CommandLine(binary_path_, {"--noworkspace_rc"}, "build", {});
@@ -223,17 +257,22 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRc) {
   EXPECT_EQ("check that this string is not modified", error);
 
   EXPECT_THAT(parsed_rcs,
-              ElementsAre(Pointee(CanonicalSourcePathsAre(system_rc))));
+              ElementsAre(Pointee(CanonicalSourcePathsAre(system_rc)),
+                          Pointee(CanonicalSourcePathsAre(home_rc))));
 }
 
-TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRcAndNoSystemCombined) {
+TEST_F(GetRcFileTest,
+       GetRcFilesRespectsNoWorkspaceRcAndNoSystemAndNoHomeRcCombined) {
   std::string system_rc;
   ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+  std::string home_rc;
+  ASSERT_TRUE(SetUpHomeRcFile("", &home_rc));
 
   const CommandLine cmd_line = CommandLine(
-      binary_path_, {"--noworkspace_rc", "--nosystem_rc"}, "build", {});
+      binary_path_, {"--noworkspace_rc", "--nosystem_rc", "--nohome_rc"},
+      "build", {});
   std::string error = "check that this string is not modified";
   std::vector<std::unique_ptr<RcFile>> parsed_rcs;
   const blaze_exit_code::ExitCode exit_code =
