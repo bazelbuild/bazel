@@ -54,7 +54,6 @@ exports_files([
     "utils.bzl",
     "private/defs.bzl",
     "private/py_test_alias.bzl",
-    "private/version.bzl",
     # write_file.bzl fortunately doesn't need to be exposed because it's only
     # used in this BUILD file.
 ])
@@ -64,7 +63,6 @@ filegroup(
     srcs = glob(["*.bzl"]) + [
         "private/defs.bzl",
         "private/py_test_alias.bzl",
-        "private/version.bzl",
     ],
     visibility = ["//tools:__pkg__"],
 )
