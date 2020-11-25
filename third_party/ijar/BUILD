@@ -136,14 +136,23 @@ genrule(
 )
 
 genrule(
+    name = "ijar_deploy_zip",
+    srcs = [
+        ":ijar",
+        ":zipper",
+    ],
+    outs = ["ijar_deploy.zip"],
+    cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
     name = "ijar_srcs_zip",
     srcs = glob(
         ["**"],
         exclude = ["BUILD"],
-    ) + [
-        ":ijar",
-        ":zipper",
-    ],
+    ),
     outs = ["ijar_srcs.zip"],
     cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
     tools = ["//src:zip_files"],
