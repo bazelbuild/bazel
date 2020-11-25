@@ -43,6 +43,20 @@ java_test(
     ],
 )
 
+java_test(
+    name = "DynamicExecutionModuleTest",
+    size = "small",
+    srcs = ["DynamicExecutionModuleTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
