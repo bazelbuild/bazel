@@ -334,28 +334,28 @@ public final class SpawnStrategyRegistry
     }
 
     /**
-     * Sets the strategy names to use in the remote branch of dynamic execution for a given action
-     * mnemonic.
+     * Sets the strategy names to use in the remote branch of dynamic execution for a set of action
+     * mnemonics.
      *
      * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
      * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
      * list that says so will get the job.
      */
-    public Builder addDynamicRemoteStrategiesByMnemonic(String mnemonic, List<String> strategies) {
-      mnemonicToRemoteIdentifiers.put(mnemonic, strategies);
+    public Builder addDynamicRemoteStrategies(Map<String, List<String>> strategies) {
+      mnemonicToRemoteIdentifiers.putAll(strategies);
       return this;
     }
 
     /**
-     * Sets the strategy names to use in the local branch of dynamic execution for a given action
-     * mnemonic.
+     * Sets the strategy names to use in the local branch of dynamic execution for a number of
+     * action mnemonics.
      *
      * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
      * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
      * list that says so will get the job.
      */
-    public Builder addDynamicLocalStrategiesByMnemonic(String mnemonic, List<String> strategies) {
-      mnemonicToLocalIdentifiers.put(mnemonic, strategies);
+    public Builder addDynamicLocalStrategies(Map<String, List<String>> strategies) {
+      mnemonicToLocalIdentifiers.putAll(strategies);
       return this;
     }
 
