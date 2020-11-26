@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
@@ -85,9 +83,7 @@ public final class SandboxHelpers {
     Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
     tmpPath.getParentDirectory().createDirectoryAndParents();
     try {
-      try (OutputStream outputStream = tmpPath.getOutputStream()) {
-        input.writeTo(outputStream);
-      }
+      writeVirtualInputTo(input, tmpPath);
       // We expect the following to replace the params file atomically in case we are using
       // the dynamic scheduler and we are racing the remote strategy writing this same file.
       tmpPath.renameTo(outputPath);
@@ -130,36 +126,34 @@ public final class SandboxHelpers {
     /**
      * Materializes a single virtual input inside the given execroot.
      *
+     * <p>When materializing inputs under a new sandbox exec root, we can expect the input to not
+     * exist, but we cannot make the same assumption for the non-sandboxed exec root therefore, we
+     * may need to delete existing files.
+     *
      * @param input virtual input to materialize
      * @param execroot path to the execroot under which to materialize the virtual input
-     * @param needsDelete whether to attempt to delete a previous instance of this virtual input.
-     *     When materializing under a new sandbox execroot, we can expect the input to not exist,
-     *     but we cannot make the same assumption for the non-sandboxed execroot.
+     * @param isExecRootSandboxed whether the execroot is sandboxed.
      * @throws IOException if the virtual input cannot be materialized
      */
     private static void materializeVirtualInput(
-        VirtualActionInput input, Path execroot, boolean needsDelete) throws IOException {
-      if (input instanceof ParamFileActionInput) {
-        ParamFileActionInput paramFileInput = (ParamFileActionInput) input;
-        Path outputPath = execroot.getRelative(paramFileInput.getExecPath());
-        if (needsDelete) {
-          if (outputPath.exists()) {
-            outputPath.delete();
-          }
-
-          outputPath.getParentDirectory().createDirectoryAndParents();
-          try (OutputStream outputStream = outputPath.getOutputStream()) {
-            paramFileInput.writeTo(outputStream);
-          }
-        } else {
-          atomicallyWriteVirtualInput(paramFileInput, outputPath, ".sandbox");
-        }
-      } else {
+        VirtualActionInput input, Path execroot, boolean isExecRootSandboxed) throws IOException {
+      if (input instanceof EmptyActionInput) {
         // TODO(b/150963503): We can turn this into an unreachable code path when the old
-        // !delayVirtualInputMaterialization code path is deleted.
-        // TODO(ulfjack): Handle all virtual inputs, e.g., by writing them to a file.
-        Preconditions.checkState(input instanceof EmptyActionInput);
+        //  !delayVirtualInputMaterialization code path is deleted.
+        return;
       }
+
+      Path outputPath = execroot.getRelative(input.getExecPath());
+      if (isExecRootSandboxed) {
+        atomicallyWriteVirtualInput(input, outputPath, ".sandbox");
+        return;
+      }
+
+      if (outputPath.exists()) {
+        outputPath.delete();
+      }
+      outputPath.getParentDirectory().createDirectoryAndParents();
+      writeVirtualInputTo(input, outputPath);
     }
 
     /**
@@ -177,6 +171,18 @@ public final class SandboxHelpers {
         materializeVirtualInput(input, sandboxExecRoot, /*needsDelete=*/ false);
       }
     }
+  }
+
+  private static void writeVirtualInputTo(VirtualActionInput input, Path target)
+      throws IOException {
+    try (OutputStream out = target.getOutputStream()) {
+      input.writeTo(out);
+    }
+    // Some of the virtual inputs can be executed, e.g. embedded tools. Setting executable flag for
+    // other is fine since that is only more permissive. Please note that for action outputs (e.g.
+    // file write, where the user can specify executable flag), we will have artifacts which do not
+    // go through this code path.
+    target.setExecutable(true);
   }
 
   /**
