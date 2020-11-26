@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
@@ -76,20 +78,22 @@ public class AuthAndTLSOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Specify the TLS client certificate to use; you also need to provide a client key to "
               + "enable client authentication.")
-  public String tlsClientCertificate;
+  public PathFragment tlsClientCertificate;
 
   @Option(
       name = "tls_client_key",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
               + "enable client authentication.")
-  public String tlsClientKey;
+  public PathFragment tlsClientKey;
 
   @Option(
     name = "tls_authority_override",

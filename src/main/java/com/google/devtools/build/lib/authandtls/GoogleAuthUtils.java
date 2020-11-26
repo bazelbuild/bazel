@@ -64,7 +64,7 @@ public final class GoogleAuthUtils {
     SslContext sslContext =
         isTlsEnabled(target)
             ? createSSlContext(
-                options.tlsCertificate, options.tlsClientCertificate, options.tlsClientKey)
+                options.tlsCertificate, options.tlsClientCertificate.isEmpty() ? null : options.tlsClientCertificate.toString(), options.tlsClientKey.isEmpty() ? null : options.tlsClientKey.toString())
             : null;
 
     String targetUrl = convertTargetScheme(target);
