@@ -6754,7 +6754,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "toolchain.as_files()",
             "toolchain.ar_files()",
             "toolchain.objcopy_files()",
-            "toolchain.tool_path(\"ld\")",
+            "toolchain.tool_path(tool='ld')",
             "toolchain.solib_dir()",
             "toolchain.dynamic_runtime_solib_dir()",
             "toolchain.linker_files()",
@@ -6780,6 +6780,74 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "  },",
           "  fragments = ['cpp'],",
           ");");
+      invalidatePackages();
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
+      assertThat(e).hasMessageThat().contains("cannot use private API");
+    }
+  }
+
+  @Test
+  public void testExpandedModuleMapApiBlocked() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':module_map.bzl', 'module_map')",
+        "module_map(name='module_map', file = 'a_file.txt')");
+
+    scratch.file(
+        "bazel_internal/test_rules/cc/module_map.bzl",
+        "ModuleMapInfo = provider(fields=['module_map', 'file'])",
+        "def _impl(ctx):",
+        "  module_map = cc_common.create_module_map(file=ctx.file.file,",
+        "        umbrella_header=ctx.file.file, name='module')",
+        "  return [ModuleMapInfo(module_map=module_map, file=ctx.file.file)]",
+        "module_map = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'file': attr.label(allow_single_file=True)",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    String compileCall =
+        "cc_common.compile(actions = ctx.actions, feature_configuration = feature_configuration,"
+            + " name = 'name', cc_toolchain = toolchain, ";
+    List<String> calls =
+        ImmutableList.of(
+            "cc_common.create_module_map(file=file, umbrella_header=file, name='name')",
+            "module_map.file()",
+            "module_map.umbrella_header()",
+            compileCall + " module_map = module_map)",
+            compileCall + " additional_module_maps = [module_map])");
+    scratch.overwriteFile(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r', deps=['//bazel_internal/test_rules/cc:module_map'])");
+
+    for (String call : calls) {
+      scratch.overwriteFile(
+          "a/rule.bzl",
+          "load('//bazel_internal/test_rules/cc:module_map.bzl', 'ModuleMapInfo')",
+          "CruleInfo = provider()",
+          "def _impl(ctx):",
+          "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+          "  feature_configuration = cc_common.configure_features(",
+          "    ctx = ctx,",
+          "    cc_toolchain = toolchain,",
+          "  )",
+          "  module_map = ctx.attr.deps[0][ModuleMapInfo].module_map",
+          "  file = ctx.attr.deps[0][ModuleMapInfo].file",
+          "  " + call,
+          "  return [CruleInfo()]",
+          "crule = rule(",
+          "  _impl,",
+          "  attrs = { ",
+          "    'deps': attr.label_list(),",
+          "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+          "  },",
+          "  fragments = ['cpp'],",
+          ");");
+      invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
       assertThat(e).hasMessageThat().contains("cannot use private API");
     }

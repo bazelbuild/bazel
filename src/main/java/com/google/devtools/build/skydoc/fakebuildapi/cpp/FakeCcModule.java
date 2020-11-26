@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
@@ -60,7 +61,8 @@ public class FakeCcModule
         CcLinkingContextApi<FileApi>,
         CcToolchainVariablesApi,
         CcToolchainConfigInfoApi,
-        CcDebugInfoContextApi> {
+        CcDebugInfoContextApi,
+        CppModuleMapApi<FileApi>> {
 
   @Override
   public ProviderApi getCcToolchainProvider() {
@@ -223,6 +225,13 @@ public class FakeCcModule
   }
 
   @Override
+  public CppModuleMapApi<FileApi> createCppModuleMap(
+      FileApi file, Object umbrellaHeader, String name, StarlarkThread thread)
+      throws EvalException {
+    return null;
+  }
+
+  @Override
   public String legacyCcFlagsMakeVariable(
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
     return "";
@@ -256,6 +265,8 @@ public class FakeCcModule
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Sequence<?> additionalInputs,
+      Object moduleMap,
+      Object additionalModuleMaps,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;

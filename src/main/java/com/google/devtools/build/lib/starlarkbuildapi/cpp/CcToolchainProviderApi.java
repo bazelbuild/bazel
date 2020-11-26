@@ -155,7 +155,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       documented = false,
       useStarlarkThread = true,
       allowReturnNones = true,
-      parameters = {@Param(name = "path", positional = false, named = true)})
+      parameters = {@Param(name = "tool", positional = false, named = true)})
   @Nullable
   String getToolPathStringOrNoneForStarlark(String tool, StarlarkThread thread)
       throws EvalException;

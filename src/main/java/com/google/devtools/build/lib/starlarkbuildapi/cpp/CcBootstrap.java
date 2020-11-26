@@ -40,7 +40,8 @@ public class CcBootstrap implements Bootstrap {
           ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
           ? extends CcToolchainConfigInfoApi,
           ? extends CcCompilationOutputsApi<? extends FileApi>,
-          ? extends CcDebugInfoContextApi>
+          ? extends CcDebugInfoContextApi,
+          ? extends CppModuleMapApi<? extends FileApi>>
       ccModule;
 
   private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
@@ -67,7 +68,8 @@ public class CcBootstrap implements Bootstrap {
               ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>,
-              ? extends CcDebugInfoContextApi>
+              ? extends CcDebugInfoContextApi,
+              ? extends CppModuleMapApi<? extends FileApi>>
           ccModule,
       CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
       DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
