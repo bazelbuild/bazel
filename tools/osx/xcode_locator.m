@@ -32,14 +32,16 @@
 // to the appplication.
 @interface XcodeVersionEntry : NSObject
 @property(readonly) NSString *version;
+@property(readonly) NSString *productVersion;
 @property(readonly) NSURL *url;
 @end
 
 @implementation XcodeVersionEntry
 
-- (id)initWithVersion:(NSString *)version url:(NSURL *)url {
+- (id)initWithVersion:(NSString *)version productVersion:(NSString *)productVersion url:(NSURL *)url {
   if ((self = [super init])) {
     _version = version;
+    _productVersion = productVersion;
     _url = url;
   }
   return self;
@@ -67,11 +69,15 @@ static void AddEntryToDictionary(
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
   BOOL inApplications = [entry.url.path hasPrefix:@"/Applications/"];
   NSString *entryVersion = entry.version;
+  NSString *entryProductVersion = entry.productVersion;
   NSString *subversion = entryVersion;
   if (dict[entryVersion] && !inApplications) {
     return;
   }
   dict[entryVersion] = entry;
+  if (entryProductVersion) {
+    dict[entryProductVersion] = entry;
+  }
   while (YES) {
     NSRange range = [subversion rangeOfString:@"." options:NSBackwardsSearch];
     if (range.length == 0 || range.location == 0) {
@@ -187,6 +193,7 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
         [url URLByAppendingPathComponent:@"Contents/Developer"];
     XcodeVersionEntry *entry =
         [[XcodeVersionEntry alloc] initWithVersion:expandedVersion
+                                    productVersion:productVersion
                                                url:developerDir];
     AddEntryToDictionary(entry, dict);
   }
