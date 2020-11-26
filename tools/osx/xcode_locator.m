@@ -80,8 +80,8 @@ static void AddEntryToDictionary(
     subversion = [subversion substringToIndex:range.location];
     XcodeVersionEntry *subversionEntry = dict[subversion];
     if (subversionEntry) {
-      BOOL atLeastAsLarge = ([subversionEntry.version compare:entry.version]
-                             == NSOrderedDescending);
+      BOOL atLeastAsLarge = ([subversionEntry.version compare:entry.version
+                                                      options:NSNumericSearch] != NSOrderedDescending);
       if (inApplications && atLeastAsLarge) {
         dict[subversion] = entry;
       }
