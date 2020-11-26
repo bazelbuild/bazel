@@ -69,7 +69,7 @@ OSX_DUMMY_TARGETS = [
 filegroup(
     name = "darwin_tools",
     srcs = [
-        "//src/tools/xcode/realpath:realpath",
+        "//tools/osx/realpath",
         "//tools/osx:xcode_locator.m",
     ] + select({
         "//src/conditions:iphonesdk": ["//src/tools/xcode/stdredirect:StdRedirect.dylib"],
