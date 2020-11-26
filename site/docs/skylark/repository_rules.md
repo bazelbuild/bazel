@@ -79,7 +79,7 @@ in the dependency graph (including the WORKSPACE file itself) will
 cause an execution of the implementation function.
 
 The implementation function can be _restarted_ if a dependency it
-request is _missing_. The beginning of the implementation function
+requests is _missing_. The beginning of the implementation function
 will be re-executed after the dependency has been resolved. To avoid
 unnecessary restarts (which are expensive, as network access might
 have to be repeated), label arguments are prefetched, provided all
