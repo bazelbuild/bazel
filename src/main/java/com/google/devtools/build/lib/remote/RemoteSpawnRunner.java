@@ -91,6 +91,12 @@ import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.DebugInfo;
+import com.google.rpc.Help;
+import com.google.rpc.LocalizedMessage;
+import com.google.rpc.RetryInfo;
+import com.google.rpc.RequestInfo;
+import com.google.rpc.ResourceInfo;
 import com.google.rpc.PreconditionFailure;
 import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Context;
@@ -127,23 +133,33 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (status == null || status.getDetailsCount() == 0) {
       return false;
     }
-    for (Any details : status.getDetailsList()) {
-      PreconditionFailure f;
-      try {
-        f = details.unpack(PreconditionFailure.class);
-      } catch (InvalidProtocolBufferException protoEx) {
-        return false;
-      }
-      if (f.getViolationsCount() == 0) {
-        return false; // Generally shouldn't happen
-      }
-      for (Violation v : f.getViolationsList()) {
-        if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
+    for (Any detail : status.getDetailsList()) {
+      if (detail.is(PreconditionFailure.class)) {
+        try {
+          PreconditionFailure f = detail.unpack(PreconditionFailure.class);
+          if (f.getViolationsCount() == 0) {
+            return false; // Generally shouldn't happen
+          }
+          for (Violation v : f.getViolationsList()) {
+            if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
+              return false;
+            }
+          }
+        } catch (InvalidProtocolBufferException protoEx) {
+          // really shouldn't happen
           return false;
         }
+      } else if (!(detail.is(DebugInfo.class)
+          || detail.is(Help.class)
+          || detail.is(LocalizedMessage.class)
+          || detail.is(RetryInfo.class)
+          || detail.is(RequestInfo.class)
+          || detail.is(ResourceInfo.class))) { // ignore benign details
+        // consider all other details as failures
+        return false;
       }
     }
-    return true; // if *all* > 0 violations have type MISSING
+    return true; // if *all* > 0 precondition failure violations have type MISSING
   }
 
   private final Path execRoot;
@@ -656,12 +672,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
       catastrophe = false;
     }
 
-    final String errorMessage;
-    if (!verboseFailures) {
-      errorMessage = Utils.grpcAwareErrorMessage(exception);
-    } else {
+    String errorMessage = Utils.grpcAwareErrorMessage(exception);
+    if (verboseFailures) {
       // On --verbose_failures print the whole stack trace
-      errorMessage = Throwables.getStackTraceAsString(exception);
+      errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
     }
 
     return new SpawnResult.Builder()

@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -28,22 +29,37 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.rpc.BadRequest;
+import com.google.rpc.Code;
+import com.google.rpc.DebugInfo;
+import com.google.rpc.Help;
+import com.google.rpc.LocalizedMessage;
+import com.google.rpc.PreconditionFailure;
+import com.google.rpc.QuotaFailure;
+import com.google.rpc.RequestInfo;
+import com.google.rpc.ResourceInfo;
+import com.google.rpc.RetryInfo;
+import com.google.rpc.Status;
+import com.google.protobuf.Any;
+import com.google.protobuf.Duration;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.Durations;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -119,7 +135,7 @@ public final class Utils {
       String mnemonic) {
     SpawnResult.Builder builder =
         new SpawnResult.Builder()
-            .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
+            .setStatus(exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
             .setExitCode(exitCode)
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
@@ -129,7 +145,7 @@ public final class Utils {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
               .setMessage(mnemonic + " returned a non-zero exit code when running remotely")
-              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT))
               .build());
     }
     if (inMemoryOutput != null) {
@@ -162,8 +178,157 @@ public final class Utils {
     return !Collections.disjoint(outputs, filesToDownload);
   }
 
+  private static String statusName(int code) {
+    // 'convert_underscores' to 'Convert Underscores'
+    String name = Code.forNumber(code).getValueDescriptor().getName();
+    return String.join(" ",
+        Arrays.stream(name.split("_"))
+            .map(word -> word.substring(0,1).toUpperCase() + word.substring(1).toLowerCase())
+            .collect(ImmutableList.toImmutableList()));
+  }
+
+  private static String errorDetailsMessage(Iterable<Any> details) throws InvalidProtocolBufferException {
+    String messages = "";
+    for (Any detail : details) {
+      messages += "  " + errorDetailMessage(detail) + "\n";
+    }
+    return messages;
+  }
+
+  private static String durationMessage(Duration duration) {
+    // this will give us seconds, might want to consider something nicer (graduating ms, s, m, h, d, w?)
+    return Durations.toString(duration);
+  }
+
+  private static String retryInfoMessage(RetryInfo retryInfo) {
+    return "Retry delay recommendation of " + durationMessage(retryInfo.getRetryDelay());
+  }
+
+  private static String debugInfoMessage(DebugInfo debugInfo) {
+    String message = "";
+    if (debugInfo.getStackEntriesCount() > 0) {
+      message += "Debug Stack Information:\n  " + String.join("\n  ", debugInfo.getStackEntriesList());
+    }
+    if (!debugInfo.getDetail().isEmpty()) {
+      if (debugInfo.getStackEntriesCount() > 0) {
+        message += "\n";
+      }
+      message += "Debug Details: " + debugInfo.getDetail();
+    }
+    return message;
+  }
+
+  private static String quotaFailureMessage(QuotaFailure quotaFailure) {
+    String message = "Quota Failure";
+    if (quotaFailure.getViolationsCount() > 0) {
+      message += ":";
+    }
+    for (QuotaFailure.Violation violation : quotaFailure.getViolationsList()) {
+      message += "\n    " + violation.getSubject() + ": " + violation.getDescription();
+    }
+    return message;
+  }
+
+  private static String preconditionFailureMessage(PreconditionFailure preconditionFailure) {
+    String message = "Precondition Failure";
+    if (preconditionFailure.getViolationsCount() > 0) {
+      message += ":";
+    }
+    for (PreconditionFailure.Violation violation : preconditionFailure.getViolationsList()) {
+      message += "\n    (" + violation.getType() + ") " + violation.getSubject() + ": " + violation.getDescription();
+    }
+    return message;
+  }
+
+  private static String badRequestMessage(BadRequest badRequest) {
+    String message = "Bad Request";
+    if (badRequest.getFieldViolationsCount() > 0) {
+      message += ":";
+    }
+    for (BadRequest.FieldViolation fieldViolation : badRequest.getFieldViolationsList()) {
+      message += "\n    " + fieldViolation.getField() + ": " + fieldViolation.getDescription();
+    }
+    return message;
+  }
+
+  private static String requestInfoMessage(RequestInfo requestInfo) {
+    return "Request Info: " + requestInfo.getRequestId() + " => " + requestInfo.getServingData();
+  }
+
+  private static String resourceInfoMessage(ResourceInfo resourceInfo) {
+    String message = "Resource Info: " + resourceInfo.getResourceType() + ": name='" + resourceInfo.getResourceName() + "', owner='" + resourceInfo.getOwner() + "'";
+    if (!resourceInfo.getDescription().isEmpty()) {
+      message += ", description: " + resourceInfo.getDescription();
+    }
+    return message;
+  }
+
+  private static String helpMessage(Help help) {
+    String message = "Help";
+    if (help.getLinksCount() > 0) {
+      message += ":";
+    }
+    for (Help.Link link : help.getLinksList()) {
+      message += "\n    " + link.getDescription() + ": " + link.getUrl();
+    }
+    return message;
+  }
+
+  private static String errorDetailMessage(Any detail) throws InvalidProtocolBufferException {
+    if (detail.is(RetryInfo.class)) {
+      return retryInfoMessage(detail.unpack(RetryInfo.class));
+    }
+    if (detail.is(DebugInfo.class)) {
+      return debugInfoMessage(detail.unpack(DebugInfo.class));
+    }
+    if (detail.is(QuotaFailure.class)) {
+      return quotaFailureMessage(detail.unpack(QuotaFailure.class));
+    }
+    if (detail.is(PreconditionFailure.class)) {
+      return preconditionFailureMessage(detail.unpack(PreconditionFailure.class));
+    }
+    if (detail.is(BadRequest.class)) {
+      return badRequestMessage(detail.unpack(BadRequest.class));
+    }
+    if (detail.is(RequestInfo.class)) {
+      return requestInfoMessage(detail.unpack(RequestInfo.class));
+    }
+    if (detail.is(ResourceInfo.class)) {
+      return resourceInfoMessage(detail.unpack(ResourceInfo.class));
+    }
+    if (detail.is(Help.class)) {
+      return helpMessage(detail.unpack(Help.class));
+    }
+    return "Unrecognized error detail: " + detail.toString();
+  }
+
+  private static String localizedStatusMessage(Status status) throws InvalidProtocolBufferException {
+    String languageTag = Locale.getDefault().toLanguageTag();
+    for (Any detail : status.getDetailsList()) {
+      if (detail.is(LocalizedMessage.class)) {
+        LocalizedMessage message = detail.unpack(LocalizedMessage.class);
+        if (message.getLocale().equals(languageTag)) {
+          return message.getMessage();
+        }
+      }
+    }
+    return status.getMessage();
+  }
+
+  private static String executionStatusExceptionErrorMessage(ExecutionStatusException e) throws InvalidProtocolBufferException {
+    Status status = e.getOriginalStatus();
+    return statusName(status.getCode()) + ": " + localizedStatusMessage(status) + "\n" + errorDetailsMessage(status.getDetailsList());
+  }
+
   public static String grpcAwareErrorMessage(IOException e) {
     io.grpc.Status errStatus = io.grpc.Status.fromThrowable(e);
+    if (e.getCause() instanceof ExecutionStatusException) {
+      try {
+        return "Remote Execution Failure:\n" + executionStatusExceptionErrorMessage((ExecutionStatusException) e.getCause());
+      } catch (InvalidProtocolBufferException protoEx) {
+        return "Error occurred attempting to format an error message for " + errStatus.toString() + ": " + Throwables.getStackTraceAsString(protoEx);
+      }
+    }
     if (!errStatus.getCode().equals(io.grpc.Status.UNKNOWN.getCode())) {
       // If the error originated in the gRPC library then display it as "STATUS: error message"
       // to the user
