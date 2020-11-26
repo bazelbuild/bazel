@@ -126,7 +126,7 @@ public class RemoteActionInputFetcherTest {
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
     assertThat(FileSystemUtils.readContent(p, StandardCharsets.UTF_8)).isEqualTo("hello world");
-    assertThat(p.isExecutable()).isFalse();
+    assertThat(p.isExecutable()).isTrue();
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
     assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
