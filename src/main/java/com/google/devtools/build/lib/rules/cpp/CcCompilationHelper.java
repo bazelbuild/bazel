@@ -260,7 +260,7 @@ public final class CcCompilationHelper {
   private final List<PathFragment> includeDirs = new ArrayList<>();
   private final List<PathFragment> frameworkIncludeDirs = new ArrayList<>();
 
-  private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
+  private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.STRICT;
 
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
