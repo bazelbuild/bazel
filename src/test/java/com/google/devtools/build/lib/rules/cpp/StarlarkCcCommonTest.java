@@ -6691,7 +6691,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  },",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:b_lib"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use CcDebugInfo");
+    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
   }
 
   @Test

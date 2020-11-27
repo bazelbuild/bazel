@@ -1731,26 +1731,16 @@ public abstract class CcModule
   @Override
   public CcDebugInfoContext createCcDebugInfoFromStarlark(
       CcCompilationOutputs ccCompilationOutputs, StarlarkThread thread) throws EvalException {
-    checkCcDebugInfoRuleInAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return CcDebugInfoContext.from(ccCompilationOutputs);
   }
 
   @Override
   public CcDebugInfoContext mergeCcDebugInfoFromStarlark(
       Sequence<?> debugInfos, StarlarkThread thread) throws EvalException {
-    checkCcDebugInfoRuleInAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return CcDebugInfoContext.merge(
         Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
-  }
-
-  public static void checkCcDebugInfoRuleInAllowlist(StarlarkThread thread) throws EvalException {
-    String rulePackage =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageName();
-    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(rulePackage)) {
-      throw Starlark.errorf("Rule in '%s' cannot use CcDebugInfo", rulePackage);
-    }
   }
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
