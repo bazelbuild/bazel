@@ -54,7 +54,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Immutable store of information needed for C++ compilation that is aggregated across dependencies.
@@ -239,6 +241,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             getQuoteIncludeDirs().stream()
                 .map(PathFragment::getSafePathString)
                 .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
+  public Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getTransitiveCompilationPrerequisites());
   }
 
   /**

@@ -19,7 +19,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -118,4 +120,10 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       doc = "Returns the list of textual headers that are declared by this target.",
       structField = true)
   StarlarkList<FileT> getStarlarkDirectTextualHeaders();
+
+  @StarlarkMethod(
+      name = "transitive_compilation_prerequisites",
+      documented = false,
+      useStarlarkThread = true)
+  Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread) throws EvalException;
 }
