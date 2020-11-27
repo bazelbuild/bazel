@@ -71,18 +71,6 @@ public final class PyCommon {
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
 
   /**
-   * Name of the tag used by bazelbuild/rules_python to signal that a rule was instantiated through
-   * that repo.
-   */
-  private static final String MAGIC_TAG = "__PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
-  /**
-   * Names of native rules that must be instantiated through bazelbuild/rules_python when {@code
-   * --incompatible_load_python_rules_from_bzl} is enabled.
-   */
-  private static final ImmutableList<String> RULES_REQUIRING_MAGIC_TAG =
-      ImmutableList.of("py_library", "py_binary", "py_test", "py_runtime");
-
-  /**
    * Returns the Python version based on the {@code python_version} attribute of the given {@code
    * AttributeMap}.
    *
@@ -227,10 +215,6 @@ public final class PyCommon {
     this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
     validatePythonVersionAttr();
     validateLegacyProviderNotUsedIfDisabled();
-    maybeValidateLoadedFromBzl();
-    if (validatePackageAndSources) {
-      validatePackageName();
-    }
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -585,34 +569,6 @@ public final class PyCommon {
     }
   }
 
-  /**
-   * If {@code --incompatible_load_python_rules_from_bzl} is enabled, reports a rule error if the
-   * rule is one of the ones that has a redirect in bazelbuild/rules_python, and either 1) the magic
-   * tag {@code __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__} is not present, or 2) the target
-   * was not created in a macro.
-   *
-   * <p>No-op otherwise.
-   */
-  private void maybeValidateLoadedFromBzl() {
-    if (!ruleContext.getFragment(PythonConfiguration.class).loadPythonRulesFromBzl()) {
-      return;
-    }
-    String ruleName = ruleContext.getRule().getRuleClass();
-    if (!RULES_REQUIRING_MAGIC_TAG.contains(ruleName)) {
-      return;
-    }
-
-    boolean hasMagicTag =
-        ruleContext.attributes().get("tags", Type.STRING_LIST).contains(MAGIC_TAG);
-    if (!hasMagicTag || !ruleContext.getRule().wasCreatedByMacro()) {
-      ruleContext.ruleError(
-          "Direct access to the native Python rules is deprecated. Please load "
-              + ruleName
-              + " from the rules_python repository. See http://github.com/bazelbuild/rules_python "
-              + "and https://github.com/bazelbuild/bazel/issues/9006. You can temporarily bypass "
-              + "this error by setting --incompatible_load_python_rules_from_bzl=false.");
-    }
-  }
 
   /** Checks that the package name of this Python rule does not contain a '-'. */
   private void validatePackageName() {

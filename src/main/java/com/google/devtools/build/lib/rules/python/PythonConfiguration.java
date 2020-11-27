@@ -52,9 +52,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   // TODO(brandjon): Remove this once migration to Python toolchains is complete.
   private final boolean useToolchains;
 
-  // TODO(brandjon): Remove this once migration for native rule access is complete.
-  private final boolean loadPythonRulesFromBzl;
-
   private final boolean defaultToExplicitInitPy;
 
   public PythonConfiguration(BuildOptions buildOptions) {
@@ -68,7 +65,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
     this.disallowLegacyPyProvider = pythonOptions.incompatibleDisallowLegacyPyProvider;
     this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
-    this.loadPythonRulesFromBzl = pythonOptions.loadPythonRulesFromBzl;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
   }
 
@@ -158,17 +154,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
    */
   public boolean useToolchains() {
     return useToolchains;
-  }
-
-  /**
-   * Returns true if native Python rules should fail at analysis time when the magic tag, {@code
-   * __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__}, is not present.
-   *
-   * <p>This tag is set by the macros in bazelbuild/rules_python and should not be used anywhere
-   * else.
-   */
-  public boolean loadPythonRulesFromBzl() {
-    return loadPythonRulesFromBzl;
   }
 
   /**
