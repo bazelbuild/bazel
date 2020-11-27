@@ -22,6 +22,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.CharStreams;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -102,11 +104,17 @@ class IncludeParser {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * Immutable object representation of the four columns making up a single Rule
-   * in a Hints set. See {@link Hints} for more details.
+   * Immutable object representation of the four columns making up a single Rule in a Hints set. See
+   * {@link Hints} for more details.
    */
   private static class Rule {
-    private enum Type { PATH, FILE, INCLUDE_QUOTE, INCLUDE_ANGLE }
+    private enum Type {
+      PATH,
+      FILE,
+      INCLUDE_QUOTE,
+      INCLUDE_ANGLE
+    }
+
     final Type type;
     final Pattern pattern;
     final String findRoot;
@@ -121,11 +129,12 @@ class IncludeParser {
 
     Rule(String type, String pattern, String findRoot) {
       this(type, pattern, findRoot, null);
-      Preconditions.checkArgument((this.type == Type.INCLUDE_QUOTE)
-          || (this.type == Type.INCLUDE_ANGLE), this);
+      Preconditions.checkArgument(
+          (this.type == Type.INCLUDE_QUOTE) || (this.type == Type.INCLUDE_ANGLE), this);
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
       return "" + type + " " + pattern + " " + findRoot + " " + findFilter;
     }
   }
@@ -170,8 +179,7 @@ class IncludeParser {
    */
   public static class Hints {
     private static final Pattern WS_PAT = Pattern.compile("\\s+");
-    @VisibleForTesting
-    static final String ALLOWED_PREFIX = "third_party/";
+    @VisibleForTesting static final String ALLOWED_PREFIX = "third_party/";
     // Match regular expressions that can only match paths under ALLOWED_PREFIX .
     private static final Pattern ALLOWED_PATTERN = Pattern.compile("^\\(*" + ALLOWED_PREFIX + ".*");
 
@@ -183,14 +191,16 @@ class IncludeParser {
     private final AtomicReference<FilesystemCalls> syscallCache = new AtomicReference<>();
 
     private final LoadingCache<Artifact, Collection<Artifact>> fileLevelHintsCache =
-        CacheBuilder.newBuilder().concurrencyLevel(HINTS_CACHE_CONCURRENCY).build(
-            new CacheLoader<Artifact, Collection<Artifact>>() {
-              @Override
-              public Collection<Artifact> load(Artifact path) {
-                return getHintedInclusionsLegacy(Rule.Type.FILE,
-                    path.getExecPath(), path.getRoot());
-              }
-            });
+        CacheBuilder.newBuilder()
+            .concurrencyLevel(HINTS_CACHE_CONCURRENCY)
+            .build(
+                new CacheLoader<Artifact, Collection<Artifact>>() {
+                  @Override
+                  public Collection<Artifact> load(Artifact path) {
+                    return getHintedInclusionsLegacy(
+                        Rule.Type.FILE, path.getExecPath(), path.getRoot());
+                  }
+                });
 
     /**
      * Constructs a hint set for a given INCLUDE_HINTS file to read.
@@ -217,8 +227,13 @@ class IncludeParser {
               rules.add(new Rule(tokens[0], tokens[1], tokens[2]));
             } else if (tokens.length == 4) {
               if (!ALLOWED_PATTERN.matcher(tokens[1]).matches()) {
-                throw new IOException("Illegal hint regex on: " + line + "\n"
-                    + tokens[1] + " does not match only paths in " + ALLOWED_PREFIX);
+                throw new IOException(
+                    "Illegal hint regex on: "
+                        + line
+                        + "\n"
+                        + tokens[1]
+                        + " does not match only paths in "
+                        + ALLOWED_PREFIX);
               }
               rules.add(new Rule(tokens[0], tokens[1], tokens[2], tokens[3]));
             } else {
@@ -399,7 +414,9 @@ class IncludeParser {
         if (!m.matches()) {
           continue;
         }
-        if (hints == null) { hints = Sets.newTreeSet(); }
+        if (hints == null) {
+          hints = Sets.newTreeSet();
+        }
         String relativePath = m.replaceFirst(rule.findRoot);
         if (!relativePath.startsWith(ALLOWED_PREFIX)) {
           logger.atWarning().log(
@@ -419,10 +436,11 @@ class IncludeParser {
           // foo/bar/**/*.h. No examples of this currently exist in the INCLUDE_HINTS
           // file.
           logger.atFine().log("Globbing: %s %s", root, rule.findFilter);
-          hints.addAll(new UnixGlob.Builder(root)
-              .setFilesystemCalls(syscallCache)
-              .addPattern(rule.findFilter)
-              .glob());
+          hints.addAll(
+              new UnixGlob.Builder(root)
+                  .setFilesystemCalls(syscallCache)
+                  .addPattern(rule.findFilter)
+                  .glob());
         } catch (UnixGlob.BadPattern | IOException e) {
           logger.atWarning().withCause(e).log("Error in hint expansion");
         }
@@ -459,9 +477,12 @@ class IncludeParser {
         if (!m.matches()) {
           continue;
         }
-        if (hints == null) { hints = Sets.newLinkedHashSet(); }
-        Inclusion inclusion = new Inclusion(rule.findRoot, rule.type == Rule.Type.INCLUDE_QUOTE
-            ? Kind.QUOTE : Kind.ANGLE);
+        if (hints == null) {
+          hints = Sets.newLinkedHashSet();
+        }
+        Inclusion inclusion =
+            Inclusion.create(
+                rule.findRoot, rule.type == Rule.Type.INCLUDE_QUOTE ? Kind.QUOTE : Kind.ANGLE);
         hints.add(inclusion);
         logger.atFine().log("hint for %s %s root: %s", rule.type, pathString, inclusion);
       }
@@ -478,11 +499,12 @@ class IncludeParser {
   }
 
   /**
-   * An immutable inclusion tuple. This models an {@code #include} or {@code
-   * #include_next} line in a file without the context how this file got
-   * included.
+   * An immutable inclusion tuple. This models an {@code #include} or {@code #include_next} line in
+   * a file without the context how this file got included.
    */
   public static class Inclusion {
+    private static final Interner<Inclusion> INCLUSIONS = BlazeInterners.newWeakInterner();
+
     /** The format of the #include in the source file -- quoted, angle bracket, etc. */
     enum Kind {
       /** Quote includes: {@code #include "name"}. */
@@ -497,9 +519,7 @@ class IncludeParser {
       /** Angle next includes: {@code #include_next <name>}. */
       NEXT_ANGLE;
 
-      /**
-       * Returns true if this is an {@code #include_next} inclusion,
-       */
+      /** Returns true if this is an {@code #include_next} inclusion, */
       boolean isNext() {
         return this == NEXT_ANGLE || this == NEXT_QUOTE;
       }
@@ -510,14 +530,17 @@ class IncludeParser {
     /** The relative path of the inclusion. */
     final PathFragment pathFragment;
 
-    Inclusion(String includeTarget, Kind kind) {
-      this.kind = kind;
-      this.pathFragment = PathFragment.create(includeTarget);
-    }
-
-    Inclusion(PathFragment pathFragment, Kind kind) {
+    private Inclusion(PathFragment pathFragment, Kind kind) {
       this.kind = kind;
       this.pathFragment = Preconditions.checkNotNull(pathFragment);
+    }
+
+    static Inclusion create(String includeTarget, Kind kind) {
+      return INCLUSIONS.intern(new Inclusion(PathFragment.create(includeTarget), kind));
+    }
+
+    static Inclusion create(PathFragment pathFragment, Kind kind) {
+      return INCLUSIONS.intern(new Inclusion(Preconditions.checkNotNull(pathFragment), kind));
     }
 
     String getPathString() {
@@ -579,15 +602,15 @@ class IncludeParser {
           if (chars[pos++] == '*') {
             if (chars[pos] == '/') {
               pos++;
-              break;  // proper comment end
+              break; // proper comment end
             }
           }
         }
-      } else {  // not whitespace
+      } else { // not whitespace
         return pos;
       }
     }
-    return pos;  // pos == len, meaning we fell off the end.
+    return pos; // pos == len, meaning we fell off the end.
   }
 
   private static final String HAS_INCLUDE = "__has_include";
@@ -664,11 +687,12 @@ class IncludeParser {
   private static final Pattern BS_NL_PAT = Pattern.compile("\\\\" + "\n");
 
   // Keep this in sync with the grep-includes binary's scanning output format.
-  private static final ImmutableMap<Character, Kind> KIND_MAP = ImmutableMap.of(
-      '"', Kind.QUOTE,
-      '<', Kind.ANGLE,
-      'q', Kind.NEXT_QUOTE,
-      'a', Kind.NEXT_ANGLE);
+  private static final ImmutableMap<Character, Kind> KIND_MAP =
+      ImmutableMap.of(
+          '"', Kind.QUOTE,
+          '<', Kind.ANGLE,
+          'q', Kind.NEXT_QUOTE,
+          'a', Kind.NEXT_ANGLE);
 
   /**
    * Processes the output generated by an auxiliary include-scanning binary.
@@ -701,7 +725,7 @@ class IncludeParser {
       if (kind == null) {
         throw new IOException("Illegal inclusion kind '" + qchar + "'");
       }
-      inclusions.add(new Inclusion(name, kind));
+      inclusions.add(Inclusion.create(name, kind));
     }
     return inclusions;
   }
@@ -728,7 +752,6 @@ class IncludeParser {
       throw new IOException("Error reading include file " + streamName + ": " + e.getMessage());
     }
   }
-
 
   @VisibleForTesting
   Inclusion extractInclusion(String line) {
@@ -778,16 +801,16 @@ class IncludeParser {
         return null;
       }
       if (chars[spos] == '/') {
-        return null;  // disallow absolute paths
+        return null; // disallow absolute paths
       }
       String name = new String(chars, spos, pos - spos);
-      if (name.contains("\n")) {  // strip any \+NL pairs within name
+      if (name.contains("\n")) { // strip any \+NL pairs within name
         name = BS_NL_PAT.matcher(name).replaceAll("");
       }
       if (isNext) {
-        return new Inclusion(name, qchar == '"' ? Kind.NEXT_QUOTE : Kind.NEXT_ANGLE);
+        return Inclusion.create(name, qchar == '"' ? Kind.NEXT_QUOTE : Kind.NEXT_ANGLE);
       } else {
-        return new Inclusion(name, qchar == '"' ? Kind.QUOTE : Kind.ANGLE);
+        return Inclusion.create(name, qchar == '"' ? Kind.QUOTE : Kind.ANGLE);
       }
     } else {
       return createOtherInclusion(new String(chars, pos, lineEnd - pos));
@@ -803,10 +826,10 @@ class IncludeParser {
   @VisibleForTesting
   List<Inclusion> extractInclusions(byte[] chars) {
     List<Inclusion> inclusions = new ArrayList<>();
-    int lineBegin = 0;  // the first char of each line
-    int end = chars.length;  // the file end
+    int lineBegin = 0; // the first char of each line
+    int end = chars.length; // the file end
     while (lineBegin < end) {
-      int lineEnd = lineBegin;   // the char after the last non-\n in each line
+      int lineEnd = lineBegin; // the char after the last non-\n in each line
       // skip to the next \n or after end of buffer, ignoring continuations
       while (lineEnd < end) {
         if (chars[lineEnd] == '\n') {
@@ -836,7 +859,7 @@ class IncludeParser {
           inclusions.add(inclusion);
         }
       }
-      lineBegin = lineEnd + 1;  // next line starts after the previous line
+      lineBegin = lineEnd + 1; // next line starts after the previous line
     }
     return inclusions;
   }
