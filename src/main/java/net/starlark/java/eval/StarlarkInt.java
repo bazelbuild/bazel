@@ -204,6 +204,11 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
+    public void repr(Printer printer) {
+      printer.append(v);
+    }
+
+    @Override
     public int hashCode() {
       return 0x316c5239 * Integer.hashCode(v) ^ 0x67c4a7d5;
     }
@@ -249,6 +254,11 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
+    public void repr(Printer printer) {
+      printer.append(v);
+    }
+
+    @Override
     public int hashCode() {
       return 0x67c4a7d5 * Long.hashCode(v) ^ 0xee914a1b;
     }
@@ -284,6 +294,11 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
+    public void repr(Printer printer) {
+      printer.append(v.toString());
+    }
+
+    @Override
     public int hashCode() {
       return 0xee914a1b * v.hashCode() ^ 0x6406918f;
     }
@@ -314,9 +329,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append(toString());
-  }
+  public abstract void repr(Printer printer);
 
   /** Returns the signed int32 value of this StarlarkInt, or fails if not exactly representable. */
   public int toInt(String what) throws EvalException {
