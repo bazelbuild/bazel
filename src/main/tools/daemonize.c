@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
@@ -95,6 +96,9 @@ static void WritePidFile(pid_t pid, const char* pid_path, int pid_done_fd) {
   int ret = 0;
   while (ret == 0) {
     ret = write(pid_done_fd, &dummy, sizeof(dummy));
+    if (ret == -1 && errno == EINTR) {
+      ret = 0;
+    }
   }
   if (ret != 1) {
     err(EXIT_FAILURE, "Failed to signal pid done");
