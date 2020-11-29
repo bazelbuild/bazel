@@ -43,6 +43,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -85,23 +86,12 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
-import com.google.rpc.DebugInfo;
-import com.google.rpc.Help;
-import com.google.rpc.LocalizedMessage;
-import com.google.rpc.RetryInfo;
-import com.google.rpc.RequestInfo;
-import com.google.rpc.ResourceInfo;
-import com.google.rpc.PreconditionFailure;
-import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Context;
 import io.grpc.Status.Code;
-import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -119,48 +109,6 @@ import javax.annotation.Nullable;
 /** A client for the remote execution service. */
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
-
-  private static final String VIOLATION_TYPE_MISSING = "MISSING";
-
-  private static boolean retriableExecErrors(Exception e) {
-    if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
-      return true;
-    }
-    if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
-      return false;
-    }
-    com.google.rpc.Status status = StatusProto.fromThrowable(e);
-    if (status == null || status.getDetailsCount() == 0) {
-      return false;
-    }
-    for (Any detail : status.getDetailsList()) {
-      if (detail.is(PreconditionFailure.class)) {
-        try {
-          PreconditionFailure f = detail.unpack(PreconditionFailure.class);
-          if (f.getViolationsCount() == 0) {
-            return false; // Generally shouldn't happen
-          }
-          for (Violation v : f.getViolationsList()) {
-            if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
-              return false;
-            }
-          }
-        } catch (InvalidProtocolBufferException protoEx) {
-          // really shouldn't happen
-          return false;
-        }
-      } else if (!(detail.is(DebugInfo.class)
-          || detail.is(Help.class)
-          || detail.is(LocalizedMessage.class)
-          || detail.is(RetryInfo.class)
-          || detail.is(RequestInfo.class)
-          || detail.is(ResourceInfo.class))) { // ignore benign details
-        // consider all other details as failures
-        return false;
-      }
-    }
-    return true; // if *all* > 0 precondition failure violations have type MISSING
-  }
 
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
@@ -831,11 +779,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   private static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
-    return new RemoteRetrier(
-        options.remoteMaxRetryAttempts > 0
-            ? () -> new Retrier.ZeroBackoff(options.remoteMaxRetryAttempts)
-            : () -> Retrier.RETRIES_DISABLED,
-        RemoteSpawnRunner::retriableExecErrors,
+    return new ExecuteRetrier(
+        options.remoteMaxRetryAttempts,
         retryService,
         Retrier.ALLOW_ALL_CALLS);
   }

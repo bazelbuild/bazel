@@ -174,7 +174,7 @@ public class RemoteRetrier extends Retrier {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (attempts == maxAttempts) {
         return -1;
       }
@@ -221,13 +221,13 @@ public class RemoteRetrier extends Retrier {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (currentBackoff == null) {
         currentBackoff = backoffSupplier.get();
         retries++;
         return 0;
       }
-      return currentBackoff.nextDelayMillis();
+      return currentBackoff.nextDelayMillis(e);
     }
 
     @Override

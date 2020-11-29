@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -330,7 +331,7 @@ public class ByteStreamUploaderTest {
     uploader.uploadBlob(hash, chunker, true);
 
     // This test should not have triggered any retries.
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
     Mockito.verify(mockBackoff, Mockito.times(1)).getRetryAttempts();
 
     blockUntilInternalStateConsistent(uploader);
@@ -469,7 +470,7 @@ public class ByteStreamUploaderTest {
 
     // This test should have triggered a single retry, because it made
     // no progress.
-    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
 
     blockUntilInternalStateConsistent(uploader);
 
@@ -1402,7 +1403,7 @@ public class ByteStreamUploaderTest {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (retries < maxRetries) {
         retries++;
         return delayMillis;

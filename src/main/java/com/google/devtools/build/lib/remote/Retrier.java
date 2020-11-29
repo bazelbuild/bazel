@@ -47,10 +47,10 @@ public class Retrier {
      * Returns the next delay in milliseconds, or a value less than {@code 0} if we should stop
      * retrying.
      */
-    long nextDelayMillis();
+    long nextDelayMillis(Exception e);
 
     /**
-     * Returns the number of calls to {@link #nextDelayMillis()} thus far, not counting any calls
+     * Returns the number of calls to {@link #nextDelayMillis(Exception)} thus far, not counting any calls
      * that returned less than {@code 0}.
      */
     int getRetryAttempts();
@@ -140,7 +140,7 @@ public class Retrier {
   public static final Backoff RETRIES_DISABLED =
       new Backoff() {
         @Override
-        public long nextDelayMillis() {
+        public long nextDelayMillis(Exception e) {
           return -1;
         }
 
@@ -161,7 +161,7 @@ public class Retrier {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (retries >= maxRetries) {
         return -1;
       }
@@ -253,7 +253,7 @@ public class Retrier {
         if (!shouldRetry.test(e)) {
           throw e;
         }
-        final long delayMillis = backoff.nextDelayMillis();
+        final long delayMillis = backoff.nextDelayMillis(e);
         if (delayMillis < 0) {
           throw e;
         }
@@ -286,7 +286,7 @@ public class Retrier {
   private <T> ListenableFuture<T> onExecuteAsyncFailure(
       Exception t, AsyncCallable<T> call, Backoff backoff) {
     if (isRetriable(t)) {
-      long waitMillis = backoff.nextDelayMillis();
+      long waitMillis = backoff.nextDelayMillis(t);
       if (waitMillis >= 0) {
         try {
           return Futures.scheduleAsync(
