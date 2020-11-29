@@ -40,6 +40,20 @@ public final class NestedSetVisitor<E> {
     void accept(E arg);
   }
 
+  /**
+   * Transitively visit a nested set.
+   *
+   * @param nestedSet The {@link NestedSet} to traverse.
+   * @param callback A function called for each element in the {@link NestedSet}.
+   * @param <T>
+   * @throws InterruptedException
+   */
+  public static <T> void traverseNestedSet(NestedSet<T> nestedSet, Receiver<T> callback)
+      throws InterruptedException {
+    NestedSetVisitor<T> visitor = new NestedSetVisitor<>(callback, new VisitedState<>());
+    visitor.visit(nestedSet);
+  }
+
   private final Receiver<E> callback;
 
   private final VisitedState<E> visited;

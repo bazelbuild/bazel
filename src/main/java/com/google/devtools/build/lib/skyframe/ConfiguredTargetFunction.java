@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -1096,10 +1097,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .build());
   }
 
-  static DetailedExitCode getPrioritizedDetailedExitCode(NestedSet<Cause> causes) {
+  static DetailedExitCode getPrioritizedDetailedExitCode(NestedSet<Cause> causes)
+      throws InterruptedException {
     DetailedExitCode[] prioritizedDetailedExitCodeWrapper = {null};
-    causes.forEachElement(
-        o -> true,
+    NestedSetVisitor.traverseNestedSet(
+        causes,
         c ->
             prioritizedDetailedExitCodeWrapper[0] =
                 DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -102,8 +103,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     ArrayList<File> fileProtos = new ArrayList<>();
     ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-      artifactSet.forEachElement(
-          o -> true,
+      NestedSetVisitor.traverseNestedSet(
+          artifactSet,
           a -> fileProtos.add(newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT).build()));
     }
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
