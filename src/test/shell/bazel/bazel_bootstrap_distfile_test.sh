@@ -102,6 +102,9 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
+    # For debugging: https://github.com/bazelbuild/bazel/issues/12578
+    cat ./BUILD
+
     env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
     ./output/bazel \
