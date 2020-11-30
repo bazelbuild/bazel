@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 
@@ -151,6 +152,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               /* requestedFeatures= */ ImmutableSet.<String>builder()
                   .addAll(ruleContext.getFeatures())
                   .add(STATIC_LINKING_MODE)
+                  .add(JAVA_LAUNCHER_LINK)
                   .build(),
               /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
               ccToolchain,

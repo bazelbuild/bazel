@@ -291,6 +291,15 @@ public class CppRuleClasses {
   public static final String THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS =
       "thin_lto_all_linkstatic_use_shared_nonlto_backends";
 
+  /** A string constant for native deps links. */
+  public static final String NATIVE_DEPS_LINK = "native_deps_link";
+
+  /** A string constant for java launcher links. */
+  public static final String JAVA_LAUNCHER_LINK = "java_launcher_link";
+
+  /** A string constant for python launcher links. */
+  public static final String PY_LAUNCHER_LINK = "py_launcher_link";
+
   /**
    * A string constant for the PDB file generation feature, should only be used for toolchains
    * targeting Windows that include a linker producing PDB files
