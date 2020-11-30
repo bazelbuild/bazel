@@ -13,6 +13,25 @@ filegroup(
 )
 
 java_test(
+    name = "DynamicSpawnStrategyUnitTest",
+    size = "small",
+    srcs = ["DynamicSpawnStrategyUnitTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_policy",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DynamicSpawnStrategyTest",
     size = "small",
     srcs = ["DynamicSpawnStrategyTest.java"],
