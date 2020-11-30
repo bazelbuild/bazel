@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -88,6 +90,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    */
   private final AtomicBoolean delayLocalExecution = new AtomicBoolean(false);
 
+  private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
+
   /**
    * Constructs a {@code DynamicSpawnStrategy}.
    *
@@ -96,10 +100,12 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   public DynamicSpawnStrategy(
       ExecutorService executorService,
       DynamicExecutionOptions options,
-      Function<Spawn, ExecutionPolicy> getExecutionPolicy) {
+      Function<Spawn, ExecutionPolicy> getExecutionPolicy,
+      Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution) {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.options = options;
     this.getExecutionPolicy = getExecutionPolicy;
+    this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
   }
 
   /**
@@ -480,7 +486,34 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         outDir.getChild(outBaseName + suffix), errDir.getChild(errBaseName + suffix));
   }
 
-  private static ImmutableList<SpawnResult> runLocally(
+  private ImmutableList<SpawnResult> runLocally(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
+      throws ExecException, InterruptedException {
+    ImmutableList<SpawnResult> spawnResult =
+        runSpawnLocally(spawn, actionExecutionContext, stopConcurrentSpawns);
+    if (spawnResult.stream().anyMatch(result -> result.status() != Status.SUCCESS)) {
+      return spawnResult;
+    }
+
+    Optional<Spawn> extraSpawn = getExtraSpawnForLocalExecution.apply(spawn);
+    if (!extraSpawn.isPresent()) {
+      return spawnResult;
+    }
+
+    // The remote branch was already cancelled -- we are holding the output lock during the
+    // execution of the extra spawn.
+    ImmutableList<SpawnResult> extraSpawnResult =
+        runSpawnLocally(extraSpawn.get(), actionExecutionContext, null);
+    return ImmutableList.<SpawnResult>builderWithExpectedSize(
+            spawnResult.size() + extraSpawnResult.size())
+        .addAll(spawnResult)
+        .addAll(extraSpawnResult)
+        .build();
+  }
+
+  private static ImmutableList<SpawnResult> runSpawnLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)

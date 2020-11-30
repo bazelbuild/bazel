@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -126,7 +127,12 @@ public class DynamicExecutionModule extends BlazeModule {
     if (options.legacySpawnScheduler) {
       strategy = new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
     } else {
-      strategy = new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
+      strategy =
+          new DynamicSpawnStrategy(
+              executorService,
+              options,
+              this::getExecutionPolicy,
+              this::getPostProcessingSpawnForLocalExecution);
     }
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
 
@@ -175,6 +181,18 @@ public class DynamicExecutionModule extends BlazeModule {
     }
 
     return ExecutionPolicy.ANYWHERE;
+  }
+
+  /**
+   * Returns a post processing {@link Spawn} if one needs to be executed after given {@link Spawn}
+   * when running locally.
+   *
+   * <p>The intention of this is to allow post-processing of the original {@linkplain Spawn spawn}
+   * when executing it locally. In particular, such spawn should never create outputs which are not
+   * included in the generating action of the original one.
+   */
+  protected Optional<Spawn> getPostProcessingSpawnForLocalExecution(Spawn spawn) {
+    return Optional.empty();
   }
 
   @Override
