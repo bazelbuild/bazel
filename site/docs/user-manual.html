@@ -1423,7 +1423,8 @@ either to the terminal, or to additional log files.
   The program should print zero or more key/value pairs to standard output, one entry on each line,
   then exit with zero (otherwise the build fails). The key names can be anything but they may only
   use upper case letters and underscores. The first space after the key name separates it from the
-  value. The value is the rest of the line (including additional whitespaces).
+  value. The value is the rest of the line (including additional whitespaces). Neither the key nor
+  the value may span multiple lines. Keys must not be duplicated.
 </p>
 <p>
   Bazel partitions the keys into two buckets: "stable" and "volatile". (The names "stable" and
