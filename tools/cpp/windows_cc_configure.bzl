@@ -261,8 +261,8 @@ def _is_vs_2017_or_2019(repository_ctx, vc_path):
     # In VS 2017 and 2019, it contains only three directories:
     # "Auxiliary", "Redist", "Tools"
 
-    vc_2017_or_2019_contents = ["Auxiliary", "Redist", "Tools"]
-    vc_path_contents = [d.basename for d in repository_ctx.path(vc_path).readdir()]
+    vc_2017_or_2019_contents = ["auxiliary", "redist", "tools"]
+    vc_path_contents = [d.basename.lower() for d in repository_ctx.path(vc_path).readdir()]
     vc_path_contents = sorted(vc_path_contents)
     return vc_path_contents == vc_2017_or_2019_contents
 
