@@ -60,7 +60,8 @@ public class JavaCommon {
   public static final InstrumentationSpec JAVA_COLLECTION_SPEC =
       new InstrumentationSpec(FileTypeSet.of(JavaSemantics.JAVA_SOURCE))
           .withSourceAttributes("srcs")
-          .withDependencyAttributes("deps", "data", "resources", "exports", "runtime_deps");
+          .withDependencyAttributes(
+              "deps", "data", "resources", "resource_jars", "exports", "runtime_deps", "jars");
 
   private ClasspathConfiguredFragment classpathFragment = new ClasspathConfiguredFragment();
   private JavaCompilationArtifacts javaArtifacts = JavaCompilationArtifacts.EMPTY;
