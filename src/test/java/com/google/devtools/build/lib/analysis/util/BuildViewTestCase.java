@@ -338,7 +338,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       SkyframeExecutor skyframeExecutor,
       PackageFactory packageFactory,
       BlazeDirectories directories) {
-    ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions =
+    ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
         ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting())
             .getSkyFunctionsForTesting();
     BzlLoadFunction bzlLoadFunction =

@@ -79,7 +79,7 @@ abstract class AbstractParallelEvaluator {
   AbstractParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       final ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,

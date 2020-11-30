@@ -186,7 +186,7 @@ public interface MemoizingEvaluator {
   /** A supplier for creating instances of a particular evaluator implementation. */
   interface EvaluatorSupplier {
     MemoizingEvaluator create(
-        ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+        ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
         Differencer differencer,
         EvaluationProgressReceiver progressReceiver,
         GraphInconsistencyReceiver graphInconsistencyReceiver,

@@ -120,7 +120,7 @@ public class MemoizingEvaluatorTest {
   }
 
   protected MemoizingEvaluator getMemoizingEvaluator(
-      Map<SkyFunctionName, ? extends SkyFunction> functions,
+      Map<SkyFunctionName, SkyFunction> functions,
       Differencer differencer,
       EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,

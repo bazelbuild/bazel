@@ -101,7 +101,7 @@ public class ParallelEvaluatorTest {
 
   private ParallelEvaluator makeEvaluator(
       ProcessableGraph graph,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders,
+      ImmutableMap<SkyFunctionName, SkyFunction> builders,
       boolean keepGoing,
       EventFilter storedEventFilter) {
     Version oldGraphVersion = graphVersion;
@@ -122,8 +122,10 @@ public class ParallelEvaluatorTest {
         EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
   }
 
-  private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing) {
+  private ParallelEvaluator makeEvaluator(
+      ProcessableGraph graph,
+      ImmutableMap<SkyFunctionName, SkyFunction> builders,
+      boolean keepGoing) {
     return makeEvaluator(graph, builders, keepGoing,
         InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER);
   }
