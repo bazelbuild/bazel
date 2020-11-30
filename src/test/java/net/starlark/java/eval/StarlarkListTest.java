@@ -18,13 +18,17 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Sequence. */
+/** Tests for StarlarkList. */
+// TODO(adonovan): duplicate/share these tests for Tuple where applicable.
 @RunWith(JUnit4.class)
 public final class StarlarkListTest {
 
@@ -336,5 +340,78 @@ public final class StarlarkListTest {
     StarlarkList<Object> list = StarlarkList.of(mu, "a", "b");
     list.addElement(StarlarkInt.of(1)); // no ArrayStoreException
     assertThat(list.toString()).isEqualTo("[\"a\", \"b\", 1]");
+  }
+
+  @Test
+  public void testStarlarkListToArray() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.newList(mu);
+
+    for (int i = 0; i < 10; ++i) {
+      for (int len : new int[] {0, list.size() / 2, list.size(), list.size() * 2}) {
+        for (Class<?> elemType : new Class<?>[] {Object.class, String.class}) {
+          Object[] input = (Object[]) Array.newInstance(elemType, len);
+          try {
+            checkToArray(input, list);
+          } catch (AssertionError ex) {
+            fail("list.toArray(new %s[%d]): %s", elemType.getSimpleName(), len, ex.getMessage());
+          }
+        }
+      }
+      // Note we add elements in loop instead of recreating a list
+      // to also check that code works correctly when list capacity exceeds size.
+      list.addElement(Integer.toString(i));
+    }
+  }
+
+  @Test
+  public void testTupleToArray() throws Exception {
+    Tuple tuple = Tuple.of(IntStream.range(0, 10).mapToObj(Integer::toString).toArray());
+    for (int len : new int[] {0, tuple.size() / 2, tuple.size(), tuple.size() * 2}) {
+      for (Class<?> elemType : new Class<?>[] {Object.class, String.class}) {
+        Object[] input = (Object[]) Array.newInstance(elemType, len);
+        try {
+          checkToArray(input, tuple);
+        } catch (AssertionError ex) {
+          fail("tuple.toArray(new %s[%d]): %s", elemType.getSimpleName(), len, ex.getMessage());
+        }
+      }
+    }
+  }
+
+  private static void fail(String format, Object... args) {
+    throw new AssertionError(String.format(format, args));
+  }
+
+  // Asserts that seq.toArray(input) returns an array of class input.getClass(),
+  // regardless of seq's element type, and contains the correct elements,
+  // including trailing null padding if size < len.
+  private void checkToArray(Object[] input, Sequence<?> seq) throws AssertionError {
+    Arrays.fill(input, "x");
+
+    Object[] output = seq.toArray(input);
+    if (output.getClass() != input.getClass()) {
+      fail("array class mismatch: input=%s, output=%s", input.getClass(), output.getClass());
+    }
+    if (input.length < seq.size()) {
+      // assert input is unchanged
+      for (int i = 0; i < input.length; i++) {
+        if (!input[i].equals("x")) {
+          fail("input[%d] = %s, want \"x\"", i, Starlark.repr(input[i]));
+        }
+      }
+
+      Object[] expected = IntStream.range(0, seq.size()).mapToObj(Integer::toString).toArray();
+      if (!Arrays.equals(output, expected)) {
+        fail("output array = %s, want %s", output, expected);
+      }
+    } else if (output != input) {
+      for (int j = 0; j < output.length; ++j) {
+        String want = j < seq.size() ? Integer.toString(j) : null;
+        if (!output[j].equals(want)) {
+          fail("output[%d] = %s, want %s", j, output[j], want);
+        }
+      }
+    }
   }
 }

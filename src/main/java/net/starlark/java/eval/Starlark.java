@@ -245,7 +245,9 @@ public final class Starlark {
   public static Object[] toArray(Object x) throws EvalException {
     // Specialize Sequence and Dict to avoid allocation and/or indirection.
     if (x instanceof Sequence) {
-      return ((Sequence<?>) x).toArray(new Object[((Sequence) x).size()]);
+      // The returned array type must be exactly Object[],
+      // not a subclass, so calling toArray() is not enough.
+      return ((Sequence<?>) x).toArray(EMPTY);
     } else if (x instanceof Dict) {
       return ((Dict<?, ?>) x).keySet().toArray();
     } else {
@@ -875,10 +877,10 @@ public final class Starlark {
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals());
 
     StarlarkFunction toplevel = new StarlarkFunction(rfn, defaultValues, module, globalIndex);
-    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
+    return Starlark.fastcall(thread, toplevel, EMPTY, EMPTY);
   }
 
-  private static final Object[] NOARGS = {};
+  private static final Object[] EMPTY = {};
 
   /**
    * Parses the input as an expression, resolves it in the specified module environment, compiles
@@ -892,7 +894,7 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     StarlarkFunction fn = newExprFunction(input, options, module);
-    return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
+    return Starlark.fastcall(thread, fn, EMPTY, EMPTY);
   }
 
   /** Variant of {@link #eval} that creates a module for the given predeclared environment. */

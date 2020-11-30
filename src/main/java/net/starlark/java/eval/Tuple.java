@@ -158,6 +158,18 @@ public final class Tuple extends AbstractList<Object>
     return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : elems;
   }
 
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T> T[] toArray(T[] a) {
+    if (a.length < elems.length) {
+      return (T[]) Arrays.copyOf(elems, elems.length, a.getClass());
+    } else {
+      System.arraycopy(elems, 0, a, 0, elems.length);
+      Arrays.fill(a, elems.length, a.length, null);
+      return a;
+    }
+  }
+
   @Override
   public void repr(Printer printer) {
     printer.append('(');
