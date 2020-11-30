@@ -173,12 +173,6 @@ assert_eq(++4, 4)
 assert_eq(+-4, 0 - 4)
 assert_eq(-+-4, 4)
 
----
-1 // 0  ### integer division by zero
----
-1 % 0  ### integer modulo by zero
----
-
 # bitwise
 
 def f():
@@ -196,6 +190,32 @@ def f():
   assert_eq(x, 1)
 
 f()
+
+assert_eq(minint & -1, minint)
+assert_eq(maxint & -1, maxint)
+assert_eq(minlong & -1, minlong)
+assert_eq(maxlong & -1, maxlong)
+
+assert_eq(minint | -1, -1)
+assert_eq(maxint | -1, -1)
+assert_eq(minlong | -1, -1)
+assert_eq(maxlong | -1, -1)
+
+assert_eq(minint ^ -1, maxint)
+assert_eq(maxint ^ -1, minint)
+assert_eq(minlong ^ -1, maxlong)
+assert_eq(maxlong ^ -1, minlong)
+
+assert_eq(~minint, maxint)
+assert_eq(~maxint, minint)
+assert_eq(~minlong, maxlong)
+assert_eq(~maxlong, minlong)
+
+---
+1 // 0  ### integer division by zero
+---
+1 % 0  ### integer modulo by zero
+
 ---
 assert_eq(1 | 2, 3)
 assert_eq(3 | 6, 7)
