@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Java repository implementation.
-
-Creates a local repository using jdk.BUILD file.
-
-When Java executable is not present it creates a BUILD file with target "jdk"
-displaying an error message.
-"""
+"""Rules for importing and registering a local JDK."""
 
 def _local_java_repository_impl(repository_ctx):
     java_home = repository_ctx.attr.java_home
@@ -37,7 +31,20 @@ def _local_java_repository_impl(repository_ctx):
     if java_home_path.get_child("bin").get_child("java" + extension).exists:
         repository_ctx.file(
             "BUILD.bazel",
-            repository_ctx.read(repository_ctx.path(repository_ctx.attr._build_file)),
+            repository_ctx.read(repository_ctx.path(repository_ctx.attr._build_file)) +
+            """
+config_setting(
+    name = "localjdk_setting",
+    values = {{"java_runtime_version": "{local_jdk}"}},
+    visibility = ["//visibility:private"],
+)
+toolchain(
+    name = "toolchain",
+    target_settings = [":localjdk_setting"],
+    toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+    toolchain = ":jdk",
+)
+""".format(local_jdk = repository_ctx.name),
             False,
         )
 
@@ -48,7 +55,6 @@ def _local_java_repository_impl(repository_ctx):
         return
 
     # Java binary does not exist
-    # TODO(ilist): replace error message after toolchain implementation
     repository_ctx.file(
         "BUILD.bazel",
         '''load("@bazel_tools//tools/jdk:fail_rule.bzl", "fail_rule")
@@ -56,14 +62,30 @@ def _local_java_repository_impl(repository_ctx):
 fail_rule(
     name = "jdk",
     header = "Auto-Configuration Error:",
-    message = ("Cannot find Java binary %s in %s; either correct your JAVA_HOME, " +
-           "PATH or specify embedded Java (e.g. " +
-           "--javabase=@bazel_tools//tools/jdk:remote_jdk11)")
-)''' % ("bin/java" + extension, java_home),
+    message = ("Cannot find Java binary {java_binary} in {java_home}; either correct your JAVA_HOME, " +
+           "PATH or specify Java from remote repository (e.g. " +
+           "--java_runtime_version=remotejdk_11")
+)
+config_setting(
+    name = "localjdk_setting",
+    values = {{"java_runtime_version": "{local_jdk}"}},
+    visibility = ["//visibility:private"],
+)
+toolchain(
+    name = "toolchain",
+    target_settings = [":localjdk_setting"],
+    toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+    toolchain = ":jdk",
+)
+'''.format(
+            local_jdk = repository_ctx.name,
+            java_binary = "bin/java" + extension,
+            java_home = java_home,
+        ),
         False,
     )
 
-local_java_repository = repository_rule(
+_local_java_repository_rule = repository_rule(
     implementation = _local_java_repository_impl,
     local = True,
     configure = True,
@@ -72,3 +94,16 @@ local_java_repository = repository_rule(
         "_build_file": attr.label(default = "@bazel_tools//tools/jdk:jdk.BUILD"),
     },
 )
+
+def local_java_repository(name, **kwargs):
+    """Imports and registers a local JDK.
+
+    Toolchain resolution is constrained with --java_runtime_version flag
+    having value of the "name" parameter.
+
+    Args:
+      name: A unique name for this rule.
+      java_home: Location of the JDK imported.
+    """
+    _local_java_repository_rule(name = name, **kwargs)
+    native.register_toolchains("@" + name + "//:toolchain")

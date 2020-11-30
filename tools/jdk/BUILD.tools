@@ -44,14 +44,6 @@ java_toolchain(
     singlejar = [":dummy_binary"],
 )
 
-toolchain(
-    name = "dummy_java_runtime_toolchain",
-    toolchain = ":dummy_java_runtime",
-    toolchain_type = ":runtime_toolchain_type",
-)
-
-java_runtime(name = "dummy_java_runtime")
-
 # Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
 java_runtime_alias(name = "current_java_runtime")
 
