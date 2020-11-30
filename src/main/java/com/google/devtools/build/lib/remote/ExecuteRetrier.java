@@ -29,6 +29,7 @@ import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Status.Code;
 import io.grpc.protobuf.StatusProto;
 
+/** Specific retry logic for execute request with gapi Status. */
 class ExecuteRetrier extends RemoteRetrier {
 
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
@@ -78,10 +79,10 @@ class ExecuteRetrier extends RemoteRetrier {
       int maxRetryAttempts,
       ListeningScheduledExecutorService retryService,
       CircuitBreaker circuitBreaker) {
-    super(() -> maxRetryAttempts > 0 ? new RetryInfoBackoff(maxRetryAttempts) : RETRIES_DISABLED, ExecuteRetrier::test, retryService, circuitBreaker);
+    super(() -> maxRetryAttempts > 0 ? new RetryInfoBackoff(maxRetryAttempts) : RETRIES_DISABLED, ExecuteRetrier::shouldRetry, retryService, circuitBreaker);
   }
 
-  private static boolean test(Exception e) {
+  private static boolean shouldRetry(Exception e) {
     if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
       return true;
     }
@@ -89,13 +90,12 @@ class ExecuteRetrier extends RemoteRetrier {
     if (status == null || status.getDetailsCount() == 0) {
       return false;
     }
-    boolean fullyRetriable = false;
     boolean failedPrecondition = status.getCode() == Code.FAILED_PRECONDITION.value();
     for (Any detail : status.getDetailsList()) {
       if (detail.is(RetryInfo.class)) {
         // server says we can retry, regardless of other details
-        fullyRetriable = true;
-      } else if (failedPrecondition && !fullyRetriable) {
+        return true;
+      } else if (failedPrecondition) {
         if (detail.is(PreconditionFailure.class)) {
           try {
             PreconditionFailure f = detail.unpack(PreconditionFailure.class);
@@ -122,6 +122,6 @@ class ExecuteRetrier extends RemoteRetrier {
         }
       }
     }
-    return fullyRetriable || failedPrecondition;
+    return failedPrecondition;
   }
 }
