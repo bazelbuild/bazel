@@ -594,16 +594,20 @@ public class PackageFunction implements SkyFunction {
           .setPackageLoadingCode(PackageLoading.Code.EVAL_GLOBS_SYMLINK_ERROR)
           .build();
     }
+
+    if (pfeFromLegacyPackageLoading != null) {
+      // Throw before checking for missing values, since this may be our last chance to throw if in
+      // nokeep-going error bubbling.
+      packageFunctionCache.invalidate(packageId);
+      throw pfeFromLegacyPackageLoading;
+    }
+
     if (env.valuesMissing()) {
       return null;
     }
 
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
-
-    if (pfeFromLegacyPackageLoading != null) {
-      throw pfeFromLegacyPackageLoading;
-    }
 
     Package pkg = pkgBuilder.finishBuild();
 
@@ -1157,14 +1161,14 @@ public class PackageFunction implements SkyFunction {
       private static NestedSet<PathFragment> getGlobMatches(
           SkyKey globKey,
           Map<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> globValueMap)
-          throws SkyframeGlobbingIOException {
+          throws IOException {
         ValueOrException2<IOException, BuildFileNotFoundException> valueOrException =
             checkNotNull(globValueMap.get(globKey), "%s should not be missing", globKey);
         try {
           return checkNotNull(
                   (GlobValue) valueOrException.get(), "%s should not be missing", globKey)
               .getMatches();
-        } catch (BuildFileNotFoundException | IOException e) {
+        } catch (BuildFileNotFoundException e) {
           // Legacy package loading is only able to handle an IOException, so a rethrow here is the
           // best we can do.
           throw new SkyframeGlobbingIOException(e);
@@ -1174,8 +1178,8 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static class SkyframeGlobbingIOException extends IOException {
-    private SkyframeGlobbingIOException(Exception cause) {
-      super(cause);
+    private SkyframeGlobbingIOException(BuildFileNotFoundException cause) {
+      super(cause.getMessage(), cause);
     }
   }
 

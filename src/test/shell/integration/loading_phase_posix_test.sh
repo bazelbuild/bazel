@@ -98,11 +98,13 @@ function run_test_glob_with_io_error() {
   chmod 000 $pkg/t/u
 
   bazel query "$option" "//$pkg/t:*" >& $TEST_log && fail "Expected failure"
-  expect_log 'error globbing.*Permission denied'
+  # TODO(katre): when error message from ErrorDeterminingRepositoryException is
+  #  improved, add it here too.
+  expect_log 'error globbing'
 
   chmod 755 $pkg/t/u
   bazel query "$option" "//$pkg/t:*" >& $TEST_log || fail "Expected success"
-  expect_not_log 'error globbing.*Permission denied'
+  expect_not_log 'error globbing'
   expect_log "//$pkg/t:u"
   expect_log "//$pkg/t:u/v"
 }
