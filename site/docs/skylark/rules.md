@@ -627,7 +627,9 @@ def _impl(ctx):
     # transitive_files parameter takes a list of depsets of Files.
     runfiles = ctx.runfiles(files = ctx.files.data)
     # Runfiles can be merged in from dependencies with runfiles.merge.
-    for target in ctx.attr.data + ctx.attr.deps:
+    # srcs is included in dependencies which might provide runfiles mainly
+    # because srcs can include filegroup targets with data.
+    for target in ctx.attr.srcs + ctx.attr.deps + ctx.attr.data:
         runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
     return [DefaultInfo(..., runfiles = runfiles)]
 ```
