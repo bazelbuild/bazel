@@ -43,6 +43,12 @@ dict().popitem() ### dictionary is empty
 ---
 dict(a=2).pop('z') ### KeyError: "z"
 ---
+d = {}
+freeze(d)
+d.pop("nonexistent", "default") ### trying to mutate a frozen dict value
+---
+{}.pop([], 1) ### unhashable type: 'list'
+---
 
 # update
 

@@ -215,11 +215,14 @@ public final class Dict<K, V>
       },
       useStarlarkThread = true)
   public Object pop(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
-    Object value = get(key);
+    Starlark.checkMutable(this);
+    Object value = contents.remove(key);
     if (value != null) {
-      removeEntry(key);
       return value;
     }
+
+    Starlark.checkHashable(key);
+
     if (defaultValue != Starlark.UNBOUND) {
       return defaultValue;
     }
