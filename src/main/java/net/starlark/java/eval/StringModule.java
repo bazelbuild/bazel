@@ -362,7 +362,7 @@ final class StringModule implements StarlarkValue {
     if (maxSplitO != Starlark.NONE) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
-    StarlarkList<String> res = StarlarkList.of(thread.mutability());
+    StarlarkList<String> res = StarlarkList.newList(thread.mutability());
     int start = 0;
     while (true) {
       int end = self.indexOf(sep, start);
@@ -681,7 +681,7 @@ final class StringModule implements StarlarkValue {
       useStarlarkThread = true)
   public Sequence<String> splitLines(String self, boolean keepEnds, StarlarkThread thread)
       throws EvalException {
-    StarlarkList<String> result = StarlarkList.of(thread.mutability());
+    StarlarkList<String> result = StarlarkList.newList(thread.mutability());
     Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
     while (matcher.find()) {
       String line = matcher.group("line");

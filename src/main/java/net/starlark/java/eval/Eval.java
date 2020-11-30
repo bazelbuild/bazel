@@ -708,7 +708,7 @@ final class Eval {
       throws EvalException, InterruptedException {
     final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
     final StarlarkList<Object> list =
-        comp.isDict() ? null : StarlarkList.of(fr.thread.mutability());
+        comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {

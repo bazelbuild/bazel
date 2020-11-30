@@ -185,6 +185,10 @@ public final class StarlarkList<E> extends AbstractList<E>
    * mutability} is null, the list is immutable.
    */
   public static <T> StarlarkList<T> of(@Nullable Mutability mutability, T... elems) {
+    if (elems.length == 0) {
+      return newList(mutability);
+    }
+
     checkElemsValid(elems);
     return wrap(mutability, Arrays.copyOf(elems, elems.length, Object[].class));
   }

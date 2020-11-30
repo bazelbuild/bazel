@@ -773,7 +773,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
       useStarlarkThread = true)
   public StarlarkList<?> zip(Sequence<?> args, StarlarkThread thread) throws EvalException {
-    StarlarkList<Tuple> result = StarlarkList.of(thread.mutability());
+    StarlarkList<Tuple> result = StarlarkList.newList(thread.mutability());
     int ncols = args.size();
     if (ncols > 0) {
       Iterator<?>[] iterators = new Iterator<?>[ncols];
