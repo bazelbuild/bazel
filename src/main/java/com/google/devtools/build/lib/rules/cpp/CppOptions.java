@@ -508,6 +508,22 @@ public class CppOptions extends FragmentOptions {
   public boolean enableFdoProfileAbsolutePath;
 
   @Option(
+      name = "propeller_optimize_absolute_cc_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+  public String propellerOptimizeAbsoluteCCProfile;
+
+  @Option(
+      name = "propeller_optimize_absolute_ld_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+  public String propellerOptimizeAbsoluteLdProfile;
+
+  @Option(
       name = "propeller_optimize",
       defaultValue = "null",
       converter = LabelConverter.class,
