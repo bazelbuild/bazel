@@ -39,7 +39,7 @@ assert_eq(foo.pop('a', 0), 0)
 assert_eq(foo.popitem(), ('b', [1, 2]))
 
 ---
-dict().popitem() ### dictionary is empty
+dict().popitem() ### empty dictionary
 ---
 dict(a=2).pop('z') ### KeyError: "z"
 ---

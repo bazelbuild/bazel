@@ -233,20 +233,21 @@ public final class Dict<K, V>
   @StarlarkMethod(
       name = "popitem",
       doc =
-          "Remove and return an arbitrary <code>(key, value)</code> pair from the dictionary. "
-              + "<code>popitem()</code> is useful to destructively iterate over a dictionary, "
+          "Remove and return the first <code>(key, value)</code> pair from the dictionary. "
+              + "<code>popitem</code> is useful to destructively iterate over a dictionary, "
               + "as often used in set algorithms. "
-              + "If the dictionary is empty, calling <code>popitem()</code> fails. "
-              + "It is deterministic which pair is returned.",
-      useStarlarkThread = true)
-  public Tuple popitem(StarlarkThread thread) throws EvalException {
+              + "If the dictionary is empty, the <code>popitem</code> call fails.")
+  public Tuple popitem() throws EvalException {
     if (isEmpty()) {
-      throw Starlark.errorf("popitem(): dictionary is empty");
+      throw Starlark.errorf("popitem: empty dictionary");
     }
-    Object key = keySet().iterator().next();
-    Object value = get(key);
-    removeEntry(key);
-    return Tuple.pair(key, value);
+
+    Starlark.checkMutable(this);
+
+    Iterator<Entry<K, V>> iterator = contents.entrySet().iterator();
+    Entry<K, V> entry = iterator.next();
+    iterator.remove();
+    return Tuple.pair(entry.getKey(), entry.getValue());
   }
 
   @StarlarkMethod(
