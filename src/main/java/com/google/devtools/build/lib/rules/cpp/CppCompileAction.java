@@ -583,13 +583,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     topLevelModules = topLevelModulesBuilder.build();
     discoveredModulesBuilder.addTransitive(topLevelModules);
-    NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.buildInterruptibly();
+    discoveredModules = discoveredModulesBuilder.buildInterruptibly();
 
     additionalInputs =
         NestedSetBuilder.fromNestedSet(additionalInputs).addTransitive(discoveredModules).build();
-    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
-      this.discoveredModules = discoveredModules;
-    }
     usedModules = null;
     return additionalInputs;
   }
@@ -1381,7 +1378,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     if (shouldScanIncludes) {
-      updateActionInputs(additionalInputs);
+      updateActionInputs(discoveredModules);
+    }
+    if (!outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      this.discoveredModules = null;
     }
 
     ActionExecutionContext spawnContext;
