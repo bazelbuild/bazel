@@ -25,17 +25,24 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.r8.DescriptorUtils;
 import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.ZipUtils;
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -93,6 +100,10 @@ public class OutputConsumer implements ClassFileConsumer {
 
   @Override
   public void finished(DiagnosticsHandler handler) {
+    FilteringDependencyCollector dependencyCollector =
+        new FilteringDependencyCollector(this.dependencyCollector);
+    initializeInputDependencies(handler, dependencyCollector);
+    dependencyCollector.setFiltering();
     try (ZipOutputStream out =
         new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
       for (ClassFileData classFile : classFiles) {
@@ -110,6 +121,24 @@ public class OutputConsumer implements ClassFileConsumer {
           entryName ->
               ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
                   || ArchiveProgramResourceProvider.includeClassFileEntries(entryName));
+
+    } catch (IOException e) {
+      handler.error(new ExceptionDiagnostic(e, origin));
+    }
+  }
+
+  private void initializeInputDependencies(
+      DiagnosticsHandler handler, FilteringDependencyCollector dependencyCollector) {
+    try (ZipInputStream inputStream =
+        new ZipInputStream(new BufferedInputStream(Files.newInputStream(input)))) {
+      ZipEntry zipEntry;
+      while ((zipEntry = inputStream.getNextEntry()) != null) {
+        if (ArchiveProgramResourceProvider.includeClassFileEntries(zipEntry.getName())) {
+          ClassFileData classFileData =
+              new ClassFileData(zipEntry.getName(), ByteStreams.toByteArray(inputStream));
+          new DesugaredClassFileDependencyCollector(classFileData, dependencyCollector).run();
+        }
+      }
     } catch (IOException e) {
       handler.error(new ExceptionDiagnostic(e, origin));
     }
@@ -210,6 +239,76 @@ public class OutputConsumer implements ClassFileConsumer {
           .accept(
               new DependencyCollectorClassVisitor(dependencyCollector),
               ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+    }
+  }
+
+  private static class FilteringDependencyCollector implements DependencyCollector {
+
+    private final DependencyCollector outputCollector;
+    private boolean filterMode = false;
+    private final Map<String, Set<String>> companionClasses = new HashMap<>();
+    private final Map<String, Set<String>> missingImplementedInterfaces = new HashMap<>();
+    private final Map<String, Integer> defaultMethods = new HashMap<>();
+
+    public FilteringDependencyCollector(DependencyCollector outputCollector) {
+      this.outputCollector = outputCollector;
+    }
+
+    @Override
+    public byte[] toByteArray() {
+      return outputCollector.toByteArray();
+    }
+
+    @Override
+    public void recordDefaultMethods(String origin, int count) {
+      checkArgument(filterMode || !defaultMethods.containsKey(origin));
+      if (!filterMode) {
+        defaultMethods.put(origin, count);
+      } else if (!defaultMethods.containsKey(origin)) {
+        outputCollector.recordDefaultMethods(origin, count);
+      } else {
+        checkArgument(count == defaultMethods.get(origin));
+      }
+    }
+
+    @Override
+    public void recordExtendedInterfaces(String origin, String... targets) {
+      // We still unconditionally report the extended interfaces since these would also be found
+      // on the non-desugared input.
+      if (!filterMode) {
+        outputCollector.recordExtendedInterfaces(origin, targets);
+      }
+    }
+
+    @Override
+    public void assumeCompanionClass(String origin, String target) {
+      if (addIfNotFilteringOrShouldReport(origin, target, companionClasses)) {
+        outputCollector.assumeCompanionClass(origin, target);
+      }
+    }
+
+    @Override
+    public void missingImplementedInterface(String origin, String target) {
+      if (addIfNotFilteringOrShouldReport(origin, target, missingImplementedInterfaces)) {
+        outputCollector.missingImplementedInterface(origin, target);
+      }
+    }
+
+    // Adds to the multi map the value for the given key if we are not in filtering mode.
+    // If we are in filtering mode, returns true if we had the value for the given key in the input.
+    private boolean addIfNotFilteringOrShouldReport(
+        String origin, String target, Map<String, Set<String>> stringMultiMap) {
+      if (!filterMode) {
+        stringMultiMap.computeIfAbsent(origin, k -> new HashSet<>()).add(target);
+        return false;
+      } else {
+        Set<String> existing = stringMultiMap.get(origin);
+        return existing == null || !existing.contains(target);
+      }
+    }
+
+    public void setFiltering() {
+      this.filterMode = true;
     }
   }
 }
