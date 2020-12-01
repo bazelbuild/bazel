@@ -1083,13 +1083,13 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(client, digest), UTF_8)).isEqualTo("abcdefg");
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
   }
 
   @Test
   public void downloadBlobPassesThroughDeadlineExceededWithoutProgress() throws IOException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
-    Mockito.when(mockBackoff.nextDelayMillis()).thenReturn(-1L);
+    Mockito.when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
     final GrpcCacheClient client =
         newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
@@ -1109,7 +1109,7 @@ public class GrpcCacheClientTest {
     IOException e = assertThrows(IOException.class, () -> downloadBlob(client, digest));
     Status st = Status.fromThrowable(e);
     assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
-    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
   }
 
   @Test

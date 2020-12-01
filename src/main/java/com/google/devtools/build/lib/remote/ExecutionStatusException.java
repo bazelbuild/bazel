@@ -63,4 +63,8 @@ public class ExecutionStatusException extends StatusRuntimeException {
   public ExecuteResponse getResponse() {
     return response;
   }
+
+  public Status getOriginalStatus() {
+    return status;
+  }
 }

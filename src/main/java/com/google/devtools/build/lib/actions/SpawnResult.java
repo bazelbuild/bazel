@@ -385,11 +385,6 @@ public interface SpawnResult {
       String reason = "(" + status.toShortString() + ")"; // e.g "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
-      if (!status().isConsideredUserError()) {
-        String errorDetail = status().name().toLowerCase(Locale.US)
-            .replace('_', ' ');
-        explanation += ". Note: Remote connection/protocol failed with: " + errorDetail;
-      }
       if (status() == Status.TIMEOUT) {
         if (getWallTime().isPresent()) {
           explanation +=
@@ -406,9 +401,6 @@ public interface SpawnResult {
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
         explanation += " Action tagged as local was forcibly run remotely and failed - it's "
             + "possible that the action simply doesn't work remotely";
-      }
-      if (!Strings.isNullOrEmpty(failureMessage)) {
-        explanation += " " + failureMessage;
       }
       return reason + explanation;
     }
