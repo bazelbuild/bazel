@@ -52,51 +52,66 @@ needed.
 ## Rule creation
 
 In a `.bzl` file, use the [rule](lib/globals.html#rule)
-function to create a new rule and store it in a global variable:
+function to define a new rule, and store the result in a global variable. The
+call to `rule` specifies [attributes](#attributes) and an
+[implementation function](#implementation-function):
 
 ```python
-my_rule = rule(...)
-```
-
-The rule can then be loaded in `BUILD` files:
-
-```python
-load('//some/pkg:whatever.bzl', 'my_rule')
-```
-
-[See example](https://github.com/bazelbuild/examples/tree/master/rules/empty).
-
-## Attributes
-
-An attribute is a rule argument, such as `srcs` or `deps`. You must list the
-names and schemas of all attributes when you define a rule. Attribute schemas
-are created using the [`attr`](lib/attr.html) module.
-
-```python
-sum = rule(
-    implementation = _impl,
+my_rule = rule(
+    implementation = _my_rule_impl,
     attrs = {
-        "number": attr.int(default = 1),
         "deps": attr.label_list(),
+        ...
     },
 )
 ```
 
-In a `BUILD` file, call the rule to create targets of this type:
+This defines a [kind of rule](../query.html#kind) named `my_rule`.
+
+The call to `rule` also must specify if the rule creates an
+[executable](#executable-rules) output (with `executable=True`), or specifically
+a test executable (with `test=True`). If the latter, the rule is a *test rule*,
+and the name of the rule must end in `_test`.
+
+## Target instantiation
+
+Rules can be [loaded](../build-ref.html#load) and called in `BUILD` files:
 
 ```python
-sum(
-    name = "my-target",
-    deps = [":other-target"],
-)
+load('//some/pkg:rules.bzl', 'my_rule')
 
-sum(
-    name = "other-target",
+my_rule(
+    name = "my_target",
+    deps = [":another_target"],
+    ...
 )
 ```
 
-Here `other-target` is a dependency of `my-target`, and therefore `other-target`
-will be analyzed first.
+Each call to a build rule returns no value, but has the side effect of defining
+a target. This is called *instantiating* the rule. This specifies a name for
+the new target and values for the target's [attributes](#attributes).
+
+Rules can also be called from Starlark functions and loaded in `.bzl` files.
+Starlark functions that call rules are called [Starlark macros](macros.md).
+Starlark macros must ultimately be called from `BUILD` files, and can only be
+called during the [loading phase](concepts.md#evaluation-model), when `BUILD`
+files are evaluated to instantiate targets.
+
+## Attributes
+
+An *attribute* is a rule argument. Attributes can provide
+specific values to a target's [implementation](#implementation-function), or
+they can refer to other targets, creating a graph of dependencies.
+
+Rule-specific attributes, such as `srcs` or `deps`, are defined by passing a
+map from attribute names to schemas (created using the [`attr`](lib/attr.html)
+module) to the `attrs` parameter of `rule`.
+[Common attributes](../be/common-definitions.html#common-attributes), such as
+`name` and `visibility`, are implicitly added to all rules. Additional
+attributes are implicitly added to
+[executable and test rules](#executable-rules) specficially. Attributes which
+are implicitly added to a rule cannot be included in the dictionary passed to
+`attrs`.
 
 ### Dependency attributes
 
@@ -111,17 +126,9 @@ Rules that process source code usually define the following attributes:
     which depends on a target. That should allow arbitrary files to be
     specified.
 
-These are *dependency attributes*, defined with
-[`attr.label_list`](lib/attr.html#label_list), which specify dependencies
-between a target and the targets whose labels (or the corresponding
-[`Label`](lib/Label.html) objects) are listed in that attribute when the target
-is defined. The repository, and possibly the path, for these labels is resolved
-relative to the defined target. You can use [`attr.label`](lib/attr.html#label)
-instead for attributes which specify a single dependency.
-
 ```python
-metal_binary = rule(
-    implementation = _metal_binary_impl,
+metal_library = rule(
+    implementation = _metal_library_impl,
     attrs = {
         "srcs": attr.label_list(allow_files = [".metal"]),
         "deps": attr.label_list(providers = [MetalInfo]),
@@ -130,6 +137,30 @@ metal_binary = rule(
     },
 )
 ```
+
+These are examples of *dependency attributes*. Any attribute definied with
+[`attr.label_list`](lib/attr.html#label_list) (or
+[`attr.label`](lib/attr.html#label)) specifies dependencies between a target and
+the targets whose labels (or the corresponding [`Label`](lib/Label.html)
+objects) are listed in that attribute when the target is defined. The
+repository, and possibly the path, for these labels is resolved relative to the
+defined target.
+
+```python
+metal_library(
+    name = "my_target",
+    deps = [":other_target"],
+)
+
+metal_library(
+    name = "other_target",
+    ...
+)
+```
+
+In this example, `other_target` is a dependency of `my_target`, and therefore
+`other_target` is analyzed first. It is an error if there is a cycle in the
+dependency graph of targets.
 
 <a name="private-attributes"></a>
 
@@ -149,8 +180,8 @@ values. It generally only makes sense to use private attributes for implicit
 dependencies.
 
 ```python
-metal_binary = rule(
-    implementation = _metal_binary_impl,
+metal_library = rule(
+    implementation = _metal_library_impl,
     attrs = {
         ...
         "_compiler": attr.label(
@@ -163,8 +194,8 @@ metal_binary = rule(
 )
 ```
 
-In this example, every target of type `metal_binary` will have an implicit
-dependency on the compiler `//tools:metalc`. This allows `metal_binary`'s
+In this example, every target of type `metal_library` will have an implicit
+dependency on the compiler `//tools:metalc`. This allows `metal_library`'s
 implementation function to generate actions that invoke the compiler, even
 though the user did not pass its label as an input. Since `_compiler` is a
 private attribute, we know for sure that `ctx.attr._compiler` will always point
@@ -222,28 +253,6 @@ See [an example](https://github.com/bazelbuild/examples/blob/master/rules/attrib
 of declaring and accessing attributes.
 
 ## Targets
-
-Each call to a build rule returns no value but has the side effect of defining a
-new target; this is called instantiating the rule. The dependencies of the new
-target are any other targets whose labels are mentioned in its dependency
-attributes. In the following example, the target `//mypkg:y` depends on the
-targets `//mypkg:x` and `//mypkg:z.foo`.
-
-```python
-# //mypkg:BUILD
-
-my_rule(
-    name = "x",
-)
-
-# Assuming that my_rule has attributes "deps" and "srcs",
-# of type attr.label_list()
-my_rule(
-    name = "y",
-    deps = [":x"],
-    srcs = [":z.foo"],
-)
-```
 
 Dependencies are represented at analysis time as [`Target`](lib/Target.html)
 objects. These objects contain the information produced by analyzing a target --
