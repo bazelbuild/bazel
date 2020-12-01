@@ -194,7 +194,7 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
         //
         // However, we only retry Execute() if executeBackoff should retry. Also increase the retry
         // counter at the same time (done by nextDelayMillis()).
-        if (e.getStatus().getCode() == Code.NOT_FOUND && executeBackoff.nextDelayMillis() >= 0) {
+        if (e.getStatus().getCode() == Code.NOT_FOUND && executeBackoff.nextDelayMillis(e) >= 0) {
           lastOperation = null;
           return null;
         }
