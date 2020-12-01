@@ -193,6 +193,30 @@ public class StarlarkDocumentationTest {
     }
   }
 
+  /** MockClassI */
+  @StarlarkBuiltin(name = "MockClassI", doc = "MockClassI")
+  private static class MockClassI implements StarlarkValue {
+    @StarlarkMethod(
+        name = "test",
+        doc = "MockClassI#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+          @Param(
+              name = "e",
+              named = true,
+              positional = false,
+              documented = false,
+              defaultValue = "2"),
+        },
+        extraPositionals = @Param(name = "myArgs"))
+    public Integer test(int a, int b, int c, int d, int e, Sequence<?> args) {
+      return 0;
+    }
+  }
+
   /**
    * MockGlobalLibrary. While nothing directly depends on it, a test method in
    * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
@@ -385,6 +409,21 @@ public class StarlarkDocumentationTest {
             "<a class=\"anchor\" href=\"int.html\">int</a> "
                 + "MockClassH.test(a, b, *, c, d=1, *myArgs, **myKwargs)");
     assertThat(methodDoc.getParams()).hasSize(6);
+  }
+
+  @Test
+  public void testStarlarkUndocumentedParameters() throws Exception {
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassI.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassI");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassI");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassI#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassI.test(a, b, *, c, d=1, *myArgs)");
+    assertThat(methodDoc.getParams()).hasSize(5);
   }
 
   @Test
