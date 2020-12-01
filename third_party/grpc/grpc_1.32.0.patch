@@ -8,6 +8,8 @@ Date:   Wed Jun 3 15:35:31 2020 +0200
     libraries
     - Add bazel mirror URL for upb and cares
     - Redirect zlib to @//third_party/zlib
+    - Add darwin_arm64 and darwin_arm64e config settings to allow
+    building for Apple Silicon
 
 diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 index 7bb6b8bdb9..7644107b70 100644
@@ -88,3 +90,33 @@ index 4c1dfad2e8..f63c54ddef 100644
 -    apple_rules_dependencies()
 -
 -    apple_support_dependencies()
+diff --git a/third_party/cares/cares.BUILD b/third_party/cares/cares.BUILD
+index c047f0c515..7c24fbc617 100644
+--- a/third_party/cares/cares.BUILD
++++ b/third_party/cares/cares.BUILD
+@@ -10,6 +10,16 @@ config_setting(
+     values = {"cpu": "darwin_x86_64"},
+ )
+ 
++config_setting(
++    name = "darwin_arm64",
++    values = {"cpu": "darwin_arm64"},
++)
++
++config_setting(
++    name = "darwin_arm64e",
++    values = {"cpu": "darwin_arm64e"},
++)
++
+ config_setting(
+     name = "windows",
+     values = {"cpu": "x64_windows"},
+@@ -99,6 +109,8 @@ copy_file(
+         ":watchos_arm64_32": "@com_github_grpc_grpc//third_party/cares:config_darwin/ares_config.h",
+         ":darwin": "@com_github_grpc_grpc//third_party/cares:config_darwin/ares_config.h",
+         ":darwin_x86_64": "@com_github_grpc_grpc//third_party/cares:config_darwin/ares_config.h",
++        ":darwin_arm64": "@com_github_grpc_grpc//third_party/cares:config_darwin/ares_config.h",
++        ":darwin_arm64e": "@com_github_grpc_grpc//third_party/cares:config_darwin/ares_config.h",
+         ":windows": "@com_github_grpc_grpc//third_party/cares:config_windows/ares_config.h",
+         ":android": "@com_github_grpc_grpc//third_party/cares:config_android/ares_config.h",
+         "//conditions:default": "@com_github_grpc_grpc//third_party/cares:config_linux/ares_config.h",
