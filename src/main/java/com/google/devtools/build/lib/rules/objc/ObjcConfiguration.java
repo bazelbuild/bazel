@@ -69,6 +69,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
   private final boolean avoidHardcodedCompilationFlags;
+  private final boolean disableNativeAppleBinaryRule;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -102,6 +103,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.shouldScanIncludes = objcOptions.scanIncludes;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
+    this.disableNativeAppleBinaryRule = objcOptions.incompatibleDisableNativeAppleBinaryRule;
   }
 
   /**
@@ -259,5 +261,10 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   /** Returns true iff we should do "include scanning" during this build. */
   public boolean shouldScanIncludes() {
     return shouldScanIncludes;
+  }
+
+  /** Returns true iff the native {@code apple_binary} rule should be disabled. */
+  public boolean disableNativeAppleBinaryRule() {
+    return disableNativeAppleBinaryRule;
   }
 }

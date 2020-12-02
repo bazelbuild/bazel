@@ -255,4 +255,20 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           "Prevents Bazel from adding compiler options to Objective-C compilation actions. Options"
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
+
+  @Option(
+      name = "incompatible_disable_native_apple_binary_rule",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, direct usage of the native apple_binary rule is disabled. Please use the"
+              + " Starlark rule from https://github.com/bazelbuild/rules_apple instead.")
+  public boolean incompatibleDisableNativeAppleBinaryRule;
 }
