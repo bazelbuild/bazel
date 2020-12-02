@@ -80,11 +80,13 @@ JVM8_TOOLCHAIN_CONFIGURATION = dict(
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
     jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
+        # Compact strings make JavaBuilder slightly slower.
         "-XX:-CompactStrings",
     ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
     tools = [
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
@@ -118,11 +120,13 @@ VANILLA_TOOLCHAIN_CONFIGURATION = dict(
 # platform.
 PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
     jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
+        # Compact strings make JavaBuilder slightly slower.
         "-XX:-CompactStrings",
     ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
     tools = [
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
