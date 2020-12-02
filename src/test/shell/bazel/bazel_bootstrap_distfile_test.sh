@@ -85,6 +85,16 @@ function test_bootstrap() {
         ;;
     esac
 
+    if "$is_windows"; then
+      # For debugging: https://github.com/bazelbuild/bazel/issues/12578
+      echo "SHA256SUM of ${DISTFILE}: "
+      sha256sum ${DISTFILE}
+      echo "./BUILD after unzipping ${DISTFILE}"
+      cat ./BUILD
+      echo "List ./:"
+      ls ./
+    fi
+
     case "${EMBEDDED_JDK}" in
       *.zip)
         unzip -q "$EMBEDDED_JDK"
@@ -102,8 +112,15 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
-    # For debugging: https://github.com/bazelbuild/bazel/issues/12578
-    cat ./BUILD
+    if "$is_windows"; then
+      # For debugging: https://github.com/bazelbuild/bazel/issues/12578
+      echo "SHA256SUM of ${EMBEDDED_JDK}: "
+      sha256sum ${EMBEDDED_JDK}
+      echo "./BUILD after unzipping ${EMBEDDED_JDK}"
+      cat ./BUILD
+      echo "List ./:"
+      ls ./
+    fi
 
     env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
