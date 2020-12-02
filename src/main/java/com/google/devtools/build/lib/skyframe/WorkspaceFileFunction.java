@@ -61,6 +61,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.LoadStatement;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
@@ -242,10 +243,12 @@ public class WorkspaceFileFunction implements SkyFunction {
       StarlarkFile ast = asts.get(key.getIndex());
 
       // Parse the labels in the file's load statements.
-      ImmutableList<Pair<String, Label>> loads =
+      ImmutableList<Pair<String, Location>> programLoads =
+          BzlLoadFunction.getLoadsFromStarlarkFile(ast);
+      ImmutableList<Label> loadLabels =
           BzlLoadFunction.getLoadLabels(
-              env.getListener(), ast, rootPackage, /*repoMapping=*/ ImmutableMap.of());
-      if (loads == null) {
+              env.getListener(), programLoads, rootPackage, /*repoMapping=*/ ImmutableMap.of());
+      if (loadLabels == null) {
         throw PackageFunction.PackageFunctionException.builder()
             .setType(PackageFunction.PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
             .setPackageIdentifier(rootPackage)
@@ -254,10 +257,21 @@ public class WorkspaceFileFunction implements SkyFunction {
             .buildCause();
       }
 
+      // Compute key for each load label.
+      ImmutableList.Builder<BzlLoadValue.Key> keys =
+          ImmutableList.builderWithExpectedSize(loadLabels.size());
+      for (Label loadLabel : loadLabels) {
+        keys.add(
+            BzlLoadValue.keyForWorkspace(
+                loadLabel,
+                getOriginalWorkspaceChunk(env, workspaceFile, key.getIndex(), loadLabel),
+                workspaceFile));
+      }
+
       // Load .bzl modules in parallel.
       ImmutableMap<String, Module> loadedModules =
           PackageFunction.loadBzlModules(
-              workspaceFile, rootPackage, loads, key.getIndex(), env, bzlLoadFunctionForInlining);
+              env, rootPackage, programLoads, keys.build(), bzlLoadFunctionForInlining);
       if (loadedModules == null) {
         return null;
       }
@@ -278,6 +292,22 @@ public class WorkspaceFileFunction implements SkyFunction {
         key.getIndex() < asts.size() - 1,
         ImmutableMap.copyOf(parser.getManagedDirectories()),
         parser.getDoNotSymlinkInExecrootPaths());
+  }
+
+  private static int getOriginalWorkspaceChunk(
+      Environment env, RootedPath workspacePath, int workspaceChunk, Label loadLabel)
+      throws InterruptedException {
+    if (workspaceChunk < 1) {
+      return workspaceChunk;
+    }
+    // If we got here, we are already computing workspaceChunk "workspaceChunk", and so we know
+    // that the value for "workspaceChunk-1" has already been computed so we don't need to check
+    // for nullness
+    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk - 1);
+    WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
+    ImmutableMap<String, Integer> loadToChunkMap = workspaceFileValue.getLoadToChunkMap();
+    String loadString = loadLabel.toString();
+    return loadToChunkMap.getOrDefault(loadString, workspaceChunk);
   }
 
   private static Package buildAndReportEvents(Package.Builder pkgBuilder, Environment env)

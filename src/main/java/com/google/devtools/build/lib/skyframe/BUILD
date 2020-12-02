@@ -885,6 +885,7 @@ java_library(
     deps = [
         ":precomputed_value",
         ":sky_functions",
+        ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

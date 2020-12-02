@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -34,9 +35,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.List;
-import net.starlark.java.syntax.LoadStatement;
-import net.starlark.java.syntax.StarlarkFile;
-import net.starlark.java.syntax.Statement;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -116,18 +114,11 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    List<String> loads = getLoads(result.get(skyKey).getAST());
+    List<String> loads =
+        BzlLoadFunction.getLoadsFromProgram(result.get(skyKey).getProgram()).stream()
+            .map(Pair::getFirst)
+            .collect(toImmutableList());
     assertThat(loads).containsExactly(":bar.bzl");
-  }
-
-  private static List<String> getLoads(StarlarkFile file) {
-    List<String> loads = Lists.newArrayList();
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        loads.add(((LoadStatement) stmt).getImport().getValue());
-      }
-    }
-    return loads;
   }
 
   @Test

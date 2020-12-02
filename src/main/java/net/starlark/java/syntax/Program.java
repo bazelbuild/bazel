@@ -13,7 +13,6 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -25,11 +24,14 @@ public final class Program {
 
   private final Resolver.Function body;
   private final ImmutableList<String> loads;
+  private final ImmutableList<Location> loadLocations;
 
-  private Program(Resolver.Function body, ImmutableList<String> loads) {
+  private Program(
+      Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations) {
     // TODO(adonovan): compile here.
     this.body = body;
     this.loads = loads;
+    this.loadLocations = loadLocations;
   }
 
   // TODO(adonovan): eliminate once Eval no longer needs access to syntax.
@@ -47,6 +49,11 @@ public final class Program {
     return loads;
   }
 
+  /*** Returns the location of the ith load (see {@link #getLoads}). */
+  public Location getLoadLocation(int i) {
+    return loadLocations.get(i);
+  }
+
   /**
    * Resolves a file syntax tree in the specified environment and compiles it to a Program. This
    * operation mutates the syntax tree, both by resolving identifiers and recording local variables,
@@ -61,26 +68,20 @@ public final class Program {
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
-    return compileResolvedFile(file);
-  }
-
-  /** Variant of {@link #compileFile} for an already-resolved file syntax tree. */
-  // TODO(adonovan): eliminate. This is a stop-gap because Bazel's Skyframe functions
-  // are currently split as parse/resolve + compile/run, not parse/resolve/compile + run.
-  public static Program compileResolvedFile(StarlarkFile file) {
-    Preconditions.checkState(file.ok());
 
     // Extract load statements.
     ImmutableList.Builder<String> loads = ImmutableList.builder();
+    ImmutableList.Builder<Location> loadLocations = ImmutableList.builder();
     for (Statement stmt : file.getStatements()) {
       if (stmt instanceof LoadStatement) {
         LoadStatement load = (LoadStatement) stmt;
         String module = load.getImport().getValue();
         loads.add(module);
+        loadLocations.add(load.getImport().getLocation());
       }
     }
 
-    return new Program(file.getResolvedFunction(), loads.build());
+    return new Program(file.getResolvedFunction(), loads.build(), loadLocations.build());
   }
 
   /**
@@ -93,6 +94,6 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    return new Program(body, /*loads=*/ ImmutableList.of());
+    return new Program(body, /*loads=*/ ImmutableList.of(), /*loadLocations=*/ ImmutableList.of());
   }
 }
