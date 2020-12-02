@@ -628,7 +628,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_language_version",
-      defaultValue = "",
+      defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
@@ -636,7 +636,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "tool_java_language_version",
-      defaultValue = "",
+      defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version used to build tools that are executed during a build")

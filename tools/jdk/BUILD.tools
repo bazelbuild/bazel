@@ -28,22 +28,6 @@ toolchain_type(name = "toolchain_type")
 # Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
 toolchain_type(name = "runtime_toolchain_type")
 
-toolchain(
-    name = "dummy_java_toolchain",
-    toolchain = ":dummy_toolchain",
-    toolchain_type = ":toolchain_type",
-)
-
-cc_binary(name = "dummy_binary")
-
-java_toolchain(
-    name = "dummy_toolchain",
-    genclass = [":dummy_binary"],
-    ijar = [":dummy_binary"],
-    javabuilder = [":dummy_binary"],
-    singlejar = [":dummy_binary"],
-)
-
 # Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
 java_runtime_alias(name = "current_java_runtime")
 
@@ -375,25 +359,6 @@ default_java_toolchain(
 alias(
     name = "remote_toolchain",
     actual = ":toolchain",
-)
-
-# The 'vanilla' toolchain is an unsupported alternative to the default.
-#
-# It does not provider any of the following features:
-#   * Error Prone
-#   * Strict Java Deps
-#   * Header Compilation
-#   * Reduced Classpath Optimization
-#
-# It uses the version of javac from the `--host_javabase` instead of the
-# embedded javac, which may not be source- or bug-compatible with the embedded
-# javac.
-#
-# However it does allow using a wider range of `--host_javabase`s, including
-# versions newer than the current embedded JDK.
-default_java_toolchain(
-    name = "toolchain_vanilla",
-    configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
 )
 
 RELEASES = (8, 9, 10, 11)
