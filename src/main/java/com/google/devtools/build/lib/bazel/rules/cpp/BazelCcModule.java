@@ -79,6 +79,8 @@ public class BazelCcModule extends CcModule
       Sequence<?> sources, // <Artifact> expected
       Sequence<?> publicHeaders, // <Artifact> expected
       Sequence<?> privateHeaders, // <Artifact> expected
+      Object textualHeaders,
+      Object additionalExportedHeaders,
       Sequence<?> includes, // <String> expected
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
@@ -95,6 +97,10 @@ public class BazelCcModule extends CcModule
       Sequence<?> additionalInputs, // <Artifact> expected
       Object moduleMap,
       Object additionalModuleMaps,
+      Object propagateModuleMapToCompileAction,
+      Object doNotGenerateModuleMap,
+      Object codeCoverageEnabled,
+      Object hdrsCheckingMode,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -104,6 +110,8 @@ public class BazelCcModule extends CcModule
         sources,
         publicHeaders,
         privateHeaders,
+        textualHeaders,
+        additionalExportedHeaders,
         includes,
         quoteIncludes,
         systemIncludes,
@@ -123,6 +131,10 @@ public class BazelCcModule extends CcModule
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")),
         moduleMap,
         additionalModuleMaps,
+        propagateModuleMapToCompileAction,
+        doNotGenerateModuleMap,
+        codeCoverageEnabled,
+        hdrsCheckingMode,
         thread);
   }
 

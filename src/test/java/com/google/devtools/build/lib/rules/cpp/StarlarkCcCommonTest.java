@@ -6787,7 +6787,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExpandedModuleMapApiBlocked() throws Exception {
+  public void testExpandedCompileApiBlocked() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load(':module_map.bzl', 'module_map')",
@@ -6817,7 +6817,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "module_map.file()",
             "module_map.umbrella_header()",
             compileCall + " module_map = module_map)",
-            compileCall + " additional_module_maps = [module_map])");
+            compileCall + " additional_module_maps = [module_map])",
+            compileCall + "textual_hdrs = [])",
+            compileCall + "additional_exported_hdrs = [])",
+            compileCall + "propagate_module_map_to_compile_action = True)",
+            compileCall + "do_not_generate_module_map = True)",
+            compileCall + "code_coverage_enabled = True)",
+            compileCall + "hdrs_checking_mode = 'strict')");
     scratch.overwriteFile(
         "a/BUILD",
         "load(':rule.bzl', 'crule')",

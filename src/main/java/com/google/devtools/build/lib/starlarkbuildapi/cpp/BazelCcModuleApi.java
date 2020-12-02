@@ -113,6 +113,20 @@ public interface BazelCcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "textual_hdrs",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "additional_exported_hdrs",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "unbound"),
+        @Param(
             name = "includes",
             doc =
                 "Search paths for header files referenced both by angle bracket and quotes. "
@@ -242,6 +256,34 @@ public interface BazelCcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = CppModuleMapApi.class)},
             named = true),
+        @Param(
+            name = "propagate_module_map_to_compile_action",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "do_not_generate_module_map",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "code_coverage_enabled",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "hdrs_checking_mode",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class)},
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -250,6 +292,8 @@ public interface BazelCcModuleApi<
       Sequence<?> sources, // <FileT> expected
       Sequence<?> publicHeaders, // <FileT> expected
       Sequence<?> privateHeaders, // <FileT> expected
+      Object textualHeaders,
+      Object additionalExportedHeaders,
       Sequence<?> includes, // <String> expected
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
@@ -266,6 +310,10 @@ public interface BazelCcModuleApi<
       Sequence<?> additionalInputs, // <FileT> expected
       Object moduleMap,
       Object additionalModuleMaps,
+      Object propagateModuleMapToCompileAction,
+      Object doNotGenerateModuleMap,
+      Object codeCoverageEnabled,
+      Object hdrsCheckingMode,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

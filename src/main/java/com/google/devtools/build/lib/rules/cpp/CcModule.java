@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.base.StandardSystemProperty.LINE_SEPARATOR;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
@@ -360,10 +362,7 @@ public abstract class CcModule
    */
   @SuppressWarnings("unchecked")
   protected static <T> T convertFromNoneable(Object obj, @Nullable T defaultValue) {
-    if (Starlark.UNBOUND == obj) {
-      return null;
-    }
-    if (Starlark.isNullOrNone(obj)) {
+    if (Starlark.UNBOUND == obj || Starlark.isNullOrNone(obj)) {
       return defaultValue;
     }
     return (T) obj; // totally unsafe
@@ -426,6 +425,18 @@ public abstract class CcModule
         return ImmutableList.of();
       }
       return list;
+    }
+  }
+
+  @Nullable
+  protected <T> Object asClassImmutableListOrNestedSet(
+      Object o, Class<T> tClass, String description) throws EvalException {
+    if (o == Starlark.UNBOUND) {
+      return ImmutableList.of();
+    } else {
+      return o instanceof Depset
+          ? Depset.cast(o, tClass, description)
+          : Sequence.cast(o, tClass, description).getImmutableList();
     }
   }
 
@@ -1811,6 +1822,16 @@ public abstract class CcModule
     }
   }
 
+  private static boolean checkObjectsBound(Object... objects) {
+    for (Object object : objects) {
+      if (object != Starlark.UNBOUND) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @SuppressWarnings("unchecked")
   protected Tuple compile(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
@@ -1818,6 +1839,8 @@ public abstract class CcModule
       Sequence<?> sourcesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
+      Object textualHeadersStarlarkObject,
+      Object additionalExportedHeadersObject,
       Sequence<?> includes, // <String> expected
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
@@ -1836,21 +1859,61 @@ public abstract class CcModule
       Sequence<?> additionalInputs,
       Object moduleMapNoneable,
       Object additionalModuleMapsNoneable,
+      Object propagateModuleMapToCompileActionObject,
+      Object doNotGenerateModuleMapObject,
+      Object codeCoverageEnabledObject,
+      Object hdrsCheckingModeObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    if (moduleMapNoneable != Starlark.UNBOUND || additionalModuleMapsNoneable != Starlark.UNBOUND) {
+    if (checkObjectsBound(
+        moduleMapNoneable,
+        additionalModuleMapsNoneable,
+        textualHeadersStarlarkObject,
+        additionalExportedHeadersObject,
+        propagateModuleMapToCompileActionObject,
+        doNotGenerateModuleMapObject,
+        codeCoverageEnabledObject,
+        hdrsCheckingModeObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
-    CppModuleMap moduleMap = convertFromNoneable(moduleMapNoneable, /* defaultValue= */ null);
-    ImmutableList<CppModuleMap> additionalModuleMaps =
-        asClassImmutableList(additionalModuleMapsNoneable);
-    List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
-    List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
-    List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
 
     StarlarkActionFactory actions = starlarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider =
         convertFromNoneable(starlarkCcToolchainProvider, null);
+
+    CppModuleMap moduleMap = convertFromNoneable(moduleMapNoneable, /* defaultValue= */ null);
+    ImmutableList<CppModuleMap> additionalModuleMaps =
+        asClassImmutableList(additionalModuleMapsNoneable);
+
+    Object textualHeadersObject =
+        asClassImmutableListOrNestedSet(
+            textualHeadersStarlarkObject, Artifact.class, "textual_headers");
+
+    ImmutableList<String> additionalExportedHeaders =
+        asClassImmutableList(additionalExportedHeadersObject);
+    boolean propagateModuleMapToCompileAction =
+        convertFromNoneable(propagateModuleMapToCompileActionObject, /* defaultValue= */ true);
+    boolean doNotGenerateModuleMap =
+        convertFromNoneable(doNotGenerateModuleMapObject, /* defaultValue= */ false);
+    boolean codeCoverageEnabled =
+        convertFromNoneable(codeCoverageEnabledObject, /* defaultValue= */ false);
+    String hdrsCheckingMode =
+        convertFromNoneable(
+            hdrsCheckingModeObject,
+            getSemantics()
+                .determineStarlarkHeadersCheckingMode(
+                    actions.getRuleContext(),
+                    actions
+                        .getActionConstructionContext()
+                        .getConfiguration()
+                        .getFragment(CppConfiguration.class),
+                    ccToolchainProvider)
+                .toString());
+
+    List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
+    List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
+    List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
+
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
     Label label = getCallerLabel(actions, name);
@@ -1922,15 +1985,22 @@ public abstract class CcModule
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
             .setPurpose(common.getPurpose(getSemantics()))
+            .addAdditionalExportedHeaders(
+                additionalExportedHeaders.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
+            .setCodeCoverageEnabled(codeCoverageEnabled)
             .setHeadersCheckingMode(
-                getSemantics()
-                    .determineStarlarkHeadersCheckingMode(
-                        actions.getRuleContext(),
-                        actions
-                            .getActionConstructionContext()
-                            .getConfiguration()
-                            .getFragment(CppConfiguration.class),
-                        ccToolchainProvider));
+                HeadersCheckingMode.valueOf(Ascii.toUpperCase(hdrsCheckingMode)));
+    if (textualHeadersObject instanceof NestedSet) {
+      helper.addPublicTextualHeaders((NestedSet<Artifact>) textualHeadersObject);
+    } else {
+      helper.addPublicTextualHeaders((List<Artifact>) textualHeadersObject);
+    }
+    if (doNotGenerateModuleMap) {
+      helper.doNotGenerateModuleMap();
+    }
     if (moduleMap != null) {
       helper.setCppModuleMap(moduleMap);
     }
@@ -2062,7 +2132,7 @@ public abstract class CcModule
     return ccCompilationOutputsBuilder.build();
   }
 
-  private void validateExtensions(
+  private static void validateExtensions(
       String paramName,
       List<Artifact> files,
       FileTypeSet validFileTypeSet,
