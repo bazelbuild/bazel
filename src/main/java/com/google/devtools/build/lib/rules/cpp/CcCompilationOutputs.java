@@ -58,6 +58,16 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   private final ImmutableList<Artifact> picDwoFiles;
 
   /**
+   * All .gcno files built by the target, corresponding to .o outputs.
+   */
+  private final ImmutableList<Artifact> gcnoFiles;
+
+  /**
+   * All .pic.gcno files built by the target, corresponding to .pic.o outputs.
+   */
+  private final ImmutableList<Artifact> picGcnoFiles;
+
+  /**
    * All artifacts that are created if "--save_temps" is true.
    */
   private final NestedSet<Artifact> temps;
@@ -73,6 +83,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       LtoCompilationContext ltoCompilationContext,
       ImmutableList<Artifact> dwoFiles,
       ImmutableList<Artifact> picDwoFiles,
+      ImmutableList<Artifact> gcnoFiles,
+      ImmutableList<Artifact> picGcnoFiles,
       NestedSet<Artifact> temps,
       ImmutableList<Artifact> headerTokenFiles) {
     this.objectFiles = objectFiles;
@@ -80,6 +92,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     this.ltoCompilationContext = ltoCompilationContext;
     this.dwoFiles = dwoFiles;
     this.picDwoFiles = picDwoFiles;
+    this.gcnoFiles = gcnoFiles;
+    this.picGcnoFiles = picGcnoFiles;
     this.temps = temps;
     this.headerTokenFiles = headerTokenFiles;
   }
@@ -130,6 +144,30 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   /**
+   * Returns an unmodifiable view of the .gcno files set.
+   */
+  public ImmutableList<Artifact> getGcnoFiles() {
+    return gcnoFiles;
+  }
+
+  /**
+   * Returns an unmodifiable view of the PIC .gcno files set.
+   */
+  public ImmutableList<Artifact> getPicGcnoFiles() {
+    return picGcnoFiles;
+  }
+
+  @Override
+  public Sequence<Artifact> getStarlarkGcnoFiles() throws EvalException {
+    return StarlarkList.immutableCopyOf(getGcnoFiles());
+  }
+
+  @Override
+  public Sequence<Artifact> getStarlarkPicGcnoFiles() throws EvalException {
+    return StarlarkList.immutableCopyOf(getPicGcnoFiles());
+  }
+
+  /**
    * Returns an unmodifiable view of the temp files set.
    */
   public NestedSet<Artifact> getTemps() {
@@ -166,6 +204,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
         new LtoCompilationContext.Builder();
     private final Set<Artifact> dwoFiles = new LinkedHashSet<>();
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
+    private final Set<Artifact> gcnoFiles = new LinkedHashSet<>();
+    private final Set<Artifact> picGcnoFiles = new LinkedHashSet<>();
     private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
 
@@ -180,6 +220,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
           ltoCompilationContext.build(),
           ImmutableList.copyOf(dwoFiles),
           ImmutableList.copyOf(picDwoFiles),
+          ImmutableList.copyOf(gcnoFiles),
+          ImmutableList.copyOf(picGcnoFiles),
           temps.build(),
           ImmutableList.copyOf(headerTokenFiles));
     }
@@ -189,6 +231,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       this.picObjectFiles.addAll(outputs.picObjectFiles);
       this.dwoFiles.addAll(outputs.dwoFiles);
       this.picDwoFiles.addAll(outputs.picDwoFiles);
+      this.gcnoFiles.addAll(outputs.gcnoFiles);
+      this.picGcnoFiles.addAll(outputs.picGcnoFiles);
       this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
       this.ltoCompilationContext.addAll(outputs.ltoCompilationContext);
@@ -248,6 +292,16 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
 
     public Builder addPicDwoFile(Artifact artifact) {
       picDwoFiles.add(artifact);
+      return this;
+    }
+
+    public Builder addGcnoFile(Artifact artifact) {
+      gcnoFiles.add(artifact);
+      return this;
+    }
+
+    public Builder addPicGcnoFile(Artifact artifact) {
+      picGcnoFiles.add(artifact);
       return this;
     }
 

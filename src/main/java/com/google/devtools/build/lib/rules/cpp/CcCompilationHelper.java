@@ -1863,6 +1863,9 @@ public final class CcCompilationHelper {
         // Host targets don't produce .dwo files.
         result.addPicDwoFile(dwoFile);
       }
+      if (gcnoFile != null) {
+        result.addPicGcnoFile(gcnoFile);
+      }
     }
 
     if (generateNoPicAction) {
@@ -1931,6 +1934,9 @@ public final class CcCompilationHelper {
       if (noPicDwoFile != null) {
         // Host targets don't produce .dwo files.
         result.addDwoFile(noPicDwoFile);
+      }
+      if (gcnoFile != null) {
+        result.addGcnoFile(gcnoFile);
       }
     }
     return directOutputs.build();
