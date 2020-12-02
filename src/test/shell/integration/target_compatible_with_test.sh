@@ -252,6 +252,51 @@ function test_console_log_for_tests() {
   expect_log '^//target_skipping:pass_on_foo1_bar2  *  PASSED in'
 }
 
+# Validates that filegroups (i.e. a rule that doesn't use toolchain resolution)
+# is correctly skipped when it depends on an incompatible target. This is a
+# regression test for https://github.com/bazelbuild/bazel/issues/12582.
+function test_filegroup() {
+  cat > target_skipping/binary.cc <<EOF
+#include <cstdio>
+int main() {
+  return 0;
+}
+EOF
+
+  cat >> target_skipping/BUILD <<EOF
+cc_binary(
+    name = "binary",
+    srcs = ["binary.cc"],
+    target_compatible_with = [
+        ":foo3",
+    ],
+)
+
+filegroup(
+    name = "filegroup",
+    srcs = [
+        ":binary",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    :all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log 'Target //target_skipping:filegroup was skipped'
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    :filegroup &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+  expect_log 'Target //target_skipping:filegroup is incompatible and cannot be built'
+}
+
 # Validates that incompatible target skipping errors behave nicely with
 # --keep_going. In other words, even if there's an error in the target skipping
 # (e.g. because the user explicitly requested an incompatible target) we still
