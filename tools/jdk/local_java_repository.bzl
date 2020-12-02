@@ -14,6 +14,24 @@
 
 """Rules for importing and registering a local JDK."""
 
+def _detect_java_version(repository_ctx, java_bin):
+    properties_out = repository_ctx.execute([java_bin, "-XshowSettings:properties"]).stderr
+
+    version_property = "java.version = "
+    versions = [
+        property.lstrip()[len(version_property):].rstrip()
+        for property in properties_out.splitlines()
+        if property.lstrip().startswith(version_property)
+    ]
+    if len(versions) != 1:
+        return "unknown"
+
+    (major, minor, rest) = versions[0].split(".", 2)
+
+    if major == "1":  # handles versions below 1.8
+        return minor
+    return major
+
 def _local_java_repository_impl(repository_ctx):
     java_home = repository_ctx.attr.java_home
     java_home_path = repository_ctx.path(java_home)
@@ -28,23 +46,39 @@ def _local_java_repository_impl(repository_ctx):
     )
 
     extension = ".exe" if repository_ctx.os.name.lower().find("windows") != -1 else ""
-    if java_home_path.get_child("bin").get_child("java" + extension).exists:
+    java_bin = java_home_path.get_child("bin").get_child("java" + extension)
+    if java_bin.exists:
+        version = repository_ctx.attr.version if repository_ctx.attr.version != "" else _detect_java_version(repository_ctx, java_bin)
+
         repository_ctx.file(
             "BUILD.bazel",
             repository_ctx.read(repository_ctx.path(repository_ctx.attr._build_file)) +
             """
 config_setting(
-    name = "localjdk_setting",
+    name = "name_setting",
     values = {{"java_runtime_version": "{local_jdk}"}},
+    visibility = ["//visibility:private"],
+)
+config_setting(
+    name = "version_setting",
+    values = {{"java_runtime_version": "{version}"}},
+    visibility = ["//visibility:private"],
+)
+alias(
+    name = "version_or_name_setting",
+    actual = select({{
+        ":version_setting": ":version_setting",
+        "//conditions:default": ":name_setting",
+    }}),
     visibility = ["//visibility:private"],
 )
 toolchain(
     name = "toolchain",
-    target_settings = [":localjdk_setting"],
+    target_settings = [":version_or_name_setting"],
     toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
     toolchain = ":jdk",
 )
-""".format(local_jdk = repository_ctx.name),
+""".format(local_jdk = repository_ctx.name, version = version),
             False,
         )
 
@@ -91,6 +125,7 @@ _local_java_repository_rule = repository_rule(
     configure = True,
     attrs = {
         "java_home": attr.string(),
+        "version": attr.string(),
         "_build_file": attr.label(default = "@bazel_tools//tools/jdk:jdk.BUILD"),
     },
 )
