@@ -79,11 +79,6 @@ java_runtime(
     java_home = "$(ABSOLUTE_JAVABASE)",
 )
 
-filegroup(
-    name = "BUILD-jdk",
-    srcs = [":BUILD"],
-)
-
 # This is necessary to get the *host* Java runtime. Depending on
 # //tools/jdk:current_java_runtime from an attribute with the host transition
 # does not work because the dependency is determined based on the configuration
@@ -352,17 +347,6 @@ alias(
     actual = "@local_jdk//:bootclasspath",
 )
 
-filegroup(
-    name = "langtools",
-    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
-)
-
-java_import(
-    name = "langtools-neverlink",
-    jars = [":langtools"],
-    neverlink = 1,
-)
-
 alias(
     name = "jre",
     actual = "@local_jdk//:jre",
@@ -464,35 +448,9 @@ default_java_toolchain(
 )
 
 filegroup(
-    name = "srcs",
-    srcs = [
-        "BUILD.java_langtools",
-        "BUILD.java_tools",
-        "BUILD.java_tools_prebuilt",
-        "BUILD-jdk",  # Tools are build from the workspace for tests.
-        "DumpPlatformClassPath.java",
-        "default_java_toolchain.bzl",
-        "fail_rule.bzl",
-        "java_toolchain_alias.bzl",
-        "jdk.BUILD",
-        "local_java_repository.bzl",
-        "nosystemjdk/README",
-        "proguard_whitelister.py",
-        "proguard_whitelister_test.py",
-        "proguard_whitelister_test_input.pgcfg",
-        "toolchain_utils.bzl",
-    ],
-)
-
-filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
-)
-
-filegroup(
-    name = "package-srcs",
-    srcs = glob(["**"]),
 )
 
 py_binary(
@@ -512,21 +470,6 @@ py_test(
     deps = [
         ":proguard_whitelister",
     ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [":windows_tests"],
-    visibility = ["//tools:__pkg__"],
 )
 
 # A JDK 11 for use as a --host_javabase.

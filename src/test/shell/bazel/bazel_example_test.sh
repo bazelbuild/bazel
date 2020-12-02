@@ -108,9 +108,9 @@ function test_java_test_with_junitrunner() {
 function test_genrule_and_genquery() {
   # The --javabase flag is to force the tools/jdk:jdk label to be used
   # so it appears in the dependency list.
-  assert_build_output ./bazel-bin/examples/gen/genquery examples/gen:genquery --javabase=//tools/jdk
+  assert_build_output ./bazel-bin/examples/gen/genquery examples/gen:genquery --javabase=@bazel_tools//tools/jdk
   local want=./bazel-genfiles/examples/gen/genrule.txt
-  assert_build_output $want examples/gen:genrule --javabase=//tools/jdk
+  assert_build_output $want examples/gen:genrule --javabase=@bazel_tools//tools/jdk
 
   diff $want ./bazel-bin/examples/gen/genquery \
     || fail "genrule and genquery output differs"

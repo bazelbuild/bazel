@@ -205,7 +205,7 @@ def _java_import_impl(ctx):
 
 java_library_attrs = {
     "_jdk": attr.label(
-        default = Label("//tools/jdk:current_java_runtime"),
+        default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
         providers = [java_common.JavaRuntimeInfo],
     ),
     "data": attr.label_list(allow_files = True),
@@ -242,7 +242,7 @@ bootstrap_java_library = rule(
 java_binary_attrs_common = dict(java_library_attrs)
 java_binary_attrs_common.update({
     "jvm_flags": attr.string_list(),
-    "jvm": attr.label(default = Label("//tools/jdk:jdk"), allow_files = True),
+    "jvm": attr.label(default = Label("@bazel_tools//tools/jdk:jdk"), allow_files = True),
 })
 
 java_binary_attrs = dict(java_binary_attrs_common)
