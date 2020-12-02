@@ -412,6 +412,27 @@ public interface BazelCcModuleApi<
               @ParamType(type = FileApi.class),
               @ParamType(type = NoneType.class),
             }),
+        @Param(
+            name = "link_artifact_name_suffix",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "never_link",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "test_only_target",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -427,6 +448,9 @@ public interface BazelCcModuleApi<
       StarlarkInt stamp,
       Sequence<?> additionalInputs, // <FileT> expected
       Object grepIncludes,
+      Object linkArtifactNameSuffix,
+      Object neverLink,
+      Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

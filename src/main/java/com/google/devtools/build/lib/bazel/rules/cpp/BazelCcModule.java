@@ -153,6 +153,9 @@ public class BazelCcModule extends CcModule
       StarlarkInt stamp,
       Sequence<?> additionalInputs, // <Artifact> expected
       Object grepIncludes,
+      Object linkArtifactNameSuffix,
+      Object neverLink,
+      Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -169,6 +172,9 @@ public class BazelCcModule extends CcModule
         stamp,
         additionalInputs,
         /* grepIncludes= */ null,
+        linkArtifactNameSuffix,
+        neverLink,
+        testOnlyTarget,
         thread);
   }
 

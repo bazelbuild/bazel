@@ -707,9 +707,8 @@ public abstract class CcModule
       Object modularPrivateHdrsNoneable,
       StarlarkThread thread)
       throws EvalException {
-    if (textualHdrsNoneable != Starlark.UNBOUND
-        || modularPublicHdrsNoneable != Starlark.UNBOUND
-        || modularPrivateHdrsNoneable != Starlark.UNBOUND) {
+    if (checkObjectsBound(
+        textualHdrsNoneable, modularPrivateHdrsNoneable, modularPublicHdrsNoneable)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     ImmutableList<Artifact> textualHdrs = asClassImmutableList(textualHdrsNoneable);
@@ -2044,8 +2043,14 @@ public abstract class CcModule
       StarlarkInt stamp,
       Sequence<?> additionalInputs,
       Object grepIncludes,
+      Object linkedArtifactNameSuffixObject,
+      Object neverLinkObject,
+      Object testOnlyTargetObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
+    if (checkObjectsBound(linkedArtifactNameSuffixObject, neverLinkObject, testOnlyTargetObject)) {
+      checkPrivateStarlarkificationAllowlist(thread);
+    }
     validateLanguage(language);
     validateOutputType(outputType);
     boolean isStampingEnabled =
@@ -2105,6 +2110,9 @@ public abstract class CcModule
                 Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
             .setShouldCreateStaticLibraries(false)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
+            .setLinkedArtifactNameSuffix(convertFromNoneable(linkedArtifactNameSuffixObject, ""))
+            .setNeverLink(convertFromNoneable(neverLinkObject, false))
+            .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
