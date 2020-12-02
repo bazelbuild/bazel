@@ -705,10 +705,14 @@ public abstract class CcModule
       Object textualHdrsNoneable,
       Object modularPublicHdrsNoneable,
       Object modularPrivateHdrsNoneable,
+      Object purposeNoneable,
       StarlarkThread thread)
       throws EvalException {
     if (checkObjectsBound(
-        textualHdrsNoneable, modularPrivateHdrsNoneable, modularPublicHdrsNoneable)) {
+        textualHdrsNoneable,
+        modularPrivateHdrsNoneable,
+        modularPublicHdrsNoneable,
+        purposeNoneable)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     ImmutableList<Artifact> textualHdrs = asClassImmutableList(textualHdrsNoneable);
@@ -745,6 +749,9 @@ public abstract class CcModule
     ccCompilationContext.addTextualHdrs(textualHdrs);
     ccCompilationContext.addModularPublicHdrs(modularPublicHdrs);
     ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrs);
+    if (purposeNoneable != null && purposeNoneable != Starlark.UNBOUND) {
+      ccCompilationContext.setPurpose((String) purposeNoneable);
+    }
 
     return ccCompilationContext.build();
   }

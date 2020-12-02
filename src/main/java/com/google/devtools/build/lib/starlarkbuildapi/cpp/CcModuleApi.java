@@ -856,6 +856,12 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "purpose",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationContextT createCcCompilationContext(
       Object headers,
@@ -868,6 +874,7 @@ public interface CcModuleApi<
       Object textualHdrs,
       Object modularPublicHdrs,
       Object modularPrivateHdrs,
+      Object purpose,
       StarlarkThread thread)
       throws EvalException;
 
