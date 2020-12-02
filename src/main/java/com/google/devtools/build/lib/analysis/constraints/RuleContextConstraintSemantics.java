@@ -854,12 +854,9 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       RuleContext ruleContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap)
       throws ActionConflictException, InterruptedException {
-    if (!ruleContext.getRule().getRuleClassObject().useToolchainResolution()) {
-      return null;
-    }
-
-    // This is incompatible if explicitly specified to be.
-    if (ruleContext.attributes().has("target_compatible_with")) {
+    // The target (ruleContext) is incompatible if explicitly specified to be.
+    if (ruleContext.getRule().getRuleClassObject().useToolchainResolution()
+        && ruleContext.attributes().has("target_compatible_with")) {
       ImmutableList<ConstraintValueInfo> invalidConstraintValues =
           stream(
                   PlatformProviderUtils.constraintValues(
