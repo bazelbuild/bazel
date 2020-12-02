@@ -6931,4 +6931,28 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }
   }
+
+  @Test
+  public void testExpandedCcCompilationOutputsApiRaisesError() throws Exception {
+    scratch.file("b/BUILD", "load('//b:rule.bzl', 'cc_rule')", "cc_rule(", "  name='foo',", ")");
+    ImmutableList<String> calls =
+        ImmutableList.of(
+            "comp_outputs.temps()",
+            "comp_outputs.files_to_compile(parse_headers=False, use_pic=True)",
+            "comp_outputs.header_tokens()");
+    for (String call : calls) {
+      scratch.overwriteFile(
+          "b/rule.bzl",
+          "def _impl(ctx):",
+          "  comp_outputs = cc_common.create_compilation_outputs()",
+          "  " + call,
+          "  return [DefaultInfo()]",
+          "cc_rule = rule(",
+          "  implementation = _impl,",
+          ")");
+      invalidatePackages();
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+    }
+  }
 }
