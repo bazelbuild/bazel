@@ -409,11 +409,11 @@ public final class StarlarkList<E> extends AbstractList<E>
           "Removes the first item from the list whose value is x. "
               + "It is an error if there is no such item.",
       parameters = {@Param(name = "x", doc = "The object to remove.")})
-  public NoneType removeElement(Object x) throws EvalException {
+  public void removeElement(Object x) throws EvalException {
     for (int i = 0; i < size; i++) {
       if (elems[i].equals(x)) {
         removeElementAt(i);
-        return Starlark.NONE;
+        return;
       }
     }
     throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
@@ -434,19 +434,17 @@ public final class StarlarkList<E> extends AbstractList<E>
       doc = "Adds an item to the end of the list.",
       parameters = {@Param(name = "item", doc = "Item to add at the end.")})
   @SuppressWarnings("unchecked")
-  public NoneType append(Object item) throws EvalException {
+  public void append(Object item) throws EvalException {
     addElement((E) item); // unchecked
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(name = "clear", doc = "Removes all the elements of the list.")
-  public NoneType clearElements() throws EvalException {
+  public void clearElements() throws EvalException {
     Starlark.checkMutable(this);
     for (int i = 0; i < size; i++) {
       elems[i] = null; // aid GC
     }
     size = 0;
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(
@@ -457,20 +455,18 @@ public final class StarlarkList<E> extends AbstractList<E>
         @Param(name = "item", doc = "The item.")
       })
   @SuppressWarnings("unchecked")
-  public NoneType insert(StarlarkInt index, Object item) throws EvalException {
+  public void insert(StarlarkInt index, Object item) throws EvalException {
     addElementAt(EvalUtils.toIndex(index.toInt("index"), size), (E) item); // unchecked
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(
       name = "extend",
       doc = "Adds all items to the end of the list.",
       parameters = {@Param(name = "items", doc = "Items to add at the end.")})
-  public NoneType extend(Object items) throws EvalException {
+  public void extend(Object items) throws EvalException {
     @SuppressWarnings("unchecked")
     Iterable<? extends E> src = (Iterable<? extends E>) Starlark.toIterable(items);
     addElements(src);
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(
@@ -499,7 +495,7 @@ public final class StarlarkList<E> extends AbstractList<E>
             named = true, // TODO(adonovan): this is wrong
             doc = "The end index of the list portion to inspect.")
       })
-  public Integer index(Object x, Object start, Object end) throws EvalException {
+  public int index(Object x, Object start, Object end) throws EvalException {
     int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
     int j = end == Starlark.NONE ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
