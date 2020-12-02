@@ -871,7 +871,7 @@ public interface CcModuleApi<
 
   @StarlarkMethod(
       name = "create_module_map",
-      doc = "Creates a <code>CompilationContext</code>.",
+      doc = "Creates a <code>CcModuleMap</code>.",
       useStarlarkThread = true,
       parameters = {
         @Param(name = "file", positional = false, named = true),
