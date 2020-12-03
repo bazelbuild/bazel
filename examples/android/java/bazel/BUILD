@@ -30,7 +30,9 @@ cc_library(
     name = "jni",
     srcs = ["jni.cc"],
     deps = [":jni_dep"],
+    # https://github.com/bazelbuild/bazel/issues/6959#issuecomment-449153377
     linkopts = ["-ldl"],
+    # https://github.com/bazelbuild/bazel/issues/10928#issuecomment-597895076
     alwayslink = True,
 )
 
