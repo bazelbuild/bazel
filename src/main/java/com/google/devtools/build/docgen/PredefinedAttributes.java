@@ -27,16 +27,19 @@ import java.nio.charset.StandardCharsets;
 public class PredefinedAttributes {
 
   /**
-   * List of documentation for common attributes of *_test rules, relative to
-   * {@link com.google.devtools.build.docgen}.
+   * List of documentation for common attributes of *_test rules, relative to {@link
+   * com.google.devtools.build.docgen}.
    */
-  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES = ImmutableList.of(
-      "templates/attributes/test/args.html",
-      "templates/attributes/test/size.html",
-      "templates/attributes/test/timeout.html",
-      "templates/attributes/test/flaky.html",
-      "templates/attributes/test/shard_count.html",
-      "templates/attributes/test/local.html");
+  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/test/args.html",
+          "templates/attributes/test/env.html",
+          "templates/attributes/test/env_inherit.html",
+          "templates/attributes/test/size.html",
+          "templates/attributes/test/timeout.html",
+          "templates/attributes/test/flaky.html",
+          "templates/attributes/test/shard_count.html",
+          "templates/attributes/test/local.html");
 
   /**
    * List of common attributes documentation, relative to {@link com.google.devtools.build.docgen}.
@@ -60,12 +63,13 @@ public class PredefinedAttributes {
           "templates/attributes/common/visibility.html");
 
   /**
-   * List of documentation for common attributes of *_binary rules, relative to
-   * {@link com.google.devtools.build.docgen}.
+   * List of documentation for common attributes of *_binary rules, relative to {@link
+   * com.google.devtools.build.docgen}.
    */
   public static final ImmutableList<String> BINARY_ATTRIBUTES_DOCFILES =
       ImmutableList.of(
           "templates/attributes/binary/args.html",
+          "templates/attributes/binary/env.html",
           "templates/attributes/binary/output_licenses.html");
 
   private static ImmutableMap<String, RuleDocumentationAttribute> generateAttributeMap(

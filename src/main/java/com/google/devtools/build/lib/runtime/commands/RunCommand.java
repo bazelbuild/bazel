@@ -471,6 +471,9 @@ public class RunCommand implements BlazeCommand  {
       }
     } else {
       workingDir = runfilesDir;
+      if (runfilesSupport != null) {
+        runfilesSupport.getActionEnvironment().resolve(runEnvironment, env.getClientEnv());
+      }
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
       try {
         constructCommandLine(

@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -132,7 +133,7 @@ public class TestRunnerAction extends AbstractAction
   private Boolean unconditionalExecution;
 
   /** Any extra environment variables (and values) added by the rule that created this action. */
-  private final ImmutableMap<String, String> extraTestEnv;
+  private final ActionEnvironment extraTestEnv;
 
   /**
    * The set of environment variables that are inherited from the client environment. These are
@@ -176,7 +177,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact coverageArtifact,
       @Nullable Artifact coverageDirectory,
       TestTargetProperties testProperties,
-      Map<String, String> extraTestEnv,
+      ActionEnvironment extraTestEnv,
       TestTargetExecutionSettings executionSettings,
       int shardNum,
       int runNumber,
@@ -236,12 +237,13 @@ public class TestRunnerAction extends AbstractAction
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
-    this.extraTestEnv = ImmutableMap.copyOf(extraTestEnv);
+    this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
         ImmutableIterable.from(
             Iterables.concat(
                 configuration.getActionEnvironment().getInheritedEnv(),
-                configuration.getTestActionEnvironment().getInheritedEnv()));
+                configuration.getTestActionEnvironment().getInheritedEnv(),
+                this.extraTestEnv.getInheritedEnv()));
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
@@ -378,7 +380,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.getValue());
-    fp.addStringMap(extraTestEnv);
+    extraTestEnv.addTo(fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
     configuration.getActionEnvironment().addTo(fp);
@@ -675,7 +677,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /** Returns all environment variables which must be set in order to run this test. */
-  public Map<String, String> getExtraTestEnv() {
+  public ActionEnvironment getExtraTestEnv() {
     return extraTestEnv;
   }
 
