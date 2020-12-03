@@ -438,7 +438,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public ConfiguredRuleClassProvider createRuleClassProvider() {
-    return TestRuleClassProvider.getRuleClassProvider(true);
+    return TestRuleClassProvider.getRuleClassProviderWithClearedSuffix();
   }
 
   @Override

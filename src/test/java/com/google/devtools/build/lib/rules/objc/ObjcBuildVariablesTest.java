@@ -55,7 +55,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Override
-  public void initializeMockClient() throws IOException {
+  protected void initializeMockClient() throws IOException {
     super.initializeMockClient();
     MockObjcSupport.setup(mockToolsConfig);
   }

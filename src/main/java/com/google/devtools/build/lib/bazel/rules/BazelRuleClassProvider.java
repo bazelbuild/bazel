@@ -229,20 +229,22 @@ public class BazelRuleClassProvider {
         return ActionEnvironment.split(env);
       };
 
-  /** Used by the build encyclopedia generator. */
+  /** Convenience wrapper around {@link #setup} that returns a final ConfiguredRuleClassProvider. */
+  // Used by the build encyclopedia generator.
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    builder.setToolsRepository(TOOLS_REPOSITORY);
-    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
     setup(builder);
     return builder.build();
   }
 
+  /** Adds this class's definitions to a builder. */
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setToolsRepository(TOOLS_REPOSITORY);
+    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
+
     for (RuleSet ruleSet : RULE_SETS) {
       ruleSet.init(builder);
     }
-    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
   }
 
   public static final RuleSet BAZEL_SETUP =

@@ -364,7 +364,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return false;
   }
 
-  public void initializeMockClient() throws IOException {
+  protected void initializeMockClient() throws IOException {
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
   }
@@ -565,6 +565,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Returns options that will be implicitly prepended to any options passed to {@link
+   * #useConfiguration}.
+   */
+  protected Iterable<String> getDefaultsForConfiguration() {
+    return TestConstants.PRODUCT_SPECIFIC_FLAGS;
+  }
+
+  /**
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    *
@@ -579,10 +587,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
     ImmutableList<String> actualArgs =
-        ImmutableList.<String>builder()
-            .addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS)
-            .add(args)
-            .build();
+        ImmutableList.<String>builder().addAll(getDefaultsForConfiguration()).add(args).build();
 
     masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();

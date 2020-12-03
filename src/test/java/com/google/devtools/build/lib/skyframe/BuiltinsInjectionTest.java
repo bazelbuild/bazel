@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -42,13 +44,30 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   private static final MockRule OVERRIDABLE_RULE = () -> MockRule.define("overridable_rule");
 
   @Override
+  protected Iterable<String> getDefaultsForConfiguration() {
+    // Override BuildViewTestCase's behavior of setting all sorts of extra options that don't exist
+    // on our minimal rule class provider.
+    return ImmutableList.of();
+  }
+
+  @Override
+  protected void initializeMockClient() throws IOException {
+    // Don't let the AnalysisMock sneak in any WORKSPACE file content, which may depend on
+    // repository rules that our minimal rule class provider doesn't have.
+    analysisMock.setupMockClient(mockToolsConfig, ImmutableList.of());
+  }
+
+  @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    // Add a fake rule and top-level symbol to override.
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(OVERRIDABLE_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
-    TestRuleClassProvider.addStandardRules(builder);
+    // Set up a bare-bones ConfiguredRuleClassProvider. Aside from being minimalistic, this heads
+    // off the possibility that we somehow grow an implicit dependency on production builtins code,
+    // which would break since we're overwriting --experimental_builtins_bzl_path.
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addMinimalRules(builder);
+    // Add some mock symbols to override.
+    builder
+        .addRuleDefinition(OVERRIDABLE_RULE)
+        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
     return builder.build();
   }
 

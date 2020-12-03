@@ -151,7 +151,7 @@ public class FileFunctionTest {
         ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
     differencer = new SequencedRecordingDifferencer();
     ConfiguredRuleClassProvider ruleClassProvider =
-        TestRuleClassProvider.getRuleClassProvider(true);
+        TestRuleClassProvider.getRuleClassProviderWithClearedSuffix();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
