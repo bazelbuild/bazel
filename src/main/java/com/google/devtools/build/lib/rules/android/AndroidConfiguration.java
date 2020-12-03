@@ -625,12 +625,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Implementation to use to sign APKs")
     public ApkSigningMethod apkSigningMethod;
 
+    // TODO(b/36023617): Remove this option.
     @Option(
         name = "use_singlejar_apkbuilder",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-        help = "Build Android APKs with SingleJar.")
+        help = "This option is a deprecated. It is now a no-op and will be removed soon.")
     public boolean useSingleJarApkBuilder;
 
     @Option(
