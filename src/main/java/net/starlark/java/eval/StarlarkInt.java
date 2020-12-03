@@ -526,11 +526,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       long xl = ((Int32) x).v;
       long yl = ((Int32) y).v;
       // http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html
-      long quo = xl / yl;
-      long rem = xl % yl;
-      if ((xl < 0) != (yl < 0) && rem != 0) {
-        quo--;
-      }
+      long quo = Math.floorDiv(xl, yl);
       return StarlarkInt.of(quo);
     }
 
