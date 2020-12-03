@@ -195,7 +195,7 @@ public abstract class TestStrategy implements TestActionContext {
       TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
+      args.add(execSettings.getRunUnderExecutable().getRunfilesPath().getCallablePathString());
     } else {
       if (execSettings.needsShell(executedOnWindows)) {
         // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
