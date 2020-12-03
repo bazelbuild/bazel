@@ -1,5 +1,4 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-load("//src:release_archive.bzl", "release_archive")
 
 filegroup(
     name = "srcs",
@@ -86,9 +85,11 @@ filegroup(
 )
 
 # A zip containing source files used by ijar.
-release_archive(
+genrule(
     name = "native_windows_zip",
     srcs = [":embedded_java_tools"],
-    package_dir = "src/main/native/windows",
+    outs = ["native_windows.zip"],
+    cmd = "$(location //src:zip_files) src/main/native/windows $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//src/main/cpp/util:__pkg__"],
 )
