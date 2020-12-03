@@ -59,14 +59,14 @@ release_archive(
 release_archive(
     name = "singlejar_zip",
     srcs = SOURCES,
-    package_dir = "java_tools/src/tools/singlejar",
+    package_dir = "src/tools/singlejar",
     visibility = ["//visibility:private"],
 )
 
 release_archive(
     name = "singlejar_deploy_zip",
     srcs = [":singlejar_local"],
-    package_dir = "src/tools/singlejar",
+    package_dir = "java_tools/src/tools/singlejar",
     visibility = ["//src:__pkg__"],
 )
 
