@@ -30,11 +30,12 @@ import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.r8.DescriptorUtils;
 import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.ZipUtils;
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -42,7 +43,7 @@ import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -129,14 +130,16 @@ public class OutputConsumer implements ClassFileConsumer {
 
   private void initializeInputDependencies(
       DiagnosticsHandler handler, FilteringDependencyCollector dependencyCollector) {
-    try (ZipInputStream inputStream =
-        new ZipInputStream(new BufferedInputStream(Files.newInputStream(input)))) {
-      ZipEntry zipEntry;
-      while ((zipEntry = inputStream.getNextEntry()) != null) {
-        if (ArchiveProgramResourceProvider.includeClassFileEntries(zipEntry.getName())) {
-          ClassFileData classFileData =
-              new ClassFileData(zipEntry.getName(), ByteStreams.toByteArray(inputStream));
-          new DesugaredClassFileDependencyCollector(classFileData, dependencyCollector).run();
+    try (ZipFile zipFile = new ZipFile(input.toFile())) {
+      Enumeration<? extends ZipEntry> entries = zipFile.entries();
+      while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        if (ArchiveProgramResourceProvider.includeClassFileEntries(entry.getName())) {
+          try (InputStream stream = zipFile.getInputStream(entry)) {
+            ClassFileData classFileData =
+                new ClassFileData(entry.getName(), ByteStreams.toByteArray(stream));
+            new DesugaredClassFileDependencyCollector(classFileData, dependencyCollector).run();
+          }
         }
       }
     } catch (IOException e) {
