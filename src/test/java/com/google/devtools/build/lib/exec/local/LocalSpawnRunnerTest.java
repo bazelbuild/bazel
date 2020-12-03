@@ -640,10 +640,7 @@ public class LocalSpawnRunnerTest {
   public void interruptWaitsForProcessExit() throws Exception {
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    File tempDirFile = TestUtils.makeTempDir();
-    tempDirFile.deleteOnExit();
-    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.SHA256);
-    Path tempDir = fs.getPath(tempDirFile.getPath());
+    Path tempDir = TestUtils.createUniqueTmpDir(new JavaIoFileSystem(DigestHashFunction.SHA256));
 
     LocalSpawnRunner runner =
         new LocalSpawnRunner(
@@ -852,10 +849,7 @@ public class LocalSpawnRunnerTest {
   }
 
   private Path getTemporaryRoot(FileSystem fs, String name) throws IOException {
-    File tempDirFile = TestUtils.makeTempDir();
-    tempDirFile.deleteOnExit();
-
-    Path tempDirPath = fs.getPath(tempDirFile.getPath());
+    Path tempDirPath = TestUtils.createUniqueTmpDir(fs);
     assertThat(tempDirPath.exists()).isTrue();
 
     Path root = tempDirPath.getRelative(name);

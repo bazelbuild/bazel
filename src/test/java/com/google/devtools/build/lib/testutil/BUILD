@@ -113,6 +113,9 @@ java_library(
 java_library(
     name = "TestUtils",
     srcs = ["TestUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
 )
 
 java_library(
