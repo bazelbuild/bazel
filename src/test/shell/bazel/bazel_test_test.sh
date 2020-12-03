@@ -266,6 +266,52 @@ EOF
   expect_log 'hello script!!! testing/t1'
 }
 
+function test_run_under_external_file_with_options() {
+  # Set up the external repo.
+  local run_repo=$TEST_TMPDIR/run
+  mkdir -p $run_repo || fail "mkdir run_repo failed"
+  touch $run_repo/WORKSPACE
+
+  cat <<EOF > $run_repo/BUILD
+exports_files(["under.sh"])
+EOF
+  cat <<EOF > $run_repo/under.sh
+#!/bin/sh
+echo running under @run//:under "\$*"
+EOF
+  chmod u+x $run_repo/under.sh
+
+
+  # Set up the main repo.
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "run",
+    path = "../run",
+)
+EOF
+
+  mkdir -p testing || fail "mkdir testing failed"
+
+  cat <<EOF > testing/BUILD
+sh_test(
+  name = "passing_test" ,
+  srcs = [ "passing_test.sh" ])
+EOF
+  cat <<EOF > testing/passing_test.sh
+#!/bin/sh
+exit 0
+EOF
+  chmod u+x testing/passing_test.sh
+
+
+  bazel test //testing:passing_test -s --run_under='@run//:under.sh -c' \
+    --test_output=all >& $TEST_log || fail "Expected success"
+
+  expect_log 'running under @run//:under -c testing/passing_test'
+  expect_log 'passing_test *PASSED'
+  expect_log '1 test passes.$'
+}
+
 function test_test_timeout() {
   mkdir -p dir
 
