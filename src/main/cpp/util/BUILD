@@ -8,7 +8,6 @@ package_group(
 )
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//src:release_archive.bzl", "release_archive")
 
 cc_library(
     name = "util",
@@ -178,21 +177,26 @@ filegroup(
 )
 
 # A zip containing source files used by ijar.
-release_archive(
+genrule(
     name = "cpp_util_with_deps_zip",
+    srcs = [
+        ":cpp_util_zip",
+        "//src/main/native/windows:native_windows_zip",
+    ],
+    outs = ["cpp_util_with_deps.zip"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
     visibility = [
         "//src/tools/singlejar:__pkg__",
         "//third_party/ijar:__pkg__",
     ],
-    deps = [
-        ":cpp_util_zip",
-        "//src/main/native/windows:native_windows_zip",
-    ],
 )
 
-release_archive(
+genrule(
     name = "cpp_util_zip",
     srcs = glob(["*.cc"]) + glob(["*.h"]),
-    package_dir = "src/main/cpp/util",
+    outs = ["cpp_util.zip"],
+    cmd = "$(location //src:zip_files) src/main/cpp/util $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
 )
