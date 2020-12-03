@@ -45,3 +45,4 @@ build:macos --macos_minimum_os=10.10
 
 # User-specific .bazelrc
 try-import user.bazelrc
+build --copt="-fdebug-compilation-dir" --copt="/proc/self/cwd"

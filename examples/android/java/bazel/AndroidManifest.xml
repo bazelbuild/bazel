@@ -5,9 +5,10 @@
 
     <uses-sdk
         android:minSdkVersion="21"
-        android:targetSdkVersion="21" />
+        android:targetSdkVersion="30" />
 
     <application
+        android:debuggable="true"
         android:label="Bazel App"
         android:theme="@style/MyTheme" >
         <activity

@@ -78,8 +78,8 @@ list_source_repository(name = "local_bazel_source_list")
 #   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
 #   3. Uncomment the two lines below
 #
-# android_sdk_repository(name = "androidsdk")
-# android_ndk_repository(name = "androidndk")
+android_sdk_repository(name = "androidsdk")
+android_ndk_repository(name = "androidndk")
 
 # In order to run //src/test/shell/bazel:maven_skylark_test, follow the
 # instructions above for the Android integration tests and uncomment the
@@ -167,7 +167,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz",
+        "bazel-toolchains-3.7.1.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
@@ -209,7 +209,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "b1c40e1de81913a3c40e5948f78719c28152486d.zip": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
         # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
+        "bazel-toolchains-3.7.1.tar.gz": "8c9728dc1bb3e8356b344088dfd10038984be74e1c8d6e92dbb05f21cabbb8e4",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
@@ -283,9 +283,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
+        "bazel-toolchains-3.7.1.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.7.1.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.7.1/bazel-toolchains-3.1.0.tar.gz",
         ],
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": [
@@ -439,11 +439,11 @@ http_archive(
     name = "bazel_toolchains",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
-    strip_prefix = "bazel-toolchains-3.1.0",
+    sha256 = "8c9728dc1bb3e8356b344088dfd10038984be74e1c8d6e92dbb05f21cabbb8e4",
+    strip_prefix = "bazel-toolchains-3.7.1",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.7.1/bazel-toolchains-3.7.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.7.1/bazel-toolchains-3.7.1.tar.gz",
     ],
 )
 

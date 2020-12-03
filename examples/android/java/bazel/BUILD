@@ -30,6 +30,8 @@ cc_library(
     name = "jni",
     srcs = ["jni.cc"],
     deps = [":jni_dep"],
+    linkopts = ["-ldl"],
+    alwayslink = True,
 )
 
 cc_library(
