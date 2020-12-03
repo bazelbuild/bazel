@@ -610,6 +610,7 @@ release_archive(
     src_map = {
         "//tools/jdk:BUILD.java_tools": "BUILD",
     },
+    visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         ":jars_java_tools_zip",
         "//src/tools/singlejar:singlejar_transitive_zip",
@@ -625,6 +626,7 @@ release_archive(
     src_map = {
         "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
     },
+    visibility = ["//src/test/shell/bazel:__pkg__"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         "//src/tools/singlejar:singlejar_deploy_zip",
