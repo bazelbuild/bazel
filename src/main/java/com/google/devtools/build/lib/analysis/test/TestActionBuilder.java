@@ -52,7 +52,6 @@ import javax.annotation.Nullable;
  * Helper class to create test actions.
  */
 public final class TestActionBuilder {
-
   private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
@@ -396,7 +395,7 @@ public final class TestActionBuilder {
                 coverageArtifact,
                 coverageDirectory,
                 testProperties,
-                extraTestEnv,
+                runfilesSupport.getActionEnvironment().addFixedVariables(extraTestEnv),
                 executionSettings,
                 shard,
                 run,

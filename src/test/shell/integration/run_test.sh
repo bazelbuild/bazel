@@ -487,6 +487,37 @@ EOF
   assert_starts_with "${tmpdir}/test_bazel_run_with_custom_tmpdir" "$(cat "${TEST_TMPDIR}/tmpdir_value")"
 }
 
+function test_run_binary_with_env_attribute() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p ${pkg}
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+  name = 't',
+  srcs = [':t.sh'],
+  data = [':t.dat'],
+  env = {
+    "ENV_A": "not_inherited",
+    "ENV_C": "no_surprise",
+    "ENV_DATA": "$(location :t.dat)",
+  },
+)
+EOF
+  cat > $pkg/t.sh <<'EOF'
+#!/bin/sh
+env
+cat $ENV_DATA
+exit 0
+EOF
+  touch $pkg/t.dat
+  chmod +x $pkg/t.sh
+  ENV_B=surprise ENV_C=surprise bazel run //$pkg:t > $TEST_log \
+      || fail "expected test to pass"
+  expect_log "ENV_A=not_inherited"
+  expect_log "ENV_B=surprise"
+  expect_log "ENV_C=no_surprise"
+  expect_log "ENV_DATA=$pkg/t.dat"
+}
+
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.
 # Asserts that `$1` is a prefix of `$2`.
 function assert_starts_with() {
