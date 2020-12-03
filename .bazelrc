@@ -38,6 +38,10 @@ build:ubuntu1604_java8 --host_platform=//:rbe_ubuntu1604_java8_platform
 build:ubuntu1604_java8 --platforms=//:rbe_ubuntu1604_java8_platform
 build:ubuntu1604_java8 --config=remote_shared
 
+# https://github.com/bazelbuild/intellij/issues/295#issuecomment-729656232
+# Configuration to fix ndk debugging on macos (uncomment this line on macos)
+# build --copt="-fdebug-compilation-dir" --copt="/proc/self/cwd"
+
 # Alias
 build:remote --config=ubuntu1604_java8
 
@@ -45,4 +49,3 @@ build:macos --macos_minimum_os=10.10
 
 # User-specific .bazelrc
 try-import user.bazelrc
-build --copt="-fdebug-compilation-dir" --copt="/proc/self/cwd"

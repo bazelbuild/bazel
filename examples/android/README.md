@@ -1,31 +1,4 @@
-In order to build these examples, add the following two rules to the top-level `WORKSPACE` file (two directories above this file):
-
-```python
-android_sdk_repository(
-    name="androidsdk",
-    path="<full path to your Android SDK>",
-    api_level=<api level>,
-)
-
-android_ndk_repository(
-    name="androidndk",
-    path="<path to your Android NDK>",
-    api_level=<api_level>,
-)
-```
-
-For the `android_sdk_repository` rule, the value of `api_level` corresponds to
-a directory in the SDK containing the specific version of `android.jar` to
-compile against. For example, if `path = "/Users/xyzzy/Library/Android/sdk"` and
-`api_level = 21`, then the directory
-`/Users/xyzzy/Library/Android/sdk/platforms/android-21` must exist.
-
-Similarly, for the `android_ndk_repository` rule, the value of the `api_level`
-attribute corresponds to a directory containing the NDK libraries for that
-API level. For example, if
-`path=/Users/xyzzy/Library/Android/android-ndk-r10e` and
-`api_level=21`, then you your NDK must contain the directory
-`/Users/xyzzy/Library/Android/android-ndk-r10e/platforms/android-21`.
+In order to build these examples, uncomment the two `android_sdk_repository` and `android_ndk_repository` lines in the top-level `WORKSPACE` file (two directories above this file).
 
 The example `android_binary` depends on
 `@androidsdk//com.android.support:appcompat-v7-25.0.0`, so you will need to
