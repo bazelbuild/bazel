@@ -324,9 +324,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             && !commonOptions.enableTracer;
     if (commandSupportsProfile && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
-      if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
-        commonOptions.enableCpuUsageProfiling = true;
-      }
     }
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
