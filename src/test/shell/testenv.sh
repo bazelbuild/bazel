@@ -723,6 +723,7 @@ setup_bazelrc
 #
 PRODUCT_NAME=bazel
 TOOLS_REPOSITORY="@bazel_tools"
+BUILTINS_PACKAGE_PATH_IN_SOURCE="src/main/starlark/builtins_bzl"
 WORKSPACE_NAME=main
 bazelrc=$TEST_TMPDIR/bazelrc
 

@@ -45,9 +45,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  *       #toStarlarkSemantics}.
  *   <li>Define a new {@code StarlarkSemantics.Key} or {@code StarlarkSemantics} boolean flag
  *       identifier.
- *   <li>Add a line to set the new field in both {@link
- *       StarlarkSemanticsConsistencyTest#buildRandomOptions} and {@link
- *       StarlarkSemanticsConsistencyTest#buildRandomSemantics}.
+ *   <li>Add a line to set the new field in both {@link ConsistencyTest#buildRandomOptions} and
+ *       {@link ConsistencyTest#buildRandomSemantics}.
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
  *   <li>Boolean semantic flags can toggle StarlarkMethod-annotated Java methods (or their
@@ -74,8 +73,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + "ctx.build_setting_value.")
   public boolean experimentalBuildSettingApi;
 
-  // TODO(#11437): Implement the flag values listed in the below help string; delete the special
-  // empty string value so that it's on unconditionally.
+  // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
       name = "experimental_builtins_bzl_path",
       defaultValue = "",
@@ -95,6 +93,15 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + "Bazel within its own source tree. Finally, a value of the empty string disables "
               + "the builtins injection mechanism entirely.")
   public String experimentalBuiltinsBzlPath;
+
+  @Option(
+      name = "experimental_builtins_dummy",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Enables an internal dummy symbol used to test builtins injection.")
+  public boolean experimentalBuiltinsDummy;
 
   @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
@@ -602,6 +609,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             // <== Add new options here in alphabetic order ==>
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
+            .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(
                 EXPERIMENTAL_CC_STARLARK_API_ENABLED_PACKAGES,
                 ImmutableList.copyOf(experimentalCcStarlarkApiEnabledPackages))
@@ -671,6 +679,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   // booleans: the +/- prefix indicates the default value (true/false).
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
+  public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";

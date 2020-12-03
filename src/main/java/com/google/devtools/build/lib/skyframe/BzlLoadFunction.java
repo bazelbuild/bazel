@@ -589,20 +589,12 @@ public class BzlLoadFunction implements SkyFunction {
     if (path.isEmpty()) {
       throw new IllegalStateException("Requested builtins root, but injection is disabled");
     } else if (path.equals("%install_base%")) {
-      // TODO(#11437): Support reading builtins from the install base (the expected case in
-      // production)
-      // return Root.fromPath(directories.getInstallBase().getRelative("bzl_builtins"));
-      //
-      // This feature is experimental so the exact exception doesn't matter much, but let's not
-      // crash Bazel.
-      throw new BzlLoadFailedException(
-          "Loading builtins from install base is not implemented", Code.BUILTINS_ERROR);
+      return Root.fromPath(directories.getInstallBase().getRelative("builtins_bzl"));
     } else if (path.equals("%workspace%")) {
-      // TODO(#11437): Support reading builtins from a well-known path in the workspace, as
-      // determined by the RuleClassProvider.
-      // return Root.fromPath(directories.getWorkspace());
-      throw new BzlLoadFailedException(
-          "Loading builtins from workspace is not implemented", Code.BUILTINS_ERROR);
+      return Root.fromPath(
+          directories
+              .getWorkspace()
+              .getRelative(packageFactory.getRuleClassProvider().getBuiltinsPackagePathInSource()));
     } else {
       // TODO(#11437): Should we consider interning these roots?
       return Root.fromPath(directories.getWorkspace().getRelative(path));

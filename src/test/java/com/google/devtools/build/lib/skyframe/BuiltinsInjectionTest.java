@@ -22,11 +22,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.starlark.java.eval.FlagGuardedValue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,8 +37,8 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for Starlark builtin injection.
  *
- * <p>Essentially these are integration tests between {@link StarlarkBuiltinsFunction} and {@link
- * BzlLoadFunction}.
+ * <p>Essentially these are integration tests between {@link StarlarkBuiltinsFunction}, {@link
+ * BzlLoadFunction}, and the rest of package loading.
  */
 @RunWith(JUnit4.class)
 public class BuiltinsInjectionTest extends BuildViewTestCase {
@@ -67,7 +69,13 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Add some mock symbols to override.
     builder
         .addRuleDefinition(OVERRIDABLE_RULE)
-        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
+        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
+        .addStarlarkAccessibleTopLevels(
+            "flag_guarded_symbol",
+            // For this mock symbol, we reuse the same flag that guards the production
+            // _builtins_dummy symbol.
+            FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+                BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, "original value"));
     return builder.build();
   }
 
@@ -336,6 +344,24 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   // TODO(#11437): Add test cases for BUILD file injection, and WORKSPACE file non-injection, when
   // we add injection support to PackageFunction.
+
+  @Test
+  public void overriddenSymbolsAreStillFlagGuarded() throws Exception {
+    // Implementation note: This works not because of any special handling in the builtins logic,
+    // but rather because flag guarding is implemented at name resolution time, before builtins
+    // injection is applied.
+    writeExportsBzl(
+        "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBzl("flag_guarded_symbol");
+
+    buildAndAssertFailure();
+    assertContainsEvent("flag_guarded_symbol is experimental");
+  }
+
+  // TODO(#11437): Once we allow access to native symbols via _internal, verify that flag guarding
+  // works correctly within builtins.
 
   /**
    * Tests for injection, under inlining of {@link BzlLoadFunction}.

@@ -14,6 +14,11 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
-exported_toplevels = {}
+exported_toplevels = {
+    # This dummy symbol is not part of the public API; it is only used to test
+    # that builtins injection is working properly. Its built-in value is
+    # "original value".
+    "_builtins_dummy": "overridden value",
+}
 exported_rules = {}
 exported_to_java = {}

@@ -50,10 +50,10 @@ import net.starlark.java.syntax.Location;
 /** Helper class to provide a RuleClassProvider for tests. */
 public class TestRuleClassProvider {
 
-  private TestRuleClassProvider() {}
-
   private static ConfiguredRuleClassProvider ruleClassProvider = null;
   private static ConfiguredRuleClassProvider ruleClassProviderWithClearedSuffix = null;
+
+  private TestRuleClassProvider() {}
 
   /** Adds all the rule classes supported internally within the build tool to the given builder. */
   public static void addStandardRules(ConfiguredRuleClassProvider.Builder builder) {
@@ -70,7 +70,7 @@ public class TestRuleClassProvider {
   private static ConfiguredRuleClassProvider createRuleClassProvider(boolean clearSuffix) {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     addStandardRules(builder);
-    // TODO(bazel-team): Eliminate TestingDummyRule/MockToolchainRule from this class, push them
+    // TODO(b/174773026): Eliminate TestingDummyRule/MockToolchainRule from this class, push them
     // down into the tests that use them. It's better for tests to avoid spooky mocks at a distance.
     builder.addRuleDefinition(new TestingDummyRule());
     builder.addRuleDefinition(new MockToolchainRule());

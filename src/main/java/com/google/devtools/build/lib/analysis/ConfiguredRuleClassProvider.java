@@ -99,6 +99,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     private Label preludeLabel;
     private String runfilesPrefix;
     private String toolsRepository;
+    private String builtinsPackagePathInSource;
     private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final Set<Class<? extends FragmentOptions>> configurationOptions =
@@ -166,6 +167,13 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     public Builder setToolsRepository(String toolsRepository) {
       this.toolsRepository = toolsRepository;
+      return this;
+    }
+
+    // This is required if the rule class provider will be used with
+    // "--experimental_builtins_bzl_path=%workspace%", but can be skipped in unit tests.
+    public Builder setBuiltinsPackagePathInSource(String path) {
+      this.builtinsPackagePathInSource = path;
       return this;
     }
 
@@ -409,6 +417,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           preludeLabel,
           runfilesPrefix,
           toolsRepository,
+          builtinsPackagePathInSource,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
@@ -467,6 +476,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
    * The path to the tools repository.
    */
   private final String toolsRepository;
+
+  /** The relative location of the builtins_bzl directory within a Bazel source tree. */
+  private final String builtinsPackagePathInSource;
 
   /**
    * Maps rule class name to the metaclass instance for that rule.
@@ -537,6 +549,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       Label preludeLabel,
       String runfilesPrefix,
       String toolsRepository,
+      String builtinsPackagePathInSource,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
@@ -560,6 +573,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
+    this.builtinsPackagePathInSource = builtinsPackagePathInSource;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
@@ -633,6 +647,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   @Override
   public String getToolsRepository() {
     return toolsRepository;
+  }
+
+  @Override
+  public String getBuiltinsPackagePathInSource() {
+    return builtinsPackagePathInSource;
   }
 
   @Override
