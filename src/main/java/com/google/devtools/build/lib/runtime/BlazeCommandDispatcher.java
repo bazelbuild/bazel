@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.TriState;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -313,23 +314,23 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         workspace.initCommand(
             commandAnnotation, options, commandEnvWarnings, waitTimeInMs, firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
-    // If an option is specified explicitly, we give that preference.
-    boolean commandSupportsProfile =
-        (commandAnnotation.builds() || "query".equals(commandName))
-            && !"clean".equals(commandName)
-            && !"info".equals(commandName);
-    boolean profileExplicitlyDisabled =
-        options.containsExplicitOption("experimental_generate_json_trace_profile")
-            && !commonOptions.enableTracer;
-    if (commandSupportsProfile && !profileExplicitlyDisabled) {
-      commonOptions.enableTracer = true;
+    boolean tracerEnabled = false;
+    if (commonOptions.enableTracer == TriState.YES) {
+      tracerEnabled = true;
+    } else if (commonOptions.enableTracer == TriState.AUTO) {
+      boolean commandSupportsProfile =
+          (commandAnnotation.builds() || "query".equals(commandName))
+              && !"clean".equals(commandName)
+              && !"info".equals(commandName);
+      tracerEnabled = commandSupportsProfile || commonOptions.profilePath != null;
     }
+
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
     // the afterCommand call in the finally block below.
     ProfilerStartedEvent profilerStartedEvent =
         runtime.initProfiler(
+            tracerEnabled,
             storedEventHandler,
             workspace,
             commonOptions,

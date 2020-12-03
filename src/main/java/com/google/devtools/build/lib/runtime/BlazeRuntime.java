@@ -305,6 +305,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** Configure profiling based on the provided options. */
   ProfilerStartedEvent initProfiler(
+      boolean tracerEnabled,
       ExtendedEventHandler eventHandler,
       BlazeWorkspace workspace,
       CommonCommandOptions options,
@@ -320,7 +321,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     String profileName = null;
     UploadContext streamingContext = null;
     try {
-      if (options.enableTracer || options.profilePath != null) {
+      if (tracerEnabled) {
         if (options.enableTracerCompression == TriState.YES
             || (options.enableTracerCompression == TriState.AUTO
                 && (options.profilePath == null
