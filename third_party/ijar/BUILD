@@ -7,6 +7,8 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
+load("//src:release_archive.bzl", "release_archive")
+
 cc_library(
     name = "zip",
     srcs = [
@@ -136,39 +138,33 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-genrule(
+release_archive(
     name = "ijar_transitive_srcs_zip",
-    srcs = [
+    package_dir = "java_tools",
+    visibility = ["//visibility:public"],
+    deps = [
         ":ijar_srcs_zip",
         "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
-    outs = ["ijar_srcs_with_deps.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//visibility:public"],
 )
 
-genrule(
+release_archive(
     name = "ijar_deploy_zip",
     srcs = [
         ":ijar",
         ":zipper",
     ],
-    outs = ["ijar_deploy.zip"],
-    cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
-    tools = ["//src:zip_files"],
+    package_dir = "java_tools/ijar",
     visibility = ["//visibility:public"],
 )
 
-genrule(
+release_archive(
     name = "ijar_srcs_zip",
     srcs = glob(
         ["**"],
         exclude = ["BUILD"],
     ),
-    outs = ["ijar_srcs.zip"],
-    cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
-    tools = ["//src:zip_files"],
+    package_dir = "ijar",
     visibility = ["//visibility:private"],
 )

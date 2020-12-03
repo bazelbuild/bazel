@@ -3,6 +3,7 @@
 load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
+load("//src:release_archive.bzl", "release_archive")
 
 exports_files(["jdeps_modules.golden"])
 
@@ -583,8 +584,6 @@ genrule(
 )
 
 # Following targets build java_tools.zip - platform independent part of java_tools
-# It is painstainkingly built by renaming single files, zipping them and merging zips together
-# TODO(bazel-team): Replace this with a single target, for example "release_archive" in rules_kotlin
 JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
     "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
@@ -595,88 +594,42 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar",
 ]
 
-genrule(
+release_archive(
     name = "jars_java_tools_zip",
     srcs = JAVA_TOOLS_DEPLOY_JARS + [
         "@java_tools_langtools_javac11//:jdk_compiler_jar",
         "@java_tools_langtools_javac11//:java_compiler_jar",
         "@java_tools_langtools_javac11//:javac_jar",
     ],
-    outs = ["jars_java_tools.zip"],
-    cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
+    package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )
 
-genrule(
-    name = "java_tools_build_zip",
-    srcs = ["//tools/jdk:BUILD.java_tools"],
-    outs = ["java_tools_build.zip"],
-    cmd = "cat $(SRCS) > BUILD; zip -qjX $@ BUILD",
-)
-
-genrule(
-    name = "java_tools_no_build_zip",
-    srcs = [
-        ":jars_java_tools.zip",
+release_archive(
+    name = "java_tools_zip",
+    src_map = {
+        "//tools/jdk:BUILD.java_tools": "BUILD",
+    },
+    deps = [
+        ":jars_java_tools_zip",
         "//src/tools/singlejar:singlejar_transitive_zip",
         "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
-    outs = ["java_tools_no_build.zip"],
-    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
+)
+
+# Following target builds java_tools_prebuilt.zip part of java_tools
+release_archive(
+    name = "java_tools_prebuilt_zip",
+    src_map = {
+        "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
+    },
     visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-genrule(
-    name = "java_tools_zip",
-    srcs = [
-        "java_tools_no_build.zip",
-        "java_tools_build.zip",
-    ],
-    outs = ["java_tools.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-# Following targets build java_tools_prebuilt.zip part of java_tools
-# It is painstainkingly built by renaming single files, zipping them and merging zips together
-# TODO(bazel-team): Replace this with a single target, for example "release_archive" in rules_kotlin
-genrule(
-    name = "java_tools_prebuilt_build_zip",
-    srcs = ["//tools/jdk:BUILD.java_tools_prebuilt"],
-    outs = ["java_tools_prebuilt_build.zip"],
-    cmd = "cat $(SRCS) > BUILD; zip -qjX $@ BUILD",
-)
-
-genrule(
-    name = "java_tools_prebuilt_no_build_zip",
-    srcs = [
+    deps = [
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
-    outs = ["java_tools_prebuilt_no_build.zip"],
-    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
-    output_to_bindir = True,
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-genrule(
-    name = "java_tools_prebuilt_zip",
-    srcs = [
-        "java_tools_prebuilt_no_build.zip",
-        "java_tools_prebuilt_build.zip",
-    ],
-    outs = ["java_tools_prebuilt.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -727,12 +680,10 @@ sh_binary(
 )
 
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
-genrule(
+release_archive(
     name = "zlib_zip",
     srcs = ["//third_party/zlib:embedded_tools"],
-    outs = ["zlib.zip"],
-    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
-    tools = ["//src:zip_files"],
+    package_dir = "zlib",
     visibility = [
         "//src/tools/singlejar:__pkg__",
         "//third_party/ijar:__pkg__",
