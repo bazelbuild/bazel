@@ -14,7 +14,7 @@ sh_test(
         "$(JAVABASE)/bin/jar",
         "$(JAVABASE)/bin/javap",
         "$(location //third_party/ijar)",
-        "$(location //tools/jdk:langtools)",
+        "$(location //third_party/java/jdk/langtools:javac_jar)",
         # We assume unzip and zip to be on the path
         "unzip",
         "zip",
@@ -46,7 +46,7 @@ sh_test(
         # wrong.
         "libwrongcentraldir.jar",
         "@bazel_tools//tools/jdk:current_java_runtime",
-        "//tools/jdk:langtools",
+        "//third_party/java/jdk/langtools:javac_jar",
     ],
     shard_count = 5,
     tags = ["zip"],
