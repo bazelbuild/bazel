@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -95,13 +94,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     ruleContext.checkSrcsSamePackage(true);
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
 
-    if (!createExecutable) {
-      // TODO(cushon): disallow combining launcher=JDK_LAUNCHER_LABEL with create_executable=0
-      // and use isAttributeExplicitlySpecified here
-      Label launcherAttribute = ruleContext.attributes().get("launcher", BuildType.LABEL);
-      if (launcherAttribute != null && !JavaHelper.isJdkLauncher(ruleContext, launcherAttribute)) {
-        ruleContext.ruleError("launcher specified but create_executable is false");
-      }
+    if (!createExecutable
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("launcher")) {
+      ruleContext.ruleError("launcher specified but create_executable is false");
     }
 
     if (!ruleContext.attributes().get("use_launcher", Type.BOOLEAN)
