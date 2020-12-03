@@ -627,7 +627,6 @@ release_archive(
         "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
     },
     visibility = ["//src/test/shell/bazel:__pkg__"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
