@@ -122,4 +122,38 @@ EOF
   expect_log "major version: 55"
 }
 
+function test_tools_jdk_toolchain_nojacocorunner() {
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_binary(
+    name = 'JavaBinary',
+    srcs = ['JavaBinary.java'],
+    main_class = 'JavaBinary',
+)
+load(
+    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
+    "default_java_toolchain",
+)
+default_java_toolchain(
+  name = "default_toolchain",
+  jacocorunner = None,
+  visibility = ["//visibility:public"],
+)
+EOF
+
+   cat >java/main/JavaBinary.java <<EOF
+public class JavaBinary {
+   public static void main(String[] args) {
+    System.out.println("Successfully executed JavaBinary!");
+  }
+}
+EOF
+  bazel coverage java/main:JavaBinary \
+      --java_toolchain=//java/main:default_toolchain \
+      --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --verbose_failures -s &>"${TEST_log}" \
+      && fail "Coverage succeeded even when jacocorunner not set"
+  expect_log "jacocorunner not set in java_toolchain:"
+}
+
 run_suite "Java integration tests with default Bazel values"
