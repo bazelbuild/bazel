@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -23,43 +22,42 @@ import com.google.gson.stream.MalformedJsonException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Printer;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.util.ArrayList;
 import java.util.List;
 
-/** Sample implementation of the Worker Protocol using JSON to communicate with Bazel. */
-public class JsonExampleWorkerProtocolImpl implements ExampleWorkerProtocol {
-  private final Printer jsonPrinter =
-      JsonFormat.printer().omittingInsignificantWhitespace().includingDefaultValueFields();
+/** Implementation of the Worker Protocol using JSON to communicate with Bazel. */
+public final class JsonWorkerMessageProcessor implements WorkRequestHandler.WorkerMessageProcessor {
+  /** Reader for reading the WorkResponse. */
   private final JsonReader reader;
+  /** Printer for printing the WorkRequest. */
+  private final Printer jsonPrinter;
+  /** Writer for writing the WorkRequest to the worker. */
   private final BufferedWriter jsonWriter;
 
-  public JsonExampleWorkerProtocolImpl(InputStream stdin, OutputStream stdout) {
-    reader = new JsonReader(new BufferedReader(new InputStreamReader(stdin, UTF_8)));
+  /** Constructs a {@code WorkRequestHandler} that reads and writes JSON. */
+  public JsonWorkerMessageProcessor(JsonReader reader, BufferedWriter jsonWriter) {
+    this.reader = reader;
     reader.setLenient(true);
-    jsonWriter = new BufferedWriter(new OutputStreamWriter(stdout, UTF_8));
+    this.jsonWriter = jsonWriter;
+    jsonPrinter =
+        JsonFormat.printer().omittingInsignificantWhitespace().includingDefaultValueFields();
   }
 
-  private static ArrayList<String> readArguments(JsonReader reader) throws IOException {
+  private static ImmutableList<String> readArguments(JsonReader reader) throws IOException {
     reader.beginArray();
-    ArrayList<String> arguments = new ArrayList<>();
+    ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
     while (reader.hasNext()) {
-      arguments.add(reader.nextString());
+      argumentsBuilder.add(reader.nextString());
     }
     reader.endArray();
-    return arguments;
+    return argumentsBuilder.build();
   }
 
-  private static ArrayList<Input> readInputs(JsonReader reader) throws IOException {
+  private static ImmutableList<Input> readInputs(JsonReader reader) throws IOException {
     reader.beginArray();
-    ArrayList<Input> inputs = new ArrayList<>();
+    ImmutableList.Builder<Input> inputsBuilder = ImmutableList.builder();
     while (reader.hasNext()) {
       String digest = null;
       String path = null;
@@ -81,19 +79,25 @@ public class JsonExampleWorkerProtocolImpl implements ExampleWorkerProtocol {
             path = reader.nextString();
             break;
           default:
-            throw new IOException(name + " is an incorrect field in input");
+            continue;
         }
       }
       reader.endObject();
-      inputs.add(
-          Input.newBuilder().setDigest(ByteString.copyFromUtf8(digest)).setPath(path).build());
+      Input.Builder inputBuilder = Input.newBuilder();
+      if (digest != null) {
+        inputBuilder.setDigest(ByteString.copyFromUtf8(digest));
+      }
+      if (path != null) {
+        inputBuilder.setPath(path);
+      }
+      inputsBuilder.add(inputBuilder.build());
     }
     reader.endArray();
-    return inputs;
+    return inputsBuilder.build();
   }
 
   @Override
-  public WorkRequest readRequest() throws IOException {
+  public WorkRequest readWorkRequest() throws IOException {
     List<String> arguments = null;
     List<Input> inputs = null;
     Integer requestId = null;
@@ -104,24 +108,24 @@ public class JsonExampleWorkerProtocolImpl implements ExampleWorkerProtocol {
         switch (name) {
           case "arguments":
             if (arguments != null) {
-              throw new IOException("Work request cannot have more than one list of arguments");
+              throw new IOException("WorkRequest cannot have more than one 'arguments' field");
             }
             arguments = readArguments(reader);
             break;
           case "inputs":
             if (inputs != null) {
-              throw new IOException("Work request cannot have more than one list of inputs");
+              throw new IOException("WorkRequest cannot have more than one 'inputs' field");
             }
             inputs = readInputs(reader);
             break;
           case "requestId":
             if (requestId != null) {
-              throw new IOException("Work request cannot have more than one requestId");
+              throw new IOException("WorkRequest cannot have more than one requestId");
             }
             requestId = reader.nextInt();
             break;
           default:
-            throw new IOException(name + " is an incorrect field in work request");
+            break;
         }
       }
       reader.endObject();
@@ -143,17 +147,13 @@ public class JsonExampleWorkerProtocolImpl implements ExampleWorkerProtocol {
   }
 
   @Override
-  public void writeResponse(WorkResponse response) throws IOException {
+  public void writeWorkResponse(WorkResponse response) throws IOException {
     jsonPrinter.appendTo(response, jsonWriter);
     jsonWriter.flush();
   }
 
   @Override
-  public void close() {
-    try {
-      jsonWriter.close();
-    } catch (IOException e) {
-      System.err.printf("Could not close json writer. %s", e);
-    }
+  public void close() throws IOException {
+    jsonWriter.close();
   }
 }
