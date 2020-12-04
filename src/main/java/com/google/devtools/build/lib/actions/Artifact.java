@@ -1340,8 +1340,8 @@ public abstract class Artifact
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       artifact -> artifact.getRootRelativePath().getPathString();
 
-  public static final Function<Artifact, String> OUTPUT_DIR_RELATIVE_PATH_STRING =
-      artifact -> artifact.getOutputDirRelativePath(false).getPathString();
+  public static final Function<Artifact, String> RUNFILES_PATH_STRING =
+      artifact -> artifact.getRunfilesPath().getPathString();
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and

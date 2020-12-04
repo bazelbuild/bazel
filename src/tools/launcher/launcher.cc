@@ -151,10 +151,12 @@ wstring BinaryLauncherBase::Rlocation(wstring path,
     return path;
   }
 
-  if (path.find(L"external/") == 0) {
-    // Ignore 'has_workspace_name' when the path is under "external/". Such
-    // paths already have a workspace name in the next path component.
-    path = path.substr(9);
+  if (path.find(L"../") == 0) {
+    // Ignore 'has_workspace_name' when the runfile path is under "../". Such
+    // paths already have a workspace name in the next path component. We could
+    // append it to this->workspace_name and re-evaluate it, but this is
+    // simpler.
+    path = path.substr(3);
   } else if (!has_workspace_name) {
     path = this->workspace_name + L"/" + path;
   }
