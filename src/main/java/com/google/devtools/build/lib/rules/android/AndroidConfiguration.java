@@ -916,6 +916,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "for instrumentation testing).")
     public boolean disableInstrumentationManifestMerging;
 
+    @Option(
+        name = "experimental_get_android_java_resources_from_optimized_jar",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help =
+            "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
+                + "bundling the final APK.")
+    public boolean getJavaResourcesFromOptimizedJar;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -997,6 +1007,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
+  private final boolean getJavaResourcesFromOptimizedJar;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1055,6 +1066,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
+    this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1319,6 +1331,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean disableInstrumentationManifestMerging() {
     return disableInstrumentationManifestMerging;
+  }
+
+  public boolean getJavaResourcesFromOptimizedJar() {
+    return getJavaResourcesFromOptimizedJar;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

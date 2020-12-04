@@ -4761,6 +4761,46 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEmpty();
   }
 
+  @Test
+  public void testOptimizedJavaResourcesDisabled() throws Exception {
+    useConfiguration("--noexperimental_get_android_java_resources_from_optimized_jar");
+    ConfiguredTarget ct =
+        scratchConfiguredTarget(
+            "java/a",
+            "a",
+            "android_binary(",
+            "    name = 'a',",
+            "    srcs = ['A.java'],",
+            "    manifest = 'AndroidManifest.xml',",
+            "    proguard_specs = ['proguard.cfg'],",
+            ")");
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ct));
+    Artifact extractedResources = getFirstArtifactEndingWith(artifacts, "extracted_a_deploy.jar");
+    String args = Joiner.on(" ").join(getGeneratingSpawnActionArgs(extractedResources));
+    assertThat(args).contains("/a_deploy.jar");
+    assertThat(args).doesNotContain("a_proguard.jar");
+  }
+
+  @Test
+  public void testOptimizedJavaResourcesEnabled() throws Exception {
+    useConfiguration("--experimental_get_android_java_resources_from_optimized_jar");
+    ConfiguredTarget ct =
+        scratchConfiguredTarget(
+            "java/a",
+            "a",
+            "android_binary(",
+            "    name = 'a',",
+            "    srcs = ['A.java'],",
+            "    manifest = 'AndroidManifest.xml',",
+            "    proguard_specs = ['proguard.cfg'],",
+            ")");
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ct));
+    Artifact extractedResources = getFirstArtifactEndingWith(artifacts, "extracted_a_proguard.jar");
+    String args = Joiner.on(" ").join(getGeneratingSpawnActionArgs(extractedResources));
+    assertThat(args).doesNotContain("a_deploy.jar");
+    assertThat(args).contains("/a_proguard.jar");
+  }
+
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would
   // have to enforce incorrect behavior.
   // TODO(b/117338320): Add a test when dependency order is fixed.
