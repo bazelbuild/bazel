@@ -56,7 +56,7 @@ public class WorkRequestHandler implements AutoCloseable {
   /** This worker's stderr. */
   private final PrintStream stderr;
 
-  private final WorkerMessageProcessor messageProcessor;
+  final WorkerMessageProcessor messageProcessor;
 
   private final CpuTimeBasedGcScheduler gcScheduler;
 
