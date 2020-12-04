@@ -610,6 +610,26 @@ public class ArtifactTest {
         .runTests();
   }
 
+  @Test
+  public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_returnsCorrectPath() {
+    assertThat(
+            ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
+                PathFragment.create("bazel-out"),
+                PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")))
+        .isEqualTo(
+            PathFragment.create("bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/dir/subdir"));
+  }
+
+  @Test
+  public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_wrongPrefix_fails() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
+                PathFragment.create("wrongPrefix"),
+                PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")));
+  }
+
   private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
     return createTreeArtifact(root, relativePath, ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
   }

@@ -1121,15 +1121,37 @@ public abstract class Artifact
         ArtifactRoot treeArtifactRoot,
         PathFragment derivedPathPrefix,
         PathFragment customDerivedTreeRoot) {
-      Path execRoot = getExecRoot(treeArtifactRoot);
+      return ArtifactRoot.asDerivedRoot(
+          getExecRoot(treeArtifactRoot),
+          // e.g. bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
+          getExecPathWithinCustomDerivedRoot(
+              derivedPathPrefix, customDerivedTreeRoot, treeArtifactRoot.getExecPath()));
+    }
 
-      // bazel-out/k8-fastbuild/bin -> bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
-      PathFragment rootExecPath =
-          derivedPathPrefix
-              .getRelative(customDerivedTreeRoot)
-              .getRelative(treeArtifactRoot.getExecPath().relativeTo(derivedPathPrefix));
+    /**
+     * Returns an exec path within the archived artifacts directory tree corresponding to the
+     * provided one.
+     *
+     * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    public static PathFragment getExecPathWithinArchivedArtifactsTree(
+        PathFragment derivedPathPrefix, PathFragment execPath) {
+      return getExecPathWithinCustomDerivedRoot(
+          derivedPathPrefix, ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT, execPath);
+    }
 
-      return ArtifactRoot.asDerivedRoot(execRoot, rootExecPath);
+    /**
+     * Translates provided output {@code execPath} to one under provided derived tree root.
+     *
+     * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    private static PathFragment getExecPathWithinCustomDerivedRoot(
+        PathFragment derivedPathPrefix, PathFragment customDerivedTreeRoot, PathFragment execPath) {
+      return derivedPathPrefix
+          .getRelative(customDerivedTreeRoot)
+          .getRelative(execPath.relativeTo(derivedPathPrefix));
     }
 
     private static Path getExecRoot(ArtifactRoot artifactRoot) {
