@@ -14,40 +14,12 @@
 
 package com.google.testing.coverage;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.net.URLDecoder;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.jar.Attributes;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import java.util.jar.JarInputStream;
-import java.util.jar.Manifest;
 import org.jacoco.agent.rt.IAgent;
 import org.jacoco.agent.rt.RT;
 import org.jacoco.core.analysis.Analyzer;
@@ -57,6 +29,19 @@ import org.jacoco.core.tools.ExecFileLoader;
 import org.jacoco.report.IReportVisitor;
 import org.jacoco.report.ISourceFileLocator;
 import sun.misc.Unsafe;
+
+import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.net.URLDecoder;
+import java.util.*;
+import java.util.jar.*;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.StandardOpenOption.APPEND;
+import static java.nio.file.StandardOpenOption.CREATE;
 
 /**
  * Runner class used to generate code coverage report when using Jacoco offline instrumentation.
@@ -81,7 +66,6 @@ public class JacocoCoverageRunner {
   private ExecFileLoader execFileLoader;
   private HashMap<String, byte[]> uninstrumentedClasses;
   private ImmutableSet<String> pathsForCoverage = ImmutableSet.of();
-
   /**
    * Creates a new coverage runner extracting the classes jars from a wrapper file. Uses
    * javaRunfilesRoot to compute the absolute path of the jars inside the wrapper file.
@@ -130,24 +114,26 @@ public class JacocoCoverageRunner {
 
   @VisibleForTesting
   void createReport(
-      final IBundleCoverage bundleCoverage, final Map<String, BranchCoverageDetail> branchDetails)
-      throws IOException {
+    final IBundleCoverage bundleCoverage, final Map<String, BranchCoverageDetail> branchDetails)
+    throws IOException {
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(createPathsSet());
-    final IReportVisitor visitor = formatter.createVisitor(reportFile, branchDetails);
+    try (PrintWriter writer = new PrintWriter(java.nio.file.Files.newBufferedWriter(reportFile.toPath(), UTF_8, CREATE, APPEND))
+    ) {
+      final IReportVisitor visitor = formatter.createVisitor(writer, branchDetails);
 
-    // Initialize the report with all of the execution and session information. At this point the
-    // report doesn't know about the structure of the report being created.
-    visitor.visitInfo(
+      // Initialize the report with all of the execution and session information. At this point the
+      // report doesn't know about the structure of the report being created.
+      visitor.visitInfo(
         execFileLoader.getSessionInfoStore().getInfos(),
         execFileLoader.getExecutionDataStore().getContents());
 
-    // Populate the report structure with the bundle coverage information.
-    // Call visitGroup if you need groups in your report.
+      // Populate the report structure with the bundle coverage information.
+      // Call visitGroup if you need groups in your report.
 
-    // Note the API requires a sourceFileLocator because the HTML and XML formatters display a page
-    // of code annotated with coverage information. Having the source files is not actually needed
-    // for generating the lcov report...
-    visitor.visitBundle(
+      // Note the API requires a sourceFileLocator because the HTML and XML formatters display a page
+      // of code annotated with coverage information. Having the source files is not actually needed
+      // for generating the lcov report...
+      visitor.visitBundle(
         bundleCoverage,
         new ISourceFileLocator() {
 
@@ -162,8 +148,9 @@ public class JacocoCoverageRunner {
           }
         });
 
-    // Signal end of structure information to allow report to write all information out
-    visitor.visitEnd();
+      // Signal end of structure information to allow report to write all information out
+      visitor.visitEnd();
+    }
   }
 
   @VisibleForTesting
@@ -252,7 +239,11 @@ public class JacocoCoverageRunner {
    * Adds to the given {@link Set} the paths found in a txt file inside the given jar.
    *
    * <p>If a jar contains uninstrumented classes it will also contain a txt file with the paths of
-   * each of these classes, one on each line.
+   * each of these classes, called "-paths-for-coverage.txt". This file expects one path per line,
+   * specified as either:
+   * 1. A single path (e.g. /dir/com/example/Foo.java)
+   * 2. A mapping between source and class paths delimited with by ///
+   * (e.g. /dir/Foo.java////com/example/Foo.java)
    */
   @VisibleForTesting
   static void addEntriesToExecPathsSet(
