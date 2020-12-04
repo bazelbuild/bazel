@@ -4,6 +4,7 @@
 # http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
+load("//src:release_archive.bzl", "release_archive")
 
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 
@@ -18,17 +19,15 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-genrule(
+release_archive(
     name = "jacoco_jars_zip",
     srcs = glob(["*.jar"]) + ["LICENSE"] + [
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
     ],
-    outs = ["jacoco_jars.zip"],
-    cmd = "$(location //src:zip_files) third_party/java/jacoco $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:zip_files"],
+    package_dir = "java_tools/third_party/java/jacoco",
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
