@@ -82,7 +82,7 @@ def _rename_impl(ctx):
         outputs = [out_file],
         progress_message = "%s -> %s" % (in_file, ctx.attr.target),
         command = "mkdir -p {dir} && cp {in_file} {out_file}".format(
-            dir = ctx.label.name,
+            dir = out_file.dirname,
             in_file = in_file.path,
             out_file = out_file.path,
         ),
