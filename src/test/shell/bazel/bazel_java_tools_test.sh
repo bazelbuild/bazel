@@ -176,7 +176,8 @@ function test_java_tools_has_BUILD() {
   expect_path_in_java_tools "BUILD"
 }
 
-function test_java_tools_has_jacocoagent() {
+# TODO(ilist): reenable after jacocoagent is patched
+function disable_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent-0.8.3.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.3.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.3.jar"
@@ -187,7 +188,8 @@ function test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/LICENSE"
 }
 
-function test_java_tools_has_proguard() {
+# TODO(ilist): reenable after proguard is patched
+function disable_java_tools_has_proguard() {
   expect_path_in_java_tools "java_tools/third_party/java/proguard/proguard.jar"
   expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html"
 }
