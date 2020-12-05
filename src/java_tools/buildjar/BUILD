@@ -1,4 +1,5 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_toolchain")
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
 
 # Description:
 # JavaBuilder and java tools used by Bazel
@@ -55,7 +56,7 @@ filegroup(
 )
 
 # This toolchain is used to bootstrap Bazel.
-java_toolchain(
+default_java_toolchain(
     name = "bootstrap_toolchain",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath.jar"],
     genclass = ["bootstrap_genclass_deploy.jar"],
