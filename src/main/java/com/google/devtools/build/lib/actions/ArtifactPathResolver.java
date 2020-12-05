@@ -37,9 +37,7 @@ public interface ArtifactPathResolver {
    */
   Path convertPath(Path path);
 
-  /**
-   * @return a resolved Rooth corresponding to the given Root.
-   */
+  /** @return a resolved {@link Root} corresponding to the given Root. */
   Root transformRoot(Root root);
 
   ArtifactPathResolver IDENTITY = new IdentityResolver(null);
