@@ -375,6 +375,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "cause the server to restart.")
   public boolean clientDebug;
 
+ @Option(
+      name = "preemptible",
+      defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If true, the command can be preempted if another command is started.")
+  public boolean preemptible;
+
   @Option(
       name = "connect_timeout_secs",
       defaultValue = "30", // NOTE: only for documentation, value is set and used by the client.
