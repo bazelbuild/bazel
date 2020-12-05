@@ -50,7 +50,7 @@ public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructAp
               doc = "Transitive proguard specs.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

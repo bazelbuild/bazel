@@ -61,7 +61,7 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
               doc = "Resource class jars.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

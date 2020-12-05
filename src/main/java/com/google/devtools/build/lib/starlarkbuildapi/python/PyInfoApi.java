@@ -87,7 +87,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
         parameters = {
           @Param(
               name = "transitive_sources",
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)},
+              allowedTypes = {@ParamType(type = Depset.class)},
               positional = false,
               named = true,
               doc = "The value for the new object's <code>transitive_sources</code> field."),
@@ -99,7 +99,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
               doc = "The value for the new object's <code>uses_shared_libraries</code> field."),
           @Param(
               name = "imports",
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = String.class)},
+              allowedTypes = {@ParamType(type = Depset.class)},
               positional = false,
               named = true,
               defaultValue = "unbound",

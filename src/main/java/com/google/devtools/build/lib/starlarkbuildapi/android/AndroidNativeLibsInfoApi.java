@@ -62,7 +62,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
         parameters = {
           @Param(
               name = "native_libs",
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)},
+              allowedTypes = {@ParamType(type = Depset.class)},
               named = true,
               doc = "The native libraries produced by the rule."),
         },

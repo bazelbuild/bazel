@@ -19,6 +19,9 @@ import java.lang.annotation.RetentionPolicy;
 /** An annotation for parameter types for Starlark built-in functions. */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ParamType {
+  /** Unspecified value for {@link #generic1()}. */
+  enum Unspecified {}
+
   /**
    * The Java class of the type, e.g. {@link String}.class or {@link
    * net.starlark.java.eval.Sequence}.class.
@@ -36,5 +39,5 @@ public @interface ParamType {
    */
   // TODO(adonovan): make this an array---a non-breaking change for most clients---
   // ideally of the same length as the number of type parameters of type().
-  Class<?> generic1() default Object.class;
+  Class<?> generic1() default Unspecified.class;
 }

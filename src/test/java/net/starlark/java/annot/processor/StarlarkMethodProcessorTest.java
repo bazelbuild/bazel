@@ -171,6 +171,16 @@ public final class StarlarkMethodProcessorTest {
   }
 
   @Test
+  public void testParamTypeExtraGenericParam() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ParamTypeExtraGenericParam.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("type java.lang.String of parameter 'a_parameter' has no type parameters," +
+          " net.starlark.java.eval.StarlarkInt given");
+  }
+
+  @Test
   public void testNonDefaultParamAfterDefault() throws Exception {
     assertAbout(javaSource())
         .that(getFile("NonDefaultParamAfterDefault.java"))

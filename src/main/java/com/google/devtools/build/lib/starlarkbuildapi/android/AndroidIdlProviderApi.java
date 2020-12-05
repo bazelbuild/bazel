@@ -93,13 +93,13 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
               doc = "A depset of strings of all the idl import roots in the transitive closure.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = String.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
           @Param(
               name = "transitive_idl_imports",
               doc = "A depset of artifacts of all the idl imports in the transitive closure.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
           @Param(
               name = "transitive_idl_jars",
               doc =
@@ -107,7 +107,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
                       + "transitive closure.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
           @Param(
               name = "transitive_idl_preprocessed",
               doc =
@@ -115,7 +115,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
                       + "closure.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

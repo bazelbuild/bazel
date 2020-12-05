@@ -73,7 +73,7 @@ public interface JavaNativeLibraryInfoApi<
               doc = "The transitive set of LibraryToLink providers.",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = LibraryToLinkApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

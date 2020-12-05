@@ -301,7 +301,7 @@ public interface AppleCommonApi<
         @Param(
             name = "framework_dirs",
             allowedTypes = {
-              @ParamType(type = Depset.class, generic1 = String.class),
+              @ParamType(type = Depset.class),
               @ParamType(type = NoneType.class),
             },
             named = true,
@@ -313,7 +313,7 @@ public interface AppleCommonApi<
         @Param(
             name = "framework_files",
             allowedTypes = {
-              @ParamType(type = Depset.class, generic1 = FileApi.class),
+              @ParamType(type = Depset.class),
               @ParamType(type = NoneType.class),
             },
             named = true,

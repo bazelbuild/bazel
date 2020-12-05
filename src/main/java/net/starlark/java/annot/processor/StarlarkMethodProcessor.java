@@ -31,6 +31,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
@@ -342,6 +343,18 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
             paramAnnot.name(),
             paramType);
       }
+      if (t instanceof DeclaredType) {
+        Element element = ((DeclaredType) t).asElement();
+        if (element instanceof TypeElement) {
+          List<? extends TypeParameterElement> typeParameters = ((TypeElement) element).getTypeParameters();
+          if (typeParameters.isEmpty()) {
+            TypeMirror generic1 = getParamTypeGeneric1(paramTypeAnnot);
+            if (!types.isSameType(generic1, getType("net.starlark.java.annot.ParamType.Unspecified"))) {
+              errorf(param, "type %s of parameter '%s' has no type parameters, %s given", t, paramAnnot.name(), generic1);
+            }
+          }
+        }
+      }
     }
 
     // Reject generic types C<T> other than C<?>,
@@ -408,6 +421,17 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     // and at https://stackoverflow.com/a/10167558.
     try {
       paramType.type();
+      throw new IllegalStateException("unreachable");
+    } catch (MirroredTypeException ex) {
+      return ex.getTypeMirror();
+    }
+  }
+
+  // Returns the logical type of ParamType.generic1.
+  private static TypeMirror getParamTypeGeneric1(ParamType paramType) {
+    // Same logic as in `getParamTypeType`
+    try {
+      paramType.generic1();
       throw new IllegalStateException("unreachable");
     } catch (MirroredTypeException ex) {
       return ex.getTypeMirror();

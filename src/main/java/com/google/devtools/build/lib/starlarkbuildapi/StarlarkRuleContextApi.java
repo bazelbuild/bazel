@@ -568,7 +568,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         @Param(
             name = "transitive_files",
             allowedTypes = {
-              @ParamType(type = Depset.class, generic1 = FileApi.class),
+              @ParamType(type = Depset.class),
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",

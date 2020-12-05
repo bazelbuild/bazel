@@ -84,7 +84,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
               doc = "Proto jars used to generate the registry",
               positional = true,
               named = false,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

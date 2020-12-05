@@ -903,7 +903,7 @@ final class StringModule implements StarlarkValue {
             name = "sub",
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = Tuple.class, generic1 = String.class),
+              @ParamType(type = Tuple.class),
             },
             doc = "The suffix (or tuple of alternative suffixes) to match."),
         @Param(
@@ -984,7 +984,7 @@ final class StringModule implements StarlarkValue {
             name = "sub",
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = Tuple.class, generic1 = String.class),
+              @ParamType(type = Tuple.class),
             },
             doc = "The prefix (or tuple of alternative prefixes) to match."),
         @Param(

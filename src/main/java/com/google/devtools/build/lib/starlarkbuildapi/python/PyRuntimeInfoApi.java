@@ -123,7 +123,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
           @Param(
               name = "files",
               allowedTypes = {
-                @ParamType(type = Depset.class, generic1 = FileApi.class),
+                @ParamType(type = Depset.class),
                 @ParamType(type = NoneType.class),
               },
               positional = false,

@@ -136,7 +136,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               positional = true,
               named = true,
               allowedTypes = {
-                @ParamType(type = Depset.class, generic1 = ParsedAndroidAssetsApi.class)
+                @ParamType(type = Depset.class)
               }),
           @Param(
               name = "transitive_parsed_assets",
@@ -144,26 +144,26 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               positional = true,
               named = true,
               allowedTypes = {
-                @ParamType(type = Depset.class, generic1 = ParsedAndroidAssetsApi.class)
+                @ParamType(type = Depset.class)
               }),
           @Param(
               name = "transitive_assets",
               doc = "A depset of all the assets in the transitive closure.",
               positional = true,
               named = true,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
           @Param(
               name = "transitive_symbols",
               doc = "A depset of all the symbols in the transitive closure.",
               positional = true,
               named = true,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
           @Param(
               name = "transitive_compiled_symbols",
               doc = "A depset of all the compiled symbols in the transitive closure.",
               positional = true,
               named = true,
-              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+              allowedTypes = {@ParamType(type = Depset.class)}),
         },
         selfCall = true)
     @StarlarkConstructor
