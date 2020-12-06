@@ -493,4 +493,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "extended attribute is checked on all source files and output files, meaning "
               + "that it causes a significant number of invocations of the getxattr() system call.")
   public String unixDigestHashAttributeName;
+
+  @Option(
+      name = "autodetect_server_javabase",
+      defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "When --noautodetect_server_javabase is passed, Bazel does not fall back to the local "
+              + "JDK for running the bazel server and instead exits.")
+  public boolean autodetectServerJavabase;
 }
