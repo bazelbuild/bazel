@@ -38,6 +38,10 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
+# We don't want to use the cached, extracted bazel.  It will have a different
+# sha1 and fail the test.  The 2 version commands below are cheap.
+unset TEST_INSTALL_BASE
+
 export BAZEL_SUFFIX="_nojdk"
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
