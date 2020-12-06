@@ -436,17 +436,30 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
   /** Returns a value whose signum is equal to x - y. */
   public static int compare(StarlarkInt x, StarlarkInt y) {
-    if (x instanceof Int32 && y instanceof Int32) {
-      return Integer.compare(((Int32) x).v, ((Int32) y).v);
-    }
-
     try {
-      return Long.compare(x.toLongFast(), y.toLongFast());
+      long xl = x.toLongFast();
+      try {
+        long yl = y.toLongFast();
+        // both x and y are within long range
+        return Long.compare(xl, yl);
+      } catch (Overflow unused) {
+        // minlong <= x <= maxlong
+        // y is Big: y < minlong || y > maxlong
+        // so compare(x, y) == -y.signum()
+        return -((Big) y).v.signum();
+      }
     } catch (Overflow unused) {
-      /* fall through */
+      try {
+        y.toLongFast();
+        // x is Big: x < minlong || x > maxlong
+        // minlong <= y <= maxlong
+        // so compare(x, y) == x.signum()
+        return ((Big) x).v.signum();
+      } catch (Overflow unused2) {
+        // both x and y are Big
+        return ((Big) x).v.compareTo(((Big) y).v);
+      }
     }
-
-    return x.toBigInteger().compareTo(y.toBigInteger());
   }
 
   /** Returns x + y. */
