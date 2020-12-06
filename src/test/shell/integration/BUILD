@@ -203,6 +203,8 @@ sh_test(
         ":test-deps-nojdk",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    # Windows doesn't support sandboxing, which BAZEL_SUFFIX needs.
+    tags = ["no_windows"],
 )
 
 sh_test(
