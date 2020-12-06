@@ -18,6 +18,13 @@
 # affect all our integration tests.
 #
 bazel_bin=$(rlocation io_bazel/src/bazel)
+
+# One test uses bazel_nojdk instead.  If bazel_bin is empty, try that.
+if [[ -z "${bazel_bin}" ]];
+then
+  bazel_bin=$(rlocation io_bazel/src/bazel_nojdk)
+fi
+
 # unset runfiles environment so that the "inner bazel"
 # has to detect its own runfiles
 unset RUNFILES_DIR

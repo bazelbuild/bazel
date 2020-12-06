@@ -186,6 +186,18 @@ sh_test(
 )
 
 sh_test(
+    name = "nojdk_startup_options_test",
+    size = "medium",
+    srcs = ["nojdk_startup_options_test.sh"],
+    data = [
+        "//src:bazel_nojdk",
+        "//src/test/shell:bin/bazel",
+        "//src/test/shell/bazel:test-deps-wo-bazel",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "run_test",
     size = "medium",
     srcs = ["run_test.sh"],
