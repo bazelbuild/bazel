@@ -26,6 +26,16 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "test-deps-nojdk",
+    testonly = 1,
+    srcs = [
+        "//src:bazel-bin_nojdk",
+        "//src/test/shell:bin/bazel_nojdk",
+        "//src/test/shell/bazel:test-deps-wo-bazel",
+    ],
+)
+
 sh_test(
     name = "progress_reporting_test",
     size = "large",
@@ -190,9 +200,7 @@ sh_test(
     size = "medium",
     srcs = ["nojdk_startup_options_test.sh"],
     data = [
-        "//src:bazel_nojdk",
-        "//src/test/shell:bin/bazel",
-        "//src/test/shell/bazel:test-deps-wo-bazel",
+        ":test-deps-nojdk",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
