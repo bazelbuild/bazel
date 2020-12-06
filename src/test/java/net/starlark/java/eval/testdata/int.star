@@ -223,6 +223,12 @@ assert_eq(~maxlong, minlong)
 1 % 0  ### integer modulo by zero
 
 ---
+# Not using << to define constants because we are testing <<
+maxint = 0x7fffffff
+maxlong = 0x7fffffffffffffff
+minint = -0x80000000
+minlong = -0x8000000000000000
+
 assert_eq(1 | 2, 3)
 assert_eq(3 | 6, 7)
 assert_eq(7 | 0, 7)
@@ -243,9 +249,29 @@ assert_eq(~2147483647, -2147483647 - 1);
 assert_eq(1 << 2, 4)
 assert_eq(7 << 0, 7)
 assert_eq(-1 << 31, -2147483647 - 1)
+assert_eq(1 << 31, maxint + 1)
+assert_eq(1 << 32, (maxint + 1) * 2)
+assert_eq(1 << 63, maxlong + 1)
+assert_eq(1 << 64, (maxlong + 1) * 2)
+assert_eq(-1 << 31, minint)
+assert_eq(-1 << 32, minint * 2)
+assert_eq(-1 << 63, minlong)
+assert_eq(-1 << 64, minlong * 2)
 assert_eq(2 >> 1, 1)
 assert_eq(7 >> 0, 7)
 assert_eq(0 >> 0, 0)
+assert_eq(minint >> 9999, -1)
+assert_eq(minlong >> 9999, -1)
+assert_eq(maxint >> 9999, 0)
+assert_eq(maxlong >> 9999, 0)
+assert_eq(minint >> 31, -1)
+assert_eq(minint >> 30, -2)
+assert_eq(minlong >> 63, -1)
+assert_eq(minlong >> 62, -2)
+assert_eq(maxint >> 31, 0)
+assert_eq(maxint >> 30, 1)
+assert_eq(maxlong >> 63, 0)
+assert_eq(maxlong >> 62, 1)
 assert_eq(1000 >> 100, 0)
 assert_eq(-10 >> 1000, -1)
 assert_eq(1 << 500 >> 499, 2)

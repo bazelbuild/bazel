@@ -570,12 +570,14 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     if (yi < 0) {
       throw Starlark.errorf("negative shift count: %d", yi);
     }
-    if (x instanceof Int32) {
-      long xl = ((Int32) x).v;
-      if (yi >= Integer.SIZE) {
+    try {
+      long xl = x.toLongFast();
+      if (yi >= Long.SIZE) {
         return xl < 0 ? StarlarkInt.of(-1) : ZERO;
       }
       return StarlarkInt.of(xl >> yi);
+    } catch (Overflow unused) {
+      /* fall through */
     }
 
     BigInteger xbig = x.toBigInteger();
@@ -591,13 +593,15 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     } else if (yi >= 512) {
       throw Starlark.errorf("shift count too large: %d", yi);
     }
-    if (x instanceof Int32) {
-      long xl = ((Int32) x).v;
+    try {
+      long xl = x.toLongFast();
       long z = xl << yi; // only uses low 6 bits of yi
       if ((z >> yi) == xl && yi < 64) {
         return StarlarkInt.of(z);
       }
       /* overflow */
+    } catch (Overflow unused) {
+      /* fall through */
     }
 
     BigInteger xbig = x.toBigInteger();
