@@ -175,8 +175,8 @@ rule_size_test(
 filegroup(
     name = "embedded_jdk_allmodules_cached",
     srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos//file",
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_x86_64//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win//file",
@@ -194,8 +194,8 @@ filegroup(
 filegroup(
     name = "embedded_jdk_minimal_cached",
     srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos_minimal//file",
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_x86_64_minimal//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win_minimal//file",
@@ -213,8 +213,8 @@ filegroup(
 filegroup(
     name = "embedded_jdk_vanilla",
     srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos_vanilla//file",
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_x86_64_vanilla//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win_vanilla//file",
@@ -709,7 +709,7 @@ filegroup(
         "@openjdk15_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
-        "@openjdk_macos_minimal//file",
+        "@openjdk_macos_x86_64_minimal//file",
         "@openjdk_win_minimal//file",
         "@remote_coverage_tools_for_testing//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",
