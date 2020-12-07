@@ -135,7 +135,7 @@ To run the custom container, do one of the following:
     ```
 
     Replace `sha256-checksum` with the SHA256 checksum value for the
-    [latest container](https://pantheon.corp.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
+    [latest container](https://console.cloud.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
 
 *   If you built the container from source, run the following command:
 
@@ -168,7 +168,8 @@ Container Registry as follows:
 1. Build the container image:
 
     ```
-    docker build -t <custom-container-name> .docker tag <custom-container-name> gcr.io/<project-id>/<custom-container-name>
+    docker build -t <custom-container-name> .
+    docker tag <custom-container-name> gcr.io/<project-id>/<custom-container-name>
     ```
 
 2.  Push the container image to Container Registry:
