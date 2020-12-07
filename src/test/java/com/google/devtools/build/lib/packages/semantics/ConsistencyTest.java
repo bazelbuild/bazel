@@ -149,7 +149,6 @@ public class ConsistencyTest {
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
         "--incompatible_no_implicit_file_export=" + rand.nextBoolean(),
         "--incompatible_no_rule_outputs_param=" + rand.nextBoolean(),
-        "--incompatible_objc_provider_remove_compile_info=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_struct_has_no_methods=" + rand.nextBoolean(),
         "--incompatible_visibility_private_attributes_at_definition=" + rand.nextBoolean(),
@@ -205,8 +204,6 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, rand.nextBoolean())
-        .setBool(
-            BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_STRUCT_HAS_NO_METHODS, rand.nextBoolean())
         .setBool(

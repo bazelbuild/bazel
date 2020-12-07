@@ -41,12 +41,14 @@ import net.starlark.java.eval.Tuple;
 public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
-        CcToolchainProviderT extends CcToolchainProviderApi<?>,
+        FdoContextT extends FdoContextApi<?>,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, FdoContextT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
+        LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
+        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
         LinkingContextT extends CcLinkingContextApi<?>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT>,
+        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -627,6 +629,12 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "''"),
+        @Param(
+            name = "must_keep_debug",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   LibraryToLinkT createLibraryLinkerInput(
       Object actions,
@@ -641,6 +649,7 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
+      Object mustKeepDebug,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -1193,6 +1202,46 @@ public interface CcModuleApi<
       })
   DebugInfoT mergeCcDebugInfoFromStarlark(
       Sequence<?> debugInfos, // <DebugInfoT> expected
+      StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "create_lto_backend_artifacts",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true, documented = false),
+        @Param(
+            name = "lto_output_root_prefix",
+            positional = false,
+            named = true,
+            documented = false),
+        @Param(name = "bitcode_file", positional = false, named = true, documented = false),
+        @Param(
+            name = "feature_configuration",
+            positional = false,
+            named = true,
+            documented = false),
+        @Param(name = "cc_toolchain", positional = false, named = true, documented = false),
+        @Param(name = "fdo_context", positional = false, named = true, documented = false),
+        @Param(name = "use_pic", positional = false, named = true, documented = false),
+        @Param(
+            name = "should_create_per_object_debug_info",
+            positional = false,
+            named = true,
+            documented = false),
+        @Param(name = "argv", positional = false, named = true, documented = false),
+      })
+  LtoBackendArtifactsT createLtoBackendArtifacts(
+      StarlarkRuleContextT starlarkRuleContext,
+      String ltoOutputRootPrefixString,
+      FileT bitcodeFile,
+      FeatureConfigurationT featureConfigurationForStarlark,
+      CcToolchainProviderT ccToolchain,
+      FdoContextT fdoContext,
+      boolean usePic,
+      boolean shouldCreatePerObjectDebugInfo,
+      Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException;
 }

@@ -27,7 +27,9 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValue {
+public interface CcLinkingOutputsApi<
+        FileT extends FileApi, LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>>
+    extends StarlarkValue {
   @StarlarkMethod(
       name = "library_to_link",
       structField = true,
@@ -37,7 +39,7 @@ public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValu
               + "in further linking.",
       documented = true)
   @Nullable
-  LibraryToLinkApi<FileT> getLibraryToLink();
+  LibraryToLinkApi<FileT, LtoBackendArtifactsT> getLibraryToLink();
 
   @StarlarkMethod(
       name = "executable",

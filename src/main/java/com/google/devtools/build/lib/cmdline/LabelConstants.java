@@ -44,4 +44,11 @@ public class LabelConstants {
   // With this prefix, non-main repositories are sibling symlinks of
   // $output_base/execution_root/__main__
   public static final PathFragment EXPERIMENTAL_EXTERNAL_PATH_PREFIX = PathFragment.create("..");
+
+  // The relative path from the runfiles workspace root to external repository runfile top
+  // directory.
+  //
+  // As a result, external repository runfiles are symlinked to:
+  // $runfiles_root/$workspace_name/../$repo_name/<path>, i.e. $runfiles_root/$repo_name/<path>.
+  public static final PathFragment EXTERNAL_RUNFILES_PATH_PREFIX = PathFragment.create("..");
 }

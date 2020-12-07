@@ -89,6 +89,19 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   }
 
   @Test
+  public void testBadFlag_keepGoing() throws Exception {
+    optionsParser.parse("--keep_going");
+    scratch.file("test/BUILD");
+    reporter.removeHandler(failFastHandler);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//fake_flag"));
+
+    assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
+    assertThat(e.getInvalidArgument()).isEqualTo("//fake_flag");
+  }
+
+  @Test
   public void testSingleDash_notAllowed() throws Exception {
     writeBasicIntFlag();
 

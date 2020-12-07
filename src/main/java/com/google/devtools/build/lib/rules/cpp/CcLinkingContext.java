@@ -164,7 +164,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   // TODO(bazel-team): choose less confusing names for this class and the package-level interface of
   // the same name.
   @Immutable
-  public static class LinkerInput implements LinkerInputApi<LibraryToLink, Artifact> {
+  public static class LinkerInput
+      implements LinkerInputApi<LibraryToLink, LtoBackendArtifacts, Artifact> {
 
     public static final Depset.ElementType TYPE = Depset.ElementType.of(LinkerInput.class);
 

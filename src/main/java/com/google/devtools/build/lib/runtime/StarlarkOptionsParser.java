@@ -154,7 +154,7 @@ public class StarlarkOptionsParser {
 
     if (value != null) {
       // --flag=value or -flag=value form
-      Target buildSettingTarget = loadBuildSetting(name, nativeOptionsParser, eventHandler);
+      Target buildSettingTarget = loadBuildSetting(name, eventHandler);
       unparsedOptions.put(name, new Pair<>(value, buildSettingTarget));
     } else {
       boolean booleanValue = true;
@@ -163,7 +163,7 @@ public class StarlarkOptionsParser {
         booleanValue = false;
         name = name.substring(2);
       }
-      Target buildSettingTarget = loadBuildSetting(name, nativeOptionsParser, eventHandler);
+      Target buildSettingTarget = loadBuildSetting(name, eventHandler);
       BuildSetting current =
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       if (current.getType().equals(BOOLEAN)) {
@@ -180,8 +180,7 @@ public class StarlarkOptionsParser {
     }
   }
 
-  private Target loadBuildSetting(
-      String targetToBuild, OptionsParser optionsParser, ExtendedEventHandler eventHandler)
+  private Target loadBuildSetting(String targetToBuild, ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
     Target buildSetting;
     try {
@@ -191,7 +190,7 @@ public class StarlarkOptionsParser {
               Collections.singletonList(targetToBuild),
               relativeWorkingDirectory,
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
-              optionsParser.getOptions(KeepGoingOption.class).keepGoing);
+              /*keepGoing=*/ false);
       buildSetting =
           Iterables.getOnlyElement(
               result.getTargets(eventHandler, skyframeExecutor.getPackageManager()));
