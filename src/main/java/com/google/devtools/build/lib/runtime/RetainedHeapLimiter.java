@@ -241,6 +241,7 @@ final class RetainedHeapLimiter implements NotificationListener {
     return "CMS Old Gen".equals(name)
         || "G1 Old Gen".equals(name)
         || "PS Old Gen".equals(name)
-        || "Tenured Gen".equals(name);
+        || "Tenured Gen".equals(name)
+        || "Shenandoah".equals(name);
   }
 }
