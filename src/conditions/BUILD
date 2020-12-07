@@ -1,3 +1,5 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -89,8 +91,24 @@ config_setting(
 )
 
 config_setting(
-    name = "darwin_arm64",
+    name = "darwin_arm64_constraint",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+config_setting(
+    name = "darwin_arm64_flag",
     values = {"cpu": "darwin_arm64"},
+)
+
+selects.config_setting_group(
+    name = "darwin_arm64",
+    match_any = [
+        ":darwin_arm64_constraint",
+        ":darwin_arm64_flag",
+    ],
     visibility = ["//visibility:public"],
 )
 
