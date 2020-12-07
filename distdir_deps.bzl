@@ -14,6 +14,8 @@
 """List the distribution dependencies we need to build Bazel."""
 
 DIST_DEPS = {
+    # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
+    # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     "rules_cc": {
         "archive": "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         "sha256": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
