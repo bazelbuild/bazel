@@ -853,4 +853,20 @@ function test_query_failure_exit_code_behavior() {
   assert_equals 7 "$exit_code"
 }
 
+function test_unnecessary_external_workspaces_not_loaded() {
+  cat > WORKSPACE <<'EOF'
+local_repository(
+    name = "notthere",
+    path = "/nope",
+)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(
+    name = "something",
+    srcs = ["@notthere"],
+)
+EOF
+  bazel query '//:*' || fail "Expected success"
+}
+
 run_suite "${PRODUCT_NAME} query tests"
