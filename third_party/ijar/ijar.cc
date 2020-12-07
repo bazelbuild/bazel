@@ -37,6 +37,8 @@ const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
 const char *KOTLIN_MODULE_EXTENSION = ".kotlin_module";
 const size_t KOTLIN_MODULE_EXTENSION_LENGTH = strlen(KOTLIN_MODULE_EXTENSION);
+const char *SCALA_TASTY_EXTENSION = ".tasty";
+const size_t SCALA_TASTY_EXTENSION_LENGTH = strlen(SCALA_TASTY_EXTENSION);
 
 const char *MANIFEST_DIR_PATH = "META-INF/";
 const size_t MANIFEST_DIR_PATH_LENGTH = strlen(MANIFEST_DIR_PATH);
@@ -101,9 +103,15 @@ static bool IsKotlinModule(const char *filename, const size_t filename_len) {
                   KOTLIN_MODULE_EXTENSION_LENGTH);
 }
 
+static bool IsScalaTasty(const char *filename, const size_t filename_len) {
+  return EndsWith(filename, filename_len, SCALA_TASTY_EXTENSION,
+                  SCALA_TASTY_EXTENSION_LENGTH);
+}
+
 bool JarStripperProcessor::Accept(const char *filename, const u4 /*attr*/) {
   const size_t filename_len = strlen(filename);
-  if (IsKotlinModule(filename, filename_len)) {
+  if (IsKotlinModule(filename, filename_len) ||
+      IsScalaTasty(filename, filename_len)) {
     return true;
   }
   if (filename_len < CLASS_EXTENSION_LENGTH ||
@@ -129,7 +137,8 @@ void JarStripperProcessor::Process(const char *filename, const u4 /*attr*/,
   if (verbose) {
     fprintf(stderr, "INFO: StripClass: %s\n", filename);
   }
-  if (IsModuleInfo(filename) || IsKotlinModule(filename, strlen(filename))) {
+  if (IsModuleInfo(filename) || IsKotlinModule(filename, strlen(filename)) ||
+      IsScalaTasty(filename, strlen(filename))) {
     u1 *q = builder_->NewFile(filename, 0);
     memcpy(q, data, size);
     builder_->FinishFile(size, /* compress: */ false, /* compute_crc: */ true);

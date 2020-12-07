@@ -248,7 +248,9 @@ public class IjarTests {
       Enumeration<JarEntry> entries = jf.entries();
       while (entries.hasMoreElements()) {
         JarEntry je = entries.nextElement();
-        if (!je.getName().endsWith(".class") && !je.getName().endsWith(".kotlin_module")) {
+        if (!je.getName().endsWith(".class")
+            && !je.getName().endsWith(".kotlin_module")
+            && !je.getName().endsWith(".tasty")) {
           continue;
         }
         classes.put(je.getName(), ByteStreams.toByteArray(jf.getInputStream(je)));
@@ -289,6 +291,14 @@ public class IjarTests {
         .containsExactly("java/lang/String.class", "META-INF/bar.kotlin_module");
     // ijar passes kotlin modules through unmodified
     assertThat(new String(lib.get("META-INF/bar.kotlin_module"), UTF_8)).isEqualTo("hello");
+  }
+
+  @Test
+  public void scalaTasty() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/scala_tasty-interface.jar");
+    assertThat(lib.keySet()).containsExactly("java/lang/String.class", "Bar.tasty");
+    // ijar passes scala tasty files through unmodified
+    assertThat(new String(lib.get("Bar.tasty"), UTF_8)).isEqualTo("hello");
   }
 
   @Test
