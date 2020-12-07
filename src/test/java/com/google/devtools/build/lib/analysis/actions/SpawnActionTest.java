@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
@@ -218,7 +219,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         spawn.getInputFiles().toList().stream()
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
-    assertThat(input.isPresent()).isTrue();
+    assertThat(input).isPresent();
     VirtualActionInput paramFile = (VirtualActionInput) input.get();
     assertThat(paramFile.getBytes().toString(ISO_8859_1).trim()).isEqualTo("-X");
   }
@@ -494,7 +495,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testWorkerSupport() throws Exception {
     SpawnAction workerSupportSpawn =
         createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
-    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isEqualTo(true);
+    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isTrue();
   }
 
   @Test
@@ -502,8 +503,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     SpawnAction multiplexWorkerSupportSpawn =
         createWorkerSupportSpawn(
             ImmutableMap.<String, String>of("supports-multiplex-workers", "1"));
-    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn()))
-        .isEqualTo(true);
+    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn())).isTrue();
   }
 
   @Test
