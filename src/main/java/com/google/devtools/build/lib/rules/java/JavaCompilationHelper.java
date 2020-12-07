@@ -256,8 +256,6 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     builder.setClasspathMode(classpathMode);
-    builder.setJavaExecutable(javaToolchain.getJavaRuntime().javaBinaryExecPathFragment());
-    builder.setJavaBaseInputs(javaToolchain.getJavaRuntime().javaBaseInputsMiddleman());
     builder.setAdditionalInputs(additionalInputsForDatabinding);
     Label label = ruleContext.getLabel();
     builder.setTargetLabel(label);
