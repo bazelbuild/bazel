@@ -242,6 +242,7 @@ final class RetainedHeapLimiter implements NotificationListener {
         || "G1 Old Gen".equals(name)
         || "PS Old Gen".equals(name)
         || "Tenured Gen".equals(name)
-        || "Shenandoah".equals(name);
+        || "Shenandoah".equals(name)
+        || "ZHeap".equals(name);
   }
 }
