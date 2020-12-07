@@ -174,14 +174,6 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/12164
-      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
-      - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-      - "-//src/test/shell/bazel:python_version_test"
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
-      - "-//src/test/shell/bazel/android:android_ndk_integration_test_with_head_android_tools"
   macos:
     shards: 5
     shell_commands:
