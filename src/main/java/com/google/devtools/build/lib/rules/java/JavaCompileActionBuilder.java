@@ -26,12 +26,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
@@ -143,13 +142,12 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<String> javacOpts = ImmutableList.of();
-  private ImmutableList<String> javacJvmOpts = ImmutableList.of();
   private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
   private boolean compressJar;
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private BootClassPathInfo bootClassPath = BootClassPathInfo.empty();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
-  private FilesToRunProvider javaBuilder;
+  private JavaToolchainTool javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
   private ImmutableSet<String> builtinProcessorNames = ImmutableSet.of();
@@ -190,26 +188,10 @@ public final class JavaCompileActionBuilder {
       compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    CustomCommandLine.Builder executableLine = CustomCommandLine.builder();
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
 
-    RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
+    CommandLine executableLine = javaBuilder.buildCommandLine(toolchain, toolsBuilder);
 
-    // The actual params-file-based command line executed for a compile action.
-    Artifact javaBuilderJar = checkNotNull(javaBuilder.getExecutable());
-    if (!javaBuilderJar.getExtension().equals("jar")) {
-      // JavaBuilder is a non-deploy.jar executable.
-      executableLine.addPath(javaBuilder.getExecutable().getExecPath());
-      runfilesSupplier = javaBuilder.getRunfilesSupplier();
-      toolsBuilder.addTransitive(javaBuilder.getFilesToRun());
-    } else {
-      toolsBuilder.add(javaBuilderJar);
-      executableLine
-          .addPath(toolchain.getJavaRuntime().javaBinaryExecPathFragment())
-          .addAll(javacJvmOpts)
-          .add("-jar")
-          .addPath(javaBuilderJar.getExecPath());
-    }
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
@@ -268,7 +250,7 @@ public final class JavaCompileActionBuilder {
         /* owner= */ ruleContext.getActionOwner(),
         /* env= */ actionEnvironment,
         /* tools= */ tools,
-        /* runfilesSupplier= */ runfilesSupplier,
+        /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
         /* progressMessage= */ new ProgressMessage(
             /* prefix= */ "Building",
             /* output= */ outputs.output(),
@@ -281,7 +263,7 @@ public final class JavaCompileActionBuilder {
         /* outputs= */ allOutputs(),
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-        /* executableLine= */ executableLine.build(),
+        /* executableLine= */ executableLine,
         /* flagLine= */ buildParamFileContents(internedJcopts),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
@@ -403,11 +385,6 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavacJvmOpts(ImmutableList<String> opts) {
-    this.javacJvmOpts = opts;
-    return this;
-  }
-
   public JavaCompileActionBuilder setJavacExecutionInfo(
       ImmutableMap<String, String> executionInfo) {
     this.executionInfo = executionInfo;
@@ -461,7 +438,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavaBuilder(FilesToRunProvider javaBuilder) {
+  public JavaCompileActionBuilder setJavaBuilder(JavaToolchainTool javaBuilder) {
     this.javaBuilder = javaBuilder;
     return this;
   }

@@ -61,7 +61,6 @@ public final class JavaCompilationHelper {
   private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
-  private final ImmutableList<String> customJavacJvmOpts;
   private final List<Artifact> translations = new ArrayList<>();
   private boolean translationsFrozen;
   private final JavaSemantics semantics;
@@ -82,7 +81,6 @@ public final class JavaCompilationHelper {
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
-    this.customJavacJvmOpts = javaToolchain.getJavabuilderJvmOptions();
     this.semantics = semantics;
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
     this.strictJavaDeps =
@@ -301,7 +299,6 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(sourceJars);
     builder.setJavacOpts(customJavacOpts);
-    builder.setJavacJvmOpts(customJavacJvmOpts);
     builder.setJavacExecutionInfo(getExecutionInfo());
     builder.setCompressJar(true);
     builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());

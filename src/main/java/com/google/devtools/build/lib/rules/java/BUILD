@@ -152,6 +152,7 @@ java_library(
         "JavaStrictCompilationArgsProvider.java",
         "JavaTargetAttributes.java",
         "JavaToolchainProvider.java",
+        "JavaToolchainTool.java",
         "JavaUtil.java",
         "MessageBundleInfo.java",
         "NativeLibraryNestedSetBuilder.java",

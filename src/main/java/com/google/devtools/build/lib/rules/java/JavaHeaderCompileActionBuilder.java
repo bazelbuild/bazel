@@ -29,13 +29,12 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -318,32 +317,13 @@ public class JavaHeaderCompileActionBuilder {
             .addAll(sourceFiles)
             .addTransitive(toolsJars);
 
-    ImmutableList<RunfilesSupplier> runfilesSuppliers = ImmutableList.of();
-    FilesToRunProvider headerCompiler =
+    JavaToolchainTool headerCompiler =
         useHeaderCompilerDirect
             ? javaToolchain.getHeaderCompilerDirect()
             : javaToolchain.getHeaderCompiler();
     // The header compiler is either a jar file that needs to be executed using
     // `java -jar <path>`, or an executable that can be run directly.
-    CustomCommandLine executableLine;
-    if (!headerCompiler.getExecutable().getExtension().equals("jar")) {
-      runfilesSuppliers = ImmutableList.of(headerCompiler.getRunfilesSupplier());
-      mandatoryInputs.addTransitive(headerCompiler.getFilesToRun());
-      executableLine =
-          CustomCommandLine.builder().addExecPath(headerCompiler.getExecutable()).build();
-    } else {
-      mandatoryInputs
-          .addTransitive(javaToolchain.getJavaRuntime().javaBaseInputsMiddleman())
-          .add(headerCompiler.getExecutable());
-      executableLine =
-          CustomCommandLine.builder()
-              .addPath(javaToolchain.getJavaRuntime().javaBinaryExecPathFragment())
-              .add("-Xverify:none")
-              .addAll(javaToolchain.getTurbineJvmOptions())
-              .add("-jar")
-              .addExecPath(headerCompiler.getExecutable())
-              .build();
-    }
+    CommandLine executableLine = headerCompiler.buildCommandLine(javaToolchain, mandatoryInputs);
 
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
@@ -418,7 +398,7 @@ public class JavaHeaderCompileActionBuilder {
                   .getConfiguration()
                   .modifiedExecutionInfo(executionInfo, "Turbine"),
               /* progressMessage= */ progressMessage,
-              /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
+              /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
               /* mnemonic= */ "Turbine",
               /* executeUnconditionally= */ false,
               /* extraActionInfoSupplier= */ null,
@@ -455,7 +435,7 @@ public class JavaHeaderCompileActionBuilder {
             /* owner= */ ruleContext.getActionOwner(),
             /* env= */ actionEnvironment,
             /* tools= */ toolsJars,
-            /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
+            /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* progressMessage= */ progressMessage,
             /* mandatoryInputs= */ mandatoryInputs.build(),
             /* transitiveInputs= */ classpathEntries,
