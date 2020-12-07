@@ -549,6 +549,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // because a NestedSet may contain a future.
       Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
       Artifact dep = entry.getKey();
+      if (!topLevel.contains(dep)) {
+        // If this module was removed from topLevel because it is a dependency of another module,
+        // we can safely ignore it now as all of its dependants have also been removed.
+        continue;
+      }
       NestedSet<? extends Artifact> transitive = entry.getValue();
 
       List<? extends Artifact> modules;

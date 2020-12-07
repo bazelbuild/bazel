@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -133,5 +134,59 @@ public class AppleRulesTest extends AnalysisTestCase {
         assertThat(((AbstractAction) action).getExecutionInfo()).containsKey("no-remote");
       }
     }
+  }
+
+  @Test
+  public void dottedVersionOptionIsReadableFromStarlarkTransition() throws Exception {
+    // Test that DottedVersion.Option is readable from a Starlark transition, since it is a distinct
+    // type from DottedVersion (see the documentation comment on DottedVersion.Option for the
+    // rationale).
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")",
+        "filegroup(",
+        "    name = 'srcs',",
+        "    srcs = glob(['**']),",
+        "    visibility = ['//tools/allowlists:__pkg__'],",
+        ")");
+    scratch.file(
+        "transition/transition.bzl",
+        "def _silly_transition_impl(settings, attr):",
+        "    version = str(settings['//command_line_option:ios_minimum_os'])",
+        "    next = version + '.1'",
+        "    return {'//command_line_option:ios_minimum_os': next}",
+        "silly_transition = transition(",
+        "    implementation = _silly_transition_impl,",
+        "    inputs = ['//command_line_option:ios_minimum_os'],",
+        "    outputs = ['//command_line_option:ios_minimum_os'],",
+        ")",
+        "def _my_rule_impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    attrs = {",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        "    cfg = silly_transition,",
+        "    implementation = _my_rule_impl,",
+        ")");
+    scratch.file(
+        "transition/BUILD",
+        "load('//transition:transition.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')");
+
+    useConfiguration("--ios_minimum_os=10.0");
+    AnalysisResult result = update("//transition:xxx");
+    BuildConfiguration configuration =
+        Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs()).getConfiguration();
+    AppleCommandLineOptions appleOptions =
+        configuration.getOptions().get(AppleCommandLineOptions.class);
+    assertThat(appleOptions.iosMinimumOs).isNotNull();
+    DottedVersion version = DottedVersion.maybeUnwrap(appleOptions.iosMinimumOs);
+    assertThat(version.toString()).isEqualTo("10.0.1");
   }
 }

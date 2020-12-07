@@ -26,9 +26,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Encapsulates information for linking a library.
@@ -40,7 +43,7 @@ import net.starlark.java.eval.StarlarkList;
  */
 @AutoValue
 @Immutable
-public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
+public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBackendArtifacts> {
 
   @Override
   public boolean isImmutable() {
@@ -82,6 +85,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     return StarlarkList.immutableCopyOf(getObjectFiles());
   }
 
+  @Override
+  public boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getMustKeepDebug();
+  }
+
   @Nullable
   @Override
   public Sequence<Artifact> getLtoBitcodeFilesForStarlark() {
@@ -93,6 +102,14 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
+
+  @Nullable
+  @Override
+  public Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
+      StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Dict.immutableCopyOf(getSharedNonLtoBackends());
+  }
 
   @Nullable
   public abstract LtoCompilationContext getLtoCompilationContext();
@@ -124,6 +141,14 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends();
+
+  @Nullable
+  @Override
+  public Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
+      StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Dict.immutableCopyOf(getPicSharedNonLtoBackends());
+  }
 
   @Nullable
   public abstract LtoCompilationContext getPicLtoCompilationContext();

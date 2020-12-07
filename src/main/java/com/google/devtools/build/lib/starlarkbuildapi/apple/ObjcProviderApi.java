@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -35,15 +33,6 @@ import net.starlark.java.eval.StarlarkValue;
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "define",
-      structField = true,
-      doc =
-          "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
-              + "all invocations of the compiler for this target and all depending targets.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<String>*/ defineForStarlark();
-
-  @StarlarkMethod(
       name = "dynamic_framework_file",
       structField = true,
       doc =
@@ -58,26 +47,10 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ exportedDebugArtifacts();
 
   @StarlarkMethod(
-      name = "framework_search_path_only",
-      structField = true,
-      doc =
-          "Exec paths of .framework directories corresponding to frameworks to include "
-              + "in search paths, but not to link.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<String>*/ frameworkIncludeForStarlark();
-
-  @StarlarkMethod(
       name = "force_load_library",
       structField = true,
       doc = "Libraries to load with -force_load.")
   Depset /*<FileApiT>*/ forceLoadLibrary();
-
-  @StarlarkMethod(
-      name = "header",
-      structField = true,
-      doc = "All header files. These may be either public or private headers.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<FileApiT>*/ headerForStarlark();
 
   @StarlarkMethod(
       name = "direct_headers",
@@ -94,35 +67,12 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ importedLibrary();
 
   @StarlarkMethod(
-      name = "include",
-      structField = true,
-      doc =
-          "Include search paths specified with '-I' on the command line. Also known as "
-              + "header search paths (and distinct from <em>user</em> header search paths).",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset includeForStarlark();
-
-  @StarlarkMethod(
       name = "strict_include",
       structField = true,
       doc =
           "Non-propagated include search paths specified with '-I' on the command line. Also known "
               + "as header search paths (and distinct from <em>user</em> header search paths).")
   Depset strictIncludeForStarlark();
-
-  @StarlarkMethod(
-      name = "include_system",
-      structField = true,
-      doc = "System include search paths (typically specified with -isystem).",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset systemIncludeForStarlark();
-
-  @StarlarkMethod(
-      name = "iquote",
-      structField = true,
-      doc = "User header search paths (typically specified with -iquote).",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset quoteIncludeForStarlark();
 
   @StarlarkMethod(
       name = "j2objc_library",
@@ -168,16 +118,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
 
   @StarlarkMethod(name = "linkopt", structField = true, doc = "Linking options.")
   Depset /*<String>*/ linkopt();
-
-  @StarlarkMethod(
-      name = "merge_zip",
-      structField = true,
-      doc =
-          "Merge zips to include in the bundle. The entries of these zip files are included "
-              + "in the final bundle with the same path. The entries in the merge zips should not "
-              + "include the bundle root path (e.g. 'Foo.app').",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<FileApiT>*/ mergeZip();
 
   @StarlarkMethod(
       name = "module_map",
@@ -280,13 +220,4 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       structField = true,
       doc = "Returns all framework paths to static frameworks in this provider.")
   Depset /*<String>*/ staticFrameworkPathsForStarlark();
-
-  @StarlarkMethod(
-      name = "compilation_context",
-      doc =
-          "Returns the embedded <code>CcCompilationContext</code> that contains the"
-              + "provider's compilation information.",
-      structField = true,
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  CcCompilationContextApi<FileApiT> getCcCompilationContext();
 }
