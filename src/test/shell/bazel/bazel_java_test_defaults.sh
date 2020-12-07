@@ -155,6 +155,7 @@ EOF
   bazel coverage java/main:JavaBinary \
       --java_toolchain=//java/main:default_toolchain \
       --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
   expect_log "jacocorunner not set in java_toolchain:"
