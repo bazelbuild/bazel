@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -61,6 +62,7 @@ public interface DebugPackageInfoApi<FileT extends FileApi> extends StructApi {
       doc = "Returns the .dwp file (for fission builds) or null if --fission=no.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileT getDwpArtifact();
 
   /** The provider implementing this can construct DebugPackageInfo objects. */

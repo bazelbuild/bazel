@@ -592,4 +592,62 @@ EOF
   done
 }
 
+function test_interleaved_errors_and_progress() {
+  # Background process necessary to interrupt Bazel doesn't go well on Windows.
+  [[ "$is_windows" == true ]] && return
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+genrule(name = 'sleep', outs = ['sleep.out'], cmd = 'sleep 10000')
+genrule(name = 'fail',
+        outs = ['fail.out'],
+        srcs = [':multiline.sh'],
+        cmd = '$(location :multiline.sh)'
+)
+EOF
+  cat > foo/multiline.sh <<'EOF'
+echo "This
+is
+a
+multiline error message
+before
+failure"
+false
+EOF
+  chmod +x foo/multiline.sh
+  bazel build -k //foo:all --curses=yes >& "$TEST_log" &
+  pid="$!"
+  while ! grep -q "multiline error message" "$TEST_log" ; do
+    sleep 1
+  done
+  while ! grep -q "Executing genrule //foo:sleep" "$TEST_log" ; do
+    sleep 1
+  done
+  kill -SIGINT "$pid"
+  wait "$pid" || exit_code="$?"
+  [[ "$exit_code" == 8 ]] || fail "Should have been interrupted: $exit_code"
+  tr -s <"$TEST_log" '\n' '@' |
+      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@\[2 / 3\] Executing genrule //foo:sleep;' \
+      || fail "Unified genrule error message not found"
+  # Make sure server is still usable.
+  bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"
+}
+
+function test_progress_bar_after_stderr() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+genrule(name = 'fail', outs = ['fail.out'], cmd = 'false')
+sh_test(name = 'foo', data = [':fail'], srcs = ['foo.sh'])
+EOF
+  touch foo/foo.sh
+  chmod +x foo/foo.sh
+  # Build event file needed so UI considers build to continue after failure.
+  ! bazel test --build_event_json_file=bep.json --curses=yes --color=yes \
+      //foo:foo &> "$TEST_log" || fail "Expected failure"
+  # Expect to see a failure message with an "erase line" control code prepended.
+  expect_log $'\e'"\[K"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully"
+  # We should not see a build failure message without an "erase line" to start.
+  # TODO(janakr): Fix the excessive printing of this failure message.
+  expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

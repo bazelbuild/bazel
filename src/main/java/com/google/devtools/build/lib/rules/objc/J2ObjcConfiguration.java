@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -36,6 +34,7 @@ import javax.annotation.Nullable;
  * thereof).
  */
 @Immutable
+@RequiresOptions(options = {J2ObjcCommandLineOptions.class})
 public class J2ObjcConfiguration extends Fragment implements J2ObjcConfigurationApi {
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
@@ -66,33 +65,14 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   static final String INVALID_TRANSLATION_FLAGS_MSG_TEMPLATE =
       "J2Objc translation flags: %s not supported. Unsupported flags are: %s";
 
-  /**
-   * Configuration loader for {@link J2ObjcConfiguration}.
-   */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new J2ObjcConfiguration(buildOptions.get(J2ObjcCommandLineOptions.class));
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return J2ObjcConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(J2ObjcCommandLineOptions.class);
-    }
-  }
-
   private final ImmutableList<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean experimentalJ2ObjcHeaderMap;
   private final boolean experimentalShorterHeaderPath;
   @Nullable private final Label deadCodeReport;
 
-  private J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
+  public J2ObjcConfiguration(BuildOptions buildOptions) {
+    J2ObjcCommandLineOptions j2ObjcOptions = buildOptions.get(J2ObjcCommandLineOptions.class);
     this.translationFlags =
         ImmutableList.<String>builder()
             .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)

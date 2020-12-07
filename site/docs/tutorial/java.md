@@ -3,9 +3,9 @@ layout: documentation
 title: Build Tutorial - Java
 ---
 
-# Introduction to Bazel: Building a Java Project
+# Bazel Tutorial: Build a Java Project
 
-In this tutorial, you'll learn the basics of building Java applications with
+This tutorial covers the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
 illustrates key Bazel concepts, such as targets and `BUILD` files.
 
@@ -13,7 +13,7 @@ Estimated completion time: 30 minutes.
 
 ## What you'll learn
 
-In this tutorial you'll learn how to:
+In this tutorial you learn how to:
 
 *  Build a target
 *  Visualize the project's dependencies
@@ -398,6 +398,8 @@ your development environment since it contains the required runtime
 dependencies.
 
 ## Further reading
+
+For more details, see:
 
 *  [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) for
    rules to manage transitive Maven dependencies.

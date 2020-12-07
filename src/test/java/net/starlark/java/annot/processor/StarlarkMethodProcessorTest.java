@@ -198,7 +198,8 @@ public final class StarlarkMethodProcessorTest {
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Positional-only parameter 'two' is specified after one or more named parameters");
+            "Positional-only parameter 'two' is specified after one or more named or undocumented"
+                + " parameters");
   }
 
   @Test
@@ -322,5 +323,25 @@ public final class StarlarkMethodProcessorTest {
         .withErrorContaining(
             "parameter 'one' has generic type "
                 + "net.starlark.java.eval.Sequence<java.lang.String>");
+  }
+
+  @Test
+  public void testKwargsWithUndocumentedParam() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("KwargsWithUndocumentedParams.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Method 'undocumented_with_kwargs' has undocumented parameters but also allows extra"
+                + " keyword parameters");
+  }
+
+  @Test
+  public void testUndocumentedPositionalParam() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("UndocumentedPositionalParam.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("Parameter 'one' must be documented because it is positional");
   }
 }

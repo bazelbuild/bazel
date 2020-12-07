@@ -64,7 +64,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   /** Simple native test rule. */
   public static final class NativeTest implements RuleConfiguredTargetFactory {
     @Override
-    public ConfiguredTarget create(RuleContext context) throws ActionConflictException {
+    public ConfiguredTarget create(RuleContext context)
+        throws ActionConflictException, InterruptedException {
       Artifact executable = context.getBinArtifact(context.getLabel().getName());
       context.registerAction(FileWriteAction.create(context, executable, "#!/bin/true", true));
       Runfiles runfiles =

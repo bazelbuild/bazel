@@ -793,7 +793,7 @@ public class RemoteSpawnRunnerTest {
 
     SpawnResult result = runner.exec(spawn, policy);
     assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-    assertThat(result.getDetailMessage("", false, false)).contains("reasons");
+    assertThat(result.getFailureMessage()).contains("reasons");
   }
 
   @Test
@@ -813,7 +813,7 @@ public class RemoteSpawnRunnerTest {
 
     SpawnResult result = runner.exec(spawn, policy);
     assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-    assertThat(result.getDetailMessage("", false, false)).contains("reasons");
+    assertThat(result.getFailureMessage()).contains("reasons");
   }
 
   @Test

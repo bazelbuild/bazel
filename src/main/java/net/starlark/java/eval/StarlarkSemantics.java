@@ -207,4 +207,10 @@ public final class StarlarkSemantics {
 
   /** Change the behavior of 'print' statements. Used in tests to verify flag propagation. */
   public static final String PRINT_TEST_MARKER = "-print_test_marker";
+
+  /**
+   * Whether recursive function calls are allowed. This option is not exposed to Bazel, which
+   * unconditionally prohibits recursion.
+   */
+  public static final String ALLOW_RECURSION = "-allow_recursion";
 }

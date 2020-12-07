@@ -88,7 +88,7 @@ public class TestPolicy {
     }
 
     // Rule-specified test env.
-    env.putAll(testAction.getExtraTestEnv());
+    testAction.getExtraTestEnv().resolve(env, clientEnv);
 
     // Overwrite with the environment common to all actions, see --action_env.
     testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv);

@@ -191,6 +191,9 @@ public class ArtifactTest {
                 actionGraph.registerAction(action);
               } catch (ActionConflictException e) {
                 throw new IllegalStateException(e);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Didn't expect interrupt in test", e);
               }
             }
           }
@@ -605,6 +608,26 @@ public class ArtifactTest {
                   .isEqualTo(deserialized.getGeneratingActionKey());
             })
         .runTests();
+  }
+
+  @Test
+  public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_returnsCorrectPath() {
+    assertThat(
+            ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
+                PathFragment.create("bazel-out"),
+                PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")))
+        .isEqualTo(
+            PathFragment.create("bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/dir/subdir"));
+  }
+
+  @Test
+  public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_wrongPrefix_fails() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
+                PathFragment.create("wrongPrefix"),
+                PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")));
   }
 
   private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {

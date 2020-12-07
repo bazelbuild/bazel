@@ -504,6 +504,17 @@ public class BuildRequestOptions extends OptionsBase {
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
 
+  @Option(
+      name = "experimental_skyframe_eval_with_ordered_list",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION, OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set to true, Skyframe evaluation of certain SkyKeys will not construct"
+              + " an intermediate result with a map, but instead with a list, ordered based on the"
+              + " sequence of supplied SkyKeys.")
+  public boolean skyframeEvalWithOrderedList;
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

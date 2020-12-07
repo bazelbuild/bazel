@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.SyncCommand.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -212,8 +211,7 @@ public final class SyncCommand implements BlazeCommand {
     } catch (InterruptedException e) {
       reportNoBuildRequestFinished(env, ExitCode.INTERRUPTED);
       BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              e.getMessage(), Interrupted.Code.SYNC_COMMAND));
+          InterruptedFailureDetails.detailedExitCode(e.getMessage()));
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       reportNoBuildRequestFinished(env, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);

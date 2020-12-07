@@ -15,16 +15,14 @@
 package com.google.devtools.build.lib.rules.config;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Map;
 import java.util.Optional;
@@ -35,32 +33,17 @@ import javax.annotation.Nullable;
  * Configuration fragment for Android's config_feature_flag, flags which can be defined in BUILD
  * files.
  */
+@RequiresOptions(options = {ConfigFeatureFlagOptions.class})
 public final class ConfigFeatureFlagConfiguration extends Fragment {
-  /**
-   * A configuration fragment loader able to create instances of {@link
-   * ConfigFeatureFlagConfiguration} from {@link ConfigFeatureFlagOptions}.
-   */
-  public static final class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
-      return new ConfigFeatureFlagConfiguration(FeatureFlagValue.getFlagValues(buildOptions));
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return ConfigFeatureFlagConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(ConfigFeatureFlagOptions.class);
-    }
-  }
-
   private final ImmutableSortedMap<Label, String> flagValues;
   @Nullable private final String flagHash;
 
   /** Creates a new configuration fragment from the given {@link ConfigFeatureFlagOptions}. */
+  public ConfigFeatureFlagConfiguration(BuildOptions buildOptions)
+      throws InvalidConfigurationException {
+    this(FeatureFlagValue.getFlagValues(buildOptions));
+  }
+
   @VisibleForTesting
   ConfigFeatureFlagConfiguration(ImmutableSortedMap<Label, String> flagValues) {
     this.flagValues = flagValues;

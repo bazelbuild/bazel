@@ -17,14 +17,12 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -33,9 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -61,7 +57,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     boolean javacSupportsMultiplexWorkers =
         ruleContext.attributes().get("javac_supports_multiplex_workers", Type.BOOLEAN);
-    Artifact javac = ruleContext.getPrerequisiteArtifact("javac");
     FilesToRunProvider javabuilder = ruleContext.getExecutablePrerequisite("javabuilder");
     FilesToRunProvider headerCompiler = ruleContext.getExecutablePrerequisite("header_compiler");
     FilesToRunProvider headerCompilerDirect =
@@ -89,29 +84,17 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         getCompatibleJavacOptions(ruleContext);
 
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools");
-    if (javac != null) {
-      tools = NestedSetBuilder.fromNestedSet(tools).add(javac).build();
-    }
 
-    TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac");
-
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locationsBuilder =
-        ImmutableMap.builder();
-    if (javacDep != null) {
-      locationsBuilder.put(AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac));
-    }
-    ImmutableMap<Label, ImmutableCollection<Artifact>> locations = locationsBuilder.build();
-
-    ImmutableList<String> jvmOpts = getJvmOpts(ruleContext, locations, "jvm_opts");
+    ImmutableList<String> jvmOpts = getJvmOpts(ruleContext, "jvm_opts");
     ImmutableList<String> javabuilderJvmOpts =
         ImmutableList.<String>builder()
             .addAll(jvmOpts)
-            .addAll(getJvmOpts(ruleContext, locations, "javabuilder_jvm_opts"))
+            .addAll(getJvmOpts(ruleContext, "javabuilder_jvm_opts"))
             .build();
     ImmutableList<String> turbineJvmOpts =
         ImmutableList.<String>builder()
             .addAll(jvmOpts)
-            .addAll(getJvmOpts(ruleContext, locations, "turbine_jvm_opts"))
+            .addAll(getJvmOpts(ruleContext, "turbine_jvm_opts"))
             .build();
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
@@ -135,7 +118,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javacSupportsWorkers,
             javacSupportsMultiplexWorkers,
             bootclasspath,
-            javac,
             tools,
             javabuilder,
             headerCompiler,
@@ -197,9 +179,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
   private static ImmutableList<String> getJvmOpts(
       RuleContext ruleContext,
-      ImmutableMap<Label, ImmutableCollection<Artifact>> locations,
       String attribute) {
-    return ruleContext.getExpander().withExecLocations(locations).list(attribute);
+    return ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list(attribute);
   }
 
   private static BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext) {

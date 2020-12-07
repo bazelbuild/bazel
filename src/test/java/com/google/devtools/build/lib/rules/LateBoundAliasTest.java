@@ -16,13 +16,10 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -30,7 +27,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,25 +37,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LateBoundAliasTest extends BuildViewTestCase {
 
-  private static final class TestFragment extends Fragment {}
-
-  private static final class TestFragmentOptionFactory implements ConfigurationFragmentFactory {
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return TestFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of();
-    }
-
-    @Nullable
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new TestFragment();
-    }
+  /** Test fragment. */
+  public static final class TestFragment extends Fragment {
+    public TestFragment(BuildOptions buildOptions) {}
   }
 
   private static final class TestLateBoundDefault extends LabelLateBoundDefault<TestFragment> {
@@ -84,7 +64,7 @@ public class LateBoundAliasTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(new TestFragmentOptionFactory());
+    builder.addConfigurationFragment(TestFragment.class);
     builder.addRuleDefinition(new MyTestRule());
     return builder.build();
   }

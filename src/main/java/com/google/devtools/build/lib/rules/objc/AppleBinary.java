@@ -118,6 +118,14 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    ObjcConfiguration objcConfig =
+        ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
+    if (objcConfig.disableNativeAppleBinaryRule()) {
+      ruleContext.throwWithRuleError(
+          "The native apple_binary rule is deprecated and will be deleted. Please use the Starlark"
+              + " rule from https://github.com/bazelbuild/rules_apple.");
+    }
+
     AppleBinaryOutput appleBinaryOutput =
         linkMultiArchBinary(
             ruleContext,
@@ -338,7 +346,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
   private static ConfiguredTarget ruleConfiguredTargetFromProvider(
       RuleContext ruleContext, AppleBinaryOutput appleBinaryOutput)
-      throws RuleErrorException, ActionConflictException {
+      throws RuleErrorException, ActionConflictException, InterruptedException {
     NativeInfo nativeInfo = appleBinaryOutput.getBinaryInfoProvider();
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 

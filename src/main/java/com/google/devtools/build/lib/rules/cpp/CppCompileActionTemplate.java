@@ -131,7 +131,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             TreeFileArtifact.createTemplateExpansionOutput(
                 outputTreeArtifact, outputName, artifactOwner);
         TreeFileArtifact dotdFileArtifact = null;
-        if (dotdTreeArtifact != null) {
+        if (dotdTreeArtifact != null
+            && cppCompileActionBuilder.useDotdFile(inputTreeFileArtifact)) {
           dotdFileArtifact =
               TreeFileArtifact.createTemplateExpansionOutput(
                   dotdTreeArtifact, outputName + ".d", artifactOwner);
@@ -152,7 +153,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
             sourceTreeArtifact,

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,34 +35,32 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
 import net.starlark.java.syntax.Location;
 
-/**
- * Helper class to provide a RuleClassProvider for tests.
- */
+/** Helper class to provide a RuleClassProvider for tests. */
 public class TestRuleClassProvider {
-  private static ConfiguredRuleClassProvider ruleProvider = null;
-  private static ConfiguredRuleClassProvider ruleProviderWithClearedSuffix = null;
 
-  /**
-   * Adds all the rule classes supported internally within the build tool to the given builder.
-   */
+  private static ConfiguredRuleClassProvider ruleClassProvider = null;
+  private static ConfiguredRuleClassProvider ruleClassProviderWithClearedSuffix = null;
+
+  private TestRuleClassProvider() {}
+
+  /** Adds all the rule classes supported internally within the build tool to the given builder. */
   public static void addStandardRules(ConfiguredRuleClassProvider.Builder builder) {
     try {
       Class<?> providerClass = Class.forName(TestConstants.TEST_RULE_CLASS_PROVIDER);
-      // The method setup in the rule class provider requires the tools repository to be set
-      // beforehand.
-      builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
-      Method setupMethod = providerClass.getMethod("setup",
-          ConfiguredRuleClassProvider.Builder.class);
+      Method setupMethod =
+          providerClass.getMethod("setup", ConfiguredRuleClassProvider.Builder.class);
       setupMethod.invoke(null, builder);
     } catch (Exception e) {
       throw new IllegalStateException(e);
@@ -71,6 +70,8 @@ public class TestRuleClassProvider {
   private static ConfiguredRuleClassProvider createRuleClassProvider(boolean clearSuffix) {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     addStandardRules(builder);
+    // TODO(b/174773026): Eliminate TestingDummyRule/MockToolchainRule from this class, push them
+    // down into the tests that use them. It's better for tests to avoid spooky mocks at a distance.
     builder.addRuleDefinition(new TestingDummyRule());
     builder.addRuleDefinition(new MockToolchainRule());
     if (clearSuffix) {
@@ -79,28 +80,36 @@ public class TestRuleClassProvider {
     return builder.build();
   }
 
-  /** Return a rule class provider. */
-  public static ConfiguredRuleClassProvider getRuleClassProvider(boolean clearSuffix) {
-    if (clearSuffix) {
-      if (ruleProviderWithClearedSuffix == null) {
-        ruleProviderWithClearedSuffix = createRuleClassProvider(true);
-      }
-      return ruleProviderWithClearedSuffix;
+  /** Returns a rule class provider. */
+  public static ConfiguredRuleClassProvider getRuleClassProvider() {
+    if (ruleClassProvider == null) {
+      ruleClassProvider = createRuleClassProvider(false);
     }
-    if (ruleProvider == null) {
-      ruleProvider = createRuleClassProvider(false);
-    }
-    return ruleProvider;
+    return ruleClassProvider;
   }
 
-  /** Return a rule class provider. */
-  public static ConfiguredRuleClassProvider getRuleClassProvider() {
-    return getRuleClassProvider(false);
+  /** Returns a rule class provider with the workspace suffix cleared. */
+  public static ConfiguredRuleClassProvider getRuleClassProviderWithClearedSuffix() {
+    if (ruleClassProviderWithClearedSuffix == null) {
+      ruleClassProviderWithClearedSuffix = createRuleClassProvider(true);
+    }
+    return ruleClassProviderWithClearedSuffix;
   }
 
   /**
-   * A dummy rule with some dummy attributes.
+   * Adds a few essential rules to a builder, such that it is usable but does not contain all the
+   * rule classes known to the production environment.
    */
+  public static void addMinimalRules(ConfiguredRuleClassProvider.Builder builder) {
+    // TODO(bazel-team): See also TrimmableTestConfigurationFragments#installFragmentsAndNativeRules
+    // for alternative/additional setup. Consider factoring that one to use this method.
+    builder.setToolsRepository("@").setRunfilesPrefix("test");
+    CoreRules.INSTANCE.init(builder);
+    builder.addConfigurationOptions(CoreOptions.class);
+    builder.addConfigurationOptions(PlatformOptions.class);
+  }
+
+  /** A dummy rule with some dummy attributes. */
   public static final class TestingDummyRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -123,9 +132,7 @@ public class TestRuleClassProvider {
     }
   }
 
-  /**
-   * Stub rule to test Make variable expansion.
-   */
+  /** Stub rule to test Make variable expansion. */
   public static final class MakeVariableTester implements RuleConfiguredTargetFactory {
 
     @Override
@@ -141,9 +148,7 @@ public class TestRuleClassProvider {
     }
   }
 
-  /**
-   * Definition of a stub rule to test Make variable expansion.
-   */
+  /** Definition of a stub rule to test Make variable expansion. */
   public static final class MakeVariableTesterRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {

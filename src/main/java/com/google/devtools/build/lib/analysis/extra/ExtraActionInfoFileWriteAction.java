@@ -63,7 +63,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     try {
       return new ProtoDeterministicWriter(
           shadowedAction.getExtraActionInfo(ctx.getActionKeyContext()).build());
@@ -82,7 +82,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(UUID);
     fp.addString(shadowedAction.getKey(actionKeyContext, artifactExpander));
     fp.addBytes(shadowedAction.getExtraActionInfo(actionKeyContext).build().toByteArray());

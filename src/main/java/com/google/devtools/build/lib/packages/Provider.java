@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.util.Fingerprint;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -59,6 +60,8 @@ public interface Provider extends ProviderApi {
    */
   Location getLocation();
 
-  /** A serializable representation of {@link Provider}. */
-  public abstract static class Key {}
+  /** A serializable and fingerprintable representation of {@link Provider}. */
+  public abstract static class Key {
+    abstract void fingerprint(Fingerprint fp);
+  }
 }

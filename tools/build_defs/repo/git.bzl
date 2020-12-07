@@ -31,7 +31,7 @@ def _clone_or_update(ctx):
     root = ctx.path(".")
     directory = str(root)
     if ctx.attr.strip_prefix:
-        directory = directory + "-tmp"
+        directory = root.get_child(".tmp_git_root")
 
     git_ = git_repo(ctx, directory)
 
@@ -39,8 +39,8 @@ def _clone_or_update(ctx):
         dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
         if not ctx.path(dest_link).exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
-        ctx.delete(root)
-        ctx.symlink(dest_link, root)
+        for item in ctx.path(dest_link).readdir():
+            ctx.symlink(item, root.get_child(item.basename))
 
     return {"commit": git_.commit, "shallow_since": git_.shallow_since}
 

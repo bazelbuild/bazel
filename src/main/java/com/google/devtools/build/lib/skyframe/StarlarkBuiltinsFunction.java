@@ -186,7 +186,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   @Nullable
   private static ImmutableMap<String, Object> getDict(Module module, String dictName)
       throws EvalException {
-    Object value = module.get(dictName);
+    Object value = module.getGlobal(dictName);
     if (value == null) {
       throw Starlark.errorf("expected a '%s' dictionary to be defined", dictName);
     }

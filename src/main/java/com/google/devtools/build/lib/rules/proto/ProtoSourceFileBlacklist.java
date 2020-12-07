@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -126,7 +126,7 @@ public class ProtoSourceFileBlacklist {
   public static Attribute.Builder<List<Label>> blacklistFilegroupAttribute(
       String attributeName, List<Label> blacklistFileGroups) {
     return attr(attributeName, LABEL_LIST)
-        .cfg(HostTransition.createFactory())
+        .cfg(ExecutionTransitionFactory.create())
         .value(blacklistFileGroups);
   }
 

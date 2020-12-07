@@ -309,10 +309,6 @@ nav: docs
              <li><a href="/versions/{{ current_version }}/platforms.html">Platforms</a></li>
              <li><a href="/versions/{{ current_version }}/exec-groups.html">Execution Groups</a></li>
              <li><a href="/versions/{{ current_version }}/toolchains.html">Toolchains</a></li>
-             {% if major_version == "master" or major_version > 3 or major_version == 3 and minor_version > 4 %}
-               <li><a href="/versions/{{ current_version }}/persistent-workers.html">Persistent workers</a></li>
-             {% endif %}
-             <li><a href="/versions/{{ current_version }}/multiplex-worker.html">Multiplex workers</a></li>
            </ul>
 
            <h3>Extending Bazel</h3>
@@ -354,6 +350,22 @@ nav: docs
 
               <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
               <li><a href="/versions/{{ current_version }}/skylark/lib/skylark-overview.html">Extensions API</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                   href="#persistent-workers" aria-expanded="false"
+                   aria-controls="persistent-workers">
+                  Persistent workers<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="persistent-workers">
+                   {% if major_version == "master" or major_version > 3 or major_version == 3 and minor_version > 4 %}
+                   <li><a href="/versions/{{ current_version }}/persistent-workers.html">Persistent workers</a></li>
+                   {% endif %}
+                   <li><a href="/versions/{{ current_version }}/multiplex-worker.html">Multiplex workers</a></li>
+                   <li><a href="/versions/{{ current_version }}/creating-workers.html">Creating persistent workers</a></li>
+                </ul>
+              </li>
+
               <li><a href="/versions/{{ current_version }}/skylark/faq.html">FAQ</a></li>
               <li><a href="/versions/{{ current_version }}/skylark/language.html">Starlark language</a></li>
             </ul>

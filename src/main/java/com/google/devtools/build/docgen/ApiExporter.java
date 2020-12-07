@@ -335,6 +335,10 @@ public class ApiExporter {
     ArrayList<String> defaults = new ArrayList<>();
 
     for (net.starlark.java.annot.Param param : annot.parameters()) {
+      // Ignore undocumented parameters
+      if (!param.documented()) {
+        continue;
+      }
       // Implicit * or *args parameter separates transition from positional to named.
       // f (..., *, ... )  or  f(..., *args, ...)
       // TODO(adonovan): this logic looks fishy. Clean it up.

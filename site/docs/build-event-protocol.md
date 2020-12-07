@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Build event protocol
+title: Build Event Protocol
 ---
 
-# Build event protocol
+# Build Event Protocol
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
@@ -17,8 +17,6 @@ semantics defined on top of it. It includes information about build and test
 results, build progress, the build configuration and much more. The Build Event
 Protocol is intended to be consumed programmatically and makes parsing Bazel’s
 command line output a thing of the past.
-
-## Overview
 
 The Build Event Protocol represents information about a build as events. A
 build event is a protocol buffer message consisting of a build event identifier,
@@ -44,7 +42,7 @@ encoded as a protocol buffer message specific to that event. Note, that the
 payload might not be the expected type, but could be an `Aborted` message e.g.
 if the build aborted prematurely.
 
-### Build event graph
+### Build Event graph
 
 All build events form a directed acyclic graph through their parent and child
 relationship. Every build event except for the initial build event has one or
@@ -53,7 +51,7 @@ necessarily be posted before it. When a build is complete (succeeded or failed)
 all announced events will have been posted. In case of a Bazel crash or a failed
 network transport, some announced build events may never be posted.
 
-## The Build Event Protocol by example
+## Build Event Protocol example
 
 The full specification of the Build Event Protocol can be found in its protocol
 buffer definition and describing it here is beyond the scope of this document.
@@ -147,9 +145,9 @@ built.
 }
 ```
 
-## Consuming the Build Event Protocol
+## Consuming Build Event Protocol
 
-### Consume in a binary format
+### Consume in binary format
 
 To consume the Build Event Protocol in a binary format:
 
@@ -164,17 +162,17 @@ method.
 2. Then, write a program that extracts the relevant information from the
 serialized protocol buffer message.
 
-### Consume in text formats
+### Consume in text or JSON formats
 
-The following Bazel command line flags will output the Build Event Protocol in a
-human-readable formats:
+The following Bazel command line flags will output the Build Event Protocol in
+human-readable formats, such as text and JSON:
 
 ```
 --build_event_text_file
 --build_event_json_file
 ```
 
-## The Build Event Service
+## Build Event Service
 
 The [Build Event
 Service](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)

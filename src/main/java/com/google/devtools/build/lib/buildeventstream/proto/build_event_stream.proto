@@ -98,8 +98,18 @@ message BuildEventId {
   message TargetConfiguredId {
     string label = 1;
 
-    // If not empty, the id refers to the expansion of the target for a given
-    // aspect.
+    // If empty, the id refers to the expansion of the target. If not-empty,
+    // the id refers to the expansion of an aspect applied to the (already
+    // expanded) target.
+    //
+    // For example, when building an apple_binary that depends on proto_library
+    // "//:foo_proto", there will be two TargetConfigured events for
+    // "//:foo_proto":
+    //
+    // 1. An event with an empty aspect, corresponding to actions producing
+    // language-agnostic outputs from the proto_library; and
+    // 2. An event with aspect "ObjcProtoAspect", corresponding to Objective-C
+    // code generation.
     string aspect = 2;
   }
 
@@ -127,8 +137,18 @@ message BuildEventId {
     // The configuration for which the target was built.
     ConfigurationId configuration = 3;
 
-    // If not empty, the id refers to the completion of the target for a given
-    // aspect.
+    // If empty, the id refers to the completion of the target. If not-empty,
+    // the id refers to the completion of an aspect applied to the (already
+    // completed) target.
+    //
+    // For example, when building an apple_binary that depends on proto_library
+    // "//:foo_proto", there will be two TargetCompleted events for
+    // "//:foo_proto":
+    //
+    // 1. An event with an empty aspect, corresponding to actions producing
+    // language-agnostic outputs from the proto_library; and
+    // 2. An event with aspect "ObjcProtoAspect", corresponding to Objective-C
+    // code generation.
     string aspect = 2;
   }
 

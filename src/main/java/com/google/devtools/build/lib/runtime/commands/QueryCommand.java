@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -223,8 +222,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     String message = "query interrupted";
     env.getReporter().handle(Event.error(message));
     return Either.ofLeft(
-        BlazeCommandResult.detailedExitCode(
-            InterruptedFailureDetails.detailedExitCode(message, Interrupted.Code.QUERY)));
+        BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message)));
   }
 
   private static Either<BlazeCommandResult, QueryEvalResult> reportAndCreateIOExceptionResult(

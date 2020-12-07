@@ -14,12 +14,10 @@
 package com.google.devtools.build.android.r8;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -34,7 +32,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -59,7 +56,7 @@ public class CompatDxTest {
 
   @Test
   public void noFilesTest() throws IOException {
-    runDexer("--no-files");
+    assertThat(runDexer("--no-files")).isEmpty();
   }
 
   @Test
@@ -69,52 +66,96 @@ public class CompatDxTest {
 
   @Test
   public void singleJarInputFile() throws IOException {
-    runDexer(NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1);
+    assertThat(
+            runDexer(NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1).stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("classes.dex");
   }
 
   @Test
   public void multipleJarInputFiles() throws IOException {
-    runDexer(NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1, EXAMPLE_JAR_FILE_2);
+    assertThat(
+            runDexer(NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1, EXAMPLE_JAR_FILE_2)
+                .stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("classes.dex");
   }
 
   @Test
   public void outputZipFile() throws IOException {
-    runDexerWithOutput("foo.dex.zip", NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1);
+    List<Path> out =
+        runDexerWithOutput("foo.dex.zip", NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1);
+    assertThat(out.stream().map(Path::getFileName).map(Path::toString))
+        .containsExactly("foo.dex.zip");
+    assertThat(archiveFiles(out.get(0))).containsExactly("classes.dex");
   }
 
   @Test
   public void useMultipleThreads() throws IOException {
-    runDexer(NUM_THREADS_5, NO_POSITIONS, NO_LOCALS, EXAMPLE_JAR_FILE_1);
+    assertThat(
+            runDexer(NUM_THREADS_5, NO_POSITIONS, NO_LOCALS, EXAMPLE_JAR_FILE_1).stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("classes.dex");
   }
 
   @Test
   public void withPositions() throws IOException {
-    runDexer(NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1);
+    assertThat(
+            runDexer(NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1).stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("classes.dex");
   }
 
   @Test
   public void withLocals() throws IOException {
-    runDexer(NO_POSITIONS, MULTIDEX, EXAMPLE_JAR_FILE_1);
+    assertThat(
+            runDexer(NO_POSITIONS, MULTIDEX, EXAMPLE_JAR_FILE_1).stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("classes.dex");
   }
 
   @Test
   public void withoutMultidex() throws IOException {
-    runDexer(NO_POSITIONS, NO_LOCALS, EXAMPLE_JAR_FILE_1);
+    assertThat(
+            runDexer(NO_POSITIONS, NO_LOCALS, EXAMPLE_JAR_FILE_1).stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("classes.dex");
   }
 
   @Test
   public void writeToNamedDexFile() throws IOException {
-    runDexerWithOutput("named-output.dex", EXAMPLE_JAR_FILE_1);
+    assertThat(
+            runDexerWithOutput("named-output.dex", EXAMPLE_JAR_FILE_1).stream()
+                .map(Path::getFileName)
+                .map(Path::toString))
+        .containsExactly("named-output.dex");
   }
 
   @Test
   public void keepClassesSingleDexTest() throws IOException {
-    runDexerWithOutput("out.zip", "--keep-classes", EXAMPLE_JAR_FILE_1);
+    List<Path> out = runDexerWithOutput("out.zip", "--keep-classes", EXAMPLE_JAR_FILE_1);
+    assertThat(out.stream().map(Path::getFileName).map(Path::toString)).containsExactly("out.zip");
+    assertThat(archiveFiles(out.get(0)))
+        .containsExactly(
+            "classes.dex",
+            "com/google/devtools/build/android/r8/testdata/arithmetic/Arithmetic.class");
   }
 
   @Test
   public void keepClassesMultiDexTest() throws IOException {
-    runDexerWithOutput("out.zip", "--keep-classes", "--multi-dex", EXAMPLE_JAR_FILE_1);
+    List<Path> out =
+        runDexerWithOutput("out.zip", "--keep-classes", "--multi-dex", EXAMPLE_JAR_FILE_1);
+    assertThat(out.stream().map(Path::getFileName).map(Path::toString)).containsExactly("out.zip");
+    assertThat(archiveFiles(out.get(0)))
+        .containsExactly(
+            "classes.dex",
+            "com/google/devtools/build/android/r8/testdata/arithmetic/Arithmetic.class");
   }
 
   @Test
@@ -137,33 +178,25 @@ public class CompatDxTest {
     CompatDx.main(d8Args.toArray(new String[0]));
   }
 
-  private void runDexer(String... args) throws IOException {
-    runDexerWithOutput("", args);
+  private List<Path> runDexer(String... args) throws IOException {
+    return runDexerWithOutput("", args);
   }
 
   private void runDexerWithoutOutput(String... args) throws IOException {
     runDexerWithOutput(null, args);
   }
 
-  private Path getOutputD8() {
-    return temp.getRoot().toPath().resolve("d8-out");
+  private Path getOutputDir() throws IOException {
+    Path dir = temp.getRoot().toPath().resolve("out");
+    Files.createDirectory(dir);
+    return dir;
   }
 
-  private Path getOutputDX() {
-    return temp.getRoot().toPath().resolve("dx-out");
-  }
-
-  private void runDexerWithOutput(String out, String... args) throws IOException {
+  private List<Path> runDexerWithOutput(String out, String... args) throws IOException {
     Path d8Out = null;
-    Path dxOut = null;
     if (out != null) {
-      Path baseD8 = getOutputD8();
-      Path baseDX = getOutputDX();
-      Files.createDirectory(baseD8);
-      Files.createDirectory(baseDX);
+      Path baseD8 = getOutputDir();
       d8Out = baseD8.resolve(out);
-      dxOut = baseDX.resolve(out);
-      assertThat(dxOut.toString()).isNotEqualTo(d8Out.toString());
     }
 
     List<String> d8Args = new ArrayList<>();
@@ -172,21 +205,11 @@ public class CompatDxTest {
       d8Args.add("--output=" + d8Out);
     }
     Collections.addAll(d8Args, args);
-    System.out.println("running: d8 " + Joiner.on(" ").join(d8Args));
     CompatDx.main(d8Args.toArray(new String[0]));
-
-    List<String> dxArgs = new ArrayList<>();
-    dxArgs.add("--dex");
-    if (dxOut != null) {
-      dxArgs.add("--output=" + dxOut);
-    }
-    Collections.addAll(dxArgs, args);
-    System.out.println("running: dx " + Joiner.on(" ").join(dxArgs));
-    com.android.dx.command.Main.main(dxArgs.toArray(new String[0]));
 
     if (out == null) {
       // Can't check output if explicitly not writing any.
-      return;
+      return ImmutableList.of();
     }
 
     List<Path> d8Files;
@@ -194,40 +217,12 @@ public class CompatDxTest {
         Files.list(Files.isDirectory(d8Out) ? d8Out : d8Out.getParent())) {
       d8Files = d8FilesStream.sorted().collect(toList());
     }
-    List<Path> dxFiles;
-    try (Stream<Path> dxFilesStream =
-        Files.list(Files.isDirectory(dxOut) ? dxOut : dxOut.getParent())) {
-      dxFiles = dxFilesStream.sorted().collect(toList());
-    }
-    assertWithMessage("Out file names differ")
-        .that(
-            Joiner.on(System.lineSeparator())
-                .join(d8Files.stream().map(Path::getFileName).iterator()))
-        .isEqualTo(
-            Joiner.on(System.lineSeparator())
-                .join(dxFiles.stream().map(Path::getFileName).iterator()));
-    for (int i = 0; i < d8Files.size(); i++) {
-      if (FileUtils.isArchive(d8Files.get(i))) {
-        compareArchiveFiles(d8Files.get(i), dxFiles.get(i));
-      }
-    }
+    return d8Files;
   }
 
-  private static void compareArchiveFiles(Path d8File, Path dxFile) throws IOException {
-    ZipFile d8Zip = new ZipFile(d8File.toFile(), UTF_8);
-    ZipFile dxZip = new ZipFile(dxFile.toFile(), UTF_8);
-    // TODO(zerny): This should test resource containment too once supported.
-    Set<String> d8Content = d8Zip.stream().map(ZipEntry::getName).collect(toSet());
-    Set<String> dxContent =
-        dxZip.stream()
-            .map(ZipEntry::getName)
-            .filter(
-                name ->
-                    name.endsWith(FileUtils.DEX_EXTENSION)
-                        || name.endsWith(FileUtils.CLASS_EXTENSION))
-            .collect(toSet());
-    assertWithMessage("Expected dx and d8 output to contain same DEX anf class file entries")
-        .that(d8Content)
-        .containsExactlyElementsIn(dxContent);
+  private static List<String> archiveFiles(Path path) throws IOException {
+    try (ZipFile zipFile = new ZipFile(path.toFile(), UTF_8)) {
+      return zipFile.stream().map(ZipEntry::getName).collect(toList());
+    }
   }
 }

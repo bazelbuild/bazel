@@ -297,10 +297,12 @@ EOF
         "openjdk_macos_minimal"
         "openjdk_win_minimal"
         "remote_coverage_tools_for_testing"
+        "remote_java_tools_for_testing"
         "remote_java_tools_darwin_for_testing"
-        "remote_java_tools_javac11_test_darwin"
-        "remote_java_tools_javac11_test_linux"
-        "remote_java_tools_javac11_test_windows"
+        "remote_java_tools_test"
+        "remote_java_tools_test_darwin"
+        "remote_java_tools_test_linux"
+        "remote_java_tools_test_windows"
         "remote_java_tools_linux_for_testing"
         "remote_java_tools_windows_for_testing"
         "remotejdk11_linux_for_testing"
@@ -595,7 +597,7 @@ workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
   new_workspace_dir=${1:-$(mktemp -d ${TEST_TMPDIR}/workspace.XXXXXXXX)}
-  try_with_timeout rm -fr ${new_workspace_dir}
+  try_with_timeout rm -fr ${new_workspace_dir} > /dev/null 2>&1
   mkdir -p ${new_workspace_dir}
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
@@ -721,6 +723,7 @@ setup_bazelrc
 #
 PRODUCT_NAME=bazel
 TOOLS_REPOSITORY="@bazel_tools"
+BUILTINS_PACKAGE_PATH_IN_SOURCE="src/main/starlark/builtins_bzl"
 WORKSPACE_NAME=main
 bazelrc=$TEST_TMPDIR/bazelrc
 

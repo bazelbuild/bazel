@@ -914,7 +914,9 @@ public final class CcCommon {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
     }
 
-    if (cppConfiguration.getPropellerOptimizeLabel() != null) {
+    if (cppConfiguration.getPropellerOptimizeLabel() != null
+        || cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
+        || cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.PROPELLER_OPTIMIZE);
     }
 

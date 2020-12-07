@@ -26,6 +26,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * Scans source files to determine the bounding set of transitively referenced include files.
@@ -90,7 +92,7 @@ public interface IncludeScanner {
      * Lookup table to find the {@link Artifact}s of generated files based on their {@link
      * Artifact#getExecPath}.
      */
-    private final Map<PathFragment, Artifact> pathToLegalOutputArtifact;
+    private final Map<PathFragment, Artifact> pathToDeclaredHeader;
 
     /**
      * The set of headers that are modular, i.e. are going to be read as a serialized AST rather
@@ -113,23 +115,31 @@ public interface IncludeScanner {
      */
     private final List<String> cmdlineIncludes;
 
+    /**
+     * Tests whether the given artifact is a valid header even if it is not declared, i.e. a
+     * transitive dependency. If null, assume all headers can be included.
+     */
+    @Nullable private final Predicate<Artifact> isValidUndeclaredHeader;
+
     public IncludeScanningHeaderData(
-        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        Map<PathFragment, Artifact> pathToDeclaredHeader,
         Set<Artifact> modularHeaders,
         List<PathFragment> systemIncludeDirs,
-        List<String> cmdlineIncludes) {
-      this.pathToLegalOutputArtifact = pathToLegalOutputArtifact;
+        List<String> cmdlineIncludes,
+        @Nullable Predicate<Artifact> isValidUndeclaredHeader) {
+      this.pathToDeclaredHeader = pathToDeclaredHeader;
       this.modularHeaders = modularHeaders;
       this.systemIncludeDirs = systemIncludeDirs;
       this.cmdlineIncludes = cmdlineIncludes;
+      this.isValidUndeclaredHeader = isValidUndeclaredHeader;
     }
 
     public Set<Artifact> getModularHeaders() {
       return modularHeaders;
     }
 
-    public Map<PathFragment, Artifact> getPathToLegalOutputArtifact() {
-      return pathToLegalOutputArtifact;
+    public Map<PathFragment, Artifact> getPathToDeclaredHeader() {
+      return pathToDeclaredHeader;
     }
 
     public List<PathFragment> getSystemIncludeDirs() {
@@ -140,15 +150,22 @@ public interface IncludeScanner {
       return cmdlineIncludes;
     }
 
+    public boolean isLegalHeader(Artifact header) {
+      return isValidUndeclaredHeader == null
+          || pathToDeclaredHeader.containsKey(header.getExecPath())
+          || isValidUndeclaredHeader.test(header);
+    }
+
     public static class Builder {
-      private final Map<PathFragment, Artifact> pathToLegalOutputArtifact;
+      private final Map<PathFragment, Artifact> pathToDeclaredHeader;
       private final Set<Artifact> modularHeaders;
       private List<PathFragment> systemIncludeDirs = ImmutableList.of();
       private List<String> cmdlineIncludes = ImmutableList.of();
+      @Nullable private Predicate<Artifact> isValidUndeclaredHeader = null;
 
       public Builder(
-          Map<PathFragment, Artifact> pathToLegalOutputArtifact, Set<Artifact> modularHeaders) {
-        this.pathToLegalOutputArtifact = pathToLegalOutputArtifact;
+          Map<PathFragment, Artifact> pathToDeclaredHeader, Set<Artifact> modularHeaders) {
+        this.pathToDeclaredHeader = pathToDeclaredHeader;
         this.modularHeaders = modularHeaders;
       }
 
@@ -162,9 +179,19 @@ public interface IncludeScanner {
         return this;
       }
 
+      public Builder setIsValidUndeclaredHeader(
+          @Nullable Predicate<Artifact> isValidUndeclaredHeader) {
+        this.isValidUndeclaredHeader = isValidUndeclaredHeader;
+        return this;
+      }
+
       public IncludeScanningHeaderData build() {
         return new IncludeScanningHeaderData(
-            pathToLegalOutputArtifact, modularHeaders, systemIncludeDirs, cmdlineIncludes);
+            pathToDeclaredHeader,
+            modularHeaders,
+            systemIncludeDirs,
+            cmdlineIncludes,
+            isValidUndeclaredHeader);
       }
     }
   }

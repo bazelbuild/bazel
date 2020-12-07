@@ -345,7 +345,7 @@ public final class BlazeOptionHandler {
           FailureDetail.newBuilder()
               .setInterrupted(
                   FailureDetails.Interrupted.newBuilder()
-                      .setCode(FailureDetails.Interrupted.Code.OPTIONS_PARSING))
+                      .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
               .build());
     } catch (AbruptExitException e) {
       return e.getDetailedExitCode();

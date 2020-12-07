@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Bazel Container
+title: Bazel container
 ---
 
-# Getting started with Bazel Docker Container
+# Getting Started with Bazel Docker Container
 
 In this guide, we will explore the contents of the Bazel container, build the
 [abseil-cpp](https://github.com/abseil/abseil-cpp) project using Bazel inside

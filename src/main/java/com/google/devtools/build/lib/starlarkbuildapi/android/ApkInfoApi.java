@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -69,6 +70,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileT getCoverageMetadata();
 
   /**
@@ -98,6 +100,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileT getSigningLineage();
 
   /** Provider for {@link ApkInfoApi}. */

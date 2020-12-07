@@ -32,6 +32,15 @@ public @interface Param {
   String doc() default "";
 
   /**
+   * Determines whether the parameter appears in generated documentation. Set this to false to
+   * suppress parameters whose use is intentionally restricted.
+   *
+   * <p>An undocumented parameter must be {@link #named} and may not be followed by positional
+   * parameters or {@code **kwargs}.
+   */
+  boolean documented() default true;
+
+  /**
    * Default value for the parameter, written as a Starlark expression (e.g. "False", "True", "[]",
    * "None").
    *

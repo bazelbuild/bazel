@@ -38,6 +38,9 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    */
   String getRunfilesPrefix();
 
+  /** The relative location of the builtins_bzl directory within a Bazel source tree. */
+  String getBuiltinsPackagePathInSource();
+
   /**
    * Returns a map from rule names to rule class objects.
    */

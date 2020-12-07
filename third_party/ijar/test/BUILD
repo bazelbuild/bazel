@@ -14,7 +14,7 @@ sh_test(
         "$(JAVABASE)/bin/jar",
         "$(JAVABASE)/bin/javap",
         "$(location //third_party/ijar)",
-        "$(location //tools/jdk:langtools)",
+        "$(location //third_party/java/jdk/langtools:javac_jar)",
         # We assume unzip and zip to be on the path
         "unzip",
         "zip",
@@ -46,7 +46,7 @@ sh_test(
         # wrong.
         "libwrongcentraldir.jar",
         "@bazel_tools//tools/jdk:current_java_runtime",
-        "//tools/jdk:langtools",
+        "//third_party/java/jdk/langtools:javac_jar",
     ],
     shard_count = 5,
     tags = ["zip"],
@@ -267,6 +267,31 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+java_binary(
+    name = "GenScalaTasty",
+    testonly = 1,
+    srcs = ["GenScalaTasty.java"],
+    main_class = "GenScalaTasty",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "scala_tasty",
+    testonly = 1,
+    outs = ["scala_tasty.jar"],
+    cmd = "$(location :GenScalaTasty) $@",
+    tools = [":GenScalaTasty"],
+)
+
+genrule(
+    name = "scala_tasty-interface",
+    testonly = 1,
+    srcs = [":scala_tasty.jar"],
+    outs = ["scala_tasty-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -295,6 +320,7 @@ java_test(
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
         ":module_info-interface.jar",
+        ":scala_tasty-interface.jar",
     ],
     tags = ["zip"],
     test_class = "IjarTests",

@@ -17,14 +17,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * A visitor helper class for bipartite graphs.  The alternate kinds of nodes
- * are arbitrarily designated "black" or "white".
+ * A visitor helper class for bipartite graphs. The alternate kinds of nodes are arbitrarily
+ * designated "black" or "white".
  *
- * <p> Subclasses implement the black() and white() hook functions which are
- * called as nodes are visited.  The class holds a mapping from each node to a
- * small integer; this is available to subclasses if they wish.
+ * <p>Subclasses implement the black() and white() hook functions which are called as nodes are
+ * visited. The class holds a mapping from each node to a small integer; this is available to
+ * subclasses if they wish.
  */
-public abstract class BipartiteVisitor<BLACK, WHITE> {
+abstract class BipartiteVisitor<BLACK, WHITE> {
 
   protected BipartiteVisitor() {}
 
@@ -37,11 +37,10 @@ public abstract class BipartiteVisitor<BLACK, WHITE> {
   protected final Map<WHITE, Integer> visitedWhiteNodes = new HashMap<>();
 
   /**
-   *  Visit the specified black node.  If this node has not already been
-   *  visited, the black() hook is called and true is returned; otherwise,
-   *  false is returned.
+   * Visit the specified black node. If this node has not already been visited, the black() hook is
+   * called and true is returned; otherwise, false is returned.
    */
-  public final boolean visitBlackNode(BLACK blackNode) {
+  protected final boolean visitBlackNode(BLACK blackNode) throws InterruptedException {
     if (blackNode == null) { throw new NullPointerException(); }
     if (!visitedBlackNodes.containsKey(blackNode)) {
       visitedBlackNodes.put(blackNode, nextNodeId++);
@@ -51,21 +50,18 @@ public abstract class BipartiteVisitor<BLACK, WHITE> {
     return false;
   }
 
-  /**
-   * Visit all specified black nodes.
-   */
-  public final void visitBlackNodes(Iterable<BLACK> blackNodes) {
+  /** Visit all specified black nodes. */
+  protected final void visitBlackNodes(Iterable<BLACK> blackNodes) throws InterruptedException {
     for (BLACK blackNode : blackNodes) {
       visitBlackNode(blackNode);
     }
   }
 
   /**
-   *  Visit the specified white node.  If this node has not already been
-   *  visited, the white() hook is called and true is returned; otherwise,
-   *  false is returned.
+   * Visit the specified white node. If this node has not already been visited, the white() hook is
+   * called and true is returned; otherwise, false is returned.
    */
-  public final boolean visitWhiteNode(WHITE whiteNode) {
+  protected final boolean visitWhiteNode(WHITE whiteNode) throws InterruptedException {
     if (whiteNode == null) {
       throw new NullPointerException();
     }
@@ -77,22 +73,16 @@ public abstract class BipartiteVisitor<BLACK, WHITE> {
     return false;
   }
 
-  /**
-   * Visit all specified white nodes.
-   */
-  public final void visitWhiteNodes(Iterable<WHITE> whiteNodes) {
+  /** Visit all specified white nodes. */
+  public final void visitWhiteNodes(Iterable<WHITE> whiteNodes) throws InterruptedException {
     for (WHITE whiteNode : whiteNodes) {
       visitWhiteNode(whiteNode);
     }
   }
 
-  /**
-   * Called whenever a white node is visited.  Hook for subclasses.
-   */
-  protected abstract void white(WHITE whiteNode);
+  /** Called whenever a white node is visited. Hook for subclasses. */
+  protected abstract void white(WHITE whiteNode) throws InterruptedException;
 
-  /**
-   * Called whenever a black node is visited.  Hook for subclasses.
-   */
-  protected abstract void black(BLACK blackNode);
+  /** Called whenever a black node is visited. Hook for subclasses. */
+  protected abstract void black(BLACK blackNode) throws InterruptedException;
 }

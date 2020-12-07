@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.rules.config;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -109,23 +108,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
     }
   }
 
+  /** Test fragment. */
   @AutoCodec
-  static class DummyTestOptionsFragment extends Fragment {}
+  @RequiresOptions(options = {DummyTestOptions.class})
+  public static class DummyTestOptionsFragment extends Fragment {
+    private final BuildOptions buildOptions;
 
-  private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new DummyTestOptionsFragment();
+    public DummyTestOptionsFragment(BuildOptions buildOptions) {
+      this.buildOptions = buildOptions;
     }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return DummyTestOptionsFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(DummyTestOptions.class);
+    // Getter required to satisfy AutoCodec.
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
     }
   }
 
@@ -135,7 +129,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
     builder.addConfigurationOptions(DummyTestOptions.class);
-    builder.addConfigurationFragment(new DummyTestOptionsLoader());
+    builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }
 

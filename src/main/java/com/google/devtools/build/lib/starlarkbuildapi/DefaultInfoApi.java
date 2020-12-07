@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -60,6 +61,7 @@ public interface DefaultInfoApi extends StructApi {
               + "default it is all predeclared outputs.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Depset getFiles();
 
   @StarlarkMethod(
@@ -69,6 +71,7 @@ public interface DefaultInfoApi extends StructApi {
               + "containing information about the executable and runfiles of the target.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FilesToRunProviderApi<?> getFilesToRun();
 
   @StarlarkMethod(
@@ -81,6 +84,7 @@ public interface DefaultInfoApi extends StructApi {
               + "\"runfiles features to avoid\"</a> for details. ",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   RunfilesApi getDataRunfiles();
 
   @StarlarkMethod(
@@ -90,6 +94,7 @@ public interface DefaultInfoApi extends StructApi {
               + "(via the <code>run</code> command or as a tool dependency).",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   RunfilesApi getDefaultRunfiles();
 
   /** Provider for {@link DefaultInfoApi}. */

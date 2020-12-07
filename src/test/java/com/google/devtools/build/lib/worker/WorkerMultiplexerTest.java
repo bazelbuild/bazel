@@ -55,16 +55,14 @@ public class WorkerMultiplexerTest {
   @Test
   public void testGetResponse_noOutstandingRequests() throws IOException, InterruptedException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test1", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(1).build();
-    WorkerProxy worker =
-        new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker = new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer);
     worker.prepareExecution(null, null, null);
     worker.putRequest(request1);
     WorkResponse response1 = WorkResponse.newBuilder().setRequestId(1).build();
@@ -81,21 +79,18 @@ public class WorkerMultiplexerTest {
   public void testGetResponse_basicConcurrency()
       throws IOException, InterruptedException, ExecutionException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test2", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
-    WorkerProxy worker1 =
-        new WorkerProxy(workerKey, 1, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker1 = new WorkerProxy(workerKey, 1, logPath, logPath, multiplexer);
     worker1.prepareExecution(null, null, null);
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
-    WorkerProxy worker2 =
-        new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker2 = new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer);
     worker2.prepareExecution(null, null, null);
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
@@ -120,21 +115,18 @@ public class WorkerMultiplexerTest {
   public void testGetResponse_slowMultiplexer()
       throws IOException, InterruptedException, ExecutionException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test3", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStrean = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStrean);
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStrean));
 
-    WorkerProxy worker1 =
-        new WorkerProxy(workerKey, 1, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker1 = new WorkerProxy(workerKey, 1, logPath, logPath, multiplexer);
     worker1.prepareExecution(null, null, null);
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
-    WorkerProxy worker2 =
-        new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker2 = new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer);
     worker2.prepareExecution(null, null, null);
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
@@ -180,21 +172,18 @@ public class WorkerMultiplexerTest {
   public void testGetResponse_slowProxy()
       throws IOException, InterruptedException, ExecutionException {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test4", true, "fakeBinary");
-    WorkerMultiplexer multiplexer =
-        WorkerMultiplexerManager.getInstance(workerKey, logPath, /* reporter */ null);
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
-    WorkerProxy worker1 =
-        new WorkerProxy(workerKey, 1, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker1 = new WorkerProxy(workerKey, 1, logPath, logPath, multiplexer);
     worker1.prepareExecution(null, null, null);
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
-    WorkerProxy worker2 =
-        new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer /* workerVerbose */);
+    WorkerProxy worker2 = new WorkerProxy(workerKey, 2, logPath, logPath, multiplexer);
     worker2.prepareExecution(null, null, null);
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);

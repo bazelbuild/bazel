@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
@@ -47,13 +46,12 @@ public class WorkerMultiplexerManager {
    * objects with the same {@code WorkerKey} talk to the same {@code WorkerMultiplexer}. Also,
    * record how many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
    */
-  public static WorkerMultiplexer getInstance(WorkerKey key, Path logFile, Reporter reporter)
+  public static WorkerMultiplexer getInstance(WorkerKey key, Path logFile)
       throws InterruptedException {
     semMultiplexer.acquire();
-    multiplexerInstance.putIfAbsent(key, new InstanceInfo(logFile));
+    multiplexerInstance.putIfAbsent(key, new InstanceInfo(logFile, key));
     multiplexerInstance.get(key).increaseRefCount();
     WorkerMultiplexer workerMultiplexer = multiplexerInstance.get(key).getWorkerMultiplexer();
-    workerMultiplexer.setReporter(reporter);
     semMultiplexer.release();
     return workerMultiplexer;
   }
@@ -131,8 +129,8 @@ public class WorkerMultiplexerManager {
     private WorkerMultiplexer workerMultiplexer;
     private Integer refCount;
 
-    public InstanceInfo(Path logFile) {
-      this.workerMultiplexer = new WorkerMultiplexer(logFile);
+    public InstanceInfo(Path logFile, WorkerKey workerKey) {
+      this.workerMultiplexer = new WorkerMultiplexer(logFile, workerKey);
       this.refCount = 0;
     }
 

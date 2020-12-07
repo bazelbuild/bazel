@@ -17,6 +17,7 @@ import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -43,6 +44,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceApk();
 
   /** The jar containing the R java source files. */
@@ -52,6 +54,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceJavaSrcJar();
 
   /** The jar containing the R java class files. */
@@ -61,6 +64,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceJavaClassJar();
 
   /** The final proessed manifest. */
@@ -78,6 +82,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceProguardConfig();
 
   /** The main dex proguard config file. */
@@ -87,6 +92,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getMainDexProguardConfig();
 
   /** The R.txt file. */
@@ -96,6 +102,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getRTxt();
 
   /** The merged resource files zip. */
@@ -105,6 +112,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourcesZip();
 
   /** The databinding layout info file */
@@ -114,6 +122,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getDatabindingLayoutInfoZip();
 
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */

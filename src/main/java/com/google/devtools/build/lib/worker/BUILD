@@ -50,11 +50,15 @@ java_library(
 java_library(
     name = "work_request_handlers",
     srcs = [
+        "JsonWorkerMessageProcessor.java",
         "ProtoWorkerMessageProcessor.java",
         "WorkRequestHandler.java",
     ],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:gson",
         "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )

@@ -16,9 +16,10 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -51,11 +52,13 @@ public final class Module implements Resolver.Module {
   // The module's predeclared environment. Excludes UNIVERSE bindings.
   private ImmutableMap<String, Object> predeclared;
 
-  // The module's global bindings, in order of creation.
-  private final LinkedHashMap<String, Object> globals = new LinkedHashMap<>();
+  // The module's global variables, in order of creation.
+  private final LinkedHashMap<String, Integer> globalIndex = new LinkedHashMap<>();
+  private Object[] globals = new Object[8];
 
   // Names of globals that are exported and can be loaded from other modules.
-  // TODO(adonovan): eliminate this field when the resolver does its job properly.
+  // TODO(adonovan): eliminate this field when the resolver treats loads as local bindings.
+  // Then all globals are exported.
   final HashSet<String> exportedGlobals = new HashSet<>();
 
   // An optional piece of metadata associated with the module/file.
@@ -138,13 +141,9 @@ public final class Module implements Resolver.Module {
     return clientData;
   }
 
-  /** Returns the value of a predeclared (or universal) binding in this module. */
+  /** Returns the value of a predeclared (not universal) binding in this module. */
   Object getPredeclared(String name) {
-    Object v = predeclared.get(name);
-    if (v != null) {
-      return v;
-    }
-    return Starlark.UNIVERSE.get(name);
+    return predeclared.get(name);
   }
 
   /**
@@ -158,13 +157,21 @@ public final class Module implements Resolver.Module {
   }
 
   /**
-   * Returns a read-only view of this module's global bindings.
+   * Returns an immutable mapping containing the global variables of this module.
    *
    * <p>The bindings are returned in a deterministic order (for a given sequence of initial values
    * and updates).
    */
-  public Map<String, Object> getGlobals() {
-    return Collections.unmodifiableMap(globals);
+  public ImmutableMap<String, Object> getGlobals() {
+    int n = globalIndex.size();
+    ImmutableMap.Builder<String, Object> m = ImmutableMap.builderWithExpectedSize(n);
+    for (Map.Entry<String, Integer> e : globalIndex.entrySet()) {
+      Object v = getGlobalByIndex(e.getValue());
+      if (v != null) {
+        m.put(e.getKey(), v);
+      }
+    }
+    return m.build();
   }
 
   /**
@@ -172,10 +179,11 @@ public final class Module implements Resolver.Module {
    * `load`).
    */
   // TODO(adonovan): whether bindings are exported should be decided by the resolver;
-  //  non-exported bindings should never be added to the module.  Delete this.
+  //  non-exported bindings should never be added to the module.  Delete this,
+  //  once loads bind locally (then all globals will be exported).
   public ImmutableMap<String, Object> getExportedGlobals() {
     ImmutableMap.Builder<String, Object> result = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Object> entry : globals.entrySet()) {
+    for (Map.Entry<String, Object> entry : getGlobals().entrySet()) {
       if (exportedGlobals.contains(entry.getKey())) {
         result.put(entry);
       }
@@ -185,42 +193,33 @@ public final class Module implements Resolver.Module {
 
   /** Implements the resolver's module interface. */
   @Override
-  public Set<String> getNames() {
-    // TODO(adonovan): for now, the resolver treats all predeclared/universe
-    //  and global names as one bucket (Scope.PREDECLARED). Fix that.
-    // TODO(adonovan): opt: change the resolver to request names on
-    //  demand to avoid all this set copying.
-    HashSet<String> names = new HashSet<>();
-    for (Map.Entry<String, Object> bind : getTransitiveBindings().entrySet()) {
-      if (bind.getValue() instanceof FlagGuardedValue) {
-        continue; // disabled
-      }
-      names.add(bind.getKey());
+  public Resolver.Scope resolve(String name) throws Undefined {
+    // global?
+    if (globalIndex.containsKey(name)) {
+      return Resolver.Scope.GLOBAL;
     }
-    return names;
-  }
 
-  @Override
-  @Nullable
-  public String getUndeclaredNameError(String name) {
-    Object v = getPredeclared(name);
-    return v instanceof FlagGuardedValue
-        ? ((FlagGuardedValue) v).getErrorFromAttemptingAccess(name)
-        : null;
-  }
+    // predeclared?
+    Object v = predeclared.get(name);
+    if (v != null) {
+      if (v instanceof FlagGuardedValue) {
+        // Name is correctly spelled, but access is disabled by a flag.
+        throw new Undefined(((FlagGuardedValue) v).getErrorFromAttemptingAccess(name), null);
+      }
+      return Resolver.Scope.PREDECLARED;
+    }
 
-  /**
-   * Returns a new map containing the predeclared (including universal) and global bindings of this
-   * module.
-   */
-  // TODO(adonovan): eliminate; clients should explicitly choose getPredeclared or getGlobals.
-  public Map<String, Object> getTransitiveBindings() {
-    // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
-    LinkedHashMap<String, Object> env = new LinkedHashMap<>();
-    env.putAll(Starlark.UNIVERSE);
-    env.putAll(predeclared);
-    env.putAll(globals);
-    return env;
+    // universal?
+    if (Starlark.UNIVERSE.containsKey(name)) {
+      return Resolver.Scope.UNIVERSAL;
+    }
+
+    // undefined
+    Set<String> candidates = new HashSet<>();
+    candidates.addAll(globalIndex.keySet());
+    candidates.addAll(predeclared.keySet());
+    candidates.addAll(Starlark.UNIVERSE.keySet());
+    throw new Undefined(String.format("name '%s' is not defined", name), candidates);
   }
 
   /**
@@ -228,29 +227,61 @@ public final class Module implements Resolver.Module {
    * predeclared environment.
    */
   public Object getGlobal(String name) {
-    return globals.get(name);
+    Integer i = globalIndex.get(name);
+    return i != null ? globals[i] : null;
   }
 
   /**
-   * Returns the value of the named variable in the module global environment (as if by {@link
-   * #getGlobal}), or if not bound there, in the predeclared environment (as if by {@link
-   * #getPredeclared}, or if not bound there, null.
+   * Sets the value of a global variable based on its index in this module ({@see
+   * getIndexOfGlobal}).
    */
-  public Object get(String name) {
-    // TODO(adonovan): delete this whole function, and getTransitiveBindings.
-    // With proper resolution, the interpreter will know whether
-    // to look in the module or the predeclared/universal environment.
-    Object v = getGlobal(name);
-    if (v != null) {
-      return v;
+  void setGlobalByIndex(int i, Object v) {
+    Preconditions.checkArgument(i < globalIndex.size());
+    this.globals[i] = v;
+  }
+
+  /**
+   * Returns the value of a global variable based on its index in this module ({@see
+   * getIndexOfGlobal}.) Returns null if the variable has not been assigned a value.
+   */
+  @Nullable
+  Object getGlobalByIndex(int i) {
+    Preconditions.checkArgument(i < globalIndex.size());
+    return this.globals[i];
+  }
+
+  /**
+   * Returns the index within this Module of a global variable, given its name, creating a new slot
+   * for it if needed. The numbering of globals used by these functions is not the same as the
+   * numbering within any compiled Program. Thus each StarlarkFunction must contain a secondary
+   * index mapping Program indices (from Binding.index) to Module indices.
+   */
+  int getIndexOfGlobal(String name) {
+    int i = globalIndex.size();
+    Integer prev = globalIndex.putIfAbsent(name, i);
+    if (prev != null) {
+      return prev;
     }
-    return getPredeclared(name);
+    if (i == globals.length) {
+      globals = Arrays.copyOf(globals, globals.length << 1); // grow by doubling
+    }
+    return i;
+  }
+
+  /** Returns a list of indices of a list of globals; {@see getIndexOfGlobal}. */
+  int[] getIndicesOfGlobals(List<String> globals) {
+    int n = globals.size();
+    int[] array = new int[n];
+    for (int i = 0; i < n; i++) {
+      array[i] = getIndexOfGlobal(globals.get(i));
+    }
+    return array;
   }
 
   /** Updates a global binding in the module environment. */
   public void setGlobal(String name, Object value) {
     Preconditions.checkNotNull(value, "Module.setGlobal(%s, null)", name);
-    globals.put(name, value);
+    setGlobalByIndex(getIndexOfGlobal(name), value);
   }
 
   @Override

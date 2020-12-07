@@ -113,6 +113,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   @StarlarkMethod(
       name = "label_and_java_packages",
       structField = true,
+      allowReturnNones = true,
       doc = "",
       documented = false)
   @Nullable

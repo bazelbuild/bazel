@@ -154,9 +154,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
-  /**
-   * The configuration conditions that trigger this rule's configurable attributes.
-   */
+  /** The configuration conditions that trigger this rule's configurable attributes. */
+  @Override
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }

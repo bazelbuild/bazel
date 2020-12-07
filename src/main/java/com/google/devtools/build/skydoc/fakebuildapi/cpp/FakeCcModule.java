@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcDebugInfoContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
@@ -58,7 +60,9 @@ public class FakeCcModule
         LibraryToLinkApi<FileApi>,
         CcLinkingContextApi<FileApi>,
         CcToolchainVariablesApi,
-        CcToolchainConfigInfoApi> {
+        CcToolchainConfigInfoApi,
+        CcDebugInfoContextApi,
+        CppModuleMapApi<FileApi>> {
 
   @Override
   public ProviderApi getCcToolchainProvider() {
@@ -215,7 +219,19 @@ public class FakeCcModule
       Object quoteIncludes,
       Object frameworkIncludes,
       Object defines,
-      Object localDefines)
+      Object localDefines,
+      Object textualHdrs,
+      Object modularPublicHdrs,
+      Object modularPrivateHdrs,
+      Object purpose,
+      StarlarkThread thread)
+      throws EvalException {
+    return null;
+  }
+
+  @Override
+  public CppModuleMapApi<FileApi> createCppModuleMap(
+      FileApi file, Object umbrellaHeader, String name, StarlarkThread thread)
       throws EvalException {
     return null;
   }
@@ -240,6 +256,8 @@ public class FakeCcModule
       Sequence<?> sources,
       Sequence<?> publicHeaders,
       Sequence<?> privateHeaders,
+      Object textualHeaders,
+      Object additionalExportedHeaders,
       Sequence<?> includes,
       Sequence<?> quoteIncludes,
       Sequence<?> systemIncludes,
@@ -254,6 +272,12 @@ public class FakeCcModule
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Sequence<?> additionalInputs,
+      Object moduleMap,
+      Object additionalModuleMaps,
+      Object propagateModuleMapToCompileAction,
+      Object doNotGenerateModuleMap,
+      Object codeCoverageEnabled,
+      Object hdrsCheckingMode,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;
@@ -294,6 +318,9 @@ public class FakeCcModule
       StarlarkInt stamp,
       Sequence<?> additionalInputs,
       Object grepIncludes,
+      Object linkArtifactNameSuffix,
+      Object neverLink,
+      Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
@@ -331,6 +358,18 @@ public class FakeCcModule
   @Override
   public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromStarlark(
       Sequence<?> compilationOutputs) {
+    return null;
+  }
+
+  @Override
+  public CcDebugInfoContextApi createCcDebugInfoFromStarlark(
+      CcCompilationOutputsApi<FileApi> compilationOutputs, StarlarkThread thread) {
+    return null;
+  }
+
+  @Override
+  public CcDebugInfoContextApi mergeCcDebugInfoFromStarlark(
+      Sequence<?> debugInfos, StarlarkThread thread) {
     return null;
   }
 }

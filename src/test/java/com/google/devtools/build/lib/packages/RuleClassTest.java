@@ -260,7 +260,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
-            StarlarkSemantics.DEFAULT)
+            StarlarkSemantics.DEFAULT,
+            /*repositoryMapping=*/ ImmutableMap.of())
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 

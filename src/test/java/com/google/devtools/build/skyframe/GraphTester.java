@@ -316,7 +316,7 @@ public class GraphTester {
     }
   }
 
-  public ImmutableMap<SkyFunctionName, ? extends SkyFunction> getSkyFunctionMap() {
+  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionMap() {
     return ImmutableMap.copyOf(functionMap);
   }
 

@@ -5,9 +5,7 @@ exports_files(glob(["**/*.jar"]))
 licenses(["notice"])  # Apache 2.0
 
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
-load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_toolchain")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-load(":java_toolchain_default.bzl", "JDK9_JVM_OPTS", "java_toolchain_default")
 
 SUPRESSED_WARNINGS = select({
     ":windows": [],
@@ -16,175 +14,6 @@ SUPRESSED_WARNINGS = select({
         "-Wno-old-style-cast",
     ],
 })
-
-java_toolchain_default(
-    name = "toolchain",
-    javac = ["//:javac_jar"],
-    jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
-        "-XX:-CompactStrings",
-        # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location :java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-    ] + JDK9_JVM_OPTS,
-    tools = [
-        "//:java_compiler_jar",
-        "//:jdk_compiler_jar",
-    ],
-)
-
-java_toolchain_default(
-    name = "toolchain_hostjdk8",
-    javac = ["//:javac_jar"],
-    jvm_opts = ["-Xbootclasspath/p:$(location :javac_jar)"],
-    source_version = "8",
-    target_version = "8",
-)
-
-# Default to the Java 8 language level.
-# TODO(cushon): consider if/when we should increment this?
-java_toolchain_default(
-    name = "legacy_toolchain",
-    javac = ["//:javac_jar"],
-    jvm_opts = [
-        # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location :java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-    ] + JDK9_JVM_OPTS,
-    source_version = "8",
-    target_version = "8",
-    tools = [
-        "//:java_compiler_jar",
-        "//:jdk_compiler_jar",
-    ],
-)
-
-# Needed for openbsd / JVM8
-java_toolchain_default(
-    name = "legacy_toolchain_jvm8",
-    javac = ["//:javac_jar"],
-    jvm_opts = ["-Xbootclasspath/p:$(location :javac_jar)"],
-    source_version = "8",
-    target_version = "8",
-)
-
-# The 'vanilla' toolchain is an unsupported alternative to the default.
-#
-# It does not provide any of the following features:
-#   * Error Prone
-#   * Strict Java Deps
-#   * Header Compilation
-#   * Reduced Classpath Optimization
-#
-# It uses the version of internal javac from the `--host_javabase` JDK instead
-# of providing a javac. Internal javac may not be source- or bug-compatible with
-# the javac that is provided with other toolchains.
-#
-# However it does allow using a wider range of `--host_javabase`s, including
-# versions newer than the current JDK.
-java_toolchain_default(
-    name = "toolchain_vanilla",
-    forcibly_disable_header_compilation = True,
-    javabuilder = ["//:vanillajavabuilder"],
-    jvm_opts = [],
-    source_version = "",
-    target_version = "",
-)
-
-RELEASES = (8, 9, 10, 11)
-
-[
-    (
-        java_toolchain_default(
-            name = "toolchain_java%d" % release,
-            javac = ["//:javac_jar"],
-            jvm_opts = [
-                # override the javac in the JDK.
-                "--patch-module=java.compiler=$(location :java_compiler_jar)",
-                "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-            ] + JDK9_JVM_OPTS,
-            source_version = "%s" % release,
-            target_version = "%s" % release,
-            tools = [
-                "//:java_compiler_jar",
-                "//:jdk_compiler_jar",
-            ],
-        ),
-        # Needed for openbsd / JVM8
-        java_toolchain_default(
-            name = "toolchain_java%d_jvm8" % release,
-            javac = ["//:javac_jar"],
-            jvm_opts = [
-                "-Xbootclasspath/p:$(location :javac_jar)",
-            ],
-            source_version = "%s" % release,
-            target_version = "%s" % release,
-        ),
-    )
-    for release in RELEASES
-]
-
-# A toolchain that targets java 11.
-java_toolchain_default(
-    name = "toolchain_jdk_11",
-    javac = ["//:javac_jar"],
-    jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
-        "-XX:-CompactStrings",
-        # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location :java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-    ] + JDK9_JVM_OPTS,
-    source_version = "11",
-    target_version = "11",
-    tools = [
-        "//:java_compiler_jar",
-        "//:jdk_compiler_jar",
-    ],
-)
-
-# A toolchain that targets java 14.
-java_toolchain_default(
-    name = "toolchain_jdk_14",
-    source_version = "14",
-    target_version = "14",
-)
-
-# A toolchain that targets java 15.
-java_toolchain_default(
-    name = "toolchain_jdk_15",
-    source_version = "15",
-    target_version = "15",
-)
-
-# The new toolchain is using all the pre-built tools, including
-# singlejar and ijar, even on remote execution. This toolchain
-# should be used only when host and execution platform are the
-# same, otherwise the binaries will not work on the execution
-# platform.
-java_toolchain_default(
-    name = "prebuilt_toolchain",
-    ijar = ["//:ijar_prebuilt_binary"],
-    javac = ["//:javac_jar"],
-    jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
-        "-XX:-CompactStrings",
-        # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location :java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-    ] + JDK9_JVM_OPTS,
-    singlejar = ["//:prebuilt_singlejar"],
-    tools = [
-        "//:java_compiler_jar",
-        "//:jdk_compiler_jar",
-    ],
-)
 
 filegroup(
     name = "GenClass",
@@ -224,11 +53,6 @@ filegroup(
 filegroup(
     name = "SingleJar",
     srcs = ["java_tools/bazel-singlejar_deploy.jar"],
-)
-
-filegroup(
-    name = "JarJar",
-    srcs = ["java_tools/jarjar_command_deploy.jar"],
 )
 
 filegroup(
@@ -320,101 +144,20 @@ java_import(
 )
 
 config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
-)
-
-config_setting(
-    name = "linux_x86_64",
-    constraint_values = [ "@platforms//os:linux", "@platforms//cpu:x86_64" ],
-)
-
-config_setting(
-    name = "darwin_x86_64",
-    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:x86_64" ],
-)
-
-config_setting(
-    name = "darwin_arm64",
-    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:arm64" ],
-)
-
-config_setting(
-    name = "darwin_arm64e",
-    constraint_values = [ "@platforms//os:macos", "@platforms//cpu:arm64e" ],
-)
-
-config_setting(
     name = "windows",
-    constraint_values = [ "@platforms//os:windows" ],
+    constraint_values = ["@platforms//os:windows"],
 )
 
 config_setting(
     name = "freebsd",
-    constraint_values = [ "@platforms//os:freebsd" ],
+    constraint_values = ["@platforms//os:freebsd"],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "openbsd",
-    constraint_values = [ "@platforms//os:openbsd" ],
+    constraint_values = ["@platforms//os:openbsd"],
     visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "singlejar",
-    actual = select({
-        "//:remote": ":singlejar_cc_bin",
-        "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
-    }),
-)
-
-alias(
-    name = "singlejar_prebuilt_or_cc_binary",
-    actual = select({
-        ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin_arm64": "java_tools/src/tools/singlejar/singlejar_local",
-        ":darwin_arm64e": "java_tools/src/tools/singlejar/singlejar_local",
-        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
-        "//conditions:default": "singlejar_cc_bin",
-    }),
-)
-
-alias(
-    name = "prebuilt_singlejar",
-    actual = select({
-        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
-        "//conditions:default": "java_tools/src/tools/singlejar/singlejar_local",
-    }),
-)
-
-alias(
-    name = "ijar",
-    actual = select({
-        ":remote": ":ijar_cc_binary",
-        "//conditions:default": ":prebuilt_binary_or_cc_binary",
-    }),
-)
-
-alias(
-    name = "prebuilt_binary_or_cc_binary",
-    actual = select({
-        ":linux_x86_64": ":ijar_prebuilt_binary",
-        ":darwin_x86_64": ":ijar_prebuilt_binary",
-        ":darwin_arm64": ":ijar_prebuilt_binary",
-        ":darwin_arm64e": ":ijar_prebuilt_binary",
-        ":windows": ":ijar_prebuilt_binary",
-        "//conditions:default": ":ijar_cc_binary",
-    }),
-)
-
-filegroup(
-    name = "ijar_prebuilt_binary",
-    srcs = select({
-        ":windows": ["java_tools/ijar/ijar.exe"],
-        "//conditions:default": ["java_tools/ijar/ijar"],
-    }),
 )
 
 cc_library(
@@ -570,13 +313,6 @@ cc_library(
         "java_tools/src/main/native/windows/file.h",
         "java_tools/src/main/native/windows/util.h",
     ],
-    strip_include_prefix = "java_tools",
-)
-
-cc_library(
-    name = "lib-util",
-    srcs = ["java_tools/src/main/native/windows/util.cc"],
-    hdrs = ["java_tools/src/main/native/windows/util.h"],
     strip_include_prefix = "java_tools",
 )
 

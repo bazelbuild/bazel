@@ -111,25 +111,6 @@ filegroup(
     deprecation = DEPRECATION_MESSAGE,
 )
 
-# TODO(cushon): migrate to extclasspath and delete
-filegroup(
-    name = "extdir",
-    srcs = glob(
-        ["jre/lib/ext/*.jar"],
-        allow_empty = True,
-    ),
-    deprecation = DEPRECATION_MESSAGE,
-)
-
-filegroup(
-    name = "extclasspath",
-    srcs = glob(
-        ["jre/lib/ext/*.jar"],
-        allow_empty = True,
-    ),
-    deprecation = DEPRECATION_MESSAGE,
-)
-
 filegroup(
     name = "jre-bin",
     srcs = select({

@@ -973,10 +973,18 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
-    private final Map<Location, String> generatorNameByLocation = new HashMap<>();
+    private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
 
-    Map<Location, String> getGeneratorNameByLocation() {
-      return generatorNameByLocation;
+    /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
+    @Nullable
+    public String getGeneratorNameByLocation(Location loc) {
+      return generatorMap.get(loc);
+    }
+
+    /** Sets the package's map of "generator_name" values keyed by the location of the call site. */
+    public Builder setGeneratorMap(ImmutableMap<Location, String> map) {
+      this.generatorMap = map;
+      return this;
     }
 
     // Value of '$implicit_tests' attribute shared by all test_suite rules in the
@@ -1073,7 +1081,7 @@ public class Package {
     }
 
     /** Sets the name of this package's BUILD file. */
-    Builder setFilename(RootedPath filename) {
+    public Builder setFilename(RootedPath filename) {
       this.filename = filename;
       try {
         buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
@@ -1134,19 +1142,17 @@ public class Package {
     }
 
     /**
-     * Sets the default visibility for this package. Called at most once per
-     * package from PackageFactory.
+     * Sets the default visibility for this package. Called at most once per package from
+     * PackageFactory.
      */
-    Builder setDefaultVisibility(RuleVisibility visibility) {
+    public Builder setDefaultVisibility(RuleVisibility visibility) {
       this.defaultVisibility = visibility;
       this.defaultVisibilitySet = true;
       return this;
     }
 
-    /**
-     * Sets whether the default visibility is set in the BUILD file.
-     */
-    Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
+    /** Sets whether the default visibility is set in the BUILD file. */
+    public Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
       this.defaultVisibilitySet = defaultVisibilitySet;
       return this;
     }

@@ -81,7 +81,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
@@ -91,7 +91,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
     CqueryOptions.Transitions verbosity = options.transitions;
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       eventHandler.handle(
@@ -100,22 +101,21 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                   + " flag explicitly to 'lite' or 'full'"));
       return;
     }
-    partialResult.forEach(
-        ct ->
-            partialResultMap.put(
-                ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
-    for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
-      BuildConfiguration config = getConfiguration(configuredTarget.getConfigurationKey());
+    partialResult.forEach(kct -> partialResultMap.put(kct.getLabel(), accessor.getTarget(kct)));
+    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
+      Target target = partialResultMap.get(keyedConfiguredTarget.getLabel());
+      BuildConfiguration config = getConfiguration(keyedConfiguredTarget.getConfigurationKey());
       addResult(
-          getRuleClassTransition(configuredTarget, target)
-              + String.format("%s (%s)", configuredTarget.getOriginalLabel(), shortId(config)));
-      if (!(configuredTarget instanceof RuleConfiguredTarget)) {
+          getRuleClassTransition(keyedConfiguredTarget.getConfiguredTarget(), target)
+              + String.format(
+                  "%s (%s)",
+                  keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel(), shortId(config)));
+      if (!(keyedConfiguredTarget.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
         continue;
       }
       OrderedSetMultimap<DependencyKind, DependencyKey> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
+          keyedConfiguredTarget.getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
       ToolchainCollection<ToolchainContext> toolchainContexts =

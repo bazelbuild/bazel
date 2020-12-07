@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -60,11 +59,11 @@ public class BazelRuleClassProviderTest {
     }
 
     List<Class<? extends FragmentOptions>> configOptions = provider.getConfigurationOptions();
-    for (ConfigurationFragmentFactory fragmentFactory : provider.getConfigurationFragments()) {
+    for (Class<? extends Fragment> fragmentClass : provider.getConfigurationFragments()) {
       // Check that every created fragment is present.
-      assertThat(configurationFragments).contains(fragmentFactory.creates());
+      assertThat(configurationFragments).contains(fragmentClass);
       // Check that every options class required for fragment creation is provided.
-      for (Class<? extends FragmentOptions> options : fragmentFactory.requiredOptions()) {
+      for (Class<? extends FragmentOptions> options : Fragment.requiredOptions(fragmentClass)) {
         assertThat(configOptions).contains(options);
       }
     }

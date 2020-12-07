@@ -153,10 +153,10 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         getConfiguration(
             (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("exec_group_dep"));
 
-    assertThat(dep.getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseAbsoluteUnchecked("//platform:platform_1"));
-    assertThat(execGroupDep.getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+    assertThat(dep.getFragment(PlatformConfiguration.class).getTargetPlatform())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_1"));
+    assertThat(execGroupDep.getFragment(PlatformConfiguration.class).getTargetPlatform())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
   }
 
   @Test

@@ -124,21 +124,26 @@ import net.starlark.java.eval.StarlarkSemantics;
  *       inputs discovered during execution.
  * </ol>
  */
+// LINT.IfChange
 public class ActionExecutionFunction implements SkyFunction {
 
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
+  private final SkyframeExperimentalOptions skyframeExperimentalOptions;
   private ConcurrentMap<Action, ContinuationState> stateMap;
+  @Nullable private SkyframeEvalWithOrderedListAEFDelegator skyframeEvalWithOrderedListAEFDelegator;
 
   public ActionExecutionFunction(
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
-      AtomicReference<TimestampGranularityMonitor> tsgm) {
+      AtomicReference<TimestampGranularityMonitor> tsgm,
+      SkyframeExperimentalOptions skyframeExperimentalOptions) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.directories = directories;
     this.tsgm = tsgm;
+    this.skyframeExperimentalOptions = skyframeExperimentalOptions;
     // TODO(b/136156191): This stays in RAM while the SkyFunction of the action is pending, which
     // can result in a lot of memory pressure if a lot of actions are pending.
     stateMap = Maps.newConcurrentMap();
@@ -147,6 +152,15 @@ public class ActionExecutionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
+    if (skyframeExperimentalOptions != null
+        && skyframeExperimentalOptions.skyframeEvalWithOrderedList()) {
+      if (skyframeEvalWithOrderedListAEFDelegator == null) {
+        skyframeEvalWithOrderedListAEFDelegator =
+            new SkyframeEvalWithOrderedListAEFDelegator(
+                skyframeActionExecutor, directories, tsgm, stateMap);
+      }
+      return skyframeEvalWithOrderedListAEFDelegator.compute(skyKey, env);
+    }
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
     if (action == null) {
@@ -600,7 +614,7 @@ public class ActionExecutionFunction implements SkyFunction {
     return new AllInputs(allKnownInputs, actionCacheInputs, resolver.keysRequested);
   }
 
-  private static class AllInputs {
+  static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
     @Nullable final List<Artifact> actionCacheInputs;
     @Nullable final List<SkyKey> keysRequested;
@@ -1431,7 +1445,7 @@ public class ActionExecutionFunction implements SkyFunction {
    *       execution.
    * </ol>
    */
-  private static class ContinuationState {
+  static class ContinuationState {
     AllInputs allInputs;
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
@@ -1707,3 +1721,4 @@ public class ActionExecutionFunction implements SkyFunction {
             .build());
   }
 }
+// LINT.ThenChange(SkyframeEvalWithOrderedListAEFDelegator.java)

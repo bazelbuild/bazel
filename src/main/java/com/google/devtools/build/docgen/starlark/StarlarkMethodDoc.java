@@ -75,6 +75,9 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
 
     boolean named = false;
     for (Param param : withoutSelfParam(annotation, method)) {
+      if (!param.documented()) {
+        continue;
+      }
       if (param.named() && !param.positional() && !named) {
         named = true;
         if (!argList.isEmpty()) {

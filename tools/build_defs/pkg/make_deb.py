@@ -120,7 +120,7 @@ def AddArFileEntry(fileobj, filename,
   if isinstance(content, (str, bytes)):
     content_len, content = ConvertToFileLike(content, content_len, BytesIO)
   inputs = [
-      (filename + '/').ljust(16),  # filename (SysV)
+      (six.ensure_str(filename) + '/').ljust(16),  # filename (SysV)
       str(timestamp).ljust(12),  # timestamp
       str(owner_id).ljust(6),  # owner id
       str(group_id).ljust(6),  # group id
@@ -143,7 +143,7 @@ def AddArFileEntry(fileobj, filename,
 
 def MakeDebianControlField(name, value, wrap=False):
   """Add a field to a debian control file."""
-  result = six.ensure_str(name) + ': '
+  result = name + ': '
   if isinstance(value, str):
     value = six.ensure_str(value, 'utf-8')
   if isinstance(value, list):
@@ -155,7 +155,7 @@ def MakeDebianControlField(name, value, wrap=False):
                            break_long_words=False)
   else:
     result += value
-  return six.ensure_str(result).replace('\n', '\n ') + '\n'
+  return result.replace('\n', '\n ') + '\n'
 
 
 def CreateDebControl(extrafiles=None, **kwargs):
@@ -310,7 +310,7 @@ def CreateChanges(output,
           '\n' + ' '.join([checksums['sha256'], debsize, deb_basename]))
   ])
   with open(output, 'w') as changes_fh:
-    changes_fh.write(six.ensure_binary(changesdata, 'utf-8'))
+    changes_fh.write(six.ensure_binary(changesdata, 'utf-8').decode('utf-8'))
 
 
 def GetFlagValue(flagvalue, strip=True):

@@ -83,8 +83,6 @@ public final class SkyFunctions {
   static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
       SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
   static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.createHermetic("RECURSIVE_PKG");
-  static final SkyFunctionName TRANSITIVE_TARGET =
-      SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.createHermetic("CONFIGURED_TARGET");
   static final SkyFunctionName ACTION_LOOKUP_CONFLICT_FINDING =

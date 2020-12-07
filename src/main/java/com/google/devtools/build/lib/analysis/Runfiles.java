@@ -303,7 +303,11 @@ public final class Runfiles implements RunfilesApi {
         Streams.concat(
                 symlinks.toList().stream().map(SymlinkEntry::getPath),
                 getArtifacts().toList().stream()
-                    .map(artifact -> artifact.getOutputDirRelativePath(false)))
+                    .map(
+                        artifact ->
+                            legacyExternalRunfiles
+                                ? artifact.getOutputDirRelativePath(false)
+                                : artifact.getRunfilesPath()))
             .collect(ImmutableSet.toImmutableSet());
     Iterable<PathFragment> emptyKeys = emptyFilesSupplier.getExtraPaths(manifestKeys);
     return NestedSetBuilder.<String>stableOrder()
@@ -536,7 +540,7 @@ public final class Runfiles implements RunfilesApi {
     // win. That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses output-dir-relative paths.
     for (Artifact artifact : artifacts.toList()) {
-      result.put(artifact.getOutputDirRelativePath(false), artifact);
+      result.put(artifact.getOutputDirRelativePath(true), artifact);
     }
     return result;
   }
@@ -1087,7 +1091,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     for (Artifact artifact : getArtifacts().toList()) {
-      fp.addPath(artifact.getOutputDirRelativePath(false));
+      fp.addPath(artifact.getRunfilesPath());
       fp.addPath(artifact.getExecPath());
     }
 

@@ -46,7 +46,6 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
-        "//third_party/zstd-jni:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -142,9 +141,6 @@ distrib_java_import(
     name = "apache_commons_compress",
     enable_distributions = ["debian"],
     jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
-    deps = [
-        "@com_github_luben_zstd_jni//:zstd-jni",
-    ],
 )
 
 distrib_java_import(

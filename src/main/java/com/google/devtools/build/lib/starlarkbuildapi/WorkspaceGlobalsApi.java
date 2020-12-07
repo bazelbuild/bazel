@@ -55,7 +55,6 @@ public interface WorkspaceGlobalsApi {
               + "  WORKSPACE file for the <code>maven_jar</code> containing"
               + "  <code>workspace(name = 'foo.bar')</code>."
               + "</p>",
-      allowReturnNones = true,
       parameters = {
         @Param(
             name = "name",
@@ -77,7 +76,7 @@ public interface WorkspaceGlobalsApi {
                     + " them (or their parent directories) in the .bazelignore file."),
       },
       useStarlarkThread = true)
-  NoneType workspace(
+  void workspace(
       String name,
       Dict<?, ?> managedDirectories, // <String, Sequence<String>>
       StarlarkThread thread)
@@ -98,7 +97,6 @@ public interface WorkspaceGlobalsApi {
               + " output files.</p><p>This method can be used to specify that Ninja build"
               + " configuration directories should not be symlinked to the execroot. It is not"
               + " expected that there could be other use cases for using this method.</p>",
-      allowReturnNones = true,
       parameters = {
         @Param(
             name = "paths",
@@ -109,7 +107,7 @@ public interface WorkspaceGlobalsApi {
       },
       useStarlarkThread = true,
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS)
-  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
+  void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -118,14 +116,13 @@ public interface WorkspaceGlobalsApi {
           "Register an already-defined platform so that Bazel can use it as an "
               + "<a href=\"../../toolchains.html#toolchain-resolution\">execution platform</a> "
               + "during <a href=\"../../toolchains.html\">toolchain resolution</a>.",
-      allowReturnNones = true,
       extraPositionals =
           @Param(
               name = "platform_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the platforms to register."),
       useStarlarkThread = true)
-  NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
+  void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -136,14 +133,13 @@ public interface WorkspaceGlobalsApi {
               + "<a href=\"../../toolchains.html#defining-toolchains\">defining</a> and "
               + "<a href=\"../../toolchains.html#registering-and-building-with-toolchains\">"
               + "registering toolchains</a>.",
-      allowReturnNones = true,
       extraPositionals =
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the toolchains to register."),
       useStarlarkThread = true)
-  NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
+  void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -153,7 +149,6 @@ public interface WorkspaceGlobalsApi {
               + " href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider removing"
               + " bind</a> for a long discussion if its issues and alternatives.</p> <p>Gives a"
               + " target an alias in the <code>//external</code> package.</p>",
-      allowReturnNones = true,
       parameters = {
         @Param(
             name = "name",
@@ -172,6 +167,6 @@ public interface WorkspaceGlobalsApi {
             doc = "The real label to be aliased")
       },
       useStarlarkThread = true)
-  NoneType bind(String name, Object actual, StarlarkThread thread)
+  void bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

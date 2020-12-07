@@ -28,7 +28,7 @@ from src.create_embedded_tools_lib import copy_zip_to_zip
 from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
-    ('*tools/jdk/BUILD', lambda x: 'tools/jdk/BUILD'),
+    ('*tools/jdk/BUILD.tools', lambda x: 'tools/jdk/BUILD'),
     ('*tools/build_defs/repo/BUILD.repo',
      lambda x: 'tools/build_defs/repo/BUILD'),
     ('*tools/platforms/BUILD.tools', lambda x: 'platforms/BUILD'),
@@ -36,15 +36,11 @@ output_paths = [
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
-    ('*jarjar_command_deploy.jar',
-     lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
     ('*BUILD.java_langtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
-    ('*third_party/jarjar/BUILD.tools', lambda x: 'third_party/jarjar/BUILD'),
-    ('*third_party/jarjar/LICENSE', lambda x: 'third_party/jarjar/LICENSE'),
     ('*src/objc_tools/*',
      lambda x: 'tools/objc/precomp_' + os.path.basename(x)),
     ('*xcode*StdRedirect.dylib', lambda x: 'tools/objc/StdRedirect.dylib'),

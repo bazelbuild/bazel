@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -417,7 +416,7 @@ public class BuildTool {
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (environmentPendingAbruptExitException == null) {
         String message = "build interrupted";
-        detailedExitCode = InterruptedFailureDetails.detailedExitCode(message, Code.BUILD);
+        detailedExitCode = InterruptedFailureDetails.detailedExitCode(message);
         env.getReporter().handle(Event.error(message));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
@@ -557,7 +556,7 @@ public class BuildTool {
       if (detailedExitCode.isSuccess()) {
         result.setDetailedExitCode(
             InterruptedFailureDetails.detailedExitCode(
-                "Build interrupted during command completion", Code.BUILD_COMPLETION));
+                "Build interrupted during command completion"));
       } else if (!detailedExitCode.getExitCode().equals(ExitCode.INTERRUPTED)) {
         logger.atWarning().withCause(ie).log(
             "Suppressed interrupted exception during stop request because already failing with: %s",

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class FdoPrefetchHints implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws RuleErrorException, ActionConflictException {
+      throws InterruptedException, ActionConflictException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
 
     FdoInputFile inputFile = FdoInputFile.fromProfileRule(ruleContext);

@@ -18,13 +18,17 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Sequence. */
+/** Tests for StarlarkList. */
+// TODO(adonovan): duplicate/share these tests for Tuple where applicable.
 @RunWith(JUnit4.class)
 public final class StarlarkListTest {
 
@@ -321,63 +325,93 @@ public final class StarlarkListTest {
 
   @Test
   public void testWrapTakesOwnershipOfArray() throws EvalException {
-    String[] wrapped = {"hello"};
+    Object[] wrapped = {"hello"};
     Mutability mutability = Mutability.create("test");
-    StarlarkList<String> mutableList = StarlarkList.wrap(mutability, wrapped);
+    StarlarkList<Object> mutableList = StarlarkList.wrap(mutability, wrapped);
 
     // Big no-no, but we're proving a point.
     wrapped[0] = "goodbye";
-    assertThat((List<String>) mutableList).containsExactly("goodbye");
+    assertThat((List<?>) mutableList).containsExactly("goodbye");
   }
 
   @Test
-  public void testBuilder() throws EvalException {
-    // add
-    StarlarkList<String> list1 =
-        StarlarkList.<String>builder().add("a").add("b").add("c").buildImmutable();
-    assertThat((List<?>) list1).containsExactly("a", "b", "c");
-    assertThrows(EvalException.class, () -> list1.addElement("d")); // immutable
-
-    // addAll(Collection)
-    StarlarkList<String> list2 =
-        StarlarkList.<String>builder()
-            .addAll(ImmutableList.of("a", "b"))
-            .addAll(ImmutableList.of("c", "d"))
-            .buildImmutable();
-    assertThat((List<?>) list2).containsExactly("a", "b", "c", "d");
-
-    // addAll(Iterable)
-    StarlarkList<String> list3 =
-        StarlarkList.<String>builder()
-            .addAll(() -> ImmutableList.of("a", "b", "c").iterator())
-            .buildImmutable();
-    assertThat((List<?>) list3).containsExactly("a", "b", "c");
-
-    // mutability and builder re-use
-    StarlarkList.Builder<String> builder = StarlarkList.<String>builder().add("a").add("b");
-    StarlarkList<String> list4 = builder.buildImmutable();
-    assertThat((List<?>) list4).containsExactly("a", "b");
-    builder.add("c"); // continue building
-    StarlarkList<String> list5 = builder.buildImmutable();
-    assertThat((List<?>) list5).containsExactly("a", "b", "c");
-    assertThat((List<?>) list4).containsExactly("a", "b"); // unchanged
+  public void testOfReturnsListWhoseArrayElementTypeIsObject() throws EvalException {
     Mutability mu = Mutability.create("test");
-    StarlarkList<String> list6 = builder.build(mu);
-    list6.addElement("d");
-    mu.close();
-    assertThrows(EvalException.class, () -> list6.addElement("e")); // frozen
-    assertThat((List<?>) list6).containsExactly("a", "b", "c", "d");
+    StarlarkList<Object> list = StarlarkList.of(mu, "a", "b");
+    list.addElement(StarlarkInt.of(1)); // no ArrayStoreException
+    assertThat(list.toString()).isEqualTo("[\"a\", \"b\", 1]");
   }
 
   @Test
-  public void testListsFromSameBuilderDoNotShareBackingArray() throws EvalException {
+  public void testStarlarkListToArray() throws Exception {
     Mutability mu = Mutability.create("test");
-    StarlarkList.Builder<String> builder = StarlarkList.<String>builder().add("a").add("b");
-    StarlarkList<String> x = builder.build(mu);
-    x.setElementAt(1, "c");
-    StarlarkList<String> y = builder.build(mu);
-    y.setElementAt(1, "C");
-    assertThat((List<?>) x).containsExactly("a", "c");
-    assertThat((List<?>) y).containsExactly("a", "C");
+    StarlarkList<String> list = StarlarkList.newList(mu);
+
+    for (int i = 0; i < 10; ++i) {
+      for (int len : new int[] {0, list.size() / 2, list.size(), list.size() * 2}) {
+        for (Class<?> elemType : new Class<?>[] {Object.class, String.class}) {
+          Object[] input = (Object[]) Array.newInstance(elemType, len);
+          try {
+            checkToArray(input, list);
+          } catch (AssertionError ex) {
+            fail("list.toArray(new %s[%d]): %s", elemType.getSimpleName(), len, ex.getMessage());
+          }
+        }
+      }
+      // Note we add elements in loop instead of recreating a list
+      // to also check that code works correctly when list capacity exceeds size.
+      list.addElement(Integer.toString(i));
+    }
+  }
+
+  @Test
+  public void testTupleToArray() throws Exception {
+    Tuple tuple = Tuple.of(IntStream.range(0, 10).mapToObj(Integer::toString).toArray());
+    for (int len : new int[] {0, tuple.size() / 2, tuple.size(), tuple.size() * 2}) {
+      for (Class<?> elemType : new Class<?>[] {Object.class, String.class}) {
+        Object[] input = (Object[]) Array.newInstance(elemType, len);
+        try {
+          checkToArray(input, tuple);
+        } catch (AssertionError ex) {
+          fail("tuple.toArray(new %s[%d]): %s", elemType.getSimpleName(), len, ex.getMessage());
+        }
+      }
+    }
+  }
+
+  private static void fail(String format, Object... args) {
+    throw new AssertionError(String.format(format, args));
+  }
+
+  // Asserts that seq.toArray(input) returns an array of class input.getClass(),
+  // regardless of seq's element type, and contains the correct elements,
+  // including trailing null padding if size < len.
+  private void checkToArray(Object[] input, Sequence<?> seq) throws AssertionError {
+    Arrays.fill(input, "x");
+
+    Object[] output = seq.toArray(input);
+    if (output.getClass() != input.getClass()) {
+      fail("array class mismatch: input=%s, output=%s", input.getClass(), output.getClass());
+    }
+    if (input.length < seq.size()) {
+      // assert input is unchanged
+      for (int i = 0; i < input.length; i++) {
+        if (!input[i].equals("x")) {
+          fail("input[%d] = %s, want \"x\"", i, Starlark.repr(input[i]));
+        }
+      }
+
+      Object[] expected = IntStream.range(0, seq.size()).mapToObj(Integer::toString).toArray();
+      if (!Arrays.equals(output, expected)) {
+        fail("output array = %s, want %s", output, expected);
+      }
+    } else if (output != input) {
+      for (int j = 0; j < output.length; ++j) {
+        String want = j < seq.size() ? Integer.toString(j) : null;
+        if (!output[j].equals(want)) {
+          fail("output[%d] = %s, want %s", j, output[j], want);
+        }
+      }
+    }
   }
 }

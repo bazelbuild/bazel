@@ -371,7 +371,7 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   private void checkDepsCheckerOutputArtifact(Artifact artifact, String expectedCheckingMode)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     assertThat(artifact.isTreeArtifact()).isFalse();
     assertThat(artifact.getExecPathString()).endsWith("_aar/bar/jdeps.proto");
 

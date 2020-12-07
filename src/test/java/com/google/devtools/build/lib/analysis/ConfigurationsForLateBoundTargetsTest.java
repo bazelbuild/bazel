@@ -88,7 +88,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(LateBoundSplitUtil.RULE_WITH_TEST_FRAGMENT);
-    builder.addConfigurationFragment(new LateBoundSplitUtil.FragmentLoader());
+    builder.addConfigurationFragment(LateBoundSplitUtil.TestFragment.class);
     builder.addConfigurationOptions(LateBoundSplitUtil.TestOptions.class);
     builder.addRuleDefinition(LATE_BOUND_DEP_RULE);
     useRuleClassProvider(builder.build());

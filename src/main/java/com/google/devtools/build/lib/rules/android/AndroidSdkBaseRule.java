@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -133,6 +134,10 @@ public class AndroidSdkBaseRule implements RuleDefinition {
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
+        .add(
+            attr("system", LABEL)
+                .allowedFileTypes()
+                .mandatoryProviders(BootClassPathInfo.PROVIDER.id()))
         .advertiseStarlarkProvider(
             StarlarkProviderIdentifier.forKey(AndroidSdkProvider.PROVIDER.getKey()))
         .build();

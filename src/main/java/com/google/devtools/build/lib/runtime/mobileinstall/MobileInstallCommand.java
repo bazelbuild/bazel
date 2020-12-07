@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.MobileInstall;
 import com.google.devtools.build.lib.server.FailureDetails.MobileInstall.Code;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
@@ -325,8 +324,7 @@ public class MobileInstallCommand implements BlazeCommand {
       return createFailureResult(message, Code.ERROR_RUNNING_PROGRAM);
     } catch (InterruptedException e) {
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              "mobile install interrupted", Interrupted.Code.MOBILE_INSTALL_COMMAND));
+          InterruptedFailureDetails.detailedExitCode("mobile install interrupted"));
     }
   }
 

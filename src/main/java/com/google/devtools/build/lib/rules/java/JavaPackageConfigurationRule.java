@@ -76,7 +76,7 @@ Configurations can be added to
 <code><a href="${link java_toolchain.javacopts}">java_toolchain.javacopts</a></code>s.
 </p>
 
-<h4 id="java_package_configuration">Example:</h4>
+<h4 id="java_package_configuration_example">Example:</h4>
 
 <pre class="code">
 java_package_configuration(

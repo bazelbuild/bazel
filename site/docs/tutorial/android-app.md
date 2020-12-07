@@ -3,9 +3,9 @@ layout: documentation
 title: Build Tutorial - Android
 ---
 
-# Introduction to Bazel: Building an Android App
+# Bazel Tutorial: Build an Android App
 
-In this tutorial, you will learn how to build a simple Android app using Bazel.
+This tutorial covers how to build a simple Android app using Bazel.
 
 Bazel supports building Android apps using the
 [Android rules](../be/android.html).
@@ -14,7 +14,24 @@ This tutorial is intended for Windows, macOS and Linux users and does not
 require experience with Bazel or Android app development. You do not need to
 write any Android code in this tutorial.
 
-## Prerequisites
+## What you'll learn
+
+In this tutorial you learn how to:
+
+*   Set up your environment by installing Bazel and Android Studio, and
+    downloading the sample project.
+*   Set up a Bazel [workspace](../be/workspace.md) that contains the source code
+    for the app and a `WORKSPACE` file that identifies the top level of the
+    workspace directory.
+*   Update the `WORKSPACE` file to contain references to the required
+    external dependencies, like the Android SDK.
+*   Create a `BUILD` file.
+*   Build the app with Bazel.
+*   Deploy and run the app on an Android emulator or physical device.
+
+## Before you begin
+
+### Install Bazel
 
 You will need to install the following software:
 
@@ -24,7 +41,7 @@ You will need to install the following software:
   wizard to download the SDK and configure your environment.
 * (Optional) **Git.** We will use `git` to download the Android app project.
 
-## Getting started
+### Get the sample project
 
 We will be using a basic Android app project in [Bazel's examples
 repository](https://github.com/bazelbuild/examples).
@@ -44,7 +61,7 @@ git clone https://github.com/bazelbuild/examples
 The sample project for this tutorial is in `examples/android/tutorial`. For
 the rest of the tutorial, you will be executing commands in this directory.
 
-## Review the source files
+### Review the source files
 
 Let's take a look at the source files for the app.
 
@@ -76,7 +93,10 @@ The key files and directories are:
 | Android source files    | `src/main/java/com/example/bazel/MainActivity.java` and `Greeter.java`                   |
 | Resource file directory | `src/main/java/com/example/bazel/res/`                                                   |
 
-## Initialize the project's workspace
+
+## Build with Bazel
+
+### Set up the workspace
 
 A [workspace](../build-ref.html#workspace) is a directory that contains the
 source files for one or more software projects, and has a `WORKSPACE` file at
@@ -106,7 +126,7 @@ If Bazel prints the path of the current directory, you're good to go! If the
 ERROR: The 'info' command is only supported from within a workspace.
 ```
 
-## Integrate with the Android SDK
+### Integrate with the Android SDK
 
 Bazel needs to run the Android SDK [build
 tools](https://developer.android.com/tools/revisions/build-tools.html) to build
@@ -194,7 +214,7 @@ It's not necessary to set the API levels to the same value for the SDK and NDK.
 [This page](https://developer.android.com/ndk/guides/stable_apis.html) contains
 a map from Android releases to NDK-supported API levels.
 
-## Create a BUILD file
+### Create a BUILD file
 
 A [`BUILD` file](../build-ref.html#BUILD_files) describes the relationship
 between a set of build outputs, like compiled Android resources from `aapt` or
@@ -218,7 +238,7 @@ For the simple Android app in this tutorial, the source files in `src/main/`
 comprise a single Bazel package. A more complex project may have many nested
 packages.
 
-### Add an android_library rule
+#### Add an android_library rule
 
 A `BUILD` file contains several different types of declarations for Bazel. The
 most important type is the [build rule](../build-ref.html#funcs), which tells
@@ -259,7 +279,7 @@ information that Bazel needs to build a library module from the source files.
 Note also that the name of the rule is `greeter_activity`. You'll reference the
 rule using this name as a dependency in the `android_binary` rule.
 
-### Add an android_binary rule
+#### Add an android_binary rule
 
 The [`android_binary`](../be/android.html#android_binary) rule builds
 the Android application package (`.apk` file) for your app.
@@ -285,7 +305,7 @@ builds it and then uses that output to build the application package file.
 
 Now, save and close the file.
 
-## Build the app
+### Build the app
 
 Let's try building the app! Run the following command to build the
 `android_binary` target:
@@ -317,7 +337,7 @@ Target //src/main:app up-to-date:
   bazel-bin/src/main/app.apk
 ```
 
-## Locate the build outputs
+#### Locate the build outputs
 
 Bazel puts the outputs of both intermediate and final build operations in a set
 of per-user, per-workspace output directories. These directories are symlinked
@@ -341,7 +361,7 @@ file:
 | Windows (PowerShell)     | `ls bazel-bin\src\main`  |
 
 
-## Run the app
+### Run the app
 
 You can now deploy the app to a connected Android device or emulator from the
 command line using the [`bazel
@@ -371,26 +391,9 @@ deploy only those parts of the app that have changed since the last deployment.
 It also supports the `--start_app` flag to start the app immediately upon
 installing it.
 
-## Review your work
-
-In this tutorial, you used Bazel to build an Android app. To accomplish that,
-you:
-
-*   Set up your environment by installing Bazel and Android Studio, and
-    downloading the sample project.
-*   Set up a Bazel [workspace](../be/workspace.md) that contains the source code
-    for the app and a `WORKSPACE` file that identifies the top level of the
-    workspace directory.
-*   Updated the `WORKSPACE` file to contain references to the required
-    external dependencies, like the Android SDK.
-*   Created a `BUILD` file.
-*   Built the app with Bazel.
-*   Deployed and ran the app on an Android emulator or physical device.
-
 ## Further reading
 
-You now know the basics of building an Android project with Bazel. Here are some
-other pages to check out:
+For more details, see these pages:
 
 * More information on [mobile-install](../mobile-install.md)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven

@@ -34,11 +34,6 @@ final class FakeJavaToolchainStarlarkApiProviderApi implements JavaToolchainStar
   }
 
   @Override
-  public FileApi getJavacJar() {
-    return null;
-  }
-
-  @Override
   public FileApi getSingleJar() {
     return null;
   }

@@ -146,6 +146,16 @@ public final class TargetUtils {
     return hasConstraint(rule, "external");
   }
 
+  /**
+   * Returns true if test marked as "no-testloasd" by the appropriate keyword in the tags attribute.
+   *
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
+   */
+  public static boolean isNoTestloasdTestRule(Rule rule) {
+    return hasConstraint(rule, "no-testloasd");
+  }
+
   public static List<String> getStringListAttr(Target target, String attrName) {
     Preconditions.checkArgument(target instanceof Rule);
     return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);

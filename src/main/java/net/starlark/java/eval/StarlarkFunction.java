@@ -35,14 +35,27 @@ import net.starlark.java.syntax.StringLiteral;
     doc = "The type of functions declared in Starlark.")
 public final class StarlarkFunction implements StarlarkCallable {
 
-  private final Resolver.Function rfn;
+  final Resolver.Function rfn;
+  final int[] globalIndex; // index in Module.globals of ith Program global (binding index)
   private final Module module; // a function closes over its defining module
   private final Tuple defaultValues;
 
-  StarlarkFunction(Resolver.Function rfn, Tuple defaultValues, Module module) {
+  StarlarkFunction(Resolver.Function rfn, Tuple defaultValues, Module module, int[] globalIndex) {
     this.rfn = rfn;
+    this.globalIndex = globalIndex;
     this.module = module;
     this.defaultValues = defaultValues;
+  }
+
+  // Sets a global variable, given its index in this function's compiled Program.
+  void setGlobal(int progIndex, Object value) {
+    module.setGlobalByIndex(globalIndex[progIndex], value);
+  }
+
+  // Gets the value of a global variable, given its index in this function's compiled Program.
+  @Nullable
+  Object getGlobal(int progIndex) {
+    return module.getGlobalByIndex(globalIndex[progIndex]);
   }
 
   boolean isToplevel() {
@@ -143,7 +156,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     if (thread.mutability().isFrozen()) {
       throw Starlark.errorf("Trying to call in frozen environment");
     }
-    if (thread.isRecursiveCall(this)) {
+    if (!thread.isRecursionAllowed() && thread.isRecursiveCall(this)) {
       throw Starlark.errorf("function '%s' called recursively", getName());
     }
 
@@ -152,11 +165,8 @@ public final class StarlarkFunction implements StarlarkCallable {
     Object[] arguments = processArgs(thread.mutability(), positional, named);
 
     StarlarkThread.Frame fr = thread.frame(0);
-    ImmutableList<String> names = rfn.getParameterNames();
-    for (int i = 0; i < names.size(); ++i) {
-      fr.locals.put(names.get(i), arguments[i]);
-    }
-
+    fr.locals = new Object[rfn.getLocals().size()];
+    System.arraycopy(arguments, 0, fr.locals, 0, rfn.getParameterNames().size());
     return Eval.execFunctionBody(fr, rfn.getBody());
   }
 

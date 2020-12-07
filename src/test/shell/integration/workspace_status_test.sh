@@ -122,4 +122,10 @@ function test_errmsg() {
   expect_log "wscmissing.sh: No such file or directory\|wscmissing.sh: not found"
 }
 
+function test_embed_label_must_be_single_line() {
+  bazel build --embed_label="$(echo -e 'abc\nxyz')" >& "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "Value must not contain multiple lines"
+}
+
 run_suite "${PRODUCT_NAME} workspace status command tests"

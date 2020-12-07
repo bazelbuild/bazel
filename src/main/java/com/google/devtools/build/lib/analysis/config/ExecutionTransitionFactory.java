@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
@@ -25,7 +26,9 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -135,7 +138,20 @@ public class ExecutionTransitionFactory
                   ImmutableList.of(executionPlatform);
             }
 
-            return execOptions.underlying();
+            BuildOptions result = execOptions.underlying();
+            // Remove any FeatureFlags that were set.
+            ImmutableList<Label> featureFlags =
+                execOptions.underlying().getStarlarkOptions().entrySet().stream()
+                    .filter(entry -> entry.getValue() instanceof FeatureFlagValue)
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableList());
+            if (!featureFlags.isEmpty()) {
+              BuildOptions.Builder resultBuilder = result.toBuilder();
+              featureFlags.stream().forEach(flag -> resultBuilder.removeStarlarkOption(flag));
+              result = resultBuilder.build();
+            }
+
+            return result;
           });
     }
   }

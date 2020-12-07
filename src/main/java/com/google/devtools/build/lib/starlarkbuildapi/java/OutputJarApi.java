@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -33,6 +34,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       doc = "A classes jar file.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getClassJar();
 
   @StarlarkMethod(
@@ -40,6 +42,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       doc = "A interface jar file.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getIJar();
 
   @StarlarkMethod(
@@ -49,6 +52,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
               + "JavaBuilder.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getManifestProto();
 
   @StarlarkMethod(
@@ -59,6 +63,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       structField = true)
   @Deprecated
+  @Nullable
   FileT getSrcJar();
 
   @StarlarkMethod(
@@ -66,5 +71,6 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       doc = "A list of sources archive files.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   Sequence<FileT> getSrcJarsStarlark();
 }

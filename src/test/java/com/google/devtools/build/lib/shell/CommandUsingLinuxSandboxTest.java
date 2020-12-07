@@ -93,7 +93,7 @@ public final class CommandUsingLinuxSandboxTest {
             Long.toString(userTimeToSpend.getSeconds()),
             Long.toString(systemTimeToSpend.getSeconds()));
 
-    Path outputDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
+    Path outputDir = TestUtils.createUniqueTmpDir(testFS);
     Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =

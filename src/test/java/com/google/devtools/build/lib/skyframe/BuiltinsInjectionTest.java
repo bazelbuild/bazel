@@ -17,13 +17,18 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.starlark.java.eval.FlagGuardedValue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,8 +37,8 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for Starlark builtin injection.
  *
- * <p>Essentially these are integration tests between {@link StarlarkBuiltinsFunction} and {@link
- * BzlLoadFunction}.
+ * <p>Essentially these are integration tests between {@link StarlarkBuiltinsFunction}, {@link
+ * BzlLoadFunction}, and the rest of package loading.
  */
 @RunWith(JUnit4.class)
 public class BuiltinsInjectionTest extends BuildViewTestCase {
@@ -41,13 +46,36 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   private static final MockRule OVERRIDABLE_RULE = () -> MockRule.define("overridable_rule");
 
   @Override
+  protected Iterable<String> getDefaultsForConfiguration() {
+    // Override BuildViewTestCase's behavior of setting all sorts of extra options that don't exist
+    // on our minimal rule class provider.
+    return ImmutableList.of();
+  }
+
+  @Override
+  protected void initializeMockClient() throws IOException {
+    // Don't let the AnalysisMock sneak in any WORKSPACE file content, which may depend on
+    // repository rules that our minimal rule class provider doesn't have.
+    analysisMock.setupMockClient(mockToolsConfig, ImmutableList.of());
+  }
+
+  @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    // Add a fake rule and top-level symbol to override.
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(OVERRIDABLE_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
-    TestRuleClassProvider.addStandardRules(builder);
+    // Set up a bare-bones ConfiguredRuleClassProvider. Aside from being minimalistic, this heads
+    // off the possibility that we somehow grow an implicit dependency on production builtins code,
+    // which would break since we're overwriting --experimental_builtins_bzl_path.
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addMinimalRules(builder);
+    // Add some mock symbols to override.
+    builder
+        .addRuleDefinition(OVERRIDABLE_RULE)
+        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
+        .addStarlarkAccessibleTopLevels(
+            "flag_guarded_symbol",
+            // For this mock symbol, we reuse the same flag that guards the production
+            // _builtins_dummy symbol.
+            FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+                BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, "original value"));
     return builder.build();
   }
 
@@ -219,11 +247,15 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent(
         "File \"/workspace/tools/builtins_staging/helper.bzl\", line 1, column 37, in <toplevel>");
     assertContainsEvent("Error: integer division by zero");
-    assertContainsEvent(
-        "error loading package 'pkg': Internal error while loading Starlark builtins for "
-            + "//pkg:dummy.bzl: Failed to load builtins sources: in "
-            + "/workspace/tools/builtins_staging/exports.bzl: Extension file "
-            + "'helper.bzl' (internal) has errors");
+
+    // We assert only the parts of the message before and after the module name, since the module
+    // identified by the message depends on whether or not the test environment has a prelude file.
+    Event ev = assertContainsEvent("Internal error while loading Starlark builtins");
+    assertThat(ev.getMessage())
+        .contains(
+            "Failed to load builtins sources: "
+                + "in /workspace/tools/builtins_staging/exports.bzl: "
+                + "Extension file 'helper.bzl' (internal) has errors");
   }
 
   @Test
@@ -237,10 +269,14 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl();
 
     buildAndAssertFailure();
-    assertContainsEvent(
-        "error loading package 'pkg': Internal error while loading Starlark builtins for "
-            + "//pkg:dummy.bzl: Failed to apply declared builtins: got NoneType for "
-            + "'exported_toplevels dict', want dict");
+
+    // We assert only the parts of the message before and after the module name, since the module
+    // identified by the message depends on whether or not the test environment has a prelude file.
+    Event ev = assertContainsEvent("Internal error while loading Starlark builtins");
+    assertThat(ev.getMessage())
+        .contains(
+            "Failed to apply declared builtins: "
+                + "got NoneType for 'exported_toplevels dict', want dict");
   }
 
   // TODO(#11437): Remove once disabling is not allowed.
@@ -308,6 +344,24 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   // TODO(#11437): Add test cases for BUILD file injection, and WORKSPACE file non-injection, when
   // we add injection support to PackageFunction.
+
+  @Test
+  public void overriddenSymbolsAreStillFlagGuarded() throws Exception {
+    // Implementation note: This works not because of any special handling in the builtins logic,
+    // but rather because flag guarding is implemented at name resolution time, before builtins
+    // injection is applied.
+    writeExportsBzl(
+        "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBzl("flag_guarded_symbol");
+
+    buildAndAssertFailure();
+    assertContainsEvent("flag_guarded_symbol is experimental");
+  }
+
+  // TODO(#11437): Once we allow access to native symbols via _internal, verify that flag guarding
+  // works correctly within builtins.
 
   /**
    * Tests for injection, under inlining of {@link BzlLoadFunction}.

@@ -72,9 +72,11 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.LoadStatement;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
+import net.starlark.java.syntax.StringLiteral;
 
 /**
  * A Skyframe function to look up and load a single .bzl module.
@@ -587,20 +589,12 @@ public class BzlLoadFunction implements SkyFunction {
     if (path.isEmpty()) {
       throw new IllegalStateException("Requested builtins root, but injection is disabled");
     } else if (path.equals("%install_base%")) {
-      // TODO(#11437): Support reading builtins from the install base (the expected case in
-      // production)
-      // return Root.fromPath(directories.getInstallBase().getRelative("bzl_builtins"));
-      //
-      // This feature is experimental so the exact exception doesn't matter much, but let's not
-      // crash Bazel.
-      throw new BzlLoadFailedException(
-          "Loading builtins from install base is not implemented", Code.BUILTINS_ERROR);
+      return Root.fromPath(directories.getInstallBase().getRelative("builtins_bzl"));
     } else if (path.equals("%workspace%")) {
-      // TODO(#11437): Support reading builtins from a well-known path in the workspace, as
-      // determined by the RuleClassProvider.
-      // return Root.fromPath(directories.getWorkspace());
-      throw new BzlLoadFailedException(
-          "Loading builtins from workspace is not implemented", Code.BUILTINS_ERROR);
+      return Root.fromPath(
+          directories
+              .getWorkspace()
+              .getRelative(packageFactory.getRuleClassProvider().getBuiltinsPackagePathInSource()));
     } else {
       // TODO(#11437): Should we consider interning these roots?
       return Root.fromPath(directories.getWorkspace().getRelative(path));
@@ -619,17 +613,12 @@ public class BzlLoadFunction implements SkyFunction {
       Environment env,
       @Nullable InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    Label label = key.getLabel();
-
     // Ensure the .bzl exists and passes static checks (parsing, resolving).
     // (A missing prelude file still returns a valid but empty BzlCompileValue.)
     if (!compileValue.lookupSuccessful()) {
       throw new BzlLoadFailedException(compileValue.getError(), Code.COMPILE_ERROR);
     }
-    StarlarkFile file = compileValue.getAST();
-    if (!file.ok()) {
-      throw BzlLoadFailedException.starlarkErrors(label);
-    }
+    Program prog = compileValue.getProgram();
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl. Labels are
     // resolved relative to the current repo mapping.
@@ -637,26 +626,28 @@ public class BzlLoadFunction implements SkyFunction {
     if (repoMapping == null) {
       return null;
     }
-    List<Pair<String, Label>> loadLabels =
-        getLoadLabels(env.getListener(), file, label.getPackageIdentifier(), repoMapping);
+    ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
+    ImmutableList<Label> loadLabels =
+        getLoadLabels(
+            env.getListener(), programLoads, key.getLabel().getPackageIdentifier(), repoMapping);
     if (loadLabels == null) {
       // malformed load statements
-      throw BzlLoadFailedException.starlarkErrors(label);
+      throw BzlLoadFailedException.starlarkErrors(key.getLabel());
     }
-    List<BzlLoadValue.Key> loadKeys = Lists.newArrayListWithExpectedSize(loadLabels.size());
-    for (Pair<String, Label> entry : loadLabels) {
-      loadKeys.add(key.getKeyForLoad(entry.second));
+    ImmutableList.Builder<BzlLoadValue.Key> loadKeys =
+        ImmutableList.builderWithExpectedSize(loadLabels.size());
+    for (Label loadLabel : loadLabels) {
+      loadKeys.add(key.getKeyForLoad(loadLabel));
     }
 
     // Evaluate the dependency bzls. When not using bzl inlining, this is done in parallel for all
     // loads.
     // TODO(bazel-team): In case of a failed load(), we should report the location of the load()
-    // statement in the requesting file, e.g. using
-    // file.getLoadStatements().get(...).getStartLocation().
+    // statement in the requesting program: programLoads.get(i).second.
     List<BzlLoadValue> loadValues =
         inliningState == null
-            ? computeBzlLoadsWithSkyframe(env, loadKeys, file)
-            : computeBzlLoadsWithInlining(env, loadKeys, file, inliningState);
+            ? computeBzlLoadsWithSkyframe(env, loadKeys.build(), prog.getFilename())
+            : computeBzlLoadsWithInlining(env, loadKeys.build(), prog.getFilename(), inliningState);
     if (loadValues == null) {
       return null; // Skyframe deps unavailable
     }
@@ -667,11 +658,11 @@ public class BzlLoadFunction implements SkyFunction {
     fp.addBytes(compileValue.getDigest());
 
     // Populate the load map and add transitive digests to the fingerprint.
-    Map<String, Module> loadMap = Maps.newLinkedHashMapWithExpectedSize(loadLabels.size());
-    for (int i = 0; i < loadLabels.size(); i++) {
-      String loadString = loadLabels.get(i).first;
-      BzlLoadValue v = loadValues.get(i);
-      loadMap.put(loadString, v.getModule()); // dups ok
+    Map<String, Module> loadMap = Maps.newLinkedHashMapWithExpectedSize(programLoads.size());
+    int i = 0;
+    for (Pair<String, Location> load : programLoads) {
+      BzlLoadValue v = loadValues.get(i++);
+      loadMap.put(load.first, v.getModule()); // dups ok
       fp.addBytes(v.getTransitiveDigest());
     }
 
@@ -685,20 +676,11 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Construct the initial Starlark module, then execute the code and return the result.
     // The additional information in BazelModuleContext reifies the load DAG.
+    // The module must match the environment used to compile the .bzl file.
     Module module = Module.withPredeclared(starlarkSemantics, predeclared);
     module.setClientData(
         BazelModuleContext.create(
-            label, file.getStartLocation().file(), ImmutableMap.copyOf(loadMap), transitiveDigest));
-
-    // compile
-    //
-    // Note: file is shared: it belongs to BzlCompileFunction, which already resolved it;
-    // see end of BzlCompileFunction.compute.
-    // TODO(adonovan): compile it there too. We must ensure the Module env there has the
-    // same set of keys as here.
-    //
-    // For now, Program temporarily gives us a way to compile an already-resolved file:
-    Program prog = Program.compileResolvedFile(file);
+            key.getLabel(), prog.getFilename(), ImmutableMap.copyOf(loadMap), transitiveDigest));
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the module.
@@ -746,15 +728,15 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Returns a list of pairs mapping each load string in the BUILD or .bzl file to the Label it
-   * resolves to. Labels are resolved relative to {@code base}, the file's package. If any load
-   * statement is malformed, the function reports one or more errors to the handler and returns
-   * null. Order matches the source.
+   * Given a list of {@code load("module")} strings and their locations, in source order, returns a
+   * corresponding list of Labels they each resolve to. Labels are resolved relative to {@code
+   * base}, the file's package. If any label is malformed, the function reports one or more errors
+   * to the handler and returns null.
    */
   @Nullable
-  static List<Pair<String, Label>> getLoadLabels(
+  static ImmutableList<Label> getLoadLabels(
       EventHandler handler,
-      StarlarkFile file,
+      ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     Preconditions.checkArgument(!base.getRepository().isDefault());
@@ -764,38 +746,54 @@ public class BzlLoadFunction implements SkyFunction {
     Label buildLabel = getBUILDLabel(base);
 
     boolean ok = true;
-    List<Pair<String, Label>> loads = Lists.newArrayList();
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        LoadStatement load = (LoadStatement) stmt;
-        String module = load.getImport().getValue();
 
-        // Parse the load statement's module string as a label.
-        // It must end in .bzl and not be in package "//external".
-        try {
-          Label label = buildLabel.getRelativeWithRemapping(module, repoMapping);
-          if (!label.getName().endsWith(".bzl")) {
-            throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
-          }
-          if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-            throw new LabelSyntaxException(
-                "Starlark files may not be loaded from the //external package");
-          }
-          if (StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository())
-              && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
-            throw new LabelSyntaxException(
-                ".bzl files in @_builtins cannot load from outside of @_builtins");
-          }
-          loads.add(Pair.of(module, label));
-        } catch (LabelSyntaxException ex) {
-          handler.handle(
-              Event.error(
-                  load.getImport().getStartLocation(), "in load statement: " + ex.getMessage()));
-          ok = false;
+    ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
+    for (Pair<String, Location> load : loads) {
+      // Parse the load statement's module string as a label.
+      // It must end in .bzl and not be in package "//external".
+      try {
+        Label label = buildLabel.getRelativeWithRemapping(load.first, repoMapping);
+        if (!label.getName().endsWith(".bzl")) {
+          throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
         }
+        if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
+          throw new LabelSyntaxException(
+              "Starlark files may not be loaded from the //external package");
+        }
+        if (StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository())
+            && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
+          throw new LabelSyntaxException(
+              ".bzl files in @_builtins cannot load from outside of @_builtins");
+        }
+        loadLabels.add(label);
+      } catch (LabelSyntaxException ex) {
+        handler.handle(Event.error(load.second, "in load statement: " + ex.getMessage()));
+        ok = false;
       }
     }
-    return ok ? loads : null;
+    return ok ? loadLabels.build() : null;
+  }
+
+  /** Extracts load statements from compiled program (see {@link #getLoadLabels}). */
+  static ImmutableList<Pair<String, Location>> getLoadsFromProgram(Program prog) {
+    int n = prog.getLoads().size();
+    ImmutableList.Builder<Pair<String, Location>> loads = ImmutableList.builderWithExpectedSize(n);
+    for (int i = 0; i < n; i++) {
+      loads.add(Pair.of(prog.getLoads().get(i), prog.getLoadLocation(i)));
+    }
+    return loads.build();
+  }
+
+  /** Extracts load statements from file syntax (see {@link #getLoadLabels}). */
+  static ImmutableList<Pair<String, Location>> getLoadsFromStarlarkFile(StarlarkFile file) {
+    ImmutableList.Builder<Pair<String, Location>> loads = ImmutableList.builder();
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        StringLiteral module = ((LoadStatement) stmt).getImport();
+        loads.add(Pair.of(module.getValue(), module.getStartLocation()));
+      }
+    }
+    return loads.build();
   }
 
   private static Label getBUILDLabel(PackageIdentifier pkgid) {
@@ -813,7 +811,7 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private static List<BzlLoadValue> computeBzlLoadsWithSkyframe(
-      Environment env, List<BzlLoadValue.Key> keys, StarlarkFile requestingFile)
+      Environment env, List<BzlLoadValue.Key> keys, String filePathForErrors)
       throws BzlLoadFailedException, InterruptedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     Map<SkyKey, ValueOrException<BzlLoadFailedException>> values =
@@ -823,7 +821,7 @@ public class BzlLoadFunction implements SkyFunction {
       try {
         bzlLoads.add((BzlLoadValue) values.get(key).get());
       } catch (BzlLoadFailedException exn) {
-        throw BzlLoadFailedException.whileLoadingDep(requestingFile.getStartLocation().file(), exn);
+        throw BzlLoadFailedException.whileLoadingDep(filePathForErrors, exn);
       }
     }
     return env.valuesMissing() ? null : bzlLoads;
@@ -840,10 +838,9 @@ public class BzlLoadFunction implements SkyFunction {
   private List<BzlLoadValue> computeBzlLoadsWithInlining(
       Environment env,
       List<BzlLoadValue.Key> keys,
-      StarlarkFile requestingFile,
+      String filePathForErrors,
       InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    String filePathForErrors = requestingFile.getStartLocation().file();
     Preconditions.checkState(
         env instanceof RecordingSkyFunctionEnvironment,
         "Expected to be recording dep requests when inlining BzlLoadFunction: %s",

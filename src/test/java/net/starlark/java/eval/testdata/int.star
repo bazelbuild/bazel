@@ -83,7 +83,7 @@ assert_eq(111111111 * 111111111, 12345678987654321)
 assert_eq(-(111111111 * 111111111), -12345678987654321)
 assert_eq((111111111 * 111111111) // 111111111, 111111111)
 
-# division
+# floored division
 assert_eq(100 // 7, 14)
 assert_eq(100 // -7, -15)
 assert_eq(-100 // 7, -15) # NB: different from Go / Java
@@ -92,12 +92,36 @@ assert_eq(98 // 7, 14)
 assert_eq(98 // -7, -14)
 assert_eq(-98 // 7, -14)
 assert_eq(-98 // -7, 14)
-quot = 1169282 * 1000000 + 890553 # simplify when we have big literals
-assert_eq(product // 1234567, quot)
-assert_eq(product // -1234567, -quot-1)
-assert_eq(-product // 1234567, -quot-1)
-assert_eq(-product // -1234567, quot)
-assert_eq(((-1) << 31) // -1, 2147483647+1) # sole case of int // int that causes int overflow
+assert_eq(1 // 7, 0)
+assert_eq(1 // -7, -1)
+assert_eq(-1 // 7, -1)
+assert_eq(-1 // -7, 0)
+assert_eq(0 // 3, 0)
+assert_eq(0 // -3, 0)
+assert_eq( product //  1234567,  1169282890553)
+assert_eq( product // -1234567, -1169282890553-1)
+assert_eq(-product //  1234567, -1169282890553-1)
+assert_eq(-product // -1234567,  1169282890553)
+assert_eq(((-1) << 31) // -1, 1 << 31) # sole case of int // int that causes int overflow
+assert_eq(((-1) << 63) // -1, 1 << 63) # ditto, long overflow
+
+# floating-point division of int operands
+assert_eq(str(100 / 7), "14.285714285714286")
+assert_eq(str(100 / -7), "-14.285714285714286")
+assert_eq(str(-100 / 7), "-14.285714285714286")
+assert_eq(str(-100 / -7), "14.285714285714286")
+assert_eq(type(98 / 7), "float")
+assert_eq(98 / 7, 14.0)
+assert_eq(98 / -7, -14.0)
+assert_eq(-98 / 7, -14.0)
+assert_eq(-98 / -7, 14.0)
+assert_eq(type(product /  1234567), "float")
+assert_eq(int( product /  1234567),  1169282890553)
+assert_eq(int( product / -1234567), -1169282890553)
+assert_eq(int(-product /  1234567), -1169282890553)
+assert_eq(int(-product / -1234567),  1169282890553)
+assert_eq(((-1) << 31) / -1, 1 << 31) # sole case of int / int that causes int overflow
+assert_eq(((-1) << 63) / -1, 1 << 63) # ditto, long overflow
 
 # remainder
 assert_eq(100 % 7, 2)
@@ -139,17 +163,21 @@ compound()
 
 # unary operators
 
+assert_eq(+0, 0)
 assert_eq(+4, 4)
-assert_eq(-4, -4)
-assert_eq(++4, 4)
 assert_eq(+-4, -4)
-assert_eq(-+-4, 4)
 
----
-1 // 0  ### integer division by zero
----
-1 % 0  ### integer modulo by zero
----
+assert_eq(-0, 0)
+assert_eq(-4, 0 - 4)
+assert_eq(-(0 - 4), 4)
+assert_eq(-minint, 0 - minint)
+assert_eq(-maxint, 0 - maxint)
+assert_eq(-minlong, 0 - minlong)
+assert_eq(-maxlong, 0 - maxlong)
+
+assert_eq(++4, 4)
+assert_eq(+-4, 0 - 4)
+assert_eq(-+-4, 4)
 
 # bitwise
 
@@ -168,7 +196,39 @@ def f():
   assert_eq(x, 1)
 
 f()
+
+assert_eq(minint & -1, minint)
+assert_eq(maxint & -1, maxint)
+assert_eq(minlong & -1, minlong)
+assert_eq(maxlong & -1, maxlong)
+
+assert_eq(minint | -1, -1)
+assert_eq(maxint | -1, -1)
+assert_eq(minlong | -1, -1)
+assert_eq(maxlong | -1, -1)
+
+assert_eq(minint ^ -1, maxint)
+assert_eq(maxint ^ -1, minint)
+assert_eq(minlong ^ -1, maxlong)
+assert_eq(maxlong ^ -1, minlong)
+
+assert_eq(~minint, maxint)
+assert_eq(~maxint, minint)
+assert_eq(~minlong, maxlong)
+assert_eq(~maxlong, minlong)
+
 ---
+1 // 0  ### integer division by zero
+---
+1 % 0  ### integer modulo by zero
+
+---
+# Not using << to define constants because we are testing <<
+maxint = 0x7fffffff
+maxlong = 0x7fffffffffffffff
+minint = -0x80000000
+minlong = -0x8000000000000000
+
 assert_eq(1 | 2, 3)
 assert_eq(3 | 6, 7)
 assert_eq(7 | 0, 7)
@@ -189,9 +249,29 @@ assert_eq(~2147483647, -2147483647 - 1);
 assert_eq(1 << 2, 4)
 assert_eq(7 << 0, 7)
 assert_eq(-1 << 31, -2147483647 - 1)
+assert_eq(1 << 31, maxint + 1)
+assert_eq(1 << 32, (maxint + 1) * 2)
+assert_eq(1 << 63, maxlong + 1)
+assert_eq(1 << 64, (maxlong + 1) * 2)
+assert_eq(-1 << 31, minint)
+assert_eq(-1 << 32, minint * 2)
+assert_eq(-1 << 63, minlong)
+assert_eq(-1 << 64, minlong * 2)
 assert_eq(2 >> 1, 1)
 assert_eq(7 >> 0, 7)
 assert_eq(0 >> 0, 0)
+assert_eq(minint >> 9999, -1)
+assert_eq(minlong >> 9999, -1)
+assert_eq(maxint >> 9999, 0)
+assert_eq(maxlong >> 9999, 0)
+assert_eq(minint >> 31, -1)
+assert_eq(minint >> 30, -2)
+assert_eq(minlong >> 63, -1)
+assert_eq(minlong >> 62, -2)
+assert_eq(maxint >> 31, 0)
+assert_eq(maxint >> 30, 1)
+assert_eq(maxlong >> 63, 0)
+assert_eq(maxlong >> 62, 1)
 assert_eq(1000 >> 100, 0)
 assert_eq(-10 >> 1000, -1)
 assert_eq(1 << 500 >> 499, 2)

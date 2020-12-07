@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,6 +34,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,19 +47,16 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class IOExceptionsTest extends PackageLoadingTestCase {
+  private static String nullFunction(Path p) {
+    return null;
+  }
 
-  private static final Function<Path, String> NULL_FUNCTION = new Function<Path, String>() {
-    @Override
-    @Nullable
-    public String apply(Path path) {
-      return null;
-    }
-  };
+  private static final Function<Path, String> NULL_FUNCTION = IOExceptionsTest::nullFunction;
 
   private Function<Path, String> crashMessage = NULL_FUNCTION;
 
   @Before
-  public final void initializeVisitor() throws Exception {
+  public final void initializeVisitor() {
     setUpSkyframe(ConstantRuleVisibility.PRIVATE);
   }
 
@@ -70,8 +67,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(ImmutableSet.of(key), evaluationContext);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
-    System.out.println(value);
-    boolean hasTransitiveError = (value == null) || value.getTransitiveRootCauses() != null;
+    boolean hasTransitiveError = (value == null) || value.encounteredLoadingError();
     return !result.hasError() && !hasTransitiveError;
   }
 
@@ -100,15 +96,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     final Path buildPath = scratch.file("pkg/BUILD",
         "sh_library(name = 'x')");
-    crashMessage = new Function<Path, String>() {
-      @Override
-      public String apply(Path path) {
-        if (buildPath.equals(path)) {
-          return "custom crash: " + buildPath;
-        }
-        return null;
-      }
-    };
+    crashMessage = path -> buildPath.equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isFalse();
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
@@ -129,25 +117,13 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         "sh_library(name = 'top', deps = ['//pkg:x'])");
     final Path buildPath = scratch.file("pkg/BUILD",
         "sh_library(name = 'x')");
-    crashMessage = new Function<Path, String>() {
-      @Override
-      public String apply(Path path) {
-        if (buildPath.equals(path)) {
-          return "custom crash: " + buildPath;
-        }
-        return null;
-      }
-    };
+    crashMessage = path -> buildPath.equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isFalse();
     assertContainsEvent("no such package 'pkg'");
-    // The traditional label visitor does not propagate the original IOException message.
-    // assertContainsEvent("custom crash");
-    // This fails in Skyframe because the top node has already printed out the error but
-    // SkyframeLabelVisitor prints it out again.
-    // assertEquals(1, eventCollector.count());
-    scratch.overwriteFile("pkg/BUILD",
-        "# another comment to force reload",
-        "sh_library(name = 'x')");
+    assertContainsEvent("custom crash");
+    assertThat(eventCollector).hasSize(1);
+    scratch.overwriteFile(
+        "pkg/BUILD", "# another comment to force reload", "sh_library(name = 'x')");
     crashMessage = NULL_FUNCTION;
     syncPackages();
     eventCollector.clear();
@@ -162,15 +138,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     final Path buildPath = scratch.file("top/BUILD",
         "sh_library(name = 'x')");
     buildPath.getParentDirectory().getRelative("pkg").createDirectory();
-    crashMessage = new Function<Path, String>() {
-      @Override
-      public String apply(Path path) {
-        if (buildPath.equals(path)) {
-          return "custom crash: " + buildPath;
-        }
-        return null;
-      }
-    };
+    crashMessage = path -> buildPath.equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x", ImmutableMap.of()))).isFalse();
   }
 }

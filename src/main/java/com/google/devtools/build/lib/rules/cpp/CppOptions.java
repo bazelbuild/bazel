@@ -246,7 +246,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_avoid_conflict_dlls",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {
@@ -506,6 +506,22 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "If set, use of fdo_absolute_profile_path will raise an error.")
   public boolean enableFdoProfileAbsolutePath;
+
+  @Option(
+      name = "propeller_optimize_absolute_cc_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+  public String propellerOptimizeAbsoluteCCProfile;
+
+  @Option(
+      name = "propeller_optimize_absolute_ld_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+  public String propellerOptimizeAbsoluteLdProfile;
 
   @Option(
       name = "propeller_optimize",
@@ -856,7 +872,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attribtues "
+          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attributes "
               + "are set "
               + "(see https://github.com/bazelbuild/bazel/issues/7075 for migration instructions).")
   public boolean removeCpuCompilerCcToolchainAttributes;
@@ -1036,6 +1052,20 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, give distinguishing mnemonic to header processing actions")
   public boolean useCppCompileHeaderMnemonic;
 
+  @Option(
+      name = "incompatible_macos_set_install_name",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Whether to explicitly set `-install_name` when creating dynamic libraries. "
+              + "See https://github.com/bazelbuild/bazel/issues/12370")
+  public boolean macosSetInstallName;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1123,6 +1153,8 @@ public class CppOptions extends FragmentOptions {
     host.hostLinkoptList = hostLinkoptList;
 
     host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
+
+    host.macosSetInstallName = macosSetInstallName;
 
     return host;
   }

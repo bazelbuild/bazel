@@ -18,5 +18,6 @@ java_plugin(
         "//src/main/java/net/starlark/java/annot:annot_sans_processor",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

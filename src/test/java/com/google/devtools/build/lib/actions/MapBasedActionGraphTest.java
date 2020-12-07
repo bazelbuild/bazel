@@ -132,6 +132,9 @@ public class MapBasedActionGraphTest {
                 graph.registerAction(action);
               } catch (ActionConflictException e) {
                 throw new UncheckedActionConflictException(e);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupts not expected in this test");
               }
               doRandom();
             }
@@ -143,7 +146,12 @@ public class MapBasedActionGraphTest {
           new Runnable() {
             @Override
             public void run() {
-              graph.unregisterAction(action);
+              try {
+                graph.unregisterAction(action);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupts not expected in this test");
+              }
               doRandom();
             }
           });

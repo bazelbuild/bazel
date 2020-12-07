@@ -218,7 +218,7 @@ public class RemoteCache implements AutoCloseable {
       try {
         if (interruptedException == null) {
           // Wait for all transfers to finish.
-          getFromFuture(transfer);
+          getFromFuture(transfer, cancelRemainingOnInterrupt);
         } else {
           transfer.cancel(true);
         }

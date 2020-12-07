@@ -60,8 +60,7 @@ public class WorkerMultiplexerManagerTest {
             false,
             false,
             WorkerProtocolFormat.PROTO);
-    WorkerMultiplexer wm1 =
-        WorkerMultiplexerManager.getInstance(workerKey1, logFile, /* reporter */ null);
+    WorkerMultiplexer wm1 = WorkerMultiplexerManager.getInstance(workerKey1, logFile);
 
     assertThat(WorkerMultiplexerManager.getMultiplexer(workerKey1)).isEqualTo(wm1);
     assertThat(WorkerMultiplexerManager.getRefCount(workerKey1)).isEqualTo(1);
@@ -79,16 +78,14 @@ public class WorkerMultiplexerManagerTest {
             false,
             false,
             WorkerProtocolFormat.PROTO);
-    WorkerMultiplexer wm2 =
-        WorkerMultiplexerManager.getInstance(workerKey2, logFile, /* reporter */ null);
+    WorkerMultiplexer wm2 = WorkerMultiplexerManager.getInstance(workerKey2, logFile);
 
     assertThat(WorkerMultiplexerManager.getMultiplexer(workerKey2)).isEqualTo(wm2);
     assertThat(WorkerMultiplexerManager.getRefCount(workerKey2)).isEqualTo(1);
     assertThat(WorkerMultiplexerManager.getInstanceCount()).isEqualTo(2);
 
     // Use the same WorkerProxy hash, it shouldn't instantiate a new WorkerMultiplexer.
-    WorkerMultiplexer wm2Annex =
-        WorkerMultiplexerManager.getInstance(workerKey2, logFile, /* reporter */ null);
+    WorkerMultiplexer wm2Annex = WorkerMultiplexerManager.getInstance(workerKey2, logFile);
 
     assertThat(wm2).isEqualTo(wm2Annex);
     assertThat(WorkerMultiplexerManager.getRefCount(workerKey2)).isEqualTo(2);

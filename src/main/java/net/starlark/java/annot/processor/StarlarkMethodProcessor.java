@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -159,6 +160,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
         hasFlag = true;
       }
 
+      if (annot.allowReturnNones() != (method.getAnnotation(Nullable.class) != null)) {
+        errorf(method, "Method must be annotated with @Nullable iff allowReturnNones is set.");
+      }
+
       checkParameters(method, annot);
 
       // Verify that result type, if final, might satisfy Starlark.fromJava.
@@ -240,6 +245,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     boolean allowPositionalNext = true;
     boolean allowPositionalOnlyNext = true;
     boolean allowNonDefaultPositionalNext = true;
+    boolean hasUndocumentedMethods = false;
 
     // Check @Param annotations match parameters.
     Param[] paramAnnots = annot.parameters();
@@ -269,7 +275,8 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
         if (!paramAnnot.named() && !allowPositionalOnlyNext) {
           errorf(
               param,
-              "Positional-only parameter '%s' is specified after one or more named parameters",
+              "Positional-only parameter '%s' is specified after one or more named or undocumented"
+                  + " parameters",
               paramAnnot.name());
         }
         if (paramAnnot.defaultValue().isEmpty()) { // There is no default value.
@@ -292,12 +299,21 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
           errorf(param, "Parameter '%s' must be either positional or named", paramAnnot.name());
         }
       }
-      if (paramAnnot.named()) {
+      if (!paramAnnot.documented()) {
+        hasUndocumentedMethods = true;
+      }
+      if (paramAnnot.named() || !paramAnnot.documented()) {
         // No positional-only parameters can come after this parameter.
         allowPositionalOnlyNext = false;
       }
     }
 
+    if (hasUndocumentedMethods && !annot.extraKeywords().name().isEmpty()) {
+      errorf(
+          method,
+          "Method '%s' has undocumented parameters but also allows extra keyword parameters",
+          annot.name());
+    }
     checkSpecialParams(method, annot);
   }
 
@@ -373,6 +389,12 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
                   + " set"
               : "Parameter '%s' has valueWhenDisabled set, but is always enabled",
           paramAnnot.name());
+    }
+
+    // Ensure positional arguments are documented.
+    if (!paramAnnot.documented() && paramAnnot.positional()) {
+      errorf(
+          param, "Parameter '%s' must be documented because it is positional.", paramAnnot.name());
     }
   }
 

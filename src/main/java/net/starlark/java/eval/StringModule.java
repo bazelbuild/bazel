@@ -69,7 +69,11 @@ final class StringModule implements StarlarkValue {
   static String slice(String s, int start, int stop, int step) {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
-    if (step == 1) { // common case
+    if (n == 0) {
+      return "";
+    } else if (n == 1) {
+      return memoizedCharToString(s.charAt(indices.at(0)));
+    } else if (step == 1) { // common case
       return s.substring(indices.at(0), indices.at(n));
     } else {
       char[] res = new char[n];
@@ -77,6 +81,27 @@ final class StringModule implements StarlarkValue {
         res[i] = s.charAt(indices.at(i));
       }
       return new String(res);
+    }
+  }
+
+  // Nearly all chars in Starlark strings are ASCII.
+  // This is a cache of single-char strings to avoid allocation in the s[i] operation.
+  private static final String[] ASCII_CHAR_STRINGS = initCharStrings();
+
+  private static String[] initCharStrings() {
+    String[] a = new String[0x80];
+    for (int i = 0; i < a.length; ++i) {
+      a[i] = String.valueOf((char) i);
+    }
+    return a;
+  }
+
+  /** Semantically equivalent to {@link String#valueOf(char)} but faster for ASCII strings. */
+  static String memoizedCharToString(char c) {
+    if (c < ASCII_CHAR_STRINGS.length) {
+      return ASCII_CHAR_STRINGS[c];
+    } else {
+      return String.valueOf(c);
     }
   }
 
@@ -337,18 +362,18 @@ final class StringModule implements StarlarkValue {
     if (maxSplitO != Starlark.NONE) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
-    StarlarkList.Builder<String> res = StarlarkList.builder();
+    StarlarkList<String> res = StarlarkList.newList(thread.mutability());
     int start = 0;
     while (true) {
       int end = self.indexOf(sep, start);
       if (end < 0 || maxSplit-- == 0) {
-        res.add(self.substring(start));
+        res.addElement(self.substring(start));
         break;
       }
-      res.add(self.substring(start, end));
+      res.addElement(self.substring(start, end));
       start = end + sep.length();
     }
-    return res.build(thread.mutability());
+    return res;
   }
 
   @StarlarkMethod(
@@ -654,8 +679,9 @@ final class StringModule implements StarlarkValue {
             doc = "Whether the line breaks should be included in the resulting list.")
       },
       useStarlarkThread = true)
-  public Sequence<String> splitLines(String self, boolean keepEnds, StarlarkThread thread) {
-    StarlarkList.Builder<String> result = StarlarkList.builder();
+  public Sequence<String> splitLines(String self, boolean keepEnds, StarlarkThread thread)
+      throws EvalException {
+    StarlarkList<String> result = StarlarkList.newList(thread.mutability());
     Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
     while (matcher.find()) {
       String line = matcher.group("line");
@@ -665,14 +691,14 @@ final class StringModule implements StarlarkValue {
         break;
       }
       if (keepEnds && !trailingBreak) {
-        result.add(line + lineBreak);
+        result.addElement(line + lineBreak);
       } else {
-        result.add(line);
+        result.addElement(line);
       }
     }
     // TODO(adonovan): spec should state that result is mutable,
     // as in Python[23] and go.starlark.net.
-    return result.build(thread.mutability());
+    return result;
   }
 
   @StarlarkMethod(
@@ -857,11 +883,12 @@ final class StringModule implements StarlarkValue {
       parameters = {@Param(name = "self", doc = "This string.")})
   public Sequence<String> elems(String self) {
     // TODO(adonovan): opt: return a new type that is lazily iterable.
-    StarlarkList.Builder<String> res = StarlarkList.builder();
-    for (char c : self.toCharArray()) {
-      res.add(String.valueOf(c));
+    char[] chars = self.toCharArray();
+    Object[] strings = new Object[chars.length];
+    for (int i = 0; i < chars.length; i++) {
+      strings[i] = memoizedCharToString(chars[i]);
     }
-    return res.buildImmutable();
+    return StarlarkList.wrap(null, strings);
   }
 
   @StarlarkMethod(

@@ -31,10 +31,12 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.HashMap;
@@ -62,7 +64,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     @Option(
         name = "embed_label",
         defaultValue = "",
-        valueHelp = "<string>",
+        converter = OneLineStringConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Embed source control revision or release label in binary")
@@ -231,5 +233,22 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
             .setMessage(message)
             .setWorkspaceStatus(WorkspaceStatus.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  /** Converter for {@code --embed_label} which rejects strings that span multiple lines. */
+  public static final class OneLineStringConverter implements Converter<String> {
+
+    @Override
+    public String convert(String input) throws OptionsParsingException {
+      if (input.contains("\n")) {
+        throw new OptionsParsingException("Value must not contain multiple lines");
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a one-line string";
+    }
   }
 }

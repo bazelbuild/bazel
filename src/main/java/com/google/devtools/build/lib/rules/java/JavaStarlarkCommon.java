@@ -265,8 +265,6 @@ public class JavaStarlarkCommon
 
   @Override
   public ProviderApi getBootClassPathInfo() {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
+    return BootClassPathInfo.PROVIDER;
   }
 }

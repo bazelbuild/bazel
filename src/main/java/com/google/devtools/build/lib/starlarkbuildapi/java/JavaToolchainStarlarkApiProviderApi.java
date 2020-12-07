@@ -42,13 +42,6 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
   @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
 
-  @StarlarkMethod(
-      name = "javac_jar",
-      doc = "The javac jar.",
-      structField = true,
-      allowReturnNones = true)
-  FileApi getJavacJar();
-
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();
 

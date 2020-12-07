@@ -31,7 +31,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -379,12 +378,11 @@ public class ConfigCommand implements BlazeCommand {
     ImmutableSortedMap.Builder<
             Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
         fragments = ImmutableSortedMap.orderedBy((c1, c2) -> c1.getName().compareTo(c2.getName()));
-    for (ConfigurationFragmentFactory fragmentFactory :
-        ruleClassProvider.getConfigurationFragments()) {
+    for (Class<? extends Fragment> fragmentClass : ruleClassProvider.getConfigurationFragments()) {
       fragments.put(
-          fragmentFactory.creates(),
+          fragmentClass,
           ImmutableSortedSet.copyOf(
-              (c1, c2) -> c1.getName().compareTo(c2.getName()), fragmentFactory.requiredOptions()));
+              comparing(Class::getName), Fragment.requiredOptions(fragmentClass)));
     }
     return fragments.build();
   }

@@ -457,7 +457,7 @@ public class GrpcServerTest {
     assertThat(secondResponse.get().hasFailureDetail()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
-        .isEqualTo(Code.COMMAND_DISPATCH);
+        .isEqualTo(Code.INTERRUPTED);
   }
 
   @Test

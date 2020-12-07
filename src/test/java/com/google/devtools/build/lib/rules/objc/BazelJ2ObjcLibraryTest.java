@@ -84,7 +84,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     return getConfiguredTarget(label, childConfig);
   }
 
-  private void testJ2ObjCInformationExportedFromJ2ObjcLibrary() throws Exception {
+  @Test
+  public void testJ2ObjCInformationExportedFromJ2ObjcLibrary() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
@@ -97,23 +98,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             + "/";
     assertThat(Iterables.transform(provider.include(), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
-  }
-
-  @Test
-  public void testJ2ObjCInformationExportedFromJ2ObjcLibraryPreMigration() throws Exception {
-    useConfiguration(
-        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
-        "--incompatible_objc_compile_info_migration=false");
-    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
-    testJ2ObjCInformationExportedFromJ2ObjcLibrary();
-  }
-
-  @Test
-  public void testJ2ObjCInformationExportedFromJ2ObjcLibraryPostMigration() throws Exception {
-    useConfiguration(
-        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
-        "--incompatible_objc_compile_info_migration=true");
-    testJ2ObjCInformationExportedFromJ2ObjcLibrary();
   }
 
   @Test

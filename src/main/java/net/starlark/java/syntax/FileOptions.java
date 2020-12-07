@@ -76,12 +76,6 @@ public abstract class FileOptions {
    */
   public abstract boolean requireLoadStatementsFirst();
 
-  /**
-   * Record the results of name resolution in the syntax tree by setting {@code Identifer.scope}.
-   * (Disabled for Bazel BUILD files, as its prelude's syntax trees are shared.)
-   */
-  public abstract boolean recordScope();
-
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
@@ -89,8 +83,7 @@ public abstract class FileOptions {
         .allowLoadPrivateSymbols(false)
         .allowToplevelRebinding(false)
         // .loadBindsGlobally(false)
-        .requireLoadStatementsFirst(true)
-        .recordScope(true);
+        .requireLoadStatementsFirst(true);
   }
 
   public abstract Builder toBuilder();
@@ -108,8 +101,6 @@ public abstract class FileOptions {
     // public abstract Builder loadBindsGlobally(boolean value);
 
     public abstract Builder requireLoadStatementsFirst(boolean value);
-
-    public abstract Builder recordScope(boolean value);
 
     public abstract FileOptions build();
   }

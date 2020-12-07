@@ -3,7 +3,7 @@ layout: documentation
 title: Bazel vision
 ---
 
-# Bazel vision
+# Bazel Vision
 
 <p><font size='+1'>Any software developer can efficiently build, test, and package
 any project, of any size or complexity, with tooling that's easy to adopt and
@@ -74,7 +74,7 @@ available that integrate with the workflows and conventions of that community.
 Bazel is committed to be extensible and open, and to support good rulesets for
 any language.
 
-### So what is a good ruleset?
+###  Requirements of a good ruleset
 
 1.  The rules need to support efficient **building and testing** for the
     language, including code coverage.

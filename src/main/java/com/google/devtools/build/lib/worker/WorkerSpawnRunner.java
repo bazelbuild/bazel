@@ -293,7 +293,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       List<String> flagfiles,
-      MetadataProvider inputFileCache)
+      MetadataProvider inputFileCache,
+      WorkerKey key)
       throws IOException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
@@ -318,7 +319,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
           .setDigest(digest)
           .build();
     }
-    return requestBuilder.setRequestId(requestIdCounter.getAndIncrement()).build();
+    if (key.getProxied()) {
+      requestBuilder.setRequestId(requestIdCounter.getAndIncrement());
+    }
+    return requestBuilder.build();
   }
 
   /**
@@ -419,7 +423,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Stopwatch queueStopwatch = Stopwatch.createStarted();
       try {
         worker = workers.borrowObject(key);
-        request = createWorkRequest(spawn, context, flagFiles, inputFileCache);
+        worker.setReporter(workerOptions.workerVerbose ? reporter : null);
+        request = createWorkRequest(spawn, context, flagFiles, inputFileCache, key);
       } catch (IOException e) {
         String message = "IOException while borrowing a worker from the pool:";
         throw createUserExecException(e, message, Code.BORROW_FAILURE);

@@ -53,8 +53,7 @@ public class TransitiveTraversalFunction
   }
 
   @Override
-  DeterministicErrorMessageAccumulator processTarget(
-      Label label, TargetAndErrorIfAny targetAndErrorIfAny) {
+  DeterministicErrorMessageAccumulator processTarget(TargetAndErrorIfAny targetAndErrorIfAny) {
     NoSuchTargetException errorIfAny = targetAndErrorIfAny.getErrorLoadingTarget();
     String errorMessageIfAny = errorIfAny == null ? null : errorIfAny.getMessage();
     return DeterministicErrorMessageAccumulator.create(errorMessageIfAny);

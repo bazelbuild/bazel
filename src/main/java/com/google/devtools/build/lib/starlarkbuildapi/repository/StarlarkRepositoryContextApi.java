@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.repository;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -321,6 +322,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       parameters = {
         @Param(name = "program", named = false, doc = "Program to find in the path."),
       })
+  @Nullable
   RepositoryPathApi<?> which(String program, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(

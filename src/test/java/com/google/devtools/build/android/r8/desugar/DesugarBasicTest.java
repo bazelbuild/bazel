@@ -57,6 +57,7 @@ public class DesugarBasicTest {
   private Path desugaredClasspath;
   private Path desugaredWithDependencyMetadata;
   private Path desugaredWithDependencyMetadataWithDesugar;
+  private Path doubleDesugaredWithDependencyMetadata;
   private Path desugaredClasspathWithDependencyMetadata;
   private Path desugaredClasspathWithDependencyMetadataWithDesugar;
   private Path desugaredWithDependencyMetadataMissingInterface;
@@ -83,6 +84,12 @@ public class DesugarBasicTest {
         Paths.get(
             System.getProperty(
                 "DesugarBasicTest.testdata_basic_desugared_with_dependency_metadata_with_desugar"));
+    // Same as testdata_basic_desugared_with_dependency_metadata, but where the input is instead the
+    // already desugared code (i.e., testdata_basic_desugared)
+    doubleDesugaredWithDependencyMetadata =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_double_desugared_with_dependency_metadata"));
     // Jar file with the compiled Java code in the sub-package basic after desugaring with all
     // interfaces on classpath with collected dependency metadata included.
     desugaredClasspathWithDependencyMetadata =
@@ -142,6 +149,20 @@ public class DesugarBasicTest {
     assertThat(desugarInfoCollector.getNumberOfDefaultMethods()).isEqualTo(0);
     assertThat(desugarInfoCollector.getNumberOfDesugaredLambdas()).isEqualTo(1);
     assertThat(desugarInfoCollector.getNumberOfCompanionClasses()).isEqualTo(0);
+  }
+
+  @Test
+  public void checkMetaDataAfterDoubleDesugaring() throws Exception {
+    DesugarDepsInfo info = extractDesugarDeps(doubleDesugaredWithDependencyMetadata);
+    assertThat(info.getInterfaceWithCompanionCount()).isEqualTo(0);
+    assertThat(info.getAssumePresentCount()).isEqualTo(0);
+    assertThat(info.getMissingInterfaceCount()).isEqualTo(0);
+    assertThat(info.getInterfaceWithSupertypesList())
+        .containsExactly(
+            InterfaceDetails.newBuilder()
+                .setOrigin(classToType(J.class))
+                .addExtendedInterface(classToType(I.class))
+                .build());
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")

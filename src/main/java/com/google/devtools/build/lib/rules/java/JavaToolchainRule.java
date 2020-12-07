@@ -75,13 +75,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 // This should be in the target configuration.
                 .cfg(NoTransition.createFactory()))
-        .add(
-            attr("extclasspath", LABEL_LIST)
-                .undocumented("internal")
-                .value(ImmutableList.of())
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                // This should be in the target configuration.
-                .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->
         The list of warning to add or removes from default list. Precedes it with a dash to
         removes it. Please see the Javac documentation on the -Xlint options for more information.
@@ -117,15 +110,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(true))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
-        Label of the javac jar.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("javac", LABEL_LIST)
-                // This needs to be in the execution configuration.
-                .cfg(ExecutionTransitionFactory.create())
-                .singleArtifact()
-                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
         Labels of tools available for label-expansion in jvm_opts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

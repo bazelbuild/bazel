@@ -35,8 +35,9 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
-import net.starlark.java.syntax.Resolver;
+import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A Skyframe function that compiles the .bzl file denoted by a Label.
@@ -165,10 +166,19 @@ public class BzlCompileFunction implements SkyFunction {
                 semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
+
+    // compile
     Module module = Module.withPredeclared(semantics, predeclared);
-    Resolver.resolveFile(file, module);
-    Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
-    return BzlCompileValue.withFile(file, digest);
+    try {
+      Program prog = Program.compileFile(file, module);
+      return BzlCompileValue.withProgram(prog, digest);
+    } catch (SyntaxError.Exception ex) {
+      Event.replayEventsOn(env.getListener(), ex.errors());
+      return BzlCompileValue.noFile(
+          "Extension '%s'%s has errors",
+          key.label.toPathFragment(),
+          StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+    }
   }
 
   @Nullable

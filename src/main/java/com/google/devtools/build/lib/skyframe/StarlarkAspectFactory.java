@@ -119,7 +119,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
   }
 
   private static ConfiguredAspect createAspect(Object aspectStarlarkObject, RuleContext ruleContext)
-      throws EvalException, ActionConflictException {
+      throws EvalException, ActionConflictException, InterruptedException {
 
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
 
