@@ -296,7 +296,7 @@ EOF
         "openjdk15_windows_archive"
         "openjdk_linux_aarch64_minimal"
         "openjdk_linux_minimal"
-        "openjdk_macos_minimal"
+        "openjdk_macos_x86_64_minimal"
         "openjdk_macos_aarch64_minimal"
         "openjdk_win_minimal"
         "remote_coverage_tools_for_testing"

@@ -389,21 +389,21 @@ http_file(
 )
 
 http_file(
-    name = "openjdk_macos",
+    name = "openjdk_macos_x86_64",
     downloaded_file_path = "zulu-macos.tar.gz",
     sha256 = "8e283cfd23c7555be8e17295ed76eb8f00324c88ab904b8de37bbe08f90e569b",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64-allmodules-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689066.tar.gz"],
 )
 
 http_file(
-    name = "openjdk_macos_vanilla",
+    name = "openjdk_macos_x86_64_vanilla",
     downloaded_file_path = "zulu-macos-vanilla.tar.gz",
     sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
 )
 
 http_file(
-    name = "openjdk_macos_minimal",
+    name = "openjdk_macos_x86_64_minimal",
     downloaded_file_path = "zulu-macos-minimal.tar.gz",
     sha256 = "1bacb1c07035d4066d79f0b65b4ea0ebd1954f3662bdfe3618da382ac8fd23a6",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689063.tar.gz"],
