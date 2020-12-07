@@ -427,26 +427,27 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
   // binary operators
 
-  // In the common case, both operands are int32, so the operations
-  // can be done using longs with minimal fuss around overflows.
-  // All other combinations are promoted to BigInteger.
-  // TODO(adonovan): use long x long operations even if one or both
-  // operands are Int64; promote to Big x Big only upon overflow.
-  // (See the revision history for the necessary overflow checks.)
-
-  /** Returns a value whose signum is equal to x - y. */
+  /** Returns signum(x - y). */
   public static int compare(StarlarkInt x, StarlarkInt y) {
-    if (x instanceof Int32 && y instanceof Int32) {
-      return Integer.compare(((Int32) x).v, ((Int32) y).v);
-    }
-
+    // If both arguments are big, we compare BigIntegers.
+    // If neither argument is big, we compare longs.
+    // If only one argument is big, its magnitude is greater
+    // than the other operand, so only its sign matters.
+    //
+    // We avoid unnecessary branches.
     try {
-      return Long.compare(x.toLongFast(), y.toLongFast());
+      long xl = x.toLongFast();
+      try {
+        long yl = y.toLongFast();
+        return Long.compare(xl, yl); // (long, long)
+      } catch (Overflow unused) {
+        return -((Big) y).v.signum(); // (long, big)
+      }
     } catch (Overflow unused) {
-      /* fall through */
+      return y instanceof Big
+          ? ((Big) x).v.compareTo(((Big) y).v) // (big, big)
+          : ((Big) x).v.signum(); // (big, long)
     }
-
-    return x.toBigInteger().compareTo(y.toBigInteger());
   }
 
   /** Returns x + y. */
