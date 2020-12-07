@@ -39,6 +39,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   private static final Int32[] smallints = new Int32[100_000];
 
   static final StarlarkInt ZERO = StarlarkInt.of(0);
+  private static final StarlarkInt ONE = StarlarkInt.of(1);
+  private static final StarlarkInt MINUS_ONE = StarlarkInt.of(-1);
 
   /** Only nested classes of {@code StarlarkInt} are allowed to inherit it. */
   private StarlarkInt() {}
@@ -512,10 +514,59 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       return StarlarkInt.of(xl * yl);
     }
 
+    try {
+      long xl = x.toLongFast();
+      long yl = y.toLongFast();
+
+      // see Hacker's Delight, 8-2
+
+      long xlo = xl & 0xFFFFFFFFL;
+      long xhi = xl >> 32;
+      long ylo = yl & 0xFFFFFFFFL;
+      long yhi = yl >> 32;
+      long zlo = xlo * ylo;
+      long t = xhi * ylo + (zlo >>> 32);
+      long z1 = t & 0xFFFFFFFFL;
+      long z2 = t >> 32;
+      z1 += xlo * yhi;
+
+      // high and low 64-bits of 128-bit signed multiplication result
+      long z128hi = xhi * yhi + z2 + (z1 >> 32);
+      long z128lo = xl * yl;
+
+      // checking 128-bit signed integer is within 64-bit signed integer range
+      if (z128hi == (z128lo & Long.MIN_VALUE) >> 63) {
+        return StarlarkInt.of(z128lo);
+      }
+
+      /* overflow */
+
+    } catch (Overflow unused) {
+      /* fall through */
+    }
+
+    // avoid unnecessary conversion to BigInteger if the other argument is -1, 0, 1
+    // also make self-test below faster
+    if (x == ZERO || y == ONE) {
+      return x;
+    } else if (y == ZERO || x == ONE) {
+      return y;
+    } else if (x == MINUS_ONE) {
+      return StarlarkInt.uminus(y);
+    } else if (y == MINUS_ONE) {
+      return StarlarkInt.uminus(x);
+    }
+
     BigInteger xbig = x.toBigInteger();
     BigInteger ybig = y.toBigInteger();
     BigInteger zbig = xbig.multiply(ybig);
-    return StarlarkInt.of(zbig);
+    StarlarkInt z = StarlarkInt.of(zbig);
+    // cheap self-test
+    if (!(z instanceof Big)) {
+      throw new AssertionError(String.format(
+        "bug in multiplication: %s * %s = %s, must be long multiplication", x, y, z));
+    }
+    return z;
   }
 
   /** Returns x // y (floor of integer division). */
