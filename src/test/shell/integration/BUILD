@@ -368,6 +368,16 @@ sh_test(
 )
 
 sh_test(
+    name = "builtins_injection_test",
+    size = "medium",
+    srcs = ["builtins_injection_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "rc_options_test",
     size = "medium",
     srcs = ["rc_options_test.sh"],

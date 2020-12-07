@@ -20,12 +20,12 @@ set -euo pipefail
 # starts the server from.
 
 WORKDIR=$(pwd)
-OUT=$1
-EMBEDDED_TOOLS=$2
-DEPLOY_JAR=$3
-INSTALL_BASE_KEY=$4
-PLATFORMS_ARCHIVE=$5
-shift 5
+OUT=$1; shift
+EMBEDDED_TOOLS=$1; shift
+DEPLOY_JAR=$1; shift
+INSTALL_BASE_KEY=$1; shift
+BUILTINS_ZIP=$1; shift
+PLATFORMS_ARCHIVE=$1; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -70,6 +70,12 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
+
+# Add the builtins bzls.
+(
+  cd $PACKAGE_DIR
+  unzip -q $WORKDIR/$BUILTINS_ZIP
+)
 
 # Unzip platforms.zip into platforms/, move files up from external/platforms
 # subdirectory, and create WORKSPACE if it doesn't exist.

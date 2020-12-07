@@ -163,7 +163,7 @@ public final class ClassCache implements Closeable {
             combineWithoutNull(classReader.getSuperName(), classReader.getInterfaces())) {
           Optional<ResolutionFailureChain> failurePath =
               resolveSuperClassEntry(superName, lazyClasspath);
-          failurePath.map(resolutionFailureChainsBuilder::add);
+          failurePath.ifPresent(resolutionFailureChainsBuilder::add);
         }
         ClassInfoBuilder classInfoBuilder =
             new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.isDirectDep);

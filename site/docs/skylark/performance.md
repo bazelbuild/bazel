@@ -323,7 +323,7 @@ $ bazel analyze-profile /tmp/prof
 ```
 
 By default, it prints summary analysis information for the specified profile
-datafile. This includes cummaltive statistics for different task types for each
+datafile. This includes cumulative statistics for different task types for each
 build phase and an analysis of the critical path.
 
 The first section of the default output is an overview of the time spent

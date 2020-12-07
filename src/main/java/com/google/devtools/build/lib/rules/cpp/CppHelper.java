@@ -949,7 +949,11 @@ public class CppHelper {
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
     if (cppOptions.renameDLL
         && cppOptions.dynamicMode != DynamicMode.OFF
-        && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+        && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
+        // Because the custom DEF file in `win_def_file` does not contain the suffix of the DLL, we
+        // should not calculate _{hash} when `win_def_file` is used.
+        && (!ruleContext.isAttrDefined("win_def_file", LABEL)
+            || ruleContext.getPrerequisiteArtifact("win_def_file") == null)) {
       Fingerprint digest = new Fingerprint();
       digest.addString(ruleContext.getRepository().getName());
       digest.addPath(ruleContext.getPackageDirectory());

@@ -33,7 +33,7 @@ public final class GenQueryRule implements RuleDefinition {
 
   /** Adds {@link GenQueryRule} and its dependencies to the provided builder. */
   public static void register(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addConfigurationFragment(new GenQueryConfiguration.Loader());
+    builder.addConfigurationFragment(GenQueryConfiguration.class);
     builder.addRuleDefinition(new GenQueryRule());
   }
 

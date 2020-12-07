@@ -186,13 +186,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         if (type.getLabelClass() != LabelClass.OUTPUT) {
           continue;
         }
-        StarlarkList.Builder<Artifact> artifactsBuilder = StarlarkList.builder();
+        ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
         for (OutputFile outputFile : ruleContext.getRule().getOutputFileMap().get(attrName)) {
           Artifact artifact = ruleContext.createOutputArtifact(outputFile);
           artifactsBuilder.add(artifact);
           artifactLabelMapBuilder.put(artifact, outputFile.getLabel());
         }
-        StarlarkList<Artifact> artifacts = artifactsBuilder.buildImmutable();
+        StarlarkList<Artifact> artifacts = StarlarkList.immutableCopyOf(artifactsBuilder.build());
 
         if (type == BuildType.OUTPUT) {
           if (artifacts.size() == 1) {

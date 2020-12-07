@@ -100,7 +100,6 @@ public final class ObjcCommon {
   }
 
   static class Builder {
-    private final boolean compileInfoMigration;
     private final Purpose purpose;
     private final RuleContext context;
     private final StarlarkSemantics semantics;
@@ -138,10 +137,6 @@ public final class ObjcCommon {
       this.context = Preconditions.checkNotNull(context);
       this.semantics = context.getAnalysisEnvironment().getStarlarkSemantics();
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
-
-      ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
-
-      this.compileInfoMigration = objcConfiguration.compileInfoMigration();
     }
 
     public Builder setCompilationAttributes(CompilationAttributes baseCompilationAttributes) {
@@ -181,34 +176,8 @@ public final class ObjcCommon {
       return this;
     }
 
-    private Builder addDepsPreMigration(List<ConfiguredTargetAndData> deps) {
-      ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
-      ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
-      ImmutableList.Builder<CcLinkingContext> cppDepLinkParams = ImmutableList.builder();
-
-      for (ConfiguredTargetAndData dep : deps) {
-        ConfiguredTarget depCT = dep.getConfiguredTarget();
-        // It is redundant to process both ObjcProvider and CcInfo; doing so causes direct header
-        // field to include indirect headers from deps.
-        if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
-        } else {
-          addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
-          if (isCcLibrary(dep)) {
-            cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
-          }
-        }
-      }
-      addDepObjcProviders(propagatedObjcDeps.build());
-      ImmutableList<CcInfo> ccInfos = cppDeps.build();
-      addDepCcHeaderProviders(ccInfos);
-      addDepCcDirectProviders(ccInfos);
-      this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, cppDepLinkParams.build());
-
-      return this;
-    }
-
-    private Builder addDepsPostMigration(List<ConfiguredTargetAndData> deps) {
+    /** Add the providers for the build dependencies. */
+    Builder addDeps(List<ConfiguredTargetAndData> deps) {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> directCppDeps = ImmutableList.builder();
@@ -235,28 +204,11 @@ public final class ObjcCommon {
       return this;
     }
 
-    Builder addDeps(List<ConfiguredTargetAndData> deps) {
-      if (compileInfoMigration) {
-        return addDepsPostMigration(deps);
-      } else {
-        return addDepsPreMigration(deps);
-      }
-    }
-
-    private Builder addRuntimeDepsPreMigration(
-        List<? extends TransitiveInfoCollection> runtimeDeps) {
-      ImmutableList.Builder<ObjcProvider> propagatedDeps = ImmutableList.builder();
-
-      for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(propagatedDeps, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
-      }
-      this.runtimeDepObjcProviders =
-          Iterables.concat(this.runtimeDepObjcProviders, propagatedDeps.build());
-      return this;
-    }
-
-    private Builder addRuntimeDepsPostMigration(
-        List<? extends TransitiveInfoCollection> runtimeDeps) {
+    /**
+     * Adds providers for runtime frameworks included in the final app bundle but not linked with at
+     * build time.
+     */
+    Builder addRuntimeDeps(List<? extends TransitiveInfoCollection> runtimeDeps) {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
 
@@ -268,18 +220,6 @@ public final class ObjcCommon {
           Iterables.concat(this.runtimeDepObjcProviders, propagatedObjcDeps.build());
       addDepCcHeaderProviders(cppDeps.build());
       return this;
-    }
-
-    /**
-     * Adds providers for runtime frameworks included in the final app bundle but not linked with
-     * at build time.
-     */
-    Builder addRuntimeDeps(List<? extends TransitiveInfoCollection> runtimeDeps) {
-      if (compileInfoMigration) {
-        return addRuntimeDepsPostMigration(runtimeDeps);
-      } else {
-        return addRuntimeDepsPreMigration(runtimeDeps);
-      }
     }
 
     private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
@@ -356,7 +296,7 @@ public final class ObjcCommon {
     ObjcCommon build() {
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
-          ObjcCompilationContext.builder(compileInfoMigration);
+          ObjcCompilationContext.builder();
 
       ObjcProvider.Builder objcProvider = new ObjcProvider.NativeBuilder(semantics);
 

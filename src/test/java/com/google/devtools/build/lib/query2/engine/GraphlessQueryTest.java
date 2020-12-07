@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
@@ -98,7 +98,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
         return new QueryEnvironmentFactory() {
           @Override
           public AbstractBlazeQueryEnvironment<Target> create(
-              TransitivePackageLoader transitivePackageLoader,
+              QueryTransitivePackagePreloader queryTransitivePackagePreloader,
               WalkableGraphFactory graphFactory,
               TargetProvider targetProvider,
               CachingPackageLocator cachingPackageLocator,
@@ -117,7 +117,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               boolean blockUniverseEvaluationErrors,
               boolean useGraphlessQuery) {
             return new GraphlessBlazeQueryEnvironment(
-                transitivePackageLoader,
+                queryTransitivePackagePreloader,
                 targetProvider,
                 cachingPackageLocator,
                 targetPatternPreloader,

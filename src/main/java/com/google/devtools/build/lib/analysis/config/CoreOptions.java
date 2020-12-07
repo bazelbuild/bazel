@@ -719,7 +719,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "enable_runfiles",
-      oldName = "experimental_enable_runfiles",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},

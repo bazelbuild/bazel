@@ -509,24 +509,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsPreMigration() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_objc_compile_info_migration=false");
-    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
-    addBinWithTransitiveDepOnFrameworkImport(false);
-    CommandAction compileAction = compileAction("//lib:lib", "a.o");
-
-    assertThat(compileAction.getArguments()).doesNotContain("-framework");
-    assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
-  }
-
-  @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsPostMigration() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_objc_compile_info_migration=true");
-    addBinWithTransitiveDepOnFrameworkImport(true);
+  public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
+    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
     assertThat(compileAction.getArguments()).doesNotContain("-framework");

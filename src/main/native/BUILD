@@ -3,11 +3,11 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
-        "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
-        "//src/conditions:openbsd": ["//tools/jdk:jni_md_header-openbsd"],
-        "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
-        "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
+        "//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:freebsd": ["@bazel_tools//tools/jdk:jni_md_header-freebsd"],
+        "//src/conditions:openbsd": ["@bazel_tools//tools/jdk:jni_md_header-openbsd"],
+        "//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
+        "//conditions:default": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
@@ -16,7 +16,7 @@ genrule(
 
 genrule(
     name = "copy_link_jni_header",
-    srcs = ["//tools/jdk:jni_header"],
+    srcs = ["@bazel_tools//tools/jdk:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
     visibility = ["//src/main/native:__subpackages__"],

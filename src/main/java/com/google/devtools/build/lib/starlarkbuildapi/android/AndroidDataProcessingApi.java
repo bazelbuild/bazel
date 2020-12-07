@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -924,5 +925,6 @@ public interface AndroidDataProcessingApi<
             positional = true,
             named = false)
       })
+  @Nullable
   FileT resourcesFromValidatedRes(ValidatedAndroidDataT resources);
 }

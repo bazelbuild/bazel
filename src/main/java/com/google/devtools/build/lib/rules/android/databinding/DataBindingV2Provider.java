@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 
@@ -43,10 +42,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   private final NestedSet<Artifact> transitiveBRFiles;
 
-  /**
-   * The label and java package of this rule and any rules that this rule exports.
-   */
-  @Nullable
+  /** The label and java package of this rule and any rules that this rule exports. */
   private final ImmutableList<LabelJavaPackagePair> labelAndJavaPackages;
 
   private final NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages;
@@ -89,7 +85,6 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
-  @Nullable
   public ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages() {
     return labelAndJavaPackages;
   }

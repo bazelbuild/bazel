@@ -362,7 +362,8 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private BuildEventStreamProtos.BuildEvent createSerializedRegularBuildEvent(
-      PathConverter pathConverter, SendRegularBuildEventCommand buildEvent) {
+      PathConverter pathConverter, SendRegularBuildEventCommand buildEvent)
+      throws InterruptedException {
     BuildEventContext ctx =
         new BuildEventContext() {
           @Override

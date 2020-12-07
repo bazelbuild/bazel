@@ -532,6 +532,10 @@ public class CppLinkActionBuilder {
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
+      case OBJC_ARCHIVE:
+      case OBJC_FULLY_LINKED_ARCHIVE:
+      case OBJC_EXECUTABLE:
+      case OBJCPP_EXECUTABLE:
         return true;
 
       default:
@@ -868,6 +872,8 @@ public class CppLinkActionBuilder {
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
               configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
+              SolibSymlinkAction.getDynamicLibrarySoname(
+                  output.getRootRelativePath(), /* preserveName= */ false),
               linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
               paramFile != null ? paramFile.getExecPathString() : null,
               thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,

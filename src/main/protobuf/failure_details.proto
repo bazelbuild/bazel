@@ -167,22 +167,28 @@ message FailureDetail {
 
 message Interrupted {
   enum Code {
-    // Interrupted at an unspecified time.
+    // Unknown interrupt. Avoid using this code, instead use INTERRUPTED.
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
-    BUILD = 4 [(metadata) = { exit_code: 8 }];
-    BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
-    PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
-    EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
-    COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
-    INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
-    AFTER_QUERY = 10 [(metadata) = { exit_code: 8 }];
-    FETCH_COMMAND = 17 [(metadata) = { exit_code: 8 }];
-    SYNC_COMMAND = 18 [(metadata) = { exit_code: 8 }];
-    CLEAN_COMMAND = 20 [(metadata) = { exit_code: 8 }];
-    MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
-    QUERY = 22 [(metadata) = { exit_code: 8 }];
-    RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
-    OPTIONS_PARSING = 27 [(metadata) = { exit_code: 8 }];
+
+    // Command was interrupted (cancelled).
+    INTERRUPTED = 28 [(metadata) = { exit_code: 8 }];
+
+    // The following more specific interrupt codes have been deprecated and
+    // consolidated into INTERRUPTED.
+    DEPRECATED_BUILD = 4 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_AFTER_QUERY = 10 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_FETCH_COMMAND = 17 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_SYNC_COMMAND = 18 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_CLEAN_COMMAND = 20 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_QUERY = 22 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
+    DEPRECATED_OPTIONS_PARSING = 27 [(metadata) = { exit_code: 8 }];
 
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
@@ -565,6 +571,11 @@ message BuildConfiguration {
         [(metadata) = { exit_code: 2 }];
     CYCLE = 9 [(metadata) = { exit_code: 2 }];
     CONFLICTING_CONFIGURATIONS = 10 [(metadata) = { exit_code: 2 }];
+    // This can come from either an invalid user-specified option or a
+    // configuration transition. There's no sure-fire way to distinguish the two
+    // possibilities in Bazel, so we go with the more straightforward
+    // command-line error exit code 2.
+    INVALID_OUTPUT_DIRECTORY_MNEMONIC = 11 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -902,7 +913,7 @@ message RunCommand {
     NO_TARGET_SPECIFIED = 1 [(metadata) = { exit_code: 2 }];
     TOO_MANY_TARGETS_SPECIFIED = 2 [(metadata) = { exit_code: 2 }];
     TARGET_NOT_EXECUTABLE = 3 [(metadata) = { exit_code: 2 }];
-    TARGET_BUILT_BUT_PATH_NOT_EXECUTABLE = 4 [(metadata) = { exit_code: 37 }];
+    TARGET_BUILT_BUT_PATH_NOT_EXECUTABLE = 4 [(metadata) = { exit_code: 1 }];
     TARGET_BUILT_BUT_PATH_VALIDATION_FAILED = 5
         [(metadata) = { exit_code: 36 }];
     RUN_UNDER_TARGET_NOT_BUILT = 6 [(metadata) = { exit_code: 2 }];

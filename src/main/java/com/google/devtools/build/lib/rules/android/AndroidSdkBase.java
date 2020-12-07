@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /** Implementation of the {@code android_sdk} rule. */
@@ -71,6 +72,7 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
     Artifact sourceProperties = ruleContext.getHostPrerequisiteArtifact("source_properties");
     Artifact shrinkedAndroidJar = ruleContext.getPrerequisiteArtifact("shrinked_android_jar");
     Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes");
+    BootClassPathInfo system = ruleContext.getPrerequisite("system", BootClassPathInfo.PROVIDER);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -95,7 +97,7 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
             apkSigner,
             proguard,
             zipalign,
-            /* system= */ null);
+            system);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addNativeDeclaredProvider(sdk)

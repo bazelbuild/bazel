@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** The C++ configuration fragment. */
@@ -77,4 +78,37 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "    )<br/>"
               + ")</pre>")
   Label customMalloc();
+
+  @StarlarkMethod(
+      name = "do_not_use_macos_set_install_name",
+      structField = true,
+      // Only for migration purposes. Intentionally not documented.
+      documented = false,
+      doc = "Accessor for <code>--incompatible_macos_set_install_name</code>.")
+  boolean macosSetInstallName();
+
+  @StarlarkMethod(name = "force_pic", documented = false, useStarlarkThread = true)
+  boolean forcePicStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "generate_llvm_lcov", documented = false, useStarlarkThread = true)
+  boolean generateLlvmLcovStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "fdo_instrument", documented = false, useStarlarkThread = true)
+  String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "process_headers_in_dependencies",
+      documented = false,
+      useStarlarkThread = true)
+  boolean processHeadersInDependenciesStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "save_feature_state", documented = false, useStarlarkThread = true)
+  boolean saveFeatureStateStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "fission_active_for_current_compilation_mode",
+      documented = false,
+      useStarlarkThread = true)
+  boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
+      throws EvalException;
 }

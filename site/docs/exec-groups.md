@@ -14,7 +14,7 @@ performs its own [toolchain resolution](toolchains.md#toolchain-resolution).
 To use Starlark rules that create execution groups, set
 `--experimental_exec_groups=true` on your command line or in a .bazelrc:
 
-```
+```shell
 $ bazel build //target/with/exec/group --experimental_exec_groups
 ```
 

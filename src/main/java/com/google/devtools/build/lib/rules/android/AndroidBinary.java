@@ -1067,6 +1067,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact inclusionFilterJar =
         isBinaryJarFiltered && Objects.equals(binaryJar, proguardedJar) ? binaryJar : null;
     Artifact singleJarToDex = !Objects.equals(binaryJar, proguardedJar) ? proguardedJar : null;
+    Artifact javaResourceSourceJar =
+        AndroidCommon.getAndroidConfig(ruleContext).getJavaResourcesFromOptimizedJar()
+            ? proguardedJar
+            : binaryJar;
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
       if (usesDexArchives) {
@@ -1083,7 +1087,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             /*multidex=*/ false,
             /*mainDexList=*/ null,
             classesDex);
-        return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
+        return new DexingOutput(classesDex, javaResourceSourceJar, ImmutableList.of(classesDex));
       } else {
         // By *not* writing a zip we get dx to drop resources on the floor.
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex");
@@ -1094,7 +1098,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             dexopts,
             /*multidex=*/ false,
             /*mainDexList=*/ null);
-        return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
+        return new DexingOutput(classesDex, javaResourceSourceJar, ImmutableList.of(classesDex));
       }
     } else {
       // Multidex mode: generate classes.dex.zip, where the zip contains [classes.dex,
@@ -1178,7 +1182,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           // with incremental dexing b/c bazel can create the "incremental" and "split resource"
           // APKs earlier (b/c these APKs don't depend on code being dexed here).  This is also done
           // for other multidex modes.
-          javaResourceJar = binaryJar;
+          javaResourceJar = javaResourceSourceJar;
         }
         return new DexingOutput(classesDex, javaResourceJar, shardDexes);
       } else {
@@ -1212,7 +1216,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               mainDexList);
           createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
         }
-        return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
+        return new DexingOutput(classesDex, javaResourceSourceJar, ImmutableList.of(classesDex));
       }
     }
   }

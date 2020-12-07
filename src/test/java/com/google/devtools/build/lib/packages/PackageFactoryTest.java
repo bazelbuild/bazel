@@ -1161,14 +1161,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testForStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "for _ in []: pass", //
-        "for loops are not allowed");
+        "for statements are not allowed in BUILD files");
   }
 
   @Test
   public void testIfStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "if False: pass", //
-        "if statements are not allowed");
+        "if statements are not allowed in BUILD files");
   }
 
   @Test

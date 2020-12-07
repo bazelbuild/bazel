@@ -14,6 +14,18 @@ java_library(
     ],
 )
 
+java_library(
+    name = "util-android",
+    srcs = [
+        "TestPropertyExporter.java",
+        "TestPropertyRunnerIntegration.java",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party:jsr305",
+    ],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + ["BUILD"],

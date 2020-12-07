@@ -41,7 +41,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -67,7 +66,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   @Override
-  public NoneType workspace(
+  public void workspace(
       String name,
       Dict<?, ?> managedDirectories, // <String, Object>
       StarlarkThread thread)
@@ -107,11 +106,10 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
         RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
     parseManagedDirectories(
         Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
-    return NONE;
   }
 
   @Override
-  public NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
+  public void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException {
     List<String> pathsList = Sequence.cast(paths, String.class, "paths");
     Set<String> set = Sets.newHashSet();
@@ -140,7 +138,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       }
     }
     doNotSymlinkInExecrootPaths = ImmutableSortedSet.copyOf(set);
-    return NONE;
   }
 
   private void parseManagedDirectories(
@@ -247,27 +244,25 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   @Override
-  public NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
+  public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
     builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, thread));
-    return NONE;
   }
 
   @Override
-  public NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
+  public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
     builder.addRegisteredToolchains(renamePatterns(patterns, builder, thread));
-    return NONE;
   }
 
   @Override
-  public NoneType bind(String name, Object actual, StarlarkThread thread)
+  public void bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Label nameLabel;
     try {
@@ -288,8 +283,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-
-    return NONE;
   }
 
   /**

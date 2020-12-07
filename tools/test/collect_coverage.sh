@@ -200,9 +200,10 @@ fi
 #
 # --source_file_manifest  The absolute path of the coverage source file
 #                         manifest. CoverageOutputGenerator uses this file to
-#                         keep only the C++ sources found in the manifest.
-#                         For other languages the sources in the manifest are
-#                         ignored.
+#                         keep only the sources found in the manifest (that is,
+#                         only the sources of targets matched by
+#                         --instrumentation_filter, excluding test targets
+#                         unless --instrument_test_targets).
 
 if [[ "$IS_COVERAGE_SPAWN" == "1" ]]; then
   COVERAGE_DIR=$(resolve_links $COVERAGE_DIR)

@@ -1,10 +1,10 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+load("//src:release_archive.bzl", "release_archive")
 
 # Description:
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
-
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 filegroup(
     name = "srcs",
@@ -44,27 +44,30 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-genrule(
+release_archive(
     name = "singlejar_transitive_zip",
-    srcs = [
+    package_dir = "java_tools",
+    visibility = ["//src:__pkg__"],
+    deps = [
         ":singlejar_zip",
         "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
         "//src/main/protobuf:desugar_deps_zip",
     ],
-    outs = ["singlejar_transitive.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src:__pkg__"],
 )
 
-genrule(
+release_archive(
     name = "singlejar_zip",
-    srcs = SOURCES + [":singlejar_local"],
-    outs = ["singlejar.zip"],
-    cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
-    tools = ["//src:zip_files"],
+    srcs = SOURCES,
+    package_dir = "src/tools/singlejar",
     visibility = ["//visibility:private"],
+)
+
+release_archive(
+    name = "singlejar_deploy_zip",
+    srcs = [":singlejar_local"],
+    package_dir = "java_tools/src/tools/singlejar",
+    visibility = ["//src:__pkg__"],
 )
 
 cc_binary(

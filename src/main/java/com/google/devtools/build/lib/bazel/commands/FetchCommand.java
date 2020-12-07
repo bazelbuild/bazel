@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -79,8 +78,7 @@ public final class FetchCommand implements BlazeCommand {
       String errorMessage = "Fetch interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              errorMessage, Interrupted.Code.PACKAGE_LOADING_SYNC));
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
 
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
@@ -153,8 +151,7 @@ public final class FetchCommand implements BlazeCommand {
               new NoBuildRequestFinishedEvent(
                   ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              e.getMessage(), Interrupted.Code.FETCH_COMMAND));
+          InterruptedFailureDetails.detailedExitCode(e.getMessage()));
     } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
       env.getReporter().handle(Event.error(e.getMessage()));

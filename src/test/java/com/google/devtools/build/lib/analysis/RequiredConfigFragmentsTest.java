@@ -184,7 +184,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         RuleContext ruleContext,
         AspectParameters params,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
       String customDefine = ruleContext.attributes().get("custom_define", Type.STRING);
       if (!customDefine.isEmpty()) {
@@ -221,7 +221,8 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     }
 
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws ActionConflictException, InterruptedException {
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addProvider(RunfilesProvider.EMPTY)
           .build();

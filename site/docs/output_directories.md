@@ -5,6 +5,8 @@ title: Output directory layout
 
 # Output directory layout
 
+This page covers requirements and layout for output directories.
+
 ## Requirements
 
 Requirements for an output directory layout:

@@ -17,8 +17,6 @@
 # Load the test setup defined in the parent directory
 set -euo pipefail
 
-JAVA_TOOLS_JAVA_VERSION="$1"; shift
-
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
@@ -65,19 +63,52 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+function set_up() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  local java_tools_prebuilt_rlocation=$(rlocation io_bazel/src/java_tools_prebuilt.zip)
+  local java_tools_prebuilt_zip_file_url="file://${java_tools_prebuilt_rlocation}"
+  if "$is_windows"; then
+        java_tools_prebuilt_zip_file_url="file:///${java_tools_prebuilt_rlocation}"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+http_archive(
+    name = "local_java_tools_prebuilt",
+    urls = ["${java_tools_prebuilt_zip_file_url}"]
+)
+EOF
+}
+
 function expect_path_in_java_tools() {
   path="$1"; shift
 
-  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip) | grep -c "$path")
-  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip"
+  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools.zip) | grep -c "$path")
+  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools.zip"
 }
+
+function expect_path_in_java_tools_prebuilt() {
+  path="$1"; shift
+
+  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools_prebuilt.zip) | grep -c "$path")
+  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_prebuilt.zip"
+}
+
 
 function test_java_tools_has_ijar() {
   expect_path_in_java_tools "java_tools/ijar"
+  expect_path_in_java_tools_prebuilt "java_tools/ijar"
 }
 
 function test_java_tools_has_ijar_binary() {
-  expect_path_in_java_tools "java_tools/ijar/ijar"
+  expect_path_in_java_tools_prebuilt "java_tools/ijar/ijar"
 }
 
 function test_java_tools_has_zlib() {
@@ -98,10 +129,11 @@ function test_java_tools_has_desugar_deps() {
 
 function test_java_tools_has_singlejar() {
   expect_path_in_java_tools "java_tools/src/tools/singlejar"
+  expect_path_in_java_tools_prebuilt "java_tools/src/tools/singlejar"
 }
 
 function test_java_tools_has_singlejar_local() {
-  expect_path_in_java_tools "java_tools/src/tools/singlejar/singlejar_local"
+  expect_path_in_java_tools_prebuilt "java_tools/src/tools/singlejar/singlejar_local"
 }
 
 function test_java_tools_has_VanillaJavaBuilder() {
@@ -130,10 +162,6 @@ function test_java_tools_has_java_compiler() {
 
 function test_java_tools_has_javac() {
   expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
-}
-
-function test_java_tools_has_jarjar() {
-  expect_path_in_java_tools "java_tools/jarjar_command_deploy.jar"
 }
 
 function test_java_tools_has_Jacoco() {
@@ -165,75 +193,15 @@ function test_java_tools_has_proguard() {
 }
 
 function test_java_tools_toolchain_builds() {
-  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
-  local java_tools_zip_file_url="file://${java_tools_rlocation}"
-  if "$is_windows"; then
-        java_tools_zip_file_url="file:///${java_tools_rlocation}"
-  fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "local_java_tools",
-    urls = ["${java_tools_zip_file_url}"]
-)
-EOF
-  bazel build @local_java_tools//:toolchain || fail "toolchain failed to build"
+  bazel build @bazel_tools//tools/jdk:toolchain || fail "toolchain failed to build"
 }
 
 function test_java_tools_singlejar_builds() {
-  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
-  local java_tools_zip_file_url="file://${java_tools_rlocation}"
-  if "$is_windows"; then
-        java_tools_zip_file_url="file:///${java_tools_rlocation}"
-  fi
-  cat >WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "local_java_tools",
-    urls = ["${java_tools_zip_file_url}"]
-)
-EOF
   bazel build @local_java_tools//:singlejar_cc_bin || fail "singlejar failed to build"
 }
 
 function test_java_tools_ijar_builds() {
-  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
-  local java_tools_zip_file_url="file://${java_tools_rlocation}"
-  if "$is_windows"; then
-        java_tools_zip_file_url="file:///${java_tools_rlocation}"
-  fi
-  cat >WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-name = "local_java_tools",
-    urls = ["${java_tools_zip_file_url}"]
-)
-EOF
   bazel build @local_java_tools//:ijar_cc_binary || fail "ijar failed to build"
-}
-
-
-function test_java_toolchain_default() {
-  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
-  local java_tools_zip_file_url="file://${java_tools_rlocation}"
-  if "$is_windows"; then
-        java_tools_zip_file_url="file:///${java_tools_rlocation}"
-  fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "local_java_tools",
-    urls = ["${java_tools_zip_file_url}"]
-)
-EOF
-  cat > BUILD <<EOF
-load("@local_java_tools//:java_toolchain_default.bzl", "java_toolchain_default")
-java_toolchain_default(
-  name = "vanilla",
-  javabuilder = ["//:VanillaJavaBuilder"],
-)
-EOF
-  bazel build //:vanilla || fail "java_toolchain_default target failed to build"
 }
 
 run_suite "Java tools archive tests"

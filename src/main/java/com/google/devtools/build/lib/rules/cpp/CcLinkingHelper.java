@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
@@ -372,14 +373,19 @@ public final class CcLinkingHelper {
   }
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
-      List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext) {
+      List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext)
+      throws InterruptedException {
     ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
     for (Artifact linkstamp : linkstamps.build().toList()) {
-      linkstampBuilder.add(
-          new Linkstamp(
-              linkstamp,
-              ccCompilationContext.getDeclaredIncludeSrcs(),
-              actionConstructionContext.getActionKeyContext()));
+      try {
+        linkstampBuilder.add(
+            new Linkstamp( // throws InterruptedException
+                linkstamp,
+                ccCompilationContext.getDeclaredIncludeSrcs(),
+                actionConstructionContext.getActionKeyContext()));
+      } catch (CommandLineExpansionException ex) {
+        throw new AssertionError("unexpected failure of command line expansion", ex);
+      }
     }
     CcLinkingContext ccLinkingContext = CcLinkingContext.EMPTY;
     if (!neverlink) {

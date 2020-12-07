@@ -51,7 +51,9 @@ public interface CcModuleApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-        CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
+        CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
+        DebugInfoT extends CcDebugInfoContextApi,
+        CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -780,6 +782,7 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_compilation_context",
       doc = "Creates a <code>CompilationContext</code>.",
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "headers",
@@ -835,6 +838,30 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "textual_hdrs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "modular_public_hdrs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "modular_private_hdrs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "purpose",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationContextT createCcCompilationContext(
       Object headers,
@@ -843,8 +870,31 @@ public interface CcModuleApi<
       Object quoteIncludes,
       Object frameworkIncludes,
       Object defines,
-      Object localDefines)
+      Object localDefines,
+      Object textualHdrs,
+      Object modularPublicHdrs,
+      Object modularPrivateHdrs,
+      Object purpose,
+      StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "create_module_map",
+      documented = false,
+      doc = "Creates a <code>CcModuleMap</code>.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "file", positional = false, named = true),
+        @Param(
+            name = "umbrella_header",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+        @Param(name = "name", positional = false, named = true),
+      })
+  CppModuleMapT createCppModuleMap(
+      FileT file, Object umbrellaHeader, String name, StarlarkThread thread) throws EvalException;
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.
   // This should only be called from the cc_flags_supplier rule.
@@ -1121,4 +1171,28 @@ public interface CcModuleApi<
       Object grepIncludes,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
+
+  @StarlarkMethod(
+      name = "create_debug_context",
+      doc = "Create debug context",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "compilation_outputs", positional = true, named = false, defaultValue = "[]"),
+      })
+  DebugInfoT createCcDebugInfoFromStarlark(
+      CompilationOutputsT compilationOutputs, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "merge_debug_context",
+      doc = "Merge debug contexts",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "debug_contexts", defaultValue = "[]"),
+      })
+  DebugInfoT mergeCcDebugInfoFromStarlark(
+      Sequence<?> debugInfos, // <DebugInfoT> expected
+      StarlarkThread thread)
+      throws EvalException;
 }

@@ -25,7 +25,8 @@ public interface CommandLineItem {
         (Object object, Consumer<String> args) ->
             args.accept(CommandLineItem.expandToCommandLine(object));
 
-    void expandToCommandLine(T object, Consumer<String> args);
+    void expandToCommandLine(T object, Consumer<String> args)
+        throws CommandLineExpansionException, InterruptedException;
   }
 
   /**

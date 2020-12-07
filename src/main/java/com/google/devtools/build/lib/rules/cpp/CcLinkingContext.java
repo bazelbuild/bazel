@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -118,7 +119,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     Linkstamp(
         Artifact artifact,
         NestedSet<Artifact> declaredIncludeSrcs,
-        ActionKeyContext actionKeyContext) {
+        ActionKeyContext actionKeyContext)
+        throws CommandLineExpansionException, InterruptedException {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
       Fingerprint fp = new Fingerprint();

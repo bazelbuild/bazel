@@ -378,6 +378,7 @@ public final class JavaCompilationHelper {
     if (jacocoRunner == null) {
       ruleContext.ruleError(
           "jacocorunner not set in java_toolchain:" + javaToolchain.getToolchainLabel());
+      return;
     }
     Artifact jacocoRunnerJar = jacocoRunner.getExecutable();
     if (isStrict()) {

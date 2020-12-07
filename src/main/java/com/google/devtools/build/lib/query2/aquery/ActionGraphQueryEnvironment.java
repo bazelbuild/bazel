@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.query2.ConfiguredTargetValueAccessor;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
@@ -102,7 +101,7 @@ public class ActionGraphQueryEnvironment
                 .build();
     this.accessor =
         new ConfiguredTargetValueAccessor(
-            walkableGraphSupplier.get(), this.configuredTargetKeyExtractor);
+            walkableGraphSupplier.get(), this::getTarget, this.configuredTargetKeyExtractor);
   }
 
   public ActionGraphQueryEnvironment(

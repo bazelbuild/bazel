@@ -68,7 +68,8 @@ public interface ActionApi extends StarlarkValue {
               + "and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
-  Sequence<String> getStarlarkArgv() throws EvalException;
+  @Nullable
+  Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "args",
@@ -83,7 +84,8 @@ public interface ActionApi extends StarlarkValue {
               + " For such action types, this is <code>None</code>.",
       structField = true,
       allowReturnNones = true)
-  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
+  @Nullable
+  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException, InterruptedException;
 
   /**
    * If the action writes a file whose content is known at analysis time, returns that content;
@@ -108,7 +110,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  String getStarlarkContent() throws IOException, EvalException;
+  String getStarlarkContent() throws IOException, EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "substitutions",
@@ -118,6 +120,7 @@ public interface ActionApi extends StarlarkValue {
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Dict<String, String> getStarlarkSubstitutions();
 
   @StarlarkMethod(

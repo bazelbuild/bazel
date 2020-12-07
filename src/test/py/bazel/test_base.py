@@ -69,6 +69,7 @@ class TestBase(unittest.TestCase):
       'remotejdk15_linux_for_testing',
       'remotejdk15_macos_for_testing',
       'remotejdk15_win_for_testing',
+      'remote_java_tools_for_testing',
       'remote_java_tools_darwin_for_testing',
       'remote_java_tools_linux_for_testing',
       'remote_java_tools_windows_for_testing',

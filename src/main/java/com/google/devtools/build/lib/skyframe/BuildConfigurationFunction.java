@@ -28,15 +28,16 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -105,17 +106,21 @@ public class BuildConfigurationFunction implements SkyFunction {
     ActionEnvironment actionEnvironment =
       ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(options);
 
-    BuildConfiguration config =
-        new BuildConfiguration(
-            directories,
-            fragmentsMap,
-            options,
-            key.getOptionsDiff(),
-            ruleClassProvider.getReservedActionMnemonics(),
-            actionEnvironment,
-            workspaceNameValue.getName(),
-            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
-    return new BuildConfigurationValue(config);
+    try {
+      return new BuildConfigurationValue(
+          new BuildConfiguration(
+              directories,
+              fragmentsMap,
+              options,
+              key.getOptionsDiff(),
+              ruleClassProvider.getReservedActionMnemonics(),
+              actionEnvironment,
+              workspaceNameValue.getName(),
+              starlarkSemantics.getBool(
+                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
+    } catch (InvalidMnemonicException e) {
+      throw new BuildConfigurationFunctionException(e);
+    }
   }
 
   private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key)
@@ -162,19 +167,20 @@ public class BuildConfigurationFunction implements SkyFunction {
 
   private Fragment makeFragment(FragmentKey fragmentKey) throws InvalidConfigurationException {
     BuildOptions buildOptions = fragmentKey.getBuildOptions();
-    ConfigurationFragmentFactory factory = getFactory(fragmentKey.getFragmentClass());
-    Fragment fragment = factory.create(buildOptions);
-    return fragment != null ? fragment : NULL_MARKER;
-  }
-
-  private ConfigurationFragmentFactory getFactory(Class<? extends Fragment> fragmentType) {
-    for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-      if (factory.creates().equals(fragmentType)) {
-        return factory;
+    Class<? extends Fragment> fragmentClass = fragmentKey.getFragmentClass();
+    String noConstructorPattern = "%s lacks constructor(BuildOptions)";
+    try {
+      Fragment fragment =
+          fragmentClass.getConstructor(BuildOptions.class).newInstance(buildOptions);
+      return fragment.shouldInclude() ? fragment : NULL_MARKER;
+    } catch (InvocationTargetException e) {
+      if (e.getCause() instanceof InvalidConfigurationException) {
+        throw (InvalidConfigurationException) e.getCause();
       }
+      throw new IllegalStateException(String.format(noConstructorPattern, fragmentClass), e);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(String.format(noConstructorPattern, fragmentClass), e);
     }
-    throw new IllegalStateException(
-        "There is no factory for fragment: " + fragmentType.getSimpleName());
   }
 
   @Override

@@ -31,17 +31,16 @@ import java.util.Set;
  */
 class ExtraActionUtils {
   /**
-   * Scans {@code action_listeners} associated with this build to see if any
-   * {@code extra_actions} should be added to this configured target. If any
-   * action_listeners are present, a partial visit of the artifact/action graph
-   * is performed (for as long as actions found are owned by this {@link
-   * ConfiguredTarget}). Any actions that match the {@code action_listener}
-   * get an {@code extra_action} associated. The output artifacts of the
-   * extra_action are reported to the {@link AnalysisEnvironment} for
-   * bookkeeping.
+   * Scans {@code action_listeners} associated with this build to see if any {@code extra_actions}
+   * should be added to this configured target. If any action_listeners are present, a partial visit
+   * of the artifact/action graph is performed (for as long as actions found are owned by this
+   * {@link ConfiguredTarget}). Any actions that match the {@code action_listener} get an {@code
+   * extra_action} associated. The output artifacts of the extra_action are reported to the {@link
+   * AnalysisEnvironment} for bookkeeping.
    */
   static ExtraActionArtifactsProvider createExtraActionProvider(
-      Set<ActionAnalysisMetadata> actionsWithoutExtraAction, RuleContext ruleContext) {
+      Set<ActionAnalysisMetadata> actionsWithoutExtraAction, RuleContext ruleContext)
+      throws InterruptedException {
     BuildConfiguration configuration = ruleContext.getConfiguration();
     if (configuration.isToolConfiguration()) {
       return ExtraActionArtifactsProvider.EMPTY;

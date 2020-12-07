@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,6 +67,12 @@ public abstract class Worker {
   }
 
   /**
+   * Sets the reporter this {@code Worker} should report anomalous events to, or clears it. We
+   * expect the reporter to be cleared at end of build.
+   */
+  void setReporter(EventHandler reporter) {}
+
+  /**
    * Performs the necessary steps to prepare for execution. Once this is done, the worker should be
    * able to receive a WorkRequest without further setup.
    */
@@ -79,9 +86,8 @@ public abstract class Worker {
    * @param request The request to send.
    * @throws IOException If there was a problem doing I/O, or this thread was interrupted at a time
    *     where some or all of the expected I/O has been done.
-   * @throws InterruptedException If this thread was interrupted before doing any I/O.
    */
-  abstract void putRequest(WorkRequest request) throws IOException, InterruptedException;
+  abstract void putRequest(WorkRequest request) throws IOException;
 
   /**
    * Waits to receive a response from the worker. This method should return as soon as a response

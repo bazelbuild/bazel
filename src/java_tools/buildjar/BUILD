@@ -57,11 +57,10 @@ filegroup(
 # This toolchain is used to bootstrap Bazel.
 java_toolchain(
     name = "bootstrap_toolchain",
-    bootclasspath = ["//tools/jdk:platformclasspath.jar"],
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath.jar"],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
     jvm_opts = [
         # Prevent "Could not reserve enough space for object heap" errors on Windows.
         "-Xmx512m",

@@ -5,8 +5,6 @@ title: Platforms
 
 # Platforms
 
-## Overview
-
 Bazel can build and test code on a variety of hardware, operating systems, and
 system configurations, using many different versions of build tools such as
 linkers and compilers. To help manage this complexity, Bazel has a concept of

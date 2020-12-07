@@ -825,9 +825,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(getGeneratingAction(getBinArtifact("A_deploy.jar", ct))).isNotNull();
   }
 
-  /**
-   * Regression test: ClassCastException in SkyframeLabelVisitor.updateRootCauses.
-   */
+  /** Regression test for b/14248208. */
   @Test
   public void testDepOnGoodTargetInBadPkgAndTransitivelyBadTarget() throws Exception {
     reporter.removeHandler(failFastHandler);

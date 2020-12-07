@@ -51,7 +51,7 @@ public class WorkRequestHandler implements AutoCloseable {
   /** This worker's stderr. */
   private final PrintStream stderr;
 
-  private final WorkerMessageProcessor messageProcessor;
+  final WorkerMessageProcessor messageProcessor;
 
   /**
    * Creates a {@code WorkRequestHandler} that will call {@code callback} for each WorkRequest

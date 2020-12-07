@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.io.IOException;
@@ -84,14 +85,52 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     assertThat(result).containsExactly("-wololoo");
   }
 
-  private void writeRuleReturning(String s) throws IOException {
+  @Test
+  public void testExpandedApiBlocked() throws Exception {
+    writeRuleReturning("foo", "pic.bzl", "pic", "ctx.fragments.cpp.force_pic()");
+    writeRuleReturning("foo", "lcov.bzl", "lcov", "ctx.fragments.cpp.generate_llvm_lcov()");
+    writeRuleReturning("foo", "fdo.bzl", "fdo", "ctx.fragments.cpp.fdo_instrument()");
+    writeRuleReturning(
+        "foo", "hdr_deps.bzl", "hdr_deps", "ctx.fragments.cpp.process_headers_in_dependencies()");
+    writeRuleReturning("foo", "save.bzl", "save", "ctx.fragments.cpp.save_feature_state()");
+    writeRuleReturning(
+        "foo",
+        "fission.bzl",
+        "fission",
+        "ctx.fragments.cpp.fission_active_for_current_compilation_mode()");
+    AssertionError e;
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:pic"));
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'force_pic'");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lcov"));
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'generate_llvm_lcov'");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fdo"));
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'fdo_instrument'");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:hdr_deps"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Rule in 'foo' cannot use 'process_headers_in_dependencies'");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:save"));
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'save_feature_state'");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fission"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Rule in 'foo' cannot use 'fission_active_for_current_compilation_mode'");
+  }
+
+  private void writeRuleReturning(String returns) throws IOException {
+    writeRuleReturning("foo", "lib.bzl", "bar", returns);
+  }
+
+  private void writeRuleReturning(String path, String lib, String target, String returns)
+      throws IOException {
     scratch.file(
-        "foo/lib.bzl",
+        path + "/" + lib,
         "def _impl(ctx):",
         "  return struct(",
-        "    result = " + s,
+        "    result = " + returns,
         "  )",
         "foo = rule(implementation=_impl, fragments = ['cpp'])");
-    scratch.file("foo/BUILD", "load(':lib.bzl', 'foo')", "foo(name='bar')");
+    scratch.appendFile(
+        path + "/BUILD", "load(':" + lib + "', 'foo')", "foo(name='" + target + "')");
   }
 }

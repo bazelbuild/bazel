@@ -541,7 +541,7 @@ would be <code>$(WORKSPACE)/foo/bar/unittest.runfiles/$(WORKSPACE)/deps/server/s
 The destination of the symlink is the OutputFileName() of the OutputFile or CommandRule,
 expressed as an absolute path. Thus, the destination of the symlink might be
 <code>$(WORKSPACE)/linux-dbg/deps/server/42/server</code>.</li>
-  <li><b>Symlinks to sub-runfiles</b>: for every *_binary() Z that is a run-time depdendency of
+  <li><b>Symlinks to sub-runfiles</b>: for every *_binary() Z that is a run-time dependency of
 *_binary() C, there is a second link in the runfiles directory of C to the runfiles of Z.
 The name of the symlink is <code>$(WORKSPACE)/package_name/rule_name.runfiles</code>.
 The target of the symlink is the runfiles directory. I.e. all subprograms share a common

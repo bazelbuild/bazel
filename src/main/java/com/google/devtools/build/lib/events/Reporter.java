@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
-import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import net.starlark.java.syntax.Location;
 
@@ -58,13 +57,6 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   private EventHandler ansiAllowingHandler;
   private EventHandler ansiStrippingHandler;
   private boolean ansiAllowingHandlerRegistered;
-  private final HashSet<String> eventsShown = new HashSet<>();
-
-  /**
-   * The tag that indicates to the reporter to show this event exactly once, regardless of the
-   * output filter, and to suppress this event if it's a duplicate of another event with this tag.
-   */
-  public static final String SHOW_ONCE_TAG = "showOnce";
 
   public Reporter(EventBus eventBus) {
     this.eventBus = eventBus;
@@ -126,16 +118,8 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     if (e.getKind() != EventKind.ERROR
         && e.getKind() != EventKind.DEBUG
         && e.getTag() != null
-        && !e.getTag().equals(SHOW_ONCE_TAG)
         && !showOutput(e.getTag())) {
       return;
-    }
-
-    if (SHOW_ONCE_TAG.equals(e.getTag())) {
-      if (eventsShown.contains(e.toString())) {
-        return;
-      }
-      eventsShown.add(e.toString());
     }
 
     for (EventHandler handler : eventHandlers) {

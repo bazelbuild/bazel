@@ -33,7 +33,8 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   }
 
   @Override
-  DepSetOfFiles createProto(Object nestedSetObject, int id) throws IOException {
+  DepSetOfFiles createProto(Object nestedSetObject, int id)
+      throws IOException, InterruptedException {
     NestedSet<?> nestedSet = (NestedSet) nestedSetObject;
     DepSetOfFiles.Builder depSetBuilder = DepSetOfFiles.newBuilder().setId(id);
     for (NestedSet<?> succ : nestedSet.getNonLeaves()) {

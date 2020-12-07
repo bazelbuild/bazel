@@ -193,7 +193,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
   @Nullable
   private static ConfiguredTarget createTarget(StarlarkRuleContext context, Object target)
-      throws EvalException, RuleErrorException, ActionConflictException {
+      throws EvalException, InterruptedException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(
         context.getRuleContext());
     // Set the default files to build.

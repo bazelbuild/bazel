@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 
 /** Factory method for producing {@link Interrupted}-type {@link FailureDetail} messages. */
 public class InterruptedFailureDetails {
@@ -23,14 +24,14 @@ public class InterruptedFailureDetails {
   private InterruptedFailureDetails() {}
 
   /**
-   * Returns a {@link DetailedExitCode} with {@link ExitCode#INTERRUPTED} and {@link FailureDetail}
-   * having the provided message and {@link Interrupted.Code}.
+   * Returns a {@link DetailedExitCode} with {@link ExitCode#INTERRUPTED}, {@link
+   * Interrupted.Code#INTERRUPTED}, and the provided detail message.
    */
-  public static DetailedExitCode detailedExitCode(String message, Interrupted.Code detailedCode) {
+  public static DetailedExitCode detailedExitCode(String message) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(message)
-            .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
+            .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
             .build());
   }
 
@@ -38,13 +39,12 @@ public class InterruptedFailureDetails {
    * Returns an {@link AbruptExitException} with a {@link DetailedExitCode} from {@link
    * #detailedExitCode}.
    */
-  public static AbruptExitException abruptExitException(
-      String message, Interrupted.Code detailedCode) {
+  public static AbruptExitException abruptExitException(String message) {
     return new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setMessage(message)
-                .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
+                .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
                 .build()));
   }
 
@@ -52,13 +52,12 @@ public class InterruptedFailureDetails {
    * Returns an {@link AbruptExitException} with a {@link DetailedExitCode} from {@link
    * #detailedExitCode} and the provided {@code cause}.
    */
-  public static AbruptExitException abruptExitException(
-      String message, Interrupted.Code detailedCode, Exception cause) {
+  public static AbruptExitException abruptExitException(String message, Exception cause) {
     return new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setMessage(message)
-                .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
+                .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
                 .build()),
         cause);
   }

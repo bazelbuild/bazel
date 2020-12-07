@@ -28,12 +28,14 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;
@@ -42,7 +44,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -94,9 +95,11 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
       Map<Path, ListenableFuture<Void>> downloadsToWaitFor = new HashMap<>();
       for (ActionInput input : inputs) {
         if (input instanceof VirtualActionInput) {
-          VirtualActionInput virtualActionInput = (VirtualActionInput) input;
-          Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
-          SandboxHelpers.atomicallyWriteVirtualInput(virtualActionInput, outputPath, ".remote");
+          if (!(input instanceof EmptyActionInput)) {
+            VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+            Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
+            SandboxHelpers.atomicallyWriteVirtualInput(virtualActionInput, outputPath, ".remote");
+          }
         } else {
           FileArtifactValue metadata = metadataProvider.getMetadata(input);
           if (metadata == null || !metadata.isRemote()) {
@@ -145,14 +148,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
   void downloadFile(Path path, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    try {
-      downloadFileAsync(path, metadata).get();
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new IOException(e.getCause());
-    }
+    Utils.getFromFuture(downloadFileAsync(path, metadata));
   }
 
   private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata)

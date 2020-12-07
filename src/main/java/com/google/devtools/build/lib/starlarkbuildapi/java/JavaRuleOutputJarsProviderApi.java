@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -37,6 +38,7 @@ public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?
       doc = "The jdeps file for rule outputs.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileApi getJdeps();
 
   @StarlarkMethod(
@@ -44,5 +46,6 @@ public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?
       doc = "An archive of native header files.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileApi getNativeHeaders();
 }

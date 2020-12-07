@@ -17,7 +17,6 @@ package net.starlark.java.eval;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -126,8 +125,6 @@ public final class StarlarkThread {
     @Nullable
     final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
 
-    int compcount = 0; // number of enclosing comprehensions
-
     Object result = Starlark.NONE; // the operand of a Starlark return statement
 
     // Current PC location. Initially fn.getLocation(); for Starlark functions,
@@ -138,8 +135,9 @@ public final class StarlarkThread {
     // location (loc) should not be overrwritten.
     private boolean errorLocationSet;
 
-    // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
-    Map<String, Object> locals;
+    // The locals of this frame, if fn is a StarlarkFunction, otherwise null.
+    // Set by StarlarkFunction.fastcall.
+    @Nullable Object[] locals;
 
     @Nullable private Object profileSpan; // current span of walltime call profiler
 
@@ -179,7 +177,16 @@ public final class StarlarkThread {
 
     @Override
     public ImmutableMap<String, Object> getLocals() {
-      return ImmutableMap.copyOf(this.locals);
+      // TODO(adonovan): provide a more efficient API.
+      ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+      if (fn instanceof StarlarkFunction) {
+        for (int i = 0; i < locals.length; i++) {
+          if (locals[i] != null) {
+            env.put(((StarlarkFunction) fn).rfn.getLocals().get(i).getName(), locals[i]);
+          }
+        }
+      }
+      return env.build();
     }
 
     @Override
@@ -190,6 +197,9 @@ public final class StarlarkThread {
 
   /** The semantics options that affect how Starlark code is evaluated. */
   private final StarlarkSemantics semantics;
+
+  /** Whether recursive calls are allowed (cached from semantics). */
+  private final boolean allowRecursion;
 
   /** PrintHandler for Starlark print statements. */
   private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
@@ -211,14 +221,6 @@ public final class StarlarkThread {
     // Notify debug tools of the thread's first push.
     if (callstack.size() == 1 && Debug.threadHook != null) {
       Debug.threadHook.onPushFirst(this);
-    }
-
-    if (fn instanceof StarlarkFunction) {
-      StarlarkFunction sfn = (StarlarkFunction) fn;
-      fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getParameterNames().size());
-    } else {
-      // built-in function
-      fr.locals = ImmutableMap.of();
     }
 
     fr.loc = fn.getLocation();
@@ -375,6 +377,7 @@ public final class StarlarkThread {
     Preconditions.checkArgument(!mu.isFrozen());
     this.mutability = mu;
     this.semantics = semantics;
+    this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
   }
 
   /**
@@ -396,6 +399,11 @@ public final class StarlarkThread {
 
   public StarlarkSemantics getSemantics() {
     return semantics;
+  }
+
+  /** Reports whether this thread is allowed to make recursive calls. */
+  public boolean isRecursionAllowed() {
+    return allowRecursion;
   }
 
   // Implementation of Debug.getCallStack.

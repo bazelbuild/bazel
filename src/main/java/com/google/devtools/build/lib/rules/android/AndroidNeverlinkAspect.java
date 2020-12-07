@@ -52,7 +52,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
       RuleContext ruleContext,
       AspectParameters parameters,
       String toolsRepository)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
       return new ConfiguredAspect.Builder(ruleContext).build();

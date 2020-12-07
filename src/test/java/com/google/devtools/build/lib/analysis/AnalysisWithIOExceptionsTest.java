@@ -67,4 +67,18 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
         TargetParsingException.class,
         () -> update(new FlagBuilder().with(Flag.KEEP_GOING), "//a:a"));
   }
+
+  @Test
+  public void testGlobExceptionWithCrossingLabel() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    Path buildPath =
+        scratch.file(
+            "foo/BUILD",
+            "sh_library(name = 'foo', srcs = glob(['subdir/*.sh']))",
+            "sh_library(name = 'crosses/directory', srcs = ['foo.sh'])");
+    scratch.file("top/BUILD", "sh_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
+    Path errorPath = buildPath.getParentDirectory().getChild("subdir");
+    crashMessage = path -> errorPath.equals(path) ? "custom crash: bork" : null;
+    assertThrows(ViewCreationFailedException.class, () -> update("//top:top"));
+  }
 }

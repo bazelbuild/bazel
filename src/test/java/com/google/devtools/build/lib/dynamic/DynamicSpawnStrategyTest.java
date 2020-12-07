@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsParser;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -217,8 +218,7 @@ public class DynamicSpawnStrategyTest {
 
   @Before
   public void setUp() throws Exception {
-    testRoot = FileSystems.getNativeFileSystem().getPath(TestUtils.tmpDir()).getRelative("test");
-    testRoot.deleteTreesBelow();
+    testRoot = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
     outErr = new FileOutErr(testRoot.getRelative("stdout"), testRoot.getRelative("stderr"));
   }
 
@@ -399,6 +399,13 @@ public class DynamicSpawnStrategyTest {
   public void tearDown() throws Exception {
     if (executorServiceForCleanup != null) {
       executorServiceForCleanup.shutdownNow();
+    }
+    if (testRoot != null) {
+      try {
+        testRoot.deleteTree();
+      } catch (FileNotFoundException e) {
+        // This can happen if one of the dynamic threads are still cleaning up. No big deal.
+      }
     }
   }
 

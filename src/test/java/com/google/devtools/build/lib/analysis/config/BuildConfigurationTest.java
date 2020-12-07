@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -347,6 +348,24 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
             "qspace=a\\ quoted\\ space",
             "--define",
             "#a=pounda"));
+  }
+
+  @Test
+  public void throwsOnBadMnemonic() {
+    InvalidMnemonicException e =
+        assertThrows(InvalidMnemonicException.class, () -> create("--cpu=//bad/cpu"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Output directory name '//bad/cpu' specified by CppConfiguration is invalid as part of"
+                + " a path: must not contain /");
+    e =
+        assertThrows(
+            InvalidMnemonicException.class, () -> create("--platform_suffix=//bad/suffix"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Platform suffix '//bad/suffix' is invalid as part of a path: must not contain /");
   }
 
   @Test

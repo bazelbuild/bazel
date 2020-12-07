@@ -23,6 +23,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the C++ toolchain. */
 @StarlarkBuiltin(
@@ -113,6 +114,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "C++ compiler.",
       allowReturnNones = true)
+  @Nullable
   public String getCompiler();
 
   @StarlarkMethod(
@@ -120,6 +122,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "libc version string.",
       allowReturnNones = true)
+  @Nullable
   public String getTargetLibc();
 
   @StarlarkMethod(
@@ -127,6 +130,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "Target CPU of the C++ toolchain.",
       allowReturnNones = true)
+  @Nullable
   public String getTargetCpu();
 
   @StarlarkMethod(
@@ -134,5 +138,37 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true,
       doc = "The GNU System Name.",
       allowReturnNones = true)
+  @Nullable
   public String getTargetGnuSystemName();
+
+  @StarlarkMethod(name = "as_files", documented = false, useStarlarkThread = true)
+  Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "ar_files", documented = false, useStarlarkThread = true)
+  Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "objcopy_files", documented = false, useStarlarkThread = true)
+  Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "tool_path",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true,
+      parameters = {@Param(name = "tool", positional = false, named = true)})
+  @Nullable
+  String getToolPathStringOrNoneForStarlark(String tool, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(name = "solib_dir", documented = false, useStarlarkThread = true)
+  String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "dynamic_runtime_solib_dir", documented = false, useStarlarkThread = true)
+  String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "linker_files", documented = false, useStarlarkThread = true)
+  Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "coverage_files", documented = false, useStarlarkThread = true)
+  Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException;
 }

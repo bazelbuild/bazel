@@ -3,23 +3,29 @@ layout: documentation
 title: Configuring C++ toolchains
 ---
 
-# Configuring C++ toolchains
-
-## Overview
+# Bazel Tutorial: Configure C++ toolchains
 
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project. It's based on an
 [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
 that builds error-free using `clang`.
 
-In this tutorial, you will create a Starlark rule that provides additional
-configuration for the `cc_toolchain` so that Bazel can build the application
-with `clang`. The expected outcome is to run
-`bazel build --config=clang_config //main:hello-world` on a Linux machine and
-build the C++ application. For additional details please visit
-[C++ toolchain configuration](../cc-toolchain-config-reference.html)
+## What you'll learn
 
-## Setting up the build environment
+In this tutorial you learn how to:
+
+*  Set up the build environment
+*  Configure the C++ toolchain
+*  Create a Starlark rule that provides additional
+configuration for the `cc_toolchain` so that Bazel can build the application
+with `clang`
+*  Confirm expected outcome by running
+`bazel build --config=clang_config //main:hello-world` on a Linux machine
+*  Build the C++ application
+
+## Before you begin
+
+### Set up the build environment
 
 This tutorial assumes you are on Linux on which you have successfully built
 C++ applications - in other words, we assume that appropriate tooling and
@@ -460,10 +466,10 @@ slightly between different versions of clang.
 10. If you run `bazel build --config=clang_config //main:hello-world`, it should
     finally build.
 
-In this tutorial you have learned how to configure a basic C++ toolchain. But
-toolchains are much more powerful than this simple example. You can visit
-[C++ toolchain configuration](../cc-toolchain-config-reference.html)
-to learn more about them.
+## Review your work
+
+In this tutorial you learned how to configure a basic C++ toolchain, but
+toolchains are more powerful than this simple example.
 
 The key take-aways are:
 - You need to specify a `--crosstool_top` flag in the command line which should
@@ -481,3 +487,7 @@ The key take-aways are:
   `compiler_files`. The `tool_paths` would need to be changed as well.
 - You can create features to customize which flags should be passed to different
   actions, be it linking or any other type of action.
+
+## Further reading
+
+For more details, see [C++ toolchain configuration](../cc-toolchain-config-reference.html)

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildtool.AqueryBuildTool.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
+import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -42,7 +43,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   private ImmutableMap<String, QueryFunction> functions;
 
   @Before
-  public final void setFunctions() throws Exception {
+  public final void setFunctions() {
     ImmutableMap.Builder<String, QueryFunction> builder = ImmutableMap.builder();
 
     for (QueryFunction queryFunction : ActionGraphQueryEnvironment.FUNCTIONS) {
@@ -54,6 +55,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     }
 
     functions = builder.build();
+    runtimeWrapper.addOptionsClass(AqueryOptions.class);
   }
 
   @Test

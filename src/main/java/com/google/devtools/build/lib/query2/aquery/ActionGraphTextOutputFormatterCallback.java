@@ -98,7 +98,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
-      throws IOException, CommandLineExpansionException {
+      throws IOException, CommandLineExpansionException, InterruptedException {
     if (options.includeParamFiles && action instanceof ParameterFileWriteAction) {
       ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
 

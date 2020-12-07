@@ -17,9 +17,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.util.Collection;
 import java.util.Objects;
@@ -33,15 +30,12 @@ import javax.annotation.Nullable;
 public class ErrorInfo {
 
   /** Create an ErrorInfo from a {@link ReifiedSkyFunctionException}. */
-  public static ErrorInfo fromException(ReifiedSkyFunctionException skyFunctionException,
-      boolean isTransitivelyTransient) {
-    SkyKey rootCauseSkyKey = skyFunctionException.getRootCauseSkyKey();
+  public static ErrorInfo fromException(
+      ReifiedSkyFunctionException skyFunctionException, boolean isTransitivelyTransient) {
     Exception rootCauseException = skyFunctionException.getCause();
     return new ErrorInfo(
-        NestedSetBuilder.create(Order.STABLE_ORDER, rootCauseSkyKey),
         Preconditions.checkNotNull(rootCauseException, "Cause is null"),
-        rootCauseSkyKey,
-        /*cycles=*/ ImmutableList.<CycleInfo>of(),
+        /*cycles=*/ ImmutableList.of(),
         skyFunctionException.isTransient(),
         isTransitivelyTransient || skyFunctionException.isTransient(),
         skyFunctionException.isCatastrophic());
@@ -50,9 +44,7 @@ public class ErrorInfo {
   /** Create an ErrorInfo from a {@link CycleInfo}. */
   public static ErrorInfo fromCycle(CycleInfo cycleInfo) {
     return new ErrorInfo(
-        /*rootCauses=*/ NestedSetBuilder.<SkyKey>emptySet(Order.STABLE_ORDER),
         /*exception=*/ null,
-        /*rootCauseOfException=*/ null,
         ImmutableList.of(cycleInfo),
         /*isDirectlyTransient=*/ false,
         /*isTransitivelyTransient=*/ false,
@@ -65,38 +57,29 @@ public class ErrorInfo {
     Preconditions.checkState(
         !childErrors.isEmpty(), "childErrors may not be empty %s", currentValue);
 
-    NestedSetBuilder<SkyKey> rootCausesBuilder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
     Exception firstException = null;
-    SkyKey firstChildKey = null;
     boolean isTransitivelyTransient = false;
     boolean isCatastrophic = false;
     for (ErrorInfo child : childErrors) {
       if (firstException == null) {
         // Arbitrarily pick the first error.
         firstException = child.getException();
-        firstChildKey = child.getRootCauseOfException();
       }
-      rootCausesBuilder.addTransitive(child.rootCauses);
       cycleBuilder.addAll(CycleInfo.prepareCycles(currentValue, child.cycles));
       isTransitivelyTransient |= child.isTransitivelyTransient();
       isCatastrophic |= child.isCatastrophic();
     }
 
     return new ErrorInfo(
-        rootCausesBuilder.build(),
         firstException,
-        firstChildKey,
         cycleBuilder.build(),
         /*isDirectlyTransient=*/ false,
         isTransitivelyTransient,
         isCatastrophic);
   }
 
-  private final NestedSet<SkyKey> rootCauses;
-
   @Nullable private final Exception exception;
-  private final SkyKey rootCauseOfException;
 
   private final ImmutableList<CycleInfo> cycles;
 
@@ -105,22 +88,15 @@ public class ErrorInfo {
   private final boolean isCatastrophic;
 
   public ErrorInfo(
-      NestedSet<SkyKey> rootCauses,
       @Nullable Exception exception,
-      SkyKey rootCauseOfException,
       ImmutableList<CycleInfo> cycles,
       boolean isDirectlyTransient,
       boolean isTransitivelyTransient,
       boolean isCatastrophic) {
     Preconditions.checkState(exception != null || !Iterables.isEmpty(cycles),
         "At least one of exception and cycles must be non-null/empty, respectively");
-    Preconditions.checkState((exception == null) == (rootCauseOfException == null),
-        "exception and rootCauseOfException must both be null or non-null, got %s  %s",
-        exception, rootCauseOfException);
 
-    this.rootCauses = rootCauses;
     this.exception = exception;
-    this.rootCauseOfException = rootCauseOfException;
     this.cycles = cycles;
     this.isDirectlyTransient = isDirectlyTransient;
     this.isTransitivelyTransient = isTransitivelyTransient;
@@ -137,14 +113,6 @@ public class ErrorInfo {
     }
 
     ErrorInfo other = (ErrorInfo) obj;
-    if (rootCauses != other.rootCauses) {
-      if (rootCauses == null || other.rootCauses == null) {
-        return false;
-      }
-      if (!rootCauses.shallowEquals(other.rootCauses)) {
-        return false;
-      }
-    }
 
     if (!Objects.equals(cycles, other.cycles)) {
       return false;
@@ -165,10 +133,6 @@ public class ErrorInfo {
       }
     }
 
-    if (!Objects.equals(rootCauseOfException, other.rootCauseOfException)) {
-      return false;
-    }
-
     return isDirectlyTransient == other.isDirectlyTransient
         && isTransitivelyTransient == other.isTransitivelyTransient
         && isCatastrophic == other.isCatastrophic;
@@ -179,35 +143,21 @@ public class ErrorInfo {
     return Objects.hash(
         exception == null ? null : exception.getClass(),
         exception == null ? "" : exception.getMessage(),
-        rootCauseOfException,
         cycles,
         isDirectlyTransient,
         isTransitivelyTransient,
-        isCatastrophic,
-        rootCauses == null ? 0 : rootCauses.shallowHashCode());
+        isCatastrophic);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("exception", exception)
-        .add("rootCauses", rootCauses)
         .add("cycles", cycles)
         .add("isCatastrophic", isCatastrophic)
-        .add("rootCauseOfException", rootCauseOfException)
         .add("isDirectlyTransient", isDirectlyTransient)
         .add("isTransitivelyTransient", isTransitivelyTransient)
         .toString();
-  }
-
-  /**
-   * The root causes of a value that failed to build are its descendant values that failed to build.
-   * If a value's descendants all built successfully, but it failed to, its root cause will be
-   * itself. If a value depends on a cycle, but has no other errors, this method will return the
-   * empty set.
-   */
-  public NestedSet<SkyKey> getRootCauses() {
-    return rootCauses;
   }
 
   /**
@@ -220,10 +170,6 @@ public class ErrorInfo {
    */
   @Nullable public Exception getException() {
     return exception;
-  }
-
-  public SkyKey getRootCauseOfException() {
-    return rootCauseOfException;
   }
 
   /**

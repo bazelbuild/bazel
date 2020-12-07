@@ -448,7 +448,7 @@ public final class MethodLibraryTest {
   public void testDictionaryPopItem() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "popitem(): dictionary is empty",
+            "popitem: empty dictionary",
             "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
                 + "len(d) == 3 or fail('popitem 0')\n"
                 + "d.popitem() == (2, 'bar') or fail('popitem 2')\n"

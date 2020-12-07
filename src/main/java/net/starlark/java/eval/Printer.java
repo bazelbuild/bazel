@@ -64,6 +64,18 @@ public class Printer {
     return this;
   }
 
+  /** Appends an integer to the printer's buffer */
+  public final Printer append(int i) {
+    buffer.append(i);
+    return this;
+  }
+
+  /** Appends a long integer to the printer's buffer */
+  public final Printer append(long l) {
+    buffer.append(l);
+    return this;
+  }
+
   /**
    * Appends a list to the printer's buffer. List elements are rendered with {@code repr}.
    *

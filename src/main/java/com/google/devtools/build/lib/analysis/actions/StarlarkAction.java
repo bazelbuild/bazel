@@ -210,7 +210,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   }
 
   @Override
-  Spawn getSpawnForExtraAction() throws CommandLineExpansionException {
+  Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
     return getSpawn(allInputs);
   }
 

@@ -104,7 +104,7 @@ public final class AnalysisTestUtil {
     }
 
     /** Calls {@link MutableActionGraph#registerAction} for all collected actions. */
-    public void registerWith(MutableActionGraph actionGraph) {
+    public void registerWith(MutableActionGraph actionGraph) throws InterruptedException {
       for (ActionAnalysisMetadata action : actions) {
         try {
           actionGraph.registerAction(action);

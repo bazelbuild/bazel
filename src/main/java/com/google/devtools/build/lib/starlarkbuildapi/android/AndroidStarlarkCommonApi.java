@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -54,6 +55,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
             positional = true,
             named = false)
       })
+  @Nullable
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @StarlarkMethod(

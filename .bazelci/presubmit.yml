@@ -12,6 +12,9 @@ tasks:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
+      - "//:bazel-distfile.zip"
+      - "//scripts/packages/debian:bazel-debian.deb"
+      - "//scripts/packages:with-jdk/install.sh"
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
@@ -282,3 +285,13 @@ tasks:
       # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+  kythe_ubuntu2004:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
+      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    index_flags:
+    - "--define=kythe_corpus=github.com/bazelbuild/bazel"
+    index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
+    index_upload_policy: Always
+    index_upload_gcs: False

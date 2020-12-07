@@ -44,12 +44,12 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.TriState;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -313,26 +314,23 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         workspace.initCommand(
             commandAnnotation, options, commandEnvWarnings, waitTimeInMs, firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
-    // If an option is specified explicitly, we give that preference.
-    boolean commandSupportsProfile =
-        (commandAnnotation.builds() || "query".equals(commandName))
-            && !"clean".equals(commandName)
-            && !"info".equals(commandName);
-    boolean profileExplicitlyDisabled =
-        options.containsExplicitOption("experimental_generate_json_trace_profile")
-            && !commonOptions.enableTracer;
-    if (commandSupportsProfile && !profileExplicitlyDisabled) {
-      commonOptions.enableTracer = true;
-      if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
-        commonOptions.enableCpuUsageProfiling = true;
-      }
+    boolean tracerEnabled = false;
+    if (commonOptions.enableTracer == TriState.YES) {
+      tracerEnabled = true;
+    } else if (commonOptions.enableTracer == TriState.AUTO) {
+      boolean commandSupportsProfile =
+          (commandAnnotation.builds() || "query".equals(commandName))
+              && !"clean".equals(commandName)
+              && !"info".equals(commandName);
+      tracerEnabled = commandSupportsProfile || commonOptions.profilePath != null;
     }
+
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
     // the afterCommand call in the finally block below.
     ProfilerStartedEvent profilerStartedEvent =
         runtime.initProfiler(
+            tracerEnabled,
             storedEventHandler,
             workspace,
             commonOptions,
@@ -541,8 +539,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           Thread.currentThread().interrupt();
           String message = "command interrupted while syncing package loading";
           reporter.handle(Event.error(message));
-          earlyExitCode =
-              InterruptedFailureDetails.detailedExitCode(message, Code.PACKAGE_LOADING_SYNC);
+          earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
         } catch (AbruptExitException e) {
           logger.atInfo().withCause(e).log("Error package loading");
           reporter.handle(Event.error(e.getMessage()));
@@ -621,6 +618,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
         }
       }
+
+      try {
+        Profiler.instance().stop();
+        MemoryProfiler.instance().stop();
+      } catch (IOException e) {
+        env.getReporter()
+            .handle(Event.error("Error while writing profile file: " + e.getMessage()));
+      }
+
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());
       Flushables.flushQuietly(outErr.getErrorStream());

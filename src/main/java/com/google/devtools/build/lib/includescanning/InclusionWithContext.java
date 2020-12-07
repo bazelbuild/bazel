@@ -59,7 +59,7 @@ class InclusionWithContext {
    *        #include_next} inclusion
    */
   InclusionWithContext(String name, Kind kind) {
-    this(new Inclusion(name, kind), -1, null);
+    this(Inclusion.create(name, kind), -1, null);
   }
 
   Inclusion getInclusion() {

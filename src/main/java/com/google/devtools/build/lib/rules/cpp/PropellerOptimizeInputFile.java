@@ -29,7 +29,7 @@ public final class PropellerOptimizeInputFile implements HasFileType {
   private final Artifact ccArtifact;
   private final Artifact ldArtifact;
 
-  private PropellerOptimizeInputFile(Artifact ccArtifact, Artifact ldArtifact) {
+  public PropellerOptimizeInputFile(Artifact ccArtifact, Artifact ldArtifact) {
     Preconditions.checkArgument((ccArtifact != null) || (ldArtifact != null));
     this.ccArtifact = ccArtifact;
     this.ldArtifact = ldArtifact;
@@ -67,18 +67,11 @@ public final class PropellerOptimizeInputFile implements HasFileType {
     return Objects.hash(ccArtifact, ldArtifact);
   }
 
-  public static Artifact getAbsolutePathArtifact(RuleContext ruleContext, String attributeName) {
+  public static Artifact createAbsoluteArtifact(
+      RuleContext ruleContext, PathFragment absolutePath) {
     if (!ruleContext.getFragment(CppConfiguration.class).isFdoAbsolutePathEnabled()) {
-      ruleContext.attributeError(
-          attributeName,
-          "this attribute cannot be used when --enable_fdo_profile_absolute_path is false");
-      return null;
-    }
-    String pathString = ruleContext.getExpander().expand(attributeName);
-    PathFragment absolutePath = PathFragment.create(pathString);
-    if (!absolutePath.isAbsolute()) {
-      ruleContext.attributeError(
-          attributeName, String.format("%s is not an absolute path", absolutePath.getPathString()));
+      ruleContext.ruleError(
+          "absolute paths cannot be used when --enable_fdo_profile_absolute_path is false");
       return null;
     }
     Artifact artifact =
@@ -91,6 +84,17 @@ public final class PropellerOptimizeInputFile implements HasFileType {
             artifact,
             "Symlinking LLVM Propeller Profile " + absolutePath.getPathString()));
     return artifact;
+  }
+
+  public static Artifact getAbsolutePathArtifact(RuleContext ruleContext, String attributeName) {
+    String pathString = ruleContext.getExpander().expand(attributeName);
+    PathFragment absolutePath = PathFragment.create(pathString);
+    if (!absolutePath.isAbsolute()) {
+      ruleContext.attributeError(
+          attributeName, String.format("%s is not an absolute path", absolutePath.getPathString()));
+      return null;
+    }
+    return createAbsoluteArtifact(ruleContext, absolutePath);
   }
 
   public static PropellerOptimizeInputFile fromProfileRule(RuleContext ruleContext) {

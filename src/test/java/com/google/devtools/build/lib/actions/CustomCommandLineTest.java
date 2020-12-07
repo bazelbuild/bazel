@@ -820,7 +820,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testCombinedArgs() {
+  public void testCombinedArgs() throws Exception {
     CustomCommandLine cl =
         builder()
             .add("--arg")
@@ -889,7 +889,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testTreeFileArtifactExecPathArgs() {
+  public void testTreeFileArtifactExecPathArgs() throws Exception {
     SpecialArtifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
     SpecialArtifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
@@ -948,7 +948,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testKeyComputation() {
+  public void testKeyComputation() throws Exception {
     NestedSet<String> values = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
     ImmutableList<CustomCommandLine> commandLines =
         ImmutableList.<CustomCommandLine>builder()

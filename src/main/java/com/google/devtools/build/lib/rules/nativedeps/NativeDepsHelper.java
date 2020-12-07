@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.NATIVE_DEPS_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 
 import com.google.common.base.Preconditions;
@@ -211,7 +212,8 @@ public abstract class NativeDepsHelper {
     ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
         ImmutableSortedSet.<String>naturalOrder()
             .addAll(ruleContext.getFeatures())
-            .add(STATIC_LINKING_MODE);
+            .add(STATIC_LINKING_MODE)
+            .add(NATIVE_DEPS_LINK);
     if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
       requestedFeaturesBuilder.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
     }

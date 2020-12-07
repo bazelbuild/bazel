@@ -118,7 +118,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected List<String> resourceArguments(ValidatedAndroidResources resource)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     return getGeneratingSpawnActionArgs(resource.getApk());
   }
 

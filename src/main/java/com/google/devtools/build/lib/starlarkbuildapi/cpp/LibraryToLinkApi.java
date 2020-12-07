@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -35,6 +36,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       doc = "<code>List</code> of object files in the library.",
       structField = true)
+  @Nullable
   Sequence<FileT> getObjectFilesForStarlark();
 
   @StarlarkMethod(
@@ -42,6 +44,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       doc = "<code>List</code> of pic object files in the library.",
       structField = true)
+  @Nullable
   Sequence<FileT> getPicObjectFilesForStarlark();
 
   @StarlarkMethod(
@@ -49,6 +52,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       doc = "<code>List</code> of LTO bitcode files in the library.",
       structField = true)
+  @Nullable
   Sequence<FileT> getLtoBitcodeFilesForStarlark();
 
   @StarlarkMethod(
@@ -56,6 +60,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       doc = "<code>List</code> of pic LTO bitcode files in the library.",
       structField = true)
+  @Nullable
   Sequence<FileT> getPicLtoBitcodeFilesForStarlark();
 
   @StarlarkMethod(
@@ -63,6 +68,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       doc = "<code>Artifact</code> of static library to be linked.",
       structField = true)
+  @Nullable
   FileT getStaticLibrary();
 
   @StarlarkMethod(
@@ -70,6 +76,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       allowReturnNones = true,
       doc = "<code>Artifact</code> of pic static library to be linked.",
       structField = true)
+  @Nullable
   FileT getPicStaticLibrary();
 
   @StarlarkMethod(
@@ -79,6 +86,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
               + "and used for linking if <code>interface_library</code> is not passed.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getDynamicLibrary();
 
   @StarlarkMethod(
@@ -88,6 +96,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
               + "<code>dynamic_library</code> is a symlink, otherwise this is None.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResolvedSymlinkDynamicLibrary();
 
   @StarlarkMethod(
@@ -95,6 +104,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       doc = "<code>Artifact</code> of interface library to be linked.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getInterfaceLibrary();
 
   @StarlarkMethod(
@@ -104,12 +114,12 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
               + "<code>interface_library</code> is a symlink, otherwise this is None.",
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResolvedSymlinkInterfaceLibrary();
 
   @StarlarkMethod(
       name = "alwayslink",
       doc = "Whether to link the static library/objects in the --whole_archive block.",
-      allowReturnNones = true,
       structField = true)
   boolean getAlwayslink();
 }

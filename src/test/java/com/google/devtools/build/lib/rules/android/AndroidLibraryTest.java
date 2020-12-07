@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getClasspath;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getCompileTimeDependencyArtifacts;
@@ -628,7 +629,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/exports:libc.jar");
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly("java/exports/libb-hjar.jar", "java/exports/liba-hjar.jar");
     assertNoEvents();
   }
@@ -1850,7 +1853,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/strict:liba.jar");
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly("java/strict/libb-hjar.jar");
   }
 
@@ -2535,12 +2540,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         (JavaCompileAction)
             getGeneratingAction(getFileConfiguredTarget("//java/foo:liblib.jar").getArtifact());
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly(
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
         .inOrder();
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getClasspath(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getClasspath(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly(
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
         .inOrder();

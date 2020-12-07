@@ -21,10 +21,12 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -34,10 +36,12 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A java compiler configuration containing the flags required for compilation. */
 @Immutable
+@RequiresOptions(options = {JavaOptions.class, PlatformOptions.class})
 public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
 
   /** Values for the --java_classpath option */
@@ -115,7 +119,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
 
-  JavaConfiguration(JavaOptions javaOptions) throws InvalidConfigurationException {
+  public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
+    JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
@@ -187,31 +192,23 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
         javaOptions.experimentalTurbineAnnotationProcessing;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
-      if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--javabase=%s is no longer supported, use --platforms instead (see #7849)",
-                javaOptions.javaBase));
-      }
-      if (!javaOptions.getHostJavaBase().equals(javaOptions.defaultHostJavaBase())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--host_javabase=%s is no longer supported, use --platforms instead (see #7849)",
-                javaOptions.getHostJavaBase()));
-      }
-      if (!javaOptions.javaToolchain.equals(javaOptions.defaultJavaToolchain())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--java_toolchain=%s is no longer supported, use --platforms instead (see #7849)",
-                javaOptions.javaToolchain));
-      }
-      if (!javaOptions.hostJavaToolchain.equals(javaOptions.defaultJavaToolchain())) {
-        throw new InvalidConfigurationException(
-            String.format(
-                "--host_java_toolchain=%s is no longer supported, use --platforms instead (see"
-                    + " #7849)",
-                javaOptions.hostJavaToolchain));
-      }
+      checkLegacyToolchainFlagIsUnset(
+          "javabase", javaOptions.javaBase, javaOptions.defaultJavaBase());
+      checkLegacyToolchainFlagIsUnset(
+          "host_javabase", javaOptions.getHostJavaBase(), javaOptions.defaultHostJavaBase());
+      checkLegacyToolchainFlagIsUnset(
+          "java_toolchain", javaOptions.javaToolchain, javaOptions.defaultJavaToolchain());
+      checkLegacyToolchainFlagIsUnset(
+          "host_java_toolchain", javaOptions.hostJavaToolchain, javaOptions.defaultJavaToolchain());
+    }
+  }
+
+  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label, Label defaultValue)
+      throws InvalidConfigurationException {
+    if (!Objects.equals(label, defaultValue)) {
+      throw new InvalidConfigurationException(
+          String.format(
+              "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
     }
   }
 

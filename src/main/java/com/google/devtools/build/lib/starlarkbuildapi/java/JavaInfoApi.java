@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -98,6 +99,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
       doc = "Returns information about outputs of this Java/Java-like target.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   JavaRuleOutputJarsProviderApi<?> getOutputJars();
 
   @StarlarkMethod(
@@ -105,6 +107,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
       structField = true,
       allowReturnNones = true,
       doc = "Returns information about annotation processing for this Java/Java-like target.")
+  @Nullable
   JavaAnnotationProcessingApi<?> getGenJarsProvider();
 
   @StarlarkMethod(
@@ -112,6 +115,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
       structField = true,
       allowReturnNones = true,
       doc = "Returns compilation information for this Java/Java-like target.")
+  @Nullable
   JavaCompilationInfoProviderApi<?> getCompilationInfoProvider();
 
   @StarlarkMethod(

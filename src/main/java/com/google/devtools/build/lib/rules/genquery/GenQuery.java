@@ -247,7 +247,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
     for (SkyValue value : transitiveTargetValues.values()) {
       TransitiveTargetValue transNode = (TransitiveTargetValue) value;
-      if (transNode.getTransitiveRootCauses() != null) {
+      if (transNode.encounteredLoadingError()) {
         // This should only happen if the unsuccessful package was loaded in a non-selected
         // path, as otherwise this configured target would have failed earlier. See b/34132681.
         throw new BrokenQueryScopeException(

@@ -213,7 +213,7 @@ index 484959ebb7..38a5b460f9 100644
      "get_include_directory",
      "get_plugin_args",
      "get_proto_root",
-@@ -117,34 +117,17 @@ def generate_cc_impl(ctx):
+@@ -118,34 +118,18 @@ def generate_cc_impl(ctx):
      arguments += ["--proto_path={0}{1}".format(dir_out, proto_root)]
      arguments += [_get_srcs_file_path(proto) for proto in protos]
  
@@ -242,6 +242,7 @@ index 484959ebb7..38a5b460f9 100644
 -        executable = ctx.executable._protoc,
 +        executable = ctx.executable.protoc,
          arguments = arguments,
++        use_default_shell_env = True,
      )
  
      return struct(files = depset(out_files))
@@ -251,7 +252,7 @@ index 484959ebb7..38a5b460f9 100644
      attrs = {
          "srcs": attr.label_list(
              mandatory = True,
-@@ -160,13 +143,12 @@ _generate_cc = rule(
+@@ -161,13 +145,12 @@ _generate_cc = rule(
              mandatory = False,
              allow_empty = True,
          ),
@@ -267,7 +268,7 @@ index 484959ebb7..38a5b460f9 100644
              executable = True,
              cfg = "host",
          ),
-@@ -175,12 +157,3 @@ _generate_cc = rule(
+@@ -176,12 +159,3 @@ _generate_cc = rule(
      output_to_genfiles = True,
      implementation = generate_cc_impl,
  )

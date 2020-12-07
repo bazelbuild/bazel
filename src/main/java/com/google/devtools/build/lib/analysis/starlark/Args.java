@@ -72,6 +72,9 @@ public abstract class Args implements CommandLineArgsApi {
       printer.append(Joiner.on(" ").join(build().arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      printer.append("Interrupted while expanding command line: " + e.getMessage());
     }
   }
 

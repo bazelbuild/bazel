@@ -477,7 +477,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
@@ -550,7 +550,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Sequence<String> getStarlarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     return null;
   }
 
@@ -561,7 +561,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public String getStarlarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     return null;
   }
 

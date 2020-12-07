@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -175,8 +174,7 @@ public class InfoCommand implements BlazeCommand {
                 env.getReporter().handle(Event.error("interrupted"));
                 throw new AbruptExitRuntimeException(
                     InterruptedFailureDetails.detailedExitCode(
-                        "command interrupted while syncing package loading",
-                        Interrupted.Code.PACKAGE_LOADING_SYNC));
+                        "command interrupted while syncing package loading"));
               }
             });
 
@@ -258,8 +256,7 @@ public class InfoCommand implements BlazeCommand {
           FailureDetails.InfoCommand.Code.ALL_INFO_WRITE_FAILURE);
     } catch (InterruptedException e) {
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              "info interrupted", Interrupted.Code.INFO_ITEM));
+          InterruptedFailureDetails.detailedExitCode("info interrupted"));
     }
     return BlazeCommandResult.success();
   }

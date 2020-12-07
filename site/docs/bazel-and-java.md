@@ -57,7 +57,7 @@ Follow these guidelines when creating your BUILD files:
 *  Tests should be in a matching directory under `src/test` and depend on this
    library.
 
-## Java and new rules
+## Creating new rules for advanced Java builds
 
 **Note**: Creating new rules is for advanced build and test scenarios.
 You do not need it when getting started with Bazel.

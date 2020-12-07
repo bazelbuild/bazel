@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -93,6 +92,7 @@ public class BlazeRuntimeWrapper {
 
   private OptionsParser optionsParser;
   private ImmutableList.Builder<String> optionsToParse = new ImmutableList.Builder<>();
+  private final List<Class<? extends OptionsBase>> additionalOptionsClasses = new ArrayList<>();
 
   private final List<Object> eventBusSubscribers = new ArrayList<>();
 
@@ -159,8 +159,8 @@ public class BlazeRuntimeWrapper {
                 PackageOptions.class,
                 BuildLanguageOptions.class,
                 UiOptions.class,
-                SandboxOptions.class,
-                AqueryOptions.class));
+                SandboxOptions.class));
+    options.addAll(additionalOptionsClasses);
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       Iterables.addAll(options, module.getCommonCommandOptions());
@@ -249,6 +249,10 @@ public class BlazeRuntimeWrapper {
 
   public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
     return optionsParser.getOptions(optionsClass);
+  }
+
+  public void addOptionsClass(Class<? extends OptionsBase> optionsClass) {
+    additionalOptionsClasses.add(optionsClass);
   }
 
   void finalizeBuildResult(@SuppressWarnings("unused") BuildResult request) {}

@@ -853,13 +853,10 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
   public static ConfiguredTarget incompatibleConfiguredTarget(
       RuleContext ruleContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap)
-      throws ActionConflictException {
-    if (!ruleContext.getRule().getRuleClassObject().useToolchainResolution()) {
-      return null;
-    }
-
-    // This is incompatible if explicitly specified to be.
-    if (ruleContext.attributes().has("target_compatible_with")) {
+      throws ActionConflictException, InterruptedException {
+    // The target (ruleContext) is incompatible if explicitly specified to be.
+    if (ruleContext.getRule().getRuleClassObject().useToolchainResolution()
+        && ruleContext.attributes().has("target_compatible_with")) {
       ImmutableList<ConstraintValueInfo> invalidConstraintValues =
           stream(
                   PlatformProviderUtils.constraintValues(
@@ -916,7 +913,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       RuleContext ruleContext,
       @Nullable ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility,
       @Nullable ImmutableList<ConstraintValueInfo> violatedConstraints)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     // Create a dummy ConfiguredTarget that has the IncompatiblePlatformProvider set.
     ImmutableList<Artifact> outputArtifacts = ruleContext.getOutputArtifacts();
 

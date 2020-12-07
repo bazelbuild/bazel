@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fr
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -163,7 +163,7 @@ public final class AndroidSdkProvider extends NativeInfo
                         + " appropriate --platforms value: --platforms=%s",
                     ruleContext.getRuleClassNameForLogging(),
                     ruleContext.getLabel(),
-                    configuration.getOptions().get(PlatformOptions.class).platforms));
+                    configuration.getFragment(PlatformConfiguration.class).getTargetPlatform()));
             return null;
           }
         }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -62,6 +63,7 @@ public interface FileApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true,
       doc = "A label of a target that produces this File.")
+  @Nullable
   Label getOwnerLabel();
 
   @StarlarkMethod(

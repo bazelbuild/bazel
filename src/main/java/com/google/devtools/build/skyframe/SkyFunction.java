@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -245,6 +246,12 @@ public interface SkyFunction {
     Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
 
     /**
+     * Similar to getValues, but instead of returning a {@code Map<SkyKey, SkyValue>}, returns a
+     * {@code List<SkyValue>} in the order of the input {@code Iterable<SkyKey>}. b/172462551
+     */
+    List<SkyValue> getOrderedValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
+
+    /**
      * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper
      * subtypes of Exception (see {@link SkyFunctionException} for more details) to find out whether
      * any of the dependencies' evaluations resulted in exceptions of those types. The returned
@@ -295,6 +302,53 @@ public interface SkyFunction {
             E4 extends Exception,
             E5 extends Exception>
         Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
+            Iterable<? extends SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3,
+            Class<E4> exceptionClass4,
+            Class<E5> exceptionClass5)
+            throws InterruptedException;
+
+    /**
+     * Similar to getValuesOrThrow, but instead of returning a {@code Map<SkyKey,
+     * ValueOrException>}, returns a {@code List<SkyValue>} in the order of the input {@code
+     * Iterable<SkyKey>}.
+     */
+    <E extends Exception> List<ValueOrException<E>> getOrderedValuesOrThrow(
+        Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
+
+    <E1 extends Exception, E2 extends Exception>
+        List<ValueOrException2<E1, E2>> getOrderedValuesOrThrow(
+            Iterable<? extends SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2)
+            throws InterruptedException;
+
+    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
+        List<ValueOrException3<E1, E2, E3>> getOrderedValuesOrThrow(
+            Iterable<? extends SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3)
+            throws InterruptedException;
+
+    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+        List<ValueOrException4<E1, E2, E3, E4>> getOrderedValuesOrThrow(
+            Iterable<? extends SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3,
+            Class<E4> exceptionClass4)
+            throws InterruptedException;
+
+    <
+            E1 extends Exception,
+            E2 extends Exception,
+            E3 extends Exception,
+            E4 extends Exception,
+            E5 extends Exception>
+        List<ValueOrException5<E1, E2, E3, E4, E5>> getOrderedValuesOrThrow(
             Iterable<? extends SkyKey> depKeys,
             Class<E1> exceptionClass1,
             Class<E2> exceptionClass2,

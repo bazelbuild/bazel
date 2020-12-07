@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -73,16 +71,12 @@ public abstract class JavaHelper {
     // BUILD rule "launcher" attribute
     if (ruleContext.getRule().isAttrDefined("launcher", BuildType.LABEL)
         && ruleContext.attributes().get("launcher", BuildType.LABEL) != null) {
-      if (isJdkLauncher(ruleContext, ruleContext.attributes().get("launcher", BuildType.LABEL))) {
-        return null;
-      }
       return "launcher";
     }
     // Blaze flag --java_launcher
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     if (ruleContext.getRule().isAttrDefined(":java_launcher", BuildType.LABEL)
-        && javaConfig.getJavaLauncherLabel() != null
-        && !isJdkLauncher(ruleContext, javaConfig.getJavaLauncherLabel())) {
+        && javaConfig.getJavaLauncherLabel() != null) {
       return ":java_launcher";
     }
     return null;
@@ -144,19 +138,5 @@ public abstract class JavaHelper {
     }
 
     return resourcePath.relativeTo(prefix);
-  }
-
-  /**
-   * Returns true if the given Label is of the pseudo-cc_binary that tells Bazel a Java target's
-   * JAVABIN is never to be replaced by the contents of --java_launcher; only the JDK's launcher
-   * will ever be used.
-   */
-  public static boolean isJdkLauncher(RuleContext ruleContext, Label label) {
-    if (!ruleContext.attributes().has("$no_launcher")) {
-      return false;
-    }
-    List<Label> noLauncherAttribute =
-        ruleContext.attributes().get("$no_launcher", NODEP_LABEL_LIST);
-    return noLauncherAttribute != null && noLauncherAttribute.contains(label);
   }
 }

@@ -103,7 +103,11 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         }
       } else {
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        if (optionName.startsWith("experimental_") || optionName.startsWith("incompatible_")) {
+        // If any other flags need to be excepted, then this fix should be amended to instead be
+        // a commandline-specified set of allowed exceptions.
+        if (optionName.startsWith("experimental_")
+            || (optionName.startsWith("incompatible_")
+                && !optionName.equals("incompatible_enable_cc_toolchain_resolution"))) {
           throw Starlark.errorf(
               "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
                   + "--incompatible_* options",

@@ -96,7 +96,8 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   @Override
   public TestRunnerSpawn createTestRunnerSpawn(
-      TestRunnerAction action, ActionExecutionContext actionExecutionContext) throws ExecException {
+      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
     if (action.getExecutionSettings().getInputManifest() == null) {
       throw new TestExecException(
           "cannot run local tests with --nobuild_runfile_manifests",

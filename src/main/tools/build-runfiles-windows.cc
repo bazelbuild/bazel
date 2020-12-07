@@ -257,25 +257,35 @@ class RunfilesCreator {
     wstring dummy_target = runfiles_base_dir + L"\\dummy_target";
 
     // Try creating symlink with admin privilege
-    if (CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0)) {
+    bool created =
+        CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0);
+
+    // on a rare occasion the dummy_link may exist from a previous run
+    // retry after deleting the existing link
+    if (!created && GetLastError() == ERROR_ALREADY_EXISTS) {
       DeleteFileOrDie(dummy_link);
-      return true;
+      created =
+          CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0);
     }
 
     // If we couldn't create symlink, print out an error message and exit.
-    if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD) {
-      die(L"CreateSymbolicLinkW failed:\n%hs\n",
-          "Bazel needs to create symlink for building runfiles tree.\n"
-          "Creating symlink on Windows requires either of the following:\n"
-          "    1. Program is running with elevated privileges (Admin rights).\n"
-          "    2. The system version is Windows 10 Creators Update (1703) or "
-          "later and "
-          "developer mode is enabled.",
-          GetLastErrorString().c_str());
-    } else {
-      die(L"CreateSymbolicLinkW failed: %hs", GetLastErrorString().c_str());
+    if (!created) {
+      if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD) {
+        die(L"CreateSymbolicLinkW failed:\n%hs\n",
+            "Bazel needs to create symlink for building runfiles tree.\n"
+            "Creating symlink on Windows requires either of the following:\n"
+            "    1. Program is running with elevated privileges (Admin "
+            "rights).\n"
+            "    2. The system version is Windows 10 Creators Update (1703) or "
+            "later and "
+            "developer mode is enabled.",
+            GetLastErrorString().c_str());
+      } else {
+        die(L"CreateSymbolicLinkW failed: %hs", GetLastErrorString().c_str());
+      }
     }
 
+    DeleteFileOrDie(dummy_link);
     return true;
   }
 
