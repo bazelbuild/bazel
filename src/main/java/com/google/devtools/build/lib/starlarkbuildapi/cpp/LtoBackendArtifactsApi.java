@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -24,24 +23,19 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * Interface for C++ debug related objects, specifically when fission is used.
+ * Interface for LTO backend artifacts
  *
  * <p>It is not expected for this to be used externally at this time. This API is experimental and
  * subject to change, and its usage should be restricted to internal packages.
  *
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
-@StarlarkBuiltin(name = "CcModuleMap", category = DocCategory.TOP_LEVEL_TYPE, documented = false)
-public interface CppModuleMapApi<FileT extends FileApi> extends StarlarkValue {
+@StarlarkBuiltin(
+    name = "CcLtoBackendArtifacts",
+    category = DocCategory.TOP_LEVEL_TYPE,
+    documented = false)
+public interface LtoBackendArtifactsApi<FileT extends FileApi> extends StarlarkValue {
 
-  @StarlarkMethod(name = "file", documented = false, useStarlarkThread = true)
-  FileT getArtifactForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "umbrella_header",
-      documented = false,
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  @Nullable
-  FileT getUmbrellaHeaderForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
+  FileT getObjectFileForStarlark(StarlarkThread thread) throws EvalException;
 }

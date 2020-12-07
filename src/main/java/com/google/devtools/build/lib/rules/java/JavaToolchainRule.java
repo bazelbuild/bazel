@@ -98,10 +98,24 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         The list of arguments for the JVM when invoking JavaBuilder.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javabuilder_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder_data) -->
+        Labels of data available for label-expansion in javabuilder_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("javabuilder_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_jvm_opts) -->
         The list of arguments for the JVM when invoking turbine.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("turbine_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_data) -->
+        Labels of data available for label-expansion in turbine_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("turbine_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

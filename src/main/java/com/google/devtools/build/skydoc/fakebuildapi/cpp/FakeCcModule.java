@@ -31,9 +31,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoA
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.FdoContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoBackendArtifactsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import net.starlark.java.eval.Dict;
@@ -49,15 +51,20 @@ public class FakeCcModule
     implements BazelCcModuleApi<
         StarlarkActionFactoryApi,
         FileApi,
+        FdoContextApi<?>,
         ConstraintValueInfoApi,
         StarlarkRuleContextApi<ConstraintValueInfoApi>,
-        CcToolchainProviderApi<FeatureConfigurationApi>,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>>,
         FeatureConfigurationApi,
         CcCompilationContextApi<FileApi>,
         CcCompilationOutputsApi<FileApi>,
-        CcLinkingOutputsApi<FileApi>,
-        LinkerInputApi<LibraryToLinkApi<FileApi>, FileApi>,
-        LibraryToLinkApi<FileApi>,
+        CcLinkingOutputsApi<FileApi, LtoBackendArtifactsApi<FileApi>>,
+        LtoBackendArtifactsApi<FileApi>,
+        LinkerInputApi<
+            LibraryToLinkApi<FileApi, LtoBackendArtifactsApi<FileApi>>,
+            LtoBackendArtifactsApi<FileApi>,
+            FileApi>,
+        LibraryToLinkApi<FileApi, LtoBackendArtifactsApi<FileApi>>,
         CcLinkingContextApi<FileApi>,
         CcToolchainVariablesApi,
         CcToolchainConfigInfoApi,
@@ -72,7 +79,7 @@ public class FakeCcModule
   @Override
   public FeatureConfigurationApi configureFeatures(
       Object ruleContextOrNone,
-      CcToolchainProviderApi<FeatureConfigurationApi> toolchain,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>> toolchain,
       Sequence<?> requestedFeatures,
       Sequence<?> unsupportedFeatures)
       throws EvalException {
@@ -118,7 +125,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainVariablesApi getCompileBuildVariables(
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>> ccToolchainProvider,
       FeatureConfigurationApi featureConfiguration,
       Object sourceFile,
       Object outputFile,
@@ -139,7 +146,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainVariablesApi getLinkBuildVariables(
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>> ccToolchainProvider,
       FeatureConfigurationApi featureConfiguration,
       Object librarySearchDirectories,
       Object runtimeLibrarySearchDirectories,
@@ -162,7 +169,7 @@ public class FakeCcModule
   }
 
   @Override
-  public LibraryToLinkApi<FileApi> createLibraryLinkerInput(
+  public LibraryToLinkApi<FileApi, LtoBackendArtifactsApi<FileApi>> createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -175,17 +182,22 @@ public class FakeCcModule
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
+      Object mustKeepDebug,
       StarlarkThread thread) {
     return null;
   }
 
   @Override
-  public LinkerInputApi<LibraryToLinkApi<FileApi>, FileApi> createLinkerInput(
-      Label owner,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs,
-      StarlarkThread thread) {
+  public LinkerInputApi<
+          LibraryToLinkApi<FileApi, LtoBackendArtifactsApi<FileApi>>,
+          LtoBackendArtifactsApi<FileApi>,
+          FileApi>
+      createLinkerInput(
+          Label owner,
+          Object librariesToLinkObject,
+          Object userLinkFlagsObject,
+          Object nonCodeInputs,
+          StarlarkThread thread) {
     return null;
   }
 
@@ -238,7 +250,7 @@ public class FakeCcModule
 
   @Override
   public String legacyCcFlagsMakeVariable(
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>> ccToolchain) {
     return "";
   }
 
@@ -252,7 +264,8 @@ public class FakeCcModule
   public Tuple compile(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
       FeatureConfigurationApi starlarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>>
+          starlarkCcToolchainProvider,
       Sequence<?> sources,
       Sequence<?> publicHeaders,
       Sequence<?> privateHeaders,
@@ -287,7 +300,8 @@ public class FakeCcModule
   public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
       FeatureConfigurationApi starlarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>>
+          starlarkCcToolchainProvider,
       CcCompilationOutputsApi<FileApi> compilationOutputs,
       Sequence<?> userLinkFlags,
       Sequence<?> ccLinkingContextApis,
@@ -304,10 +318,11 @@ public class FakeCcModule
   }
 
   @Override
-  public CcLinkingOutputsApi<FileApi> link(
+  public CcLinkingOutputsApi<FileApi, LtoBackendArtifactsApi<FileApi>> link(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
       FeatureConfigurationApi starlarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>>
+          starlarkCcToolchainProvider,
       Object compilationOutputs,
       Sequence<?> userLinkFlags,
       Sequence<?> linkingContexts,
@@ -370,6 +385,22 @@ public class FakeCcModule
   @Override
   public CcDebugInfoContextApi mergeCcDebugInfoFromStarlark(
       Sequence<?> debugInfos, StarlarkThread thread) {
+    return null;
+  }
+
+  @Override
+  public LtoBackendArtifactsApi<FileApi> createLtoBackendArtifacts(
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
+      String ltoOutputRootPrefixString,
+      FileApi bitcodeFile,
+      FeatureConfigurationApi featureConfigurationForStarlark,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, FdoContextApi<?>> ccToolchain,
+      FdoContextApi<?> fdoContext,
+      boolean usePic,
+      boolean shouldCreatePerObjectDebugInfo,
+      Sequence<?> argv,
+      StarlarkThread thread)
+      throws EvalException {
     return null;
   }
 }

@@ -115,7 +115,6 @@ java_library(
 java_library(
     name = "invalid_command_line_exception",
     srcs = ["InvalidCommandLineException.java"],
-    deps = [],
 )
 
 java_library(

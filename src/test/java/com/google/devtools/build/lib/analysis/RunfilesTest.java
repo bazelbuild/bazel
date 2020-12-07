@@ -390,20 +390,23 @@ public class RunfilesTest extends FoundationTestCase {
   public void testLegacyRunfilesStructure() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment workspaceName = PathFragment.create("wsname");
-    PathFragment pathB = PathFragment.create("external/repo/b");
-    Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, pathB);
+    PathFragment pathB = PathFragment.create("repo/b");
+    PathFragment legacyPathB = LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(pathB);
+    PathFragment runfilesPathB = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
+    Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, legacyPathB);
 
     Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, true);
 
     Map<PathFragment, Artifact> inputManifest = Maps.newHashMap();
-    inputManifest.put(pathB, artifactB);
+    inputManifest.put(runfilesPathB, artifactB);
     Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
         Runfiles.ConflictPolicy.WARN, reporter, null);
     builder.addUnderWorkspace(inputManifest, checker);
 
-    assertThat(builder.build().entrySet()).containsExactly(
-        Maps.immutableEntry(workspaceName.getRelative(pathB), artifactB),
-        Maps.immutableEntry(PathFragment.create("repo/b"), artifactB));
+    assertThat(builder.build().entrySet())
+        .containsExactly(
+            Maps.immutableEntry(workspaceName.getRelative(legacyPathB), artifactB),
+            Maps.immutableEntry(PathFragment.create("repo/b"), artifactB));
     assertNoEvents();
   }
 
@@ -411,14 +414,14 @@ public class RunfilesTest extends FoundationTestCase {
   public void testRunfileAdded() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment workspaceName = PathFragment.create("wsname");
-    PathFragment pathB = PathFragment.create("external/repo/b");
-    Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, pathB);
+    PathFragment pathB = PathFragment.create("repo/b");
+    PathFragment legacyPathB = LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(pathB);
+    PathFragment runfilesPathB = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
+    Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, legacyPathB);
 
     Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, false);
 
-    Map<PathFragment, Artifact> inputManifest = ImmutableMap.<PathFragment, Artifact>builder()
-        .put(pathB, artifactB)
-        .build();
+    Map<PathFragment, Artifact> inputManifest = ImmutableMap.of(runfilesPathB, artifactB);
     Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
         Runfiles.ConflictPolicy.WARN, reporter, null);
     builder.addUnderWorkspace(inputManifest, checker);
@@ -434,18 +437,18 @@ public class RunfilesTest extends FoundationTestCase {
   public void testConflictWithExternal() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathB = PathFragment.create("repo/b");
-    PathFragment externalPathB = LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(pathB);
+    PathFragment externalLegacyPath = LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(pathB);
+    PathFragment externalRunfilesPathB =
+        LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
     Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, pathB);
     Artifact artifactExternalB =
-        ActionsTestUtil.createArtifactWithRootRelativePath(root, externalPathB);
+        ActionsTestUtil.createArtifactWithRootRelativePath(root, externalLegacyPath);
 
     Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(
         PathFragment.EMPTY_FRAGMENT, false);
 
-    Map<PathFragment, Artifact> inputManifest = ImmutableMap.<PathFragment, Artifact>builder()
-        .put(pathB, artifactB)
-        .put(externalPathB, artifactExternalB)
-        .build();
+    Map<PathFragment, Artifact> inputManifest =
+        ImmutableMap.of(pathB, artifactB, externalRunfilesPathB, artifactExternalB);
     Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
         Runfiles.ConflictPolicy.WARN, reporter, null);
     builder.addUnderWorkspace(inputManifest, checker);

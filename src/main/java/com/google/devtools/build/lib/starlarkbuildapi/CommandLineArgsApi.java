@@ -155,8 +155,8 @@ public interface CommandLineArgsApi extends StarlarkValue {
   @StarlarkMethod(
       name = "add_all",
       doc =
-          "Appends multiple arguments to this command line. For depsets, the items are "
-              + "evaluated lazily during the execution phase."
+          "Appends multiple arguments to this command line. The items are processed lazily during "
+              + "the execution phase."
               + ""
               + "<p>Most of the processing occurs over a list of arguments to be appended, as per "
               + "the following steps:"
@@ -332,8 +332,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       name = "add_joined",
       doc =
           "Appends an argument to this command line by concatenating together multiple values "
-              + "using a separator. For depsets, the items are evaluated lazily during the "
-              + "execution phase."
+              + "using a separator. The items are processed lazily during the execution phase."
               + ""
               + "<p>Processing is similar to <a href='#add_all'><code>add_all()</code></a>, but "
               + "the list of arguments derived from <code>values</code> is combined into a single "

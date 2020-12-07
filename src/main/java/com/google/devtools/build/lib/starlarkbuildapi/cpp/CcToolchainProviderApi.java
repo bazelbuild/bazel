@@ -30,7 +30,10 @@ import net.starlark.java.eval.StarlarkThread;
     name = "CcToolchainInfo",
     category = DocCategory.PROVIDER,
     doc = "Information about the C++ compiler being used.")
-public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureConfigurationApi>
+public interface CcToolchainProviderApi<
+        FeatureConfigurationT extends FeatureConfigurationApi,
+        BranchFdoProfileT extends BranchFdoProfileApi,
+        FdoContextT extends FdoContextApi<BranchFdoProfileT>>
     extends ToolchainInfoApi {
 
   @StarlarkMethod(
@@ -171,4 +174,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
 
   @StarlarkMethod(name = "coverage_files", documented = false, useStarlarkThread = true)
   Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "fdo_context", documented = false, useStarlarkThread = true)
+  FdoContextT getFdoContextForStarlark(StarlarkThread thread) throws EvalException;
 }

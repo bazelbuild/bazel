@@ -19,7 +19,6 @@ filegroup(
 proto_library(
     name = "workspace_log_proto",
     srcs = ["workspace_log.proto"],
-    deps = [],
 )
 
 java_proto_library(

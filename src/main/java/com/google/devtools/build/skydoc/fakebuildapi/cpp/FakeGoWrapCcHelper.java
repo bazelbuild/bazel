@@ -44,7 +44,7 @@ public class FakeGoWrapCcHelper
         StarlarkRuleContextApi<ConstraintValueInfoApi>,
         CcInfoApi<FileApi>,
         FeatureConfigurationApi,
-        CcToolchainProviderApi<FeatureConfigurationApi>,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
         CcLinkingContextApi<FileApi>,
         GoConfigurationApi,
         GoContextInfoApi,
@@ -92,7 +92,7 @@ public class FakeGoWrapCcHelper
   @Override
   public Tuple /* of FileApi */ createGoCompileActions(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
       Sequence<?> srcs,
       Sequence<?> deps) {
     return null;
@@ -101,7 +101,7 @@ public class FakeGoWrapCcHelper
   @Override
   public Tuple /* of FileApi */ createGoCompileActionsGopkg(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
       Sequence<?> srcs,
       Sequence<?> deps) {
     return null;
@@ -125,7 +125,7 @@ public class FakeGoWrapCcHelper
   @Override
   public FeatureConfigurationApi starlarkGetFeatureConfiguration(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain) {
     return null;
   }
 
@@ -139,7 +139,7 @@ public class FakeGoWrapCcHelper
   public CompilationInfoApi<FileApi> starlarkCreateCompileActions(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       FeatureConfigurationApi featureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
       Sequence<?> depCcCompilationContexts,
@@ -162,7 +162,7 @@ public class FakeGoWrapCcHelper
   @Override
   public void registerSwigAction(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi<FileApi> wrapperCcCompilationContext,
       Depset swigIncludes,

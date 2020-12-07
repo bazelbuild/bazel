@@ -72,15 +72,13 @@ public class JavaToolchainProvider extends ToolchainInfo
       Label label,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
-      ImmutableList<String> javabuilderJvmOptions,
-      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
-      FilesToRunProvider javaBuilder,
-      @Nullable FilesToRunProvider headerCompiler,
-      @Nullable FilesToRunProvider headerCompilerDirect,
+      JavaToolchainTool javaBuilder,
+      @Nullable JavaToolchainTool headerCompiler,
+      @Nullable JavaToolchainTool headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -117,8 +115,6 @@ public class JavaToolchainProvider extends ToolchainInfo
         compatibleJavacOptions,
         javacOptions,
         jvmOptions,
-        javabuilderJvmOptions,
-        turbineJvmOptions,
         javacSupportsWorkers,
         javacSupportsMultiplexWorkers,
         packageConfiguration,
@@ -131,9 +127,9 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final Label label;
   private final BootClassPathInfo bootclasspath;
   private final NestedSet<Artifact> tools;
-  private final FilesToRunProvider javaBuilder;
-  @Nullable private final FilesToRunProvider headerCompiler;
-  @Nullable private final FilesToRunProvider headerCompilerDirect;
+  private final JavaToolchainTool javaBuilder;
+  @Nullable private final JavaToolchainTool headerCompiler;
+  @Nullable private final JavaToolchainTool headerCompilerDirect;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
@@ -147,8 +143,6 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
-  private final ImmutableList<String> javabuilderJvmOptions;
-  private final ImmutableList<String> turbineJvmOptions;
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
@@ -162,9 +156,9 @@ public class JavaToolchainProvider extends ToolchainInfo
       Label label,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
-      FilesToRunProvider javaBuilder,
-      @Nullable FilesToRunProvider headerCompiler,
-      @Nullable FilesToRunProvider headerCompilerDirect,
+      JavaToolchainTool javaBuilder,
+      @Nullable JavaToolchainTool headerCompiler,
+      @Nullable JavaToolchainTool headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -178,8 +172,6 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
-      ImmutableList<String> javabuilderJvmOptions,
-      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
@@ -208,8 +200,6 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.compatibleJavacOptions = compatibleJavacOptions;
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
-    this.javabuilderJvmOptions = javabuilderJvmOptions;
-    this.turbineJvmOptions = turbineJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
     this.packageConfiguration = packageConfiguration;
@@ -234,14 +224,14 @@ public class JavaToolchainProvider extends ToolchainInfo
     return tools;
   }
 
-  /** Returns the {@link FilesToRunProvider} of JavaBuilder */
-  public FilesToRunProvider getJavaBuilder() {
+  /** Returns the {@link JavaToolchainTool} for JavaBuilder */
+  public JavaToolchainTool getJavaBuilder() {
     return javaBuilder;
   }
 
-  /** @return the {@link FilesToRunProvider} of the Header Compiler deploy jar */
+  /** Returns the {@link JavaToolchainTool} for the header compiler */
   @Nullable
-  public FilesToRunProvider getHeaderCompiler() {
+  public JavaToolchainTool getHeaderCompiler() {
     return headerCompiler;
   }
 
@@ -250,7 +240,7 @@ public class JavaToolchainProvider extends ToolchainInfo
    * non-annotation processing actions.
    */
   @Nullable
-  public FilesToRunProvider getHeaderCompilerDirect() {
+  public JavaToolchainTool getHeaderCompilerDirect() {
     return headerCompilerDirect;
   }
 
@@ -348,15 +338,6 @@ public class JavaToolchainProvider extends ToolchainInfo
    */
   public ImmutableList<String> getJvmOptions() {
     return jvmOptions;
-  }
-
-  /** Returns the list of JVM options for running JavaBuilder. */
-  public ImmutableList<String> getJavabuilderJvmOptions() {
-    return javabuilderJvmOptions;
-  }
-
-  public ImmutableList<String> getTurbineJvmOptions() {
-    return turbineJvmOptions;
   }
 
   /** @return whether JavaBuilders supports running as a persistent worker or not */
