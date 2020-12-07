@@ -140,6 +140,7 @@ http_archive(
 )
 
 load("//:distdir.bzl", "distdir_tar")
+load("//:distdir_deps.bzl", "DIST_DEPS")
 
 distdir_tar(
     name = "additional_distfiles",
@@ -164,12 +165,8 @@ distdir_tar(
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        # bazelbuild/rules_cc
-        "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         # bazelbuild/bazel-toolchains
         "bazel-toolchains-3.1.0.tar.gz",
-        # bazelbuild/rules_pkg
-        "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/protobuf
@@ -206,12 +203,8 @@ distdir_tar(
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-        # bazelbuild/rules_cc
-        "b1c40e1de81913a3c40e5948f78719c28152486d.zip": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
         # bazelbuild/bazel-toolchains
         "bazel-toolchains-3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
-        # bazelbuild/rules_pkg
-        "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/protobuf
@@ -277,20 +270,10 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
             "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
-        # bazelbuild/rules_cc
-        "b1c40e1de81913a3c40e5948f78719c28152486d.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-            "https://github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-        ],
         # bazelbuild/bazel-toolchains
         "bazel-toolchains-3.1.0.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
             "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-        ],
-        # bazelbuild/rules_pkg
-        "rules_pkg-0.2.4.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
         ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
@@ -328,6 +311,7 @@ distdir_tar(
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         ],
     },
+    dist_deps = DIST_DEPS,
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
@@ -512,12 +496,9 @@ http_archive(
     name = "rules_cc",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
-    strip_prefix = "rules_cc-b1c40e1de81913a3c40e5948f78719c28152486d",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-    ],
+    sha256 = DIST_DEPS["rules_cc"]["sha256"],
+    strip_prefix = DIST_DEPS["rules_cc"]["strip_prefix"],
+    urls = DIST_DEPS["rules_cc"]["urls"],
 )
 
 http_archive(
@@ -566,8 +547,6 @@ distdir_tar(
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        # bazelbuild/rules_cc
-        "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/protobuf
@@ -601,8 +580,6 @@ distdir_tar(
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-        # bazelbuild/rules_cc
-        "b1c40e1de81913a3c40e5948f78719c28152486d.zip": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/protobuf
@@ -646,11 +623,6 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
             "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
-        # bazelbuild/rules_cc
-        "b1c40e1de81913a3c40e5948f78719c28152486d.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-            "https://github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-        ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
@@ -687,6 +659,7 @@ distdir_tar(
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         ],
     },
+    # dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if attrs.get("need_in_test_WORKSPACE")}
 )
 
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
@@ -1154,11 +1127,8 @@ http_archive(
     name = "rules_pkg",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
-    ],
+    sha256 = DIST_DEPS["rules_pkg"]["sha256"],
+    urls = DIST_DEPS["rules_pkg"]["urls"],
 )
 
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")

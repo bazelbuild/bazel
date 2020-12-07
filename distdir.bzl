@@ -41,7 +41,21 @@ _distdir_tar_attrs = {
     "dirname": attr.string(default = "distdir"),
 }
 
-distdir_tar = repository_rule(
+_distdir_tar = repository_rule(
     implementation = _distdir_tar_impl,
     attrs = _distdir_tar_attrs,
 )
+
+def distdir_tar(name, archives, sha256, urls, dirname, dist_deps=None):
+    if  dist_deps:
+        for dep, info in dist_deps.items():
+            print(info)
+            sha256[info["archive"]] = info["sha256"]
+            urls[info["archive"]] = info["urls"]
+    _distdir_tar(
+        name = name,
+        archives = archives,
+        sha256 = sha256,
+        urls = urls,
+        dirname = dirname
+    )
