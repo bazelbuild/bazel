@@ -85,6 +85,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return StarlarkList.immutableCopyOf(getObjectFiles());
   }
 
+  @Override
+  public boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getMustKeepDebug();
+  }
+
   @Nullable
   @Override
   public Sequence<Artifact> getLtoBitcodeFilesForStarlark() {

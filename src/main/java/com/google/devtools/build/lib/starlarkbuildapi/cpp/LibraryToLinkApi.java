@@ -145,4 +145,7 @@ public interface LibraryToLinkApi<
   @Nullable
   Dict<FileT, LtoBackendArtifactsT> getPicSharedNonLtoBackendsForStarlark(StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(name = "must_keep_debug", documented = false, useStarlarkThread = true)
+  boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException;
 }

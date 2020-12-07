@@ -7052,4 +7052,45 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
+
+  @Test
+  public void testExpandedLibraryToLinkApiRaisesError() throws Exception {
+    scratch.file(
+        "b/BUILD",
+        "load('//b:rule.bzl', 'cc_rule')",
+        "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
+        "cc_toolchain_alias(name='alias')",
+        "cc_rule(name='foo', cc_dep=':cc_dep')");
+    ImmutableList<String> calls =
+        ImmutableList.of(
+            "cc_common.create_library_to_link(actions=ctx.actions,"
+                + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
+                + " must_keep_debug=False)",
+            "library_to_link.must_keep_debug()");
+    for (String call : calls) {
+      scratch.overwriteFile(
+          "b/rule.bzl",
+          "def _impl(ctx):",
+          "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+          "  feature_configuration = cc_common.configure_features(",
+          "    ctx = ctx,",
+          "    cc_toolchain = toolchain,",
+          "  )",
+          "  library_to_link = (ctx.attr.cc_dep[CcInfo].linking_context",
+          "                                     .linker_inputs.to_list()[0].libraries[0])",
+          "  " + call,
+          "  return [DefaultInfo()]",
+          "cc_rule = rule(",
+          "  implementation = _impl,",
+          "  attrs = { ",
+          "    'cc_dep': attr.label(),",
+          "    '_cc_toolchain': attr.label(default=Label('//b:alias'))",
+          "  },",
+          "  fragments = ['cpp'],",
+          ")");
+      invalidatePackages();
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+    }
+  }
 }

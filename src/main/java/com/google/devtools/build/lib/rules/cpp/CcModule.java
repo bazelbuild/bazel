@@ -475,8 +475,12 @@ public abstract class CcModule
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
+      Object mustKeepDebugForStarlark,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
+    if (checkObjectsBound(mustKeepDebugForStarlark)) {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    }
     StarlarkActionFactory starlarkActionFactory =
         nullIfNone(actionsObject, StarlarkActionFactory.class);
     FeatureConfigurationForStarlark featureConfiguration =
@@ -487,6 +491,8 @@ public abstract class CcModule
     Artifact picStaticLibrary = nullIfNone(picStaticLibraryObject, Artifact.class);
     Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
     Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
+    boolean mustKeepDebug =
+        convertFromNoneable(mustKeepDebugForStarlark, /* defaultValue= */ false);
 
     if (!starlarkActionFactory
             .getActionConstructionContext()
@@ -666,6 +672,7 @@ public abstract class CcModule
         .setObjectFiles(nopicObjects)
         .setPicObjectFiles(picObjects)
         .setAlwayslink(alwayslink)
+        .setMustKeepDebug(mustKeepDebug)
         .build();
   }
 

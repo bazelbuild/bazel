@@ -182,6 +182,7 @@ public class FakeCcModule
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
+      Object mustKeepDebug,
       StarlarkThread thread) {
     return null;
   }
