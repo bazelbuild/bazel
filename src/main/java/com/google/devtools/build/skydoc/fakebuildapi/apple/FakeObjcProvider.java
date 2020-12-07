@@ -17,7 +17,6 @@ package com.google.devtools.build.skydoc.fakebuildapi.apple;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 
@@ -25,11 +24,6 @@ import net.starlark.java.eval.Sequence;
  * Fake implementation of {@link ObjcProviderApi}.
  */
 public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
-
-  @Override
-  public Depset /*<String>*/ defineForStarlark() {
-    return null;
-  }
 
   @Override
   public Depset /*<FileApi>*/ dynamicFrameworkFileForStarlark() {
@@ -42,17 +36,7 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public Depset frameworkIncludeForStarlark() {
-    return null;
-  }
-
-  @Override
   public Depset /*<FileApi>*/ forceLoadLibrary() {
-    return null;
-  }
-
-  @Override
-  public Depset /*<FileApi>*/ headerForStarlark() {
     return null;
   }
 
@@ -67,22 +51,7 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public Depset includeForStarlark() {
-    return null;
-  }
-
-  @Override
   public Depset /*<String>*/ strictIncludeForStarlark() {
-    return null;
-  }
-
-  @Override
-  public Depset systemIncludeForStarlark() {
-    return null;
-  }
-
-  @Override
-  public Depset quoteIncludeForStarlark() {
     return null;
   }
 
@@ -118,11 +87,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
   public Depset /*<String>*/ linkopt() {
-    return null;
-  }
-
-  @Override
-  public Depset /*<FileApi>*/ mergeZip() {
     return null;
   }
 
@@ -183,11 +147,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
   public Depset weakSdkFramework() {
-    return null;
-  }
-
-  @Override
-  public CcCompilationContextApi getCcCompilationContext() {
     return null;
   }
 

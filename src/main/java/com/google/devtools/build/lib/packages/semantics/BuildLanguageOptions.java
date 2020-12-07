@@ -558,18 +558,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleLinkoptsToLinklibs;
 
   @Option(
-      name = "incompatible_objc_provider_remove_compile_info",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, the ObjcProvider's APIs for compile info/merge_zip will be removed.")
-  public boolean incompatibleObjcProviderRemoveCompileInfo;
-
-  @Option(
       name = "incompatible_java_common_parameters",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -660,9 +648,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
             .setBool(INCOMPATIBLE_RESTRICT_STRING_ESCAPES, incompatibleRestrictStringEscapes)
             .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
-            .setBool(
-                INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO,
-                incompatibleObjcProviderRemoveCompileInfo)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .build();
     return INTERNER.intern(semantics);
@@ -722,8 +707,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_no_implicit_file_export";
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
-  public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO =
-      "+incompatible_objc_provider_remove_compile_info";
   public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
       "+incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RESTRICT_STRING_ESCAPES =
