@@ -41,8 +41,10 @@ cc_binary(
     }),
     linkopts = select({
         "//src/conditions:windows": [],
-        "//conditions:default": ["-lm"],
+        "//conditions:default": ["-lm", "-lstdc++", "-lgcc"],
     }),
+    linkstatic = 1,
+    features = ["fully_static_link"],
     deps = select({
         "//src/conditions:windows": [],
         "//conditions:default": [
