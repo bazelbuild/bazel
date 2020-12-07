@@ -6965,4 +6965,91 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }
   }
+
+  @Test
+  public void testExpandedLtoAndFdoApiRaisesError() throws Exception {
+    useConfiguration("--fdo_optimize=pkg/profile.afdo", "--compilation_mode=opt");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':lto_backend_artifacts.bzl', 'lto_backend_artifacts')",
+        "lto_backend_artifacts(name='lto_backend_artifacts', file = 'a_file.txt')");
+
+    scratch.file(
+        "bazel_internal/test_rules/cc/lto_backend_artifacts.bzl",
+        "LtoBackendArtifactsInfo = provider(fields=['lto_backend_artifacts',",
+        "                                              'fdo_context', 'branch_fdo_profile'])",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  fdo_context = toolchain.fdo_context()",
+        "  branch_fdo_profile = fdo_context.branch_fdo_profile()",
+        "  lto_backend_artifacts = cc_common.create_lto_backend_artifacts(ctx=ctx,",
+        "        lto_output_root_prefix=ctx.label.package, bitcode_file=ctx.file.file,",
+        "        feature_configuration=feature_configuration, cc_toolchain=toolchain,",
+        "        fdo_context=fdo_context, use_pic=True,",
+        "        should_create_per_object_debug_info=False, argv=[])",
+        "  return [LtoBackendArtifactsInfo(lto_backend_artifacts=lto_backend_artifacts,",
+        "          fdo_context=fdo_context, branch_fdo_profile=branch_fdo_profile)]",
+        "lto_backend_artifacts = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'file': attr.label(allow_single_file=True),",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ImmutableList<String> calls =
+        ImmutableList.of(
+            "toolchain.fdo_context()",
+            "library_to_link.shared_non_lto_backends()",
+            "library_to_link.pic_shared_non_lto_backends()",
+            "lto_backend_artifacts_info.lto_backend_artifacts.object_file()",
+            "lto_backend_artifacts_info.fdo_context.branch_fdo_profile()",
+            "lto_backend_artifacts_info.branch_fdo_profile.auto_fdo()",
+            "lto_backend_artifacts_info.branch_fdo_profile.auto_xbinary_fdo()",
+            "lto_backend_artifacts_info.branch_fdo_profile.llvm_fdo()",
+            "lto_backend_artifacts_info.branch_fdo_profile.llvm_cs_fdo()");
+    scratch.overwriteFile(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_library(name='clib', srcs=['clib.cc'], hdrs=['clib.h'])",
+        "crule(name='r', lto_dep='//bazel_internal/test_rules/cc:lto_backend_artifacts',",
+        "      cc_dep=':clib')");
+
+    for (String call : calls) {
+      scratch.overwriteFile(
+          "a/rule.bzl",
+          "load('//bazel_internal/test_rules/cc:lto_backend_artifacts.bzl',",
+          "             'LtoBackendArtifactsInfo')",
+          "CruleInfo = provider()",
+          "def _impl(ctx):",
+          "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+          "  feature_configuration = cc_common.configure_features(",
+          "    ctx = ctx,",
+          "    cc_toolchain = toolchain,",
+          "  )",
+          "  library_to_link = (ctx.attr.cc_dep[CcInfo].linking_context",
+          "                                     .linker_inputs.to_list()[0].libraries[0])",
+          "  lto_backend_artifacts_info = ctx.attr.lto_dep[LtoBackendArtifactsInfo]",
+          "  " + call,
+          "  return [CruleInfo()]",
+          "crule = rule(",
+          "  _impl,",
+          "  attrs = { ",
+          "    'lto_dep': attr.label(),",
+          "    'cc_dep': attr.label(),",
+          "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+          "  },",
+          "  fragments = ['cpp'],",
+          ");");
+      invalidatePackages();
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
+      assertThat(e).hasMessageThat().contains("cannot use private API");
+    }
+  }
 }

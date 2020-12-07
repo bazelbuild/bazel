@@ -31,5 +31,5 @@ public interface LinkingInfoApi extends StarlarkValue {
   CcLinkingContextApi<?> getCcLinkingContext();
 
   @StarlarkMethod(name = "cc_linking_outputs", structField = true, documented = false)
-  CcLinkingOutputsApi<?> getCcLinkingOutputs();
+  CcLinkingOutputsApi<?, ?> getCcLinkingOutputs();
 }

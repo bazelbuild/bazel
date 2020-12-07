@@ -103,9 +103,11 @@ public abstract class CcModule
     implements CcModuleApi<
         StarlarkActionFactory,
         Artifact,
+        FdoContext,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
+        LtoBackendArtifacts,
         CcLinkingContext.LinkerInput,
         CcLinkingContext,
         LibraryToLink,
@@ -784,6 +786,48 @@ public abstract class CcModule
       return new CppModuleMap(file, name);
     } else {
       return new CppModuleMap(file, umbrellaHeader, name);
+    }
+  }
+
+  @Override
+  public LtoBackendArtifacts createLtoBackendArtifacts(
+      StarlarkRuleContext starlarkRuleContext,
+      String ltoOutputRootPrefixString,
+      Artifact bitcodeFile,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      boolean usePic,
+      boolean shouldCreatePerObjectDebugInfo,
+      Sequence<?> argv,
+      StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
+    LtoBackendArtifacts ltoBackendArtifacts;
+    try {
+      ltoBackendArtifacts =
+          new LtoBackendArtifacts(
+              ruleContext,
+              ruleContext.getConfiguration().getOptions(),
+              ruleContext.getConfiguration().getFragment(CppConfiguration.class),
+              ltoOutputRootPrefix,
+              bitcodeFile,
+              starlarkRuleContext.actions().getActionConstructionContext(),
+              ruleContext.getRepository(),
+              ruleContext.getConfiguration(),
+              CppLinkAction.DEFAULT_ARTIFACT_FACTORY,
+              featureConfigurationForStarlark.getFeatureConfiguration(),
+              ccToolchain,
+              fdoContext,
+              usePic,
+              shouldCreatePerObjectDebugInfo,
+              Sequence.cast(argv, String.class, "argv"));
+      return ltoBackendArtifacts;
+    } catch (RuleErrorException ruleErrorException) {
+      throw new EvalException(ruleErrorException);
     }
   }
 
