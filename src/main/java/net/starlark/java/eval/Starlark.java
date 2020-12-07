@@ -357,6 +357,14 @@ public final class Starlark {
       // the return type for many built-in functions.
       return "int";
 
+    } else if (c == void.class) {
+      // Built-in void methods return None to Starlark.
+      return "NoneType";
+
+    } else if (c == boolean.class) {
+      // Built-in function may return boolean.
+      return "bool";
+
     } else {
       String simpleName = c.getSimpleName();
       return simpleName.isEmpty() ? c.getName() : simpleName;

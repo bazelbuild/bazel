@@ -82,7 +82,7 @@ class MethodLibrary {
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
       parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public Boolean all(Object collection) throws EvalException {
+  public boolean all(Object collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
@@ -94,7 +94,7 @@ class MethodLibrary {
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
       parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public Boolean any(Object collection) throws EvalException {
+  public boolean any(Object collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
 
@@ -271,7 +271,7 @@ class MethodLibrary {
               + " iterable.",
       parameters = {@Param(name = "x", doc = "The value whose length to report.")},
       useStarlarkThread = true)
-  public Integer len(Object x, StarlarkThread thread) throws EvalException {
+  public int len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
     if (len < 0) {
       throw Starlark.errorf("%s is not iterable", Starlark.type(x));
@@ -309,7 +309,7 @@ class MethodLibrary {
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
       parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
-  public Boolean bool(Object x) throws EvalException {
+  public boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
 
@@ -536,7 +536,7 @@ class MethodLibrary {
       // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
       // Python, which promise stable hashing only within a given execution of the program.
       parameters = {@Param(name = "value", doc = "String value to hash.")})
-  public Integer hash(String value) throws EvalException {
+  public int hash(String value) throws EvalException {
     return value.hashCode();
   }
 
@@ -603,7 +603,7 @@ class MethodLibrary {
         @Param(name = "name", doc = "The name of the attribute.")
       },
       useStarlarkThread = true)
-  public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
+  public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
     return Starlark.hasattr(thread.getSemantics(), obj, name);
   }
 
@@ -680,7 +680,7 @@ class MethodLibrary {
               doc =
                   "A list of values, formatted with str and joined with spaces, that appear in the"
                       + " error message."))
-  public NoneType fail(Object msg, Object attr, Tuple args) throws EvalException {
+  public void fail(Object msg, Object attr, Tuple args) throws EvalException {
     List<String> elems = new ArrayList<>();
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
@@ -719,7 +719,7 @@ class MethodLibrary {
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
-  public NoneType print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
+  public void print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
     Printer p = new Printer();
     String separator = "";
     for (Object x : args) {
@@ -734,7 +734,6 @@ class MethodLibrary {
     }
 
     thread.getPrintHandler().print(thread, p.toString());
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(
