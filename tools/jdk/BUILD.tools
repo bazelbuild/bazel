@@ -69,16 +69,6 @@ legacy_java_runtime_alias(name = "legacy_current_java_runtime")
 # Points to --java_toolchain/--host_java_toolchain, defaults ":toolchain"/":remote_toolchain"
 legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
-# Used to set --host_javabase or --javabase to a local JDK without having to define
-# a custom java_runtime rule.
-# E.g.:
-# bazel build --host_javabase=@bazel_tools//tools/jdk:absolute_javabase \
-#   --define=ABSOLUTE_JAVABASE=<path to JDK> ...
-java_runtime(
-    name = "absolute_javabase",
-    java_home = "$(ABSOLUTE_JAVABASE)",
-)
-
 # This is necessary to get the *host* Java runtime. Depending on
 # //tools/jdk:current_java_runtime from an attribute with the host transition
 # does not work because the dependency is determined based on the configuration

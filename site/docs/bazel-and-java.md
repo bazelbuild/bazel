@@ -131,33 +131,6 @@ Similarly for `java_runtime` targets:
 $ bazel query 'kind(java_runtime, @bazel_tools//tools/jdk:all)'
 ```
 
-For example, if you'd like to use a locally installed JDK installed at
-`/usr/lib/jvm/java-13-openjdk`, use the `absolute_javabase` `java_runtime`
-target and the `toolchain_vanilla` `java_toolchain` target, and define
-`ABSOLUTE_JAVABASE` as the absolute path to the JDK.
-
-
-```
-bazel build \
-    --define=ABSOLUTE_JAVABASE=/usr/lib/jvm/java-13-openjdk \
-    --javabase=@bazel_tools//tools/jdk:absolute_javabase \
-    --host_javabase=@bazel_tools//tools/jdk:absolute_javabase \
-    --java_toolchain=@bazel_tools//tools/jdk:toolchain_vanilla \
-    --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_vanilla \
-    //my/java_13:target
-```
-
-Optionally, you can add the flags into your project's `.bazelrc` file to
-avoid having to specify them every time:
-
-```
-build --define=ABSOLUTE_JAVABASE=/usr/lib/jvm/java-13-openjdk
-build --javabase=@bazel_tools//tools/jdk:absolute_javabase
-build --host_javabase=@bazel_tools//tools/jdk:absolute_javabase
-build --java_toolchain=@bazel_tools//tools/jdk:toolchain_vanilla
-build --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_vanilla
-```
-
 You can also write your own `java_runtime` and `java_toolchain` targets. As a
 tip, use `bazel query --output=build @bazel_tools//tools/jdk:all` to see how
 the built-in runtime and toolchain targets are defined.
