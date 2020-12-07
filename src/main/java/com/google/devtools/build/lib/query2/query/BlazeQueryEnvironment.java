@@ -184,9 +184,9 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       }
     }
 
-    Set<PathFragment> packages = CompactHashSet.create();
+    Set<PackageIdentifier> packages = CompactHashSet.create();
     for (Target target : targets) {
-      packages.add(target.getLabel().getPackageFragment());
+      packages.add(target.getLabel().getPackageIdentifier());
     }
 
     for (Target target : targets) {
@@ -205,7 +205,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       } else if (target instanceof Rule) {
         Rule rule = (Rule) target;
         for (Label label : rule.getLabels(dependencyFilter)) {
-          if (!packages.contains(label.getPackageFragment())) {
+          if (!packages.contains(label.getPackageIdentifier())) {
             continue;  // don't cause additional package loading
           }
           try {
