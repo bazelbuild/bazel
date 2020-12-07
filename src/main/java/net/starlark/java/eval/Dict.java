@@ -265,15 +265,12 @@ public final class Dict<K, V>
             named = true,
             doc = "a default value if the key is absent."),
       })
-  @SuppressWarnings("unchecked") // Cast of value to V
-  public Object setdefault(K key, Object defaultValue) throws EvalException {
-    // TODO(adonovan): opt: use putIfAbsent to avoid hashing twice.
-    Object value = get(key);
-    if (value != null) {
-      return value;
-    }
-    putEntry(key, (V) defaultValue);
-    return defaultValue;
+  public V setdefault(K key, V defaultValue) throws EvalException {
+    Starlark.checkMutable(this);
+    Starlark.checkHashable(key);
+
+    V prev = contents.putIfAbsent(key, defaultValue); // see class doc comment
+    return prev != null ? prev : defaultValue;
   }
 
   @StarlarkMethod(

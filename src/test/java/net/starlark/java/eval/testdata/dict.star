@@ -39,6 +39,10 @@ assert_eq(foo.pop('a', 0), 0)
 assert_eq(foo.popitem(), ('b', [1, 2]))
 
 ---
+d = {1: 2}
+freeze(d)
+d.setdefault(1, 2) ### trying to mutate a frozen dict value
+---
 dict().popitem() ### empty dictionary
 ---
 dict(a=2).pop('z') ### KeyError: "z"
