@@ -90,10 +90,7 @@ config_setting(
 
 config_setting(
     name = "darwin_arm64",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:arm64",
-    ],
+    values = {"cpu": "darwin_arm64"},
     visibility = ["//visibility:public"],
 )
 
