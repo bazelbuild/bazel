@@ -175,13 +175,32 @@ final class Eval {
       defaults = EMPTY;
     }
 
+    // Capture the cells of the function's
+    // free variables from the lexical environment.
+    Object[] freevars = new Object[rfn.getFreeVars().size()];
+    int i = 0;
+    for (Resolver.Binding bind : rfn.getFreeVars()) {
+      // Unlike expr(Identifier), we want the cell itself, not its content.
+      switch (bind.getScope()) {
+        case FREE:
+          freevars[i++] = fn(fr).getFreeVar(bind.getIndex());
+          break;
+        case CELL:
+          freevars[i++] = fr.locals[bind.getIndex()];
+          break;
+        default:
+          throw new IllegalStateException("unexpected: " + bind);
+      }
+    }
+
     // Nested functions use the same globalIndex as their enclosing function,
     // since both were compiled from the same Program.
     StarlarkFunction fn = fn(fr);
     assignIdentifier(
         fr,
         node.getIdentifier(),
-        new StarlarkFunction(rfn, Tuple.wrap(defaults), fn.getModule(), fn.globalIndex));
+        new StarlarkFunction(
+            rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars)));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -231,8 +250,8 @@ final class Eval {
       // loads bind file-locally. Either way, the resolver should designate
       // the proper scope of binding.getLocalName() and this should become
       // simply assign(binding.getLocalName(), value).
-      // Currently, we update the module but not module.exportedGlobals;
-      // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
+      // Currently, we update the module but not module.exportedGlobals.
+      // Change it to a local binding now that closures are supported.
       fn(fr).setGlobal(binding.getLocalName().getBinding().getIndex(), value);
     }
   }
@@ -327,6 +346,9 @@ final class Eval {
     switch (bind.getScope()) {
       case LOCAL:
         fr.locals[bind.getIndex()] = value;
+        break;
+      case CELL:
+        ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
         break;
       case GLOBAL:
         // Updates a module binding and sets its 'exported' flag.
@@ -636,6 +658,12 @@ final class Eval {
     switch (bind.getScope()) {
       case LOCAL:
         result = fr.locals[bind.getIndex()];
+        break;
+      case CELL:
+        result = ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x;
+        break;
+      case FREE:
+        result = fn(fr).getFreeVar(bind.getIndex()).x;
         break;
       case GLOBAL:
         result = fn(fr).getGlobal(bind.getIndex());

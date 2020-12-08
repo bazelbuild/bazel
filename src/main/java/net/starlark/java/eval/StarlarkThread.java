@@ -32,15 +32,17 @@ import net.starlark.java.syntax.Location;
  * per-thread application state (see {@link #setThreadLocal}) that passes through Starlark functions
  * but does not directly affect them, such as information about the BUILD file being loaded.
  *
- * <p>Every {@code StarlarkThread} has a {@link Mutability} field, and must be used within a
- * function that creates and closes this {@link Mutability} with the try-with-resource pattern. This
- * {@link Mutability} is also used when initializing mutable objects within that {@code
- * StarlarkThread}. When the {@code Mutability} is closed at the end of the computation, it freezes
- * the {@code StarlarkThread} along with all of those objects. This pattern enforces the discipline
- * that there should be no dangling mutable {@code StarlarkThread}, or concurrency between
- * interacting {@code StarlarkThread}s. It is a Starlark-level error to attempt to mutate a frozen
- * {@code StarlarkThread} or its objects, but it is a Java-level error to attempt to mutate an
- * unfrozen {@code StarlarkThread} or its objects from within a different {@code StarlarkThread}.
+ * <p>StarlarkThreads are not thread-safe: they should be confined to a single Java thread.
+ *
+ * <p>Every StarlarkThread has an associated {@link Mutability}, which should be created for that
+ * thread, and closed once the thread's work is done. (A try-with-resources statement is handy for
+ * this purpose.) Starlark values created by the thread are associated with the thread's Mutability,
+ * so that when the Mutability is closed at the end of the computation, all the values created by
+ * the thread become frozen. This pattern ensures that all Starlark values are frozen before they
+ * are published to another thread, and thus that concurrently executing Starlark threads are free
+ * from data races. Once a thread's mutability is frozen, the thread is unlikely to be useful for
+ * further computation because it can no longer create mutable values. (This is occasionally
+ * valuable in tests.)
  */
 public final class StarlarkThread {
 
@@ -136,7 +138,8 @@ public final class StarlarkThread {
     private boolean errorLocationSet;
 
     // The locals of this frame, if fn is a StarlarkFunction, otherwise null.
-    // Set by StarlarkFunction.fastcall.
+    // Set by StarlarkFunction.fastcall. Elements may be regular Starlark
+    // values, or wrapped in StarlarkFunction.Cells if shared with a nested function.
     @Nullable Object[] locals;
 
     @Nullable private Object profileSpan; // current span of walltime call profiler
@@ -181,8 +184,12 @@ public final class StarlarkThread {
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
       if (fn instanceof StarlarkFunction) {
         for (int i = 0; i < locals.length; i++) {
-          if (locals[i] != null) {
-            env.put(((StarlarkFunction) fn).rfn.getLocals().get(i).getName(), locals[i]);
+          Object local = locals[i];
+          if (local != null) {
+            if (local instanceof StarlarkFunction.Cell) {
+              local = ((StarlarkFunction.Cell) local).x;
+            }
+            env.put(((StarlarkFunction) fn).rfn.getLocals().get(i).getName(), local);
           }
         }
       }
@@ -332,9 +339,9 @@ public final class StarlarkThread {
     // Find fn buried within stack. (The top of the stack is assumed to be fn.)
     for (int i = callstack.size() - 2; i >= 0; --i) {
       Frame fr = callstack.get(i);
-      // TODO(adonovan): compare code, not closure values, otherwise
-      // one can defeat this check by writing the Y combinator.
-      if (fr.fn.equals(fn)) {
+      // We compare code, not closure values, otherwise one can defeat the
+      // check by writing the Y combinator.
+      if (fr.fn instanceof StarlarkFunction && ((StarlarkFunction) fr.fn).rfn.equals(fn.rfn)) {
         return true;
       }
     }
