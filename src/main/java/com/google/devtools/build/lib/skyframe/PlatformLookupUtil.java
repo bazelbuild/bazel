@@ -71,6 +71,7 @@ public class PlatformLookupUtil {
     boolean valuesMissing = env.valuesMissing();
     Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : platformKeys) {
+      // TODO: return fat platform info somehow?
       PlatformInfo platformInfo = findPlatformInfo(key, values.get(key), sanityCheckConfiguration);
       if (!valuesMissing && platformInfo != null) {
         platforms.put(key, platformInfo);
@@ -200,6 +201,7 @@ public class PlatformLookupUtil {
       return false;
     }
 
+    // TODO: or FatPlatformInfo
     return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
   }
 

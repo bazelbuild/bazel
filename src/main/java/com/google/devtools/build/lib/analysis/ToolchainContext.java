@@ -30,6 +30,8 @@ public interface ToolchainContext {
   /** Returns the target platform that these toolchains generate output for. */
   PlatformInfo targetPlatform();
 
+  // TODO: store fat platform info
+
   /** Returns the toolchain types that were requested. */
   ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes();
 

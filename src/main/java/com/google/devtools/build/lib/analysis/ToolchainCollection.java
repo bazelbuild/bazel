@@ -71,6 +71,8 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
     return getDefaultToolchainContext().targetPlatform();
   }
 
+  // TODO: store fat platform info
+
   @SuppressWarnings("unchecked")
   public ToolchainCollection<ToolchainContext> asToolchainContexts() {
     return (ToolchainCollection<ToolchainContext>) this;

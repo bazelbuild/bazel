@@ -415,6 +415,7 @@ public abstract class DependencyResolver {
           AttributeTransitionData.builder()
               .attributes(attributeMap)
               .executionPlatform(executionPlatformLabel)
+              // TODO: set fat platform info from toolchain context
               .build();
       ConfigurationTransition attributeTransition =
           attribute.getTransitionFactory().create(attributeTransitionData);
