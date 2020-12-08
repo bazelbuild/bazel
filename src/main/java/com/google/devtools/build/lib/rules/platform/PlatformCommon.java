@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.MultiPlatformTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformCommonApi;
 
 /** Starlark namespace used to interact with the platform APIs. */
@@ -48,5 +49,10 @@ public class PlatformCommon implements PlatformCommonApi {
   @Override
   public Provider getToolchainInfoConstructor() {
     return ToolchainInfo.PROVIDER;
+  }
+
+  @Override
+  public MultiPlatformTransitionApi getMultiPlatformTransition() {
+    return MultiPlatformTransition.MULTI_PLATFORM_TRANSITION;
   }
 }

@@ -63,4 +63,11 @@ public interface PlatformCommonApi extends StarlarkValue {
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
       structField = true)
   ProviderApi getConstraintValueInfoConstructor();
+
+  @StarlarkMethod(
+      name = "multi_platform_transition",
+      doc = "TKTK",
+      documented = false,
+      structField = true)
+  MultiPlatformTransitionApi getMultiPlatformTransition();
 }
