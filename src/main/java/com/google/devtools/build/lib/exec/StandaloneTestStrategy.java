@@ -391,7 +391,8 @@ public class StandaloneTestStrategy extends TestStrategy {
    * A spawn to generate a test.xml file from the test log. This is only used if the test does not
    * generate a test.xml file itself.
    */
-  private static Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
+  private static Spawn createXmlGeneratingSpawn(
+      TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
     ImmutableList<String> args =
         ImmutableList.of(
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
@@ -399,18 +400,15 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getXmlOutputPath().getPathString(),
             Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
             Integer.toString(result.exitCode()));
-
-    String testBinaryName =
-        action.getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString();
+    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+    envBuilder.putAll(testEnv)
+        .put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()))
+        .put("TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()))
+        .put("TEST_NAME", action.getTestName());
     return new SimpleSpawn(
         action,
         args,
-        ImmutableMap.of(
-            "PATH", "/usr/bin:/bin",
-            "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),
-            "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()),
-            "TEST_NAME", action.getTestName(),
-            "TEST_BINARY", testBinaryName),
+        envBuilder.build(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         ImmutableMap.copyOf(action.getExecutionInfo()),
@@ -766,7 +764,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       if (executionOptions.splitXmlGeneration
           && fileOutErr.getOutputPath().exists()
           && !xmlOutputPath.exists()) {
-        Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, spawnResults.get(0));
+        Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(
+            testAction, spawn.getEnvironment(), spawnResults.get(0));
         SpawnStrategyResolver spawnStrategyResolver =
             actionExecutionContext.getContext(SpawnStrategyResolver.class);
         // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
