@@ -57,7 +57,7 @@ public class PlatformInfo extends NativeInfo
   /** Provider singleton constant. */
   public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
 
-  /** Provider for {@link ToolchainInfo} objects. */
+  /** Provider for {@link PlatformInfo} objects. */
   private static class Provider extends BuiltinProvider<PlatformInfo>
       implements PlatformInfoApi.Provider<
           ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
