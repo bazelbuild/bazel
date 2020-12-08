@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -153,6 +154,8 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
   private void getTargetsMatchingPatternImpl(String pattern, Callback<Target> callback)
       throws QueryException, InterruptedException {
+    Set<Target> targets = ImmutableSet.copyOf(resolvedTargetPatterns.get(pattern));
+    validateScopeOfTargets(targets);
     callback.process(resolvedTargetPatterns.get(pattern));
   }
 
