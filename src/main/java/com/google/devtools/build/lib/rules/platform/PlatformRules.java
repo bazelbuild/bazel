@@ -40,6 +40,7 @@ public class PlatformRules implements RuleSet {
     builder.addRuleDefinition(new ConstraintSettingRule());
     builder.addRuleDefinition(new ConstraintValueRule());
     builder.addRuleDefinition(new PlatformRule());
+    builder.addRuleDefinition(new FatPlatformRule());
 
     builder.addRuleDefinition(new ToolchainRule());
 
