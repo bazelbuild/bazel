@@ -87,7 +87,7 @@ EOF
       --java_toolchain=//java/main:default_toolchain \
       --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
       --java_runtime_version=11 \
-      --extra_toolchains=//java/main:default_toolchain_toolchain \
+      --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
       || fail "Building with //java/main:default_toolchain failed"
   expect_log "Successfully executed JavaBinary!"

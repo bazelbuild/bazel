@@ -152,7 +152,7 @@ def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION
         visibility = ["//visibility:private"],
     )
     native.toolchain(
-        name = name + "_toolchain",
+        name = name + "_definition",
         toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
         target_settings = [name + "_version_setting"],
         toolchain = name,

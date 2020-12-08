@@ -38,7 +38,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --distdir=derived/distdir \
       --java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
       --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-      --extra_toolchains=//src/java_tools/buildjar:bootstrap_toolchain_toolchain \
+      --extra_toolchains=//src/java_tools/buildjar:bootstrap_toolchain_definition \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 

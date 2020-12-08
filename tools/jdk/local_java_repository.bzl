@@ -16,17 +16,18 @@
 
 def _detect_java_version(repository_ctx, java_bin):
     properties_out = repository_ctx.execute([java_bin, "-XshowSettings:properties"]).stderr
+    # This returns an indented list of properties separated with newlines:
+    # "  java.vendor.url.bug = ... \n"
+    # "  java.version = 11.0.8\n"
+    # "  java.version.date = 2020-11-05\"
 
-    version_property = "java.version = "
-    versions = [
-        property.lstrip()[len(version_property):].rstrip()
-        for property in properties_out.splitlines()
-        if property.lstrip().startswith(version_property)
-    ]
-    if len(versions) != 1:
+    strip_properties = [property.strip() for property in properties_out.splitlines()]
+    version_property = [property for property in strip_properties if property.startswith("java.version=")]
+    if len(version_property) != 1:
         return "unknown"
 
-    (major, minor, rest) = versions[0].split(".", 2)
+    version_value = version_property[0][len("java.version="):]
+    (major, minor, rest) = version_value.split(".", 2)
 
     if major == "1":  # handles versions below 1.8
         return minor
