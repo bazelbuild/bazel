@@ -183,6 +183,7 @@ distdir_tar(
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
     ],
     dirname = "derived/distdir",
+    dist_deps = DIST_DEPS,
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "java_tools-v11.0.zip": "09ecd438f1a10aa36bf0a6a2f24ead884ef7e8e8a46d086f8af6db33556b76a8",
@@ -311,7 +312,6 @@ distdir_tar(
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         ],
     },
-    dist_deps = DIST_DEPS,
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
@@ -563,6 +563,7 @@ distdir_tar(
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
+    dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if attrs.get("need_in_test_WORKSPACE")},
     sha256 = {
         "java_tools-v11.0.zip": "09ecd438f1a10aa36bf0a6a2f24ead884ef7e8e8a46d086f8af6db33556b76a8",
         "java_tools_linux-v11.0.zip": "b66d5b97b90cb20787cfa61565672b0538912d230f120a03f38020052f25c4bc",
@@ -659,7 +660,6 @@ distdir_tar(
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         ],
     },
-    dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if attrs.get("need_in_test_WORKSPACE")}
 )
 
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
