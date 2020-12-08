@@ -42,6 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
