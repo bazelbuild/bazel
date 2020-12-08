@@ -353,8 +353,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
     @Override
     public LocateOnPathResult lookup(
         InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToDeclaredHeader) {
-      LocateOnPathResult result =
-          cache.computeIfAbsent(inclusion, key -> locateOnPaths(key, pathToDeclaredHeader, false));
+      LocateOnPathResult result = cache.get(inclusion);
+      if (result == null) {
+        // Do not use computeIfAbsent() as the implementation of locateOnPaths might do multiple
+        // file stats and this creates substantial contention given CompactHashMap's locking.
+        // Do not use futures as the few duplicate executions are cheaper than the additional memory
+        // that would be required.
+        result = locateOnPaths(inclusion, pathToDeclaredHeader, false);
+        cache.put(inclusion, result);
+        return result;
+      }
       // If the previous computation for this inclusion had a different pathToDeclaredHeader
       // map, result may not be valid for this lookup. Because this is a hot spot, we tolerate a
       // known correctness bug but try to catch most issues.
