@@ -401,10 +401,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
-    envBuilder.putAll(testEnv)
-        .put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()))
-        .put("TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()))
-        .put("TEST_NAME", action.getTestName());
+    envBuilder.put("TEST_NAME", action.getTestName()).putAll(testEnv);
     return new SimpleSpawn(
         action,
         args,
