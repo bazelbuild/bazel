@@ -47,7 +47,10 @@ java_test(
     name = "ScriptTest",
     srcs = ["ScriptTest.java"],
     data = glob(["testdata/*.star"]),
-    jvm_flags = ["-Dfile.encoding=UTF8"],
+    jvm_flags = [
+        "-Duser.language=en_US",
+        "-Dfile.encoding=UTF8",
+    ],
     use_testrunner = False,
     deps = [
         "//src/main/java/net/starlark/java/annot",
