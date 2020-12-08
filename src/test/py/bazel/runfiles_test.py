@@ -239,6 +239,11 @@ class RunfilesTest(test_base.TestBase):
       substitute_manifest = self.ScratchFile(
           "mock-%s.runfiles/MANIFEST" % lang[0], mock_manifest_data)
 
+      # remove the original manifest file so the launcher picks the one in the environment
+      # variable RUNFILES_MANIFEST_FILE
+      os.remove(manifest_path)
+      self.assertFalse(os.path.exists(manifest_path))
+
       exit_code, stdout, stderr = self.RunProgram(
           [bin_path],
           env_remove=set(["RUNFILES_DIR"]),
