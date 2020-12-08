@@ -95,6 +95,8 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     assertThat(results.size()).isEqualTo(2);
   }
 
+  // TODO: test fat platform info
+
   @Test
   public void testPlatformLookup_targetNotPlatform() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");

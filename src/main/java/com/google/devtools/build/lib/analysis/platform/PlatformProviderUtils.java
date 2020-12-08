@@ -35,6 +35,15 @@ public class PlatformProviderUtils {
     return Iterables.transform(targets, PlatformProviderUtils::platform);
   }
 
+  /** Retrieves and casts the {@link FatPlatformInfo} provider from the given target. */
+  @Nullable
+  public static FatPlatformInfo fatPlatform(@Nullable ProviderCollection target) {
+    if (target == null) {
+      return null;
+    }
+    return target.get(FatPlatformInfo.PROVIDER);
+  }
+
   /** Retrieves and casts the {@link ConstraintSettingInfo} provider from the given target. */
   @Nullable
   public static ConstraintSettingInfo constraintSetting(@Nullable ProviderCollection target) {

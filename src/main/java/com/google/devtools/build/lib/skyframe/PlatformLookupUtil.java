@@ -21,10 +21,12 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.platform.FatPlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -42,6 +44,7 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException3;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Helper class that looks up {@link PlatformInfo} data. */
@@ -49,15 +52,19 @@ public class PlatformLookupUtil {
 
   @AutoValue
   public static abstract class Results {
-    protected static Results create(Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap) {
-      return new AutoValue_PlatformLookupUtil_Results(platformInfoMap);
+    protected static Results create(Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap, Map<ConfiguredTargetKey, FatPlatformInfo> fatPlatformInfoMap) {
+      return new AutoValue_PlatformLookupUtil_Results(ImmutableMap.copyOf(platformInfoMap), ImmutableMap.copyOf(fatPlatformInfoMap));
     }
 
-    protected abstract Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap();
-    // FatPlatformInfo
+    protected abstract ImmutableMap<ConfiguredTargetKey, PlatformInfo> platformInfoMap();
+    protected abstract ImmutableMap<ConfiguredTargetKey, FatPlatformInfo> fatPlatformInfoMap();
 
     public PlatformInfo getPlatformInfo(ConfiguredTargetKey ctk) {
       return platformInfoMap().get(ctk);
+    }
+
+    public FatPlatformInfo getFatPlatformInfo(ConfiguredTargetKey ctk) {
+      return fatPlatformInfoMap().get(ctk);
     }
 
     public int size() {
@@ -89,18 +96,20 @@ public class PlatformLookupUtil {
                 ActionConflictException.class);
     boolean valuesMissing = env.valuesMissing();
     Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
+    Map<ConfiguredTargetKey, FatPlatformInfo> fatPlatforms = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : platformKeys) {
       // TODO: return fat platform info somehow?
-      PlatformInfo platformInfo = findPlatformInfo(key, values.get(key), sanityCheckConfiguration);
-      if (!valuesMissing && platformInfo != null) {
-        platforms.put(key, platformInfo);
-      }
+      ValueOrException3<ConfiguredValueCreationException, NoSuchThingException, ActionConflictException> valueOrException = values
+          .get(key);
+      findPlatformInfo(key, valueOrException, sanityCheckConfiguration,
+          valuesMissing ? null : platformInfo -> platforms.put(key, platformInfo),
+          valuesMissing ? null : fatPlatformInfo -> fatPlatforms.put(key, fatPlatformInfo));
     }
     if (valuesMissing) {
       return null;
     }
 
-    return Results.create(platforms);
+    return Results.create(platforms, fatPlatforms);
   }
 
   /** Validate that all keys are for actual platform targets. */
@@ -157,18 +166,20 @@ public class PlatformLookupUtil {
    * InvalidPlatformException} is thrown.
    */
   @Nullable
-  private static PlatformInfo findPlatformInfo(
+  private static void findPlatformInfo(
       ConfiguredTargetKey key,
       ValueOrException3<
               ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>
           valueOrException,
-      boolean sanityCheckConfiguration)
+      boolean sanityCheckConfiguration,
+      @Nullable Consumer<PlatformInfo> platformInfoConsumer,
+      @Nullable Consumer<FatPlatformInfo> fatPlatformInfoConsumer)
       throws InvalidPlatformException {
 
     try {
       ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
       if (ctv == null) {
-        return null;
+        return;
       }
 
       ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
@@ -195,12 +206,20 @@ public class PlatformLookupUtil {
                 + extraFragmentDescription
                 + "]");
       }
+
       PlatformInfo platformInfo = PlatformProviderUtils.platform(configuredTarget);
       if (platformInfo == null) {
         throw new InvalidPlatformException(configuredTarget.getLabel());
       }
 
-      return platformInfo;
+      if (platformInfoConsumer != null) {
+        platformInfoConsumer.accept(platformInfo);
+      }
+
+      FatPlatformInfo fatPlatformInfo = PlatformProviderUtils.fatPlatform(configuredTarget);
+      if (fatPlatformInfoConsumer != null && fatPlatformInfo != null) {
+        fatPlatformInfoConsumer.accept(fatPlatformInfo);
+      }
     } catch (ConfiguredValueCreationException e) {
       throw new InvalidPlatformException(key.getLabel(), e);
     } catch (NoSuchThingException e) {
@@ -220,7 +239,6 @@ public class PlatformLookupUtil {
       return false;
     }
 
-    // TODO: or FatPlatformInfo
     return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
   }
 
