@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.platform.FatPlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.HashMap;
@@ -71,7 +72,9 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
     return getDefaultToolchainContext().targetPlatform();
   }
 
-  // TODO: store fat platform info
+  public FatPlatformInfo getFatTargetPlatform() {
+    return getDefaultToolchainContext().fatTargetPlatform();
+  }
 
   @SuppressWarnings("unchecked")
   public ToolchainCollection<ToolchainContext> asToolchainContexts() {

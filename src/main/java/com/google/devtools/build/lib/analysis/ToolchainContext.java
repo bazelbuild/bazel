@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.platform.FatPlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
+import javax.annotation.Nullable;
 
 /** Represents the data needed for a specific target's use of toolchains and platforms. */
 public interface ToolchainContext {
@@ -30,7 +32,8 @@ public interface ToolchainContext {
   /** Returns the target platform that these toolchains generate output for. */
   PlatformInfo targetPlatform();
 
-  // TODO: store fat platform info
+  @Nullable
+  FatPlatformInfo fatTargetPlatform();
 
   /** Returns the toolchain types that were requested. */
   ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes();

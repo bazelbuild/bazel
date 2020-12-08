@@ -17,11 +17,13 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.lib.analysis.platform.FatPlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Represents the state of toolchain resolution once the specific required toolchains have been
@@ -45,6 +47,8 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
 
     /** Sets the target platform that these toolchains generate output for. */
     Builder setTargetPlatform(PlatformInfo targetPlatform);
+
+    Builder setFatTargetPlatform(@Nullable FatPlatformInfo fatTargetPlatform);
 
     /** Sets the toolchain types that were requested. */
     Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);

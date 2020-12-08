@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.FatPlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -447,6 +448,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
     builder.setRequiredToolchainTypes(requiredToolchainTypes);
     builder.setExecutionPlatform(platformLookupResults.getPlatformInfo(selectedExecutionPlatformKey.get()));
     builder.setTargetPlatform(platformLookupResults.getPlatformInfo(platformKeys.targetPlatformKey()));
+    FatPlatformInfo fatTargetPlatform = platformLookupResults.getFatPlatformInfo(platformKeys.targetPlatformKey());
+    if (fatTargetPlatform != null) {
+      builder.setFatTargetPlatform(fatTargetPlatform);
+    }
 
     Map<ToolchainTypeInfo, Label> toolchains =
         resolvedToolchains.row(selectedExecutionPlatformKey.get());
