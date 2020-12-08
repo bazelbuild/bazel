@@ -41,7 +41,11 @@ cc_binary(
     }),
     linkopts = select({
         "//src/conditions:windows": [],
-        "//conditions:default": ["-lm"],
+        "//src/conditions:darwin": ["-lm"],
+        "//conditions:default": [
+            "-lm",
+            "-lrt",
+        ],
     }),
     deps = select({
         "//src/conditions:windows": [],
@@ -86,7 +90,16 @@ cc_binary(
             "linux-sandbox-pid1.h",
         ],
     }),
-    linkopts = ["-lm"],
+    linkopts = select({
+        "//src/conditions:darwin": [],
+        "//src/conditions:freebsd": [],
+        "//src/conditions:openbsd": [],
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "-lm",
+            "-lrt",
+        ],
+    }),
     deps = select({
         "//src/conditions:darwin": [],
         "//src/conditions:freebsd": [],

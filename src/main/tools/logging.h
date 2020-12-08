@@ -15,6 +15,10 @@
 #ifndef SRC_MAIN_TOOLS_LOGGING_H_
 #define SRC_MAIN_TOOLS_LOGGING_H_
 
+// See https://stackoverflow.com/a/8132440 .
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
