@@ -384,4 +384,13 @@ function test_resource_flags_syntax() {
       || fail "Empty build failed"
 }
 
+function test_track_directory_crossing_package() {
+  mkdir -p foo/dir/subdir
+  touch foo/dir/subdir/BUILD
+  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
+  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "WARNING: Directory artifact foo/dir crosses package boundary into"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."
