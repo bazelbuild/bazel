@@ -88,7 +88,6 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
 
   private final Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier;
   private final Path execRoot;
-  private final boolean useAsyncIncludeScanner;
 
   /** Cache of include scanner instances mapped by include-path hashes. */
   private final LoadingCache<IncludeScannerParams, IncludeScanner> scanners =
@@ -108,8 +107,7 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
                       directories.getOutputPath(execRoot.getBaseName()),
                       execRoot,
                       artifactFactory,
-                      spawnIncludeScannerSupplier,
-                      useAsyncIncludeScanner);
+                      spawnIncludeScannerSupplier);
                 }
               });
 
@@ -118,15 +116,13 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
       ExecutorService includePool,
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
-      Path execRoot,
-      boolean useAsyncIncludeScanner) {
+      Path execRoot) {
     this.directories = directories;
     this.includePool = includePool;
     this.artifactFactory = artifactFactory;
     this.spawnIncludeScannerSupplier = spawnIncludeScannerSupplier;
     this.execRoot = execRoot;
     this.pathCache = new PathExistenceCache(execRoot, artifactFactory);
-    this.useAsyncIncludeScanner = useAsyncIncludeScanner;
   }
 
   @Override
