@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
@@ -34,6 +35,9 @@ public abstract class AttributeTransitionData {
   @Nullable
   public abstract Label executionPlatform();
 
+  @Nullable
+  public abstract ImmutableList<Label> fatTargetPlatforms();
+
   /** Returns a new {@link Builder} for {@link AttributeTransitionData}. */
   public static Builder builder() {
     return new AutoValue_AttributeTransitionData.Builder();
@@ -47,6 +51,8 @@ public abstract class AttributeTransitionData {
 
     /** Sets the execution platform label. */
     public abstract Builder executionPlatform(@Nullable Label executionPlatform);
+
+    public abstract Builder fatTargetPlatforms(ImmutableList<Label> fatTargetPlatforms);
 
     /** Returns the new {@link AttributeTransitionData}. */
     public abstract AttributeTransitionData build();

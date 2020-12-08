@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -411,11 +413,17 @@ public abstract class DependencyResolver {
         }
       }
 
+      AttributeTransitionData.Builder attributeTransitionDataBuilder = AttributeTransitionData.builder()
+          .attributes(attributeMap)
+          .executionPlatform(executionPlatformLabel);
+      if (toolchainContexts != null && toolchainContexts.getFatTargetPlatform() != null) {
+        attributeTransitionDataBuilder
+            .fatTargetPlatforms(toolchainContexts.getFatTargetPlatform().platforms().stream()
+                .map(PlatformInfo::label)
+                .collect(toImmutableList()));
+      }
       AttributeTransitionData attributeTransitionData =
-          AttributeTransitionData.builder()
-              .attributes(attributeMap)
-              .executionPlatform(executionPlatformLabel)
-              // TODO: set fat platform info from toolchain context
+          attributeTransitionDataBuilder
               .build();
       ConfigurationTransition attributeTransition =
           attribute.getTransitionFactory().create(attributeTransitionData);
@@ -742,7 +750,7 @@ public abstract class DependencyResolver {
       aspects =
           aspects.stream()
               .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
-              .collect(ImmutableList.toImmutableList());
+              .collect(toImmutableList());
       toTarget = ((OutputFile) toTarget).getGeneratingRule();
     }
 
