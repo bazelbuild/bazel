@@ -107,10 +107,10 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throws ToolchainResolutionFunctionException, InterruptedException {
 
     // Load the PlatformInfo needed to check constraints.
-    Map<ConfiguredTargetKey, PlatformInfo> platforms;
+    PlatformLookupUtil.Results results;
     try {
 
-      platforms =
+      results =
           PlatformLookupUtil.getPlatformInfo(
               new ImmutableList.Builder<ConfiguredTargetKey>()
                   .add(targetPlatformKey)
@@ -125,7 +125,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throw new ToolchainResolutionFunctionException(e);
     }
 
-    PlatformInfo targetPlatform = platforms.get(targetPlatformKey);
+    PlatformInfo targetPlatform = results.getPlatformInfo(targetPlatformKey);
 
     // Platforms may exist multiple times in availableExecutionPlatformKeys. The Set lets this code
     // check whether a platform has already been seen during processing.
@@ -175,7 +175,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
           continue;
         }
 
-        PlatformInfo executionPlatform = platforms.get(executionPlatformKey);
+        PlatformInfo executionPlatform = results.getPlatformInfo(executionPlatformKey);
         if (!checkConstraints(
             eventHandler,
             toolchain.execConstraints(),

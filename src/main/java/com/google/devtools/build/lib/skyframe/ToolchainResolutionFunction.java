@@ -302,10 +302,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // It's not worth trying to optimize away this call, since in the optimizable case (the exec
     // platform is the host platform), Skyframe will return the correct results immediately without
     // need of a restart.
-    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
+    PlatformLookupUtil.Results results =
         PlatformLookupUtil.getPlatformInfo(
             platformKeys, environment, shouldSanityCheckConfiguration);
-    if (platformInfoMap == null) {
+    if (results == null) {
       throw new ValueMissingException();
     }
     List<ConstraintValueInfo> constraints =
@@ -315,7 +315,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
 
     return platformKeys.stream()
-        .filter(key -> filterPlatform(environment, debug, platformInfoMap.get(key), constraints))
+        .filter(key -> filterPlatform(environment, debug, results.getPlatformInfo(key), constraints))
         .collect(toImmutableList());
   }
 
@@ -435,18 +435,18 @@ public class ToolchainResolutionFunction implements SkyFunction {
           platformKeys.targetPlatformKey());
     }
 
-    Map<ConfiguredTargetKey, PlatformInfo> platforms =
+    PlatformLookupUtil.Results platformLookupResults =
         PlatformLookupUtil.getPlatformInfo(
             ImmutableList.of(selectedExecutionPlatformKey.get(), platformKeys.targetPlatformKey()),
             environment,
             shouldSanityCheckConfiguration);
-    if (platforms == null) {
+    if (platformLookupResults == null) {
       throw new ValueMissingException();
     }
 
     builder.setRequiredToolchainTypes(requiredToolchainTypes);
-    builder.setExecutionPlatform(platforms.get(selectedExecutionPlatformKey.get()));
-    builder.setTargetPlatform(platforms.get(platformKeys.targetPlatformKey()));
+    builder.setExecutionPlatform(platformLookupResults.getPlatformInfo(selectedExecutionPlatformKey.get()));
+    builder.setTargetPlatform(platformLookupResults.getPlatformInfo(platformKeys.targetPlatformKey()));
 
     Map<ToolchainTypeInfo, Label> toolchains =
         resolvedToolchains.row(selectedExecutionPlatformKey.get());

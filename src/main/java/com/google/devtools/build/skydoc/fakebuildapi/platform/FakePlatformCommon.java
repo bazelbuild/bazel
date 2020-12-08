@@ -15,8 +15,10 @@
 package com.google.devtools.build.skydoc.fakebuildapi.platform;
 
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.MultiPlatformTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformCommonApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link PlatformCommonApi}.
@@ -46,5 +48,15 @@ public class FakePlatformCommon implements PlatformCommonApi {
   @Override
   public ProviderApi getConstraintValueInfoConstructor() {
     return new FakeProviderApi();
+  }
+
+  @Override
+  public MultiPlatformTransitionApi getMultiPlatformTransition() {
+    return new FakeMultiPlatformTransition();
+  }
+
+  private static class FakeMultiPlatformTransition implements MultiPlatformTransitionApi {
+    @Override
+    public void repr(Printer printer) {}
   }
 }

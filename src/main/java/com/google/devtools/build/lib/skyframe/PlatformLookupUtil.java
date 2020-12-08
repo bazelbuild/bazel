@@ -19,6 +19,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -46,8 +47,26 @@ import javax.annotation.Nullable;
 /** Helper class that looks up {@link PlatformInfo} data. */
 public class PlatformLookupUtil {
 
+  @AutoValue
+  public static abstract class Results {
+    protected static Results create(Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap) {
+      return new AutoValue_PlatformLookupUtil_Results(platformInfoMap);
+    }
+
+    protected abstract Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap();
+    // FatPlatformInfo
+
+    public PlatformInfo getPlatformInfo(ConfiguredTargetKey ctk) {
+      return platformInfoMap().get(ctk);
+    }
+
+    public int size() {
+      return platformInfoMap().size();
+    }
+  }
+
   @Nullable
-  public static Map<ConfiguredTargetKey, PlatformInfo> getPlatformInfo(
+  public static Results getPlatformInfo(
       ImmutableList<ConfiguredTargetKey> platformKeys,
       Environment env,
       boolean sanityCheckConfiguration)
@@ -81,7 +100,7 @@ public class PlatformLookupUtil {
       return null;
     }
 
-    return platforms;
+    return Results.create(platforms);
   }
 
   /** Validate that all keys are for actual platform targets. */

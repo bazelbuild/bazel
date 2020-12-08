@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.Results;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -85,10 +86,13 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasNoError();
     assertThatEvaluationResult(result).hasEntryThat(key).isNotNull();
 
-    Map<ConfiguredTargetKey, PlatformInfo> platforms = result.get(key).platforms();
-    assertThat(platforms).containsEntry(linuxKey, linuxPlatform);
-    assertThat(platforms).containsEntry(macKey, macPlatform);
-    assertThat(platforms).hasSize(2);
+    Results results = result.get(key).results();
+    //assertThat(platforms).containsEntry(linuxKey, linuxPlatform);
+    //assertThat(platforms).containsEntry(macKey, macPlatform);
+    //assertThat(platforms).hasSize(2);
+    assertThat(results.getPlatformInfo(linuxKey)).isEqualTo(linuxPlatform);
+    assertThat(results.getPlatformInfo(macKey)).isEqualTo(macPlatform);
+    assertThat(results.size()).isEqualTo(2);
   }
 
   @Test
@@ -171,10 +175,10 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
 
   @AutoValue
   abstract static class GetPlatformInfoValue implements SkyValue {
-    abstract Map<ConfiguredTargetKey, PlatformInfo> platforms();
+    abstract Results results();
 
-    static GetPlatformInfoValue create(Map<ConfiguredTargetKey, PlatformInfo> platforms) {
-      return new AutoValue_PlatformLookupUtilTest_GetPlatformInfoValue(platforms);
+    static GetPlatformInfoValue create(Results results) {
+      return new AutoValue_PlatformLookupUtilTest_GetPlatformInfoValue(results);
     }
   }
 
@@ -186,12 +190,12 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
         throws SkyFunctionException, InterruptedException {
       GetPlatformInfoKey key = (GetPlatformInfoKey) skyKey;
       try {
-        Map<ConfiguredTargetKey, PlatformInfo> platforms =
-            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env, false);
+        Results results = PlatformLookupUtil
+            .getPlatformInfo(key.platformKeys(), env, false);
         if (env.valuesMissing()) {
           return null;
         }
-        return GetPlatformInfoValue.create(platforms);
+        return GetPlatformInfoValue.create(results);
       } catch (InvalidPlatformException e) {
         throw new GetPlatformInfoFunctionException(e);
       }
