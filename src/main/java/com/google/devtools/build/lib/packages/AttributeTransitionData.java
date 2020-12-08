@@ -35,12 +35,12 @@ public abstract class AttributeTransitionData {
   @Nullable
   public abstract Label executionPlatform();
 
-  @Nullable
   public abstract ImmutableList<Label> fatTargetPlatforms();
 
   /** Returns a new {@link Builder} for {@link AttributeTransitionData}. */
   public static Builder builder() {
-    return new AutoValue_AttributeTransitionData.Builder();
+    return new AutoValue_AttributeTransitionData.Builder()
+        .fatTargetPlatforms(ImmutableList.of());
   }
 
   /** Builder class for {@link AttributeTransitionData}. */
