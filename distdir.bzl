@@ -49,9 +49,10 @@ _distdir_tar = repository_rule(
 def distdir_tar(name, archives, sha256, urls, dirname, dist_deps=None):
     if  dist_deps:
         for dep, info in dist_deps.items():
-            print(info)
-            sha256[info["archive"]] = info["sha256"]
-            urls[info["archive"]] = info["urls"]
+            archive_file = info["archive"]
+            archives.append(archive_file)
+            sha256[archive_file] = info["sha256"]
+            urls[archive_file] = info["urls"]
     _distdir_tar(
         name = name,
         archives = archives,
