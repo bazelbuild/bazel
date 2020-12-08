@@ -548,6 +548,27 @@ public class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo("ToolPoolMnemonic");
   }
 
+  @Test
+  public void testExecutableBuilder() throws Exception {
+    SpawnAction.Builder builder = builder().addOutput(destinationArtifact);
+    builder.executableArguments().add("binary").add("execArg1").add("execArg2");
+    Action[] actions = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+  }
+
+  @Test
+  public void testExecutableBuilderAfterSetExecutable() throws Exception {
+    SpawnAction.Builder builder = builder().addOutput(destinationArtifact);
+    builder.setExecutable(PathFragment.create("binary"));
+    builder.executableArguments().add("execArg1").add("execArg2");
+    Action[] actions = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+  }
+
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
     return new RunfilesSupplierImpl(
         dir,
