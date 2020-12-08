@@ -659,7 +659,7 @@ distdir_tar(
             "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
         ],
     },
-    # dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if attrs.get("need_in_test_WORKSPACE")}
+    dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if attrs.get("need_in_test_WORKSPACE")}
 )
 
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
