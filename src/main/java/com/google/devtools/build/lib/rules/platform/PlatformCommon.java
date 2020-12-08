@@ -53,6 +53,6 @@ public class PlatformCommon implements PlatformCommonApi {
 
   @Override
   public MultiPlatformTransitionApi getMultiPlatformTransition() {
-    return MultiPlatformTransition.MULTI_PLATFORM_TRANSITION;
+    return new MultiPlatformTransitionFactory();
   }
 }
