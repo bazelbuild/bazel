@@ -33,7 +33,7 @@ public class FatPlatformRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    /* <!-- #BLAZE_RULE(platform).NAME -->
+    /* <!-- #BLAZE_RULE(fat_platform).NAME -->
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .advertiseProvider(FatPlatformInfo.class, PlatformInfo.class)
