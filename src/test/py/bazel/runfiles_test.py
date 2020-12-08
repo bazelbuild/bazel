@@ -16,6 +16,7 @@
 import os
 import unittest
 import six
+import stat
 from src.test.py.bazel import test_base
 
 
@@ -241,6 +242,7 @@ class RunfilesTest(test_base.TestBase):
 
       # remove the original manifest file so the launcher picks the one in the environment
       # variable RUNFILES_MANIFEST_FILE
+      os.chmod(manifest_path, stat.S_IRWXU)
       os.remove(manifest_path)
       self.assertFalse(os.path.exists(manifest_path))
 
@@ -317,7 +319,6 @@ class RunfilesTest(test_base.TestBase):
       manifest_path = os.path.join(bazel_output,
                                    "host/bin/bin.runfiles_manifest")
     self.AssertFileContentNotContains(manifest_path, "__main__/external/A")
-
 
 if __name__ == "__main__":
   unittest.main()
