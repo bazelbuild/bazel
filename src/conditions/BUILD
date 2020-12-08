@@ -103,6 +103,10 @@ config_setting(
     values = {"cpu": "darwin_arm64"},
 )
 
+# Workaround for an issue where the dummy cc toolchain isn't being picked up
+# when cross-compile from darwin_x86_64 to darwin_arm64 cpu.
+# TODO(https://github.com/bazelbuild/bazel/issues/12655): Remove the flag based
+# select when the issue is resolved.
 selects.config_setting_group(
     name = "darwin_arm64",
     match_any = [
