@@ -103,6 +103,12 @@ bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::function<bool(const std::string&)> is_runfiles_directory,
                std::string* out_manifest, std::string* out_directory);
 
+bool PathsFrom(std::string runfiles_manifest_file,
+               std::string runfiles_dir,
+               std::function<bool(const std::string&)> is_runfiles_manifest,
+               std::function<bool(const std::string&)> is_runfiles_directory,
+               std::string* out_manifest, std::string* out_directory);
+
 bool ParseManifest(const string& path, map<string, string>* result,
                    string* error);
 
@@ -265,19 +271,36 @@ bool PathsFrom(const string& argv0, string mf, string dir,
   out_manifest->clear();
   out_directory->clear();
 
-  bool mfValid = is_runfiles_manifest(mf);
-  bool dirValid = is_runfiles_directory(dir);
+  string existing_mf = mf;
+  string existing_dir = dir;
 
-  if (!argv0.empty() && !mfValid && !dirValid) {
+  // if argv0 is not empty, try to use it to find the runfiles manifest file/directory paths
+  if (!argv0.empty()) {
     mf = argv0 + ".runfiles/MANIFEST";
     dir = argv0 + ".runfiles";
-    mfValid = is_runfiles_manifest(mf);
-    dirValid = is_runfiles_directory(dir);
-    if (!mfValid) {
+    if (!is_runfiles_manifest(mf)) {
       mf = argv0 + ".runfiles_manifest";
-      mfValid = is_runfiles_manifest(mf);
     }
+    PathsFrom(mf, dir, is_runfiles_manifest, is_runfiles_directory, out_manifest, out_directory);
   }
+
+  // if the runfiles manifest file/directory paths are not found, use existing mf and dir to find the paths
+  if(out_manifest->empty() && out_directory->empty()) {
+    return PathsFrom(existing_mf, existing_dir, is_runfiles_manifest, is_runfiles_directory, out_manifest, out_directory);
+  }
+
+  return true;
+}
+
+bool PathsFrom(string mf, string dir,
+               function<bool(const string&)> is_runfiles_manifest,
+               function<bool(const string&)> is_runfiles_directory,
+               string* out_manifest, string* out_directory) {
+  out_manifest->clear();
+  out_directory->clear();
+
+  bool mfValid = is_runfiles_manifest(mf);
+  bool dirValid = is_runfiles_directory(dir);
 
   if (!mfValid && !dirValid) {
     return false;
