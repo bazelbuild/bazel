@@ -47,6 +47,16 @@ _distdir_tar = repository_rule(
 )
 
 def distdir_tar(name, archives, sha256, urls, dirname, dist_deps = None):
+    """Creates a repository whose content is a set of tar files.
+
+    Args:
+      name: repo name.
+      archives: list of tar file names.
+      sha256: map of tar file names to SHAs.
+      urls: map of tar file names to URL lists.
+      dirname: output directory in repo.
+      dist_deps: map of repo names to dict of archive, sha256, and urls.
+    """
     if dist_deps:
         for dep, info in dist_deps.items():
             archive_file = info["archive"]

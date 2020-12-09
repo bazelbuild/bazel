@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -129,21 +128,23 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 // LINT.IfChange
 public class SkyframeEvalWithOrderedListAEFDelegator {
-  private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
+  private final ActionRewindStrategy actionRewindStrategy;
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
-  private ConcurrentMap<Action, ContinuationState> stateMap;
+  private final ConcurrentMap<Action, ContinuationState> stateMap;
 
   public SkyframeEvalWithOrderedListAEFDelegator(
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
       AtomicReference<TimestampGranularityMonitor> tsgm,
-      ConcurrentMap<Action, ContinuationState> stateMap) {
+      ConcurrentMap<Action, ContinuationState> stateMap,
+      ActionRewindStrategy actionRewindStrategy) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.directories = directories;
     this.tsgm = tsgm;
     this.stateMap = stateMap;
+    this.actionRewindStrategy = actionRewindStrategy;
   }
 
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -1327,17 +1328,6 @@ public class SkyframeEvalWithOrderedListAEFDelegator {
       inputLabel = labelInCaseOfBug;
     }
     return new LabelCause(inputLabel, missingValue.getDetailedExitCode());
-  }
-
-  /**
-   * Should be called once execution is over, and the intra-build cache of in-progress computations
-   * should be discarded. If the cache is non-empty (due to an interrupted/failed build), failure to
-   * call complete() can both cause a memory leak and incorrect results on the subsequent build.
-   */
-  public void complete(ExtendedEventHandler eventHandler) {
-    // Discard all remaining state (there should be none after a successful execution).
-    stateMap = Maps.newConcurrentMap();
-    actionRewindStrategy.reset(eventHandler);
   }
 
   private ContinuationState getState(Action action) {

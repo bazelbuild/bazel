@@ -146,6 +146,18 @@ def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION
         **toolchain_args
     )
 
+    native.config_setting(
+        name = name + "_version_setting",
+        values = {"java_language_version": toolchain_args["source_version"]},
+        visibility = ["//visibility:private"],
+    )
+    native.toolchain(
+        name = name + "_definition",
+        toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
+        target_settings = [name + "_version_setting"],
+        toolchain = name,
+    )
+
 def java_runtime_files(name, srcs):
     """Copies the given sources out of the current Java runtime."""
 

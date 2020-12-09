@@ -105,7 +105,8 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " package.</li>" //
               + "<li>Lists are represented as tuples, and dicts are converted to new, mutable"
               + " dicts. Their elements are recursively converted in the same fashion.</li>" //
-              + "<li><code>select</code> values are returned as is." //
+              + "<li><code>select</code> values are returned with their contents transformed as " //
+              + "described above.</li>" //
               + "<li>Attributes for which no value was specified during rule instantiation and"
               + " whose default value is computed are excluded from the result. (Computed defaults"
               + " cannot be computed until the analysis phase.).</li>" //

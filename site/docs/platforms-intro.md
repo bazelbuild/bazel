@@ -5,6 +5,7 @@ title: Building with platforms
 
 # Building with platforms
 
+
 Bazel has sophisticated support for modeling [platforms][Platforms] and
 [toolchains][Toolchains]. Integrating this into real projects requires
 coherent cooperation between project and library owners, rule maintainers,

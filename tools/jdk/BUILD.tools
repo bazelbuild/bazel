@@ -1,6 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
-    "//tools/jdk:default_java_toolchain.bzl",
+    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
     "DEFAULT_TOOLCHAIN_CONFIGURATION",
     "JVM8_TOOLCHAIN_CONFIGURATION",
     "PREBUILT_TOOLCHAIN_CONFIGURATION",
@@ -28,30 +28,6 @@ toolchain_type(name = "toolchain_type")
 # Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
 toolchain_type(name = "runtime_toolchain_type")
 
-toolchain(
-    name = "dummy_java_toolchain",
-    toolchain = ":dummy_toolchain",
-    toolchain_type = ":toolchain_type",
-)
-
-cc_binary(name = "dummy_binary")
-
-java_toolchain(
-    name = "dummy_toolchain",
-    genclass = [":dummy_binary"],
-    ijar = [":dummy_binary"],
-    javabuilder = [":dummy_binary"],
-    singlejar = [":dummy_binary"],
-)
-
-toolchain(
-    name = "dummy_java_runtime_toolchain",
-    toolchain = ":dummy_java_runtime",
-    toolchain_type = ":runtime_toolchain_type",
-)
-
-java_runtime(name = "dummy_java_runtime")
-
 # Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
 java_runtime_alias(name = "current_java_runtime")
 
@@ -68,16 +44,6 @@ legacy_java_runtime_alias(name = "legacy_current_java_runtime")
 
 # Points to --java_toolchain/--host_java_toolchain, defaults ":toolchain"/":remote_toolchain"
 legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
-
-# Used to set --host_javabase or --javabase to a local JDK without having to define
-# a custom java_runtime rule.
-# E.g.:
-# bazel build --host_javabase=@bazel_tools//tools/jdk:absolute_javabase \
-#   --define=ABSOLUTE_JAVABASE=<path to JDK> ...
-java_runtime(
-    name = "absolute_javabase",
-    java_home = "$(ABSOLUTE_JAVABASE)",
-)
 
 # This is necessary to get the *host* Java runtime. Depending on
 # //tools/jdk:current_java_runtime from an attribute with the host transition
@@ -393,25 +359,6 @@ default_java_toolchain(
 alias(
     name = "remote_toolchain",
     actual = ":toolchain",
-)
-
-# The 'vanilla' toolchain is an unsupported alternative to the default.
-#
-# It does not provider any of the following features:
-#   * Error Prone
-#   * Strict Java Deps
-#   * Header Compilation
-#   * Reduced Classpath Optimization
-#
-# It uses the version of javac from the `--host_javabase` instead of the
-# embedded javac, which may not be source- or bug-compatible with the embedded
-# javac.
-#
-# However it does allow using a wider range of `--host_javabase`s, including
-# versions newer than the current embedded JDK.
-default_java_toolchain(
-    name = "toolchain_vanilla",
-    configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
 )
 
 RELEASES = (8, 9, 10, 11)

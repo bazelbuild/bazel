@@ -613,12 +613,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       for (RunfilesSupplier supplier :
           Sequence.cast(inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
         builder.addRunfilesSupplier(supplier);
-        // Normally these artifacts will be added directly to the inputs, but we're gentle if the
-        // user fails to do so. Unfortunately, because ctx.resolve_command currently flattens
-        // tools' runfiles (see TODO in StarlarkRuleContext#resolveCommand), this will lead to
-        // duplicate traversal/memory usage for this nested set if the user does add the inputs and
-        // those inputs include the runfiles.
-        builder.addTransitiveInputs(supplier.getArtifacts());
       }
     }
 

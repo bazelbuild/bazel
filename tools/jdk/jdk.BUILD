@@ -165,7 +165,7 @@ filegroup(
 #This folder holds security policies
 filegroup(
     name = "jdk-conf",
-    srcs = glob(["conf/**"]),
+    srcs = glob(["conf/**"], allow_empty = True),
 )
 
 filegroup(

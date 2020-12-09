@@ -352,12 +352,12 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         if (elt == null) {
           continue;
         }
-
         l.add(elt);
       }
 
       return Tuple.copyOf(l);
     }
+
     if (val instanceof Map) {
       Dict.Builder<Object, Object> m = Dict.builder();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
@@ -372,6 +372,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       return m.build(mu);
     }
+
     if (val.getClass().isAnonymousClass()) {
       // Computed defaults. They will be represented as
       // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
@@ -385,24 +386,22 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return null;
     }
 
-    if (val instanceof StarlarkValue) {
-      return val;
+    if (val instanceof BuildType.SelectorList) {
+      List<Object> selectors = new ArrayList<>();
+      for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>) val).getSelectors()) {
+        selectors.add(
+            new SelectorValue(
+                ((Map<?, ?>) starlarkifyValue(mu, selector.getEntries(), pkg)),
+                selector.getNoMatchError()));
+      }
+      try {
+        return SelectorList.of(selectors);
+      } catch (EvalException e) {
+        throw new NotRepresentableException(e.getMessage());
+      }
     }
 
-    if (val instanceof BuildType.SelectorList) {
-      // This is terrible:
-      //  1) this value is opaque, and not a BUILD value, so it cannot be used in rule arguments
-      //  2) its representation has a pointer address, so it breaks hermeticity.
-      //
-      // Even though this is clearly imperfect, we return this value because otherwise
-      // native.rules() fails if there is any rule using a select() in the BUILD file.
-      //
-      // To remedy this, we should return a SelectorList. To do so, we have to
-      // 1) recurse into the Selector contents of SelectorList, so those values are Starlarkified
-      //    too
-      // 2) get the right Class<?> value. We could probably get at that by looking at
-      //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().
-
+    if (val instanceof StarlarkValue) {
       return val;
     }
 
