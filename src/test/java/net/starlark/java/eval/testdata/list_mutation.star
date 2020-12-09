@@ -53,6 +53,9 @@ assert_eq(foo, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
 (1, 2).extend([3, 4]) ### 'tuple' value has no field or method 'extend'
 ---
 [1, 2].extend(3) ### type 'int' is not iterable
+---
+[].extend(range((1 << 31) - 1)) ### excessive capacity requested
+---
 
 # remove
 
