@@ -336,7 +336,6 @@ class RunfilesTest(test_base.TestBase):
       ("bar/bar.sh", "bar/bar.sh", True),
       ("bar/bar-sh-data.txt", "bar/bar-sh-data.txt", False),
       ("bar/bar-run-under.sh", "bar/bar-run-under.sh", True),
-      ("bar/bar-sh-run-under-data.txt", "bar/bar-sh-run-under-data.txt", False),
       ("bar/bar.cc", "bar/bar.cc", False),
       ("bar/bar-cc-data.txt", "bar/bar-cc-data.txt", False),
     ]:
@@ -375,21 +374,14 @@ class RunfilesTest(test_base.TestBase):
 
       self.assertTrue(os.path.exists(bin_path))
 
-      if len(stdout) < 4:
+      if len(stdout) < 3:
         self.fail("stdout(%s): %s" % (lang[0], stdout))
 
-      self.assertEqual(stdout[0], "Hello Bash Bar!")
-      six.assertRegex(self, stdout[1], "^rloc=.*/bar/bar-sh-run-under-data.txt")
-      self.assertEqual(stdout[2], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[3], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+      self.assertEqual(stdout[0], "Hello Bash Bar Run under!")
+      self.assertEqual(stdout[1], "Hello %s Bar!" % lang[1])
+      six.assertRegex(self, stdout[2], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
 
-      with open(stdout[1].split("=", 1)[1], "r") as f:
-        lines = [l.strip() for l in f.readlines()]
-      if len(lines) != 1:
-        self.fail("lines(sh-run-under): %s" % lines)
-      self.assertEqual(lines[0], "data for bar-run-under.sh")
-
-      with open(stdout[3].split("=", 1)[1], "r") as f:
+      with open(stdout[2].split("=", 1)[1], "r") as f:
         lines = [l.strip() for l in f.readlines()]
       if len(lines) != 1:
         self.fail("lines(%s): %s" % (lang[0], lines))

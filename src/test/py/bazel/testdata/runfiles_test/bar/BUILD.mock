@@ -33,6 +33,4 @@ cc_binary(
 sh_binary(
     name = "bar-sh-run-under",
     srcs = ["bar-run-under.sh"],
-    data = ["bar-sh-run-under-data.txt"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
