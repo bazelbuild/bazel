@@ -13,6 +13,13 @@ assert_eq(list(range(5, 0, -1)), [5, 4, 3, 2, 1])
 assert_eq(list(range(5, 0, -10)), [5])
 assert_eq(list(range(0, -3, -2)), [0, -2])
 
+int32_range_range = range(-1 << 31, (1 << 31) - 1)
+assert_eq(len(int32_range_range), 4294967295)
+assert_((-1 << 31) - 1 not in int32_range_range)
+assert_(-1 << 31 in int32_range_range)
+assert_((1 << 31) - 2 in int32_range_range)
+assert_((1 << 31) - 1 not in int32_range_range)
+
 ---
 range(2, 3, 0) ### step cannot be 0
 

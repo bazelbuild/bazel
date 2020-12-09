@@ -41,6 +41,28 @@ public interface Sequence<E>
     return !isEmpty();
   }
 
+  /**
+   * The number of elements in the collection.
+   *
+   * @throws IllegalStateException if collection size exceeds int32 range
+   */
+  @Override
+  int size();
+
+  /**
+   * The number of elements in the collection.
+   *
+   * @throws EvalException if collection size exceeds int32 range
+   */
+  default int lenInt() throws EvalException {
+    return size();
+  }
+
+  /** The number of elements in the collection as an arbitrary size integer. */
+  default StarlarkInt len() {
+    return StarlarkInt.of(size());
+  }
+
   /** Returns an ImmutableList object with the current underlying contents of this Sequence. */
   default ImmutableList<E> getImmutableList() {
     return ImmutableList.copyOf(this);

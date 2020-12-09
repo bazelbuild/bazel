@@ -271,12 +271,15 @@ class MethodLibrary {
               + " iterable.",
       parameters = {@Param(name = "x", doc = "The value whose length to report.")},
       useStarlarkThread = true)
-  public int len(Object x, StarlarkThread thread) throws EvalException {
+  public StarlarkInt len(Object x, StarlarkThread thread) throws EvalException {
+    if (x instanceof Sequence) {
+      return ((Sequence) x).len();
+    }
     int len = Starlark.len(x);
     if (len < 0) {
       throw Starlark.errorf("%s is not iterable", Starlark.type(x));
     }
-    return len;
+    return StarlarkInt.of(len);
   }
 
   @StarlarkMethod(

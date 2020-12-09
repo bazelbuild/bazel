@@ -114,7 +114,22 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
 
   @Override
   public int size() {
+    Preconditions.checkState(size >= 0, "len(%s) = %s", this, len());
     return size;
+  }
+
+  @Override
+  public int lenInt() throws EvalException {
+    if (size >= 0) {
+      return size;
+    } else {
+      throw Starlark.errorf("len(%s) = %s, want value in signed 32-bit range", this, len());
+    }
+  }
+
+  @Override
+  public StarlarkInt len() {
+    return StarlarkInt.of(size & 0xFFFFFFFFL);
   }
 
   @Override

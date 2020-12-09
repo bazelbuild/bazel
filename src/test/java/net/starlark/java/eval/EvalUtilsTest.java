@@ -124,7 +124,7 @@ public final class EvalUtilsTest {
   }
 
   @Test
-  public void testLen() {
+  public void testLen() throws Exception {
     assertThat(Starlark.len("abc")).isEqualTo(3);
     assertThat(Starlark.len(Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
         .isEqualTo(3);

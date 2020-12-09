@@ -260,11 +260,11 @@ public final class Starlark {
    * iterable, as if by the Starlark expression {@code len(x)}, or -1 if the value is valid but has
    * no length.
    */
-  public static int len(Object x) {
+  public static int len(Object x) throws EvalException {
     if (x instanceof String) {
       return ((String) x).length();
     } else if (x instanceof Sequence) {
-      return ((Sequence) x).size();
+      return ((Sequence) x).lenInt();
     } else if (x instanceof Dict) {
       return ((Dict) x).size();
     } else if (x instanceof StarlarkIterable) {
