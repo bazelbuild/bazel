@@ -44,7 +44,7 @@ class file version and system libraries, which means the resulting binaries
 depend on what is installed on the machine.
 
 In order to have a hermetic compile you can use command line flag `--java_runtime_version=remotejdk_11`.
-With flag The code will be compiled for, executed, and tested on the JVM downloaded from a remote repository.
+The code will be compiled for, executed, and tested on the JVM downloaded from a remote repository.
 More info about [Java runtime version flag](user-manual.html#flag--java_runtime_version).
 
 There is a second pair of JDK and JVM used to build and execute tools, which are
@@ -137,7 +137,7 @@ local_java_repository(
 )
 ```
 
-Example configuration of remove JVM:
+Example configuration of remote JVM:
 ```python
 load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
 
@@ -191,6 +191,6 @@ Predefined configurations:
 - `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports all JDKs
 - `JVM8_TOOLCHAIN_CONFIGURATION`: all features, JDK version 8
 - `PREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but only use prebuilt tools (`ijar`, `singlejar`)
-- `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are build from sources 
+- `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are built from sources 
    (this may be useful on operating system with different libc)
 
