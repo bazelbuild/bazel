@@ -15,8 +15,10 @@
 
 import os
 import unittest
+import shutil
 import six
 import stat
+
 from src.test.py.bazel import test_base
 
 
@@ -242,10 +244,11 @@ class RunfilesTest(test_base.TestBase):
 
       # remove the original manifest file and directory so the launcher picks the one in the environment
       # variable RUNFILES_MANIFEST_FILE
-      manifest_dir_file = os.path.join(bin_path + ".runfiles", "MANIFEST")
+      manifest_dir = bin_path + ".runfiles"
+      manifest_dir_file = os.path.join(manifest_dir, "MANIFEST")
       os.chmod(manifest_dir_file, stat.S_IRWXU)
-      os.remove(manifest_dir_file)
-      self.assertFalse(os.path.exists(manifest_dir_file))
+      shutil.rmtree(manifest_dir)
+      self.assertFalse(os.path.exists(manifest_dir))
 
       os.chmod(manifest_path, stat.S_IRWXU)
       os.remove(manifest_path)
