@@ -401,7 +401,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
-    envBuilder.put("TEST_NAME", action.getTestName()).putAll(testEnv);
+    envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
     if (!action.isSharded()) {
       envBuilder.put("TEST_SHARD_INDEX", "0");
       envBuilder.put("TEST_SHARD_INDEX", "0");
