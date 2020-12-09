@@ -258,15 +258,15 @@ still configure C++ dependencies with `--cpu` and `--crosstool_top`
 it requires adding platform support for Android and iOS.
 
 ### Java
-Bazel's Java rules use platforms to select toolchains.
+Bazel's Java rules use platforms and new configuration flags to select toolchains.
+
+Instructions on how to use the new configuration flags are described in [Bazel and Java](bazel-and-java.md) manual.
+For additional information see the [Design document](https://docs.google.com/document/d/1MVbBxbKVKRJJY7DnkptHpvz7ROhyAYy4a-TZ-n7Q0r4).
 
 This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
-`--javabase`, and `--host_javabase`.
+`--javabase`, and `--host_javabase`. If you are still using legacy flags, [Issue #7849](https://github.com/bazelbuild/bazel/issues/7849)
+describes the migration process.
 
-[PR #8](https://github.com/bazelbuild/rules_java/pull/8) defines the Java-specific
-`constraint_value`s, toolchains, and other settings that make migration
-practical. This mode will be enabled by default after those changes are
-committed.
 
 ### Android
 Bazel's Android rules do not yet support platforms to select Android toolchains.

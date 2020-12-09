@@ -23,6 +23,37 @@ migration guide to start building your Maven projects with Bazel:
 
 *  [Migrating from Maven to Bazel](migrate-maven.html)
 
+## Java versions
+
+Without additional configuration Bazel assumes all Java source files in the repository
+ are written in a single Java version.
+To override the version of the sources in the repository add `build --java_language_version=11`
+to `.bazelrc` file. 
+We recommend owners of Bazel repositories to set this flag in order to let Bazel
+and other know about version of the Java sources.
+More info about [Java language version flag](user-manual.html#flag--java_language_version).
+
+Bazel uses one JDK for compilation and another JVM to execute and test the code.
+
+By default Bazel compiles the code using a JDK downloaded from a repository 
+and it executes and tests the code with the JVM installed on the local machine.
+Bazel searches for the JVM using `JAVA_HOME` or path.
+
+The resulting binaries are compatible with locally installed JVM in both 
+class file version and system libraries, which means the resulting binaries
+depend on what is installed on the machine.
+
+In order to have a hermetic compile you can use command line flag `--java_runtime_version=remotejdk_11`.
+With flag The code will be compiled for, executed, and tested on the JVM downloaded from a remote repository.
+More info about [Java runtime version flag](user-manual.html#flag--java_runtime_version).
+
+There is a second pair of JDK and JVM used to build and execute tools, which are
+used in the build process, but are not in the build results. That JDK and JVM
+are controlled using `--tool_java_language_version` and `--tool_java_runtime_version`. 
+Default values are 11 and `remotejdk_11`, respectively.
+
+See also: [configuring Java toolchains](#Configuring-the-Java-toolchains)
+
 ## Best practices
 
 In addition to [general Bazel best practices](best-practices.html), below are
@@ -37,7 +68,7 @@ under `src/test/java`).
 
 Follow these guidelines when creating your BUILD files:
 
-*  Use one BUILD file per package containing Java sources.
+*  Use one BUILD file per directory containing Java sources, because this improves build performance.
 
 *  Every BUILD file should contain one `java_library` rule that looks like this:
 
@@ -49,7 +80,7 @@ Follow these guidelines when creating your BUILD files:
    )
    ```
 *  The name of the library should be the name of the directory containing the
-   BUILD file.
+   BUILD file. This makes the label of the library shorter.
 
 *  The sources should be a non-recursive [`glob`](be/functions.html#glob)
    of all Java files in the directory.
@@ -66,71 +97,100 @@ The following modules, configuration fragments, and providers will help you
 [extend Bazel's capabilities](skylark/concepts.html)
 when building your Java projects:
 
-*  Modules:
+*  Main Java provider: [`java_common`](skylark/lib/java_common.html)
+*  Main Java module: [`JavaInfo`](skylark/lib/JavaInfo.html)
+*  Configuration fragment: [`java`](skylark/lib/java.html)
+*  Other modules:
 
    *  [`java_annotation_processing`](skylark/lib/java_annotation_processing.html)
-   *  [`java_common`](skylark/lib/java_common.html)
    *  [`java_compilation_info`](skylark/lib/java_compilation_info.html)
    *  [`java_output`](skylark/lib/java_output.html)
    *  [`java_output_jars`](skylark/lib/java_output_jars.html)
    *  [`java_proto_common`](skylark/lib/java_proto_common.html)
-   *  [`JavaRuntimeClasspathProvider`](skylark/lib/JavaRuntimeClasspathProvider.html)
    *  [`JavaRuntimeInfo`](skylark/lib/JavaRuntimeInfo.html)
-   *  [`JavaToolchainStarlarkApiProvider`](skylark/lib/JavaToolchainStarlarkApiProvider.html)
+   *  [`JavaToolchainInfo`](skylark/lib/JavaToolchainInfo.html)
 
-*  Configuration fragments:
+## Configuring the Java toolchains
 
-   *  [`java`](skylark/lib/java.html)
+Bazel uses two types of Java toolchains: 
+- execution, used to execute and test Java binaries, controlled with `--java_runtime_version` flag 
+- compilation, used to compile Java sources, controlled with `--java_language_version` flag 
 
-*  Providers:
+### Execution toolchains
 
-   *  [`JavaInfo`](skylark/lib/JavaInfo.html)
+Execution toolchain is the JVM, either local or from a repository, with some additional
+information about its version, operating system, and CPU architecture.
 
-## Configuring the JDK
+Java execution toolchains may added using `local_java_repository` or
+`remote_java_repository` rules in the `WORKSPACE` file. Adding the rule will 
+make the JVM available using a flag. When multiple definitions for the same 
+operating system and CPU architecture are given, the first one is used. 
 
-Bazel is configured to use a default OpenJDK 11 for building and testing
-JVM-based projects. However, you can switch to another JDK using the
-[`--java_toolchain`](command-line-reference.html#flag--java_toolchain) and
-[`--javabase`](command-line-reference.html#flag--javabase) flags.
+Example configuration of local JVM:
+```python
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 
-In short,
-
-* `--java_toolchain`: A [`java_toolchain`](be/java.html#java_toolchain)
-  target that defines the set of Java tools for building target binaries.
-* `--javabase`: A [`java_runtime`](be/java.html#java_runtime) target defining
-  the Java runtime for running target JVM binaries.
-
-The
-[`--host_java_toolchain`](command-line-reference.html#flag--host_java_toolchain)
-and [`--host_javabase`](command-line-reference.html#flag--host_javabase)
-variants are meant for building and running host binaries that Bazel
-uses for building target binaries. These host binaries belong to
-`--java_toolchain`, which includes `JavaBuilder` and `Turbine`.
-
-Bazel's default flags essentially look like this:
-
-```
-$ bazel build \
-      --host_javabase=@bazel_tools//tools/jdk:remote_jdk11 \
-      --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
-      --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11 \
-      --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11 \
-      //my/java:target
+local_java_repository(
+  name = "additionaljdk",            # Can be used with --java_runtime_version=additionaljdk or --java_runtime_version=11
+  version = 11,                      # Optional, if not set it is autodetected
+  java_home = "/usr/lib/jdk-15/",    # Path to directory containing bin/java
+)
 ```
 
-`@bazel_tools` comes with a number of `java_toolchain` targets. Run the
-following command to list them:
+Example configuration of remove JVM:
+```python
+load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
 
-```
-$ bazel query 'kind(java_toolchain, @bazel_tools//tools/jdk:all)'
+remote_java_repository(
+   name = "openjdk_canary_linux_arm",
+   prefix = "openjdk_canary",         # Can be used with --java_runtime_version=openjdk_canary_11
+   version = "11",                    #   or --java_runtime_version=11                                 
+   exec_compatible_with = [           # Specifies contraints this JVM is compatible with
+       "@platforms//cpu:arm", 
+       "@platforms//os:linux",
+   ]     
+   urls = ...                         # Other parameters are from http_repository rule.   
+   sha256 = ...
+   strip_prefix = ...
+ 
+)
 ```
 
-Similarly for `java_runtime` targets:
+### Compilation toolchains
 
-```
-$ bazel query 'kind(java_runtime, @bazel_tools//tools/jdk:all)'
+Compilation toolchain is composed of JDK and multiple tools that Bazel uses during
+the compilation and that provide additional features:
+Error Prone, strict Java dependenciess, header compilation, Android desugaring, 
+coverage instrumentation, genclass handling for IDEs.
+
+
+
+The compilation can be reconfigured by adding `default_java_toolchain` macro to a
+`BUILD` file and registering it either by adding `register_toolchain` rule to
+the `WORKSPACE` file or by using [`--extra_toolchains`](user-manual.html#flag--extra_toolchains) flag.
+
+Example toolchain configuration:
+```python
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+  name = "repository_default_toolchain",
+  configuration  = DEFAULT_TOOLCHAIN_CONFIGURATION,     # One of predefined configurations  
+
+  # Other parameters are from java_toolchain rule:                                   
+  java_runtime = "//tools/jdk:remote_jdk11",            # JDK to use for compilation
+  jvm_opts = JDK9_JVM_OPTS + ["--enable_preview"]       # Additional JDK options
+  misc = DEFAULT_JAVACOPTS + ["--enable_preview"]       # Additional javac options
+  source_version = "9",
+)
 ```
 
-You can also write your own `java_runtime` and `java_toolchain` targets. As a
-tip, use `bazel query --output=build @bazel_tools//tools/jdk:all` to see how
-the built-in runtime and toolchain targets are defined.
+Predefined configurations:
+
+- `DEFAULT_TOOLCHAIN_CONFIGURATION`: all features, supports JDK versions >= 9
+- `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports all JDKs
+- `JVM8_TOOLCHAIN_CONFIGURATION`: all features, JDK version 8
+- `PREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but only use prebuilt tools (`ijar`, `singlejar`)
+- `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are build from sources 
+   (this may be useful on operating system with different libc)
+

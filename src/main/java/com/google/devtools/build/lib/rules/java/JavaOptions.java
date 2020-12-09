@@ -78,7 +78,7 @@ public class JavaOptions extends FragmentOptions {
       name = "javabase",
       defaultValue = DEFAULT_JAVABASE,
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "JAVABASE used for the JDK invoked by Blaze. This is the "
@@ -92,7 +92,7 @@ public class JavaOptions extends FragmentOptions {
       name = "java_toolchain",
       defaultValue = DEFAULT_JAVA_TOOLCHAIN,
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The name of the toolchain rule for Java.")
   public Label javaToolchain;
@@ -101,7 +101,7 @@ public class JavaOptions extends FragmentOptions {
       name = "host_java_toolchain",
       defaultValue = DEFAULT_JAVA_TOOLCHAIN,
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java toolchain used to build tools that are executed during a build.")
   public Label hostJavaToolchain;
@@ -110,7 +110,7 @@ public class JavaOptions extends FragmentOptions {
       name = "host_javabase",
       defaultValue = "null",
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "JAVABASE used for the host JDK. This is the java_runtime which is used to execute "
@@ -613,7 +613,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "java_runtime_version",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version")
   public String javaRuntimeVersion;
@@ -621,7 +621,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "tool_java_runtime_version",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version used to execute tools during the build")
   public String hostJavaRuntimeVersion;
@@ -629,7 +629,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "java_language_version",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
   public String javaLanguageVersion;
@@ -637,9 +637,9 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "tool_java_language_version",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The Java language version used to build tools that are executed during a build")
+      help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
   Label defaultJavaBase() {
