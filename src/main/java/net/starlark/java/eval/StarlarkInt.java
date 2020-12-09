@@ -667,9 +667,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       /* fall through */
     }
 
-    BigInteger xbig = x.toBigInteger();
-    BigInteger ybig = MINUS1BIG.subtract(xbig);
-    return StarlarkInt.of(ybig);
+    BigInteger xbig = ((Big) x).v;
+    return StarlarkInt.of(xbig.not());
   }
 
   /** Returns -x. */
@@ -690,8 +689,6 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     BigInteger ybig = xbig.negate();
     return StarlarkInt.of(ybig);
   }
-
-  private static final BigInteger MINUS1BIG = BigInteger.ONE.negate();
 
   /** Reports whether int x exactly equals float y. */
   static boolean intEqualsFloat(StarlarkInt x, StarlarkFloat y) {

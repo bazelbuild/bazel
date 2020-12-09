@@ -157,7 +157,7 @@ public class ActionExecutionFunction implements SkyFunction {
       if (skyframeEvalWithOrderedListAEFDelegator == null) {
         skyframeEvalWithOrderedListAEFDelegator =
             new SkyframeEvalWithOrderedListAEFDelegator(
-                skyframeActionExecutor, directories, tsgm, stateMap);
+                skyframeActionExecutor, directories, tsgm, stateMap, actionRewindStrategy);
       }
       return skyframeEvalWithOrderedListAEFDelegator.compute(skyKey, env);
     }
@@ -1418,6 +1418,11 @@ public class ActionExecutionFunction implements SkyFunction {
     // Discard all remaining state (there should be none after a successful execution).
     stateMap = Maps.newConcurrentMap();
     actionRewindStrategy.reset(eventHandler);
+    if (skyframeEvalWithOrderedListAEFDelegator != null) {
+      skyframeEvalWithOrderedListAEFDelegator =
+          new SkyframeEvalWithOrderedListAEFDelegator(
+              skyframeActionExecutor, directories, tsgm, stateMap, actionRewindStrategy);
+    }
   }
 
   private ContinuationState getState(Action action) {

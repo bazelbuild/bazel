@@ -282,16 +282,6 @@ public class ResolverTest {
   }
 
   @Test
-  public void testNestedFunctionFails() throws Exception {
-    assertInvalid(
-        "nested functions are not allowed. Move the function to the top level", //
-        "def func(a):",
-        "  def bar(): return 0",
-        "  return bar()",
-        "");
-  }
-
-  @Test
   public void testComprehension() throws Exception {
     // The operand of the first for clause is resolved outside the comprehension block.
     assertInvalid("name 'x' is not defined", "[() for x in x]");
@@ -419,6 +409,25 @@ public class ResolverTest {
         "  [(aᴸ₁, bᴳ₁) for aᴸ₁ in aᴸ₀]");
 
     checkBindings("load('module', aᴳ₀='a', bᴳ₁='b')");
+
+    // Nested functions have lexical scope.
+    checkBindings(
+        "def fᴳ₀(aᴸ₀, bᶜ₁):", // b is a cell: an indirect local shared with nested functions
+        "  aᴸ₀",
+        "  def gᴸ₂(cᴸ₀):",
+        "    bᶠ₀, cᴸ₀"); // b is a free var: a reference to a cell of an outer function
+
+    // Multiply nested functions.
+    // Load still binds globally, for now, but soon it will bind locally.
+    checkBindings(
+        "load('module', aᴳ₀='a')", // eventually: aᶜ₀
+        "bᴳ₁= 0",
+        "def fᴳ₂(cᶜ₀):",
+        "  aᴳ₀, bᴳ₁, cᶜ₀", // eventually: aᶠ0
+        "  def gᶜ₁(dᶜ₀):",
+        "    aᴳ₀, bᴳ₁, cᶠ₀, dᶜ₀, fᴳ₂",
+        "    def hᶜ₁(eᴸ₀):",
+        "      aᴳ₀, bᴳ₁, cᶠ₀, dᶠ₁, eᴸ₀, fᴳ₂, gᶠ₂, hᶠ₃");
   }
 
   // checkBindings verifies the binding (scope and index) of each identifier.

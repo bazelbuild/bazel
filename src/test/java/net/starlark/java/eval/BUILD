@@ -54,6 +54,7 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/lib/json",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )

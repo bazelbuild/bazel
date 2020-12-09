@@ -26,8 +26,8 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -53,17 +53,52 @@ public class StarlarkOptionsParser {
 
   private final SkyframeExecutor skyframeExecutor;
   private final PathFragment relativeWorkingDirectory;
-  private final Reporter reporter;
+  private final ExtendedEventHandler reporter;
   private final OptionsParser nativeOptionsParser;
+
+  /**
+   * {@link ExtendedEventHandler} override that passes through "normal" events but not events that
+   * would go to the build event proto.
+   *
+   * <p>Starlark flags are conceptually options but still need target pattern evaluation in {@link
+   * com.google.devtools.build.lib.skyframe.TargetPatternPhaseFunction} to translate their labels to
+   * actual targets. If we pass the {@link #post}able events that function calls, that would produce
+   * "target loaded" and "target configured" events in the build event proto output that consumers
+   * can confuse with actual targets requested by the build.
+   *
+   * <p>This is important because downstream services (like a continuous integration tool or build
+   * results dashboard) read these messages to reconcile which requested targets were built. If they
+   * determine Blaze tried to build {@code //foo //bar} then see a "target configured" message for
+   * some other target {@code //my_starlark_flag}, they might show misleading messages like "Built 3
+   * of 2 requested targets.".
+   *
+   * <p>Hence this class. By dropping those events, we restrict all info and error reporting logic
+   * to the options parsing pipeline.
+   */
+  private static class NonPostingEventHandler implements ExtendedEventHandler {
+    private final ExtendedEventHandler delegate;
+
+    NonPostingEventHandler(ExtendedEventHandler delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void handle(Event e) {
+      delegate.handle(e);
+    }
+
+    @Override
+    public void post(ExtendedEventHandler.Postable e) {}
+  }
 
   private StarlarkOptionsParser(
       SkyframeExecutor skyframeExecutor,
       PathFragment relativeWorkingDirectory,
-      Reporter reporter,
+      ExtendedEventHandler reporter,
       OptionsParser nativeOptionsParser) {
     this.skyframeExecutor = skyframeExecutor;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
-    this.reporter = reporter;
+    this.reporter = new NonPostingEventHandler(reporter);
     this.nativeOptionsParser = nativeOptionsParser;
   }
 
@@ -249,7 +284,7 @@ public class StarlarkOptionsParser {
   @VisibleForTesting
   public static StarlarkOptionsParser newStarlarkOptionsParserForTesting(
       SkyframeExecutor skyframeExecutor,
-      Reporter reporter,
+      ExtendedEventHandler reporter,
       PathFragment relativeWorkingDirectory,
       OptionsParser nativeOptionsParser) {
     return new StarlarkOptionsParser(

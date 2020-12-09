@@ -86,6 +86,8 @@ EOF
   bazel run java/main:JavaBinary \
       --java_toolchain=//java/main:default_toolchain \
       --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --java_runtime_version=11 \
+      --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
       || fail "Building with //java/main:default_toolchain failed"
   expect_log "Successfully executed JavaBinary!"
@@ -115,6 +117,8 @@ EOF
   bazel run java/main:JavaBinary \
       --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11 \
       --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --java_language_version=11 \
+      --java_runtime_version=11 \
       --verbose_failures -s &>"${TEST_log}" \
       || fail "Building with @bazel_tools//tools/jdk:toolchain_java11 failed"
   expect_log "strip_trailing_java11"

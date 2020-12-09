@@ -35,6 +35,7 @@ java_library(
         "IfStatement.java",
         "IndexExpression.java",
         "IntLiteral.java",
+        "LambdaExpression.java",
         "Lexer.java",
         "ListExpression.java",
         "LoadStatement.java",
