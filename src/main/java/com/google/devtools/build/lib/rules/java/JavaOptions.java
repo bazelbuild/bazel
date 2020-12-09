@@ -612,7 +612,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_runtime_version",
-      defaultValue = "",
+      defaultValue = "local_jdk",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version")
@@ -620,7 +620,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "tool_java_runtime_version",
-      defaultValue = "",
+      defaultValue = "remotejdk_11",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version used to execute tools during the build")
@@ -628,7 +628,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_language_version",
-      defaultValue = "",
+      defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
@@ -636,7 +636,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "tool_java_language_version",
-      defaultValue = "",
+      defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version used to build tools that are executed during a build")

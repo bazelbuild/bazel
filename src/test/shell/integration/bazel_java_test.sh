@@ -45,12 +45,12 @@ EOF
 }
 
 function test_host_javabase() {
-  mkdir -p foobar/bin
-  cat << EOF > BUILD
-java_runtime(
+  cat << EOF >> WORKSPACE
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
     name = "host_javabase",
     java_home = "$PWD/foobar",
-    visibility = ["//visibility:public"],
+    version = "11",
 )
 EOF
 
@@ -63,10 +63,13 @@ java_library(
 EOF
   touch java/HelloWorld.java
 
+  mkdir -p foobar/bin
+  touch foobar/bin/java
+
   # We expect the given host_javabase to appear in the command line of
   # java_library actions.
-  bazel aquery --output=text --host_javabase=//:host_javabase //java:javalib >& $TEST_log
-  expect_log "exec .*foobar/bin/java"
+  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' //java:javalib >& $TEST_log
+  expect_log "exec external/host_javabase/bin/java"
 
   # If we don't specify anything, we expect the embedded JDK to be used.
   # Note that this will change in the future but is the current state.
@@ -74,9 +77,9 @@ EOF
   expect_not_log "exec external/embedded_jdk/bin/java"
   expect_log "exec external/remotejdk11_.*/bin/java"
 
-  bazel aquery --output=text --host_javabase=//:host_javabase \
+  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' \
     //java:javalib >& $TEST_log
-  expect_log "exec .*foobar/bin/java"
+  expect_log "exec external/host_javabase/bin/java"
   expect_not_log "exec external/remotejdk_.*/bin/java"
 
   bazel aquery --output=text \
@@ -85,7 +88,18 @@ EOF
 }
 
 function test_javabase() {
+   cat << EOF >> WORKSPACE
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
+    name = "javabase",
+    java_home = "$PWD/zoo",
+    version = "11",
+)
+EOF
+
   mkdir -p zoo/bin
+  touch zoo/bin/java
+
   cat << EOF > BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
@@ -95,11 +109,6 @@ default_java_toolchain(
     bootclasspath = [],
     javabuilder = ["@bazel_tools//tools/jdk:vanillajavabuilder"],
     jvm_opts = [],
-    visibility = ["//visibility:public"],
-)
-java_runtime(
-    name = "javabase",
-    java_home = "$PWD/zoo",
     visibility = ["//visibility:public"],
 )
 EOF
@@ -116,9 +125,9 @@ public class HelloWorld {}
 EOF
 
   # Check that the RHS javabase appears in the launcher.
-  bazel build --java_toolchain=//:toolchain --javabase=//:javabase //java:javabin
+  bazel build --java_toolchain=//:toolchain --javabase=@javabase//:jdk --extra_toolchains=//:toolchain_definition --java_runtime_version=javabase //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
-  expect_log "JAVABIN=.*/zoo/bin/java"
+  expect_log "JAVABIN=.*/javabase/bin/java}"
 
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
