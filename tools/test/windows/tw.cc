@@ -1603,8 +1603,13 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool ShouldCreateXml(const Path& xml_log, bool* result) {
+bool ShouldCreateXml(const Path& xml_log, bool is_xml_main, bool* result) {
   *result = true;
+
+  // If running from the xml generator binary, we should always create the xml file.
+  if (is_xml_main) {
+    return true;
+  }
 
   DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(xml_log).c_str());
   if (attr != INVALID_FILE_ATTRIBUTES) {
@@ -1630,9 +1635,9 @@ bool ShouldCreateXml(const Path& xml_log, bool* result) {
 
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
                   const Duration duration, const int exit_code,
-                  const bool delete_afterwards) {
+                  const bool delete_afterwards, const bool is_xml_main) {
   bool should_create_xml;
-  if (!ShouldCreateXml(output, &should_create_xml)) {
+  if (!ShouldCreateXml(output, is_xml_main, &should_create_xml)) {
     LogErrorWithArg(__LINE__, "Failed to decide if XML log is needed",
                     output.Get());
     return false;
@@ -1904,7 +1909,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 
   Duration test_duration;
   int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result, true) ||
+  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result, true, false) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
                                           undecl.annotations)) {
@@ -1921,7 +1926,7 @@ int XmlWriterMain(int argc, wchar_t** argv) {
   if (!GetCwd(&cwd) ||
       !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
                           &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code, false)) {
+      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code, false, true)) {
     return 1;
   }
 
