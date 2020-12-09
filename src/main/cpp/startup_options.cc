@@ -85,6 +85,7 @@ StartupOptions::StartupOptions(const string &product_name,
       local_startup_timeout_secs(120),
       have_invocation_policy_(false),
       client_debug(false),
+      preemptible(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
       expand_configs_in_place(true),
@@ -130,6 +131,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
+  RegisterNullaryStartupFlag("preemptible", &preemptible);
   RegisterNullaryStartupFlag("expand_configs_in_place",
                              &expand_configs_in_place);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",

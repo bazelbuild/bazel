@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -108,6 +109,15 @@ public class GrpcServerTest {
     return RunRequest.newBuilder()
         .setCookie(REQUEST_COOKIE)
         .setClientDescription("client-description")
+        .addAllArg(Arrays.stream(args).map(ByteString::copyFromUtf8).collect(Collectors.toList()))
+        .build();
+  }
+
+  private RunRequest createPreemptibleRequest(String... args) {
+    return RunRequest.newBuilder()
+        .setCookie(REQUEST_COOKIE)
+        .setClientDescription("client-description")
+        .setPreemptible(true)
         .addAllArg(Arrays.stream(args).map(ByteString::copyFromUtf8).collect(Collectors.toList()))
         .build();
   }
@@ -458,6 +468,281 @@ public class GrpcServerTest {
     assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
         .isEqualTo(Code.INTERRUPTED);
+  }
+
+  /**
+   * Ensure that if a command is marked as preemptible, running a second command interrupts the
+   * first command.
+   */
+  @Test
+  public void testPreeempt() throws Exception {
+    String firstCommandArg = "Foo";
+    String secondCommandArg = "Bar";
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              throws InterruptedException {
+            if (args.contains(firstCommandArg)) {
+              while (true) {
+                try {
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                } catch (InterruptedException e) {
+                  return BlazeCommandResult.failureDetail(
+                      FailureDetail.newBuilder()
+                          .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
+                          .build());
+                }
+              }
+            } else {
+              return BlazeCommandResult.success();
+            }
+          }
+        };
+    createServer(dispatcher);
+
+    CountDownLatch gotFoo = new CountDownLatch(1);
+    AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
+    AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        createPreemptibleRequest(firstCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotFoo.countDown();
+            lastFooResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    // Wait for the first command to startup
+    gotFoo.await();
+
+    CountDownLatch gotBar = new CountDownLatch(1);
+    stub.run(
+        createRequest(secondCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotBar.countDown();
+            lastBarResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    gotBar.await();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(lastBarResponse.get().getFinished()).isTrue();
+    assertThat(lastBarResponse.get().getExitCode()).isEqualTo(0);
+    assertThat(lastFooResponse.get().getFinished()).isTrue();
+    assertThat(lastFooResponse.get().getExitCode()).isEqualTo(8);
+    assertThat(lastFooResponse.get().hasFailureDetail()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().hasInterrupted()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().getInterrupted().getCode())
+        .isEqualTo(Code.INTERRUPTED);
+  }
+
+  /**
+   * Ensure that if a command is marked as preemptible, running a second preemptible command
+   * interupts the first command.
+   */
+  @Test
+  public void testMultiPreeempt() throws Exception {
+    String firstCommandArg = "Foo";
+    String secondCommandArg = "Bar";
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              throws InterruptedException {
+            if (args.contains(firstCommandArg)) {
+              while (true) {
+                try {
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                } catch (InterruptedException e) {
+                  return BlazeCommandResult.failureDetail(
+                      FailureDetail.newBuilder()
+                          .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
+                          .build());
+                }
+              }
+            } else {
+              return BlazeCommandResult.success();
+            }
+          }
+        };
+    createServer(dispatcher);
+
+    CountDownLatch gotFoo = new CountDownLatch(1);
+    AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
+    AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        createPreemptibleRequest(firstCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotFoo.countDown();
+            lastFooResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    // Wait for the first command to startup
+    gotFoo.await();
+
+    CountDownLatch gotBar = new CountDownLatch(1);
+    stub.run(
+        createPreemptibleRequest(secondCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotBar.countDown();
+            lastBarResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    gotBar.await();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(lastBarResponse.get().getFinished()).isTrue();
+    assertThat(lastBarResponse.get().getExitCode()).isEqualTo(0);
+    assertThat(lastFooResponse.get().getFinished()).isTrue();
+    assertThat(lastFooResponse.get().getExitCode()).isEqualTo(8);
+    assertThat(lastFooResponse.get().hasFailureDetail()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().hasInterrupted()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().getInterrupted().getCode())
+        .isEqualTo(Code.INTERRUPTED);
+  }
+
+  /**
+   * Ensure that when a command is not marked as preemptible, running a second command does not
+   * interrupt the first command.
+   */
+  @Test
+  public void testNoPreeempt() throws Exception {
+    String firstCommandArg = "Foo";
+    String secondCommandArg = "Bar";
+
+    CountDownLatch fooBlocked = new CountDownLatch(1);
+    CountDownLatch fooProceed = new CountDownLatch(1);
+    CountDownLatch barBlocked = new CountDownLatch(1);
+    CountDownLatch barProceed = new CountDownLatch(1);
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              throws InterruptedException {
+            if (args.contains(firstCommandArg)) {
+              fooBlocked.countDown();
+              fooProceed.await();
+            } else {
+              barBlocked.countDown();
+              barProceed.await();
+            }
+            return BlazeCommandResult.success();
+          }
+        };
+    createServer(dispatcher);
+
+    AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
+    AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        createRequest(firstCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            lastFooResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+    fooBlocked.await();
+
+    stub.run(
+        createRequest(secondCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            lastBarResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+    barBlocked.await();
+
+    // At this point both commands should be blocked on proceed latch, carry on...
+    fooProceed.countDown();
+    barProceed.countDown();
+
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(lastFooResponse.get().getFinished()).isTrue();
+    assertThat(lastFooResponse.get().getExitCode()).isEqualTo(0);
+    assertThat(lastBarResponse.get().getFinished()).isTrue();
+    assertThat(lastBarResponse.get().getExitCode()).isEqualTo(0);
   }
 
   @Test

@@ -245,6 +245,10 @@ class StartupOptions {
   // Whether to output addition debugging information in the client.
   bool client_debug;
 
+  // Whether the resulting command will be preempted if a subsequent command is
+  // run.
+  bool preemptible;
+
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
 

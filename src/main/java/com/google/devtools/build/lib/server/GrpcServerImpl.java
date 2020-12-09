@@ -512,7 +512,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
           option.getOption().toString(StandardCharsets.ISO_8859_1)));
     }
 
-    try (RunningCommand command = commandManager.create()) {
+    commandManager.preemptEligibleCommands();
+
+    try (RunningCommand command =
+        request.getPreemptible()
+            ? commandManager.createPreemptibleCommand()
+            : commandManager.createCommand()) {
       commandId = command.getId();
 
       try {
@@ -608,7 +613,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
   @Override
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
-    try (RunningCommand command = commandManager.create()) {
+    try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
       if (pingRequest.getCookie().equals(requestCookie)) {
         response.setCookie(responseCookie);

@@ -36,10 +36,10 @@ public class CommandManagerTest {
   public void testBasicOperationsOnSingleThread() {
     CommandManager underTest = new CommandManager(/*doIdleServerTasks=*/ false);
     assertThat(underTest.isEmpty()).isTrue();
-    try (RunningCommand firstCommand = underTest.create()) {
+    try (RunningCommand firstCommand = underTest.createCommand()) {
       assertThat(underTest.isEmpty()).isFalse();
       assertThat(isValidUuid(firstCommand.getId())).isTrue();
-      try (RunningCommand secondCommand = underTest.create()) {
+      try (RunningCommand secondCommand = underTest.createCommand()) {
         assertThat(underTest.isEmpty()).isFalse();
         assertThat(isValidUuid(secondCommand.getId())).isTrue();
         assertThat(firstCommand.getId()).isNotEqualTo(secondCommand.getId());
@@ -75,11 +75,11 @@ public class CommandManagerTest {
 
     // We want to ensure at each step that we are actively awaiting notification.
     waitForThreadWaiting(waiting, thread);
-    try (RunningCommand firstCommand = underTest.create()) {
+    try (RunningCommand firstCommand = underTest.createCommand()) {
       cyclicBarrier.await();
       assertThat(notificationCounter.get()).isEqualTo(1);
       waitForThreadWaiting(waiting, thread);
-      try (RunningCommand secondCommand = underTest.create()) {
+      try (RunningCommand secondCommand = underTest.createCommand()) {
         cyclicBarrier.await();
         assertThat(notificationCounter.get()).isEqualTo(2);
         waitForThreadWaiting(waiting, thread);

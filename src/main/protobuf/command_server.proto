@@ -58,6 +58,10 @@ message RunRequest {
   // came from. These options have already been parsed and already have had
   // their effect. This information should only be used for logging.
   repeated StartupOption startup_options = 6;
+
+  // Whether the resulting command can be preempted if additional commands
+  // are received.
+  bool preemptible = 7;
 }
 
 // Contains the a startup option with its source file. Uses bytes to preserve
