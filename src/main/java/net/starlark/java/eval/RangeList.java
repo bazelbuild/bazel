@@ -19,6 +19,7 @@ import com.google.common.collect.UnmodifiableIterator;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
 
@@ -118,7 +119,13 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
 
   @Override
   public int hashCode() {
-    return 7873 ^ (5557 * start) ^ (3251 * step) ^ (1091 * size);
+    if (size == 0) {
+      return 234982346;
+    } else if (size == 1) {
+      return Integer.hashCode(start);
+    } else {
+      return Objects.hash(start, size, step);
+    }
   }
 
   @Override

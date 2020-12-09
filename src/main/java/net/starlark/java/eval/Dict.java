@@ -294,13 +294,12 @@ public final class Dict<K, V>
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  public NoneType update(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
+  public void update(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     Starlark.checkMutable(this);
     @SuppressWarnings("unchecked")
     Dict<Object, Object> dict = (Dict) this; // see class doc comment
     update("update", dict, pairs, kwargs);
-    return Starlark.NONE;
   }
 
   // Common implementation of dict(pairs, **kwargs) and dict.update(pairs, **kwargs).

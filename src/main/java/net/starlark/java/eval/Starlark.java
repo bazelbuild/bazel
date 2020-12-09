@@ -357,6 +357,14 @@ public final class Starlark {
       // the return type for many built-in functions.
       return "int";
 
+    } else if (c == void.class) {
+      // Built-in void methods return None to Starlark.
+      return "NoneType";
+
+    } else if (c == boolean.class) {
+      // Built-in function may return boolean.
+      return "bool";
+
     } else {
       String simpleName = c.getSimpleName();
       return simpleName.isEmpty() ? c.getName() : simpleName;
@@ -860,8 +868,6 @@ public final class Starlark {
    */
   public static Object execFileProgram(Program prog, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Tuple defaultValues = Tuple.empty();
-
     Resolver.Function rfn = prog.getResolvedFunction();
 
     // A given Module may be passed to execFileProgram multiple times in sequence,
@@ -876,7 +882,13 @@ public final class Starlark {
     // two array lookups.
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals());
 
-    StarlarkFunction toplevel = new StarlarkFunction(rfn, defaultValues, module, globalIndex);
+    StarlarkFunction toplevel =
+        new StarlarkFunction(
+            rfn,
+            module,
+            globalIndex,
+            /*defaultValues=*/ Tuple.empty(),
+            /*freevars=*/ Tuple.empty());
     return Starlark.fastcall(thread, toplevel, EMPTY, EMPTY);
   }
 
@@ -920,10 +932,10 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module) throws SyntaxError.Exception {
     Expression expr = Expression.parse(input, options);
     Program prog = Program.compileExpr(expr, module, options);
-    Tuple defaultValues = Tuple.empty();
     Resolver.Function rfn = prog.getResolvedFunction();
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
-    return new StarlarkFunction(rfn, defaultValues, module, globalIndex);
+    return new StarlarkFunction(
+        rfn, module, globalIndex, /*defaultValues=*/ Tuple.empty(), /*freevars=*/ Tuple.empty());
   }
 
   /**

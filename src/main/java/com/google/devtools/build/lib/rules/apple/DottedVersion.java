@@ -117,6 +117,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     @Override
+    public String toString() {
+      return version.toString();
+    }
+
+    @Override
     public int hashCode() {
       return version.stringRepresentation.hashCode();
     }

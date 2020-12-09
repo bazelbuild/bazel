@@ -49,6 +49,7 @@ filegroup(
     srcs = [
         ":WORKSPACE",
         ":distdir.bzl",
+        ":distdir_deps.bzl",
     ],
     visibility = [
         "//src/test/shell/bazel:__subpackages__",

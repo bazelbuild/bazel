@@ -563,7 +563,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rfind(String self, String sub, Object start, Object end) throws EvalException {
+  public int rfind(String self, String sub, Object start, Object end) throws EvalException {
     return stringFind(false, self, sub, start, end);
   }
 
@@ -593,7 +593,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer find(String self, String sub, Object start, Object end) throws EvalException {
+  public int find(String self, String sub, Object start, Object end) throws EvalException {
     return stringFind(true, self, sub, start, end);
   }
 
@@ -623,7 +623,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rindex(String self, String sub, Object start, Object end) throws EvalException {
+  public int rindex(String self, String sub, Object start, Object end) throws EvalException {
     int res = stringFind(false, self, sub, start, end);
     if (res < 0) {
       throw Starlark.errorf("substring not found");
@@ -657,7 +657,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer index(String self, String sub, Object start, Object end) throws EvalException {
+  public int index(String self, String sub, Object start, Object end) throws EvalException {
     int res = stringFind(true, self, sub, start, end);
     if (res < 0) {
       throw Starlark.errorf("substring not found");
@@ -707,7 +707,7 @@ final class StringModule implements StarlarkValue {
           "Returns True if all characters in the string are alphabetic ([a-zA-Z]) and there is "
               + "at least one character.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isAlpha(String self) throws EvalException {
+  public boolean isAlpha(String self) throws EvalException {
     return matches(self, ALPHA, false);
   }
 
@@ -717,7 +717,7 @@ final class StringModule implements StarlarkValue {
           "Returns True if all characters in the string are alphanumeric ([a-zA-Z0-9]) and there "
               + "is at least one character.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isAlnum(String self) throws EvalException {
+  public boolean isAlnum(String self) throws EvalException {
     return matches(self, ALNUM, false);
   }
 
@@ -727,7 +727,7 @@ final class StringModule implements StarlarkValue {
           "Returns True if all characters in the string are digits ([0-9]) and there is "
               + "at least one character.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isDigit(String self) throws EvalException {
+  public boolean isDigit(String self) throws EvalException {
     return matches(self, DIGIT, false);
   }
 
@@ -737,7 +737,7 @@ final class StringModule implements StarlarkValue {
           "Returns True if all characters are white space characters and the string "
               + "contains at least one character.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isSpace(String self) throws EvalException {
+  public boolean isSpace(String self) throws EvalException {
     return matches(self, SPACE, false);
   }
 
@@ -747,7 +747,7 @@ final class StringModule implements StarlarkValue {
           "Returns True if all cased characters in the string are lowercase and there is "
               + "at least one character.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isLower(String self) throws EvalException {
+  public boolean isLower(String self) throws EvalException {
     // Python also accepts non-cased characters, so we cannot use LOWER.
     return matches(self, UPPER.negate(), true);
   }
@@ -758,7 +758,7 @@ final class StringModule implements StarlarkValue {
           "Returns True if all cased characters in the string are uppercase and there is "
               + "at least one character.",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isUpper(String self) throws EvalException {
+  public boolean isUpper(String self) throws EvalException {
     // Python also accepts non-cased characters, so we cannot use UPPER.
     return matches(self, LOWER.negate(), true);
   }
@@ -771,7 +771,7 @@ final class StringModule implements StarlarkValue {
               + "whitespace) and every lowercase character must follow a cased one (e.g. "
               + "uppercase or lowercase).",
       parameters = {@Param(name = "self", doc = "This string.")})
-  public Boolean isTitle(String self) throws EvalException {
+  public boolean isTitle(String self) throws EvalException {
     if (self.isEmpty()) {
       return false;
     }
@@ -856,7 +856,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer count(String self, String sub, Object start, Object end) throws EvalException {
+  public int count(String self, String sub, Object start, Object end) throws EvalException {
     long indices = substringIndices(self, start, end);
     if (sub.isEmpty()) {
       return hi(indices) - lo(indices) + 1; // str.length() + 1
@@ -923,7 +923,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
       })
-  public Boolean endsWith(String self, Object sub, Object start, Object end) throws EvalException {
+  public boolean endsWith(String self, Object sub, Object start, Object end) throws EvalException {
     long indices = substringIndices(self, start, end);
     if (sub instanceof String) {
       return substringEndsWith(self, lo(indices), hi(indices), (String) sub);
@@ -1004,7 +1004,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "Stop comparing at this position.")
       })
-  public Boolean startsWith(String self, Object sub, Object start, Object end)
+  public boolean startsWith(String self, Object sub, Object start, Object end)
       throws EvalException {
     long indices = substringIndices(self, start, end);
     if (sub instanceof String) {

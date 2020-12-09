@@ -216,6 +216,8 @@ assert_eq(~minint, maxint)
 assert_eq(~maxint, minint)
 assert_eq(~minlong, maxlong)
 assert_eq(~maxlong, minlong)
+assert_eq(~(1 << 100), -(1 << 100) - 1)
+assert_eq(~-(1 << 100), (1 << 100) - 1)
 
 ---
 1 // 0  ### integer division by zero

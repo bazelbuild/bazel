@@ -18,7 +18,6 @@ filegroup(
 test_suite(
     name = "AllTests",
     tests = [
-        "//src/test/java/com/google/devtools/build/lib/query2/aquery:ActionGraphProtoOutputFormatterCallbackTest",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:BuildOutputFormatterCallbackTest",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:ProtoOutputFormatterCallbackTest",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:TransitionsOutputFormatterTest",

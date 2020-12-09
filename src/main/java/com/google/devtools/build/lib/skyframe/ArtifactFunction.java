@@ -282,13 +282,14 @@ class ArtifactFunction implements SkyFunction {
       //
       // In the future, we need to make this result the source of truth for the files available to
       // the action so that we at least have consistency.
-      TraversalRequest request = TraversalRequest.create(
-          DirectTraversalRoot.forRootedPath(path),
-          /*isRootGenerated=*/ false,
-          PackageBoundaryMode.CROSS,
-          /*strictOutputFiles=*/ true,
-          /*skipTestingForSubpackage=*/ true,
-          /*errorInfo=*/ null);
+      TraversalRequest request =
+          TraversalRequest.create(
+              DirectTraversalRoot.forRootedPath(path),
+              /*isRootGenerated=*/ false,
+              PackageBoundaryMode.CROSS,
+              /*strictOutputFiles=*/ true,
+              /*skipTestingForSubpackage=*/ true,
+              /*errorInfo=*/ "Directory artifact " + artifact.prettyPrint());
       RecursiveFilesystemTraversalValue value;
       try {
         value =
