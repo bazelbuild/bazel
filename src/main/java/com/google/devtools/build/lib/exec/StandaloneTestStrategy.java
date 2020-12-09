@@ -404,7 +404,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
     if (!action.isSharded()) {
       envBuilder.put("TEST_SHARD_INDEX", "0");
-      envBuilder.put("TEST_SHARD_INDEX", "0");
+      envBuilder.put("TEST_TOTAL_SHARDS", "0");
     }
     return new SimpleSpawn(
         action,
