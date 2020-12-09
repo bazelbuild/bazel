@@ -326,7 +326,7 @@ public final class Resolver extends NodeVisitor {
 
   private static class Block {
     @Nullable private final Block parent; // enclosing block, or null for tail of list
-    @Nullable Node syntax; // Comprehension, DefStatement, StarlarkFile, or null
+    @Nullable Node syntax; // Comprehension, DefStatement/LambdaExpression, StarlarkFile, or null
     private final ArrayList<Binding> frame; // accumulated locals of enclosing function
     // Accumulated CELL/FREE bindings of the enclosing function that will provide
     // the values for the free variables of this function; see Function.getFreeVars.
@@ -554,7 +554,8 @@ public final class Resolver extends NodeVisitor {
       // This step may occur many times if the lookupLexical
       // recursion returns through many functions.
       // TODO(adonovan): make this 'DEF or LAMBDA' when we have lambda.
-      if (bind != null && b.syntax instanceof DefStatement) {
+      if (bind != null
+          && (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression)) {
         Scope scope = bind.getScope();
         if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
           if (scope == Scope.LOCAL) {
@@ -717,8 +718,20 @@ public final class Resolver extends NodeVisitor {
             node.getBody()));
   }
 
+  @Override
+  public void visit(LambdaExpression expr) {
+    expr.setResolvedFunction(
+        resolveFunction(
+            expr,
+            "lambda",
+            expr.getStartLocation(),
+            expr.getParameters(),
+            ImmutableList.of(ReturnStatement.make(expr.getBody()))));
+  }
+
+  // Common code for def, lambda.
   private Function resolveFunction(
-      DefStatement def,
+      Node syntax, // DefStatement or LambdaExpression
       String name,
       Location loc,
       ImmutableList<Parameter> parameters,
@@ -734,7 +747,7 @@ public final class Resolver extends NodeVisitor {
     // Enter function block.
     ArrayList<Binding> frame = new ArrayList<>();
     ArrayList<Binding> freevars = new ArrayList<>();
-    pushLocalBlock(def, frame, freevars);
+    pushLocalBlock(syntax, frame, freevars);
 
     // Check parameter order and convert to run-time order:
     // positionals, keyword-only, *args, **kwargs.

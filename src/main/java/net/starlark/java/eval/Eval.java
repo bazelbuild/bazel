@@ -41,6 +41,7 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IndexExpression;
 import net.starlark.java.syntax.IntLiteral;
+import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
@@ -148,10 +149,8 @@ final class Eval {
     return TokenKind.PASS;
   }
 
-  private static void execDef(StarlarkThread.Frame fr, DefStatement node)
+  private static StarlarkFunction newFunction(StarlarkThread.Frame fr, Resolver.Function rfn)
       throws EvalException, InterruptedException {
-    Resolver.Function rfn = node.getResolvedFunction();
-
     // Evaluate default value expressions of optional parameters.
     // We use MANDATORY to indicate a required parameter
     // (not null, because defaults must be a legal tuple value, as
@@ -196,11 +195,8 @@ final class Eval {
     // Nested functions use the same globalIndex as their enclosing function,
     // since both were compiled from the same Program.
     StarlarkFunction fn = fn(fr);
-    assignIdentifier(
-        fr,
-        node.getIdentifier(),
-        new StarlarkFunction(
-            rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars)));
+    return new StarlarkFunction(
+        rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -289,7 +285,9 @@ final class Eval {
       case FOR:
         return execFor(fr, (ForStatement) st);
       case DEF:
-        execDef(fr, (DefStatement) st);
+        DefStatement def = (DefStatement) st;
+        StarlarkFunction fn = newFunction(fr, def.getResolvedFunction());
+        assignIdentifier(fr, def.getIdentifier(), fn);
         return TokenKind.PASS;
       case IF:
         return execIf(fr, (IfStatement) st);
@@ -481,6 +479,8 @@ final class Eval {
         }
       case FLOAT_LITERAL:
         return StarlarkFloat.of(((FloatLiteral) expr).getValue());
+      case LAMBDA:
+        return newFunction(fr, ((LambdaExpression) expr).getResolvedFunction());
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:

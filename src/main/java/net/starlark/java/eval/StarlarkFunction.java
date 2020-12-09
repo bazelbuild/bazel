@@ -139,8 +139,8 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   /**
-   * Returns the name of the function. Implicit functions (those not created by a def statement),
-   * may have names such as "<toplevel>" or "<expr>".
+   * Returns the name of the function, or "lambda" if anonymous. Implicit functions (those not
+   * created by a def statement), may have names such as "<toplevel>" or "<expr>".
    */
   @Override
   public String getName() {

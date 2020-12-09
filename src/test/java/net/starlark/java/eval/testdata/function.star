@@ -81,10 +81,9 @@ x() ### 'string' object is not callable
 getattr(1, []) ### parameter 'name' got value of type 'list', want 'string'
 
 ---
-# assert_fails. This will be more useful when we add lambda.
-def divzero(): 1//0
-assert_fails(divzero, 'integer division by zero')
-
+# assert_fails evaluates an expression (passed unevaluated in the form of
+# a lambda) and asserts that evaluation fails with the given error.
+assert_fails(lambda: 1//0, 'integer division by zero')
 
 ---
 # Test of nested def statements.
@@ -100,6 +99,14 @@ assert_eq(add3(-1), 2)
 addlam = adder("lam")
 assert_eq(addlam("bda"), "lambda")
 assert_eq(addlam("bada"), "lambada")
+
+
+# Same, with lambda
+def adder2(x):
+  return lambda y: x+y
+
+assert_eq(adder2(3)(1), 4)
+assert_eq(adder2("lam")("bda"), "lambda")
 
 
 # Test of stateful function values.
@@ -130,9 +137,7 @@ assert_fails(rand3, "trying to mutate a frozen list value")
 def fib(x):
     return x if x < 2 else fib(x-1)+fib(x-2)
 
-# TODO(adonovan): use lambda.
-def fib10(): return fib(10)
-assert_fails(fib10, "function 'fib' called recursively")
+assert_fails(lambda: fib(10), "function 'fib' called recursively")
 
 ---
 # The recursion check breaks function encapsulation:
@@ -141,36 +146,57 @@ assert_fails(fib10, "function 'fib' called recursively")
 # called from within an active call of that helper.
 def call(f): f()
 def g(): call(list)
-# TODO(adonovan): use lambda.
-def call_g(): call(g)
-assert_fails(call_g, "function 'call' called recursively")
+assert_fails(lambda: call(g), "function 'call' called recursively")
 
 ---
 # The recursion check is based on the syntactic equality
 # (same def statement), not function value equivalence.
 def eta(f):
-    # TODO(adonovan): use lambda
-    def call():
-        f()
-    return call
+    return lambda: f()
 
 def nop(): pass
 
-# fn1 and fn2 are both created by 'def call',
+# fn1 and fn2 are both created by the same lambda,
 # but they are distinct and close over different values...
 fn1 = eta(nop)
 fn2 = eta(fn1)
-assert_eq(str(fn1), '<function call>')
-assert_eq(str(fn2), '<function call>')
+assert_eq(str(fn1), '<function lambda>')
+assert_eq(str(fn2), '<function lambda>')
 assert_(fn1 != fn2)
 
 # ...yet both cannot be called in the same thread:
-assert_fails(fn2, "function 'call' called recursively")
+assert_fails(fn2, "function 'lambda' called recursively")
 
 # This rule prevents users from writing the Y combinator,
 # which creates a new closure at each step of the recursion.
-# TODO(adonovan): enable test when we have lambda.
-# Y = lambda f: (lambda x: x(x))(lambda y: f(lambda *args: y(y)(*args)))
-# fibgen = lambda fib: lambda x: (x if x<2 else fib(x-1)+fib(x-2))
-# fib2 = Y(fibgen)
-# assert_fails(lambda: [fib2(x) for x in range(10)], "function lambda called recursively")
+Y = lambda f: (lambda x: x(x))(lambda y: f(lambda *args: y(y)(*args)))
+fibgen = lambda fib: lambda x: (x if x<2 else fib(x-1)+fib(x-2))
+fib2 = Y(fibgen)
+assert_fails(lambda: [fib2(x) for x in range(10)], "function 'lambda' called recursively")
+
+---
+# Trivial test of lambda.
+def map(f, list):
+    return [f(x) for x in list]
+
+assert_eq(map(lambda x: len(x), ["one", "two", "three"]),
+          [3, 3, 5])
+
+assert_eq(type(lambda: 0), "function")
+assert_eq(str(lambda: 0), "<function lambda>")
+
+---
+# builder returns a string builder:
+# an opaque, stateful value with methods and open recursion.
+def builder():
+    chunks = []
+    self = None
+    def append(x):
+        chunks.append("%s" % x)
+        return self
+    def build():
+        return "".join(chunks)
+    self = struct(append = append, build = build)
+    return self
+
+assert_eq(builder().append(1).append(" + ").append(2).build(), "1 + 2")
