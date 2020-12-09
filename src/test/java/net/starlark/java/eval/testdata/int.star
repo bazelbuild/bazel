@@ -136,6 +136,10 @@ assert_eq( product %  1234567,  1013598)
 assert_eq( product % -1234567, -220969) # ditto
 assert_eq(-product % 1234567,   220969) # ditto
 assert_eq(-product % -1234567, -1013598)
+assert_eq(1 % maxlong, 1)
+assert_eq((-1) % maxlong, maxlong - 1)
+assert_eq(1 % minlong, -maxlong)
+assert_eq((-1) % minlong, -1)
 
 # precedence
 assert_eq(5 - 7 * 2 + 3, -6)
