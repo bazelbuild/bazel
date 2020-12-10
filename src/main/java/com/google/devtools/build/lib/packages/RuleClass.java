@@ -640,6 +640,8 @@ public class RuleClass {
      */
     public static final String STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
+    public static final String STARLARK_BUILD_SETTING_HELP_ATTR_NAME = "help";
+
     public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
         "Build setting defaults are referenced during analysis.";
 
@@ -854,15 +856,19 @@ public class RuleClass {
 
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
-        Attribute.Builder<?> attrBuilder =
+        Attribute.Builder<?> defaultAttrBuilder =
             attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
         if (BuildType.isLabelType(type)) {
-          attrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
-          attrBuilder.allowedRuleClasses(ANY_RULE);
+          defaultAttrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
+          defaultAttrBuilder.allowedRuleClasses(ANY_RULE);
         }
-        this.add(attrBuilder);
+        this.add(defaultAttrBuilder);
+
+        this.add(
+            attr(STARLARK_BUILD_SETTING_HELP_ATTR_NAME, Type.STRING)
+                .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE));
 
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
