@@ -93,6 +93,22 @@ bool IsDirectory(const string& path) {
 #endif
 }
 
+// Computes the path of the runfiles manifest and the runfiles directory.
+// By searching first next to the binary location `argv0` and then falling
+// back on the values passed in `runfiles_manifest_file` and `runfiles_dir`
+//
+// If the method finds both a valid manifest and valid directory according to
+// `is_runfiles_manifest` and `is_runfiles_directory`, then the method sets
+// the corresponding values to `out_manifest` and `out_directory` and returns
+// true.
+//
+// If the method only finds a valid manifest or a valid directory, but not
+// both, then it sets the corresponding output variable (`out_manifest` or
+// `out_directory`) to the value while clearing the other output variable. The
+// method still returns true in this case.
+//
+// If the method cannot find either a valid manifest or valid directory, it
+// clears both output variables and returns false.
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir, std::string* out_manifest,
                std::string* out_directory);
