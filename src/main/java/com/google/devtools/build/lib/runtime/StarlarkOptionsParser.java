@@ -22,7 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -39,9 +40,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * An options parser for starlark defined options. Takes a mutable {@link OptionsParser} that has
@@ -91,6 +96,9 @@ public class StarlarkOptionsParser {
     public void post(ExtendedEventHandler.Postable e) {}
   }
 
+  // Local cache of build settings so we don't repeatedly load them.
+  private final Map<String, Target> buildSettings = new HashMap<>();
+
   private StarlarkOptionsParser(
       SkyframeExecutor skyframeExecutor,
       PathFragment relativeWorkingDirectory,
@@ -119,8 +127,7 @@ public class StarlarkOptionsParser {
   public void parse(ExtendedEventHandler eventHandler) throws OptionsParsingException {
     ImmutableList.Builder<String> residue = new ImmutableList.Builder<>();
     // Map of <option name (label), <unparsed option value, loaded option>>.
-    Map<String, Pair<String, Target>> unparsedOptions =
-        Maps.newHashMapWithExpectedSize(nativeOptionsParser.getResidue().size());
+    Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
 
     // sort the old residue into starlark flags and legitimate residue
     for (String arg : nativeOptionsParser.getPreDoubleDashResidue()) {
@@ -141,8 +148,9 @@ public class StarlarkOptionsParser {
       return;
     }
 
-    ImmutableMap.Builder<String, Object> parsedOptions = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Pair<String, Target>> option : unparsedOptions.entrySet()) {
+    // Map of flag label as a string to its loaded target and set value after parsing.
+    HashMap<String, Pair<Target, Object>> buildSettingWithTargetAndValue = new HashMap<>();
+    for (Map.Entry<String, Pair<String, Target>> option : unparsedOptions.entries()) {
       String loadedFlag = option.getKey();
       String unparsedValue = option.getValue().first;
       Target buildSettingTarget = option.getValue().second;
@@ -165,19 +173,59 @@ public class StarlarkOptionsParser {
                 loadedFlag, unparsedValue, unparsedValue, type),
             e);
       }
-      if (!value.equals(
+      if (buildSetting.allowsMultiple()) {
+        List<Object> newValue;
+        if (buildSettingWithTargetAndValue.containsKey(loadedFlag)) {
+          newValue =
+              new ArrayList<>(
+                  (Collection<?>) buildSettingWithTargetAndValue.get(loadedFlag).getSecond());
+        } else {
+          newValue = new ArrayList<>();
+        }
+        newValue.add(value);
+        value = newValue;
+      }
+      buildSettingWithTargetAndValue.put(loadedFlag, Pair.of(buildSettingTarget, value));
+    }
+
+    Map<String, Object> parsedOptions = new HashMap<>();
+    for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
+      Pair<Target, Object> buildSettingAndFinalValue =
+          buildSettingWithTargetAndValue.get(buildSetting);
+      Target buildSettingTarget = buildSettingAndFinalValue.getFirst();
+      boolean allowsMultiple =
           buildSettingTarget
               .getAssociatedRule()
-              .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
-        parsedOptions.put(loadedFlag, value);
+              .getRuleClassObject()
+              .getBuildSetting()
+              .allowsMultiple();
+      Object value = buildSettingAndFinalValue.getSecond();
+      if (allowsMultiple) {
+        List<?> defaultValue =
+            ImmutableList.of(
+                Objects.requireNonNull(
+                    buildSettingTarget
+                        .getAssociatedRule()
+                        .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
+        List<?> newValue = (List<?>) value;
+        if (!newValue.equals(defaultValue)) {
+          parsedOptions.put(buildSetting, value);
+        }
+      } else {
+        if (!value.equals(
+            buildSettingTarget
+                .getAssociatedRule()
+                .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+          parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
+        }
       }
     }
-    nativeOptionsParser.setStarlarkOptions(parsedOptions.build());
+    nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
   }
 
   private void parseArg(
       String arg,
-      Map<String, Pair<String, Target>> unparsedOptions,
+      Multimap<String, Pair<String, Target>> unparsedOptions,
       ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
     int equalsAt = arg.indexOf('=');
@@ -217,6 +265,10 @@ public class StarlarkOptionsParser {
 
   private Target loadBuildSetting(String targetToBuild, ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
+    if (buildSettings.containsKey(targetToBuild)) {
+      return buildSettings.get(targetToBuild);
+    }
+
     Target buildSetting;
     try {
       TargetPatternPhaseValue result =
@@ -238,6 +290,7 @@ public class StarlarkOptionsParser {
     if (associatedRule == null || associatedRule.getRuleClassObject().getBuildSetting() == null) {
       throw new OptionsParsingException("Unrecognized option: " + targetToBuild, targetToBuild);
     }
+    buildSettings.put(targetToBuild, buildSetting);
     return buildSetting;
   }
 

@@ -494,20 +494,25 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           }
 
           if (configurationValue instanceof List) {
-            // If the build_setting is a list, we use the same semantics as for multi-value native
-            // flags: if *any* entry in the list matches the config_setting's expected entry, it's
-            // a match. In other words, config_setting(flag_values {"//foo": "bar"} matches
-            // //foo=["bar", "baz"].
+            // If the build_setting is a list it's either an allow-multiple string-typed build
+            // setting or a string_list-typed build setting. We use the same semantics as for
+            // multi-value native flags: if *any* entry in the list matches the config_setting's
+            // expected entry, it's a match. In other words,
+            // config_setting(flag_values {"//foo": "bar"} matches //foo=["bar", "baz"].
 
-            // If the config_setting expects "foo", convertedSpecifiedValue converts it to the
-            // flag's native type, which produces ["foo"]. So unpack that again.
-            Iterable<?> specifiedValueAsIterable = (Iterable<?>) convertedSpecifiedValue;
+            // If this is an allow-multiple build setting, the converter will have converted the
+            // config settings value to a singular object, if it's a string_list build setting the
+            // converter will have converted it to a list.
+            Iterable<?> specifiedValueAsIterable =
+                provider.allowsMultiple()
+                    ? ImmutableList.of(convertedSpecifiedValue)
+                    : (Iterable<?>) convertedSpecifiedValue;
             if (Iterables.size(specifiedValueAsIterable) != 1) {
               ruleContext.attributeError(
                   ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                   String.format(
-                      "\"%s\" not a valid value for flag %s. Only single, exact values are allowed."
-                          + " If you want to match multiple values, consider Skylib's "
+                      "\"%s\" not a valid value for flag %s. Only single, exact values are"
+                          + " allowed. If you want to match multiple values, consider Skylib's "
                           + "selects.config_setting_group",
                       specifiedValue, specifiedLabel));
               matches = false;

@@ -411,4 +411,27 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
                 .getOriginalTargetPattern())
         .containsExactly("//blah:mylib", "//test:my_int_setting");
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testAllowMultipleStringFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "allow_multiple_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.string(flag=True, allow_multiple=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'allow_multiple_flag')",
+        "allow_multiple_flag(name = 'cats', build_setting_default = 'tabby')");
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
+
+    assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
+    assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
+        .containsExactly("calico", "bengal");
+  }
 }
