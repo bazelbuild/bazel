@@ -58,6 +58,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private static final boolean PREFETCH_OLD_DEPS =
       Boolean.parseBoolean(
           System.getProperty("skyframe.ParallelEvaluator.PrefetchOldDeps", "true"));
+  private static final boolean PREFETCH_AND_RETAIN_OLD_DEPS =
+      Boolean.parseBoolean(
+          System.getProperty("skyframe.SkyFunctionEnvironment.PrefetchAndRetainOldDeps", "false"));
 
   private boolean building = true;
   private SkyKey depErrorKey = null;
@@ -92,6 +95,13 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * map.
    */
   @Nullable private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
+
+  /**
+   * The current values of the direct deps this node had at the previous version.
+   *
+   * <p>Used only when {@link #PREFETCH_AND_RETAIN_OLD_DEPS} is {@code true}.
+   */
+  private ImmutableMap<SkyKey, SkyValue> oldDepsValues = ImmutableMap.of();
 
   /**
    * The values previously declared as dependencies.
@@ -213,6 +223,19 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     if (PREFETCH_OLD_DEPS) {
       request = new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
       evaluatorContext.getGraph().prefetchDeps(request);
+    } else if (PREFETCH_AND_RETAIN_OLD_DEPS) {
+      // TODO(b/175215425): Make PREFETCH_AND_RETAIN_OLD_DEPS the only behavior.
+      ImmutableMap.Builder<SkyKey, SkyValue> oldDepValuesBuilder =
+          ImmutableMap.builderWithExpectedSize(oldDeps.size());
+      Map<SkyKey, ? extends NodeEntry> map =
+          evaluatorContext.getBatchValues(requestor, Reason.PREFETCH, oldDeps);
+      for (Entry<SkyKey, ? extends NodeEntry> entry : map.entrySet()) {
+        SkyValue valueMaybeWithMetadata = entry.getValue().getValueMaybeWithMetadata();
+        if (valueMaybeWithMetadata != null) {
+          oldDepValuesBuilder.put(entry.getKey(), valueMaybeWithMetadata);
+        }
+      }
+      this.oldDepsValues = oldDepValuesBuilder.build();
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
@@ -460,6 +483,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@link #bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
+   *   <li>{@link #oldDepsValues}
    *   <li>{@link #evaluatorContext}'s graph accessing methods
    * </ol>
    *
@@ -543,6 +567,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@code bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
+   *   <li>{@link #oldDepsValues}
    * </ol>
    *
    * <p>Returns {@code null} if no entries for {@code key} were found in any of those three maps.
@@ -563,6 +588,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     SkyValue newlyRequestedDepsValue = newlyRequestedDepsValues.get(key);
     if (newlyRequestedDepsValue != null) {
       return newlyRequestedDepsValue;
+    }
+    SkyValue oldDepsValue = oldDepsValues.get(key);
+    if (oldDepsValue != null) {
+      return oldDepsValue;
     }
     return null;
   }
