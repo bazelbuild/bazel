@@ -131,6 +131,24 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
     ],
+    ijar = ["@remote_java_tools//:ijar_cc_binary"],
+    singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
+)
+
+# The new toolchain is using all the tools from sources.
+NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
+    jvm_opts = [
+        # Compact strings make JavaBuilder slightly slower.
+        "-XX:-CompactStrings",
+    ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
+    tools = [
+        "@remote_java_tools//:java_compiler_jar",
+        "@remote_java_tools//:jdk_compiler_jar",
+    ],
     ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
     singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
 )
