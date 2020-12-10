@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoV2OutputFormatterCallback;
+import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -331,7 +331,7 @@ public class BuildTool {
     try (OutputStream outputStream = initOutputStream(streamingContext, localOutputFilePath);
         PrintStream printStream = new PrintStream(outputStream);
         AqueryOutputHandler aqueryOutputHandler =
-            ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
+            ActionGraphProtoOutputFormatterCallback.constructAqueryOutputHandler(
                 OutputType.fromString(format), outputStream, printStream)) {
       // These options are fixed for simplicity. We'll add more configurability if the need arises.
       ActionGraphDump actionGraphDump =

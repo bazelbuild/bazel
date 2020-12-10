@@ -13,46 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.util.JsonFormat;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.MonolithicOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCallback {
 
-  /** Defines the types of proto output this class can handle. */
-  public enum OutputType {
-    BINARY("proto"),
-    TEXT("textproto"),
-    JSON("jsonproto");
-
-    private final String formatName;
-
-    OutputType(String formatName) {
-      this.formatName = formatName;
-    }
-
-    public String formatName() {
-      return formatName;
-    }
-  }
-
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
   private final AqueryActionFilter actionFilters;
-  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
+  private final AqueryOutputHandler aqueryOutputHandler;
+
+  /**
+   * Pseudo-arbitrarily chosen buffer size for output. Chosen to be large enough to fit a handful of
+   * messages without needing to flush to the underlying output, which may not be buffered.
+   */
+  private static final int OUTPUT_BUFFER_SIZE = 16384;
 
   ActionGraphProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -65,12 +55,28 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
+    this.aqueryOutputHandler = constructAqueryOutputHandler(outputType, out, printStream);
     this.actionGraphDump =
         new ActionGraphDump(
             options.includeCommandline,
             options.includeArtifacts,
             this.actionFilters,
-            options.includeParamFiles);
+            options.includeParamFiles,
+            aqueryOutputHandler);
+  }
+
+  public static AqueryOutputHandler constructAqueryOutputHandler(
+      OutputType outputType, OutputStream out, PrintStream printStream) {
+    switch (outputType) {
+      case BINARY:
+      case TEXT:
+        return new StreamedOutputHandler(
+            outputType, CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE), printStream);
+      case JSON:
+        return new MonolithicOutputHandler(printStream);
+    }
+    // The above cases are exhaustive.
+    throw new AssertionError("Wrong output type: " + outputType);
   }
 
   @Override
@@ -102,29 +108,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   @Override
   public void close(boolean failFast) throws IOException {
-    if (!failFast && printStream != null) {
-      ActionGraphContainer actionGraphContainer = actionGraphDump.build();
-
-      // Write the data.
-      switch (outputType) {
-        case BINARY:
-          actionGraphContainer.writeTo(printStream);
-          break;
-        case TEXT:
-          TextFormat.print(actionGraphContainer, printStream);
-          break;
-        case JSON:
-          jsonPrinter.appendTo(actionGraphContainer, printStream);
-          printStream.println();
-          break;
-        default:
-          throw new IllegalStateException("Unknown outputType " + outputType.formatName());
-      }
+    if (!failFast) {
+      aqueryOutputHandler.close();
     }
-  }
-
-  @VisibleForTesting
-  public AnalysisProtos.ActionGraphContainer getProtoResult() {
-    return actionGraphDump.build();
   }
 }

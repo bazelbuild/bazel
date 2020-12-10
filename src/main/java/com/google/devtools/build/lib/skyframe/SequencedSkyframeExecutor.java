@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -802,19 +801,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return buildActionGraphContainerFromDump(actionGraphDump);
   }
 
-  /** Get ActionGraphContainer from the Skyframe evaluator. Used for aquery. */
-  public ActionGraphContainer getActionGraphContainer(
-      boolean includeActionCmdLine,
-      AqueryActionFilter aqueryActionFilter,
-      boolean includeParamFiles,
-      boolean includeArtifacts)
-      throws CommandLineExpansionException {
-    ActionGraphDump actionGraphDump =
-        new ActionGraphDump(
-            includeActionCmdLine, includeArtifacts, aqueryActionFilter, includeParamFiles);
-    return buildActionGraphContainerFromDump(actionGraphDump);
-  }
-
   private ActionGraphContainer buildActionGraphContainerFromDump(ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException {
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
@@ -844,7 +830,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return actionGraphDump.build();
   }
 
-  /** Support for aquery output with --incompatible_proto_output_v2. */
+  /** Support for aquery output. */
   public void dumpSkyframeState(
       com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, IOException {
