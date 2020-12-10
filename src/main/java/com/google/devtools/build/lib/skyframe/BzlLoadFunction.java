@@ -206,7 +206,7 @@ public class BzlLoadFunction implements SkyFunction {
    *
    * <p>Under bzl inlining, there is some calling context that wants to obtain a set of {@link
    * BzlLoadValue}s without Skyframe evaluation. For example, a calling context can be a BUILD file
-   * trying to resolve its top-level {@code load()} statements. Although this work proceeds in a
+   * trying to resolve its top-level {@code load} statements. Although this work proceeds in a
    * single thread, multiple calling contexts may evaluate .bzls in parallel. To avoid redundant
    * work, they share a single (global to this Skyfunction instance) cache in lieu of the regular
    * Skyframe cache. Unlike the regular Skyframe cache, this cache stores only successes.
@@ -620,8 +620,8 @@ public class BzlLoadFunction implements SkyFunction {
     }
     Program prog = compileValue.getProgram();
 
-    // Determine dependency BzlLoadValue keys for the load statements in this bzl. Labels are
-    // resolved relative to the current repo mapping.
+    // Determine dependency BzlLoadValue keys for the load statements in this bzl.
+    // Labels are resolved relative to the current repo mapping.
     ImmutableMap<RepositoryName, RepositoryName> repoMapping = getRepositoryMapping(key, env);
     if (repoMapping == null) {
       return null;
@@ -631,8 +631,14 @@ public class BzlLoadFunction implements SkyFunction {
         getLoadLabels(
             env.getListener(), programLoads, key.getLabel().getPackageIdentifier(), repoMapping);
     if (loadLabels == null) {
-      // malformed load statements
-      throw BzlLoadFailedException.starlarkErrors(key.getLabel());
+      throw new BzlLoadFailedException(
+          String.format(
+              "module '%s'%s has invalid load statements",
+              key.getLabel().toPathFragment(),
+              StarlarkBuiltinsValue.isBuiltinsRepo(key.getLabel().getRepository())
+                  ? " (internal)"
+                  : ""),
+          Code.PARSE_ERROR);
     }
     ImmutableList.Builder<BzlLoadValue.Key> loadKeys =
         ImmutableList.builderWithExpectedSize(loadLabels.size());
@@ -640,14 +646,12 @@ public class BzlLoadFunction implements SkyFunction {
       loadKeys.add(key.getKeyForLoad(loadLabel));
     }
 
-    // Evaluate the dependency bzls. When not using bzl inlining, this is done in parallel for all
-    // loads.
-    // TODO(bazel-team): In case of a failed load(), we should report the location of the load()
-    // statement in the requesting program: programLoads.get(i).second.
+    // Load .bzl modules.
+    // When not using bzl inlining, this is done in parallel for all loads.
     List<BzlLoadValue> loadValues =
         inliningState == null
-            ? computeBzlLoadsWithSkyframe(env, loadKeys.build(), prog.getFilename())
-            : computeBzlLoadsWithInlining(env, loadKeys.build(), prog.getFilename(), inliningState);
+            ? computeBzlLoadsWithSkyframe(env, loadKeys.build(), programLoads)
+            : computeBzlLoadsWithInlining(env, loadKeys.build(), programLoads, inliningState);
     if (loadValues == null) {
       return null; // Skyframe deps unavailable
     }
@@ -806,22 +810,24 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Computes the BzlLoadValue for all given keys using vanilla Skyframe evaluation, returning
-   * {@code null} if Skyframe deps were missing and have been requested.
+   * Computes the BzlLoadValue for all given .bzl load keys using ordinary Skyframe evaluation,
+   * returning {@code null} if Skyframe deps were missing and have been requested. {@code
+   * programLoads} provides the locations of the load statements in source order, for error
+   * reporting.
    */
   @Nullable
   private static List<BzlLoadValue> computeBzlLoadsWithSkyframe(
-      Environment env, List<BzlLoadValue.Key> keys, String filePathForErrors)
+      Environment env, List<BzlLoadValue.Key> keys, List<Pair<String, Location>> programLoads)
       throws BzlLoadFailedException, InterruptedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     Map<SkyKey, ValueOrException<BzlLoadFailedException>> values =
         env.getValuesOrThrow(keys, BzlLoadFailedException.class);
-    // Uses same order as load()s in the file. Order matters since we report the first error.
-    for (BzlLoadValue.Key key : keys) {
+    // Process loads (and report first error) in source order.
+    for (int i = 0; i < keys.size(); i++) {
       try {
-        bzlLoads.add((BzlLoadValue) values.get(key).get());
-      } catch (BzlLoadFailedException exn) {
-        throw BzlLoadFailedException.whileLoadingDep(filePathForErrors, exn);
+        bzlLoads.add((BzlLoadValue) values.get(keys.get(i)).get());
+      } catch (BzlLoadFailedException ex) {
+        throw BzlLoadFailedException.whileLoadingDep(programLoads.get(i).second, ex);
       }
     }
     return env.valuesMissing() ? null : bzlLoads;
@@ -829,7 +835,8 @@ public class BzlLoadFunction implements SkyFunction {
 
   /**
    * Computes the BzlLoadValue for all given keys by reusing this instance of the BzlLoadFunction,
-   * bypassing traditional Skyframe evaluation.
+   * bypassing traditional Skyframe evaluation. {@code programLoads} provides the locations of the
+   * load statements in source order, for error reporting.
    *
    * @return null if there was a missing Skyframe dep, an unspecified exception in a Skyframe dep
    *     request, or if this was a duplicate unsuccessful visitation
@@ -838,13 +845,10 @@ public class BzlLoadFunction implements SkyFunction {
   private List<BzlLoadValue> computeBzlLoadsWithInlining(
       Environment env,
       List<BzlLoadValue.Key> keys,
-      String filePathForErrors,
+      List<Pair<String, Location>> programLoads,
       InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    Preconditions.checkState(
-        env instanceof RecordingSkyFunctionEnvironment,
-        "Expected to be recording dep requests when inlining BzlLoadFunction: %s",
-        filePathForErrors);
+    // It is an invariant of BzlLoadFunction inlining that we are recording dep requests.
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
 
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
@@ -862,14 +866,13 @@ public class BzlLoadFunction implements SkyFunction {
     // InterruptedException does not occur, since we don't catch and defer it.
     BzlLoadFailedException deferredException = null;
     boolean valuesMissing = false;
-    // NOTE: Iterating over loads in the order listed in the file.
-    for (BzlLoadValue.Key key : keys) {
+    for (int i = 0; i < keys.size(); i++) {
       CachedBzlLoadData cachedData;
       try {
-        cachedData = computeInlineCachedData(key, strippedEnv, inliningState);
+        cachedData = computeInlineCachedData(keys.get(i), strippedEnv, inliningState);
       } catch (BzlLoadFailedException e) {
         if (deferredException == null) {
-          deferredException = BzlLoadFailedException.whileLoadingDep(filePathForErrors, e);
+          deferredException = BzlLoadFailedException.whileLoadingDep(programLoads.get(i).second, e);
         }
         continue;
       }
@@ -971,7 +974,7 @@ public class BzlLoadFunction implements SkyFunction {
         skyframeEventHandler.post(post);
       }
       if (starlarkEventHandler.hasErrors()) {
-        throw BzlLoadFailedException.errors(label);
+        throw BzlLoadFailedException.executionFailed(label);
       }
     }
   }
@@ -1165,23 +1168,19 @@ public class BzlLoadFunction implements SkyFunction {
               .build());
     }
 
-    // TODO(bazel-team): This exception should hold a Location of the requesting file's load
-    // statement, and code that catches it should use the location in the Event they create.
-    static BzlLoadFailedException whileLoadingDep(
-        String requestingFile, BzlLoadFailedException cause) {
+    private static BzlLoadFailedException whileLoadingDep(
+        Location loc, BzlLoadFailedException cause) {
       // Don't chain exception cause, just incorporate the message with a prefix.
-      // TODO(brandjon): Normalize the requestingFile part to use the same convention for printing
-      // the bzl file as in errors(), starlarkErrors().
+      // TODO(bazel-team): This exception should hold a Location of the requesting file's load
+      // statement, and code that catches it should use the location in the Event they create.
       return new BzlLoadFailedException(
-          "in " + requestingFile + ": " + cause.getMessage(), cause.getDetailedExitCode());
+          "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
     }
 
-    static BzlLoadFailedException errors(Label label) {
-      // TODO(brandjon): Merge with starlarkErrors(). Drop "Extension" terminology, but still
-      // distinguish between static and dynamic (eval) errors in the message.
+    static BzlLoadFailedException executionFailed(Label label) {
       return new BzlLoadFailedException(
           String.format(
-              "Extension file '%s'%s has errors",
+              "initialization of module '%s'%s failed",
               label.toPathFragment(),
               StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
           Code.EVAL_ERROR);
@@ -1235,15 +1234,6 @@ public class BzlLoadFunction implements SkyFunction {
               label,
               containingPackageLookupValue),
           Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
-    }
-
-    static BzlLoadFailedException starlarkErrors(Label label) {
-      return new BzlLoadFailedException(
-          String.format(
-              "Extension '%s'%s has errors",
-              label.toPathFragment(),
-              StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
-          Code.PARSE_ERROR);
     }
 
     static BzlLoadFailedException builtinsFailed(Label file, BuiltinsFailedException cause) {

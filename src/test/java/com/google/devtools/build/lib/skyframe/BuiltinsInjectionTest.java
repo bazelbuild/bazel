@@ -254,8 +254,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertThat(ev.getMessage())
         .contains(
             "Failed to load builtins sources: "
-                + "in /workspace/tools/builtins_staging/exports.bzl: "
-                + "Extension file 'helper.bzl' (internal) has errors");
+                + "at /workspace/tools/builtins_staging/exports.bzl:1:6: "
+                + "initialization of module 'helper.bzl' (internal) failed");
   }
 
   @Test

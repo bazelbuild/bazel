@@ -644,7 +644,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             "error loading package 'test/starlark': "
-                + "in /workspace/test/starlark/extension.bzl: "
+                + "at /workspace/test/starlark/extension.bzl:1:6: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
     assertDetailedExitCode(
         errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
