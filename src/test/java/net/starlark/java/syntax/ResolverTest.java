@@ -98,22 +98,87 @@ public class ResolverTest {
   }
 
   @Test
-  public void testLoadDuplicateSymbols() throws Exception {
+  public void testDuplicateBindingWithinALoadStatement() throws Exception {
     assertInvalid(
         "load statement defines 'x' more than once", //
         "load('module', 'x', 'x')");
     assertInvalid(
         "load statement defines 'x' more than once", //
         "load('module', 'x', x='y')");
+  }
 
-    // Eventually load bindings will be local,
-    // at which point these errors will need adjusting.
-    assertInvalid(
-        "cannot reassign global 'x'", //
-        "x=1; load('module', 'x')");
-    assertInvalid(
-        "cannot reassign global 'x'", //
-        "load('module', 'x'); x=1");
+  @Test
+  public void testConflictsAtToplevel_default() throws Exception {
+    List<SyntaxError> errors = getResolutionErrors("x=1; x=2");
+    assertContainsError(errors, ":1:6: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:1: 'x' previously declared here");
+
+    errors = getResolutionErrors("x=1; load('module', 'x')");
+    assertContainsError(errors, ":1:22: conflicting file-local declaration of 'x'");
+    assertContainsError(errors, ":1:1: 'x' previously declared as global here");
+    // Also: "loads must appear first"
+
+    errors = getResolutionErrors("load('module', 'x'); x=1");
+    assertContainsError(errors, ":1:22: conflicting global declaration of 'x'");
+    assertContainsError(errors, ":1:17: 'x' previously declared as file-local here");
+
+    errors = getResolutionErrors("load('module', 'x'); load('module', 'x')");
+    assertContainsError(errors, ":1:38: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:17: 'x' previously declared here");
+  }
+
+  @Test
+  public void testConflictsAtToplevel_loadBindsGlobally() throws Exception {
+    options.loadBindsGlobally(true);
+
+    List<SyntaxError> errors = getResolutionErrors("x=1; x=2");
+    assertContainsError(errors, ":1:6: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:1: 'x' previously declared here");
+
+    errors = getResolutionErrors("x=1; load('module', 'x')");
+    assertContainsError(errors, ":1:22: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:1: 'x' previously declared here");
+    // Also: "loads must appear first"
+
+    errors = getResolutionErrors("load('module', 'x'); x=1");
+    assertContainsError(errors, ":1:22: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:17: 'x' previously declared here");
+
+    errors = getResolutionErrors("load('module', 'x'); load('module', 'x')");
+    assertContainsError(errors, ":1:38: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:17: 'x' previously declared here");
+  }
+
+  @Test
+  public void testConflictsAtToplevel_allowToplevelRebinding() throws Exception {
+    // This flag allows rebinding of globals, or of file-locals,
+    // but a given name cannot be both globally and file-locally bound.
+    options.allowToplevelRebinding(true);
+
+    assertValid("x=1; x=2");
+
+    List<SyntaxError> errors = getResolutionErrors("x=1; load('module', 'x')");
+    assertContainsError(errors, ":1:22: conflicting file-local declaration of 'x'");
+    assertContainsError(errors, ":1:1: 'x' previously declared as global here");
+    // Also: "loads must appear first"
+
+    errors = getResolutionErrors("load('module', 'x'); x=1");
+    assertContainsError(errors, ":1:22: conflicting global declaration of 'x'");
+    assertContainsError(errors, ":1:17: 'x' previously declared as file-local here");
+
+    assertValid("load('module', 'x'); load('module', 'x')");
+  }
+
+  @Test
+  public void testConflictsAtToplevel_loadBindsGlobally_allowToplevelRebinding() throws Exception {
+    options.loadBindsGlobally(true);
+    options.allowToplevelRebinding(true);
+    options.requireLoadStatementsFirst(false);
+
+    assertValid("x=1; x=2");
+    assertValid("x=1; load('module', 'x')");
+    assertValid("load('module', 'x'); x=1");
+    assertValid("load('module', 'x'); load('module', 'x')");
   }
 
   @Test
@@ -121,6 +186,11 @@ public class ResolverTest {
     assertInvalid(
         "if statements are not allowed at the top level", //
         "if pre: a = 2");
+  }
+
+  @Test
+  public void testUndefinedName() throws Exception {
+    assertInvalid("name 'foo' is not defined", "[foo for x in []]");
   }
 
   @Test
@@ -180,21 +250,18 @@ public class ResolverTest {
   }
 
   @Test
-  public void testNoGlobalReassign() throws Exception {
-    List<SyntaxError> errors = getResolutionErrors("a = 1", "a = 2");
-    assertContainsError(errors, ":2:1: cannot reassign global 'a'");
-    assertContainsError(errors, ":1:1: 'a' previously declared here");
-
+  public void testGlobalShadowsPredeclaredForEntireFile() throws Exception {
     // global 'pre' shadows predeclared of same name.
-    errors = getResolutionErrors("pre; pre = 1; pre = 2");
-    assertContainsError(errors, ":1:15: cannot reassign global 'pre'");
+    List<SyntaxError> errors = getResolutionErrors("pre; pre = 1; pre = 2");
+    assertContainsError(errors, ":1:15: 'pre' redeclared at top level");
     assertContainsError(errors, ":1:6: 'pre' previously declared here");
   }
 
   @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
+    // Def statements act just like an assignment statement.
     List<SyntaxError> errors = getResolutionErrors("def foo(): pass", "def foo(): pass");
-    assertContainsError(errors, ":2:5: cannot reassign global 'foo'");
+    assertContainsError(errors, ":2:5: 'foo' redeclared at top level");
     assertContainsError(errors, ":1:5: 'foo' previously declared here");
   }
 
@@ -394,8 +461,12 @@ public class ResolverTest {
         "  xᴸ₀ = yᴸ₁",
         "  yᴸ₁ = zᴳ₂");
 
-    // Note: loads bind globally, for now.
-    checkBindings("load('module', aᴳ₀='a', bᴳ₁='b')");
+    // Load statements create file-local bindings.
+    // Functions that reference load bindings are closures.
+    checkBindings(
+        "load('module', aᶜ₀='a', bᴸ₁='b')", //
+        "aᶜ₀, bᴸ₁",
+        "def fᴳ₀(): aᶠ₀");
 
     // If a name is bound globally, all toplevel references
     // resolve to it, even those that precede it.
@@ -408,8 +479,6 @@ public class ResolverTest {
         "  aᴸ₀, bᴳ₁",
         "  [(aᴸ₁, bᴳ₁) for aᴸ₁ in aᴸ₀]");
 
-    checkBindings("load('module', aᴳ₀='a', bᴳ₁='b')");
-
     // Nested functions have lexical scope.
     checkBindings(
         "def fᴳ₀(aᴸ₀, bᶜ₁):", // b is a cell: an indirect local shared with nested functions
@@ -418,16 +487,15 @@ public class ResolverTest {
         "    bᶠ₀, cᴸ₀"); // b is a free var: a reference to a cell of an outer function
 
     // Multiply nested functions.
-    // Load still binds globally, for now, but soon it will bind locally.
     checkBindings(
-        "load('module', aᴳ₀='a')", // eventually: aᶜ₀
-        "bᴳ₁= 0",
-        "def fᴳ₂(cᶜ₀):",
-        "  aᴳ₀, bᴳ₁, cᶜ₀", // eventually: aᶠ0
+        "load('module', aᶜ₀='a')",
+        "bᴳ₀ = 0",
+        "def fᴳ₁(cᶜ₀):",
+        "  aᶠ₀, bᴳ₀, cᶜ₀",
         "  def gᶜ₁(dᶜ₀):",
-        "    aᴳ₀, bᴳ₁, cᶠ₀, dᶜ₀, fᴳ₂",
+        "    aᶠ₀, bᴳ₀, cᶠ₁, dᶜ₀, fᴳ₁",
         "    def hᶜ₁(eᴸ₀):",
-        "      aᴳ₀, bᴳ₁, cᶠ₀, dᶠ₁, eᴸ₀, fᴳ₂, gᶠ₂, hᶠ₃");
+        "      aᶠ₀, bᴳ₀, cᶠ₁, dᶠ₂, eᴸ₀, fᴳ₁, gᶠ₃, hᶠ₄");
   }
 
   // checkBindings verifies the binding (scope and index) of each identifier.

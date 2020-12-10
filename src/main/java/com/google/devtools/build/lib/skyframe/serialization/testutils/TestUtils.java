@@ -103,9 +103,6 @@ public class TestUtils {
   public static void assertModulesEqual(Module module1, Module module2) {
     assertThat(module1.getClientData()).isEqualTo(module2.getClientData());
     assertThat(module1.getGlobals()).containsExactlyEntriesIn(module2.getGlobals()).inOrder();
-    assertThat(module1.getExportedGlobals())
-        .containsExactlyEntriesIn(module2.getExportedGlobals())
-        .inOrder();
     assertThat(module1.getPredeclaredBindings())
         .containsExactlyEntriesIn(module2.getPredeclaredBindings())
         .inOrder();

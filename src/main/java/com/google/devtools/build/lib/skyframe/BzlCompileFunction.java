@@ -160,8 +160,11 @@ public class BzlCompileFunction implements SkyFunction {
     ParserInput input = ParserInput.fromLatin1(bytes, inputName);
     FileOptions options =
         FileOptions.builder()
-            // TODO(adonovan): add this, so that loads can normally be truly local.
-            // .loadBindsGlobally(key.isBuildPrelude())
+            // By default, Starlark load statements create file-local bindings.
+            // However, the BUILD prelude typically contains nothing but load
+            // statements whose bindings are intended to be visible in all BUILD
+            // files. The loadBindsGlobally flag allows us to retrieve them.
+            .loadBindsGlobally(key.isBuildPrelude())
             .restrictStringEscapes(
                 semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();

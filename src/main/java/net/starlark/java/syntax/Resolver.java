@@ -50,7 +50,6 @@ public final class Resolver extends NodeVisitor {
   //   including the spec.
   // - move the "no if statements at top level" check to bazel's check{Build,*}Syntax
   //   (that's a spec change), or put it behind a FileOptions flag (no spec change).
-  // - make loads bind locals by default (depends on closures).
 
   /** Scope discriminates the scope of a binding: global, local, etc. */
   public enum Scope {
@@ -408,7 +407,7 @@ public final class Resolver extends NodeVisitor {
         break;
       case DEF:
         DefStatement def = (DefStatement) stmt;
-        bind(def.getIdentifier());
+        bind(def.getIdentifier(), /*isLoad=*/ false);
         break;
       case LOAD:
         LoadStatement load = (LoadStatement) stmt;
@@ -420,24 +419,14 @@ public final class Resolver extends NodeVisitor {
             errorf(orig, "symbol '%s' is private and cannot be imported", orig.getName());
           }
 
-          // The allowToplevelRebinding check is not applied to all files
-          // but we apply it to each load statement as a special case,
-          // and emit a better error message than the generic check.
-          if (!names.add(b.getLocalName().getName())) {
-            errorf(
-                b.getLocalName(),
-                "load statement defines '%s' more than once",
-                b.getLocalName().getName());
+          // A load statement may not bind a single name more than once,
+          // even if options.allowToplevelRebinding.
+          Identifier local = b.getLocalName();
+          if (names.add(local.getName())) {
+            bind(local, /*isLoad=*/ true);
+          } else {
+            errorf(local, "load statement defines '%s' more than once", local.getName());
           }
-        }
-
-        // TODO(adonovan): support options.loadBindsGlobally().
-        // Requires that we open a LOCAL block for each file,
-        // as well as its Module block, and select which block
-        // to declare it in. See go.starlark.net implementation.
-
-        for (LoadStatement.Binding b : load.getBindings()) {
-          bind(b.getLocalName());
         }
         break;
       case EXPRESSION:
@@ -449,7 +438,7 @@ public final class Resolver extends NodeVisitor {
 
   private void createBindingsForLHS(Expression lhs) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
-      bind(id);
+      bind(id, /*isLoad=*/ false);
     }
   }
 
@@ -839,7 +828,7 @@ public final class Resolver extends NodeVisitor {
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
-    if (bind(param.getIdentifier())) {
+    if (bind(param.getIdentifier(), /*isLoad=*/ false)) {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
@@ -873,51 +862,83 @@ public final class Resolver extends NodeVisitor {
 
   /**
    * Process a binding use of a name by adding a binding to the current block if not already bound,
-   * and associate the identifier with it. Reports whether the name was already locally bound in
-   * this block.
+   * and associate the identifier with it. Reports whether the name was already bound in this block.
    */
-  private boolean bind(Identifier id) {
+  private boolean bind(Identifier id, boolean isLoad) {
     String name = id.getName();
     boolean isNew = false;
     Binding bind;
 
-    // outside any function/comprehension? => GLOBAL binding.
-    if (locals.syntax instanceof StarlarkFile) {
-      // TODO(adonovan): make load statements bind locally.
-      // (Will need 'boolean local' param.)
+    // TODO(adonovan): factor out bindLocal/bindGlobal cases
+    // and simply the condition below.
+
+    // outside any function/comprehension, and not a (local) load? => global binding.
+    if (locals.syntax instanceof StarlarkFile && !(isLoad && !options.loadBindsGlobally())) {
       bind = toplevel.get(name);
       if (bind == null) {
-        isNew = true; // new global binding
+        // New global binding: add to module and to toplevel cache.
+        isNew = true;
         bind = new Binding(Scope.GLOBAL, globals.size(), id);
-        // Accumulate globals in module.
         globals.add(name);
         toplevel.put(name, bind);
-      } else if (!options.allowToplevelRebinding()) {
-        // TODO(adonovan): rephrase error in terms of spec.
-        errorf(
-            id,
-            "cannot reassign global '%s' (read more at"
-                + " https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html)",
-            name);
-        if (bind.first != null) {
-          errorf(bind.first, "'%s' previously declared here", name);
+
+        // Does this new global binding conflict with a file-local load binding?
+        Binding prevLocal = locals.bindings.get(name);
+        if (prevLocal != null) {
+          globalLocalConflict(id, bind.scope, prevLocal); // global, local
         }
+
+      } else {
+        toplevelRebinding(id, bind); // global, global
       }
 
     } else {
-      // Binding is local to function or comprehension.
+      // Binding is local to file, function, or comprehension.
       bind = locals.bindings.get(name);
       if (bind == null) {
-        isNew = true; // new local binding
+        // New local binding: add to enclosing function's frame and bindings map.
+        isNew = true;
         bind = new Binding(Scope.LOCAL, locals.frame.size(), id);
         locals.bindings.put(name, bind);
-        // Accumulate locals in frame of enclosing function.
         locals.frame.add(bind);
+      }
+
+      if (isLoad) {
+        // Does this (file-local) load binding conflict with a previous one?
+        if (!isNew) {
+          toplevelRebinding(id, bind); // local, local
+        }
+
+        // ...or a previous global?
+        Binding prev = toplevel.get(name);
+        if (prev != null && prev.scope == Scope.GLOBAL) {
+          globalLocalConflict(id, bind.scope, prev); // local, global
+        }
       }
     }
 
     id.setBinding(bind);
     return !isNew;
+  }
+
+  // Report conflicting top-level bindings of same scope, unless options.allowToplevelRebinding.
+  private void toplevelRebinding(Identifier id, Binding prev) {
+    if (!options.allowToplevelRebinding()) {
+      errorf(id, "'%s' redeclared at top level", id.getName());
+      if (prev.first != null) {
+        errorf(prev.first, "'%s' previously declared here", id.getName());
+      }
+    }
+  }
+
+  // Report global/local scope conflict on top-level bindings.
+  private void globalLocalConflict(Identifier id, Scope scope, Binding prev) {
+    String newqual = scope == Scope.GLOBAL ? "global" : "file-local";
+    String oldqual = prev.getScope() == Scope.GLOBAL ? "global" : "file-local";
+    errorf(id, "conflicting %s declaration of '%s'", newqual, id.getName());
+    if (prev.first != null) {
+      errorf(prev.first, "'%s' previously declared as %s here", id.getName(), oldqual);
+    }
   }
 
   // Returns the union of accessible local and top-level symbols.
