@@ -447,6 +447,92 @@ EOF
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 
+# Validates that rules with custom providers are skipped when incompatible.
+# This is valuable because we use providers to convey incompatibility.
+function test_dependencies_with_providers() {
+  cat > target_skipping/rules.bzl <<EOF
+DummyProvider = provider()
+
+def _dummy_rule_impl(ctx):
+    return [DummyProvider()]
+
+dummy_rule = rule(
+    implementation = _dummy_rule_impl,
+    attrs = {
+        "deps": attr.label_list(providers=[DummyProvider]),
+    },
+)
+EOF
+
+  cat >> target_skipping/BUILD <<EOF
+load("//target_skipping:rules.bzl", "dummy_rule")
+
+dummy_rule(
+    name = "dummy1",
+    target_compatible_with = [
+        "//target_skipping:foo1",
+    ],
+)
+
+dummy_rule(
+    name = "dummy2",
+    deps = [
+        ":dummy1",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  pwd >&2
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log '^Target //target_skipping:dummy2 was skipped'
+}
+
+function test_dependencies_with_extensions() {
+  cat > target_skipping/rules.bzl <<EOF
+def _dummy_rule_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".cc")
+    ctx.actions.write(out, "Dummy content")
+    return DefaultInfo(files = depset([out]))
+
+dummy_rule = rule(
+    implementation = _dummy_rule_impl,
+)
+EOF
+
+  cat >> target_skipping/BUILD <<EOF
+load("//target_skipping:rules.bzl", "dummy_rule")
+
+# Generates a dummy.cc file.
+dummy_rule(
+    name = "dummy_file",
+    target_compatible_with = [":foo1"],
+)
+
+cc_library(
+    name = "dummy_cc_lib",
+    srcs = [
+        "dummy_file",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  pwd >&2
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log '^Target //target_skipping:dummy_cc_lib was skipped'
+}
+
 # Validates the same thing as test_non_top_level_skipping, but with a cc_test
 # and adding one more level of dependencies.
 function test_cc_test() {
@@ -480,6 +566,21 @@ EOF
 
   cd target_skipping || fail "couldn't cd into workspace"
 
+  # Validate the generated file that makes up the test.
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo2_bar1_platform \
+    --platforms=@//target_skipping:foo2_bar1_platform \
+    //target_skipping:generated_test.cc &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+  expect_log "ERROR: Target //target_skipping:generated_test.cc is incompatible and cannot be built, but was explicitly requested"
+
+  # Validate that we get the dependency chain printed out.
+  expect_log '^Dependency chain:$'
+  expect_log '^    //target_skipping:generate_with_tool$'
+  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1$"
+  expect_log 'FAILED: Build did NOT complete successfully'
+
+  # Validate the test.
   bazel test \
     --show_result=10 \
     --host_platform=@//target_skipping:foo2_bar1_platform \
@@ -727,7 +828,6 @@ EOF
 
   bazel test --show_result=10  \
     --host_platform=@//target_skipping:foo3_platform \
-    --toolchain_resolution_debug \
     --platforms=@//target_skipping:foo3_platform \
     //target_skipping:foo3_analysistest_test &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
