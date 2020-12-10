@@ -123,11 +123,11 @@ public class TopLevelConstraintSemantics {
     ImmutableSet.Builder<ConfiguredTarget> incompatibleButRequestedTargets = ImmutableSet.builder();
 
     for (ConfiguredTarget target : topLevelTargets) {
-      IncompatiblePlatformProvider incompatibleProvider =
-          target.getProvider(IncompatiblePlatformProvider.class);
+      RuleContextConstraintSemantics.IncompatibleCheckResult result =
+          RuleContextConstraintSemantics.checkForIncompatibility(target);
 
       // Move on to the next target if this one is compatible.
-      if (incompatibleProvider == null) {
+      if (!result.isIncompatible()) {
         continue;
       }
 
@@ -143,7 +143,9 @@ public class TopLevelConstraintSemantics {
               String.format(
                   TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
                   target.getLabel().toString(),
-                  reportOnIncompatibility(target));
+                  // We need access to the provider so we pass in the underlying target here that is
+                  // responsible for the incompatibility.
+                  reportOnIncompatibility(result.underlyingTarget()));
           throw new ViewCreationFailedException(
               targetIncompatibleMessage,
               FailureDetail.newBuilder()
