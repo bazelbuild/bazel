@@ -15,11 +15,12 @@ package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -55,7 +56,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -757,36 +757,41 @@ public class LegacyIncludeScanner implements IncludeScanner {
       checkForInterrupt("processing", source);
 
       Collection<Inclusion> inclusions;
-      SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
-      Future<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
-      if (previous == null) {
-        previous = future;
-        try {
-          future.set(
-              parser.extractInclusions(
-                  source,
-                  actionExecutionMetadata,
-                  actionExecutionContext,
-                  grepIncludes,
-                  spawnIncludeScannerSupplier.get(),
-                  isRealOutputFile(source.getExecPath())));
-        } catch (IOException | ExecException | InterruptedException e) {
-          future.setException(e);
-          fileParseCache.remove(source);
-          throw e;
-        }
-      }
       try {
-        inclusions = previous.get();
-      } catch (ExecutionException e) {
-        if (e.getCause() instanceof InterruptedException) {
-          throw (InterruptedException) e.getCause();
-        } else if (e.getCause() instanceof ExecException) {
-          throw (ExecException) e.getCause();
-        } else if (e.getCause() instanceof IOException) {
-          throw (IOException) e.getCause();
+        inclusions =
+            fileParseCache
+                .computeIfAbsent(
+                    source,
+                    file -> {
+                      try {
+                        return Futures.immediateFuture(
+                            parser.extractInclusions(
+                                file,
+                                actionExecutionMetadata,
+                                actionExecutionContext,
+                                grepIncludes,
+                                spawnIncludeScannerSupplier.get(),
+                                isRealOutputFile(source.getExecPath())));
+                      } catch (IOException e) {
+                        throw new IORuntimeException(e);
+                      } catch (ExecException e) {
+                        throw new ExecRuntimeException(e);
+                      } catch (InterruptedException e) {
+                        throw new InterruptedRuntimeException(e);
+                      }
+                    })
+                .get();
+      } catch (ExecutionException ee) {
+        try {
+          Throwables.throwIfInstanceOf(ee.getCause(), RuntimeException.class);
+          throw new IllegalStateException(ee.getCause());
+        } catch (IORuntimeException e) {
+          throw e.getCauseIOException();
+        } catch (ExecRuntimeException e) {
+          throw e.getRealCause();
+        } catch (InterruptedRuntimeException e) {
+          throw e.getRealCause();
         }
-        throw new IllegalStateException(e.getCause());
       }
       Preconditions.checkNotNull(inclusions, source);
 
