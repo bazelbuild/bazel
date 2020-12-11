@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -70,6 +71,8 @@ import java.util.concurrent.ExecutorService;
  * </pre>
  */
 public class LegacyIncludeScanner implements IncludeScanner {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final class ArtifactWithInclusionContext {
     private final Artifact artifact;
@@ -751,6 +754,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *     inclusions
      * @param visited the set to receive the files that are transitively included by {@code source}
      */
+    // TODO(b/175294870): Clean up.
+    @SuppressWarnings("LogAndThrow") // Temporary debugging.
     private void process(
         final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
@@ -792,6 +797,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
         } catch (InterruptedRuntimeException e) {
           throw e.getRealCause();
         }
+      } catch (RuntimeException e) {
+        // TODO(b/175294870): Remove after diagnosing the bug.
+        logger.atSevere().withCause(e).log("Uncaught exception in call to extractInclusions");
+        throw e;
       }
       Preconditions.checkNotNull(inclusions, source);
 
