@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.ManagedBuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
 import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.Objects;
@@ -58,7 +58,7 @@ public class BazelBuildEventServiceModule
       clearBesClient();
       config = newConfig;
       client =
-          new ManagedBuildEventServiceGrpcClient(
+          new BuildEventServiceGrpcClient(
               newGrpcChannel(besOptions, authAndTLSOptions),
               GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
     }
