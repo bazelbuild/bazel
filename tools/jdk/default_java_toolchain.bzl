@@ -71,11 +71,13 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "8",
     target_version = "8",
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
 JVM8_TOOLCHAIN_CONFIGURATION = dict(
     tools = ["@remote_java_tools//:javac_jar"],
     jvm_opts = ["-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)"],
+    java_runtime = "@bazel_tools//tools/jdk:jdk_8",
 )
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
