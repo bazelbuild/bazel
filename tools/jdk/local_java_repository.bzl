@@ -22,11 +22,11 @@ def _detect_java_version(repository_ctx, java_bin):
     # "  java.version.date = 2020-11-05\"
 
     strip_properties = [property.strip() for property in properties_out.splitlines()]
-    version_property = [property for property in strip_properties if property.startswith("java.version=")]
+    version_property = [property for property in strip_properties if property.startswith("java.version = ")]
     if len(version_property) != 1:
         return "unknown"
 
-    version_value = version_property[0][len("java.version="):]
+    version_value = version_property[0][len("java.version = "):]
     (major, minor, rest) = version_value.split(".", 2)
 
     if major == "1":  # handles versions below 1.8

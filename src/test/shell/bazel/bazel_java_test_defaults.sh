@@ -205,7 +205,7 @@ default_java_toolchain(
   configuration = JVM8_TOOLCHAIN_CONFIGURATION,
 )
 EOF
-  bazel build //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
+  bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
 }
 
 function test_default_java_toolchain_javabuilderToolchain() {
