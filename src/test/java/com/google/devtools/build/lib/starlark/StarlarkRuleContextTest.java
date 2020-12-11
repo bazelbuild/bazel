@@ -561,21 +561,15 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/existing_rule.bzl",
         "def macro():",
         "  s = select({'//foo': ['//bar']})",
-        "  print('Passed: ' + repr(s))",
         "  native.cc_library(name = 'x', srcs = s)",
-        "  print('Returned: ' + repr(native.existing_rule('x')['srcs']))",
-        // The value returned here should round-trip fine.
-        "  native.cc_library(name = 'y', srcs = native.existing_rule('x')['srcs'])");
+        "  print(native.existing_rule('x')['srcs'])");
     scratch.file(
         "test/BUILD",
         "load('//test:existing_rule.bzl', 'macro')",
         "macro()",
         "cc_library(name = 'a', srcs = [])");
     getConfiguredTarget("//test:a");
-    assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
-    // The short labels are now in their canonical form, and the sequence is represented as
-    // tuple instead of list, but the meaning is unchanged.
-    assertContainsEvent("Returned: select({\"//foo:foo\": (\"//bar:bar\",)}");
+    assertContainsEvent("select({Label(\"//foo:foo\"): [Label(\"//bar:bar\")]})");
   }
 
   @Test
