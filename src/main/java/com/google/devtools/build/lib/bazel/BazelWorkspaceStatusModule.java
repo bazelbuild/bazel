@@ -161,7 +161,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       // The default implementation of this method deletes all output files; override it to keep
       // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)
       // if the contents haven't changed.
-      deleteOutput(pathResolver.toPath(volatileStatus), volatileStatus.getRoot());
+      deleteOutput(volatileStatus, pathResolver);
     }
 
     @Override

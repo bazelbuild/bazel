@@ -1667,6 +1667,24 @@ function test_download_toplevel_no_remote_execution() {
       || fail "Failed to run bazel build --remote_download_toplevel"
 }
 
+function test_download_toplevel_can_delete_directory_outputs() {
+  cat > BUILD <<'EOF'
+genrule(
+    name = 'g',
+    outs = ['out'],
+    cmd = "touch $@",
+)
+EOF
+  bazel build
+  mkdir $(bazel info bazel-genfiles)/out
+  touch $(bazel info bazel-genfiles)/out/f
+  bazel build \
+        --remote_download_toplevel \
+        --remote_executor=grpc://localhost:${worker_port} \
+        //:g \
+        || fail "should have worked"
+}
+
 function test_tag_no_remote_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'

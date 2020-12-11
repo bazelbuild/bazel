@@ -295,7 +295,11 @@ public class SpawnIncludeScanner {
     Path output = getIncludesOutput(file, actionExecutionContext.getPathResolver(), fileType,
         placeNextToFile);
     if (!inMemoryOutput) {
-      AbstractAction.deleteOutput(output, placeNextToFile ? file.getRoot() : null);
+      AbstractAction.deleteOutput(
+          output,
+          placeNextToFile
+              ? actionExecutionContext.getPathResolver().transformRoot(file.getRoot().getRoot())
+              : null);
       if (!placeNextToFile) {
         output.getParentDirectory().createDirectoryAndParents();
       }
@@ -409,7 +413,11 @@ public class SpawnIncludeScanner {
         getIncludesOutput(
             file, actionExecutionContext.getPathResolver(), fileType, placeNextToFile);
     if (!inMemoryOutput) {
-      AbstractAction.deleteOutput(output, placeNextToFile ? file.getRoot() : null);
+      AbstractAction.deleteOutput(
+          output,
+          placeNextToFile
+              ? actionExecutionContext.getPathResolver().transformRoot(file.getRoot().getRoot())
+              : null);
       if (!placeNextToFile) {
         output.getParentDirectory().createDirectoryAndParents();
       }
