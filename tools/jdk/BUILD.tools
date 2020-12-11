@@ -13,7 +13,6 @@ load(
     "//tools/jdk:java_toolchain_alias.bzl",
     "java_host_runtime_alias",
     "java_runtime_alias",
-    "java_runtime_version_alias",
     "java_toolchain_alias",
     "legacy_java_runtime_alias",
     "legacy_java_toolchain_alias",
@@ -378,7 +377,6 @@ RELEASES = (8, 9, 10, 11)
 default_java_toolchain(
     name = "toolchain_jdk_14",
     configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_14",
     source_version = "14",
     target_version = "14",
 )
@@ -387,7 +385,6 @@ default_java_toolchain(
 default_java_toolchain(
     name = "toolchain_jdk_15",
     configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_15",
     source_version = "15",
     target_version = "15",
 )
@@ -423,10 +420,9 @@ py_test(
 )
 
 # A JDK 11 for use as a --host_javabase.
-java_runtime_version_alias(
+alias(
     name = "remote_jdk11",
-    runtime_version = "remotejdk_11",
-    selected_java_runtime = select(
+    actual = select(
         {
             "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
             "//src/conditions:windows": "@remotejdk11_win//:jdk",
@@ -434,36 +430,6 @@ java_runtime_version_alias(
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
             "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
             "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_14",
-    runtime_version = "remotejdk_14",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk14_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk14_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk14_linux//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_15",
-    runtime_version = "remotejdk_15",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk15_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk15_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk15_linux//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

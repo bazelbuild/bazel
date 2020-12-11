@@ -71,7 +71,6 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "8",
     target_version = "8",
-    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
 JVM8_TOOLCHAIN_CONFIGURATION = dict(

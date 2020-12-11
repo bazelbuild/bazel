@@ -44,7 +44,7 @@ EOF
   expect_log "java-home: .*/embedded_tools/jdk"
 }
 
-function test_toolchain_javabase() {
+function test_host_javabase() {
   cat << EOF >> WORKSPACE
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 local_java_repository(
@@ -66,97 +66,26 @@ EOF
   mkdir -p foobar/bin
   touch foobar/bin/java
 
-  # We expect the given host_javabase does not appear in the command line of
+  # We expect the given host_javabase to appear in the command line of
   # java_library actions.
   bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
-  expect_not_log "exec external/host_javabase/bin/java"
+  expect_log "exec external/host_javabase/bin/java"
 
-  # If we don't specify anything, we expect the remote JDK to be used.
+  # If we don't specify anything, we expect the embedded JDK to be used.
+  # Note that this will change in the future but is the current state.
   bazel aquery --output=text //java:javalib >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
   expect_log "exec external/remotejdk11_.*/bin/java"
 
   bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' \
     //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
-  expect_not_log "exec external/host_javabase/bin/java"
+  expect_log "exec external/host_javabase/bin/java"
+  expect_not_log "exec external/remotejdk_.*/bin/java"
 
   bazel aquery --output=text \
     //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
-
-  # If we change language version to 15, we expect runtime to change
-  bazel aquery --incompatible_use_toolchain_resolution_for_java_rules --output=text --host_javabase=@host_javabase//:jdk \
-     --tool_java_runtime_version='host_javabase' --java_language_version=15 \
-    //java:javalib >& $TEST_log
-  expect_not_log "exec external/remotejdk11_.*/bin/java"
-  expect_log "exec external/remotejdk15_.*/bin/java"
 }
-
-function test_host_javabase() {
-  cat << EOF >> WORKSPACE
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
-local_java_repository(
-    name = "host_javabase",
-    java_home = "$PWD/foobar",
-    version = "11",
-)
-EOF
-  mkdir -p java
-  cat >> java/rule.bzl <<EOF
-def _sample_rule_impl(ctx):
-  return []
-
-sample_rule = rule(
-  implementation = _sample_rule_impl,
-  attrs = {
-    "dep": attr.label(cfg = 'exec'),
-  },
-)
-EOF
-
-  cat << EOF > java/BUILD
-load(":rule.bzl", "sample_rule")
-
-java_library(
-    name = "javalib",
-    srcs = ["HelloWorld.java"],
-)
-sample_rule(
-    name = 'sample',
-    dep = ':javalib',
-)
-EOF
-  touch java/HelloWorld.java
-
-  mkdir -p foobar/bin
-  touch foobar/bin/java
-
-  # We expect the given host_javabase does not appear in the command line of
-  # java_library actions.
-  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
-  expect_not_log "exec external/host_javabase/bin/java"
-
-  # If we don't specify anything, we expect the embedded JDK to be used.
-  # Note that this will change in the future but is the current state.
-  bazel aquery --output=text 'deps(//java:sample,1)' >& $TEST_log
-  expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/remotejdk11_.*/bin/java"
-
-  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' \
-    'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
-  expect_not_log "exec external/host_javabase/bin/java"
-
-
-  bazel aquery --output=text \
-    'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
-}
-
-
 
 function test_javabase() {
    cat << EOF >> WORKSPACE
