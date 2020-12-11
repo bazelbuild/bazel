@@ -51,7 +51,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -154,9 +153,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
   private void getTargetsMatchingPatternImpl(String pattern, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    Set<Target> targets = new LinkedHashSet<>(resolvedTargetPatterns.get(pattern));
-    validateScopeOfTargets(targets);
-    callback.process(targets);
+    callback.process(resolvedTargetPatterns.get(pattern));
   }
 
   @Override
