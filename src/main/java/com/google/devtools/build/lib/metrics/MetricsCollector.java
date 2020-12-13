@@ -43,6 +43,7 @@ class MetricsCollector {
   private int targetsLoaded;
   private int targetsConfigured;
   private int packagesLoaded;
+  private static long analysisTimeInMs;
 
   MetricsCollector(CommandEnvironment env) {
     this.env = env;
@@ -62,6 +63,7 @@ class MetricsCollector {
     targetsLoaded = event.getTargetsLoaded();
     targetsConfigured = event.getTargetsConfigured();
     packagesLoaded = event.getPkgManagerStats().getPackagesLoaded();
+    analysisTimeInMs = event.getTimeInMs();
   }
 
   @Subscribe
@@ -127,6 +129,7 @@ class MetricsCollector {
     if (cpuTime != null) {
       timingMetricsBuilder.setCpuTimeInMs(cpuTime.toMillis());
     }
+    timingMetricsBuilder.setAnalysisPhaseTimeInMs(analysisTimeInMs);
     return timingMetricsBuilder.build();
   }
 }
