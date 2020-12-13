@@ -507,12 +507,27 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @return the resolved Path, or null if no file could be found
    */
   private Artifact locateRelative(
-      Inclusion inclusion, Map<PathFragment, Artifact> declaredHeaders, Artifact includer) {
+      Inclusion inclusion,
+      Map<PathFragment, Artifact> declaredHeaders,
+      Artifact includer,
+      PathFragment parent) {
     if (inclusion.kind != Kind.QUOTE) {
       return null;
     }
     PathFragment name = inclusion.pathFragment;
-    PathFragment execPath = includer.getExecPath().getParentDirectory().getRelative(name);
+
+    // The most effective way to see that something is not a relative inclusion is to see whether
+    // the include statement starts with a directory (has a '/') and whether that directory exists.
+    // We only do this for source files as we never match generated files against the file system.
+    if (includer.isSourceArtifact() && !name.containsUplevelReferences()) {
+      String firstSegment = name.getSegment(0);
+      // Specifically avoiding a call to segmentCount() here as that would scan the entire path.
+      if (firstSegment.length() < name.getPathString().length()
+          && !pathCache.directoryExists(parent.getRelative(firstSegment))) {
+        return null;
+      }
+    }
+    PathFragment execPath = parent.getRelative(name);
     if (!isFile(execPath, name, includer.isSourceArtifact(), declaredHeaders)) {
       return null;
     }
@@ -811,10 +826,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // For each inclusion: get or locate its target file & recursively process
       IncludeScannerHelper helper =
           new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
+      PathFragment parent = source.getExecPath().getParentDirectory();
       for (Inclusion inclusion : shuffledInclusions) {
         findAndProcess(
             helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
             source,
+            parent,
             visited);
       }
     }
@@ -850,11 +867,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
     /** Visits an inclusion starting from a source file. */
     private void findAndProcess(
-        InclusionWithContext inclusion, Artifact source, Set<Artifact> visited)
+        InclusionWithContext inclusion, Artifact source, PathFragment parent, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
       // Try to find the included file relative to the file that contains the inclusion. Relative
       // inclusions are handled like the first entry on the quote include path
-      Artifact includeFile = locateRelative(inclusion.getInclusion(), pathToDeclaredHeader, source);
+      Artifact includeFile =
+          locateRelative(inclusion.getInclusion(), pathToDeclaredHeader, source, parent);
       int contextPathPos = 0;
       Kind contextKind = null;
 
@@ -895,9 +913,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private void processCmdlineIncludes(
         Artifact source, List<String> includes, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
+      PathFragment parent = source.getExecPath().getParentDirectory();
       for (String incl : includes) {
         InclusionWithContext inclusion = new InclusionWithContext(incl, Kind.QUOTE);
-        findAndProcess(inclusion, source, visited);
+        findAndProcess(inclusion, source, parent, visited);
       }
     }
 
