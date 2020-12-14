@@ -291,9 +291,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         .add(
             attr("java_runtime", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
-                // TODO(b/171140578): remove default value and set to mandatory after it is set on
-                // all toolchains
-                .value(JavaSemantics.hostJdkAttribute(env))
+                .mandatory()
                 .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .useOutputLicenses())

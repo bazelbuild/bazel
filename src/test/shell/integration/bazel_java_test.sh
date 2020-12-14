@@ -181,6 +181,7 @@ default_java_toolchain(
     javabuilder = ["@bazel_tools//tools/jdk:vanillajavabuilder"],
     jvm_opts = [],
     visibility = ["//visibility:public"],
+    java_runtime = "@local_jdk//:jdk",
 )
 EOF
 
