@@ -401,7 +401,12 @@ public class StandaloneTestStrategy extends TestStrategy {
             Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+    // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
+    Preconditions.checkArgument(testEnv.containsKey("PATH"));
+    Preconditions.checkArgument(testEnv.containsKey("TEST_BINARY"));
     envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
+    // testEnv only contains TEST_SHARD_INDEX and TEST_TOTAL_SHARDS if the test action is sharded,
+    // we need to set the default value when the action isn't sharded.
     if (!action.isSharded()) {
       envBuilder.put("TEST_SHARD_INDEX", "0");
       envBuilder.put("TEST_TOTAL_SHARDS", "0");
