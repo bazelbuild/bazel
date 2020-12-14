@@ -155,6 +155,7 @@ EOF
   bazel coverage java/main:JavaBinary \
       --java_toolchain=//java/main:default_toolchain \
       --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
   expect_log "jacocorunner not set in java_toolchain:"
@@ -204,7 +205,7 @@ default_java_toolchain(
   configuration = JVM8_TOOLCHAIN_CONFIGURATION,
 )
 EOF
-  bazel build //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
+  bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
 }
 
 function test_default_java_toolchain_javabuilderToolchain() {

@@ -72,6 +72,48 @@ java_host_runtime_alias = rule(
     },
 )
 
+def _java_runtime_version_alias(ctx):
+    """An alias fixing a specific version of java_runtime."""
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+    else:
+        toolchain = ctx.attr.selected_java_runtime[java_common.JavaRuntimeInfo]
+    return [
+        toolchain,
+        platform_common.TemplateVariableInfo({
+            "JAVA": str(toolchain.java_executable_exec_path),
+            "JAVABASE": str(toolchain.java_home),
+        }),
+        # See b/65239471 for related discussion of handling toolchain runfiles/data.
+        DefaultInfo(
+            runfiles = ctx.runfiles(transitive_files = toolchain.files),
+            files = toolchain.files,
+        ),
+    ]
+
+def _java_runtime_transition_impl(settings, attr):
+    return {"//command_line_option:java_runtime_version": attr.runtime_version}
+
+_java_runtime_transition = transition(
+    implementation = _java_runtime_transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:java_runtime_version"],
+)
+
+java_runtime_version_alias = rule(
+    implementation = _java_runtime_version_alias,
+    toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+    attrs = {
+        "runtime_version": attr.string(mandatory = True),
+        # TODO(ilist): remove after java toolchain resolution flag is flipped
+        "selected_java_runtime": attr.label(mandatory = True),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+    cfg = _java_runtime_transition,
+)
+
 def _java_toolchain_alias(ctx):
     """An experimental implementation of java_toolchain_alias using toolchain resolution."""
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
