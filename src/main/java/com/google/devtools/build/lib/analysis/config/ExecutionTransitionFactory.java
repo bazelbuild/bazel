@@ -109,8 +109,9 @@ public class ExecutionTransitionFactory
 
     @Override
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      if (executionPlatform == null) {
-        // No execution platform is known, so don't change anything.
+      if (executionPlatform == null || options.get(CoreOptions.class).isExec) {
+        // If no execution platform is known or the input already comes from execution configuration,
+        // don't change anything and return the existing value.
         return options.underlying();
       }
       return cache.applyTransition(
