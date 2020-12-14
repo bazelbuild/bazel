@@ -94,8 +94,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final NamedLabel bytecodeOptimizer;
   private final boolean splitBytecodeOptimizationPass;
   private final boolean enforceProguardFileExtension;
-  private final Label toolchainLabel;
-  private final Label runtimeLabel;
   private final boolean runAndroidLint;
   private final boolean limitAndroidLintToAndroidCompatible;
   private final boolean explicitJavaTestDeps;
@@ -129,8 +127,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
-    this.toolchainLabel = javaOptions.javaToolchain;
-    this.runtimeLabel = javaOptions.javaBase;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
@@ -170,19 +166,19 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       checkLegacyToolchainFlagIsUnset(
-          "javabase", javaOptions.javaBase, javaOptions.defaultJavaBase());
+          "javabase", javaOptions.javaBase);
       checkLegacyToolchainFlagIsUnset(
-          "host_javabase", javaOptions.getHostJavaBase(), javaOptions.defaultHostJavaBase());
+          "host_javabase", javaOptions.hostJavaBase);
       checkLegacyToolchainFlagIsUnset(
-          "java_toolchain", javaOptions.javaToolchain, javaOptions.defaultJavaToolchain());
+          "java_toolchain", javaOptions.javaToolchain);
       checkLegacyToolchainFlagIsUnset(
-          "host_java_toolchain", javaOptions.hostJavaToolchain, javaOptions.defaultJavaToolchain());
+          "host_java_toolchain", javaOptions.hostJavaToolchain);
     }
   }
 
-  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label, Label defaultValue)
+  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label)
       throws InvalidConfigurationException {
-    if (!Objects.equals(label, defaultValue)) {
+    if (label != null) {
       throw new InvalidConfigurationException(
           String.format(
               "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
@@ -287,22 +283,19 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return enforceProguardFileExtension;
   }
 
-  /** Returns the label of the default java_toolchain rule */
-  @StarlarkConfigurationField(
-      name = "java_toolchain",
-      doc = "Returns the label of the default java_toolchain rule.",
-      defaultLabel = "//tools/jdk:toolchain",
-      defaultInToolRepository = true)
-  public Label getToolchainLabel() {
-    if (disallowLegacyJavaToolchainFlags) {
-      throw new IllegalStateException("--java_toolchain is no longer supported");
-    }
-    return toolchainLabel;
+  /** Returns the raw translation targets. */
+  public ImmutableList<Label> getTranslationTargets() {
+    return translationTargets;
   }
 
-  /** Returns the label of the {@code java_runtime} rule representing the JVM in use. */
-  public Label getRuntimeLabel() {
-    return runtimeLabel;
+  /** Returns true if the we should build translations. */
+  public boolean buildTranslations() {
+    return (bundleTranslations != TriState.NO) && !translationTargets.isEmpty();
+  }
+
+  /** Returns whether translations were explicitly disabled. */
+  public boolean isTranslationsDisabled() {
+    return bundleTranslations == TriState.NO;
   }
 
   /** Stores a String name and an optional associated label. */
