@@ -2835,6 +2835,14 @@ adb -s deadbeef install ...
   subprocesses of Bazel: applications, tests, tools, etc.)
 </p>
 
+<h4 id='flag--autodetect_server_javabase'><code class='flag'>--autodetect_server_javabase</code></h4>
+<p>
+  This option causes Bazel to automatically search for an installed JDK on startup,
+  and to fall back to the installed JRE if the embedded JRE isn't available.
+  <code>--explicit_server_javabase</code> can be used to pick an explicit JRE to
+  run bazel with.
+</p>
+
 <h4 id='flag--batch'><code class='flag'>--batch</code></h4>
 
 <p>

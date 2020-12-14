@@ -457,7 +457,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    startup_options.output_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(workspace));
-  result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  if (startup_options.autodetect_server_javabase) {
+    result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  }
 
   if (!startup_options.server_jvm_out.IsEmpty()) {
     result.push_back("--server_jvm_out=" +
