@@ -257,16 +257,52 @@ tasks:
       - test
   rbe_ubuntu1604:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
-        -e 's/^# android_ndk_repository/android_ndk_repository/'
-        -e 's/^# rbe_autoconfig/rbe_autoconfig/'
-        -e 's/^# load("@bazel_toolchains/load("@bazel_toolchains/' WORKSPACE
+      - sed -i.bak
+        -e 's/^# android_sdk_repository/android_sdk_repository/'
+        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+    build_flags:
+      - "--config=ubuntu1604_java8"
+      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
+      - "--jobs=200"
+      - "--experimental_remote_download_outputs=minimal"
+      - "--experimental_inmemory_jdeps_files"
+      - "--experimental_inmemory_dotd_files"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+    test_flags:
+      - "--config=ubuntu1604_java8"
+      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
+      - "--jobs=200"
+      - "--experimental_remote_download_outputs=minimal"
+      - "--experimental_inmemory_jdeps_files"
+      - "--experimental_inmemory_dotd_files"
+    test_targets:
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      - "//tools/android/..."
+      # See https://github.com/bazelbuild/bazel/issues/8033
+      - "-//src/tools/singlejar:output_jar_simple_test"
+      - "-//src/test/shell/bazel:external_integration_test"
+      - "-//src/test/shell/bazel:bazel_repository_cache_test"
+      - "-//src/test/shell/integration:java_integration_test"
+      - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
+      # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
+      - "-//src/java_tools/buildjar/..."
+      - "-//src/java_tools/import_deps_checker/..."
+      # See https://github.com/bazelbuild/bazel/issues/12685
+      - "-//src/test/shell/bazel:jdeps_test"
     include_json_profile:
       - build
+      - test
   kythe_ubuntu2004:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'

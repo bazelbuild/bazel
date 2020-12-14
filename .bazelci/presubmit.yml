@@ -245,8 +245,9 @@ tasks:
       - "//src:all_windows_tests"
   rbe_ubuntu1604:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - sed -i.bak
+        -e 's/^# android_sdk_repository/android_sdk_repository/'
+        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
     build_flags:
       - "--config=ubuntu1604_java8"
