@@ -38,22 +38,15 @@ assert_eq(foo, bar)
 assert_eq(foo.pop('a', 0), 0)
 assert_eq(foo.popitem(), ('b', [1, 2]))
 
----
 d = {1: 2}
 freeze(d)
-d.setdefault(1, 2) ### trying to mutate a frozen dict value
----
-dict().popitem() ### empty dictionary
----
-dict(a=2).pop('z') ### KeyError: "z"
----
-d = {}
-freeze(d)
-d.pop("nonexistent", "default") ### trying to mutate a frozen dict value
----
-{}.pop([], 1) ### unhashable type: 'list'
----
+assert_fails(lambda: d.setdefault(1, 2), "trying to mutate a frozen dict value")
+assert_fails(lambda: d.pop("nonexistent", "default"), "trying to mutate a frozen dict value")
 
+assert_fails(lambda: dict().popitem(), "empty dictionary")
+assert_fails(lambda: dict(a=2).pop('z'), 'KeyError: "z"')
+assert_fails(lambda: {}.pop([], 1), "unhashable type: 'list'")
+---
 # update
 
 foo = dict()
@@ -99,7 +92,6 @@ assert_eq(d1, d3)
 assert_eq(1 in {1: 0}, True)
 assert_eq(() in {}, False)
 assert_eq("a" in dict(a=1), True)
----
 
 # What's going on here? Functions _are_ hashable.
 # 'len in {}' and '{}.get(len, False)' should both successfully evaluate to False.
@@ -108,20 +100,15 @@ assert_eq("a" in dict(a=1), True)
 # Starlark functions are already hashable:
 def f(): pass
 f in {} # no error
-# unhashable types
 
-{} in {} ### unhashable type: 'dict'
----
-[] in {} ### unhashable type: 'list'
----
-len in {} ### unhashable type: 'builtin_function_or_method'
----
-{}.get([]) ### unhashable type: 'list'
----
-dict().get({}) ### unhashable type: 'dict'
----
-{1: 2}.get(len) ### unhashable type: 'builtin_function_or_method'
----
+# unhashable types
+assert_fails(lambda: {} in {}, "unhashable type: 'dict'")
+assert_fails(lambda: [] in {}, "unhashable type: 'list'")
+assert_fails(lambda: len in {}, "unhashable type: 'builtin_function_or_method'")
+assert_fails(lambda: {}.get([]), "unhashable type: 'list'")
+assert_fails(lambda: dict().get({}), "unhashable type: 'dict'")
+assert_fails(lambda: {1: 2}.get(len), "unhashable type: 'builtin_function_or_method'")
+
 # For composite keys, the error message relates to the
 # unhashable subelement of the key, not the key itself.
-{(0, "", True, [0]): None} ### unhashable type: 'list'
+assert_fails(lambda: {(0, "", True, [0]): None}, "unhashable type: 'list'")
