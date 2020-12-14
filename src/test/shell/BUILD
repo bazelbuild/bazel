@@ -5,6 +5,7 @@ package(default_visibility = ["//visibility:private"])
 exports_files([
     "bin/bazel",
     "bin/bazel_jdk_minimal",
+    "bin/bazel_nojdk",
     "testenv.sh",
     "integration_test_setup.sh",
     "sandboxing_test_utils.sh",

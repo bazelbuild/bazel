@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 The Bazel Authors. All rights reserved.
+# Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test of Bazel's startup option handling.
+# Test of Bazel's startup option handling cof the nojdk version.
 
 # --- begin runfiles.bash initialization ---
 set -euo pipefail
@@ -38,6 +38,11 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
+# We don't want to use the cached, extracted bazel.  It will have a different
+# sha1 and fail the test.  The 2 version commands below are cheap.
+unset TEST_INSTALL_BASE
+
+export BAZEL_SUFFIX="_nojdk"
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
@@ -55,31 +60,15 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-function test_different_startup_options() {
-  pid=$(bazel --nobatch info server_pid 2> $TEST_log)
-  [[ -n $pid ]] || fail "Couldn't run ${PRODUCT_NAME}"
-  newpid=$(bazel --batch info server_pid 2> $TEST_log)
-  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the startup options are different."
-  [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
-  if ! "$is_windows"; then
-    # On Windows: the kill command of MSYS doesn't work for Windows PIDs.
-    kill -0 $pid 2> /dev/null && fail "$pid not dead" || true
-    kill -0 $newpid 2> /dev/null && fail "$newpid not dead" || true
-  fi
-}
-
-# Regression test for Issue #1659
-function test_command_args_are_not_parsed_as_startup_args() {
-  bazel info --bazelrc=bar &> $TEST_log && fail "Should fail"
-  expect_log "Unrecognized option: --bazelrc=bar"
-  expect_not_log "Error: Unable to read .bazelrc file"
-}
-
-# Test that normal bazel works with and without --autodetect_server_javabase
-# because it has an embedded JRE.
+# Test that nojdk bazel works with --autodetect_server_javabase
 function test_autodetect_server_javabase() {
   bazel --autodetect_server_javabase version &> $TEST_log || fail "Should pass"
-  bazel --noautodetect_server_javabase version &> $TEST_log || fail "Should pass"
+}
+
+# Test that nojdk bazel fails with --noautodetect_server_javabase
+function test_noautodetect_server_javabase() {
+  bazel --noautodetect_server_javabase version &> $TEST_log && fail "Should fail"
+  expect_log "FATAL: Could not find embedded or explicit server javabase, and --noautodetect_server_javabase is set."
 }
 
 run_suite "${PRODUCT_NAME} startup options test"
