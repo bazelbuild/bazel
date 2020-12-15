@@ -2081,13 +2081,13 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
 
-
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             rule,
             pkgBuilder.getRepositoryMapping(),
             attributeValues,
             pkgBuilder.getListInterner(),
+            pkgBuilder.getConvertedLabelsInPackage(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -2110,6 +2110,7 @@ public class RuleClass {
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
+      HashMap<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2142,7 +2143,13 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping, listInterner);
+              convertFromBuildLangType(
+                  rule,
+                  attr,
+                  attributeValue,
+                  repositoryMapping,
+                  listInterner,
+                  convertedLabelsInPackage);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2407,9 +2414,11 @@ public class RuleClass {
       Attribute attr,
       Object buildLangValue,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      Interner<ImmutableList<?>> listInterner)
+      Interner<ImmutableList<?>> listInterner,
+      HashMap<String, Label> convertedLabelsInPackage)
       throws ConversionException {
-    LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
+    LabelConversionContext context =
+        new LabelConversionContext(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),

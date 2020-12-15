@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -79,6 +80,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
                 toolsRepository,
                 /*fragmentNameToClass=*/ null,
                 ruleContext.getRule().getPackage().getRepositoryMapping(),
+                /*convertedLabelsInPackage=*/ new HashMap<>(),
                 ruleContext.getSymbolGenerator(),
                 ruleContext.getLabel())
             .storeInThread(thread);

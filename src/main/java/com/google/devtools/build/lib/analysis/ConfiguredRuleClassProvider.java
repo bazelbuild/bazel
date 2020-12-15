@@ -802,6 +802,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             toolsRepository,
             configurationFragmentMap,
             repoMapping,
+            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(fileLabel),
             /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
