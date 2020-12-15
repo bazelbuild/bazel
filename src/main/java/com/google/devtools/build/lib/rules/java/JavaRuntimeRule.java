@@ -52,6 +52,10 @@ public final class JavaRuntimeRule implements RuleDefinition {
         path. In that case, the <code>srcs</code> and <code>java</code> attributes must be empty.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("java_home", STRING))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(version) -->
+        The release version of JDK, this is for example 8 for JDK 1.8.0, and 11 for JDK 11.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("version", STRING))
         .add(attr("output_licenses", LICENSE))
         .build();
   }

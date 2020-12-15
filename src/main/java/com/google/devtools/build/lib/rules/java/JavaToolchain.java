@@ -149,10 +149,18 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     String source = ruleContext.attributes().get("source_version", Type.STRING);
+    String target = ruleContext.attributes().get("target_version", Type.STRING);
+    if (!ruleContext.attributes().isAttributeValueExplicitlySpecified("source_version")
+        && !ruleContext.attributes().isAttributeValueExplicitlySpecified("target_version")) {
+      JavaRuntimeInfo targetJavaRuntime =
+          (JavaRuntimeInfo)
+              ruleContext.getPrerequisite("$target_java_runtime", JavaRuntimeInfo.PROVIDER);
+      source = targetJavaRuntime.version();
+      target = source;
+    }
     if (!isNullOrEmpty(source)) {
       javacopts.add("-source").add(source);
     }
-    String target = ruleContext.attributes().get("target_version", Type.STRING);
     if (!isNullOrEmpty(target)) {
       javacopts.add("-target").add(target);
     }

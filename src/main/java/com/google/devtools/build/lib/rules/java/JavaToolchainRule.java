@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -292,6 +294,22 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("java_runtime", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .mandatory()
+                .mandatoryProviders(ToolchainInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .useOutputLicenses())
+        .add(
+            attr("$target_java_runtime", LABEL)
+                .value(
+                    new Attribute.ComputedDefault("source_version", "target_version") {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        if (!rule.isAttributeValueExplicitlySpecified("source_version")
+                            && !rule.isAttributeValueExplicitlySpecified("target_version")) {
+                          return JavaSemantics.jvmAttribute(env);
+                        }
+                        return null;
+                      }
+                    })
                 .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .useOutputLicenses())

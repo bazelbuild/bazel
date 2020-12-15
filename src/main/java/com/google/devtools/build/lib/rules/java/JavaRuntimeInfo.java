@@ -38,6 +38,7 @@ import net.starlark.java.syntax.Location;
 public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
 
   public static JavaRuntimeInfo create(
+      String version,
       NestedSet<Artifact> javaBaseInputs,
       NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
@@ -45,6 +46,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
       PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
     return new JavaRuntimeInfo(
+        version,
         javaBaseInputs,
         javaBaseInputsMiddleman,
         javaHome,
@@ -81,6 +83,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
     return (JavaRuntimeInfo) prerequisite.get(ToolchainInfo.PROVIDER);
   }
 
+  private final String version;
   private final NestedSet<Artifact> javaBaseInputs;
   private final NestedSet<Artifact> javaBaseInputsMiddleman;
   private final PathFragment javaHome;
@@ -91,6 +94,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   @AutoCodec.Instantiator
   @VisibleForSerialization
   JavaRuntimeInfo(
+      String version,
       NestedSet<Artifact> javaBaseInputs,
       NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
@@ -98,12 +102,18 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
       PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
     super(ImmutableMap.of(), Location.BUILTIN);
+    this.version = version;
     this.javaBaseInputs = javaBaseInputs;
     this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
     this.javaHomeRunfilesPath = javaHomeRunfilesPath;
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
+  }
+
+  /** Release version of the Java runtiem. */
+  public String version() {
+    return version;
   }
 
   /** All input artifacts in the javabase. */
