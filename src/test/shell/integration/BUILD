@@ -174,7 +174,6 @@ sh_test(
     srcs = ["java_integration_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
-        "java_integration_test_utils.sh",
         ":test-deps",
         "//src/test/shell:shell_utils",
     ],

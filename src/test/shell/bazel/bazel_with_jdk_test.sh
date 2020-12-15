@@ -90,11 +90,7 @@ function set_up() {
     setup_bazelrc
   fi
 
-  # The default test setup adds a --host_javabase flag, which prevents us from
-  # actually using the bundled one. Remove it.
-  fgrep -v -- "--host_javabase" "$TEST_TMPDIR/bazelrc" > "$TEST_TMPDIR/bazelrc.new"
-  mv "$TEST_TMPDIR/bazelrc.new" "$TEST_TMPDIR/bazelrc"
-  # ... but ensure JAVA_HOME is set, so we can find a default --javabase
+  # ... but ensure JAVA_HOME is set, so we can find a default local jdk
   export JAVA_HOME="${javabase}"
 }
 

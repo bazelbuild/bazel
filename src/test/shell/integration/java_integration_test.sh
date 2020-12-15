@@ -23,10 +23,6 @@ source "${CURRENT_DIR}/../shell_utils.sh" \
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Load the helper utils.
-source "${CURRENT_DIR}/java_integration_test_utils.sh" \
-  || { echo "java_integration_test_utils.sh not found!" >&2; exit 1; }
-
 set -eu
 
 declare -r runfiles_relative_javabase="$1"
@@ -255,22 +251,18 @@ function assert_singlejar_works() {
     local -r javabase="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
   fi
 
-  mkdir -p "$pkg/jvm"
-  cat > "$pkg/jvm/BUILD" <<EOF
-package(default_visibility=["//visibility:public"])
-java_runtime(
+  cat > "WORKSPACE" <<EOF
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
     name='runtime',
     java_home='$javabase',
+    version = "11",
 )
 EOF
 
-  create_java_test_platforms
-
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
-      "$stamp_arg" --javabase="//$pkg/jvm:runtime" \
-      --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
-      --platforms="//$pkg/jvm:platform" \
+      "$stamp_arg" --java_runtime_version=runtime \
       "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
 
@@ -278,7 +270,6 @@ EOF
   # The stub script follows symlinks, so copy the files.
   cp ${PRODUCT_NAME}-bin/$pkg/java/hello/hello $pkg/ugly/
   cp ${PRODUCT_NAME}-bin/$pkg/java/hello/hello_deploy.jar $pkg/ugly/
-
   $pkg/ugly/hello build.target build.time build.timestamp \
       main.class=hello.Hello "$expected_build_data" >> $TEST_log 2>&1
   expect_log 'Hello, World!'
