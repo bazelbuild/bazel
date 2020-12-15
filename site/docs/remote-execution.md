@@ -40,6 +40,8 @@ To run Bazel with remote execution, you can use one of the following:
         caching, and results UI.
     *   [Flare](https://www.flare.build) --  Providing a cache + CDN for Bazel
         artifacts and Apple-focused remote builds in addition to build & test analytics.
+    *   [Cosmodev](https://cosmodev.tech) -- Remote execution, remote cache, and results UI with a web based IDE, 
+        CI/CD tooling, and scalable git tools, to take full advantage of Bazel's features.
 
 ## Requirements
 
