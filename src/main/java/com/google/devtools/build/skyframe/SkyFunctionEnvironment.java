@@ -97,11 +97,12 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Nullable private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
 
   /**
-   * The current values of the direct deps this node had at the previous version.
+   * The current entries of the direct deps this node had at the previous version.
    *
-   * <p>Used only when {@link #PREFETCH_AND_RETAIN_OLD_DEPS} is {@code true}.
+   * <p>Used only when {@link #PREFETCH_AND_RETAIN_OLD_DEPS} is {@code true}, and used only for the
+   * values stored in the entries; do not do any NodeEntry operations on these.
    */
-  private ImmutableMap<SkyKey, SkyValue> oldDepsValues = ImmutableMap.of();
+  private ImmutableMap<SkyKey, ? extends NodeEntry> oldDepsEntries = ImmutableMap.of();
 
   /**
    * The values previously declared as dependencies.
@@ -225,17 +226,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       evaluatorContext.getGraph().prefetchDeps(request);
     } else if (PREFETCH_AND_RETAIN_OLD_DEPS) {
       // TODO(b/175215425): Make PREFETCH_AND_RETAIN_OLD_DEPS the only behavior.
-      ImmutableMap.Builder<SkyKey, SkyValue> oldDepValuesBuilder =
-          ImmutableMap.builderWithExpectedSize(oldDeps.size());
-      Map<SkyKey, ? extends NodeEntry> map =
-          evaluatorContext.getBatchValues(requestor, Reason.PREFETCH, oldDeps);
-      for (Entry<SkyKey, ? extends NodeEntry> entry : map.entrySet()) {
-        SkyValue valueMaybeWithMetadata = entry.getValue().getValueMaybeWithMetadata();
-        if (valueMaybeWithMetadata != null) {
-          oldDepValuesBuilder.put(entry.getKey(), valueMaybeWithMetadata);
-        }
-      }
-      this.oldDepsValues = oldDepValuesBuilder.build();
+      this.oldDepsEntries =
+          ImmutableMap.copyOf(evaluatorContext.getBatchValues(requestor, Reason.PREFETCH, oldDeps));
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
@@ -483,7 +475,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@link #bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
-   *   <li>{@link #oldDepsValues}
+   *   <li>{@link #oldDepsEntries}
    *   <li>{@link #evaluatorContext}'s graph accessing methods
    * </ol>
    *
@@ -567,14 +559,14 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@code bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
-   *   <li>{@link #oldDepsValues}
+   *   <li>{@link #oldDepsEntries}
    * </ol>
    *
    * <p>Returns {@code null} if no entries for {@code key} were found in any of those three maps.
    * (Note that none of the maps can have {@code null} as a value.)
    */
   @Nullable
-  SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) {
+  SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) throws InterruptedException {
     if (bubbleErrorInfo != null) {
       ValueWithMetadata bubbleErrorInfoValue = bubbleErrorInfo.get(key);
       if (bubbleErrorInfoValue != null) {
@@ -589,9 +581,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     if (newlyRequestedDepsValue != null) {
       return newlyRequestedDepsValue;
     }
-    SkyValue oldDepsValue = oldDepsValues.get(key);
-    if (oldDepsValue != null) {
-      return oldDepsValue;
+    SkyValue oldDepsValueOrNullMarker = getValueOrNullMarker(oldDepsEntries.get(key));
+    if (oldDepsValueOrNullMarker != NULL_MARKER) {
+      return oldDepsValueOrNullMarker;
     }
     return null;
   }
