@@ -382,9 +382,16 @@ final class Eval {
     Expression rhs = stmt.getRHS();
 
     if (lhs instanceof Identifier) {
+      // x op= y    (lhs must be evaluated only once)
       Object x = eval(fr, lhs);
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y);
+      Object z;
+      try {
+        z = inplaceBinaryOp(fr, op, x, y);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
       assignIdentifier(fr, (Identifier) lhs, z);
 
     } else if (lhs instanceof IndexExpression) {
@@ -396,11 +403,44 @@ final class Eval {
       Object x = EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
       // Evaluate rhs after lhs.
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y);
+      Object z;
+      try {
+        z = inplaceBinaryOp(fr, op, x, y);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
       try {
         EvalUtils.setIndex(object, key, z);
       } catch (EvalException ex) {
         fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
+
+    } else if (lhs instanceof DotExpression) {
+      // object.field op= y  (lhs must be evaluated only once)
+      DotExpression dot = (DotExpression) lhs;
+      Object object = eval(fr, dot.getObject());
+      String field = dot.getField().getName();
+      try {
+        Object x =
+            Starlark.getattr(
+                fr.thread.mutability(),
+                fr.thread.getSemantics(),
+                object,
+                field,
+                /*defaultValue=*/ null);
+        Object y = eval(fr, rhs);
+        Object z;
+        try {
+          z = inplaceBinaryOp(fr, op, x, y);
+        } catch (EvalException ex) {
+          fr.setErrorLocation(stmt.getOperatorLocation());
+          throw ex;
+        }
+        EvalUtils.setField(object, field, z);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(dot.getDotLocation());
         throw ex;
       }
 
