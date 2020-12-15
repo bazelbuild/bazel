@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 class MetricsCollector {
@@ -45,7 +45,7 @@ class MetricsCollector {
   private int packagesLoaded;
   private static long analysisTimeInMs;
 
-  MetricsCollector(CommandEnvironment env) {
+  private MetricsCollector(CommandEnvironment env) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
     this.bepPublishUsedHeapSizePostBuild =
@@ -101,10 +101,10 @@ class MetricsCollector {
       MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
       memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
     }
-    Optional<Long> peakPostGcHeapSize = PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed();
-    if (peakPostGcHeapSize.isPresent()) {
-      memoryMetrics.setPeakPostGcHeapSize(peakPostGcHeapSize.get());
-    }
+    PostGCMemoryUseRecorder.get()
+        .getPeakPostGcHeap()
+        .map(PeakHeap::bytes)
+        .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
     return memoryMetrics.build();
   }
 
