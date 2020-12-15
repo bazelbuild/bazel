@@ -80,13 +80,6 @@ EOF
 # We're not validating visibility here. Let everything access these targets.
 package(default_visibility = ["//visibility:public"])
 
-constraint_setting(name = "not_compatible_setting")
-
-constraint_value(
-    name = "not_compatible",
-    constraint_setting = ":not_compatible_setting",
-)
-
 constraint_setting(name = "foo_version")
 
 constraint_value(

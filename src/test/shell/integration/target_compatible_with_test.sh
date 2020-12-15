@@ -81,6 +81,8 @@ EOF
 # We're not validating visibility here. Let everything access these targets.
 package(default_visibility = ["//visibility:public"])
 
+# TODO(philsc): Get rid of this and use @platforms//:incompatible instead.
+# Right now it's problematic because Google CI doesn't support @platforms.
 constraint_setting(name = "not_compatible_setting")
 
 constraint_value(
