@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,7 +45,6 @@ import javax.annotation.Nullable;
  * directives.
  */
 @Immutable
-@AutoCodec
 public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   private static final String GUID = "7243b846-b2f2-4057-97a4-00e2da6c6ffd";
 
