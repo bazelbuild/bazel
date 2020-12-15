@@ -143,7 +143,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           LostInputsCheck.NONE,
           fileOutErr,
           /*eventHandler=*/ null,
-          /*clientEnv=*/ ImmutableMap.of(),
+          /*clientEnv=*/ ImmutableMap.of("PATH", "/usr/bin:/bin"),
           /*topLevelFilesets=*/ ImmutableMap.of(),
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
