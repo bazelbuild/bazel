@@ -106,6 +106,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
+  private final boolean runAndroidLint;
+  private final boolean limitAndroidLintToAndroidCompatible;
   private final boolean explicitJavaTestDeps;
   private final boolean jplPropagateCcLinkParamsStore;
   private final boolean addTestSupportToCompileTimeDeps;
@@ -153,6 +155,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
+    this.runAndroidLint = javaOptions.runAndroidLint;
+    this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -426,6 +430,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean isJlplStrictDepsEnforced() {
     return isJlplStrictDepsEnforced;
+  }
+
+  public boolean runAndroidLint() {
+    return runAndroidLint;
+  }
+
+  public boolean limitAndroidLintToAndroidCompatible() {
+    return limitAndroidLintToAndroidCompatible;
   }
 
   @Override
