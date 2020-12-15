@@ -86,14 +86,12 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract void setupMockClient(
       MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
 
-  /**
-   * Returns the contents of WORKSPACE.
-   */
+  /** Returns the contents of WORKSPACE. */
   public abstract List<String> getWorkspaceContents(MockToolsConfig config);
 
   /**
-   * This is called from test setup to create any necessary mock workspace files in the
-   * <code>_embedded_binaries</code> directory.
+   * This is called from test setup to create any necessary mock workspace files in the <code>
+   * _embedded_binaries</code> directory.
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 

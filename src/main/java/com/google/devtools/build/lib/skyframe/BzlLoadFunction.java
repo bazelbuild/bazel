@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsF
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -102,7 +103,7 @@ public class BzlLoadFunction implements SkyFunction {
   // computeInline() entry point.
   private final PackageFactory packageFactory;
 
-  // Used for determining paths to builtins bzls.
+  // Used for determining paths to builtins bzls that live in the workspace.
   private final BlazeDirectories directories;
 
   // Handles retrieving BzlCompileValues, either by calling Skyframe or by inlining
@@ -585,20 +586,29 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   private Root getBuiltinsRoot(StarlarkSemantics starlarkSemantics) throws BzlLoadFailedException {
-    String path = starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH);
-    if (path.isEmpty()) {
+    String flag = starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH);
+    if (flag.isEmpty()) {
       throw new IllegalStateException("Requested builtins root, but injection is disabled");
-    } else if (path.equals("%install_base%")) {
-      return Root.fromPath(directories.getInstallBase().getRelative("builtins_bzl"));
-    } else if (path.equals("%workspace%")) {
-      return Root.fromPath(
-          directories
-              .getWorkspace()
-              .getRelative(packageFactory.getRuleClassProvider().getBuiltinsPackagePathInSource()));
-    } else {
-      // TODO(#11437): Should we consider interning these roots?
-      return Root.fromPath(directories.getWorkspace().getRelative(path));
     }
+
+    Path path;
+    if (flag.equals("%bundled%")) {
+      // May be null in tests, but in that case the flag shouldn't be set to %bundled%.
+      path =
+          Preconditions.checkNotNull(
+              packageFactory.getRuleClassProvider().getBuiltinsBzlRoot(),
+              "rule class provider does not specify a builtins root; either call"
+                  + " setBuiltinsBzlZipResource() or else set --experimental_builtins_bzl_path to"
+                  + " a root");
+    } else if (flag.equals("%workspace%")) {
+      String packagePath =
+          packageFactory.getRuleClassProvider().getBuiltinsBzlPackagePathInSource();
+      path = directories.getWorkspace().getRelative(packagePath);
+    } else {
+      path = directories.getWorkspace().getRelative(flag);
+    }
+    // TODO(#11437): Should we consider interning these roots?
+    return Root.fromPath(path);
   }
 
   /**

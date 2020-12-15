@@ -107,16 +107,12 @@ EOF
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
-  # TODO(#11437): This doesn't work yet because PackageLoader doesn't have an
-  # install base to read from. The solution will be to provide the builtins as
-  # a Java resource in that case.
-  #
-  # # Using the builtins root bundled with bazel in the install base.
-  # bazel build //pkg:BUILD --experimental_builtins_dummy=true \
-  #     --experimental_builtins_bzl_path=%install_base% \
-  #     &>"$TEST_log" || fail "bazel build failed"
-  # # "overridden value" comes from the exports.bzl in production Bazel.
-  # expect_log "dummy :: overridden value"
+  # Using the builtins root that's bundled with bazel.
+  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+      --experimental_builtins_bzl_path=%bundled% \
+      &>"$TEST_log" || fail "bazel build failed"
+  # "overridden value" comes from the exports.bzl in production Bazel.
+  expect_log "dummy :: overridden value"
 
   # Using the builtins root located within the client workspace, as if we're
   # running Bazel in its own source tree.

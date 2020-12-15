@@ -22,7 +22,7 @@ filegroup(
 java_library(
     name = "rules",
     srcs = glob(["*.java"]),
-    resources = glob(["*.WORKSPACE"]),
+    resources = glob(["*.WORKSPACE"]) + [":builtins_bzl_zip"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -97,4 +97,15 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+# We need this redirect target so that the builtins zip can be packaged as a
+# resource next to the BazelBuiltins class (com/google/devtools/...). Otherwise
+# it gets placed under the package path of the original zip target.
+genrule(
+    name = "builtins_bzl_zip",
+    srcs = ["//src/main/starlark/builtins_bzl:builtins_bzl.zip"],
+    outs = ["builtins_bzl.zip"],
+    cmd = "cp $(SRCS) $@",
+    visibility = ["//:__pkg__"],
 )
