@@ -76,14 +76,14 @@ pkg_tar(
 
 pkg_tar(
     name = "font-awesome-css",
-    srcs = ["//third_party/css/font_awesome/v2_0:font_awesome_css"],
+    srcs = ["//third_party/css/font_awesome:font_awesome_css"],
     package_dir = "assets",
     strip_prefix = "/third_party/css/font_awesome",
 )
 
 pkg_tar(
     name = "font-awesome-font",
-    srcs = ["//third_party/css/font_awesome/v2_0:font_awesome_font"],
+    srcs = ["//third_party/css/font_awesome:font_awesome_font"],
     package_dir = "assets",
     strip_prefix = "/third_party/css/font_awesome",
 )
