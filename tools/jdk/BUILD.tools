@@ -337,22 +337,6 @@ bootclasspath(
 )
 
 default_java_toolchain(
-    name = "toolchain_hostjdk8",
-    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-    source_version = "8",
-    target_version = "8",
-)
-
-# Default to the Java 8 language level.
-# TODO(cushon): consider if/when we should increment this?
-default_java_toolchain(
-    name = "legacy_toolchain",
-    configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
-    source_version = "8",
-    target_version = "8",
-)
-
-default_java_toolchain(
     name = "toolchain",
     configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
 )
@@ -390,6 +374,16 @@ default_java_toolchain(
     java_runtime = "@bazel_tools//tools/jdk:remotejdk_15",
     source_version = "15",
     target_version = "15",
+)
+
+# Deprecated, do not use.
+# It will be removed after migration to Java toolchain resolution.
+default_java_toolchain(
+    name = "toolchain_hostjdk8",
+    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
+    java_runtime = ":current_host_java_runtime",
+    source_version = "8",
+    target_version = "8",
 )
 
 default_java_toolchain(
@@ -468,12 +462,5 @@ java_runtime_version_alias(
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
     ),
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "jdk_8",
-    runtime_version = "8",
-    selected_java_runtime = ":legacy_current_java_runtime",
     visibility = ["//visibility:public"],
 )
