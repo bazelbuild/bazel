@@ -145,36 +145,35 @@ public class JacocoLCOVFormatter {
             }
           }
 
+          int firstLine = srcCoverage.getFirstLine();
+          int lastLine = srcCoverage.getLastLine();
+
           // List branches
-          for (IClassCoverage clsCoverage : sourceToClassCoverage.get(sourceFile).values()) {
-            BranchCoverageDetail detail = branchCoverageDetail.get(clsCoverage.getName());
-            if (detail != null) {
-              for (int line : detail.linesWithBranches()) {
-                int numBranches = detail.getBranches(line);
-                boolean executed = detail.getExecutedBit(line);
-                if (executed) {
-                  for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    // We haven't got execution counts for branches; just record if they were hit or
-                    // not.
-                    if (detail.getTakenBit(line, branchIdx)) {
-                      writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 1); // executed, taken
-                    } else {
-                      writer.printf(
+          for (int line = firstLine; line <= lastLine; line++) {
+            ICounter jacocoBranchCounter = srcCoverage.getLine(line).getBranchCounter();
+            if (jacocoBranchCounter.getStatus() != ICounter.EMPTY) {
+              int numBranches = jacocoBranchCounter.getTotalCount();
+              int numCoveredBranches = jacocoBranchCounter.getCoveredCount();
+              boolean executed = jacocoBranchCounter.getStatus() != ICounter.NOT_COVERED;
+              if (executed) {
+                // We haven't got execution counts for branches; just record if they were hit or
+                // not.
+                for (int branchIdx = 0; branchIdx < numCoveredBranches; branchIdx++) {
+                  writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 1); // executed, taken
+                }
+                for (int branchIdx = numCoveredBranches; branchIdx < numBranches; branchIdx++) {
+                  writer.printf(
                           "BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 0); // executed, not taken
-                    }
-                  }
-                } else {
-                  for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    writer.printf("BRDA:%d,%d,%d,%s\n", line, 0, branchIdx, "-"); // not executed
-                  }
+                }
+              } else {
+                for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
+                  writer.printf("BRDA:%d,%d,%d,%s\n", line, 0, branchIdx, "-"); // not executed
                 }
               }
             }
           }
 
           // List of DA entries matching source lines
-          int firstLine = srcCoverage.getFirstLine();
-          int lastLine = srcCoverage.getLastLine();
           for (int line = firstLine; line <= lastLine; line++) {
             ICounter instructionCounter = srcCoverage.getLine(line).getInstructionCounter();
             if (instructionCounter.getTotalCount() != 0) {
