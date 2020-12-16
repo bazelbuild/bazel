@@ -272,6 +272,8 @@ build --sandbox_tmpfs_path=/tmp
 
 build --incompatible_skip_genfiles_symlink=false
 
+build --incompatible_use_toolchain_resolution_for_java_rules
+
 ${EXTRA_BAZELRC:-}
 EOF
 
