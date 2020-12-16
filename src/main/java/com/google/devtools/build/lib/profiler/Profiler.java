@@ -930,6 +930,18 @@ public final class Profiler {
       writer.endObject();
     }
 
+    private static String getReadableName(String threadName) {
+      if (threadName.startsWith("grpc-command")) {
+        return "Main Thread";
+      }
+
+      if (threadName.equals("Service Thread")) {
+        return "Garbage Collector";
+      }
+
+      return threadName;
+    }
+
     /**
      * Saves all gathered information from taskQueue queue to the file.
      * Method is invoked internally by the Timer-based thread and at the end of
@@ -985,7 +997,7 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              writer.name("name").value(data.description);
+              writer.name("name").value(getReadableName(data.description));
               writer.endObject();
 
               writer.endObject();
