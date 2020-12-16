@@ -251,18 +251,23 @@ function assert_singlejar_works() {
     local -r javabase="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
   fi
 
-  cat > "WORKSPACE" <<EOF
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
-local_java_repository(
+  mkdir -p "$pkg/jvm"
+  cat > "$pkg/jvm/BUILD" <<EOF
+package(default_visibility=["//visibility:public"])
+java_runtime(
     name='runtime',
     java_home='$javabase',
-    version = "11",
+)
+toolchain(
+    name='runtime_toolchain',
+    toolchain=':runtime',
+    toolchain_type='@bazel_tools//tools/jdk:runtime_toolchain_type',
 )
 EOF
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
-      "$stamp_arg" --java_runtime_version=runtime \
+      "$stamp_arg" --extra_toolchains=//$pkg/jvm:runtime_toolchain \
       "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
 
