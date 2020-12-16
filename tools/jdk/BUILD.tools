@@ -285,6 +285,51 @@ alias(
     actual = "@remote_java_tools//:jacoco_coverage_runner",
 )
 
+alias(
+    name = "asm",
+    actual = "//third_party:asm",
+)
+
+alias(
+    name = "asm-analysis",
+    actual = "//third_party:asm-analysis",
+)
+
+alias(
+    name = "asm-commons",
+    actual = "//third_party:asm-commons",
+)
+
+alias(
+    name = "asm-tree",
+    actual = "//third_party:asm-tree",
+)
+
+alias(
+    name = "asm-util",
+    actual = "//third_party:asm-util",
+)
+
+alias(
+    name = "jacoco-agent",
+    actual = "//third_party/java/jacoco:agent",
+)
+
+alias(
+    name = "jacoco-core",
+    actual = "//third_party/java/jacoco:core",
+)
+
+alias(
+    name = "jacoco-report",
+    actual = "//third_party/java/jacoco:report",
+)
+
+alias(
+    name = "jacoco-blaze",
+    actual = "//third_party/java/jacoco:blaze-agent",
+)
+
 java_import(
     name = "TestRunner",
     jars = ["@remote_java_tools//:Runner"],
