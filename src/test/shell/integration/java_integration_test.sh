@@ -258,16 +258,22 @@ java_runtime(
     name='runtime',
     java_home='$javabase',
 )
+config_setting(
+    name = "name_setting",
+    values = {"java_runtime_version": "runtime"},
+    visibility = ["//visibility:private"],
+)
 toolchain(
     name='runtime_toolchain',
     toolchain=':runtime',
+    target_settings = [":name_setting"],
     toolchain_type='@bazel_tools//tools/jdk:runtime_toolchain_type',
 )
 EOF
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
-      "$stamp_arg" --extra_toolchains=//$pkg/jvm:runtime_toolchain \
+      "$stamp_arg" --java_runtime_version=runtime --extra_toolchains=//$pkg/jvm:runtime_toolchain \
       "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
 
