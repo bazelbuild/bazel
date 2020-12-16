@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Wrapper for every C++ linking provider. */
@@ -61,4 +63,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       doc = "Returns the depset of linker inputs.",
       structField = true)
   Depset getStarlarkLinkerInputs();
+
+  @StarlarkMethod(name = "linkstamps", documented = false, useStarlarkThread = true)
+  Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException;
 }

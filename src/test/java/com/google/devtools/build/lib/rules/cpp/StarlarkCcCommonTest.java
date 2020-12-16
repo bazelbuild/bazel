@@ -65,6 +65,8 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeV
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -7085,6 +7087,89 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "  attrs = { ",
           "    'cc_dep': attr.label(),",
           "    '_cc_toolchain': attr.label(default=Label('//b:alias'))",
+          "  },",
+          "  fragments = ['cpp'],",
+          ")");
+      invalidatePackages();
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+    }
+  }
+
+  @Test
+  public void testExpandedLinkstampApiRaisesError() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':linkstamps.bzl', 'linkstamps')",
+        "cc_library(name='cc_dep', srcs=['cc_dep.cc'], linkstamp='stamp.cc')",
+        "linkstamps(name='linkstamps', deps = [':cc_dep'])");
+
+    scratch.file(
+        "bazel_internal/test_rules/cc/linkstamps.bzl",
+        "LinkstampsInfo = provider(fields=['linkstamps'])",
+        "def _impl(ctx):",
+        "  linkstamps = ctx.attr.deps[0][CcInfo].linking_context.linkstamps().to_list()",
+        "  return [LinkstampsInfo(linkstamps=linkstamps)]",
+        "linkstamps = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ");");
+
+    scratch.file(
+        "b/BUILD",
+        "load('//b:rule.bzl', 'cc_rule')",
+        "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
+        "cc_toolchain_alias(name='alias')",
+        "cc_rule(name='foo', cc_dep=':cc_dep',",
+        "        file='file.cc',",
+        "        linkstamps_dep='//bazel_internal/test_rules/cc:linkstamps')");
+    scratch.appendFile(
+        "tools/cpp/grep_includes/BUILD",
+        "sh_binary(",
+        "    name = 'grep-includes',",
+        "    srcs = ['grep-includes.sh'],",
+        ")");
+    List<String> calls =
+        new ArrayList<>(
+            Arrays.asList("linkstamp.file()", "linkstamp.hdrs()", "linking_context.linkstamps()"));
+    if (!analysisMock.isThisBazel()) {
+      calls.add(
+          "cc_common.register_linkstamp_compile_action(actions=ctx.actions,cc_toolchain=toolchain,"
+              + " feature_configuration=feature_configuration, "
+              + " grep_includes=ctx.executable._grep_includes, source_file=file, output_file=file,"
+              + " compilation_inputs=depset([]), inputs_for_validation=depset([]),"
+              + " label_replacement='', output_replacement='')");
+    }
+    for (String call : calls) {
+      scratch.overwriteFile(
+          "b/rule.bzl",
+          "load('//bazel_internal/test_rules/cc:linkstamps.bzl',",
+          "             'LinkstampsInfo')",
+          "def _impl(ctx):",
+          "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+          "  feature_configuration = cc_common.configure_features(",
+          "    ctx = ctx,",
+          "    cc_toolchain = toolchain,",
+          "  )",
+          "  linkstamp = ctx.attr.linkstamps_dep[LinkstampsInfo].linkstamps[0]",
+          "  linking_context = ctx.attr.cc_dep[CcInfo].linking_context",
+          "  file = ctx.file.file",
+          "  " + call,
+          "  return [DefaultInfo()]",
+          "cc_rule = rule(",
+          "  implementation = _impl,",
+          "  attrs = { ",
+          "    'cc_dep': attr.label(),",
+          "    'linkstamps_dep': attr.label(),",
+          "    '_cc_toolchain': attr.label(default=Label('//b:alias')),",
+          "    'file': attr.label(allow_single_file=True),",
+          "    '_grep_includes': attr.label(",
+          "          executable = True,",
+          "          default = Label('//tools/cpp/grep_includes:grep-includes'),",
+          "          cfg = 'host'",
+          "    ),",
           "  },",
           "  fragments = ['cpp'],",
           ")");
