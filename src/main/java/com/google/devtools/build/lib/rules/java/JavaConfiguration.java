@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
@@ -175,11 +173,13 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.translationTargets = translationsBuilder.build();
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
-    checkState(
-        optimizers.size() <= 1,
-        "--experimental_bytecode_optimizers can only accept up to one mapping, but %s mappings "
-            + "were provided.",
-        optimizers.size());
+    if (optimizers.size() > 1) {
+      throw new InvalidConfigurationException(
+          String.format(
+              "--experimental_bytecode_optimizers can only accept up to one mapping, but %s"
+                  + " mappings were provided.",
+              optimizers.size()));
+    }
     Map.Entry<String, Label> optimizer = Iterables.getOnlyElement(optimizers.entrySet());
     String mnemonic = optimizer.getKey();
     Label optimizerLabel = optimizer.getValue();
