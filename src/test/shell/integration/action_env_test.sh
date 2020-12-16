@@ -437,7 +437,6 @@ function test_host_env_using_successive_exec_tools_simple() {
 
   cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/successive_exec_tools_env.txt > $TEST_log
   expect_log "FOO=bar"
-
 }
 
 run_suite "Tests for bazel's handling of environment variables in actions"
