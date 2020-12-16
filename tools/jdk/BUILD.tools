@@ -386,6 +386,11 @@ default_java_toolchain(
     target_version = "8",
 )
 
+default_java_toolchain(
+    name = "prebuilt_toolchain",
+    configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
+)
+
 filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]),
