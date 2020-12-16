@@ -478,12 +478,16 @@ public class BzlLoadFunction implements SkyFunction {
     Label label = key.getLabel();
     PathFragment filePath = label.toPathFragment();
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
+    StarlarkBuiltinsValue builtins = getBuiltins(key, env, inliningState);
+    if (builtins == null) {
       return null;
     }
 
-    BzlCompileValue.Key compileKey = validatePackageAndGetCompileKey(key, env, starlarkSemantics);
+    BzlCompileValue.Key compileKey =
+        validatePackageAndGetCompileKey(
+            key,
+            env,
+            builtins.starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH));
     if (compileKey == null) {
       return null;
     }
@@ -502,8 +506,7 @@ public class BzlLoadFunction implements SkyFunction {
     // result).
     boolean completed = true;
     try {
-      result =
-          computeInternalWithCompiledBzl(key, compileValue, starlarkSemantics, env, inliningState);
+      result = computeInternalWithCompiledBzl(key, compileValue, builtins, env, inliningState);
       completed = result != null;
     } finally {
       if (completed) { // only false on unexceptional null result
@@ -511,6 +514,47 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
     return result;
+  }
+
+  /**
+   * Obtain a suitable StarlarkBuiltinsValue.
+   *
+   * <p>For BUILD-loaded .bzl files, this is a real builtins value, obtained using either Skyframe
+   * or inlining of StarlarkBuiltinsFunction (depending on whether {@code inliningState} is
+   * non-null). The returned value includes the StarlarkSemantics.
+   *
+   * <p>For other .bzl files, the builtins computation is not needed and would create a Skyframe
+   * cycle if requested, so we instead return an empty builtins value that just wraps the
+   * StarlarkSemantics. (NB: In the case of WORKSPACE-loaded .bzl files, the cycle goes through the
+   * repository remapping value. It's possible this could be avoided if we ever wanted to make this
+   * kind of .bzl file use builtins injection.)
+   */
+  @Nullable
+  private StarlarkBuiltinsValue getBuiltins(
+      BzlLoadValue.Key key, Environment env, @Nullable InliningState inliningState)
+      throws BzlLoadFailedException, InterruptedException {
+    if (!(key instanceof BzlLoadValue.KeyForBuild)) {
+      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+      if (starlarkSemantics == null) {
+        return null;
+      }
+      return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
+    }
+    try {
+      if (inliningState == null) {
+        return (StarlarkBuiltinsValue)
+            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+      } else {
+        return StarlarkBuiltinsFunction.computeInline(
+            StarlarkBuiltinsValue.key(),
+            env,
+            inliningState,
+            packageFactory,
+            /*bzlLoadFunction=*/ this);
+      }
+    } catch (BuiltinsFailedException e) {
+      throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
+    }
   }
 
   /**
@@ -527,12 +571,12 @@ public class BzlLoadFunction implements SkyFunction {
    *
    * <p>In the case of builtins .bzl files, all labels are written as if the pseudo-repo constitutes
    * one big package, e.g {@code @builtins//:some/path/foo.bzl}, but no BUILD file need exist. The
-   * compile key's root is determined by {@code --experimental_builtins_bzl_path} instead of by
-   * package lookup.
+   * compile key's root is determined by {@code --experimental_builtins_bzl_path} (passed as {@code
+   * builtinsBzlPath}) instead of by package lookup.
    */
   @Nullable
   private BzlCompileValue.Key validatePackageAndGetCompileKey(
-      BzlLoadValue.Key key, Environment env, StarlarkSemantics starlarkSemantics)
+      BzlLoadValue.Key key, Environment env, String builtinsBzlPath)
       throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
 
@@ -541,7 +585,7 @@ public class BzlLoadFunction implements SkyFunction {
       if (!label.getPackageName().isEmpty()) {
         throw BzlLoadFailedException.noBuildFile(label, "@_builtins cannot have subpackages");
       }
-      return key.getCompileKey(getBuiltinsRoot(starlarkSemantics));
+      return key.getCompileKey(getBuiltinsRoot(builtinsBzlPath));
     }
 
     // Do package lookup.
@@ -585,27 +629,27 @@ public class BzlLoadFunction implements SkyFunction {
     return compileKey;
   }
 
-  private Root getBuiltinsRoot(StarlarkSemantics starlarkSemantics) throws BzlLoadFailedException {
-    String flag = starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH);
-    if (flag.isEmpty()) {
+  private Root getBuiltinsRoot(String builtinsBzlPath) {
+    // TODO(#11437): Remove once injection can't be disabled.
+    if (builtinsBzlPath.isEmpty()) {
       throw new IllegalStateException("Requested builtins root, but injection is disabled");
     }
 
     Path path;
-    if (flag.equals("%bundled%")) {
-      // May be null in tests, but in that case the flag shouldn't be set to %bundled%.
+    if (builtinsBzlPath.equals("%bundled%")) {
+      // May be null in tests, but in that case the builtins path shouldn't be set to %bundled%.
       path =
           Preconditions.checkNotNull(
               packageFactory.getRuleClassProvider().getBuiltinsBzlRoot(),
               "rule class provider does not specify a builtins root; either call"
                   + " setBuiltinsBzlZipResource() or else set --experimental_builtins_bzl_path to"
                   + " a root");
-    } else if (flag.equals("%workspace%")) {
+    } else if (builtinsBzlPath.equals("%workspace%")) {
       String packagePath =
           packageFactory.getRuleClassProvider().getBuiltinsBzlPackagePathInSource();
       path = directories.getWorkspace().getRelative(packagePath);
     } else {
-      path = directories.getWorkspace().getRelative(flag);
+      path = directories.getWorkspace().getRelative(builtinsBzlPath);
     }
     // TODO(#11437): Should we consider interning these roots?
     return Root.fromPath(path);
@@ -619,7 +663,7 @@ public class BzlLoadFunction implements SkyFunction {
   private BzlLoadValue computeInternalWithCompiledBzl(
       BzlLoadValue.Key key,
       BzlCompileValue compileValue,
-      StarlarkSemantics starlarkSemantics,
+      StarlarkBuiltinsValue builtins,
       Environment env,
       @Nullable InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
@@ -682,7 +726,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Retrieve predeclared symbols and complete the digest computation.
     ImmutableMap<String, Object> predeclared =
-        getAndDigestPredeclaredEnvironment(key, env, starlarkSemantics, fp, inliningState);
+        getAndDigestPredeclaredEnvironment(key, builtins, fp);
     if (predeclared == null) {
       return null;
     }
@@ -691,7 +735,7 @@ public class BzlLoadFunction implements SkyFunction {
     // Construct the initial Starlark module, then execute the code and return the result.
     // The additional information in BazelModuleContext reifies the load DAG.
     // The module must match the environment used to compile the .bzl file.
-    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
+    Module module = Module.withPredeclared(builtins.starlarkSemantics, predeclared);
     module.setClientData(
         BazelModuleContext.create(
             key.getLabel(), prog.getFilename(), ImmutableMap.copyOf(loadMap), transitiveDigest));
@@ -699,7 +743,13 @@ public class BzlLoadFunction implements SkyFunction {
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the module.
     executeBzlFile(
-        prog, key.getLabel(), module, loadMap, starlarkSemantics, env.getListener(), repoMapping);
+        prog,
+        key.getLabel(),
+        module,
+        loadMap,
+        builtins.starlarkSemantics,
+        env.getListener(),
+        repoMapping);
     return new BzlLoadValue(module, transitiveDigest);
   }
 
@@ -916,40 +966,18 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
-      BzlLoadValue.Key key,
-      Environment env,
-      StarlarkSemantics starlarkSemantics,
-      Fingerprint fp,
-      InliningState inliningState)
+      BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp)
       throws BzlLoadFailedException, InterruptedException {
     if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-      if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
+      if (builtins
+          .starlarkSemantics
+          .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
+          .isEmpty()) {
         return packageFactory.getUninjectedBuildBzlEnv();
       }
-      StarlarkBuiltinsValue starlarkBuiltinsValue;
-      try {
-        if (inliningState == null) {
-          starlarkBuiltinsValue =
-              (StarlarkBuiltinsValue)
-                  env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
-        } else {
-          starlarkBuiltinsValue =
-              StarlarkBuiltinsFunction.computeInline(
-                  StarlarkBuiltinsValue.key(),
-                  env,
-                  inliningState,
-                  packageFactory,
-                  /*bzlLoadFunction=*/ this);
-        }
-      } catch (BuiltinsFailedException e) {
-        throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
-      }
-      if (starlarkBuiltinsValue == null) {
-        return null;
-      }
-      fp.addBytes(starlarkBuiltinsValue.transitiveDigest);
-      return starlarkBuiltinsValue.predeclaredForBuildBzl;
+      fp.addBytes(builtins.transitiveDigest);
+      return builtins.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
       return packageFactory.getWorkspaceBzlEnv();
     } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
