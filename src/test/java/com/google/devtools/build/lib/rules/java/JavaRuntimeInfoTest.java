@@ -29,7 +29,6 @@ public class JavaRuntimeInfoTest {
   public void equalityIsObjectIdentity() {
     JavaRuntimeInfo a =
         JavaRuntimeInfo.create(
-            /* version = */ "",
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             PathFragment.create(""),
@@ -38,7 +37,6 @@ public class JavaRuntimeInfoTest {
             PathFragment.create(""));
     JavaRuntimeInfo b =
         JavaRuntimeInfo.create(
-            /* version = */ "",
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             PathFragment.create(""),

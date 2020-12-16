@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -103,7 +102,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
 
     JavaRuntimeInfo javaRuntime =
         JavaRuntimeInfo.create(
-            ruleContext.attributes().get("version", Type.STRING),
             filesToBuild,
             middleman,
             javaHome,
