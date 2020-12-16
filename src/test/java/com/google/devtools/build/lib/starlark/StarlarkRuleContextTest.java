@@ -2272,6 +2272,38 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testArgsMapEachFunctionMustBeGlobal() throws Exception {
+    // lambda
+    scratch.file(
+        "p/inc.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.args().add_all([], map_each=lambda x: x)", // error
+        "r = rule(implementation=_impl)");
+    scratch.file("p/BUILD", "load('inc.bzl', 'r')", "r(name='r')");
+    AssertionError ex = assertThrows(AssertionError.class, () -> getConfiguredTarget("//p:r"));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "map_each function (declared at /workspace/p/inc.bzl:2:43) must be "
+                + "declared by a top-level def statement");
+
+    // non-global def
+    scratch.file(
+        "q/inc.bzl",
+        "def _impl(ctx):",
+        "  def id(x): return x",
+        "  ctx.actions.args().add_all([], map_each=id)", // error
+        "r = rule(implementation=_impl)");
+    scratch.file("q/BUILD", "load('inc.bzl', 'r')", "r(name='r')");
+    ex = assertThrows(AssertionError.class, () -> getConfiguredTarget("//q:r"));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "map_each function (declared at /workspace/q/inc.bzl:2:7) must be "
+                + "declared by a top-level def statement");
+  }
+
+  @Test
   public void testTemplateExpansionActionInterface() throws Exception {
     scratch.file(
         "test/rules.bzl",

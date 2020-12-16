@@ -40,6 +40,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -337,7 +338,7 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
+          validateMapEach(mapEach),
           formatEach != Starlark.NONE ? (String) formatEach : null,
           beforeEach != Starlark.NONE ? (String) beforeEach : null,
           /* joinWith= */ null,
@@ -348,6 +349,31 @@ public abstract class Args implements CommandLineArgsApi {
           terminateWith != Starlark.NONE ? (String) terminateWith : null,
           thread.getCallerLocation());
       return this;
+    }
+
+    @Nullable
+    private static StarlarkCallable validateMapEach(Object fn) throws EvalException {
+      if (fn == Starlark.NONE) {
+        return null;
+      }
+      if (fn instanceof StarlarkFunction) {
+        StarlarkFunction sfn = (StarlarkFunction) fn;
+        // Reject non-global functions, because arbitrary closures may cause large
+        // analysis-phase data structures to remain live into the execution phase.
+        // We require that the function is "global" as opposed to "not a closure"
+        // because a global function may be closure if it refers to load bindings.
+        // This unfortunately disallows such trivially safe non-global
+        // functions as "lambda x: x".
+        // See https://github.com/bazelbuild/bazel/issues/12701.
+        if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+          throw Starlark.errorf(
+              "to avoid unintended retention of analysis data structures, "
+                  + "the map_each function (declared at %s) must be declared "
+                  + "by a top-level def statement",
+              sfn.getLocation());
+        }
+      }
+      return (StarlarkCallable) fn;
     }
 
     @Override
@@ -377,7 +403,7 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
+          validateMapEach(mapEach),
           formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
           joinWith,
