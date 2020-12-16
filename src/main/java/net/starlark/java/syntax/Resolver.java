@@ -529,35 +529,34 @@ public final class Resolver extends NodeVisitor {
 
     if (b.parent != null) {
       bind = lookupLexical(name, b.parent);
-
-      // If a local binding was found in a parent block,
-      // and this block is a function, then it is a free variable
-      // of this function and must be plumbed through.
-      // Add an implicit FREE binding (a hidden parameter) to this function,
-      // and record the outer binding that will supply its value when
-      // we construct the closure.
-      // Also, mark the outer LOCAL as a CELL: a shared, indirect local.
-      // (For a comprehension block there's nothing to do,
-      // because it's part of the same frame as the enclosing block.)
-      //
-      // This step may occur many times if the lookupLexical
-      // recursion returns through many functions.
-      // TODO(adonovan): make this 'DEF or LAMBDA' when we have lambda.
-      if (bind != null
-          && (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression)) {
-        Scope scope = bind.getScope();
-        if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
-          if (scope == Scope.LOCAL) {
-            bind.scope = Scope.CELL;
+      if (bind != null) {
+        // If a local binding was found in a parent block,
+        // and this block is a function, then it is a free variable
+        // of this function and must be plumbed through.
+        // Add an implicit FREE binding (a hidden parameter) to this function,
+        // and record the outer binding that will supply its value when
+        // we construct the closure.
+        // Also, mark the outer LOCAL as a CELL: a shared, indirect local.
+        // (For a comprehension block there's nothing to do,
+        // because it's part of the same frame as the enclosing block.)
+        //
+        // This step may occur many times if the lookupLexical
+        // recursion returns through many functions.
+        if (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression) {
+          Scope scope = bind.getScope();
+          if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
+            if (scope == Scope.LOCAL) {
+              bind.scope = Scope.CELL;
+            }
+            int index = b.freevars.size();
+            b.freevars.add(bind);
+            bind = new Binding(Scope.FREE, index, bind.first);
           }
-          int index = b.freevars.size();
-          b.freevars.add(bind);
-          bind = new Binding(Scope.FREE, index, bind.first);
         }
-      }
 
-      // Memoize, to avoid duplicate free vars and repeated walks.
-      b.bindings.put(name, bind);
+        // Memoize, to avoid duplicate free vars and repeated walks.
+        b.bindings.put(name, bind);
+      }
     }
 
     return bind;

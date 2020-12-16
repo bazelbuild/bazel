@@ -450,6 +450,13 @@ public class ResolverTest {
   }
 
   @Test
+  public void testUndefError() throws Exception {
+    // Regression test for a poor error message.
+    List<SyntaxError> errors = getResolutionErrors("lambda: undef");
+    assertThat(errors.get(0).message()).isEqualTo("name 'undef' is not defined");
+  }
+
+  @Test
   public void testBindingScopeAndIndex() throws Exception {
     checkBindings(
         "xᴳ₀ = 0", //
