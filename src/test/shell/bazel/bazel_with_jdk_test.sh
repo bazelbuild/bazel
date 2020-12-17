@@ -120,6 +120,9 @@ function test_bazel_license_prints_jdk_license() {
       fail "'bazel license' did not print an expected string from LICENSE"
 }
 
+# JVM selection: Do not automatically use remote JDK for execution JVM if local
+# JDK is not found. Print an error message guiding the user how to use remote JDK.
+# Rationale: Keeping build systems stable upon Bazel releases.
 
 function test_bazel_reports_missing_local_jdk() {
   # Make a JAVA_HOME with javac and without java
