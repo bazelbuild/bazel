@@ -14,8 +14,6 @@
 
 """Bazel rules for creating Java toolchains."""
 
-load("@rules_java//java:defs.bzl", "java_toolchain")
-
 JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
 ]
@@ -132,8 +130,8 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
     ],
-    ijar = ["@remote_java_tools//:ijar_cc_binary"],
-    singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
+    ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
+    singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
     java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
@@ -151,33 +149,33 @@ NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
     ],
-    ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
-    singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
+    ijar = ["@remote_java_tools//:ijar_cc_binary"],
+    singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
     java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
-def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, **kwargs):
+def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(configuration)
     toolchain_args.update(kwargs)
-    java_toolchain(
+    native.java_toolchain(
         name = name,
         **toolchain_args
     )
-
-    native.config_setting(
-        name = name + "_version_setting",
-        values = {"java_language_version": toolchain_args["source_version"]},
-        visibility = ["//visibility:private"],
-    )
-    native.toolchain(
-        name = name + "_definition",
-        toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
-        target_settings = [name + "_version_setting"],
-        toolchain = name,
-    )
+    if toolchain_definition:
+        native.config_setting(
+            name = name + "_version_setting",
+            values = {"java_language_version": toolchain_args["source_version"]},
+            visibility = ["//visibility:private"],
+        )
+        native.toolchain(
+            name = name + "_definition",
+            toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
+            target_settings = [name + "_version_setting"],
+            toolchain = name,
+        )
 
 def java_runtime_files(name, srcs):
     """Copies the given sources out of the current Java runtime."""

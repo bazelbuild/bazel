@@ -339,6 +339,7 @@ bootclasspath(
 default_java_toolchain(
     name = "toolchain",
     configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
+    toolchain_definition = False,
 )
 
 alias(
@@ -384,11 +385,13 @@ default_java_toolchain(
     java_runtime = ":current_host_java_runtime",
     source_version = "8",
     target_version = "8",
+    toolchain_definition = False,
 )
 
 default_java_toolchain(
     name = "prebuilt_toolchain",
     configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
+    toolchain_definition = False,
 )
 
 filegroup(
