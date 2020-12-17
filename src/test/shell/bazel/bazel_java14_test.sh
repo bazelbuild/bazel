@@ -97,6 +97,7 @@ EOF
     cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
+# Java source files version shall match --java_language_version_flag version.
 function test_java14_record_type() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -118,7 +119,18 @@ public class Javac14Example {
   }
 }
 EOF
-  bazel run java/main:Javac14Example --java_language_version=14 --java_runtime_version=14 --test_output=all --verbose_failures &>"${TEST_log}"
+  bazel run java/main:Javac14Example --java_language_version=14 --java_runtime_version=14 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      || fail "Running with --java_language_version=14 failed"
+  expect_log "0"
+
+  bazel run java/main:Javac14Example --java_language_version=11 --java_runtime_version=11 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      && fail "Running with --java_language_version=11 unexpectedly succeeded."
+
+  bazel run java/main:Javac14Example --java_language_version=15 --java_runtime_version=15 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      || fail "Running with --java_language_version=15 failed"
   expect_log "0"
 }
 

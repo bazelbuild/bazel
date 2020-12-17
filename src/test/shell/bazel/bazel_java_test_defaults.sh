@@ -57,7 +57,8 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-
+# Java source files version shall match --java_language_version_flag version.
+# Output class files shall be created in corresponding version (JDK 8, class version is 52).
 function test_default_java_toolchain_target_version() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -72,6 +73,8 @@ load(
 )
 default_java_toolchain(
   name = "default_toolchain",
+  source_version = 8,
+  target_version = 8,
   visibility = ["//visibility:public"],
 )
 EOF
@@ -84,6 +87,7 @@ public class JavaBinary {
 }
 EOF
   bazel run java/main:JavaBinary \
+      --java_language_version=8 \
       --java_runtime_version=11 \
       --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
@@ -93,7 +97,9 @@ EOF
   expect_log "major version: 52"
 }
 
-function test_tools_jdk_toolchain_java11() {
+# Java source files version shall match --java_language_version_flag version.
+# Output class files shall be created in corresponding version (JDK 11, class version is 55).
+function test_java_language_version_output_classes() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
 java_binary(
@@ -112,14 +118,26 @@ public class JavaBinary {
   }
 }
 EOF
-  bazel run java/main:JavaBinary \
-      --java_language_version=11 \
-      --java_runtime_version=11 \
+  bazel run java/main:JavaBinary --java_language_version=8 --java_runtime_version=11 \
       --verbose_failures -s &>"${TEST_log}" \
-      || fail "Building with @bazel_tools//tools/jdk:toolchain_java11 failed"
+      && fail "Building with --java_language_version=8 unexpectedly succeeded"
   expect_log "strip_trailing_java11"
   javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
   expect_log "major version: 55"
+
+  bazel run java/main:JavaBinary --java_language_version=11 --java_runtime_version=11 \
+      --verbose_failures -s &>"${TEST_log}" \
+      || fail "Building with --java_language_version=11 failed"
+  expect_log "strip_trailing_java11"
+  javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
+  expect_log "major version: 55"
+
+  bazel run java/main:JavaBinary --java_language_version=15 --java_runtime_version=15 \
+      --verbose_failures -s &>"${TEST_log}" \
+      || fail "Building with --java_language_version=15 failed"
+  expect_log "strip_trailing_java11"
+  javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
+  expect_log "major version: 59"
 }
 
 function test_tools_jdk_toolchain_nojacocorunner() {
