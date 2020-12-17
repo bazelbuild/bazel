@@ -353,7 +353,7 @@ public class ProtoCompileActionBuilder {
             "--descriptor_set_out=$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ null,
-            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER)),
+            /* providedProtoSources= */ ImmutableList.of()),
         outReplacement,
         protocOpts.build());
   }

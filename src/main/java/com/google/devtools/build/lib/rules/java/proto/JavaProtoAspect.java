@@ -263,7 +263,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      * proto_library.
      */
     private boolean shouldGenerateCode() {
-      if (protoInfo.getOriginalDirectProtoSources().isEmpty()) {
+      if (protoInfo.getDirectSources().isEmpty()) {
         return false;
       }
 
@@ -274,8 +274,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
 
-      return protoBlackList.checkSrcs(
-          protoInfo.getOriginalDirectProtoSources(), "java_proto_library");
+      return protoBlackList.checkSrcs(protoInfo.getDirectSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
