@@ -94,11 +94,11 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
         )
     else:
         [default_java_toolchain(
-            name = name + "_toolchain_java" + version,
-            source_version = version,
-            target_version = version,
+            name = name + "_toolchain_java" + str(version),
+            source_version = str(version),
+            target_version = str(version),
             java_runtime = runtime_name,
-        ) for version in range(8, int(version))]
+        ) for version in range(8, int(version) + 1)]
 
 def _local_java_repository_impl(repository_ctx):
     """Repository rule local_java_repository implementation.
@@ -145,10 +145,10 @@ def _local_java_repository_impl(repository_ctx):
     runtime_name = '"jdk"' if repository_ctx.attr.build_file else None
     local_java_runtime_macro = """
 local_java_runtime(
-name = "%s",
-runtime_name = %s,
-java_home = "%s",
-version = "%s",
+    name = "%s",
+    runtime_name = %s,
+     java_home = "%s",
+     version = "%s",
 )
 """ % (repository_ctx.name, runtime_name, java_home, version)
 
