@@ -73,8 +73,8 @@ load(
 )
 default_java_toolchain(
   name = "default_toolchain",
-  source_version = 8,
-  target_version = 8,
+  source_version = "8",
+  target_version = "8",
   visibility = ["//visibility:public"],
 )
 EOF

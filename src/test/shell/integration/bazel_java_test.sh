@@ -81,7 +81,7 @@ EOF
 
   bazel aquery --output=text --java_runtime_version='host_javabase' //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
-  expect_log "exec external/host_javabase/bin/java"
+  expect_not_log "exec external/host_javabase/bin/java"
 }
 
 # Javabuilder shall be executed using JDK defined in java_toolchain's java_runtime attribute.
