@@ -118,13 +118,6 @@ public class JavaBinary {
   }
 }
 EOF
-  bazel run java/main:JavaBinary --java_language_version=8 --java_runtime_version=8 \
-      --verbose_failures -s &>"${TEST_log}" \
-      && fail "Building with --java_language_version=8 unexpectedly succeeded"
-  expect_log "strip_trailing_java11"
-  javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
-  expect_log "major version: 55"
-
   bazel run java/main:JavaBinary --java_language_version=11 --java_runtime_version=11 \
       --verbose_failures -s &>"${TEST_log}" \
       || fail "Building with --java_language_version=11 failed"
