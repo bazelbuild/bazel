@@ -155,9 +155,104 @@ EOF
   bazel coverage java/main:JavaBinary \
       --java_toolchain=//java/main:default_toolchain \
       --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
   expect_log "jacocorunner not set in java_toolchain:"
 }
+
+
+function test_default_java_toolchain_manualConfiguration() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+  name = "vanilla",
+  javabuilder = ["//:VanillaJavaBuilder"],
+  jvm_opts = [],
+)
+EOF
+  bazel build //:vanilla || fail "default_java_toolchain target failed to build"
+}
+
+function test_default_java_toolchain_manualConfigurationWithLocation() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JDK9_JVM_OPTS")
+default_java_toolchain(
+  name = "toolchain",
+  jvm_opts = [
+      # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+      # G1 collector and having compact strings enabled.
+      "-XX:+UseParallelOldGC",
+      "-XX:-CompactStrings",
+      # override the javac in the JDK.
+      "--patch-module=java.compiler=\$(location @remote_java_tools//:java_compiler_jar)",
+      "--patch-module=jdk.compiler=\$(location @remote_java_tools//:jdk_compiler_jar)",
+  ] + JDK9_JVM_OPTS,
+  tools = [
+      "@remote_java_tools//:java_compiler_jar",
+      "@remote_java_tools//:jdk_compiler_jar",
+    ],
+)
+EOF
+  bazel build //:toolchain || fail "default_java_toolchain target failed to build"
+}
+
+function test_default_java_toolchain_jvm8Toolchain() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JVM8_TOOLCHAIN_CONFIGURATION")
+default_java_toolchain(
+  name = "jvm8_toolchain",
+  configuration = JVM8_TOOLCHAIN_CONFIGURATION,
+  java_runtime = "@local_jdk//:jdk",
+)
+EOF
+  bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
+}
+
+function test_default_java_toolchain_javabuilderToolchain() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
+default_java_toolchain(
+  name = "javabuilder_toolchain",
+  configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
+)
+EOF
+  bazel build //:javabuilder_toolchain || fail "default_java_toolchain target failed to build"
+}
+
+function test_default_java_toolchain_vanillaToolchain() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
+default_java_toolchain(
+  name = "vanilla_toolchain",
+  configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
+  java_runtime = "@local_jdk//:jdk",
+)
+EOF
+  bazel build //:vanilla_toolchain || fail "default_java_toolchain target failed to build"
+}
+
+function test_default_java_toolchain_prebuiltToolchain() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "PREBUILT_TOOLCHAIN_CONFIGURATION")
+default_java_toolchain(
+  name = "prebuilt_toolchain",
+  configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
+)
+EOF
+  bazel build //:prebuilt_toolchain || fail "default_java_toolchain target failed to build"
+}
+
+function test_default_java_toolchain_nonprebuiltToolchain() {
+  cat > BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
+default_java_toolchain(
+  name = "nonprebuilt_toolchain",
+  configuration = NONPREBUILT_TOOLCHAIN_CONFIGURATION,
+)
+EOF
+  bazel build //:nonprebuilt_toolchain || fail "default_java_toolchain target failed to build"
+}
+
 
 run_suite "Java integration tests with default Bazel values"

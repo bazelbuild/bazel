@@ -308,6 +308,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
+  const bool preemptible_;
   const blaze_util::Path output_base_;
 };
 
@@ -457,7 +458,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    startup_options.output_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(workspace));
-  result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  if (startup_options.autodetect_server_javabase) {
+    result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  }
 
   if (!startup_options.server_jvm_out.IsEmpty()) {
     result.push_back("--server_jvm_out=" +
@@ -1050,8 +1053,9 @@ static bool IsVolatileArg(const string &arg) {
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
-      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
-      "--local_startup_timeout_secs=", "--client_debug="};
+      "--option_sources=",       "--max_idle_secs=",
+      "--connect_timeout_secs=", "--local_startup_timeout_secs=",
+      "--client_debug=",         "--preemptible="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1671,6 +1675,7 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
       block_for_lock_(startup_options.block_for_lock),
+      preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
   if (!startup_options.client_debug) {
     gpr_set_log_function(null_grpc_log_function);
@@ -1945,6 +1950,7 @@ unsigned int BlazeServer::Communicate(
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
+  request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
     request.add_arg(arg);

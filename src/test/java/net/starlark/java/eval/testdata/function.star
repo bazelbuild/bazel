@@ -38,10 +38,8 @@ assert_eq(str([].clear), "<built-in method clear of list value>")
 assert_eq(str({}.clear), "<built-in method clear of dict value>")
 assert_eq(str(len), "<built-in function len>")
 
----
-x = {}.pop
-x() ###  missing 1 required positional argument: key
----
+assert_fails({}.pop, "missing 1 required positional argument: key")
+
 # Arguments are evaluated in left-to-right order.
 # See https://github.com/bazelbuild/starlark/issues/13.
 order = []
@@ -71,16 +69,13 @@ assert_eq(y, [1, 2, 3])
 x()
 assert_eq(y, [])
 
----
-getattr("", "abc") ### 'string' value has no field or method 'abc'
----
-x = getattr("", "pop", "clear")
-x() ### 'string' object is not callable
----
-# Regression test for a type mismatch crash (b/168743413).
-getattr(1, []) ### parameter 'name' got value of type 'list', want 'string'
+assert_fails(lambda: getattr("", "abc"), "'string' value has no field or method 'abc'")
 
----
+assert_fails(lambda: getattr("", "pop", "clear")(), "'string' object is not callable")
+
+# Regression test for a type mismatch crash (b/168743413).
+assert_fails(lambda: getattr(1, []), "parameter 'name' got value of type 'list', want 'string'")
+
 # assert_fails evaluates an expression (passed unevaluated in the form of
 # a lambda) and asserts that evaluation fails with the given error.
 assert_fails(lambda: 1//0, 'integer division by zero')

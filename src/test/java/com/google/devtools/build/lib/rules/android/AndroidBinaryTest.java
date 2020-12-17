@@ -69,12 +69,25 @@ import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** A test for {@link com.google.devtools.build.lib.rules.android.AndroidBinary}. */
-@RunWith(JUnit4.class)
-public class AndroidBinaryTest extends AndroidBuildViewTestCase {
+@RunWith(Enclosed.class)
+public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidBinaryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidBinaryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setupCcToolchain() throws Exception {

@@ -640,6 +640,8 @@ public class RuleClass {
      */
     public static final String STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
+    public static final String STARLARK_BUILD_SETTING_HELP_ATTR_NAME = "help";
+
     public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
         "Build setting defaults are referenced during analysis.";
 
@@ -854,15 +856,19 @@ public class RuleClass {
 
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
-        Attribute.Builder<?> attrBuilder =
+        Attribute.Builder<?> defaultAttrBuilder =
             attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
         if (BuildType.isLabelType(type)) {
-          attrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
-          attrBuilder.allowedRuleClasses(ANY_RULE);
+          defaultAttrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
+          defaultAttrBuilder.allowedRuleClasses(ANY_RULE);
         }
-        this.add(attrBuilder);
+        this.add(defaultAttrBuilder);
+
+        this.add(
+            attr(STARLARK_BUILD_SETTING_HELP_ATTR_NAME, Type.STRING)
+                .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE));
 
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
@@ -2075,13 +2081,13 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
 
-
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             rule,
             pkgBuilder.getRepositoryMapping(),
             attributeValues,
             pkgBuilder.getListInterner(),
+            pkgBuilder.getConvertedLabelsInPackage(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -2104,6 +2110,7 @@ public class RuleClass {
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
+      HashMap<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2136,7 +2143,13 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping, listInterner);
+              convertFromBuildLangType(
+                  rule,
+                  attr,
+                  attributeValue,
+                  repositoryMapping,
+                  listInterner,
+                  convertedLabelsInPackage);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2401,9 +2414,11 @@ public class RuleClass {
       Attribute attr,
       Object buildLangValue,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      Interner<ImmutableList<?>> listInterner)
+      Interner<ImmutableList<?>> listInterner,
+      HashMap<String, Label> convertedLabelsInPackage)
       throws ConversionException {
-    LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
+    LabelConversionContext context =
+        new LabelConversionContext(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),

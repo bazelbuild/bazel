@@ -1384,6 +1384,11 @@ public class PackageFunction implements SkyFunction {
     FileOptions options =
         FileOptions.builder()
             .requireLoadStatementsFirst(false)
+            // For historical reasons, BUILD files are allowed to load a symbol
+            // and then reassign it later. (It is unclear why this is neccessary).
+            // TODO(adonovan): remove this flag and make loads bind file-locally,
+            // as in .bzl files. One can always use a renaming load statement.
+            .loadBindsGlobally(true)
             .allowToplevelRebinding(true)
             .restrictStringEscapes(
                 semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))

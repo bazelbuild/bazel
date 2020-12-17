@@ -35,5 +35,5 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//visibility:private"],
 )

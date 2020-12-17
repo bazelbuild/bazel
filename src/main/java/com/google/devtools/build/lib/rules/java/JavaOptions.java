@@ -534,6 +534,22 @@ public class JavaOptions extends FragmentOptions {
   public boolean addTestSupportToCompileTimeDeps;
 
   @Option(
+      name = "experimental_run_android_lint_on_java_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to validate java_* sources.")
+  public boolean runAndroidLint;
+
+  @Option(
+      name = "experimental_limit_android_lint_to_android_constrained_java",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Limit --experimental_run_android_lint_on_java_rules to Android-compatible libraries.")
+  public boolean limitAndroidLintToAndroidCompatible;
+
+  @Option(
       name = "jplPropagateCcLinkParamsStore",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -663,6 +679,8 @@ public class JavaOptions extends FragmentOptions {
 
   @Override
   public FragmentOptions getHost() {
+    // Note validation actions don't run in host config, so no need copying flags related to that.
+    // TODO(b/171078539): revisit if relevant validations are run in host config
     JavaOptions host = (JavaOptions) getDefault();
 
     host.javaBase = getHostJavaBase();

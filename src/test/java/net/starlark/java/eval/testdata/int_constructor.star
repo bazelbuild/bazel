@@ -14,12 +14,11 @@ assert_eq(int(True), 1)
 assert_eq(int(False), 0)
 
 # from other
-int(None) ### got NoneType, want string, int, float, or bool
----
+assert_fails(lambda: int(None), "got NoneType, want string, int, float, or bool")
 
 # from string
-int('') ### empty string
----
+assert_fails(lambda: int(""), "empty string")
+
 # no base
 assert_eq(int('0'), 0)
 assert_eq(int('1'), 1)
@@ -65,46 +64,28 @@ assert_eq(int('016', 8), 14)
 assert_eq(int('016', 16), 22)
 assert_eq(int('0', 0), 0)
 assert_eq(int('0x0b10', 16), 0x0b10)
-int('0xFF', 8) ### invalid base-8 literal: "0xFF"
----
-int('016', 0) ### cannot infer base when string begins with a 0: "016"
----
-int('123', 3) ### invalid base-3 literal: "123"
----
-int('FF', 15) ### invalid base-15 literal: "FF"
----
-int('123', -1) ### invalid base -1 \(want 2 <= base <= 36\)
----
-int('123', 1) ### invalid base 1 \(want 2 <= base <= 36\)
----
-int('123', 37) ### invalid base 37 \(want 2 <= base <= 36\)
----
-int('123', 'x') ### got string for base, want int
----
-int(True, 2) ### can't convert non-string with explicit base
----
-int(True, 10) ### can't convert non-string with explicit base
----
-int(1, 2) ### can't convert non-string with explicit base
----
+assert_fails(lambda: int("0xFF", 8), 'invalid base-8 literal: "0xFF"')
+assert_fails(lambda: int("016", 0), 'cannot infer base when string begins with a 0: "016"')
+assert_fails(lambda: int("123", 3), 'invalid base-3 literal: "123"')
+assert_fails(lambda: int("FF", 15), 'invalid base-15 literal: "FF"')
+assert_fails(lambda: int("123", -1), "invalid base -1 .want 2 <= base <= 36")
+assert_fails(lambda: int("123", 1), "invalid base 1 .want 2 <= base <= 36")
+assert_fails(lambda: int("123", 37), "invalid base 37 .want 2 <= base <= 36")
+assert_fails(lambda: int("123", "x"), "got string for base, want int")
+assert_fails(lambda: int(True, 2), "can't convert non-string with explicit base")
+assert_fails(lambda: int(True, 10), "can't convert non-string with explicit base")
+assert_fails(lambda: int(1, 2), "can't convert non-string with explicit base")
+
 # This case is allowed in Python but not Skylark
-int() ### missing 1 required positional argument: x
----
+assert_fails(lambda: int(), "missing 1 required positional argument: x")
+
 # Unlike Python, leading and trailing whitespace is not allowed. Use int(s.strip()).
-int(' 1') ### invalid base-10 literal: " 1"
----
-int('1 ') ### invalid base-10 literal: "1 "
----
-int('-') ### invalid base-10 literal: "-"
----
-int('+') ### invalid base-10 literal: "\+"
----
-int('0x') ### invalid base-10 literal: "0x"
----
-int('1.5') ### invalid base-10 literal: "1.5"
----
-int('ab') ### invalid base-10 literal: "ab"
----
-int('--1') ### invalid base-10 literal: "--1"
----
-int('-0x-10', 16) ### invalid base-16 literal: "-0x-10"
+assert_fails(lambda: int(' 1'), 'invalid base-10 literal: " 1"')
+assert_fails(lambda: int('1 '), 'invalid base-10 literal: "1 "')
+assert_fails(lambda: int('-'), 'invalid base-10 literal: "-"')
+assert_fails(lambda: int('+'), 'invalid base-10 literal: "[+]"')
+assert_fails(lambda: int('0x'), 'invalid base-10 literal: "0x"')
+assert_fails(lambda: int('1.5'), 'invalid base-10 literal: "1.5"')
+assert_fails(lambda: int('ab'), 'invalid base-10 literal: "ab"')
+assert_fails(lambda: int('--1'), 'invalid base-10 literal: "--1"')
+assert_fails(lambda: int('-0x-10', 16), 'invalid base-16 literal: "-0x-10"')

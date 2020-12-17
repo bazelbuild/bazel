@@ -12,7 +12,4 @@ assert_eq(list(range(-3, 6, 2)), [-3, -1, 1, 3, 5])
 assert_eq(list(range(5, 0, -1)), [5, 4, 3, 2, 1])
 assert_eq(list(range(5, 0, -10)), [5])
 assert_eq(list(range(0, -3, -2)), [0, -2])
-
----
-range(2, 3, 0) ### step cannot be 0
-
+assert_fails(lambda: range(2, 3, 0), "step cannot be 0")

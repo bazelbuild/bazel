@@ -165,6 +165,8 @@ class StartupOptions {
 
   bool host_jvm_debug;
 
+  bool autodetect_server_javabase;
+
   std::string host_jvm_profile;
 
   std::vector<std::string> host_jvm_args;
@@ -244,6 +246,10 @@ class StartupOptions {
 
   // Whether to output addition debugging information in the client.
   bool client_debug;
+
+  // Whether the resulting command will be preempted if a subsequent command is
+  // run.
+  bool preemptible;
 
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;

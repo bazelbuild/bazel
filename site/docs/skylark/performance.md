@@ -5,6 +5,7 @@ title: Optimizing performance
 
 # Optimizing performance
 
+
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
 build, these operations can easily take O(N^2) time or space. To avoid this, it

@@ -10,11 +10,11 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-# A zipfile containing the builtins_bzl/ directory as it should appear in the
-# package zip / install base.
+# A zipfile containing the builtins_bzl/ directory, to be bundled as a Java
+# resource with BazelRuleClassProvider.
 genrule(
     name = "builtins_bzl_zip",
-    srcs = [f for f in glob(["**"]) if f.endswith(".bzl")] + ["BUILD.builtins"],
+    srcs = glob(["**/*.bzl"]) + ["BUILD.builtins"],
     outs = ["builtins_bzl.zip"],
     # builtins_zip.sh zip output builtins_root files...
     cmd = "$(location //src:zip_builtins)" +
@@ -22,5 +22,7 @@ genrule(
           " $@ src/main/starlark/builtins_bzl $(SRCS)",
     output_to_bindir = 1,
     tools = ["//src:zip_builtins"],
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:__pkg__",
+    ],
 )

@@ -26,6 +26,8 @@ import static org.mockito.Mockito.withSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
@@ -43,24 +45,9 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link PostGCMemoryUseRecorder}. */
 @RunWith(JUnit4.class)
-public class PostGCMemoryUseRecorderTest {
+public final class PostGCMemoryUseRecorderTest {
 
-  private GarbageCollectorMXBean createMXBeanWithName(String name) {
-    GarbageCollectorMXBean b =
-        mock(
-            GarbageCollectorMXBean.class,
-            withSettings().extraInterfaces(NotificationEmitter.class));
-    when(b.getName()).thenReturn(name);
-    return b;
-  }
-
-  private List<GarbageCollectorMXBean> createGCBeans(String[] names) {
-    List<GarbageCollectorMXBean> beans = new ArrayList<>();
-    for (String n : names) {
-      beans.add(createMXBeanWithName(n));
-    }
-    return beans;
-  }
+  private final ManualClock clock = new ManualClock();
 
   @Test
   public void listenToSingleNonCopyGC() {
@@ -90,50 +77,10 @@ public class PostGCMemoryUseRecorderTest {
             any(NotificationListener.class), any(NotificationFilter.class), any());
   }
 
-  private static MemoryUsage createMockMemoryUsage(long used) {
-    MemoryUsage mu = mock(MemoryUsage.class);
-    when(mu.getUsed()).thenReturn(used);
-    return mu;
-  }
-
-  private static Notification createMockNotification(
-      String type, String action, Map<String, Long> memUsed) {
-    return createMockNotification(type, action, "dummycause", memUsed);
-  }
-
-  private static Notification createMockNotification(
-      String type, String action, String cause, Map<String, Long> memUsed) {
-    ImmutableMap.Builder<String, MemoryUsage> memUsageMap = ImmutableMap.builder();
-    for (Map.Entry<String, Long> e : memUsed.entrySet()) {
-      memUsageMap.put(e.getKey(), createMockMemoryUsage(e.getValue()));
-    }
-    GcInfo gcInfo = mock(GcInfo.class);
-    when(gcInfo.getMemoryUsageAfterGc()).thenReturn(memUsageMap.build());
-
-    GarbageCollectionNotificationInfo notInfo =
-        new GarbageCollectionNotificationInfo("DummyGCName", action, cause, gcInfo);
-
-    Notification n = mock(Notification.class);
-    when(n.getType()).thenReturn(type);
-    when(n.getUserData()).thenReturn(notInfo.toCompositeData(null));
-    return n;
-  }
-
-  private static Notification createMajorGCNotification(Map<String, Long> memUsed) {
-    return createMockNotification(
-        GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION,
-        "end of major GC",
-        memUsed);
-  }
-
-  private static Notification createMajorGCNotification(long used) {
-    return createMajorGCNotification(ImmutableMap.of("Foo", used));
-  }
-
   @Test
   public void peakHeapStartsAbsent() {
     PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
   }
 
   @Test
@@ -141,7 +88,7 @@ public class PostGCMemoryUseRecorderTest {
     PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(createMajorGCNotification(1000L), null);
     rec.reset();
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
   }
 
   @Test
@@ -154,30 +101,44 @@ public class PostGCMemoryUseRecorderTest {
             /*cause=*/ "No GC",
             ImmutableMap.of("somepool", 100L));
 
-    underTest.doHandleNotification(notificationWithNoGcCause, /*handback=*/ null);
+    underTest.handleNotification(notificationWithNoGcCause, /*handback=*/ null);
 
-    assertThat(underTest.getPeakPostGCHeapMemoryUsed()).hasValue(100L);
+    assertThat(underTest.getPeakPostGcHeap())
+        .hasValue(PeakHeap.create(100, clock.currentTimeMillis()));
   }
 
   @Test
   public void peakHeapIncreasesWhenBigger() {
     PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
+
+    clock.advanceMillis(1);
     rec.handleNotification(createMajorGCNotification(1000L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1000L);
-    rec.handleNotification(createMajorGCNotification(1001L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1001L);
-    rec.handleNotification(createMajorGCNotification(2001L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(2001L);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(1000, clock.currentTimeMillis()));
+
+    clock.advanceMillis(1);
+    rec.handleNotification(createMajorGCNotification(1001), null);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(1001, clock.currentTimeMillis()));
+
+    clock.advanceMillis(1);
+    rec.handleNotification(createMajorGCNotification(2001), null);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(2001, clock.currentTimeMillis()));
   }
 
   @Test
   public void peakHeapDoesntDecrease() {
     PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
-    rec.handleNotification(createMajorGCNotification(1000L), null);
-    rec.handleNotification(createMajorGCNotification(500L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1000L);
-    rec.handleNotification(createMajorGCNotification(999L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1000L);
+
+    clock.advanceMillis(1);
+    rec.handleNotification(createMajorGCNotification(1000), null);
+    PeakHeap expected = PeakHeap.create(1000, clock.currentTimeMillis());
+
+    clock.advanceMillis(1);
+    rec.handleNotification(createMajorGCNotification(500), null);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(expected);
+
+    clock.advanceMillis(1);
+    rec.handleNotification(createMajorGCNotification(999), null);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(expected);
   }
 
   @Test
@@ -187,7 +148,7 @@ public class PostGCMemoryUseRecorderTest {
         createMockNotification(
             "some other notification", "end of major GC", ImmutableMap.of("Foo", 1000L)),
         null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
   }
 
   @Test
@@ -199,7 +160,7 @@ public class PostGCMemoryUseRecorderTest {
             "end of minor GC",
             ImmutableMap.of("Foo", 1000L)),
         null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
   }
 
   @Test
@@ -207,7 +168,7 @@ public class PostGCMemoryUseRecorderTest {
     PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(
         createMajorGCNotification(ImmutableMap.of("Foo", 111L, "Bar", 222L, "Qux", 333L)), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(666L);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(666, clock.currentTimeMillis()));
   }
 
   @Test
@@ -229,5 +190,63 @@ public class PostGCMemoryUseRecorderTest {
     rec.handleNotification(
         createMajorGCNotification(ImmutableMap.of("Foo", 123L, "Bar", 456L, "Qux", 789L)), null);
     assertThat(rec.wasMemoryUsageReportedZero()).isFalse();
+  }
+
+  private static GarbageCollectorMXBean createMXBeanWithName(String name) {
+    GarbageCollectorMXBean b =
+        mock(
+            GarbageCollectorMXBean.class,
+            withSettings().extraInterfaces(NotificationEmitter.class));
+    when(b.getName()).thenReturn(name);
+    return b;
+  }
+
+  private static List<GarbageCollectorMXBean> createGCBeans(String[] names) {
+    List<GarbageCollectorMXBean> beans = new ArrayList<>();
+    for (String n : names) {
+      beans.add(createMXBeanWithName(n));
+    }
+    return beans;
+  }
+
+  private static MemoryUsage createMockMemoryUsage(long used) {
+    MemoryUsage mu = mock(MemoryUsage.class);
+    when(mu.getUsed()).thenReturn(used);
+    return mu;
+  }
+
+  private Notification createMockNotification(
+      String type, String action, Map<String, Long> memUsed) {
+    return createMockNotification(type, action, "dummycause", memUsed);
+  }
+
+  private Notification createMockNotification(
+      String type, String action, String cause, Map<String, Long> memUsed) {
+    ImmutableMap.Builder<String, MemoryUsage> memUsageMap = ImmutableMap.builder();
+    for (Map.Entry<String, Long> e : memUsed.entrySet()) {
+      memUsageMap.put(e.getKey(), createMockMemoryUsage(e.getValue()));
+    }
+    GcInfo gcInfo = mock(GcInfo.class);
+    when(gcInfo.getMemoryUsageAfterGc()).thenReturn(memUsageMap.build());
+
+    GarbageCollectionNotificationInfo notInfo =
+        new GarbageCollectionNotificationInfo("DummyGCName", action, cause, gcInfo);
+
+    Notification n = mock(Notification.class);
+    when(n.getType()).thenReturn(type);
+    when(n.getUserData()).thenReturn(notInfo.toCompositeData(null));
+    when(n.getTimeStamp()).thenReturn(clock.currentTimeMillis());
+    return n;
+  }
+
+  private Notification createMajorGCNotification(Map<String, Long> memUsed) {
+    return createMockNotification(
+        GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION,
+        "end of major GC",
+        memUsed);
+  }
+
+  private Notification createMajorGCNotification(long used) {
+    return createMajorGCNotification(ImmutableMap.of("Foo", used));
   }
 }

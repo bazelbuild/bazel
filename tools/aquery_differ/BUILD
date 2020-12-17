@@ -46,7 +46,7 @@ py_library(
     srcs = ["aquery_differ.py"],
     deps = [
         ":aquery_differ_resolvers",
-        "//src/main/protobuf:analysis_py_proto",
+        "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/abseil",
         "//third_party/py/six",
     ],
@@ -57,38 +57,6 @@ py_test_alias(
     srcs = ["aquery_differ_test.py"],
     deps = [
         ":aquery_differ_main_lib",
-        "//src/main/protobuf:analysis_py_proto",
-        "//third_party/py/mock",
-        "//third_party/py/six",
-    ],
-)
-
-py_binary(
-    name = "aquery_differ_v2",
-    srcs = ["aquery_differ_v2.py"],
-    python_version = "PY3",
-    deps = [
-        ":aquery_differ_main_lib_v2",
-        "//third_party/py/six",
-    ],
-)
-
-py_library(
-    name = "aquery_differ_main_lib_v2",
-    srcs = ["aquery_differ_v2.py"],
-    deps = [
-        ":aquery_differ_resolvers",
-        "//src/main/protobuf:analysis_v2_py_proto",
-        "//third_party/py/abseil",
-        "//third_party/py/six",
-    ],
-)
-
-py_test_alias(
-    name = "aquery_differ_v2_test",
-    srcs = ["aquery_differ_v2_test.py"],
-    deps = [
-        ":aquery_differ_main_lib_v2",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/mock",
         "//third_party/py/six",

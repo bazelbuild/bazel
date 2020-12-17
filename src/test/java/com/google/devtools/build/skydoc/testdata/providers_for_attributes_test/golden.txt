@@ -62,7 +62,7 @@ This rule does things.
       <td>
         <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
         <p>
-          The dependencies of this attribute must provide: CcInfo; or OtherProviderInfo, DepProviderInfo
+          The dependencies of this attribute must provide: CcInfo; or OtherProviderInfo, Unknown Provider
         </p>
       </td>
     </tr>

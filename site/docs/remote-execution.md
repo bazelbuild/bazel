@@ -38,6 +38,8 @@ To run Bazel with remote execution, you can use one of the following:
         and remote caching service. Can be self-hosted or hosted.
     *   [BuildBuddy](https://www.buildbuddy.io) -- Remote build execution,
         caching, and results UI.
+    *   [Flare](https://www.flare.build) --  Providing a cache + CDN for Bazel
+        artifacts and Apple-focused remote builds in addition to build & test analytics.
 
 ## Requirements
 

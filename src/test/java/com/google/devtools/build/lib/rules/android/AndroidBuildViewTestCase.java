@@ -56,6 +56,24 @@ import javax.annotation.Nullable;
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
 
+  /** Override this to trigger platform-based Android toolchain resolution. */
+  protected boolean platformBasedToolchains() {
+    return false;
+  }
+
+  @Override
+  protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
+      throws Exception {
+    if (platformBasedToolchains()) {
+      ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
+      fullArgs.add(args);
+      fullArgs.add("--incompatible_enable_android_toolchain_resolution");
+      super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
+    } else {
+      super.useConfiguration(starlarkOptions, args);
+    }
+  }
+
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {
     return Iterables.filter(
         getGeneratingAction(getCompressedUnsignedApk(target)).getInputs().toList(),

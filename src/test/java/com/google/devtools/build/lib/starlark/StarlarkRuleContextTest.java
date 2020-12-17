@@ -561,21 +561,15 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/existing_rule.bzl",
         "def macro():",
         "  s = select({'//foo': ['//bar']})",
-        "  print('Passed: ' + repr(s))",
         "  native.cc_library(name = 'x', srcs = s)",
-        "  print('Returned: ' + repr(native.existing_rule('x')['srcs']))",
-        // The value returned here should round-trip fine.
-        "  native.cc_library(name = 'y', srcs = native.existing_rule('x')['srcs'])");
+        "  print(native.existing_rule('x')['srcs'])");
     scratch.file(
         "test/BUILD",
         "load('//test:existing_rule.bzl', 'macro')",
         "macro()",
         "cc_library(name = 'a', srcs = [])");
     getConfiguredTarget("//test:a");
-    assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
-    // The short labels are now in their canonical form, and the sequence is represented as
-    // tuple instead of list, but the meaning is unchanged.
-    assertContainsEvent("Returned: select({\"//foo:foo\": (\"//bar:bar\",)}");
+    assertContainsEvent("select({Label(\"//foo:foo\"): [Label(\"//bar:bar\")]})");
   }
 
   @Test
@@ -2278,6 +2272,38 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testArgsMapEachFunctionMustBeGlobal() throws Exception {
+    // lambda
+    scratch.file(
+        "p/inc.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.args().add_all([], map_each=lambda x: x)", // error
+        "r = rule(implementation=_impl)");
+    scratch.file("p/BUILD", "load('inc.bzl', 'r')", "r(name='r')");
+    AssertionError ex = assertThrows(AssertionError.class, () -> getConfiguredTarget("//p:r"));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "map_each function (declared at /workspace/p/inc.bzl:2:43) must be "
+                + "declared by a top-level def statement");
+
+    // non-global def
+    scratch.file(
+        "q/inc.bzl",
+        "def _impl(ctx):",
+        "  def id(x): return x",
+        "  ctx.actions.args().add_all([], map_each=id)", // error
+        "r = rule(implementation=_impl)");
+    scratch.file("q/BUILD", "load('inc.bzl', 'r')", "r(name='r')");
+    ex = assertThrows(AssertionError.class, () -> getConfiguredTarget("//q:r"));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "map_each function (declared at /workspace/q/inc.bzl:2:7) must be "
+                + "declared by a top-level def statement");
+  }
+
+  @Test
   public void testTemplateExpansionActionInterface() throws Exception {
     scratch.file(
         "test/rules.bzl",
@@ -2637,6 +2663,39 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
     assertThat(buildSettingInfo.getValue("value")).isEqualTo(StarlarkInt.of(42));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testBuildSettingValue_allowMultipleSetting() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "BuildSettingInfo = provider(fields = ['name', 'value'])",
+        "def _impl(ctx):",
+        "  return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]",
+        "",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag = True, allow_multiple = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'string_flag', build_setting_default = 'some-value')");
+
+    useConfiguration(
+        ImmutableMap.of(
+            "//test:string_flag", ImmutableList.of("some-other-value", "some-other-other-value")));
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_flag");
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
+    assertThat((List<String>) buildSettingInfo.getValue("value"))
+        .containsExactly("some-other-value", "some-other-other-value");
   }
 
   @Test

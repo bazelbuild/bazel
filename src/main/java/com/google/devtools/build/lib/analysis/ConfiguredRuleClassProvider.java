@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -52,9 +53,15 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -66,6 +73,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -99,7 +108,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     private Label preludeLabel;
     private String runfilesPrefix;
     private String toolsRepository;
-    private String builtinsPackagePathInSource;
+    @Nullable private String builtinsBzlZipResource;
+    private String builtinsBzlPackagePathInSource;
     private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final Set<Class<? extends FragmentOptions>> configurationOptions =
@@ -107,11 +117,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
-    private final Map<String, NativeAspectClass> nativeAspectClassMap =
-        new HashMap<>();
+    private final Map<String, NativeAspectClass> nativeAspectClassMap = new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
-    private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
-        new Digraph<>();
+    private final Digraph<Class<? extends RuleDefinition>> dependencyGraph = new Digraph<>();
     private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
     @Nullable private TransitionFactory<Rule> trimmingTransitionFactory = null;
     @Nullable private PatchTransition toolchainTaggedTrimmingTransition = null;
@@ -170,10 +178,22 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       return this;
     }
 
+    /**
+     * Sets the resource path to the builtins_bzl.zip resource.
+     *
+     * <p>This value is required for production uses. For uses in tests, this may be left null, but
+     * the resulting rule class provider will not work with {@code
+     * --experimental_builtins_bzl_path=%bundled%}.
+     */
+    public Builder setBuiltinsBzlZipResource(String name) {
+      this.builtinsBzlZipResource = name;
+      return this;
+    }
+
     // This is required if the rule class provider will be used with
     // "--experimental_builtins_bzl_path=%workspace%", but can be skipped in unit tests.
-    public Builder setBuiltinsPackagePathInSource(String path) {
-      this.builtinsPackagePathInSource = path;
+    public Builder setBuiltinsBzlPackagePathInSource(String path) {
+      this.builtinsBzlPackagePathInSource = path;
       return this;
     }
 
@@ -356,15 +376,20 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       try {
         Constructor<? extends RuleConfiguredTargetFactory> ctor = factoryClass.getConstructor();
         return ctor.newInstance();
-      } catch (NoSuchMethodException | IllegalAccessException | InstantiationException
+      } catch (NoSuchMethodException
+          | IllegalAccessException
+          | InstantiationException
           | InvocationTargetException e) {
         throw new IllegalStateException(e);
       }
     }
 
     private RuleClass commitRuleDefinition(Class<? extends RuleDefinition> definitionClass) {
-      RuleDefinition instance = checkNotNull(ruleDefinitionMap.get(definitionClass.getName()),
-          "addRuleDefinition(new %s()) should be called before build()", definitionClass.getName());
+      RuleDefinition instance =
+          checkNotNull(
+              ruleDefinitionMap.get(definitionClass.getName()),
+              "addRuleDefinition(new %s()) should be called before build()",
+              definitionClass.getName());
 
       RuleDefinition.Metadata metadata = instance.getMetadata();
       checkArgument(
@@ -374,19 +399,18 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       List<Class<? extends RuleDefinition>> ancestors = metadata.ancestors();
 
       checkArgument(
-          metadata.type() == ABSTRACT ^ metadata.factoryClass()
-              != RuleConfiguredTargetFactory.class);
+          metadata.type() == ABSTRACT
+              ^ metadata.factoryClass() != RuleConfiguredTargetFactory.class);
       checkArgument(
-          (metadata.type() != TEST)
-          || ancestors.contains(BaseRuleClasses.TestBaseRule.class));
+          (metadata.type() != TEST) || ancestors.contains(BaseRuleClasses.TestBaseRule.class));
 
       RuleClass[] ancestorClasses = new RuleClass[ancestors.size()];
       for (int i = 0; i < ancestorClasses.length; i++) {
         ancestorClasses[i] = ruleMap.get(ancestors.get(i));
         if (ancestorClasses[i] == null) {
           // Ancestors should have been initialized by now
-          throw new IllegalStateException("Ancestor " + ancestors.get(i) + " of "
-              + metadata.name() + " is not initialized");
+          throw new IllegalStateException(
+              "Ancestor " + ancestors.get(i) + " of " + metadata.name() + " is not initialized");
         }
       }
 
@@ -395,8 +419,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         factory = createFactory(metadata.factoryClass());
       }
 
-      RuleClass.Builder builder = new RuleClass.Builder(
-          metadata.name(), metadata.type(), false, ancestorClasses);
+      RuleClass.Builder builder =
+          new RuleClass.Builder(metadata.name(), metadata.type(), false, ancestorClasses);
       builder.factory(factory);
       builder.setThirdPartyLicenseExistencePolicy(thirdPartyLicenseExistencePolicy);
       RuleClass ruleClass = instance.build(builder, this);
@@ -407,17 +431,58 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       return ruleClass;
     }
 
+    /**
+     * Unpacks the builtins zip file into an InMemoryFileSystem. The zip file is located as a Java
+     * resource file.
+     *
+     * <p>The files underneath the zip's {@code builtins_bzl/} directory are moved to a top-level
+     * {@code /virtual_builtins_bzl} directory. The Path to that directory is returned.
+     */
+    private static Path unpackBuiltinsBzlZipResource(String builtinsResourceName) {
+      ClassLoader loader = ConfiguredRuleClassProvider.class.getClassLoader();
+      try (InputStream builtinsZip = loader.getResourceAsStream(builtinsResourceName)) {
+        Preconditions.checkArgument(
+            builtinsZip != null, "No resource with name %s", builtinsResourceName);
+
+        InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+        Path root = fs.getPath("/virtual_builtins_bzl");
+
+        try (ZipInputStream zip = new ZipInputStream(builtinsZip)) {
+          for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+            String entryName = entry.getName();
+            Preconditions.checkArgument(entryName.startsWith("builtins_bzl/"));
+            Path dest = root.getRelative(entryName.substring("builtins_bzl/".length()));
+
+            dest.getParentDirectory().createDirectoryAndParents();
+            try (OutputStream os = dest.getOutputStream()) {
+              ByteStreams.copy(zip, os);
+            }
+          }
+        }
+        return root;
+      } catch (IOException ex) {
+        throw new IllegalArgumentException(
+            "Error while unpacking builtins_bzl zip resource file", ex);
+      }
+    }
+
     public ConfiguredRuleClassProvider build() {
       for (Node<Class<? extends RuleDefinition>> ruleDefinition :
           dependencyGraph.getTopologicalOrder()) {
         commitRuleDefinition(ruleDefinition.getLabel());
       }
 
+      Path builtinsBzlRoot =
+          builtinsBzlZipResource != null
+              ? unpackBuiltinsBzlZipResource(builtinsBzlZipResource)
+              : null;
+
       return new ConfiguredRuleClassProvider(
           preludeLabel,
           runfilesPrefix,
           toolsRepository,
-          builtinsPackagePathInSource,
+          builtinsBzlRoot,
+          builtinsBzlPackagePathInSource,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
@@ -451,53 +516,43 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     }
   }
 
-  /**
-   * Default content that should be added at the beginning of the WORKSPACE file.
-   */
+  /** Default content that should be added at the beginning of the WORKSPACE file. */
   private final String defaultWorkspaceFilePrefix;
 
-  /**
-   * Default content that should be added at the end of the WORKSPACE file.
-   */
+  /** Default content that should be added at the end of the WORKSPACE file. */
   private final String defaultWorkspaceFileSuffix;
 
-
-  /**
-   * Label for the prelude file.
-   */
+  /** Label for the prelude file. */
   private final Label preludeLabel;
 
-  /**
-   * The default runfiles prefix.
-   */
+  /** The default runfiles prefix. */
   private final String runfilesPrefix;
 
-  /**
-   * The path to the tools repository.
-   */
+  /** The path to the tools repository. */
   private final String toolsRepository;
 
-  /** The relative location of the builtins_bzl directory within a Bazel source tree. */
-  private final String builtinsPackagePathInSource;
-
   /**
-   * Maps rule class name to the metaclass instance for that rule.
+   * Where the builtins bzl files are located (if not overridden by
+   * --experimental_builtins_bzl_path). Note that this lives in a separate InMemoryFileSystem.
+   *
+   * <p>May be null in tests, in which case --experimental_builtins_bzl_path must point to a
+   * builtins root.
    */
+  @Nullable private final Path builtinsBzlRoot;
+
+  /** The relative location of the builtins_bzl directory within a Bazel source tree. */
+  private final String builtinsBzlPackagePathInSource;
+
+  /** Maps rule class name to the metaclass instance for that rule. */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
-  /**
-   * Maps rule class name to the rule definition objects.
-   */
+  /** Maps rule class name to the rule definition objects. */
   private final ImmutableMap<String, RuleDefinition> ruleDefinitionMap;
 
-  /**
-   * Maps aspect name to the aspect factory meta class.
-   */
+  /** Maps aspect name to the aspect factory meta class. */
   private final ImmutableMap<String, NativeAspectClass> nativeAspectClassMap;
 
-  /**
-   * The configuration options that affect the behavior of the rules.
-   */
+  /** The configuration options that affect the behavior of the rules. */
   private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
 
   /** The set of configuration fragment factories. */
@@ -549,7 +604,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       Label preludeLabel,
       String runfilesPrefix,
       String toolsRepository,
-      String builtinsPackagePathInSource,
+      @Nullable Path builtinsBzlRoot,
+      String builtinsBzlPackagePathInSource,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
@@ -573,7 +629,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
-    this.builtinsPackagePathInSource = builtinsPackagePathInSource;
+    this.builtinsBzlRoot = builtinsBzlRoot;
+    this.builtinsBzlPackagePathInSource = builtinsBzlPackagePathInSource;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
@@ -650,8 +707,14 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   @Override
-  public String getBuiltinsPackagePathInSource() {
-    return builtinsPackagePathInSource;
+  @Nullable
+  public Path getBuiltinsBzlRoot() {
+    return builtinsBzlRoot;
+  }
+
+  @Override
+  public String getBuiltinsBzlPackagePathInSource() {
+    return builtinsBzlPackagePathInSource;
   }
 
   @Override
@@ -716,16 +779,12 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return shouldInvalidateCacheForOptionDiff.apply(newOptions, changedOption, oldValue, newValue);
   }
 
-  /**
-   * Returns the set of configuration options that are supported in this module.
-   */
+  /** Returns the set of configuration options that are supported in this module. */
   public ImmutableList<Class<? extends FragmentOptions>> getConfigurationOptions() {
     return configurationOptions;
   }
 
-  /**
-   * Returns the definition of the rule class definition with the specified name.
-   */
+  /** Returns the definition of the rule class definition with the specified name. */
   public RuleDefinition getRuleClassDefinition(String ruleClassName) {
     return ruleDefinitionMap.get(ruleClassName);
   }
@@ -738,9 +797,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return universalFragments;
   }
 
-  /**
-   * Creates a BuildOptions class for the given options taken from an optionsProvider.
-   */
+  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
@@ -802,6 +859,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             toolsRepository,
             configurationFragmentMap,
             repoMapping,
+            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(fileLabel),
             /*analysisRuleLabel=*/ null)
         .storeInThread(thread);

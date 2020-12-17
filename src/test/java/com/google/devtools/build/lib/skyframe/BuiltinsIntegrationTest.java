@@ -44,4 +44,17 @@ public class BuiltinsIntegrationTest extends BuildViewTestCase {
     assertThat(result).isNull();
     assertContainsEvent("_builtins_dummy is experimental");
   }
+
+  @Test
+  public void builtinsInjectionWorksInBuildViewTestCase() throws Exception {
+    scratch.file("pkg/BUILD", "load(':foo.bzl', 'foo')");
+    scratch.file("pkg/foo.bzl", "foo = 1; print(\"dummy :: \" + str(_builtins_dummy))");
+    setBuildLanguageOptions(
+        "--experimental_builtins_bzl_path=%bundled%", "--experimental_builtins_dummy=true");
+
+    getConfiguredTarget("//pkg:BUILD");
+    // The production builtins bzl code overwrites the dummy from "original value" to "overridden
+    // value".
+    assertContainsEvent("dummy :: overridden value");
+  }
 }

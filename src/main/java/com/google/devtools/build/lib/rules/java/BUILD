@@ -114,6 +114,8 @@ java_library(
 java_library(
     name = "java-compilation",
     srcs = [
+        "AndroidLintActionBuilder.java",
+        "AndroidLintTool.java",
         "BootClassPathInfo.java",
         "BuildInfoPropertiesTranslator.java",
         "ClasspathConfiguredFragment.java",

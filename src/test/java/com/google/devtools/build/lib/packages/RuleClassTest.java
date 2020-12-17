@@ -1128,13 +1128,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("label_flag", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST))
-            .setBuildSetting(new BuildSetting(true, LABEL))
+            .setBuildSetting(BuildSetting.create(true, LABEL))
             .build();
     RuleClass stringSetting =
         new RuleClass.Builder("string_setting", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST))
-            .setBuildSetting(new BuildSetting(false, STRING))
+            .setBuildSetting(BuildSetting.create(false, STRING))
             .build();
 
     assertThat(labelFlag.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isTrue();

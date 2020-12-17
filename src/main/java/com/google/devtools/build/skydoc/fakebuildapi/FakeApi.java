@@ -65,6 +65,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsPr
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaWrapCcInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeProguardSpecProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
@@ -119,6 +120,7 @@ public final class FakeApi {
     env.put("OutputGroupInfo", new FakeOutputGroupInfoProvider());
     env.put("Actions", new FakeActionsInfoProvider());
     env.put("DefaultInfo", new FakeDefaultInfoProvider());
+    env.put("JavaWrapCcInfo", new FakeJavaWrapCcInfo()); // needed for Google-internal use
 
     new AndroidBootstrap(
             new FakeAndroidStarlarkCommon(),

@@ -86,13 +86,26 @@ public interface StarlarkConfigApi extends StarlarkValue {
             defaultValue = "False",
             doc = FLAG_ARG_DOC,
             named = true,
+            positional = false),
+        @Param(
+            name = "allow_multiple",
+            defaultValue = "False",
+            doc =
+                "If set, this flag is allowed to be set multiple times on the command line. The"
+                    + " Value of the flag as accessed in transitions and build setting"
+                    + " implementation function will be a list of strings. Insertion order and"
+                    + " repeated values are both maintained. This list can be post-processed in the"
+                    + " build setting implementation function if different behavior is desired.",
+            named = true,
             positional = false)
       })
-  BuildSettingApi stringSetting(Boolean flag);
+  BuildSettingApi stringSetting(Boolean flag, Boolean allowMultiple);
 
   @StarlarkMethod(
       name = "string_list",
-      doc = "A string list-typed build setting",
+      doc =
+          "A string list-typed build setting. On the command line pass a list using"
+              + " comma-separated value like '--//my/setting=foo,bar'.",
       parameters = {
         @Param(
             name = FLAG_ARG,

@@ -13,7 +13,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
     name = "install_base_key-file" + suffix,
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         # TODO(brandjon): ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
@@ -324,13 +323,15 @@ filegroup(
 
 [genrule(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order: 1) embedded tools zip (if it
-    # exists), 2) the deploy jar, 3) the install base key, 4) the builtins bzl
-    # zip, 5) the platforms archive, 6) everything else to be bundled.
+    # This script assumes the following arg order:
+    #   1) embedded tools zip (if it exists)
+    #   2) the deploy jar
+    #   3) the install base key
+    #   4) the platforms archive
+    #   5) everything else to be bundled
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
-        "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
         ":platforms_archive",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",

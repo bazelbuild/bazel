@@ -551,6 +551,55 @@ EOF
   expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
+function test_proto_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=proto \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+
+  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+
+  bazel query --output=proto \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  expect_not_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+}
+
+function test_xml_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=xml \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+
+  bazel query --output=xml \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
+}
+
 function test_subdirectory_named_external() {
   mkdir -p foo/external foo/bar
   cat > foo/external/BUILD <<EOF

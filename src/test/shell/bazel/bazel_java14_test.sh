@@ -125,8 +125,7 @@ public class Javac14Example {
   }
 }
 EOF
-  # TODO(ilist): remove tool_java_runtime_version after java_runtime is attached to the toolchain
-  bazel run java/main:Javac14Example --java_language_version=14 --java_runtime_version=14 --tool_java_runtime_version=14 --test_output=all --verbose_failures &>"${TEST_log}"
+  bazel run java/main:Javac14Example --java_language_version=14 --java_runtime_version=14 --test_output=all --verbose_failures &>"${TEST_log}"
   expect_log "0"
 }
 

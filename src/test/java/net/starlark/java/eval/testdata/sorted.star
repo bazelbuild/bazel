@@ -81,17 +81,10 @@ assert_eq(sorted(["�", "🌿"]), ["🌿", "�"])
 
 
 assert_(False < True)
-
-False < 1 ### unsupported comparison: bool <=> int
----
-[{1: None}] <= [{2:None}] ### unsupported comparison: dict <=> dict
----
-None <= None ### unsupported comparison: NoneType <=> NoneType
----
-sorted(1) ### got value of type 'int', want 'iterable'
----
-sorted([1, 2, None, 3]) ### unsupported comparison: NoneType <=> int
----
-sorted([1, "one"]) ### unsupported comparison: string <=> int
----
-sorted([1, 2, 3], key=1) ### for key, got int, want callable
+assert_fails(lambda: False < 1, "unsupported comparison: bool <=> int")
+assert_fails(lambda: [{1: None}] <= [{2:None}], "unsupported comparison: dict <=> dict")
+assert_fails(lambda: None <= None, "unsupported comparison: NoneType <=> NoneType")
+assert_fails(lambda: sorted(1), "got value of type 'int', want 'iterable'")
+assert_fails(lambda: sorted([1, 2, None, 3]), "unsupported comparison: NoneType <=> int")
+assert_fails(lambda: sorted([1, "one"]), "unsupported comparison: string <=> int")
+assert_fails(lambda: sorted([1, 2, 3], key=1), "for key, got int, want callable")

@@ -872,20 +872,27 @@ EOF
 
   QUERY="//$pkg:all"
 
+  # In fastbuild, we expect exactly 1 CppCompileActionTemplate, which is a PIC
+  # action on Darwin and Windows and a noPIC action on Linux.
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  expect_log_n "CppCompileActionTemplate compiling.*.cc" 1 \
+    "Expected exactly 1 CppCompileActionTemplates."
+  assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
+
   # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
   # while Linux has both PIC and non-PIC CppCompileActionTemplates
+  bazel aquery -c opt --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
   if (is_darwin || $is_windows); then
     expected_num_actions=1
   else
     expected_num_actions=2
   fi
-
-  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  expect_log_n "CppCompileActionTemplate compiling .*.cc" $expected_num_actions "Expected exactly $expected_num_actions CppCompileActionTemplates."
-
+  expect_log_n "CppCompileActionTemplate compiling.*.cc" $expected_num_actions \
+    "Expected exactly $expected_num_actions CppCompileActionTemplates."
   assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
 
   bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \

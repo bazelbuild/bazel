@@ -91,6 +91,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
     ],
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
@@ -131,8 +132,28 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         "@remote_java_tools//:java_compiler_jar",
         "@remote_java_tools//:jdk_compiler_jar",
     ],
+    ijar = ["@remote_java_tools//:ijar_cc_binary"],
+    singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
+)
+
+# The new toolchain is using all the tools from sources.
+NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
+    jvm_opts = [
+        # Compact strings make JavaBuilder slightly slower.
+        "-XX:-CompactStrings",
+    ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
+    tools = [
+        "@remote_java_tools//:java_compiler_jar",
+        "@remote_java_tools//:jdk_compiler_jar",
+    ],
     ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
     singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
 def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, **kwargs):
