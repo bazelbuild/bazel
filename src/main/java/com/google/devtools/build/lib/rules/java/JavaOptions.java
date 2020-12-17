@@ -659,7 +659,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The Java language version used to build tools that are executed during a build")
+      help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
   Label defaultJavaBase() {

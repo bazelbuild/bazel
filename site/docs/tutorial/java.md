@@ -31,7 +31,7 @@ you don't have it installed already.
 
 ### Install the JDK
 
-1.  Install Java 8 JDK.
+1.  Install Java JDK (preferred version is 11, however versions between 8 and 15 are supported).
 
 2.  Set the JAVA\_HOME environment variable to point to the JDK.
     *   On Linux/macOS:
