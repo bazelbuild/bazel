@@ -72,7 +72,7 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
     native.alias(
         name = name + "_version_or_name_setting",
         actual = select({
-            name + "_version_setting": ":version_setting",
+            name + "_version_setting": name + "_version_setting",
             "//conditions:default": name + "_name_setting",
         }),
         visibility = ["//visibility:private"],
