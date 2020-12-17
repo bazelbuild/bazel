@@ -182,17 +182,10 @@ sh_test(
     name = "bazel_java14_test",
     srcs = ["bazel_java14_test.sh"],
     args = [
-        # --java_toolchain and --host_java_toolchain values
-        "@bazel_tools//tools/jdk:toolchain_jdk_14",
         # java_tools zip to test
         "src/java_tools.zip",
         "src/java_tools_prebuilt.zip",
-    ] + select({
-        # --javabase and --host_javabase values
-        "//src/conditions:darwin": ["@openjdk14_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk14_windows_archive//:runtime"],
-        "//src/conditions:linux": ["@openjdk14_linux_archive//:runtime"],
-    }),
+    ],
     data = [
         ":test-deps",
         "//src:java_tools_prebuilt_zip",
@@ -207,17 +200,10 @@ sh_test(
     name = "bazel_java15_test",
     srcs = ["bazel_java15_test.sh"],
     args = [
-        # --java_toolchain and --host_java_toolchain values
-        "@bazel_tools//tools/jdk:toolchain_jdk_15",
         # java_tools zip to test
         "src/java_tools.zip",
         "src/java_tools_prebuilt.zip",
-    ] + select({
-        # --javabase and --host_javabase values
-        "//src/conditions:darwin": ["@openjdk15_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk15_windows_archive//:runtime"],
-        "//src/conditions:linux": ["@openjdk15_linux_archive//:runtime"],
-    }),
+    ],
     data = [
         ":test-deps",
         "//src:java_tools_prebuilt_zip",
@@ -235,7 +221,6 @@ sh_test(
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
     args = [
-        "@bazel_tools//tools/jdk:toolchain",
         "released",
         "released",
     ],
@@ -256,47 +241,12 @@ JAVA_VERSIONS = ("11", "14", "15")
         timeout = "eternal",
         srcs = ["bazel_java_test.sh"],
         args = [
-            # --java_toolchain
-            "@bazel_tools//tools/jdk:toolchain",
             # java_tools zips to test
             "src/java_tools.zip",
             "src/java_tools_prebuilt.zip",
-            # --javabase value
-        ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
-        }),
-        data = [
-            ":test-deps",
-            "//src:java_tools_prebuilt_zip",
-            "//src:java_tools_zip",
-            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-            "@bazel_tools//tools/bash/runfiles",
+            # --java_runtime_version value
+            java_version,
         ],
-        exec_compatible_with = ["//:highcpu_machine"],
-    )
-    for java_version in JAVA_VERSIONS
-]
-
-[
-    sh_test(
-        name = "bazel_java_test_jdk" + java_version + "_prebuilt_toolchain_head",
-        size = "large",
-        timeout = "eternal",
-        srcs = ["bazel_java_test.sh"],
-        args = [
-            # --java_toolchain
-            "@bazel_tools//tools/jdk:prebuilt_toolchain",
-            # java_tools zips to test
-            "src/java_tools.zip",
-            "src/java_tools_prebuilt.zip",
-            # --javabase value
-        ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
-        }),
         data = [
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
@@ -316,17 +266,12 @@ JAVA_VERSIONS = ("11", "14", "15")
         timeout = "eternal",
         srcs = ["bazel_java_test.sh"],
         args = [
-            # --java_toolchain
-            "@bazel_tools//tools/jdk:toolchain",
             # java_tools zips to test
             "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
             "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL)",
-            # --javabase value
-        ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
-        }),
+            # --java_runtime_version value
+            java_version,
+        ],
         data = [
             ":test-deps",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
@@ -505,7 +450,6 @@ sh_test(
     name = "bazel_coverage_java_test",
     srcs = ["bazel_coverage_java_test.sh"],
     args = [
-        "@bazel_tools//tools/jdk:toolchain",
         "released",
         "released",
         "released",
@@ -525,18 +469,14 @@ sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "_toolchain_released_test",
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
-            "@bazel_tools//tools/jdk:toolchain",
             # java_tools zip to test
             "released",
             "released",
             # coverage_report_generator to test
             "released",
-            # --javabase value
-        ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
-        }),
+            # --java_runtime_version value
+            java_version,
+        ],
         data = [
             ":test-deps",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
@@ -554,19 +494,14 @@ sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "_toolchain_head_test",
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
-            # --java_toolchain
-            "@bazel_tools//tools/jdk:toolchain",
             # java_tools zips to test
             "src/java_tools.zip",
             "src/java_tools_prebuilt.zip",
             # coverage output generator to test
             "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
-            # --javabase value
-        ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux": ["@openjdk" + java_version + "_linux_archive//:runtime"],
-        }),
+            # --java_runtime_version value
+            java_version,
+        ],
         data = [
             ":test-deps",
             "//src:java_tools_prebuilt_zip",

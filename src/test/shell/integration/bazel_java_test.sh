@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests that --server_javabase/--host_javabase and --javabase work as expected
+# Tests that --server_javabase and Java toolchain resolution work as expected
 # for Bazel with the embedded JDK.
 
 # Load the test setup defined in the parent directory
@@ -68,7 +68,7 @@ EOF
 
   # We expect the given host_javabase does not appear in the command line of
   # java_library actions.
-  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' //java:javalib >& $TEST_log
+  bazel aquery --output=text --tool_java_runtime_version='host_javabase' //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
@@ -77,7 +77,7 @@ EOF
   expect_not_log "exec external/embedded_jdk/bin/java"
   expect_log "exec external/remotejdk11_.*/bin/java"
 
-  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' \
+  bazel aquery --output=text --tool_java_runtime_version='host_javabase' \
     //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
@@ -87,7 +87,7 @@ EOF
   expect_log "exec external/remotejdk11_.*/bin/java"
 
   # If we change language version to 15, we expect runtime to change
-  bazel aquery --incompatible_use_toolchain_resolution_for_java_rules --output=text --host_javabase=@host_javabase//:jdk \
+  bazel aquery --incompatible_use_toolchain_resolution_for_java_rules --output=text \
      --tool_java_runtime_version='host_javabase' --java_language_version=15 \
     //java:javalib >& $TEST_log
   expect_not_log "exec external/remotejdk11_.*/bin/java"
@@ -135,7 +135,7 @@ EOF
 
   # We expect the given host_javabase does not appear in the command line of
   # java_library actions.
-  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
+  bazel aquery --output=text --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
@@ -145,7 +145,7 @@ EOF
   expect_not_log "exec external/embedded_jdk/bin/java"
   expect_log "exec external/remotejdk11_.*/bin/java"
 
-  bazel aquery --output=text --host_javabase=@host_javabase//:jdk --tool_java_runtime_version='host_javabase' \
+  bazel aquery --output=text --tool_java_runtime_version='host_javabase' \
     'deps(//java:sample,1)' >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
@@ -197,9 +197,9 @@ public class HelloWorld {}
 EOF
 
   # Check that the RHS javabase appears in the launcher.
-  bazel build --java_toolchain=//:toolchain --javabase=@javabase//:jdk --extra_toolchains=//:toolchain_definition --java_runtime_version=javabase //java:javabin
+  bazel build --extra_toolchains=//:toolchain_definition --java_runtime_version=javabase //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
-  expect_log "JAVABIN=.*/javabase/bin/java}"
+  expect_log "JAVABIN=.*/zoo/bin/java"
 
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
@@ -251,13 +251,18 @@ function test_no_javabase() {
 }
 
 function test_genrule() {
-  mkdir -p foo/bin bar/bin
-  cat << EOF > BUILD
-java_runtime(
+  cat << EOF > WORKSPACE
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
     name = "foo_javabase",
     java_home = "$PWD/foo",
-    visibility = ["//visibility:public"],
+    version = "11",
 )
+EOF
+
+  mkdir -p foo/bin bar/bin
+  cat << EOF > BUILD
+
 
 java_runtime(
     name = "bar_runtime",
@@ -305,7 +310,7 @@ EOF
   # Setting the javabase should not change the use of :bar_runtime from the
   # roolchains attribute.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps \
-    'deps(//:with_java)' --host_javabase=:foo_javabase >& $TEST_log
+    'deps(//:with_java)' --tool_java_runtime_version=foo_javabase >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"

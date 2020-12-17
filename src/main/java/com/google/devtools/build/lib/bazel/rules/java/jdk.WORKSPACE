@@ -8,6 +8,7 @@ maybe(
     local_java_repository,
     name = "local_jdk",
     java_home = DEFAULT_SYSTEM_JAVABASE,
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
 )
 
 # OpenJDK distributions that should only be downloaded on demand (e.g. when

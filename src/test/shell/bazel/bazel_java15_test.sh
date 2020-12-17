@@ -54,10 +54,8 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-JAVA_TOOLCHAIN="$1"; shift
 JAVA_TOOLS_ZIP="$1"; shift
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
-JAVA_RUNTIME="$1"; shift
 
 echo "JAVA_TOOLS_ZIP=$JAVA_TOOLS_ZIP"
 
@@ -74,10 +72,6 @@ fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --javabase=${JAVA_RUNTIME}"
-add_to_bazelrc "build --host_javabase=${JAVA_RUNTIME}"
 
 function set_up() {
     cat >>WORKSPACE <<EOF

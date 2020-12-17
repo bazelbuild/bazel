@@ -2289,12 +2289,9 @@ EOF
 function test_rbe_coverage_produces_report() {
   mkdir -p java/factorial
 
-  JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
-  add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-  add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
   if is_darwin; then
-      add_to_bazelrc "build --javabase=@openjdk14_darwin_archive//:runtime"
-      add_to_bazelrc "build --host_javabase=@openjdk14_darwin_archive//:runtime"
+      add_to_bazelrc "build --java_runtime_version=14"
+      add_to_bazelrc "build --tool_java_runtime_version=14"
   fi
   JAVA_TOOLS_ZIP="released"
   COVERAGE_GENERATOR_DIR="released"

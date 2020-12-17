@@ -51,9 +51,18 @@ def _local_java_repository_impl(repository_ctx):
     if java_bin.exists:
         version = repository_ctx.attr.version if repository_ctx.attr.version != "" else _detect_java_version(repository_ctx, java_bin)
 
+        if repository_ctx.attr.build_file != None:
+            build_file = repository_ctx.read(repository_ctx.path(repository_ctx.attr.build_file))
+        else:
+            build_file = """
+java_runtime(
+  name = "jdk",
+  java_home = "{java_home}"
+) """.format(java_home = java_home)
+
         repository_ctx.file(
             "BUILD.bazel",
-            repository_ctx.read(repository_ctx.path(repository_ctx.attr._build_file)) +
+            build_file +
             """
 config_setting(
     name = "name_setting",
@@ -127,11 +136,11 @@ _local_java_repository_rule = repository_rule(
     attrs = {
         "java_home": attr.string(),
         "version": attr.string(),
-        "_build_file": attr.label(default = "@bazel_tools//tools/jdk:jdk.BUILD"),
+        "build_file": attr.label(),
     },
 )
 
-def local_java_repository(name, java_home, version = ""):
+def local_java_repository(name, java_home, version = "", build_file = None):
     """Imports and registers a local JDK.
 
     Toolchain resolution is constrained with --java_runtime_version flag
@@ -140,7 +149,8 @@ def local_java_repository(name, java_home, version = ""):
     Args:
       name: A unique name for this rule.
       java_home: Location of the JDK imported.
+      build_file: optionally BUILD file template
       version: optionally java version
     """
-    _local_java_repository_rule(name = name, java_home = java_home, version = version)
+    _local_java_repository_rule(name = name, java_home = java_home, version = version, build_file = build_file)
     native.register_toolchains("@" + name + "//:toolchain")

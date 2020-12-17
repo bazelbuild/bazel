@@ -84,8 +84,6 @@ public class JavaBinary {
 }
 EOF
   bazel run java/main:JavaBinary \
-      --java_toolchain=//java/main:default_toolchain \
-      --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
       --java_runtime_version=11 \
       --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
@@ -115,8 +113,6 @@ public class JavaBinary {
 }
 EOF
   bazel run java/main:JavaBinary \
-      --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11 \
-      --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
       --java_language_version=11 \
       --java_runtime_version=11 \
       --verbose_failures -s &>"${TEST_log}" \
@@ -153,8 +149,7 @@ public class JavaBinary {
 }
 EOF
   bazel coverage java/main:JavaBinary \
-      --java_toolchain=//java/main:default_toolchain \
-      --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
+      --java_runtime_version=11 \
       --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
