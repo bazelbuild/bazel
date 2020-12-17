@@ -1,5 +1,7 @@
 # [Bazel](https://bazel.build)
 
+Hello world.
+
 *{Fast, Correct} - Choose two*
 
 Build and test software of any size, quickly and reliably.
