@@ -74,7 +74,7 @@ build setting. The type is limited to a set of basic Starlark types like
  [documentation](lib/config.html)  for details. More complicated typing can be done in the rule's
 implementation function. More on this below.
 
-The `config` function also takes an optional boolean parameter, `flag`, which is
+The `config` module's functions takes an optional boolean parameter, `flag`, which is
 set to false by default. if `flag` is set to true, the build setting can be set
 on the command line by users as well as internally by rule writers via default
 values and
@@ -119,6 +119,38 @@ the build setting implementation function returns, like any other dependency.
 But all other references to the value of the build setting (e.g. in transitions)
 will see its basic Starlark-typed value, not this post implementation function
 value.
+
+#### Defining multi-set string flags
+String settings have an additional `allow_multiple` parameter which allows the
+flag to be set multiple times on the command line or in bazelrcs. Their default
+value is still set with a string-typed attribute:
+
+```python
+# example/buildsettings/build_settings.bzl
+allow_multiple_flag = rule(
+    implementation = _impl,
+    build_setting = config.string(flag = True, allow_multiple = True)
+)
+```
+
+```python
+# example/buildsettings/BUILD
+load("//example/buildsettings:build_settings.bzl", "allow_multiple_flag")
+allow_multiple_flag(
+    name = "roasts",
+    build_setting_default = "medium"
+)
+```
+
+Each setting of the flag is treated as a single value:
+
+```shell
+$ bazel build //my/target --//example:roasts=blonde \
+    --//example:roasts=medium,dark
+```
+
+The above will be parsed to {//example:roasts:["blonde", "medium,dark"]} and
+`ctx.build_setting_value` will return a list ["blonde", "medium,dark"].
 
 #### Instantiating Build Settings
 
@@ -557,6 +589,40 @@ like
 setting the individual flags to their appropriate values. Unfortunately this
 requires maintaining the expansion in two places. Note that this workaround
 does not allow for command-specific behavior like `--config` does.
+
+### Transitions on allow multiple build settings
+
+When setting build settings that
+[allow multiple values](#defining-multi-set-string-flags), the value of the
+setting must be set with a list.
+
+```python
+# example/buildsettings/build_settings.bzl
+string_flag = rule(
+    implementation = _impl,
+    build_setting = config.string(flag = True, allow_multiple = True)
+)
+```
+
+```python
+# example/BUILD
+load("//example/buildsettings:build_settings.bzl", "string_flag")
+string_flag(name = "roasts", build_setting_default = "medium")
+```
+
+```python
+# example/transitions/rules.bzl
+def _transition_impl(settings, attr):
+    # Using a value of just "dark" here will throw an error
+    return {"//example:roasts" : ["dark"]},
+
+coffee_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//example:roasts"]
+)
+```
+
 
 ### Accessing attributes with transitions
 

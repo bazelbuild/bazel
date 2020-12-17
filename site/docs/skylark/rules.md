@@ -524,7 +524,8 @@ def rule_implementation(ctx):
 `TransitiveDataInfo` acts both as a constructor for provider instances and as a key to access them.
 A [target](lib/Target.html) serves as a map from each provider that the target supports, to the
 target's corresponding instance of that provider.
-A rule can access the providers of its dependencies using the square bracket notation (`[]`):
+
+A rule can access the providers of its dependencies using index notation (`[]`):
 
 ```python
 def dependent_rule_implementation(ctx):

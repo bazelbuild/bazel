@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -55,7 +57,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -70,6 +71,8 @@ import java.util.concurrent.Future;
  * </pre>
  */
 public class LegacyIncludeScanner implements IncludeScanner {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final class ArtifactWithInclusionContext {
     private final Artifact artifact;
@@ -504,12 +507,27 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @return the resolved Path, or null if no file could be found
    */
   private Artifact locateRelative(
-      Inclusion inclusion, Map<PathFragment, Artifact> declaredHeaders, Artifact includer) {
+      Inclusion inclusion,
+      Map<PathFragment, Artifact> declaredHeaders,
+      Artifact includer,
+      PathFragment parent) {
     if (inclusion.kind != Kind.QUOTE) {
       return null;
     }
     PathFragment name = inclusion.pathFragment;
-    PathFragment execPath = includer.getExecPath().getParentDirectory().getRelative(name);
+
+    // The most effective way to see that something is not a relative inclusion is to see whether
+    // the include statement starts with a directory (has a '/') and whether that directory exists.
+    // We only do this for source files as we never match generated files against the file system.
+    if (includer.isSourceArtifact() && !name.containsUplevelReferences()) {
+      String firstSegment = name.getSegment(0);
+      // Specifically avoiding a call to segmentCount() here as that would scan the entire path.
+      if (firstSegment.length() < name.getPathString().length()
+          && !pathCache.directoryExists(parent.getRelative(firstSegment))) {
+        return null;
+      }
+    }
+    PathFragment execPath = parent.getRelative(name);
     if (!isFile(execPath, name, includer.isSourceArtifact(), declaredHeaders)) {
       return null;
     }
@@ -751,42 +769,53 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *     inclusions
      * @param visited the set to receive the files that are transitively included by {@code source}
      */
+    // TODO(b/175294870): Clean up.
+    @SuppressWarnings("LogAndThrow") // Temporary debugging.
     private void process(
         final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
       checkForInterrupt("processing", source);
 
       Collection<Inclusion> inclusions;
-      SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
-      Future<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
-      if (previous == null) {
-        previous = future;
-        try {
-          future.set(
-              parser.extractInclusions(
-                  source,
-                  actionExecutionMetadata,
-                  actionExecutionContext,
-                  grepIncludes,
-                  spawnIncludeScannerSupplier.get(),
-                  isRealOutputFile(source.getExecPath())));
-        } catch (IOException | ExecException | InterruptedException e) {
-          future.setException(e);
-          fileParseCache.remove(source);
-          throw e;
-        }
-      }
       try {
-        inclusions = previous.get();
-      } catch (ExecutionException e) {
-        if (e.getCause() instanceof InterruptedException) {
-          throw (InterruptedException) e.getCause();
-        } else if (e.getCause() instanceof ExecException) {
-          throw (ExecException) e.getCause();
-        } else if (e.getCause() instanceof IOException) {
-          throw (IOException) e.getCause();
+        inclusions =
+            fileParseCache
+                .computeIfAbsent(
+                    source,
+                    file -> {
+                      try {
+                        return Futures.immediateFuture(
+                            parser.extractInclusions(
+                                file,
+                                actionExecutionMetadata,
+                                actionExecutionContext,
+                                grepIncludes,
+                                spawnIncludeScannerSupplier.get(),
+                                isRealOutputFile(source.getExecPath())));
+                      } catch (IOException e) {
+                        throw new IORuntimeException(e);
+                      } catch (ExecException e) {
+                        throw new ExecRuntimeException(e);
+                      } catch (InterruptedException e) {
+                        throw new InterruptedRuntimeException(e);
+                      }
+                    })
+                .get();
+      } catch (ExecutionException ee) {
+        try {
+          Throwables.throwIfInstanceOf(ee.getCause(), RuntimeException.class);
+          throw new IllegalStateException(ee.getCause());
+        } catch (IORuntimeException e) {
+          throw e.getCauseIOException();
+        } catch (ExecRuntimeException e) {
+          throw e.getRealCause();
+        } catch (InterruptedRuntimeException e) {
+          throw e.getRealCause();
         }
-        throw new IllegalStateException(e.getCause());
+      } catch (RuntimeException e) {
+        // TODO(b/175294870): Remove after diagnosing the bug.
+        logger.atSevere().withCause(e).log("Uncaught exception in call to extractInclusions");
+        throw e;
       }
       Preconditions.checkNotNull(inclusions, source);
 
@@ -797,10 +826,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // For each inclusion: get or locate its target file & recursively process
       IncludeScannerHelper helper =
           new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
+      PathFragment parent = source.getExecPath().getParentDirectory();
       for (Inclusion inclusion : shuffledInclusions) {
         findAndProcess(
             helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
             source,
+            parent,
             visited);
       }
     }
@@ -836,11 +867,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
     /** Visits an inclusion starting from a source file. */
     private void findAndProcess(
-        InclusionWithContext inclusion, Artifact source, Set<Artifact> visited)
+        InclusionWithContext inclusion, Artifact source, PathFragment parent, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
       // Try to find the included file relative to the file that contains the inclusion. Relative
       // inclusions are handled like the first entry on the quote include path
-      Artifact includeFile = locateRelative(inclusion.getInclusion(), pathToDeclaredHeader, source);
+      Artifact includeFile =
+          locateRelative(inclusion.getInclusion(), pathToDeclaredHeader, source, parent);
       int contextPathPos = 0;
       Kind contextKind = null;
 
@@ -881,9 +913,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private void processCmdlineIncludes(
         Artifact source, List<String> includes, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
+      PathFragment parent = source.getExecPath().getParentDirectory();
       for (String incl : includes) {
         InclusionWithContext inclusion = new InclusionWithContext(incl, Kind.QUOTE);
-        findAndProcess(inclusion, source, visited);
+        findAndProcess(inclusion, source, parent, visited);
       }
     }
 

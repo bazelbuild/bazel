@@ -87,7 +87,7 @@ public abstract class JavaToolchainTool {
   }
 
   /**
-   * Builds the executable command line for the toola nd adds its inputs to the given builder.
+   * Builds the executable command line for the tool and adds its inputs to the given input builder.
    *
    * <p>For a Java command, the executable command line will include {@code java -jar deploy.jar} as
    * well as any JVM flags.
@@ -96,8 +96,10 @@ public abstract class JavaToolchainTool {
    * @param inputs for the action being constructed
    * @returns the executable command line for the tool
    */
-  CommandLine buildCommandLine(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
-    CustomCommandLine.Builder command = CustomCommandLine.builder();
+  void buildCommandLine(
+      CustomCommandLine.Builder command,
+      JavaToolchainProvider toolchain,
+      NestedSetBuilder<Artifact> inputs) {
     inputs.addAll(data());
     Artifact executable = tool().getExecutable();
     if (!executable.getExtension().equals("jar")) {
@@ -112,6 +114,16 @@ public abstract class JavaToolchainTool {
           .add("-jar")
           .addPath(executable.getExecPath());
     }
+  }
+
+  /**
+   * Builds the executable command line for the tool and adds its inputs to the given builder, see
+   * also {@link #buildCommandLine(CustomCommandLine.Builder, JavaToolchainProvider,
+   * NestedSetBuilder)}.
+   */
+  CommandLine buildCommandLine(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
+    CustomCommandLine.Builder command = CustomCommandLine.builder();
+    buildCommandLine(command, toolchain, inputs);
     return command.build();
   }
 }

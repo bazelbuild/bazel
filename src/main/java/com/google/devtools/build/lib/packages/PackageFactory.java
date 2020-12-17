@@ -853,6 +853,7 @@ public final class PackageFactory {
               ruleClassProvider.getToolsRepository(),
               /*fragmentNameToClass=*/ null,
               pkgBuilder.getRepositoryMapping(),
+              pkgBuilder.getConvertedLabelsInPackage(),
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
               /*analysisRuleLabel=*/ null)
           .storeInThread(thread);

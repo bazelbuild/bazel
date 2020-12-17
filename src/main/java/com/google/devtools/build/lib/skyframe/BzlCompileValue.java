@@ -211,6 +211,11 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     public SkyFunctionName functionName() {
       return SkyFunctions.BZL_COMPILE;
     }
+
+    @Override
+    public String toString() {
+      return String.format("%s:[%s]%s", functionName(), root, label);
+    }
   }
 
   /** Constructs a key for loading a regular (non-prelude) .bzl. */

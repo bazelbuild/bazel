@@ -56,11 +56,6 @@ public final class Module implements Resolver.Module {
   private final LinkedHashMap<String, Integer> globalIndex = new LinkedHashMap<>();
   private Object[] globals = new Object[8];
 
-  // Names of globals that are exported and can be loaded from other modules.
-  // TODO(adonovan): eliminate this field when the resolver treats loads as local bindings.
-  // Then all globals are exported.
-  final HashSet<String> exportedGlobals = new HashSet<>();
-
   // An optional piece of metadata associated with the module/file.
   // May be set after construction (too obscure to burden the constructors).
   // Its toString appears to Starlark in str(function): "<function f from ...>".
@@ -172,23 +167,6 @@ public final class Module implements Resolver.Module {
       }
     }
     return m.build();
-  }
-
-  /**
-   * Returns a map of bindings that are exported (i.e. symbols declared using `=` and `def`, but not
-   * `load`).
-   */
-  // TODO(adonovan): whether bindings are exported should be decided by the resolver;
-  //  non-exported bindings should never be added to the module.  Delete this,
-  //  once loads bind locally (then all globals will be exported).
-  public ImmutableMap<String, Object> getExportedGlobals() {
-    ImmutableMap.Builder<String, Object> result = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Object> entry : getGlobals().entrySet()) {
-      if (exportedGlobals.contains(entry.getKey())) {
-        result.put(entry);
-      }
-    }
-    return result.build();
   }
 
   /** Implements the resolver's module interface. */

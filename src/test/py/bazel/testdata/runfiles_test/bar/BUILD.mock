@@ -29,3 +29,8 @@ cc_binary(
     data = ["bar-cc-data.txt"],
     deps = ["@bazel_tools//tools/cpp/runfiles"],
 )
+
+sh_binary(
+    name = "bar-sh-run-under",
+    srcs = ["bar-run-under.sh"],
+)

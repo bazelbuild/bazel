@@ -275,7 +275,7 @@ public class SkydocMain {
                 Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));
 
     // Sort the globals bindings by name.
-    TreeMap<String, Object> sortedBindings = new TreeMap<>(module.getExportedGlobals());
+    TreeMap<String, Object> sortedBindings = new TreeMap<>(module.getGlobals());
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {

@@ -127,6 +127,9 @@ public class WorkspaceFileFunction implements SkyFunction {
             // the set of valid load labels, so load statements cannot all
             // be migrated to the top of the file.
             .requireLoadStatementsFirst(false)
+            // Bindings created by load statements in one
+            // chunk must be accessible to later chunks.
+            .loadBindsGlobally(true)
             // Top-level rebinding is permitted because historically
             // WORKSPACE files followed BUILD norms, but this should
             // probably be flipped.

@@ -109,9 +109,19 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
+# Additional generated files that are not Java sources (which could otherwise
+# be included in //src:derived_java_sources).
+filegroup(
+    name = "generated_resources",
+    srcs = ["//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip"],
+)
+
 pkg_tar(
     name = "bazel-srcs",
-    srcs = [":srcs"],
+    srcs = [
+        ":generated_resources",
+        ":srcs",
+    ],
     remap_paths = {
         "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.

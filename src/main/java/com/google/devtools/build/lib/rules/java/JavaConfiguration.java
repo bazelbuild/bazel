@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
@@ -106,6 +104,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
+  private final boolean runAndroidLint;
+  private final boolean limitAndroidLintToAndroidCompatible;
   private final boolean explicitJavaTestDeps;
   private final boolean jplPropagateCcLinkParamsStore;
   private final boolean addTestSupportToCompileTimeDeps;
@@ -153,6 +153,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
+    this.runAndroidLint = javaOptions.runAndroidLint;
+    this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -171,11 +173,13 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.translationTargets = translationsBuilder.build();
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
-    checkState(
-        optimizers.size() <= 1,
-        "--experimental_bytecode_optimizers can only accept up to one mapping, but %s mappings "
-            + "were provided.",
-        optimizers.size());
+    if (optimizers.size() > 1) {
+      throw new InvalidConfigurationException(
+          String.format(
+              "--experimental_bytecode_optimizers can only accept up to one mapping, but %s"
+                  + " mappings were provided.",
+              optimizers.size()));
+    }
     Map.Entry<String, Label> optimizer = Iterables.getOnlyElement(optimizers.entrySet());
     String mnemonic = optimizer.getKey();
     Label optimizerLabel = optimizer.getValue();
@@ -426,6 +430,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean isJlplStrictDepsEnforced() {
     return isJlplStrictDepsEnforced;
+  }
+
+  public boolean runAndroidLint() {
+    return runAndroidLint;
+  }
+
+  public boolean limitAndroidLintToAndroidCompatible() {
+    return limitAndroidLintToAndroidCompatible;
   }
 
   @Override

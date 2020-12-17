@@ -45,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -156,6 +157,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
               rule.getPackage().getRepositoryMapping(),
+              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
               /*analysisRuleLabel=*/ null)
           .storeInThread(thread);

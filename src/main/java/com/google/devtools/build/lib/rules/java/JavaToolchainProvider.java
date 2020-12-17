@@ -79,6 +79,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       JavaToolchainTool javaBuilder,
       @Nullable JavaToolchainTool headerCompiler,
       @Nullable JavaToolchainTool headerCompilerDirect,
+      @Nullable AndroidLintTool androidLint,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -102,6 +103,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javaBuilder,
         headerCompiler,
         headerCompilerDirect,
+        androidLint,
         headerCompilerBuiltinProcessors,
         reducedClasspathIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
@@ -130,6 +132,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final JavaToolchainTool javaBuilder;
   @Nullable private final JavaToolchainTool headerCompiler;
   @Nullable private final JavaToolchainTool headerCompilerDirect;
+  @Nullable private final AndroidLintTool androidLint;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
@@ -159,6 +162,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       JavaToolchainTool javaBuilder,
       @Nullable JavaToolchainTool headerCompiler,
       @Nullable JavaToolchainTool headerCompilerDirect,
+      @Nullable AndroidLintTool androidLint,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -187,6 +191,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javaBuilder = javaBuilder;
     this.headerCompiler = headerCompiler;
     this.headerCompilerDirect = headerCompilerDirect;
+    this.androidLint = androidLint;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
     this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
@@ -242,6 +247,11 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Nullable
   public JavaToolchainTool getHeaderCompilerDirect() {
     return headerCompilerDirect;
+  }
+
+  @Nullable
+  public AndroidLintTool getAndroidLint() {
+    return androidLint;
   }
 
   /** Returns class names of annotation processors that are built in to the header compiler. */

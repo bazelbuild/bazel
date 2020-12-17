@@ -28,8 +28,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
-// TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
-// and BUILD and .bzl features.
 @RunWith(JUnit4.class)
 public final class EvaluationTest {
 
@@ -751,11 +749,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testStaticNameResolution() throws Exception {
-    ev.new Scenario().testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
-  }
-
-  @Test
   public void testExec() throws Exception {
     ParserInput input =
         ParserInput.fromLines(
@@ -778,5 +771,28 @@ public final class EvaluationTest {
                 StarlarkInt.of(1),
                 StarlarkInt.of(2),
                 "foo1"));
+  }
+
+  // TODO(adonovan): add more tests of load.
+
+  @Test
+  public void testTopLevelRebinding() throws Exception {
+    FileOptions options =
+        FileOptions.DEFAULT.toBuilder()
+            .allowToplevelRebinding(true)
+            .loadBindsGlobally(true)
+            .build();
+
+    Module m1 = Module.create();
+    m1.setGlobal("x", "one");
+
+    ParserInput input = ParserInput.fromLines("load('m1', 'x'); x = 'two'");
+    Module m2 = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      thread.setLoader((name) -> m1);
+      Starlark.execFile(input, options, m2, thread);
+    }
+    assertThat(m2.getGlobal("x")).isEqualTo("two");
   }
 }

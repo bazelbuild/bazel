@@ -94,6 +94,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         JavaToolchainTool.fromFilesToRunProvider(
             ruleContext.getExecutablePrerequisite("header_compiler_direct"));
 
+    AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
+
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
@@ -117,6 +119,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javabuilder,
             headerCompiler,
             headerCompilerDirect,
+            androidLint,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,

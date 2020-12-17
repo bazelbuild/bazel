@@ -189,6 +189,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
+import org.junit.Ignore;
 
 /**
  * Common test code that creates a BuildView instance.
@@ -2345,6 +2346,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /** Creates instances of {@link ActionExecutionContext} consistent with test case. */
+  @Ignore
   public class ActionExecutionContextBuilder {
     private MetadataProvider actionInputFileCache = null;
     private TreeMap<String, String> clientEnv = new TreeMap<>();

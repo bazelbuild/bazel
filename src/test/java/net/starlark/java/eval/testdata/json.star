@@ -35,22 +35,20 @@ assert_eq(json.encode(struct(x = 1, y = "two")), '{"x":1,"y":"two"}')  # a value
 assert_eq(json.encode(struct(y = "two", x = 1, )), '{"x":1,"y":"two"}')  # field name order
 assert_eq(json.encode(struct(**{'\t': 0})), '{"\\t":0}') # struct keys are escaped too
 
-json.encode(float("NaN")) ### cannot encode non-finite float nan
----
-json.encode({1: "two"})  ### dict has int key, want string
----
-json.encode(len)  ### cannot encode builtin_function_or_method as JSON
----
-json.encode(struct(x = [1, len]))  ### in struct field .x: at list index 1: cannot encode builtin_function_or_method as JSON
----
-json.encode(struct(x = [1, {"x": len}]))  ### in struct field .x: at list index 1: in dict key "x": cannot encode builtin_function_or_method as JSON
----
+assert_fails(lambda: json.encode(float("NaN")), "cannot encode non-finite float nan")
+assert_fails(lambda: json.encode({1: "two"}) , "dict has int key, want string")
+assert_fails(lambda: json.encode(len) , "cannot encode builtin_function_or_method as JSON")
+assert_fails(lambda: json.encode(struct(x = [1, len])),
+  "in struct field .x: at list index 1: cannot encode builtin_function_or_method as JSON")
+assert_fails(lambda: json.encode(struct(x = [1, {"x": len}])),
+  "in struct field .x: at list index 1: in dict key \"x\": cannot encode builtin_function_or_method as JSON")
+
 def f(deep):
   for x in range(10000):
     deep = [deep]
-  json.encode(deep)  ### nesting depth limit exceeded
-f(None)
----
+  json.encode(deep)
+assert_fails(lambda: f(None), "nesting depth limit exceeded")
+
 ## json.decode
 
 assert_eq(json.decode("null"), None)
@@ -93,91 +91,49 @@ mutable.append(3)
 mutable[0][1] = 2
 assert_eq(str(mutable), "[{1: 2}, 3]")
 
-json.decode('truefalse') ### at offset 4, unexpected character "f" after value
----
-json.decode('"abc') ### unclosed string literal
----
-json.decode('"ab\\gc"') ### invalid escape '\\g'
----
-json.decode("'abc'") ### unexpected character "'"
----
-json.decode("1.2.3") ### invalid number: 1.2.3
----
-json.decode(".5e1") ### unexpected character "\."
----
-json.decode("+1") ### unexpected character "\+"
----
-json.decode("-abc") ### invalid number: -
----
-json.decode("-") ### invalid number: -
----
-json.decode("-00") ### invalid number: -00
----
-json.decode("00") ### invalid number: 00
----
-json.decode("--1") ### invalid number: --1
----
-json.decode("-+1") ### invalid number: -\+1
----
-json.decode("1e1e1") ### invalid number: 1e1e1
----
-json.decode("5.") ### invalid number: 5.
----
-json.decode(".5") ### unexpected character "."
----
-json.decode("5.e1") ### invalid number: 5.e1
----
-json.decode("5e") ### invalid number: 5e
----
-json.decode("5ee1") ### invalid number
----
-json.decode("0123") ### invalid number: 0123
----
-json.decode("000.123") ### invalid number: 000.123
----
-json.decode("-0123") ### invalid number: -0123
----
-json.decode("-000.123") ### invalid number: -000.123
----
-json.decode("0x123") ### unexpected character "x" after value
----
-json.decode('[1, 2 ') ### unexpected end of file
----
-json.decode('[1, 2, ') ### unexpected end of file
----
-json.decode('[1, 2, ]') ### unexpected character "]"
----
-json.decode('[1, 2, }') ### unexpected character "}"
----
-json.decode('[1, 2}') ### got "}", want ',' or ']'
----
-json.decode('{"one": 1') ### unexpected end of file
----
-json.decode('{"one" 1') ### after object key, got "1", want ':'
----
-json.decode('{"one": 1 "two": 2') ### in object, got "\\"", want ',' or '}'
----
-json.decode('{"x": 1, "x": 2}') ### object has duplicate key: "x"
----
-json.decode('{1:2}') ### got int for object key, want string
----
-json.decode('{"one": 1,') ### unexpected end of file
----
-json.decode('{"one": 1, }') ###  unexpected character "}"
----
-json.decode('{"one": 1]') ### in object, got "]", want ',' or '}'
----
-json.decode('[' * 10000) ### nesting depth limit exceeded
----
+assert_fails(lambda: json.decode('truefalse'), 'at offset 4, unexpected character "f" after value')
+assert_fails(lambda: json.decode('"abc'), "unclosed string literal")
+assert_fails(lambda: json.decode('"ab\\gc"'), r"invalid escape '\\g'")
+assert_fails(lambda: json.decode("'abc'"), 'unexpected character "\'"')
+assert_fails(lambda: json.decode("1.2.3"), "invalid number: 1.2.3")
+assert_fails(lambda: json.decode(".5e1"), 'unexpected character "\\."')
+assert_fails(lambda: json.decode("+1"), 'unexpected character "[+]"')
+assert_fails(lambda: json.decode("-abc"), "invalid number: -")
+assert_fails(lambda: json.decode("-"), "invalid number: -")
+assert_fails(lambda: json.decode("-00"), "invalid number: -00")
+assert_fails(lambda: json.decode("00"), "invalid number: 00")
+assert_fails(lambda: json.decode("--1"), "invalid number: --1")
+assert_fails(lambda: json.decode("-+1"), "invalid number: -[+]1")
+assert_fails(lambda: json.decode("1e1e1"), "invalid number: 1e1e1")
+assert_fails(lambda: json.decode("5."), "invalid number: 5.")
+assert_fails(lambda: json.decode(".5"), 'unexpected character "."')
+assert_fails(lambda: json.decode("5.e1"), "invalid number: 5.e1")
+assert_fails(lambda: json.decode("5e"), "invalid number: 5e")
+assert_fails(lambda: json.decode("5ee1"), "invalid number")
+assert_fails(lambda: json.decode("0123"), "invalid number: 0123")
+assert_fails(lambda: json.decode("000.123"), "invalid number: 000.123")
+assert_fails(lambda: json.decode("-0123"), "invalid number: -0123")
+assert_fails(lambda: json.decode("-000.123"), "invalid number: -000.123")
+assert_fails(lambda: json.decode("0x123"), 'unexpected character "x" after value')
+assert_fails(lambda: json.decode('[1, 2 '), "unexpected end of file")
+assert_fails(lambda: json.decode('[1, 2, '), "unexpected end of file")
+assert_fails(lambda: json.decode('[1, 2, ]'), 'unexpected character "]"')
+assert_fails(lambda: json.decode('[1, 2, }'), 'unexpected character "}"')
+assert_fails(lambda: json.decode('[1, 2}'), "got \"}\", want ',' or ']'")
+assert_fails(lambda: json.decode('{"one": 1'), "unexpected end of file")
+assert_fails(lambda: json.decode('{"one" 1'), 'after object key, got "1", want \':\'')
+assert_fails(lambda: json.decode('{"one": 1 "two": 2'), "in object, got ..\"., want ',' or '}'")
+assert_fails(lambda: json.decode('{"x": 1, "x": 2}'), 'object has duplicate key: "x"')
+assert_fails(lambda: json.decode('{1:2}'), "got int for object key, want string")
+assert_fails(lambda: json.decode('{"one": 1,'), "unexpected end of file")
+assert_fails(lambda: json.decode('{"one": 1, }'), 'unexpected character "}"')
+# FIXME assert_fails(lambda: json.decode('{"one": 1]'), 'in object, got "]", want ',' or \'}\'')
+assert_fails(lambda: json.decode('[' * 10000), "nesting depth limit exceeded")
 # Unescaped control codes (even tabs) are forbidden in strings.
-json.decode('"\t"') ### invalid character '\\x09' in string literal
----
-json.decode('"\\u123"') ### incomplete \\uXXXX escape
----
-json.decode('"\\u123') ### incomplete \\uXXXX escape
----
-json.decode('"\\u1') ### incomplete \\uXXXX escape
----
+assert_fails(lambda: json.decode('"\t"'), r"invalid character '\\x09' in string literal")
+assert_fails(lambda: json.decode('"\\u123"'), r"incomplete \\uXXXX escape")
+assert_fails(lambda: json.decode('"\\u123'), r"incomplete \\uXXXX escape")
+assert_fails(lambda: json.decode('"\\u1'), r"incomplete \\uXXXX escape")
 
 def codec(x):
     return json.decode(json.encode(x))
@@ -284,9 +240,7 @@ assert_eq(json.indent('[n!@#,t$%^,f&*(),-e1+9,"\\k\\upqrs"]'),
 
 json.indent('[' * 10000 + ']' * 10000) # no depth error: indentation is nonrecursive
 
-json.indent('[') ### unexpected end of file
----
-json.indent('"') ### input is not valid JSON
----
+assert_fails(lambda: json.indent('['), "unexpected end of file")
+assert_fails(lambda: json.indent('"'), "input is not valid JSON")
 
 # assert.fails(lambda: json.indent("!@#$%^& this is not json"), 'invalid character')

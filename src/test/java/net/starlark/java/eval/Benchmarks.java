@@ -183,7 +183,7 @@ public final class Benchmarks {
 
       // Sort bench_* functions by name.
       TreeMap<String, StarlarkFunction> benchmarks = new TreeMap<>();
-      for (Map.Entry<String, Object> e : module.getExportedGlobals().entrySet()) {
+      for (Map.Entry<String, Object> e : module.getGlobals().entrySet()) {
         if (e.getKey().startsWith("bench_") && e.getValue() instanceof StarlarkFunction) {
           String name = e.getKey();
           if (filter == null || filter.matcher(basename + ":" + name).find()) {

@@ -77,10 +77,9 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        OptionMetadataTag.DEPRECATED,
       },
-      help =
-          "Whether aquery should print proto/textproto results with proto v2 "
-              + "(with ids in uint64 instead of string).")
+      help = "No-op.")
   public boolean protoV2;
 }

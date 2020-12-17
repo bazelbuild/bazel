@@ -362,8 +362,21 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     }
 
     for (Artifact output : getOutputs()) {
-      deleteOutput(pathResolver.toPath(output), output.getRoot());
+      deleteOutput(output, pathResolver);
     }
+  }
+
+  /**
+   * Remove an output artifact.
+   *
+   * <p>If the path refers to a directory, recursively removes the contents of the directory.
+   *
+   * @param output artifact to remove
+   */
+  protected static void deleteOutput(Artifact output, ArtifactPathResolver pathResolver)
+      throws IOException {
+    deleteOutput(
+        pathResolver.toPath(output), pathResolver.transformRoot(output.getRoot().getRoot()));
   }
 
   /**
@@ -375,7 +388,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * @param root the root containing the output. This is used to check that we don't delete
    *     arbitrary files in the file system.
    */
-  public static void deleteOutput(Path path, @Nullable ArtifactRoot root) throws IOException {
+  public static void deleteOutput(Path path, @Nullable Root root) throws IOException {
     try {
       // Optimize for the common case: output artifacts are files.
       path.delete();
@@ -383,15 +396,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       // Handle a couple of scenarios where the output can still be deleted, but make sure we're not
       // deleting random files on the filesystem.
       if (root == null) {
-        throw new IOException(e);
+        throw new IOException("null root", e);
       }
-      Root outputRoot = root.getRoot();
-      if (!outputRoot.contains(path)) {
-        throw new IOException(e);
+      if (!root.contains(path)) {
+        throw new IOException(String.format("%s not under %s", path, root), e);
       }
 
       Path parentDir = path.getParentDirectory();
-      if (!parentDir.isWritable() && outputRoot.contains(parentDir)) {
+      if (!parentDir.isWritable() && root.contains(parentDir)) {
         // Retry deleting after making the parent writable.
         parentDir.setWritable(true);
         deleteOutput(path, root);

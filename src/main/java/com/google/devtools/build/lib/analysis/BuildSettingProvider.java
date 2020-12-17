@@ -45,6 +45,10 @@ public class BuildSettingProvider implements TransitiveInfoProvider {
     return buildSetting.getType();
   }
 
+  public boolean allowsMultiple() {
+    return buildSetting.allowsMultiple();
+  }
+
   public Object getDefaultValue() {
     return defaultValue;
   }

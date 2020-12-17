@@ -973,6 +973,8 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
+    private final HashMap<String, Label> convertedLabelsInPackage = new HashMap<>();
+
     private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
 
     /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
@@ -1078,6 +1080,10 @@ public class Package {
 
     Interner<ImmutableList<?>> getListInterner() {
       return listInterner;
+    }
+
+    HashMap<String, Label> getConvertedLabelsInPackage() {
+      return convertedLabelsInPackage;
     }
 
     /** Sets the name of this package's BUILD file. */

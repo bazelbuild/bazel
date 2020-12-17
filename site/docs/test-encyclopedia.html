@@ -431,6 +431,14 @@ take care to be hermetic, to use unique paths to avoid colliding with other,
 simultaneously running tests and non-test processes, and to clean up the files it
 creates in <code>/tmp</code>.</p>
 
+<p>Some popular testing frameworks, such as
+<a href="https://junit.org/junit4/javadoc/latest/org/junit/rules/TemporaryFolder.html">
+JUnit4 <code>TemporaryFolder</code></a> or
+<a href="https://golang.org/pkg/testing/#T.TempDir">Go <code>TempDir</code></a>,
+have their own ways to create a temporary directory under <code>/tmp</code>.
+These testing frameworks include functionality that cleans up files in <code>/tmp</code>,
+so you may use them even though they create files outside of <code>TEST_TMPDIR</code>.</p>
+
 <p>Tests must access inputs through the <b>runfiles</b> mechanism, or other
 parts of the execution environment which are specifically intended to make
 input files available.

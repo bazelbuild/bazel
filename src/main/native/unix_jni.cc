@@ -907,6 +907,13 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   }
 
   dir_path->push_back(entry);
+  // On macOS and some other non-Linux OSes, on some filesystems, readdir(dir)
+  // may return NULL after an entry in dir is deleted even if not all files have
+  // been read yet - see https://support.apple.com/kb/TA21420; we thus read all
+  // the names of dir's entries before deleting. We don't want to simply use
+  // fts(3) because we want to be able to chmod at any point in the directory
+  // hierarchy to retry a filesystem operation after hitting an EACCES.
+  std::vector<std::string> dir_files, dir_subdirs;
   for (;;) {
     errno = 0;
     struct dirent* de = readdir(dir);
@@ -927,15 +934,31 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
       break;
     }
     if (is_dir) {
-      if (DeleteTreesBelow(env, dir_path, dirfd(dir), de->d_name) == -1) {
+      dir_subdirs.push_back(de->d_name);
+    } else {
+      dir_files.push_back(de->d_name);
+    }
+  }
+  if (env->ExceptionOccurred() == NULL) {
+    for (const auto &file : dir_files) {
+      if (ForceDelete(env, *dir_path, dirfd(dir), file.c_str(), false) == -1) {
         CHECK(env->ExceptionOccurred() != NULL);
         break;
       }
     }
-
-    if (ForceDelete(env, *dir_path, dirfd(dir), de->d_name, is_dir) == -1) {
-      CHECK(env->ExceptionOccurred() != NULL);
-      break;
+    // DeleteTreesBelow is recursive; don't hold on to file names unnecessarily.
+    dir_files.clear();
+  }
+  if (env->ExceptionOccurred() == NULL) {
+    for (const auto &subdir : dir_subdirs) {
+      if (DeleteTreesBelow(env, dir_path, dirfd(dir), subdir.c_str()) == -1) {
+        CHECK(env->ExceptionOccurred() != NULL);
+        break;
+      }
+      if (ForceDelete(env, *dir_path, dirfd(dir), subdir.c_str(), true) == -1) {
+        CHECK(env->ExceptionOccurred() != NULL);
+        break;
+      }
     }
   }
   if (closedir(dir) == -1) {

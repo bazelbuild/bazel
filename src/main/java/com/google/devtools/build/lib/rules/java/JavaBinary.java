@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
@@ -478,6 +479,19 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                 JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
             .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .build();
+
+    Artifact validation =
+        AndroidLintActionBuilder.create(
+            ruleContext,
+            javaConfig,
+            attributes,
+            helper.getBootclasspathOrDefault(),
+            common,
+            outputs);
+    if (validation != null) {
+      builder.addOutputGroup(
+          OutputGroupInfo.VALIDATION, NestedSetBuilder.create(STABLE_ORDER, validation));
+    }
 
     return builder
         .setFilesToBuild(filesToBuild)

@@ -223,32 +223,23 @@ final class Eval {
     Module module = loader.load(moduleName);
     if (module == null) {
       fr.setErrorLocation(node.getStartLocation());
-      throw Starlark.errorf(
-          "file '%s' was not correctly loaded. Make sure the 'load' statement appears in the"
-              + " global scope in your file",
-          moduleName);
+      throw Starlark.errorf("module '%s' not found", moduleName);
     }
-    Map<String, Object> globals = module.getExportedGlobals();
 
     for (LoadStatement.Binding binding : node.getBindings()) {
       // Extract symbol.
       Identifier orig = binding.getOriginalName();
-      Object value = globals.get(orig.getName());
+      Object value = module.getGlobal(orig.getName());
       if (value == null) {
         fr.setErrorLocation(orig.getStartLocation());
         throw Starlark.errorf(
             "file '%s' does not contain symbol '%s'%s",
-            moduleName, orig.getName(), SpellChecker.didYouMean(orig.getName(), globals.keySet()));
+            moduleName,
+            orig.getName(),
+            SpellChecker.didYouMean(orig.getName(), module.getGlobals().keySet()));
       }
 
-      // Define module-local variable.
-      // TODO(adonovan): eventually the default behavior should be that
-      // loads bind file-locally. Either way, the resolver should designate
-      // the proper scope of binding.getLocalName() and this should become
-      // simply assign(binding.getLocalName(), value).
-      // Currently, we update the module but not module.exportedGlobals.
-      // Change it to a local binding now that closures are supported.
-      fn(fr).setGlobal(binding.getLocalName().getBinding().getIndex(), value);
+      assignIdentifier(fr, binding.getLocalName(), value);
     }
   }
 
@@ -349,11 +340,7 @@ final class Eval {
         ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
         break;
       case GLOBAL:
-        // Updates a module binding and sets its 'exported' flag.
-        // (Only load bindings are not exported.
-        // But exportedGlobals does at run time what should be done in the resolver.)
         fn(fr).setGlobal(bind.getIndex(), value);
-        fn(fr).getModule().exportedGlobals.add(id.getName());
         break;
       default:
         throw new IllegalStateException(bind.getScope().toString());
@@ -395,9 +382,16 @@ final class Eval {
     Expression rhs = stmt.getRHS();
 
     if (lhs instanceof Identifier) {
+      // x op= y    (lhs must be evaluated only once)
       Object x = eval(fr, lhs);
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y);
+      Object z;
+      try {
+        z = inplaceBinaryOp(fr, op, x, y);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
       assignIdentifier(fr, (Identifier) lhs, z);
 
     } else if (lhs instanceof IndexExpression) {
@@ -409,11 +403,44 @@ final class Eval {
       Object x = EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
       // Evaluate rhs after lhs.
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y);
+      Object z;
+      try {
+        z = inplaceBinaryOp(fr, op, x, y);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
       try {
         EvalUtils.setIndex(object, key, z);
       } catch (EvalException ex) {
         fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
+
+    } else if (lhs instanceof DotExpression) {
+      // object.field op= y  (lhs must be evaluated only once)
+      DotExpression dot = (DotExpression) lhs;
+      Object object = eval(fr, dot.getObject());
+      String field = dot.getField().getName();
+      try {
+        Object x =
+            Starlark.getattr(
+                fr.thread.mutability(),
+                fr.thread.getSemantics(),
+                object,
+                field,
+                /*defaultValue=*/ null);
+        Object y = eval(fr, rhs);
+        Object z;
+        try {
+          z = inplaceBinaryOp(fr, op, x, y);
+        } catch (EvalException ex) {
+          fr.setErrorLocation(stmt.getOperatorLocation());
+          throw ex;
+        }
+        EvalUtils.setField(object, field, z);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(dot.getDotLocation());
         throw ex;
       }
 

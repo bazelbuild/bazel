@@ -107,7 +107,7 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 
       // The option is of the form '--bazelrc=value', hence proceed to
       // examine the next argument.
-      if (current_arg.find("=") != string::npos) {
+      if (current_arg.find('=') != string::npos) {
         startup_args.push_back(std::move(current_arg));
         i++;
       } else {

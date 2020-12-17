@@ -77,7 +77,7 @@ public class FunctionTransitionUtil {
       StructImpl attrObject,
       EventHandler eventHandler)
       throws EvalException, InterruptedException {
-    checkForBlacklistedOptions(starlarkTransition);
+    checkForDenylistedOptions(starlarkTransition);
 
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
@@ -91,14 +91,48 @@ public class FunctionTransitionUtil {
     validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
 
     for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
+      Map<String, Object> newValues = handleImplicitPlatformChange(entry.getValue());
       BuildOptions transitionedOptions =
-          applyTransition(buildOptions, entry.getValue(), optionInfoMap, starlarkTransition);
+          applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
       splitBuildOptions.put(entry.getKey(), transitionedOptions);
     }
     return splitBuildOptions.build();
   }
 
-  private static void checkForBlacklistedOptions(StarlarkDefinedConfigTransition transition)
+  /**
+   * If the transition changes --cpu but not --platforms, clear out --platforms.
+   *
+   * <p>Purpose:
+   *
+   * <ol>
+   *   <li>A platform mapping sets --cpu=foo when --platforms=foo.
+   *   <li>A transition sets --cpu=bar.
+   *   <li>Because --platforms=foo, the platform mapping kicks in to set --cpu back to foo.
+   *   <li>Result: the mapping accidentally overrides the transition
+   * </ol>
+   *
+   * <p>Transitions can alo explicitly set --platforms to be clear what platform they set.
+   *
+   * <p>Platform mappings:
+   * https://docs.bazel.build/versions/master/platforms-intro.html#platform-mappings.
+   *
+   * <p>This doesn't check that the changed value is actually different than the source (i.e.
+   * setting {@code --cpu=foo} when {@code --cpu} is already {@code foo}). That could unnecessarily
+   * fork configurations that are really the same. That's a possible optimization TODO.
+   */
+  private static Map<String, Object> handleImplicitPlatformChange(
+      Map<String, Object> originalOutput) {
+    boolean changesCpu = originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "cpu");
+    boolean changesPlatforms = originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms");
+    return changesCpu && !changesPlatforms
+        ? ImmutableMap.<String, Object>builder()
+            .putAll(originalOutput)
+            .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
+            .build()
+        : originalOutput;
+  }
+
+  private static void checkForDenylistedOptions(StarlarkDefinedConfigTransition transition)
       throws EvalException {
     if (transition.getOutputs().contains("//command_line_option:define")) {
       throw Starlark.errorf(
