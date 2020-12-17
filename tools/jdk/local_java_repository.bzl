@@ -178,7 +178,7 @@ config_setting(
    visibility = ["//visibility:private"],
 )
 toolchain(
-   name = "toolchain",
+   name = "runtime_toolchain_definition",
    target_settings = [":localjdk_setting"],
    toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
    toolchain = ":jdk",

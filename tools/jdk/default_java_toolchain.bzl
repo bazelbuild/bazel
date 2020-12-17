@@ -14,8 +14,6 @@
 
 """Bazel rules for creating Java toolchains."""
 
-load("@rules_java//java:defs.bzl", "java_toolchain")
-
 JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
 ]
@@ -162,7 +160,7 @@ def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(configuration)
     toolchain_args.update(kwargs)
-    java_toolchain(
+    native.java_toolchain(
         name = name,
         **toolchain_args
     )
