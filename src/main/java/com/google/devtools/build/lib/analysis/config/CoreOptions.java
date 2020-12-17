@@ -964,6 +964,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // Pass host action environment variables
     host.actionEnvironment = hostActionEnvironment;
+    host.hostActionEnvironment = hostActionEnvironment;
 
     return host;
   }
