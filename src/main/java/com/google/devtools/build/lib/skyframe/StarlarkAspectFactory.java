@@ -21,22 +21,17 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A factory for aspects that are defined in Starlark. */
@@ -71,23 +66,10 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
-      try (Mutability mu = Mutability.create("aspect")) {
-        StarlarkThread thread = new StarlarkThread(mu, analysisEnv.getStarlarkSemantics());
-        thread.setPrintHandler(Event.makeDebugPrintHandler(analysisEnv.getEventHandler()));
-
-        new BazelStarlarkContext(
-                BazelStarlarkContext.Phase.ANALYSIS,
-                toolsRepository,
-                /*fragmentNameToClass=*/ null,
-                ruleContext.getRule().getPackage().getRepositoryMapping(),
-                /*convertedLabelsInPackage=*/ new HashMap<>(),
-                ruleContext.getSymbolGenerator(),
-                ruleContext.getLabel())
-            .storeInThread(thread);
-
+      try {
         Object aspectStarlarkObject =
             Starlark.fastcall(
-                thread,
+                ruleContext.getStarlarkThread(),
                 starlarkAspect.getImplementation(),
                 /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), starlarkRuleContext},
                 /*named=*/ new Object[0]);

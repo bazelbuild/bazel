@@ -105,6 +105,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 
 /**
  * A util class that contains all the helper stuff previously in BuildView that only exists to give
@@ -598,6 +599,9 @@ public class BuildViewForTesting {
                 .setConfiguredTarget(configuredTarget)
                 .setConfigurationKey(configuredTarget.getConfigurationKey())
                 .build())
+        .setToolsRepository(ruleClassProvider.getToolsRepository())
+        .setStarlarkSemantics(env.getStarlarkSemantics())
+        .setMutability(Mutability.create("configured target"))
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
