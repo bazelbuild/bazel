@@ -15,6 +15,7 @@ package net.starlark.java.eval;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -794,5 +795,45 @@ public final class EvaluationTest {
       Starlark.execFile(input, options, m2, thread);
     }
     assertThat(m2.getGlobal("x")).isEqualTo("two");
+  }
+
+  @Test
+  public void testLoadsAreNotReexported() throws Exception {
+    Module aModule = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("x = 1", "a.bzl"),
+        FileOptions.DEFAULT,
+        aModule,
+        new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT));
+
+    StarlarkThread bThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    bThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("a.bzl");
+          return aModule;
+        });
+    Module bModule = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("load('a.bzl', 'x')", "b.bzl"),
+        FileOptions.DEFAULT,
+        bModule,
+        bThread);
+
+    StarlarkThread cThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    cThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("b.bzl");
+          return bModule;
+        });
+    try {
+      Starlark.execFile(
+          ParserInput.fromString("load('b.bzl', 'x')", "c.bzl"),
+          FileOptions.DEFAULT,
+          Module.create(),
+          cThread);
+      fail("must throw EvalException because b.bzl does not reexport 'x'");
+    } catch (EvalException e) {
+      assertThat(e.getMessage()).contains("file 'b.bzl' does not contain symbol 'x'");
+    }
   }
 }
