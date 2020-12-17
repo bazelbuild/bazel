@@ -24,10 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.CommonPrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -37,11 +37,14 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -72,6 +75,8 @@ public class TestRuleClassProvider {
     addStandardRules(builder);
     // TODO(b/174773026): Eliminate TestingDummyRule/MockToolchainRule from this class, push them
     // down into the tests that use them. It's better for tests to avoid spooky mocks at a distance.
+    // The same might also be said for the cleared-workspace variant of getRuleClassProvider(). If
+    // we eliminate both, TestRuleClassProvider probably doesn't need to exist anymore.
     builder.addRuleDefinition(new TestingDummyRule());
     builder.addRuleDefinition(new MockToolchainRule());
     if (clearSuffix) {
@@ -96,6 +101,9 @@ public class TestRuleClassProvider {
     return ruleClassProviderWithClearedSuffix;
   }
 
+  // TODO(bazel-team): The logic for the "minimal" rule class provider is currently split between
+  // TestRuleClassProvider and BuiltinsInjectionTest's overrides of BuildViewTestCase setup helpers.
+  // Consider refactoring this together into one place as a new MinimalAnalysisMock.
   /**
    * Adds a few essential rules to a builder, such that it is usable but does not contain all the
    * rule classes known to the production environment.
@@ -103,10 +111,41 @@ public class TestRuleClassProvider {
   public static void addMinimalRules(ConfiguredRuleClassProvider.Builder builder) {
     // TODO(bazel-team): See also TrimmableTestConfigurationFragments#installFragmentsAndNativeRules
     // for alternative/additional setup. Consider factoring that one to use this method.
-    builder.setToolsRepository("@").setRunfilesPrefix("test");
+    builder
+        .setToolsRepository("@")
+        .setRunfilesPrefix("test")
+        .setPrerequisiteValidator(new MinimalPrerequisiteValidator());
     CoreRules.INSTANCE.init(builder);
     builder.addConfigurationOptions(CoreOptions.class);
-    builder.addConfigurationOptions(PlatformOptions.class);
+    PlatformRules.INSTANCE.init(builder);
+    ConfigRules.INSTANCE.init(builder);
+  }
+
+  private static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
+    @Override
+    public boolean isSameLogicalPackage(
+        PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
+      return thisPackage.equals(prerequisitePackage);
+    }
+
+    @Override
+    protected boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
+      return false;
+    }
+
+    @Override
+    protected boolean checkVisibilityForExperimental(RuleContext.Builder context) {
+      // It does not matter whether we return true or false here if packageUnderExperimental always
+      // returns false.
+      return true;
+    }
+
+    @Override
+    protected boolean allowExperimentalDeps(RuleContext.Builder context) {
+      // It does not matter whether we return true or false here if packageUnderExperimental always
+      // returns false.
+      return false;
+    }
   }
 
   /** A dummy rule with some dummy attributes. */
