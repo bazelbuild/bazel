@@ -965,6 +965,9 @@ public final class AndroidRuleClasses {
                   .undocumented(
                       "Do not use this attribute. It's for the migration of "
                           + "Android resource processing to Starlark only."))
+          // Nothing in the native rule reads this. This is only for facilitating the Starlark
+          // migration of the android rules.
+          .add(attr("stamp", TRISTATE).value(TriState.AUTO))
           // This comes from the --legacy_main_dex_list_generator flag.
           .add(
               attr(":legacy_main_dex_list_generator", LABEL)
