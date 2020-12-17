@@ -105,8 +105,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -162,8 +161,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -220,8 +218,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     // TODO(b/129637690): the runtime shouldn't be resolved in the host config
     ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -1803,7 +1800,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_toolchain_alias(name='alias')",
         "myrule(name='myrule')");
     useConfiguration(
-        "--java_toolchain=//java/com/google/test:toolchain",
         "--extra_toolchains=//java/com/google/test:all",
         "--platforms=//java/com/google/test:platform");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
@@ -2194,8 +2190,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     Depset files = (Depset) ct.get("files");
     assertThat(prettyArtifactNames(files.toList(Artifact.class))).containsExactly("a/a.txt");

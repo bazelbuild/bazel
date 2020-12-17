@@ -90,11 +90,7 @@ function set_up() {
     setup_bazelrc
   fi
 
-  # The default test setup adds a --host_javabase flag, which prevents us from
-  # actually using the bundled one. Remove it.
-  fgrep -v -- "--host_javabase" "$TEST_TMPDIR/bazelrc" > "$TEST_TMPDIR/bazelrc.new"
-  mv "$TEST_TMPDIR/bazelrc.new" "$TEST_TMPDIR/bazelrc"
-  # ... but ensure JAVA_HOME is set, so we can find a default --javabase
+  # ... but ensure JAVA_HOME is set, so we can find a default local jdk
   export JAVA_HOME="${javabase}"
 }
 
@@ -124,6 +120,9 @@ function test_bazel_license_prints_jdk_license() {
       fail "'bazel license' did not print an expected string from LICENSE"
 }
 
+# JVM selection: Do not automatically use remote JDK for execution JVM if local
+# JDK is not found. Print an error message guiding the user how to use remote JDK.
+# Rationale: Keeping build systems stable upon Bazel releases.
 
 function test_bazel_reports_missing_local_jdk() {
   # Make a JAVA_HOME with javac and without java

@@ -1,3 +1,40 @@
+## Release 3.7.2 (2020-12-17)
+
+```
+Baseline: a991db7c2f66a354666388d888dcef9b0d0f70c0
+
+Cherry picks:
+
+   + 0d14ec84a06c4da628a7f6d9d1c5f9314392ab15:
+     Release 3.7.0 (2020-10-20)
+   + d563446a77b906807cea86f5c2abafa5900d901a:
+     Add `-XDcompilePolicy=simple` to default javacopts
+   + 6336264e4b0d8cc422ec73e1b923bf8014ace778:
+     Update rules_cc reference to head of rules_cc as of 2020-11-11.
+   + b3f934680554515aa312b5dd4453df5cd38f0aea:
+     Bump rules_cc to support llvm 11.0.0 clang-cl compiler on Windows
+   + e055b433efdccb28b9c21082e72d8e79d9b34e0f:
+     Remove accidentally re-added
+     tools/jdk/java_toolchain_default.bzl.
+   + 02838a1b2aa2f6d03980536ab2ac6840c3c98e84:
+     Avoid the spawn cache if executing dynamically.
+   + d0efd7b9e5109ff5ac6d13c91f58c3fc4dc3afd8:
+     Release 3.7.1 (2020-11-24)
+   + a689d673abadf80f1efaf8ddaeee92d56fc2847b:
+     Use getRunfilesPath for run_under executable path generation.
+     getRootRelativePath doesn't return a valid runfiles path for
+     external source files anymore after the recent external source
+     root change. Also, it won't work for external labels either once
+     the --nolegacy_external_runfiles becomes default. This fixes
+     issue #12545.
+```
+
+Important changes:
+
+  - Update rules_cc to commit b1c40e1de81913a3c40e5948f78719c28152486d
+
+This release contains contributions from many people at Google, as well as William A Rowe Jr.
+
 ## Release 3.7.1 (2020-11-24)
 
 ```
