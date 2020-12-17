@@ -281,6 +281,14 @@ public class TestConfiguration extends Fragment {
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 
+    @Option(
+        name = "use_target_platform_for_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
+    public boolean useTargetPlatformForTests;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -389,6 +397,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean splitCoveragePostProcessing() {
     return options.splitCoveragePostProcessing;
+  }
+
+  public boolean useTargetPlatformForTests() {
+    return options.useTargetPlatformForTests;
   }
 
   /**

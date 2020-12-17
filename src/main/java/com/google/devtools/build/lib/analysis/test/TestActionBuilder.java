@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -329,6 +331,12 @@ public final class TestActionBuilder {
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
+    ActionOwner actionOwner = testConfiguration.useTargetPlatformForTests()
+        ? ruleContext.getTestActionOwner()
+        : ruleContext.getActionOwner(TEST_RUNNER_EXEC_GROUP);
+    if (actionOwner == null) {
+      actionOwner = ruleContext.getActionOwner();
+    }
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
       String shardDir = shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shards) : null;
@@ -390,7 +398,7 @@ public final class TestActionBuilder {
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
-                ruleContext.getActionOwner(),
+                actionOwner,
                 inputs,
                 testRunfilesSupplier,
                 testActionExecutable,

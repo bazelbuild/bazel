@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -466,6 +468,22 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  /**
+   * Returns a special action owner for test actions. Test actions should run on the target platform
+   * rather than the host platform. Note that the value is not cached (on the assumption that this
+   * method is only called once).
+   */
+  public ActionOwner getTestActionOwner() {
+    ActionOwner actionOwner =
+        createActionOwner(
+            rule,
+            aspectDescriptors,
+            getConfiguration(),
+            getExecProperties(TEST_RUNNER_EXEC_GROUP, execProperties),
+            toolchainContexts == null ? null : toolchainContexts.getTargetPlatform());
+    return actionOwner;
   }
 
   @Override
