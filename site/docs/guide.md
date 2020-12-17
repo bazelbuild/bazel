@@ -1,6 +1,8 @@
 ---
 layout: documentation
 title: User's guide
+# TODO(daroberts): Uncomment.
+# category: getting-started
 ---
 
 # A user's guide to Bazel
@@ -1077,4 +1079,3 @@ these messages.
 ## Troubleshooting performance by profiling
 
 See the [Performance Profiling](skylark/performance.md#performance-profiling) section.
-
