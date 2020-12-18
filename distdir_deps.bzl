@@ -67,7 +67,6 @@ maybe(
         )
 
     if ctx.attr.template:
-        print(repo_stanzas)
         ctx.actions.expand_template(
             output = ctx.outputs.out,
             template = ctx.file.template,
