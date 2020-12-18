@@ -982,6 +982,9 @@ public final class Resolver extends NodeVisitor {
    * StarlarkFile#errors}.
    */
   public static void resolveFile(StarlarkFile file, Module module) {
+    Preconditions.checkState(!file.resolveStarted, "StarlarkFile can be resolved only once");
+    file.resolveStarted = true;
+
     Resolver r = new Resolver(file.errors, module, file.getOptions());
     ImmutableList<Statement> stmts = file.getStatements();
 
