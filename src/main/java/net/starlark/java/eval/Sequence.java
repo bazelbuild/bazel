@@ -100,7 +100,7 @@ public interface Sequence<E>
    * For negative strides ({@code step < 0}), {@code -1 <= stop <= start < size()}. <br>
    * The caller must ensure that the start and stop indices are valid and that step is non-zero.
    */
-  Sequence<E> getSlice(Mutability mu, int start, int stop, int step);
+  Sequence<E> getSlice(Mutability mu, int start, int stop, int step) throws EvalException;
 
   /**
    * Casts a non-null Starlark value {@code x} to a {@code Sequence<T>}, after checking that each

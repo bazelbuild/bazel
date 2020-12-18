@@ -66,7 +66,7 @@ final class StringModule implements StarlarkValue {
   private StringModule() {}
 
   // Returns s[start:stop:step], as if by Sequence.getSlice.
-  static String slice(String s, int start, int stop, int step) {
+  static String slice(String s, int start, int stop, int step) throws EvalException {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
     if (n == 0) {
