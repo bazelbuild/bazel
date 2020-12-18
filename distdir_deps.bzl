@@ -46,7 +46,7 @@ maybe(
     "{repo}",
     sha256 = "{sha256}",
     strip_prefix = {strip_prefix},
-    urls = "{urls}",
+    urls = {urls},
 )
 """
     repo_stanzas = {}
