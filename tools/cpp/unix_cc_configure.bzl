@@ -171,13 +171,14 @@ def _is_linker_option_supported(repository_ctx, cc, option, pattern):
     ])
     return result.stderr.find(pattern) == -1
 
-def _find_linker_path(repository_ctx, cc, linker):
+def _find_linker_path(repository_ctx, cc, linker, is_clang):
     """Checks if a given linker is supported by the C compiler.
 
     Args:
       repository_ctx: repository_ctx.
       cc: path to the C compiler.
       linker: linker to find
+      is_clang: whether the compiler is known to be clang
 
     Returns:
       String to put as value to -fuse-ld= flag, or None if linker couldn't be found.
@@ -187,7 +188,7 @@ def _find_linker_path(repository_ctx, cc, linker):
         str(repository_ctx.path("tools/cpp/empty.cc")),
         "-o",
         "/dev/null",
-        # Some macos clang versions don't fail when setting -fuse-ld=gold, adding
+        # Some macOS clang versions don't fail when setting -fuse-ld=gold, adding
         # these lines to force it to. This also means that we will not detect
         # gold when only a very old (year 2010 and older) is present.
         "-Wl,--start-lib",
@@ -198,24 +199,17 @@ def _find_linker_path(repository_ctx, cc, linker):
     if result.return_code != 0:
         return None
 
+    if not is_clang:
+        return linker
+
     for line in result.stderr.splitlines():
         if line.find(linker) == -1:
             continue
         for flag in line.split(" "):
             if flag.find(linker) == -1:
                 continue
-            if flag.find("--enable-" + linker) > -1 or flag.find("--with-plugin-ld") > -1:
-                # skip build configuration options of gcc itself
-                # TODO(hlopko): Add redhat-like worker on the CI (#9392)
-                continue
-
-            # flag is '-fuse-ld=gold' for GCC or "/usr/lib/ld.gold" for Clang
-            # strip space, single quote, and double quotes
-            flag = flag.strip(" \"'")
-
-            # remove -fuse-ld= from GCC output so we have only the flag value part
-            flag = flag.replace("-fuse-ld=", "")
-            return flag
+            # flag looks like "/usr/lib/ld.gold".
+            return flag.strip(" \"'")
     auto_configure_warning(
         "CC with -fuse-ld=" + linker + " returned 0, but its -v output " +
         "didn't contain '" + linker + "', falling back to the default linker.",
@@ -415,8 +409,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         False,
     ), ":")
     gold_or_lld_linker_path = (
-        _find_linker_path(repository_ctx, cc, "lld") or
-        _find_linker_path(repository_ctx, cc, "gold")
+        _find_linker_path(repository_ctx, cc, "lld", is_clang) or
+        _find_linker_path(repository_ctx, cc, "gold", is_clang)
     )
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
