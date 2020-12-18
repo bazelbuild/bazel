@@ -19,7 +19,7 @@ java_library(
         ["*.java"],
         exclude = ["BazelCppSemantics.java"],
     ),
-    resources = [":workspace_with_rules_cc"],
+    resources = [":cc_configure.WORKSPACE"],
     deps = [
         ":bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
