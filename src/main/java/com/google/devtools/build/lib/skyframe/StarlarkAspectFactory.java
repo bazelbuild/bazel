@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -54,11 +53,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
     try {
       AspectDescriptor aspectDescriptor =
           new AspectDescriptor(starlarkAspect.getAspectClass(), parameters);
-      AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       try {
-        starlarkRuleContext =
-            new StarlarkRuleContext(
-                ruleContext, aspectDescriptor, analysisEnv.getStarlarkSemantics());
+        starlarkRuleContext = new StarlarkRuleContext(ruleContext, aspectDescriptor);
       } catch (EvalException e) {
         ruleContext.ruleError(e.getMessageWithStack());
         return null;

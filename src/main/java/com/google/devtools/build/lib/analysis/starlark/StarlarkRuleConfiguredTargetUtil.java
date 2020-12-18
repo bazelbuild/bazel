@@ -58,7 +58,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -82,13 +81,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
       RuleContext ruleContext,
       AdvertisedProviderSet advertisedProviders,
       Location location,
-      StarlarkSemantics starlarkSemantics,
       String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     StarlarkRuleContext starlarkRuleContext = null;
     try {
-      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null, starlarkSemantics);
+      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null);
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
       if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {

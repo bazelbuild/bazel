@@ -132,10 +132,8 @@ import net.starlark.java.syntax.Location;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
-  public boolean isAllowTagsPropagation() throws InterruptedException {
-    return this.getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+  public boolean isAllowTagsPropagation() {
+    return starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
   }
 
   /** Custom dependency validation logic. */
@@ -225,6 +223,13 @@ public final class RuleContext extends TargetContext
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
 
   /**
+   * The StarlarkSemantics to use for rule analysis. Should be the same as what's reported by the
+   * AnalysisEnvironment, but saving it here is more convenient since {@link
+   * AnalysisEnvironment#getStarlarkSemantics()} can throw InterruptedException.
+   */
+  private final StarlarkSemantics starlarkSemantics;
+
+  /**
    * Thread used for any Starlark evaluation during analysis, e.g. rule implementation function for
    * a Starlark-defined rule, or Starlarkified helper logic for native rules that have been
    * partially migrated to {@code @_builtins}.
@@ -281,8 +286,8 @@ public final class RuleContext extends TargetContext
     this.execProperties = parseExecProperties(builder.rawExecProperties);
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
-    this.starlarkThread =
-        createStarlarkThread(toolsRepository, starlarkSemantics, mutability); // uses above state
+    this.starlarkSemantics = starlarkSemantics;
+    this.starlarkThread = createStarlarkThread(toolsRepository, mutability); // uses above state
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -1215,8 +1220,11 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
-  private StarlarkThread createStarlarkThread(
-      String toolsRepository, StarlarkSemantics starlarkSemantics, Mutability mutability) {
+  public StarlarkSemantics getStarlarkSemantics() {
+    return starlarkSemantics;
+  }
+
+  private StarlarkThread createStarlarkThread(String toolsRepository, Mutability mutability) {
     AnalysisEnvironment env = getAnalysisEnvironment();
     StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
