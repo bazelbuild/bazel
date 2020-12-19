@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 @Immutable
 @AutoCodec
-public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
+public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact, ProtoSource> {
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
       implements ProtoInfoProviderApi {
@@ -113,6 +113,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   }
 
   /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
+  @Override
   public ImmutableList<ProtoSource> getDirectSources() {
     return directSources;
   }
@@ -163,6 +164,11 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   public NestedSet<ProtoSource> getTransitiveSources() {
     return transitiveSources;
+  }
+
+  @Override
+  public Depset getTransitiveSourcesForStarlark() {
+    return Depset.of(ProtoSource.TYPE, getTransitiveSources());
   }
 
   public NestedSet<Artifact> getTransitiveProtoSources() {

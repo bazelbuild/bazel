@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.starlarkbuildapi;
+package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -34,12 +35,30 @@ import net.starlark.java.annot.StarlarkMethod;
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
             + "rules_proto</a>."
             + "</p>")
-public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
+public interface ProtoInfoApi<FileT extends FileApi, ProtoSourceT extends ProtoSourceApi<FileT>> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface ProtoInfoProviderApi extends ProviderApi {
     // Currently empty. ProtoInfo cannot be created from Starlark at the moment.
   }
+
+  @StarlarkMethod(
+      name = "direct_proto_sources",
+      doc =
+          "A sequence of <a href=\"ProtoSource.html\">ProtoSource</a>s from <code>.proto</code> "
+              + "source files in this <a href=\"../../be/protocol-buffer.html#proto_library\">"
+              + "proto_library.</a>'s <code>srcs</code> attribute.",
+      structField = true)
+  ImmutableList<ProtoSourceT> getDirectSources();
+
+  @StarlarkMethod(
+      name = "transitive_proto_sources",
+      doc =
+          "A set of <a href=\"ProtoSource.html\">ProtoSource</a>s from <code>.proto</code> source "
+              + "files of all dependent <a href=\"../../be/protocol-buffer.html#proto_library\">"
+              + "proto_library.</a>'s <code>srcs</code> attributes (including this one's).",
+      structField = true)
+  Depset /*<ProtoSourceT>*/ getTransitiveSourcesForStarlark();
 
   @StarlarkMethod(
       name = "transitive_imports",
