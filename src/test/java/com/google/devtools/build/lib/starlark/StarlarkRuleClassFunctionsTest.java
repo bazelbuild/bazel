@@ -81,8 +81,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   @Override
