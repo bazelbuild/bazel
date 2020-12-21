@@ -5,6 +5,11 @@ title: Migrating from Maven to Bazel
 
 # Migrating from Maven to Bazel
 
+This page describes how to migrate from Maven to Bazel, including the
+prerequisites and installation steps. It describes the differences
+between Maven and Bazel, and provides a migration example using the
+Guava project.
+
 When migrating from any build tool to Bazel, it's best to have both build
 tools running in parallel until you have fully migrated your development team,
 CI system, and any other relevant systems. You can run Maven and Bazel in the
