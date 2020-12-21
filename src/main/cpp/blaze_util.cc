@@ -81,13 +81,9 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
     return values;
   }
 
-  const char* value = nullptr;
   bool found_dupe = false;  // true if 'key' was found twice
   vector<string>::size_type i = 0;
 
-  // Examine the first N-1 arguments. (N-1 because we examine the i'th and
-  // i+1'th together, in case a flag is defined "--name value" style and not
-  // "--name=value" style.)
   for (; i < args.size(); ++i) {
     if (args[i] == "--") {
       // If the current argument is "--", all following args are target names.
