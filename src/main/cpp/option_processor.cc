@@ -204,11 +204,14 @@ std::set<std::string> GetOldRcPaths(
         internal::FindRcAlongsideBinary(cwd, path_to_binary);
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
-  string user_bazelrc_path = internal::FindLegacyUserBazelrc(
-      SearchUnaryOption(startup_args, "--bazelrc", /* warn_if_dupe */ true),
-      workspace);
-  if (!user_bazelrc_path.empty()) {
-    candidate_bazelrc_paths.push_back(user_bazelrc_path);
+  vector<const char *> cmd_line_rc_files = SearchNaryOption(startup_args, "--bazelrc", /* warn_if_dupe */ true);
+  for (int i=0; i<cmd_line_rc_files.size(); i++) {
+    string user_bazelrc_path = internal::FindLegacyUserBazelrc(
+        cmd_line_rc_files[i],
+        workspace);
+    if (!user_bazelrc_path.empty()) {
+      candidate_bazelrc_paths.push_back(user_bazelrc_path);
+    }
   }
   // DedupeBlazercPaths returns paths whose canonical path could be computed,
   // therefore these paths must exist.
