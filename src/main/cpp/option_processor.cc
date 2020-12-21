@@ -24,6 +24,7 @@
 #include <set>
 #include <sstream>
 #include <utility>
+#include <iostream>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -41,6 +42,8 @@ extern char **environ;
 
 namespace blaze {
 
+using std::cout;
+using std::endl;
 using std::map;
 using std::set;
 using std::string;
@@ -370,20 +373,22 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
-  const char* cmd_line_rc_file =
-      SearchUnaryOption(cmd_line->startup_args, "--bazelrc",
+  vector<const char *> cmd_line_rc_files = SearchNaryOption(cmd_line->startup_args, "--bazelrc",
                         /* warn_if_dupe */ true);
-  if (cmd_line_rc_file != nullptr) {
-    string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
-    // Unlike the previous 3 paths, where we ignore it if the file does not
-    // exist or is unreadable, since this path is explicitly passed, this is an
-    // error. Check this condition here.
-    if (!blaze_util::CanReadFile(absolute_cmd_line_rc)) {
-      BAZEL_LOG(ERROR) << "Error: Unable to read .bazelrc file '"
-                       << absolute_cmd_line_rc << "'.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    rc_files.push_back(absolute_cmd_line_rc);
+  for (int j=0 ; j < cmd_line_rc_files.size(); j++) {
+    std::cout << "rc " << *cmd_line_rc_files[j] << std::endl;
+  }
+  for (int i=0; i< cmd_line_rc_files.size(); i++) {
+        string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_files[i]);
+        // Unlike the previous 3 paths, where we ignore it if the file does not
+        // exist or is unreadable, since this path is explicitly passed, this is an
+        // error. Check this condition here.
+        if (!blaze_util::CanReadFile(absolute_cmd_line_rc)) {
+          BAZEL_LOG(ERROR) << "Error: Unable to read .bazelrc file '"
+                           << absolute_cmd_line_rc << "'.";
+          return blaze_exit_code::BAD_ARGV;
+        }
+        rc_files.push_back(absolute_cmd_line_rc);
   }
 
   // Log which files we're looking for before removing duplicates and

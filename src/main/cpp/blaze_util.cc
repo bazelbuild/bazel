@@ -74,6 +74,49 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
+std::vector<const char*> SearchNaryOption(const vector<string>& args,
+                              const char *key, bool warn_if_dupe) {
+  vector<const char *> values;
+  if (args.empty()) {
+    return values;
+  }
+
+  const char* value = nullptr;
+  bool found_dupe = false;  // true if 'key' was found twice
+  vector<string>::size_type i = 0;
+
+  // Examine the first N-1 arguments. (N-1 because we examine the i'th and
+  // i+1'th together, in case a flag is defined "--name value" style and not
+  // "--name=value" style.)
+  for (; i < args.size(); ++i) {
+    if (args[i] == "--") {
+      // If the current argument is "--", all following args are target names.
+      // If 'key' was not found, 'value' is nullptr and we can return that.
+      // If 'key' was found exactly once, then 'value' has the value and again
+      // we can return that.
+      // If 'key' was found more than once then we could not have reached this
+      // line, because we would have broken out of the loop when 'key' was found
+      // the second time.
+      return values;
+    }
+//    for (int j=0; j < args.size(); j ++) {
+//      BAZEL_LOG(WARNING) << "args " << args[j];
+//    }
+
+    const char* result = GetUnaryOption(args[i].c_str(),
+                                        args[i + 1].c_str(),
+                                        key);
+    std::cout<<"result: "<< *result<<std::endl;
+
+    if (result != NULL) {
+      // 'key' was found and 'result' has its value.
+      values.push_back(result);
+    }
+  }
+
+  return values;
+}
+
 const char* SearchUnaryOption(const vector<string>& args,
                               const char *key, bool warn_if_dupe) {
   if (args.empty()) {
