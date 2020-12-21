@@ -85,11 +85,13 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.Collection;
@@ -103,6 +105,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 
 /**
  * A util class that contains all the helper stuff previously in BuildView that only exists to give
@@ -471,7 +474,12 @@ public class BuildViewForTesting {
           StarlarkTransition.TransitionException, InvalidExecGroupException {
     BuildConfiguration targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, target.getConfigurationKey());
-    CachingAnalysisEnvironment env =
+    SkyFunction.Environment skyframeEnv =
+        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        (StarlarkBuiltinsValue)
+            Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
+    CachingAnalysisEnvironment analysisEnv =
         new CachingAnalysisEnvironment(
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
@@ -483,8 +491,9 @@ public class BuildViewForTesting {
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),
             eventHandler,
-            skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler));
-    return getRuleContextForTesting(eventHandler, target, env, configurations);
+            skyframeEnv,
+            starlarkBuiltinsValue);
+    return getRuleContextForTesting(eventHandler, target, analysisEnv, configurations);
   }
 
   /**
@@ -590,6 +599,9 @@ public class BuildViewForTesting {
                 .setConfiguredTarget(configuredTarget)
                 .setConfigurationKey(configuredTarget.getConfigurationKey())
                 .build())
+        .setToolsRepository(ruleClassProvider.getToolsRepository())
+        .setStarlarkSemantics(env.getStarlarkSemantics())
+        .setMutability(Mutability.create("configured target"))
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,

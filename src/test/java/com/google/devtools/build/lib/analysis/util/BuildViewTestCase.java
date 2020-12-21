@@ -149,6 +149,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -626,7 +627,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
   }
 
-  protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
+  protected CachingAnalysisEnvironment getTestAnalysisEnvironment() throws InterruptedException {
+    SkyFunction.Environment env = skyframeExecutor.getSkyFunctionEnvironmentForTesting(reporter);
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        (StarlarkBuiltinsValue)
+            Preconditions.checkNotNull(env.getValue(StarlarkBuiltinsValue.key()));
     return new CachingAnalysisEnvironment(
         view.getArtifactFactory(),
         actionKeyContext,
@@ -646,7 +651,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /*extendedSanityChecks=*/ false,
         /*allowAnalysisFailures=*/ false,
         reporter,
-        skyframeExecutor.getSkyFunctionEnvironmentForTesting(reporter));
+        env,
+        starlarkBuiltinsValue);
   }
 
   /**
@@ -2116,6 +2122,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public StarlarkSemantics getStarlarkSemantics() {
       return buildLanguageOptions.toStarlarkSemantics();
+    }
+
+    @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+      throw new UnsupportedOperationException();
     }
 
     @Override

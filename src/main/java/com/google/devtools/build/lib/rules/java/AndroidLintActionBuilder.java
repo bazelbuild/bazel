@@ -96,6 +96,11 @@ class AndroidLintActionBuilder {
     }
     cmd.add("--lintopts");
     cmd.addAll(androidLint.options());
+    for (JavaPackageConfigurationProvider provider : androidLint.packageConfiguration()) {
+      if (provider.matches(ruleContext.getLabel())) {
+        cmd.addAll(provider.javacopts());
+      }
+    }
     cmd.addExecPath("--xml", result);
 
     SpawnAction.Builder spawnAction = new SpawnAction.Builder();

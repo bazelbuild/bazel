@@ -82,6 +82,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Mutability;
 
 /**
  * This class creates {@link ConfiguredTarget} instances using a given {@link
@@ -307,6 +308,9 @@ public final class ConfiguredTargetFactory {
                 ruleClassProvider.getPrerequisiteValidator(),
                 configurationFragmentPolicy,
                 configuredTargetKey)
+            .setToolsRepository(ruleClassProvider.getToolsRepository())
+            .setStarlarkSemantics(env.getStarlarkSemantics())
+            .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap, rule))
             .setConfigConditions(configConditions)
@@ -359,26 +363,29 @@ public final class ConfiguredTargetFactory {
       if (missingFragmentClass != null) {
         return createFailConfiguredTargetForMissingFragmentClass(ruleContext, missingFragmentClass);
       }
-      if (rule.getRuleClassObject().isStarlark()) {
-        // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-        ConfiguredTarget target =
-            StarlarkRuleConfiguredTargetUtil.buildRule(
-                ruleContext,
-                rule.getRuleClassObject().getAdvertisedProviders(),
-                rule.getRuleClassObject().getConfiguredTargetFunction(),
-                rule.getLocation(),
-                env.getStarlarkSemantics(),
-                ruleClassProvider.getToolsRepository());
 
-        return target != null ? target : erroredConfiguredTarget(ruleContext);
-      } else {
-        RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
-            factory =
-                rule.getRuleClassObject()
-                    .<ConfiguredTarget, RuleContext, ActionConflictException>
-                        getConfiguredTargetFactory();
-        Preconditions.checkNotNull(factory, rule.getRuleClassObject());
-        return factory.create(ruleContext);
+      try {
+        if (rule.getRuleClassObject().isStarlark()) {
+          // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
+          ConfiguredTarget target =
+              StarlarkRuleConfiguredTargetUtil.buildRule(
+                  ruleContext,
+                  rule.getRuleClassObject().getAdvertisedProviders(),
+                  rule.getLocation(),
+                  ruleClassProvider.getToolsRepository());
+
+          return target != null ? target : erroredConfiguredTarget(ruleContext);
+        } else {
+          RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
+              factory =
+                  rule.getRuleClassObject()
+                      .<ConfiguredTarget, RuleContext, ActionConflictException>
+                          getConfiguredTargetFactory();
+          Preconditions.checkNotNull(factory, rule.getRuleClassObject());
+          return factory.create(ruleContext);
+        }
+      } finally {
+        ruleContext.close();
       }
     } catch (RuleErrorException ruleErrorException) {
       // Returning null in this method is an indication a rule error occurred. Exceptions are not
@@ -516,6 +523,9 @@ public final class ConfiguredTargetFactory {
 
     RuleContext ruleContext =
         builder
+            .setToolsRepository(ruleClassProvider.getToolsRepository())
+            .setStarlarkSemantics(env.getStarlarkSemantics())
+            .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
@@ -548,12 +558,17 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect =
-        aspectFactory.create(
-            associatedTarget,
-            ruleContext,
-            aspect.getParameters(),
-            ruleClassProvider.getToolsRepository());
+    ConfiguredAspect configuredAspect;
+    try { // freezes starlark state when done
+      configuredAspect =
+          aspectFactory.create(
+              associatedTarget,
+              ruleContext,
+              aspect.getParameters(),
+              ruleClassProvider.getToolsRepository());
+    } finally {
+      ruleContext.close();
+    }
     if (configuredAspect != null) {
       validateAdvertisedProviders(
           configuredAspect,

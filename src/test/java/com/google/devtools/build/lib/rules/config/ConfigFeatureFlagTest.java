@@ -40,8 +40,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   @Before
@@ -186,8 +185,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    StarlarkRuleContext ctx =
-        new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
+    StarlarkRuleContext ctx = new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null);
     ev.update("ruleContext", ctx);
     ev.update("config_common", new ConfigStarlarkCommon());
     String value = (String) ev.eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
