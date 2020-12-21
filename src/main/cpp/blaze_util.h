@@ -53,6 +53,10 @@ bool GetNullaryOption(const char *arg, const char *key);
 const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key, bool warn_if_dupe);
 
+// Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
+// are omitted from the search.
+// Returns the values of the 'key' flag iff it occurs in args.
+// Returns empty vector otherwise.
 std::vector<const char*> SearchNaryOption(const std::vector<std::string>& args,
                               const char* key);
 
