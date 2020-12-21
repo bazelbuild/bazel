@@ -378,9 +378,6 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // flag is absent.
   vector<const char *> cmd_line_rc_files = SearchNaryOption(cmd_line->startup_args, "--bazelrc",
                         /* warn_if_dupe */ true);
-  for (int j=0 ; j < cmd_line_rc_files.size(); j++) {
-    std::cout << "rc " << *cmd_line_rc_files[j] << std::endl;
-  }
   for (int i=0; i< cmd_line_rc_files.size(); i++) {
         string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_files[i]);
         // Unlike the previous 3 paths, where we ignore it if the file does not

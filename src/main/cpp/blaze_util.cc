@@ -99,15 +99,9 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
       // the second time.
       return values;
     }
-//    for (int j=0; j < args.size(); j ++) {
-//      BAZEL_LOG(WARNING) << "args " << args[j];
-//    }
-
     const char* result = GetUnaryOption(args[i].c_str(),
                                         args[i + 1].c_str(),
                                         key);
-    std::cout<<"result: "<< *result<<std::endl;
-
     if (result != NULL) {
       // 'key' was found and 'result' has its value.
       values.push_back(result);
