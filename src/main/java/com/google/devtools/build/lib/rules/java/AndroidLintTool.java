@@ -29,6 +29,8 @@ abstract class AndroidLintTool {
 
   abstract ImmutableList<String> options();
 
+  abstract ImmutableList<JavaPackageConfigurationProvider> packageConfiguration();
+
   @Nullable
   static AndroidLintTool fromRuleContext(RuleContext ruleContext) {
     JavaToolchainTool tool =
@@ -39,11 +41,18 @@ abstract class AndroidLintTool {
     }
     ImmutableList<String> options =
         ImmutableList.copyOf(ruleContext.attributes().get("android_lint_opts", Type.STRING_LIST));
-    return create(tool, options);
+    ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
+        ImmutableList.copyOf(
+            ruleContext.getPrerequisites(
+                "android_lint_package_configuration", JavaPackageConfigurationProvider.class));
+    return create(tool, options, packageConfiguration);
   }
 
   @AutoCodec.Instantiator
-  static AndroidLintTool create(JavaToolchainTool tool, ImmutableList<String> options) {
-    return new AutoValue_AndroidLintTool(tool, options);
+  static AndroidLintTool create(
+      JavaToolchainTool tool,
+      ImmutableList<String> options,
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
+    return new AutoValue_AndroidLintTool(tool, options, packageConfiguration);
   }
 }

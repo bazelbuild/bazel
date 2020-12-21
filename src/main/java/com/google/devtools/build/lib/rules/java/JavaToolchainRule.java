@@ -318,6 +318,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         The list of arguments for the JVM when invoking Android Lint.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("android_lint_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_package_configuration) -->
+        Android Lint Configuration that should be applied to the specified package groups.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_package_configuration", LABEL_LIST)
+                .allowedFileTypes()
+                .cfg(ExecutionTransitionFactory.create())
+                .mandatoryBuiltinProviders(
+                    ImmutableList.of(JavaPackageConfigurationProvider.class)))
         .build();
   }
 

@@ -126,7 +126,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   private FragmentCollection fragments;
   private FragmentCollection hostFragments;
   private AspectDescriptor aspectDescriptor;
-  private final StarlarkSemantics starlarkSemantics;
 
   private Dict<String, String> makeVariables;
   private StarlarkAttributesCollection attributesCollection;
@@ -144,18 +143,16 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
    *     for a rule.
    * @throws InterruptedException
    */
-  public StarlarkRuleContext(
-      RuleContext ruleContext,
-      @Nullable AspectDescriptor aspectDescriptor,
-      StarlarkSemantics starlarkSemantics)
+  public StarlarkRuleContext(RuleContext ruleContext, @Nullable AspectDescriptor aspectDescriptor)
       throws EvalException, InterruptedException, RuleErrorException {
-    this.actionFactory = new StarlarkActionFactory(this, starlarkSemantics, ruleContext);
+    // Init ruleContext first, we need it to obtain the StarlarkSemantics used by
+    // StarlarkActionFactory (and possibly others).
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
+    this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
     this.hostFragments = new FragmentCollection(ruleContext, HostTransition.INSTANCE);
     this.aspectDescriptor = aspectDescriptor;
-    this.starlarkSemantics = starlarkSemantics;
 
     if (aspectDescriptor == null) {
       this.isForAspect = false;
@@ -387,7 +384,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
    * rule implementation function has exited).
    */
   public void nullify() {
-    actionFactory.nullify();
     ruleContext = null;
     fragments = null;
     hostFragments = null;
@@ -743,8 +739,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   @Override
   public Artifact newFile(Object var1, Object var2, Object fileSuffix) throws EvalException {
-    checkDeprecated("ctx.actions.declare_file", "ctx.new_file", starlarkSemantics);
     checkMutable("new_file");
+    checkDeprecated("ctx.actions.declare_file", "ctx.new_file", getStarlarkSemantics());
 
     // Determine which of new_file's four signatures is being used. Yes, this is terrible.
     // It's one major reason that this method is deprecated.
@@ -998,7 +994,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   public StarlarkSemantics getStarlarkSemantics() {
-    return starlarkSemantics;
+    return ruleContext.getStarlarkSemantics();
   }
 
   /**

@@ -378,7 +378,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContexts,
               transitivePackagesForPackageRootResolution);
-      if (configuredTargetProgress != null) {
+      if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
       }
       return ans;
@@ -999,12 +999,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {
-    StoredEventHandler events = new StoredEventHandler();
-    CachingAnalysisEnvironment analysisEnvironment =
-        view.createAnalysisEnvironment(configuredTargetKey, false, events, env, configuration);
-    if (env.valuesMissing()) {
+    // Should be successfully evaluated and cached from the loading phase.
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        (StarlarkBuiltinsValue) env.getValue(StarlarkBuiltinsValue.key());
+    if (starlarkBuiltinsValue == null) {
       return null;
     }
+
+    StoredEventHandler events = new StoredEventHandler();
+    CachingAnalysisEnvironment analysisEnvironment =
+        view.createAnalysisEnvironment(
+            configuredTargetKey, false, events, env, configuration, starlarkBuiltinsValue);
 
     Preconditions.checkNotNull(depValueMap);
     ConfiguredTarget configuredTarget;
