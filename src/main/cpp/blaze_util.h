@@ -54,7 +54,7 @@ const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key, bool warn_if_dupe);
 
 std::vector<const char*> SearchNaryOption(const std::vector<std::string>& args,
-                              const char* key, bool warn_if_dupe);
+                              const char* key);
 
 // Searches for '--flag_name' and '--noflag_name' in 'args' using
 // GetNullaryOption. Arguments found after '--' are omitted from the search.

@@ -75,7 +75,7 @@ bool GetNullaryOption(const char *arg, const char *key) {
 }
 
 std::vector<const char*> SearchNaryOption(const vector<string>& args,
-                              const char *key, bool warn_if_dupe) {
+                              const char *key) {
   vector<const char *> values;
   if (args.empty()) {
     return values;

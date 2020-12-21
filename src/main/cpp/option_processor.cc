@@ -204,7 +204,7 @@ std::set<std::string> GetOldRcPaths(
         internal::FindRcAlongsideBinary(cwd, path_to_binary);
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
-  vector<const char *> cmd_line_rc_files = SearchNaryOption(startup_args, "--bazelrc", /* warn_if_dupe */ true);
+  vector<const char *> cmd_line_rc_files = SearchNaryOption(startup_args, "--bazelrc");
   for (int i=0; i<cmd_line_rc_files.size(); i++) {
     string user_bazelrc_path = internal::FindLegacyUserBazelrc(
         cmd_line_rc_files[i],
@@ -376,8 +376,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
-  vector<const char *> cmd_line_rc_files = SearchNaryOption(cmd_line->startup_args, "--bazelrc",
-                        /* warn_if_dupe */ true);
+  vector<const char *> cmd_line_rc_files = SearchNaryOption(cmd_line->startup_args, "--bazelrc");
   for (int i=0; i< cmd_line_rc_files.size(); i++) {
         string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_files[i]);
         // Unlike the previous 3 paths, where we ignore it if the file does not
