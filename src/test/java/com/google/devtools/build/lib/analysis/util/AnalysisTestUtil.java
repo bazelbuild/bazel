@@ -187,6 +187,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+      return original.getStarlarkDefinedBuiltins();
+    }
+
+    @Override
     public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
       return original.getStableWorkspaceStatusArtifact();
     }
@@ -397,6 +402,11 @@ public final class AnalysisTestUtil {
 
     @Override
     public StarlarkSemantics getStarlarkSemantics() {
+      return null;
+    }
+
+    @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
       return null;
     }
 

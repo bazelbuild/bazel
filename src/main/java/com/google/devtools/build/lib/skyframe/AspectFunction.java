@@ -645,14 +645,19 @@ public final class AspectFunction implements SkyFunction {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws AspectFunctionException, InterruptedException {
-    SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
-
-    StoredEventHandler events = new StoredEventHandler();
-    CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
-        key, false, events, env, aspectConfiguration);
+    // Should be successfully evaluated and cached from the loading phase.
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        (StarlarkBuiltinsValue) env.getValue(StarlarkBuiltinsValue.key());
     if (env.valuesMissing()) {
       return null;
     }
+
+    SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
+
+    StoredEventHandler events = new StoredEventHandler();
+    CachingAnalysisEnvironment analysisEnvironment =
+        view.createAnalysisEnvironment(
+            key, false, events, env, aspectConfiguration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
     if (aspect.getDefinition().applyToGeneratingRules()
