@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
-        ":cc_configure.WORKSPACE",
+        # ":cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
