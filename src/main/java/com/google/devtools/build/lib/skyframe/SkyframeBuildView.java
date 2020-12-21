@@ -899,7 +899,8 @@ public final class SkyframeBuildView {
       boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,
-      BuildConfiguration config) {
+      BuildConfiguration config,
+      StarlarkBuiltinsValue starlarkBuiltinsValue) {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
     return new CachingAnalysisEnvironment(
@@ -910,7 +911,8 @@ public final class SkyframeBuildView {
         extendedSanityChecks,
         allowAnalysisFailures,
         eventHandler,
-        env);
+        env,
+        starlarkBuiltinsValue);
   }
 
   /**
