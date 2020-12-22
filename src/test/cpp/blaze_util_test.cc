@@ -30,6 +30,7 @@ namespace blaze {
 
 using std::string;
 using ::testing::HasSubstr;
+using ::testing::ElementsAre;
 
 class BlazeUtilTest : public ::testing::Test {
  protected:
@@ -232,6 +233,46 @@ TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWarnsAboutDuplicates) {
       EXPECT_THAT(stderr_output, HasSubstr("--flag is given more than once"));
     }
   }
+}
+
+void assert_equal_vector_char_pointer(std::vector<const char *> expected, std::vector<const char *> actual) {
+  ASSERT_EQ(actual.size(), expected.size()) << "Vectors x and y are of unequal length";
+
+  for (int i = 0; i < actual.size(); ++i) {
+    ASSERT_STREQ(actual[i], expected[i]) << "Vectors x and y differ at index " << i;
+  }
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryForEmpty) {
+  assert_equal_vector_char_pointer({}, SearchNaryOption({"bazel", "build", ":target"}, ""));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryFlagNotPresent) {
+  assert_equal_vector_char_pointer({}, SearchNaryOption({"bazel", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals) {
+  assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "--flag=value", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithoutEquals) {
+  assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "--flag", "value", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithEquals) {
+  assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "build", ":target", "--flag", "value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithoutEquals) {
+  assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "build", ":target", "--flag=value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNarySkipsAfterDashDashWithEquals) {
+  assert_equal_vector_char_pointer({}, SearchNaryOption({"bazel", "build", ":target", "--", "--flag", "value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNarySkipsAfterDashDashWithoutEquals) {
+  assert_equal_vector_char_pointer({}, SearchNaryOption({"bazel", "build", ":target", "--", "--flag=value"}, "--flag"));
 }
 
 }  // namespace blaze

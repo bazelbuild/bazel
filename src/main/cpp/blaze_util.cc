@@ -81,8 +81,8 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
     return values;
   }
 
-  bool found_dupe = false;  // true if 'key' was found twice
   vector<string>::size_type i = 0;
+
 
   for (; i < args.size(); ++i) {
     if (args[i] == "--") {
@@ -99,6 +99,7 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
                                         args[i + 1].c_str(),
                                         key);
     if (result != NULL) {
+      std::cout << result << std::endl;
       // 'key' was found and 'result' has its value.
       values.push_back(result);
     }
