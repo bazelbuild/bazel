@@ -5,7 +5,9 @@ title: Installing Bazel on macOS
 
 <h1 id="mac-os-x">Installing Bazel on macOS</h1>
 
-Install Bazel on macOS using one of the following methods:
+This page describes how to install Bazel on macOS and set up your environment.
+
+You can install Bazel on macOS using one of the following methods:
 
 *   [Use the binary installer (recommended)](#install-with-installer-mac-os-x)
 *   [Use Homebrew](#install-on-mac-os-x-homebrew)

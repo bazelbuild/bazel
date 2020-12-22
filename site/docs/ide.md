@@ -5,6 +5,10 @@ title: IDE integration
 
 # Integrating Bazel with IDEs
 
+This page covers how to integrate Bazel with IDEs, such as IntelliJ, Android
+Studio, and CLion (or build your own IDE plugin). It also includes links to
+installation and plugin details.
+
 IDEs integrate with Bazel in a variety of ways, from features that allow Bazel
 executions from within the IDE, to awareness of Bazel structures such as syntax
 highlighting of the BUILD files.
