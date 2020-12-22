@@ -374,7 +374,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
   vector<const char *> cmd_line_rc_files = SearchNaryOption(cmd_line->startup_args, "--bazelrc");
-  for (int i=0; i< cmd_line_rc_files.size(); i++) {
+  for (vector<const char *>::size_type i=0; i< cmd_line_rc_files.size(); i++) {
         string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_files[i]);
         // Unlike the previous 3 paths, where we ignore it if the file does not
         // exist or is unreadable, since this path is explicitly passed, this is an
