@@ -35,3 +35,66 @@ DIST_DEPS = {
         ],
     },
 }
+
+def _gen_workspace_stanza_impl(ctx):
+    if ctx.attr.template and (ctx.attr.preamble or ctx.attr.postamble):
+        fail("Can not use template with either preamble or postamble")
+
+    repo_clause = """
+maybe(
+    http_archive,
+    "{repo}",
+    sha256 = "{sha256}",
+    strip_prefix = {strip_prefix},
+    urls = {urls},
+)
+"""
+    repo_stanzas = {}
+    for repo in ctx.attr.repos:
+        info = DIST_DEPS[repo]
+        strip_prefix = info.get("strip_prefix")
+        if strip_prefix:
+            strip_prefix = "\"%s\"" % strip_prefix
+        else:
+            strip_prefix = "None"
+
+        repo_stanzas["{%s}" % repo] = repo_clause.format(
+            repo = repo,
+            archive = info["archive"],
+            sha256 = str(info["sha256"]),
+            strip_prefix = strip_prefix,
+            urls = info["urls"],
+        )
+
+    if ctx.attr.template:
+        ctx.actions.expand_template(
+            output = ctx.outputs.out,
+            template = ctx.file.template,
+            substitutions = repo_stanzas,
+        )
+    else:
+        content = "\n".join([l.strip() for l in ctx.attr.preamble.strip().split("\n")])
+        content += "\n"
+        content += "".join(repo_stanzas.values())
+        content += "\n"
+        content += "\n".join([l.strip() for l in ctx.attr.postamble.strip().split("\n")])
+        content += "\n"
+        ctx.actions.write(ctx.outputs.out, content)
+
+    return [DefaultInfo(files = depset([ctx.outputs.out]))]
+
+gen_workspace_stanza = rule(
+    implementation = _gen_workspace_stanza_impl,
+    attrs = {
+        "repos": attr.string_list(doc = "Set of repos to inlcude"),
+        "out": attr.output(mandatory = True),
+        "preamble": attr.string(doc = "Preamble."),
+        "postamble": attr.string(doc = "setup rules to follow repos."),
+        "template": attr.label(
+            doc = "Template WORKSPACE file. May not be used with preable or postamble." +
+                  "Repo stanzas can be include with the syntax '{repo name}'.",
+            allow_single_file = True,
+            mandatory = False,
+        ),
+    },
+)
