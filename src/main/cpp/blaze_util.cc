@@ -74,13 +74,9 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
-std::vector<const char*> SearchNaryOption(const vector<string>& args,
+std::vector<std::string> SearchNaryOption(const vector<string>& args,
                               const char *key) {
-  vector<const char *> values;
-  if (args.empty()) {
-    return values;
-  }
-
+  vector<std::string> values;
   for (vector<string>::size_type i = 0; i < args.size(); ++i) {
     if (args[i] == "--") {
       // If the current argument is "--", all following args are target names.

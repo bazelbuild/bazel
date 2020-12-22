@@ -57,7 +57,7 @@ const char* SearchUnaryOption(const std::vector<std::string>& args,
 // are omitted from the search.
 // Returns the values of the 'key' flag iff it occurs in args.
 // Returns empty vector otherwise.
-std::vector<const char*> SearchNaryOption(const std::vector<std::string>& args,
+std::vector<std::string> SearchNaryOption(const std::vector<std::string>& args,
                               const char* key);
 
 // Searches for '--flag_name' and '--noflag_name' in 'args' using
