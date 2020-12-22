@@ -14,6 +14,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 
+#include <algorithm>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -35,6 +36,7 @@
 namespace blaze {
 
 using std::map;
+using std::min;
 using std::string;
 using std::vector;
 
