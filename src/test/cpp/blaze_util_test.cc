@@ -235,10 +235,10 @@ TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWarnsAboutDuplicates) {
 }
 
 void assert_equal_vector_char_pointer(std::vector<const char *> expected, std::vector<const char *> actual) {
-  ASSERT_EQ(actual.size(), expected.size()) << "Vectors x and y are of unequal length";
+  ASSERT_EQ(actual.size(), expected.size()) << "Vectors expected and actual are of unequal length";
 
   for (int i = 0; i < actual.size(); ++i) {
-    ASSERT_STREQ(actual[i], expected[i]) << "Vectors x and y differ at index " << i;
+    ASSERT_STREQ(actual[i], expected[i]) << "Vectors expected and actual differ at index " << i;
   }
 }
 
