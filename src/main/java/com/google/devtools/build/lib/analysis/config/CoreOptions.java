@@ -723,8 +723,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Enable runfiles symlink tree; By default, it's off on Windows, on on other platforms.",
-      oldName = "experimental_enable_runfiles")
+          "Enable runfiles symlink tree; By default, it's off on Windows, on on other platforms.")
   public TriState enableRunfiles;
 
   @Option(
