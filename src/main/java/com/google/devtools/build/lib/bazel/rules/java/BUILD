@@ -8,7 +8,6 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
-        # ":jdk.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
