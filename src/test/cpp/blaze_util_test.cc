@@ -30,7 +30,6 @@ namespace blaze {
 
 using std::string;
 using ::testing::HasSubstr;
-using ::testing::ElementsAre;
 
 class BlazeUtilTest : public ::testing::Test {
  protected:

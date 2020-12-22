@@ -99,7 +99,6 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
                                         args[i + 1].c_str(),
                                         key);
     if (result != NULL) {
-      std::cout << result << std::endl;
       // 'key' was found and 'result' has its value.
       values.push_back(result);
     }

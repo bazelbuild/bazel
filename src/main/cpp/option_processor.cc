@@ -24,7 +24,6 @@
 #include <set>
 #include <sstream>
 #include <utility>
-#include <iostream>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -42,8 +41,6 @@ extern char **environ;
 
 namespace blaze {
 
-using std::cout;
-using std::endl;
 using std::map;
 using std::set;
 using std::string;
