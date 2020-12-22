@@ -255,16 +255,36 @@ TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals) {
   assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "--flag=value", "build", ":target"}, "--flag"));
 }
 
+TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals2) {
+  assert_equal_vector_char_pointer({"value1", "value2"}, SearchNaryOption({"bazel", "--flag=value1", "--flag=value2", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals3) {
+  assert_equal_vector_char_pointer({"value1", "value2", "value3"}, SearchNaryOption({"bazel", "--flag=value1", "--flag=value2", "--flag=value3", "build", ":target"}, "--flag"));
+}
+
 TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithoutEquals) {
   assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "--flag", "value", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithoutEquals2) {
+  assert_equal_vector_char_pointer({"value1", "value2"}, SearchNaryOption({"bazel", "--flag", "value1", "--flag", "value2", "build", ":target"}, "--flag"));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithEquals) {
   assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "build", ":target", "--flag", "value"}, "--flag"));
 }
 
+TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithEquals2) {
+  assert_equal_vector_char_pointer({"value1","value2"}, SearchNaryOption({"bazel", "build", ":target", "--flag", "value1", "--flag", "value2"}, "--flag"));
+}
+
 TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithoutEquals) {
   assert_equal_vector_char_pointer({"value"}, SearchNaryOption({"bazel", "build", ":target", "--flag=value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithoutEquals2) {
+  assert_equal_vector_char_pointer({"value1", "value2"}, SearchNaryOption({"bazel", "build", ":target", "--flag=value1", "--flag=value2"}, "--flag"));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNarySkipsAfterDashDashWithEquals) {
