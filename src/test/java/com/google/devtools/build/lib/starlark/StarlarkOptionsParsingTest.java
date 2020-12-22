@@ -328,16 +328,26 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         StarlarkOptionsParser.removeStarlarkOptions(
             ImmutableList.of(
                 "--//local/starlark/option",
+                "--//local/starlark/option=with_value",
                 "--@some_repo//external/starlark/option",
+                "--@some_repo//external/starlark/option=with_value",
                 "--@//main/repo/option",
+                "--@//main/repo/option=with_value",
                 "some-random-residue",
-                "--mangled//external/starlark/option"));
+                "--mangled//external/starlark/option",
+                "--mangled//external/starlark/option=with_value"));
     assertThat(residueAndStarlarkOptions.getFirst())
         .containsExactly(
             "--//local/starlark/option",
+            "--//local/starlark/option=with_value",
             "--@some_repo//external/starlark/option",
-            "--@//main/repo/option");
+            "--@some_repo//external/starlark/option=with_value",
+            "--@//main/repo/option",
+            "--@//main/repo/option=with_value");
     assertThat(residueAndStarlarkOptions.getSecond())
-        .containsExactly("some-random-residue", "--mangled//external/starlark/option");
+        .containsExactly(
+            "some-random-residue",
+            "--mangled//external/starlark/option",
+            "--mangled//external/starlark/option=with_value");
   }
 }
