@@ -44,7 +44,8 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "glob",
       doc =
-          "Glob returns a list of every file in the current package that:<ul>\n"
+          "Glob returns a new, mutable, sorted list of every file in the current package "
+              + "that:<ul>\n"
               + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
               + "<li>Does not match any of the patterns in <code>exclude</code> "
               + "(default <code>[]</code>).</li></ul>\n"
