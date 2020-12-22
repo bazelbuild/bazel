@@ -33,7 +33,9 @@ public class BazelStartupOptionsModule extends BlazeModule {
         valueHelp = "<path>",
         help =
             "The location of the user .bazelrc file containing default values of "
-                + "Bazel options. If unspecified, Bazel uses the first .bazelrc file it finds in "
+                + "Bazel options. This option can also be chained together. "
+                + "E.g. --bazelrc=x.rc --bazelrc=y.rc so options in both RCs will be read. "
+                + "If unspecified, Bazel uses the first .bazelrc file it finds in "
                 + "the following two locations: the workspace directory, then the user's home "
                 + "directory. Use /dev/null to disable the search for a user rc file, e.g. in "
                 + "release builds.")

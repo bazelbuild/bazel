@@ -202,10 +202,8 @@ std::set<std::string> GetOldRcPaths(
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
   vector<const char *> cmd_line_rc_files = SearchNaryOption(startup_args, "--bazelrc");
-  for (vector<const char *>::size_type i=0; i<cmd_line_rc_files.size(); i++) {
-    string user_bazelrc_path = internal::FindLegacyUserBazelrc(
-        cmd_line_rc_files[i],
-        workspace);
+  for (auto& rc_file : cmd_line_rc_files) {
+    string user_bazelrc_path = internal::FindLegacyUserBazelrc(rc_file, workspace);
     if (!user_bazelrc_path.empty()) {
       candidate_bazelrc_paths.push_back(user_bazelrc_path);
     }
@@ -374,8 +372,8 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
   vector<const char *> cmd_line_rc_files = SearchNaryOption(cmd_line->startup_args, "--bazelrc");
-  for (vector<const char *>::size_type i=0; i< cmd_line_rc_files.size(); i++) {
-        string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_files[i]);
+  for (auto& rc_file : cmd_line_rc_files) {
+        string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(rc_file);
         // Unlike the previous 3 paths, where we ignore it if the file does not
         // exist or is unreadable, since this path is explicitly passed, this is an
         // error. Check this condition here.
