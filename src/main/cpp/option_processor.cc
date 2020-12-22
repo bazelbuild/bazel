@@ -202,7 +202,7 @@ std::set<std::string> GetOldRcPaths(
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
   vector<const char *> cmd_line_rc_files = SearchNaryOption(startup_args, "--bazelrc");
-  for (int i=0; i<cmd_line_rc_files.size(); i++) {
+  for (vector<const char *>::size_type i=0; i<cmd_line_rc_files.size(); i++) {
     string user_bazelrc_path = internal::FindLegacyUserBazelrc(
         cmd_line_rc_files[i],
         workspace);
