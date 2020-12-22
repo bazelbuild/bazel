@@ -81,10 +81,7 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
     return values;
   }
 
-  vector<string>::size_type i = 0;
-
-
-  for (; i < args.size(); ++i) {
+  for (vector<string>::size_type i = 0; i < args.size(); ++i) {
     if (args[i] == "--") {
       // If the current argument is "--", all following args are target names.
       // If 'key' was not found, 'value' is nullptr and we can return that.
