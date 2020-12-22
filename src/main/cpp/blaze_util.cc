@@ -95,7 +95,7 @@ std::vector<const char*> SearchNaryOption(const vector<string>& args,
     const char* result = GetUnaryOption(args[i].c_str(),
                                         args[std::min(i + 1, args.size() -1)].c_str(),
                                         key);
-    if (result != NULL) {
+    if (result != nullptr) {
       // 'key' was found and 'result' has its value.
       values.push_back(result);
     }
