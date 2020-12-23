@@ -16,12 +16,25 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests the multidex code of {@link com.google.devtools.build.lib.rules.android.AndroidBinary}. */
-@RunWith(JUnit4.class)
-public class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest {
+@RunWith(Enclosed.class)
+public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidBinaryMultidexTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidBinaryMultidexTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setup() throws Exception {
