@@ -5,20 +5,21 @@ title: Building JavaScript Outputs
 
 # Building JavaScript Outputs
 
-Bazel supports an incremental and customizable means of building and testing
-JavaScript outputs from JavaScript and TypeScript sources.
+This page describes the features, rules, and workflows related to building
+and testing JavaScript outputs.
 
-It can also support build steps needed for frameworks like Angular.
-
-**Note:** This document describes Bazel features and workflows that are useful,
-but the Bazel team has not fully verified and does not officially support
-these features and workflows.
+**Note:** The Bazel team has not fully verified and does not officially support
+the features and workflows described on this page.
 
 ## Overview
 
+Bazel supports an incremental and customizable means of building and
+testing JavaScript outputs from JavaScript and TypeScript sources. Bazel also
+supports build steps needed for frameworks such as Angular.
+
 Bazel rules for building JavaScript outputs are split into three layers, since
 you can use JavaScript without TypeScript, and TypeScript without Angular.
-This document assumes you are already familiar with Bazel and uses the
+This page assumes you are already familiar with Bazel and uses the
 [Angular for Bazel sample project](https://github.com/angular/angular-bazel-example)
 to illustrate the recommended configuration. You can use the sample project as a
 starting point and add your own code to it to start building with Bazel.

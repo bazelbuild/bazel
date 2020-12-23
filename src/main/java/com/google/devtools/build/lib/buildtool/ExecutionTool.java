@@ -215,6 +215,7 @@ public class ExecutionTool {
         env.getExecRoot(),
         getReporter(),
         runtime.getClock(),
+        runtime.getBugReporter(),
         request,
         actionContextRegistry,
         spawnStrategyRegistry);

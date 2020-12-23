@@ -5,6 +5,8 @@ title: Memory-saving Mode
 
 # Running Bazel with limited RAM
 
+This page describes how to use flags to run Bazel with limited RAM.
+
 In certain situations, you may want Bazel to use minimal memory. You can set the
 maximum heap via the startup flag
 [`--host_jvm_args`](user-manual.html#flag--host_jvm_args),

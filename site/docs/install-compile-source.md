@@ -5,6 +5,9 @@ title: Compiling Bazel from source
 
 <h1 id="compiling-from-source">Compiling Bazel from source</h1>
 
+This page describes how to install Bazel from source and provides
+troubleshooting tips for common issues.
+
 To build Bazel from source, you can do one of the following:
 
 *   Build it [using an existing Bazel binary](#build-bazel-using-bazel)
