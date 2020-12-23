@@ -1,4 +1,3 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -7,8 +6,8 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
-        # ":cc_configure.WORKSPACE",
+    srcs = glob(["*"], exclude=["cc_configure.WORKSPACE"]) + [
+        ":cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -53,18 +52,4 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
-)
-
-gen_workspace_stanza(
-    name = "workspace_with_rules_cc",
-    out = "cc_configure.WORKSPACE",
-    postamble = """
-        cc_configure()
-    """,
-    preamble = """
-        load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-        load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-        load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
-        """,
-    repos = ["rules_cc"],
 )
