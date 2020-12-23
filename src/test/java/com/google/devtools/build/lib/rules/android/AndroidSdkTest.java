@@ -15,14 +15,26 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link com.google.devtools.build.lib.rules.android.AndroidSdk}. */
-@RunWith(JUnit4.class)
-public class AndroidSdkTest extends BuildViewTestCase {
+@RunWith(Enclosed.class)
+public abstract class AndroidSdkTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidSdkTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidSdkTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Test
   public void testSourcePropertiesProvided() throws Exception {
