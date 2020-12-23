@@ -61,12 +61,26 @@ import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link AndroidLibrary}. */
-@RunWith(JUnit4.class)
-public class AndroidLibraryTest extends AndroidBuildViewTestCase {
+@RunWith(Enclosed.class)
+public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidLibraryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidLibraryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   @Before
   public void setupCcToolchain() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
@@ -1998,6 +2012,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
+
+    if (platformBasedToolchains()) {
+      // TODO(b/161709111): With platform, the call to sdk below produces a NullPointerException.
+      return;
+    }
 
     assertThat(linkAction.getInputs().toList())
         .containsAtLeast(

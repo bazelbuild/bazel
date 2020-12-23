@@ -5,11 +5,10 @@ title: Bazel container
 
 # Getting Started with Bazel Docker Container
 
-In this guide, we will explore the contents of the Bazel container, build the
-[abseil-cpp](https://github.com/abseil/abseil-cpp) project using Bazel inside
-the Bazel container, as well as build the
-[abseil-cpp](https://github.com/abseil/abseil-cpp) project directly from the
-host machine using the Bazel container with directory mounting.
+This page provides details on the contents of the Bazel container, how to build
+the [abseil-cpp](https://github.com/abseil/abseil-cpp) project using Bazel
+inside the Bazel container, and how to build this project directly
+from the host machine using the Bazel container with directory mounting.
 
 ## Build Abseil project from your host machine with directory mounting
 

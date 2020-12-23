@@ -57,6 +57,7 @@ py_test_alias(
     srcs = ["aquery_differ_test.py"],
     deps = [
         ":aquery_differ_main_lib",
+        "//net/proto2/python/public:use_pure_python",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/mock",
         "//third_party/py/six",
