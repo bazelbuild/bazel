@@ -1,3 +1,4 @@
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -6,7 +7,11 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
+    srcs = glob(
+        ["*"],
+        exclude = ["jdk.WORKSPACE"],
+    ) + [
+        ":jdk.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -22,7 +27,9 @@ java_library(
         [
             "*.txt",
         ],
-    ),
+    ) + [
+        ":jdk.WORKSPACE",
+    ],
     deps = [
         ":bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -69,4 +76,14 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+gen_workspace_stanza(
+    name = "workspace_with_jdk",
+    out = "jdk.WORKSPACE",
+    repos = [
+        "rules_cc",
+        "rules_java",
+    ],
+    template = "jdk.WORKSPACE.tmpl",
 )

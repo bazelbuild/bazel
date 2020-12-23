@@ -6,8 +6,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"], exclude=["cc_configure.WORKSPACE"]) + [
-        ":cc_configure.WORKSPACE",
+    srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -19,7 +18,7 @@ java_library(
         ["*.java"],
         exclude = ["BazelCppSemantics.java"],
     ),
-    resources = [":cc_configure.WORKSPACE"],
+    resources = glob(["*.WORKSPACE"]),
     deps = [
         ":bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

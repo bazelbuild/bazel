@@ -163,8 +163,6 @@ distdir_tar(
         "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/platforms
         "platforms-0.0.2.tar.gz",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/bazel-toolchains
         "bazel-toolchains-3.1.0.tar.gz",
         # bazelbuild/rules_proto
@@ -202,8 +200,6 @@ distdir_tar(
         "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/platforms
         "platforms-0.0.2.tar.gz": "48a2d8d343863989c232843e01afc8a986eb8738766bfd8611420a7db8f6f0c3",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/bazel-toolchains
         "bazel-toolchains-3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
         # bazelbuild/rules_proto
@@ -265,11 +261,6 @@ distdir_tar(
         "platforms-0.0.2.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.2/platforms-0.0.2.tar.gz",
             "https://github.com/bazelbuild/platforms/releases/download/0.0.2/platforms-0.0.2.tar.gz",
-        ],
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
         # bazelbuild/bazel-toolchains
         "bazel-toolchains-3.1.0.tar.gz": [
@@ -505,12 +496,9 @@ http_archive(
     name = "rules_java",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-    ],
+    sha256 = DIST_DEPS["rules_java"]["sha256"],
+    strip_prefix = DIST_DEPS["rules_java"]["strip_prefix"],
+    urls = DIST_DEPS["rules_java"]["urls"],
 )
 
 http_archive(
@@ -545,8 +533,6 @@ distdir_tar(
         "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/platforms
         "platforms-0.0.2.tar.gz",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/protobuf
@@ -579,8 +565,6 @@ distdir_tar(
         "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/platforms
         "platforms-0.0.2.tar.gz": "48a2d8d343863989c232843e01afc8a986eb8738766bfd8611420a7db8f6f0c3",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/protobuf
@@ -618,11 +602,6 @@ distdir_tar(
         "platforms-0.0.2.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.2/platforms-0.0.2.tar.gz",
             "https://github.com/bazelbuild/platforms/releases/download/0.0.2/platforms-0.0.2.tar.gz",
-        ],
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [

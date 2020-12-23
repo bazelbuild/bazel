@@ -26,6 +26,17 @@ DIST_DEPS = {
         ],
         "need_in_test_WORKSPACE": True,
     },
+    "rules_java": {
+        "archive": "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "sha256": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+        "strip_prefix": "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        ],
+        "need_in_test_WORKSPACE": True,
+    },
+
     "rules_pkg": {
         "archive": "rules_pkg-0.2.4.tar.gz",
         "sha256": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
