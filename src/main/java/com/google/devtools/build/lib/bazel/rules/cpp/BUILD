@@ -7,8 +7,18 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
-        # ":cc_configure.WORKSPACE",
+    srcs = glob(
+        ["*"],
+        # The file is currently real. On the PR that deletes it, it seems to be
+        # in the distfile, so integration tests fail because we are including
+        # # cc_configure.WORKSPACE twice - once in the glob and once explicitly.
+        # Excluding it here allows the PR to work.
+        # TODO(#12081): Remove this exclude after #12743 is merged.
+        exclude = ["cc_configure.WORKSPACE"],
+    ) + [
+        # We need the generated file in srcs so it gets in the source distfile.
+        # That allows the boostrap build to work.
+        ":cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
