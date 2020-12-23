@@ -7,6 +7,10 @@ title: mobile-install
 
 <p class="lead">Fast iterative development for Android</p>
 
+This page describes how `bazel mobile-install` makes iterative development
+for Android much faster. It describes the benefits of this approach versus the
+challenges of the traditional app install method.
+
 ## TL;DR
 
 To install small changes to an Android app very quickly, do the following:

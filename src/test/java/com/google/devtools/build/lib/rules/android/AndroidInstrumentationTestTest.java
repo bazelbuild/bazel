@@ -27,12 +27,25 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link AndroidInstrumentationTest}. */
-@RunWith(JUnit4.class)
-public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
+@RunWith(Enclosed.class)
+public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidInstrumentationTestTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidInstrumentationTestTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setupCcToolchain() throws Exception {

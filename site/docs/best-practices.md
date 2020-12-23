@@ -5,8 +5,8 @@ title: Best practices
 
 # Best Practices
 
-This document assumes that you are familiar with Bazel and provides advice on structuring your
-projects to take full advantage of Bazel's features.
+This page assumes you are familiar with Bazel and provides guidelines and
+advice on structuring your projects to take full advantage of Bazel's features.
 
 The overall goals are:
 
