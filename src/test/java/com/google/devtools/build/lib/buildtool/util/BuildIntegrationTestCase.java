@@ -114,6 +114,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 
 /**
  * A base class for integration tests that use the {@link BuildTool}. These tests basically run a
@@ -125,6 +126,7 @@ import org.junit.Before;
 public abstract class BuildIntegrationTestCase {
 
   /** Thrown when an integration test case fails. */
+  @Ignore
   public static class IntegrationTestExecException extends ExecException {
     public IntegrationTestExecException(String message) {
       super(message);
@@ -232,6 +234,7 @@ public abstract class BuildIntegrationTestCase {
    * A helper class that can be used to record exceptions that occur on the event bus, by passing an
    * instance of it to BlazeRuntime#setEventBusExceptionHandler.
    */
+  @Ignore
   public static final class RecordingExceptionHandler implements SubscriberExceptionHandler {
     private Throwable exception;
 

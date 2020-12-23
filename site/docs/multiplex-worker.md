@@ -5,6 +5,9 @@ title: Multiplex workers
 
 # Multiplex workers (experimental feature)
 
+This page describes multiplex workers, how to write multiplex-compatible
+rules, and workarounds for certain limitations.
+
 **Caution:** Experimental features are subject to change at any time.
 
 _Multiplex workers_ allow Bazel to handle multiple requests with a single worker

@@ -322,6 +322,11 @@ public class StarlarkOptionsParser {
       if (name.startsWith("no")) {
         potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
       }
+      // Check if the string contains a value, trim off the value if so.
+      int equalsIdx = potentialStarlarkFlag.indexOf('=');
+      if (equalsIdx > 0) {
+        potentialStarlarkFlag = potentialStarlarkFlag.substring(0, equalsIdx);
+      }
       // Check if we can properly parse the (potentially trimmed) string as a label. If so, count
       // as starlark flag, else count as regular residue.
       try {
