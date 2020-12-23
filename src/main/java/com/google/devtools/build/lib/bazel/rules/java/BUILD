@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_visibility = ["//src:__subpackages__"],
@@ -24,9 +23,7 @@ java_library(
             "*.txt",
             "*.WORKSPACE",
         ],
-    ) + [
-        ":jdk.WORKSPACE",
-    ],
+    ),
     deps = [
         ":bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -73,11 +70,4 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-gen_workspace_stanza(
-    name = "workspace_with_jdk",
-    out = "jdk.WORKSPACE",
-    repos = ["rules_cc"],
-    template = "jdk.WORKSPACE.tmpl",
 )
