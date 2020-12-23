@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -346,10 +347,11 @@ public class DynamicSpawnStrategyTest {
 
     Executor executor =
         new BlazeExecutor(
-            null,
+            /*fileSystem=*/ null,
             testRoot,
-            null,
-            null,
+            /*reporter=*/ null,
+            /*clock=*/ null,
+            BugReporter.defaultInstance(),
             OptionsParser.builder()
                 .optionsClasses(ImmutableList.of(ExecutionOptions.class))
                 .build(),

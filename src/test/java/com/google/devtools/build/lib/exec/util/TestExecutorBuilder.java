@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -128,6 +129,7 @@ public class TestExecutorBuilder {
         execRoot,
         reporter,
         BlazeClock.instance(),
+        BugReporter.defaultInstance(),
         optionsParser,
         actionContextRegistry,
         strategyRegistry);

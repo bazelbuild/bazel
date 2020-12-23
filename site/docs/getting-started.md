@@ -5,8 +5,11 @@ title: Getting started
 
 # Getting started with Bazel
 
-This page lists material that will help you get started with Bazel. If you have
-not already done so, first read the [Bazel Overview](bazel-overview.html).
+This page contains resources that help you get started with Bazel, including
+installation steps and container information. It also provides links to
+tutorials and migration guides.
+
+If you have not already done so, first read the [Bazel Overview](bazel-overview.html).
 
 ## Installation
 

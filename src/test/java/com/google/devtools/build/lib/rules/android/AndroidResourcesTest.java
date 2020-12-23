@@ -32,12 +32,26 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests {@link AndroidResources} */
-@RunWith(JUnit4.class)
-public class AndroidResourcesTest extends ResourceTestBase {
+@RunWith(Enclosed.class)
+public abstract class AndroidResourcesTest extends ResourceTestBase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidResourcesTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidResourcesTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   private static final PathFragment DEFAULT_RESOURCE_ROOT = PathFragment.create(RESOURCE_ROOT);
   private static final ImmutableList<PathFragment> RESOURCES_ROOTS =
       ImmutableList.of(DEFAULT_RESOURCE_ROOT);
