@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions.util;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -51,6 +52,11 @@ public class DummyExecutor implements Executor {
   @Override
   public Clock getClock() {
     return clock;
+  }
+
+  @Override
+  public BugReporter getBugReporter() {
+    return BugReporter.defaultInstance();
   }
 
   @Override

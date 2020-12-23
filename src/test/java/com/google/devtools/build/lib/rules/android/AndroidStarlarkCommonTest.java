@@ -20,12 +20,25 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link AndroidStarlarkCommon}. */
-@RunWith(JUnit4.class)
-public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
+@RunWith(Enclosed.class)
+public abstract class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidStarlarkCommonTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidStarlarkCommonTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setupCcToolchain() throws Exception {
