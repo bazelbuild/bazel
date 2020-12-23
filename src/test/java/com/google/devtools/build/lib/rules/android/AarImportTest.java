@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -150,6 +151,46 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
         "    constraints = ['android'],",
         ")");
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+  }
+
+  @Test
+  public void proguardSpecsProvided() throws Exception {
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//a:bar");
+
+    NestedSet<Artifact> transitiveProguardSpecs =
+            binaryTarget.get(ProguardSpecProvider.PROVIDER).getTransitiveProguardSpecs();
+
+    assertThat(
+            transitiveProguardSpecs.toSet().stream()
+                    .map(Artifact::getRootRelativePathString)
+                    .collect(Collectors.toSet()))
+            .containsExactly("a/_aar/bar/proguard.txt", "a/_aar/foo/proguard.txt");
+  }
+
+
+  @Test
+  public void testProguardExtractor() throws Exception {
+    Artifact proguardSpecsAritfact =
+            getConfiguredTarget("//a:bar")
+                    .get(ProguardSpecProvider.PROVIDER)
+                    .getTransitiveProguardSpecs()
+                    .toList()
+                    .get(0);
+
+    Artifact aarProguardExtractor =
+            getHostConfiguredTarget(
+                    ruleClassProvider.getToolsRepository() + "//tools/android:aar_embedded_proguard_extractor")
+                    .getProvider(FilesToRunProvider.class)
+                    .getExecutable();
+
+    assertThat(getGeneratingSpawnAction(proguardSpecsAritfact).getArguments())
+            .containsExactly(
+                    aarProguardExtractor.getExecPathString(),
+                    "--input_aar",
+                    "a/bar.aar",
+                    "--output_proguard_file",
+                    proguardSpecsAritfact.getExecPathString()
+                    );
   }
 
   @Test

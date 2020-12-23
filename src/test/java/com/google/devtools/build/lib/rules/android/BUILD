@@ -28,6 +28,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

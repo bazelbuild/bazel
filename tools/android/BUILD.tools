@@ -329,6 +329,16 @@ py_binary(
 )
 
 py_binary(
+    name = "aar_embedded_proguard_extractor",
+    srcs = ["aar_embedded_proguard_extractor.py"],
+    python_version = PY_BINARY_VERSION,
+    deps = [
+        ":junction_lib",
+        "//third_party/py/abseil",
+    ],
+)
+
+py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
     python_version = "PY3",
