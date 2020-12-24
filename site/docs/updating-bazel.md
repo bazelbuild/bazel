@@ -5,13 +5,15 @@ title: Updating Bazel
 
 # Updating Bazel
 
+This page covers how to automatically update your Bazel version using Bazelisk.
+
 The Bazel project has a [backward compatibility
 policy](https://docs.bazel.build/versions/master/backward-compatibility.html)
 (see [guidance for rolling out incompatible
-changes](https://www.bazel.build/maintaining/breaking-changes-guide.html) if you are the
-author of one). That page summarizes best practices on how to test and migrate
-your project with upcoming incompatible changes and how to provide feedback to
-the incompatible change authors.
+changes](https://www.bazel.build/maintaining/breaking-changes-guide.html) if you
+are the author of one). That page summarizes best practices on how to test and
+migrate your project with upcoming incompatible changes and how to provide
+feedback to the incompatible change authors.
 
 ## Managing Bazel versions with Bazelisk
 
@@ -34,7 +36,6 @@ project can be prepared for the next Bazel release without breaking
 compatibility with the current release.
 
 We recommend the following process for project migration:
-
 
 1. Assume that your project already works with a given Bazel release, say 0.26,
    and you want to prepare for the next release, say 0.27
