@@ -33,7 +33,10 @@ final class ParamDescriptor {
   @Nullable private final Object defaultValue;
   private final boolean named;
   private final boolean positional;
-  private final List<Class<?>> allowedClasses; // non-empty
+  // Null means any class is allowed.
+  // Should be not empty otherwise.
+  @Nullable
+  private final List<Class<?>> allowedClasses;
   // The semantics flag responsible for disabling this parameter, or null if enabled.
   // It is an error for Starlark code to supply a value to a disabled parameter.
   @Nullable private final String disabledByFlag;
@@ -51,7 +54,11 @@ final class ParamDescriptor {
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.named = named;
     this.positional = positional;
-    this.allowedClasses = allowedClasses;
+    if (allowedClasses.contains(Object.class)) {
+      this.allowedClasses = null;
+    } else {
+      this.allowedClasses = allowedClasses;
+    }
     this.disabledByFlag = disabledByFlag;
   }
 
@@ -120,6 +127,7 @@ final class ParamDescriptor {
     return buf.toString();
   }
 
+  @Nullable
   List<Class<?>> getAllowedClasses() {
     return allowedClasses;
   }
