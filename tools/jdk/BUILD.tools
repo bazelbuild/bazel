@@ -98,6 +98,7 @@ cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
+        "//src/conditions:linux_mips64el": [":jni_md_header-linux"],
         "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
         "//src/conditions:linux_s390x": [":jni_md_header-linux"],
         "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
@@ -109,6 +110,7 @@ cc_library(
     }),
     includes = ["include"] + select({
         "//src/conditions:linux_aarch64": ["include/linux"],
+        "//src/conditions:linux_mips64el": ["include/linux"],
         "//src/conditions:linux_ppc64le": ["include/linux"],
         "//src/conditions:linux_s390x": ["include/linux"],
         "//src/conditions:linux_x86_64": ["include/linux"],

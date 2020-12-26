@@ -59,6 +59,8 @@ public class AutoCpuConverter implements Converter<String> {
               return "arm";
             case AARCH64:
               return "aarch64";
+            case MIPS64EL:
+              return "mips64el";
             case S390X:
               return "s390x";
             default:
