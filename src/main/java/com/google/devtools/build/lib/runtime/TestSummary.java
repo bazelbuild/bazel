@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -94,6 +96,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       setNumCached(existingSummary.numCached);
       setRanRemotely(existingSummary.ranRemotely);
       setWasUnreportedWrongSize(existingSummary.wasUnreportedWrongSize);
+      mergeSystemFailure(existingSummary.getSystemFailure());
     }
 
     // Implements copy on write logic, allowing reuse of the same builder.
@@ -296,6 +299,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    public Builder mergeSystemFailure(@Nullable DetailedExitCode systemFailure) {
+      checkMutation();
+      summary.systemFailure =
+          DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+              summary.systemFailure, systemFailure);
+      return this;
+    }
+
     /**
      * Records a new result for the given shard of the test.
      *
@@ -368,6 +379,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private FailedTestCasesStatus failedTestCasesStatus = null;
   private int totalTestCases;
   private int totalUnknownTestCases;
+  @Nullable private DetailedExitCode systemFailure;
 
   // Don't allow public instantiation; go through the Builder.
   private TestSummary() {
@@ -472,6 +484,11 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public FailedTestCasesStatus getFailedTestCasesStatus() {
     return failedTestCasesStatus;
+  }
+
+  @Nullable
+  public DetailedExitCode getSystemFailure() {
+    return systemFailure;
   }
 
   /**

@@ -37,7 +37,12 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,6 +56,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @ThreadSafety.ThreadSafe
 public class AggregatingTestListener {
+
+  private static final DetailedExitCode TESTS_FAILED_DETAILED_CODE =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage("tests failed")
+              .setTestCommand(TestCommand.newBuilder().setCode(Code.TESTS_FAILED))
+              .build());
   private final TestSummaryOptions summaryOptions;
   private final ExecutionOptions executionOptions;
   private final EventBus eventBus;
@@ -215,15 +227,16 @@ public class AggregatingTestListener {
   }
 
   /**
-   * Prints out the results of the given tests, and returns true if they all passed. Posts any
-   * targets which weren't already completed by the listener to the EventBus. Reports all targets on
-   * the console via the given notifier. Run at the end of the build, run only once.
+   * Prints out the results of the given tests, and returns a {@link DetailedExitCode} summarizing
+   * those test results. Posts any targets which weren't already completed by the listener to the
+   * EventBus. Reports all targets on the console via the given notifier. Run at the end of the
+   * build, run only once.
    *
    * @param testTargets The list of targets being run
    * @param notifier A console notifier to echo results to.
    * @return true if all the tests passed, else false
    */
-  public boolean differentialAnalyzeAndReport(
+  public DetailedExitCode differentialAnalyzeAndReport(
       Collection<ConfiguredTarget> testTargets,
       Collection<ConfiguredTarget> skippedTargets,
       TestResultNotifier notifier) {
@@ -236,6 +249,7 @@ public class AggregatingTestListener {
     int totalRun = 0; // Number of targets running at least one non-cached test.
     int passCount = 0;
 
+    DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
       TestSummary summary;
       if (isAlias(testTarget)) {
@@ -263,6 +277,10 @@ public class AggregatingTestListener {
       if (TestResult.isBlazeTestStatusPassed(summary.getStatus())) {
         passCount++;
       }
+
+      systemFailure =
+          DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+              systemFailure, summary.getSystemFailure());
     }
 
     int summarySize = summaries.size();
@@ -276,10 +294,18 @@ public class AggregatingTestListener {
         testTargets);
 
     notifier.notify(summaries, totalRun);
+
+    if (systemFailure != null) {
+      return systemFailure;
+    }
+
     // skipped targets are not in passCount since they have NO_STATUS
     Set<ConfiguredTarget> testTargetsSet = new HashSet<>(testTargets);
     Set<ConfiguredTarget> skippedTargetsSet = new HashSet<>(skippedTargets);
-    return passCount == Sets.difference(testTargetsSet, skippedTargetsSet).size();
+
+    return passCount == Sets.difference(testTargetsSet, skippedTargetsSet).size()
+        ? DetailedExitCode.success()
+        : TESTS_FAILED_DETAILED_CODE;
   }
 
   private static boolean isAlias(ConfiguredTarget target) {
