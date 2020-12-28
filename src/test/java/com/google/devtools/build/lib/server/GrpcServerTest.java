@@ -19,10 +19,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
-import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
 import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
+import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -66,22 +67,20 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the gRPC server. */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public class GrpcServerTest {
+public final class GrpcServerTest {
 
   private static final int SERVER_PID = 42;
   private static final String REQUEST_COOKIE = "request-cookie";
 
   private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-  private Path serverDirectory;
-  private GrpcServerImpl serverImpl;
   private Server server;
   private ManagedChannel channel;
 
   private void createServer(CommandDispatcher dispatcher) throws Exception {
-    serverDirectory = fileSystem.getPath("/bazel_server_directory");
+    Path serverDirectory = fileSystem.getPath("/bazel_server_directory");
     serverDirectory.createDirectoryAndParents();
 
-    serverImpl =
+    GrpcServerImpl serverImpl =
         new GrpcServerImpl(
             dispatcher,
             ShutdownHooks.createUnregistered(),
@@ -105,7 +104,7 @@ public class GrpcServerTest {
     channel = InProcessChannelBuilder.forName(uniqueName).directExecutor().build();
   }
 
-  private RunRequest createRequest(String... args) {
+  private static RunRequest createRequest(String... args) {
     return RunRequest.newBuilder()
         .setCookie(REQUEST_COOKIE)
         .setClientDescription("client-description")
@@ -113,7 +112,7 @@ public class GrpcServerTest {
         .build();
   }
 
-  private RunRequest createPreemptibleRequest(String... args) {
+  private static RunRequest createPreemptibleRequest(String... args) {
     return RunRequest.newBuilder()
         .setCookie(REQUEST_COOKIE)
         .setClientDescription("client-description")
@@ -124,7 +123,9 @@ public class GrpcServerTest {
 
   @Test
   public void testSendingSimpleMessage() throws Exception {
+    Any commandExtension = Any.pack(EnvironmentVariable.getDefaultInstance()); // Arbitrary message.
     AtomicReference<List<String>> argsReceived = new AtomicReference<>();
+    AtomicReference<List<Any>> commandExtensionsReceived = new AtomicReference<>();
     CommandDispatcher dispatcher =
         new CommandDispatcher() {
           @Override
@@ -135,8 +136,10 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             argsReceived.set(args);
+            commandExtensionsReceived.set(commandExtensions);
             return BlazeCommandResult.success();
           }
         };
@@ -145,13 +148,15 @@ public class GrpcServerTest {
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
-    stub.run(createRequest("Foo"), createResponseObserver(responses, done));
+    stub.run(
+        createRequest("Foo").toBuilder().addCommandExtensions(commandExtension).build(),
+        createResponseObserver(responses, done));
     done.await();
     server.shutdown();
     server.awaitTermination();
 
-    assertThat(argsReceived.get()).isNotNull();
     assertThat(argsReceived.get()).containsExactly("Foo");
+    assertThat(commandExtensionsReceived.get()).containsExactly(commandExtension);
 
     assertThat(responses).hasSize(2);
     assertThat(responses.get(0).getFinished()).isFalse();
@@ -174,7 +179,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             synchronized (this) {
               assertThrows(InterruptedException.class, this::wait);
             }
@@ -220,7 +226,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             OutputStream out = outErr.getOutputStream();
             try {
               for (int i = 0; i < 10; i++) {
@@ -276,7 +283,7 @@ public class GrpcServerTest {
 
   private void runBadCommandTest(RunRequest.Builder runRequestBuilder, FailureDetail failureDetail)
       throws Exception {
-    createServer(GrpcServerTest::unexpectedCommandExec);
+    createServer(throwingDispatcher());
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
@@ -297,7 +304,7 @@ public class GrpcServerTest {
 
   @Test
   public void unparseableInvocationPolicy() throws Exception {
-    createServer(GrpcServerTest::unexpectedCommandExec);
+    createServer(throwingDispatcher());
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
@@ -342,7 +349,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             OutputStream out = outErr.getOutputStream();
             try {
               while (true) {
@@ -401,7 +409,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions)
               throws InterruptedException {
             synchronized (this) {
               this.wait();
@@ -489,8 +498,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
-              throws InterruptedException {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             if (args.contains(firstCommandArg)) {
               while (true) {
                 try {
@@ -583,7 +592,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions)
               throws InterruptedException {
             if (args.contains(firstCommandArg)) {
               while (true) {
@@ -682,7 +692,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions)
               throws InterruptedException {
             if (args.contains(firstCommandArg)) {
               fooBlocked.countDown();
@@ -807,8 +818,7 @@ public class GrpcServerTest {
         new StreamObserver<RunResponse>() {
           @Override
           public void onNext(RunResponse value) {
-            if (sentCount.get() < 3) {
-            } else {
+            if (sentCount.get() >= 3) {
               clientBlocks.countDown();
               try {
                 clientUnblocks.await();
@@ -1039,14 +1049,16 @@ public class GrpcServerTest {
     };
   }
 
-  private static BlazeCommandResult unexpectedCommandExec(
-      InvocationPolicy invocationPolicy,
-      List<String> args,
-      OutErr outErr,
-      LockingMode lockingMode,
-      String clientDescription,
-      long firstContactTimeMillis,
-      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
-    throw new IllegalStateException("Command exec not expected");
+  private static CommandDispatcher throwingDispatcher() {
+    return (invocationPolicy,
+        args,
+        outErr,
+        lockingMode,
+        clientDescription,
+        firstContactTimeMillis,
+        startupOptionsTaggedWithBazelRc,
+        commandExtensions) -> {
+      throw new IllegalStateException("Command exec not expected");
+    };
   }
 }
