@@ -774,18 +774,17 @@ public class StandaloneTestStrategy extends TestStrategy {
       }
 
 
+      MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
+
       Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
       boolean testXmlExists = xmlOutputPath.exists();
-      if (!testXmlExists) {
-        MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
-        if (metadataHandler != null) {
+      if (!testXmlExists && metadataHandler != null) {
           try {
             // Check whether test.xml exists. If not, an IOException will be thrown.
             metadataHandler.getMetadata(testAction.getTestXml());
             testXmlExists = true;
           } catch (IOException ignored) {
           }
-        }
       }
 
       // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
@@ -812,6 +811,10 @@ public class StandaloneTestStrategy extends TestStrategy {
           closeSuppressed(e, xmlSpawnOutErr);
           throw e;
         }
+      }
+
+      if (!testXmlExists && metadataHandler != null) {
+          metadataHandler.markOmitted(testAction.getTestXml());
       }
 
       TestCase details = parseTestResult(xmlOutputPath);
