@@ -30,6 +30,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:netty",
         "//third_party:truth",
     ],
 )
