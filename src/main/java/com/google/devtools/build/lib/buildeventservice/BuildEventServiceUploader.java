@@ -355,7 +355,7 @@ public final class BuildEventServiceUploader implements Runnable {
       logger.atSevere().log("BES upload failed due to a RuntimeException / Error. This is a bug.");
       throw e;
     } finally {
-      buildEventUploader.shutdown();
+      buildEventUploader.release();
       MoreExecutors.shutdownAndAwaitTermination(timeoutExecutor, 0, TimeUnit.MILLISECONDS);
       closeFuture.set(null);
     }

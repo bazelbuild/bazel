@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.vfs.Path;
+import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -30,7 +31,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
-public interface BuildEventArtifactUploader {
+public interface BuildEventArtifactUploader extends ReferenceCounted {
   /**
    * Asynchronously uploads a set of files referenced by the protobuf representation of a {@link
    * BuildEvent}. This method is expected to return quickly.
@@ -77,11 +78,6 @@ public interface BuildEventArtifactUploader {
           return Futures.immediateFailedFuture(new IOException("No available uploader"));
         }
       };
-
-  /**
-   * Shutdown any resources associated with the uploader.
-   */
-  void shutdown();
 
   /**
    * Return true if the upload may be "slow". Examples of slowness include writes to remote storage.
