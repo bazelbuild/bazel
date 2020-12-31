@@ -853,7 +853,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
 
     BuildEventArtifactUploader get() throws IOException {
-      if (memoizedValue == null && exception == null) {
+      boolean needsInitialization = memoizedValue == null;
+      if (needsInitialization && exception == null) {
         try {
           memoizedValue = callable.call();
         } catch (IOException e) {
@@ -864,6 +865,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         }
       }
       if (memoizedValue != null) {
+        if (!needsInitialization) {
+          memoizedValue.retain();
+        }
         return memoizedValue;
       }
       throw exception;

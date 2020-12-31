@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildtool.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -68,6 +69,8 @@ import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.Any;
+import com.google.protobuf.Message;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -195,8 +198,17 @@ public class BlazeRuntimeWrapper {
   }
 
   /** Creates a new command environment; executeBuild does this automatically if you do not. */
-  public final CommandEnvironment newCommand(Class<? extends BlazeCommand> buildCommand)
+  public final CommandEnvironment newCommand(Class<? extends BlazeCommand> command)
       throws Exception {
+    return newCommandWithExtensions(command, /*extensions=*/ ImmutableList.of());
+  }
+
+  /**
+   * Creates a new command environment with additional proto extensions as if they were passed to
+   * the blaze server.
+   */
+  public final CommandEnvironment newCommandWithExtensions(
+      Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
     initializeOptionsParser();
     commandCreated = true;
     if (env != null) {
@@ -211,11 +223,12 @@ public class BlazeRuntimeWrapper {
         runtime
             .getWorkspace()
             .initCommand(
-                buildCommand.getAnnotation(Command.class),
+                command.getAnnotation(Command.class),
                 optionsParser,
                 new ArrayList<>(),
                 0L,
-                0L);
+                0L,
+                extensions.stream().map(Any::pack).collect(toImmutableList()));
     return env;
   }
 

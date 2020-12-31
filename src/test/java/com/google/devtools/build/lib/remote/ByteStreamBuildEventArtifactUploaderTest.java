@@ -181,7 +181,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
     }
 
-    artifactUploader.shutdown();
+    artifactUploader.release();
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
@@ -198,7 +198,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
-    artifactUploader.shutdown();
+    artifactUploader.release();
   }
 
   @Test
@@ -267,7 +267,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     assertThat(e.getCause().getCause()).isInstanceOf(StatusRuntimeException.class);
     assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
 
-    artifactUploader.shutdown();
+    artifactUploader.release();
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();

@@ -49,8 +49,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
 
 /** Base class for tests that work with resource artifacts. */
 public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
@@ -79,7 +77,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
       };
 
   /** A faked {@link RuleErrorConsumer} that validates that only expected errors were reported. */
-  @RunWith(Enclosed.class)
   public static final class FakeRuleErrorConsumer implements RuleErrorConsumer {
     private String ruleErrorMessage = null;
     private String attributeErrorAttribute = null;

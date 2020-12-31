@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoValue;
@@ -61,7 +62,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -200,17 +203,16 @@ public class TestRunnerAction extends AbstractAction
     this.testSetupScript = testSetupScript;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
-    this.configuration = Preconditions.checkNotNull(configuration);
-    this.testConfiguration =
-        Preconditions.checkNotNull(configuration.getFragment(TestConfiguration.class));
+    this.configuration = checkNotNull(configuration);
+    this.testConfiguration = checkNotNull(configuration.getFragment(TestConfiguration.class));
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
     this.coverageDirectory = coverageDirectory;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
-    this.testProperties = Preconditions.checkNotNull(testProperties);
-    this.executionSettings = Preconditions.checkNotNull(executionSettings);
+    this.testProperties = checkNotNull(testProperties);
+    this.executionSettings = checkNotNull(executionSettings);
 
     this.baseDir = cacheStatus.getExecPath().getParentDirectory();
 
@@ -462,14 +464,12 @@ public class TestRunnerAction extends AbstractAction
     if (cacheTestResults == TriState.AUTO && (runsPerTest > 1)) {
       return false;
     }
-    // Test will not be executed unconditionally - check whether test result exists and is
-    // valid. If it is, method will return false and we will rely on the dependency checker
-    // to make a decision about test execution.
     if (cacheTestResults == TriState.AUTO && prevStatus != null && !prevStatus.getTestPassed()) {
       return false;
     }
-    // Rely on the dependency checker to determine if the test can be cached. Note that the status
-    // is a declared output, so its non-existence also triggers a re-run.
+    if (prevStatus != null && !prevStatus.getCachable()) {
+      return false;
+    }
     return true;
   }
 
@@ -969,7 +969,7 @@ public class TestRunnerAction extends AbstractAction
     private final Path execRoot;
 
     ResolvedPaths(Path execRoot) {
-      this.execRoot = Preconditions.checkNotNull(execRoot);
+      this.execRoot = checkNotNull(execRoot);
     }
 
     private Path getPath(PathFragment relativePath) {
@@ -1209,8 +1209,21 @@ public class TestRunnerAction extends AbstractAction
       testRunnerSpawn.finalizeTest(result, failedAttempts);
 
       if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
+        DetailedExitCode systemFailure = result.primarySystemFailure();
+        if (systemFailure != null) {
+          throw new TestExecException(
+              "Test failed (system error), aborting: "
+                  + systemFailure.getFailureDetail().getMessage(),
+              systemFailure.getFailureDetail());
+        }
+        String errorMessage = "Test failed, aborting";
         throw new TestExecException(
-            "Test failed: aborting", TestAction.Code.NO_KEEP_GOING_TEST_FAILURE);
+            errorMessage,
+            FailureDetail.newBuilder()
+                .setTestAction(
+                    TestAction.newBuilder().setCode(TestAction.Code.NO_KEEP_GOING_TEST_FAILURE))
+                .setMessage(errorMessage)
+                .build());
       }
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
