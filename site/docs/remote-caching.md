@@ -5,6 +5,9 @@ title: Remote caching
 
 # Remote caching
 
+This page covers remote caching, setting up a server to host the cache, and
+running builds using the remote cache.
+
 A remote cache is used by a team of developers and/or a continuous integration
 (CI) system to share build outputs. If your build is reproducible, the
 outputs from one machine can be safely reused on another machine, which can

@@ -552,7 +552,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
-                Optional.of(startupOptions.build()));
+                Optional.of(startupOptions.build()),
+                request.getCommandExtensionsList());
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =

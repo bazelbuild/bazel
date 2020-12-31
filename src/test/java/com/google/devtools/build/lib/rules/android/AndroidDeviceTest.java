@@ -31,18 +31,22 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.rules.android.AndroidDeviceTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidDeviceTest.WithoutPlatforms;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidDevice}. */
-@RunWith(Enclosed.class)
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidDeviceTest extends AndroidBuildViewTestCase {
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)

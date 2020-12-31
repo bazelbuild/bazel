@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -61,12 +63,14 @@ import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidLibrary}. */
-@RunWith(Enclosed.class)
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)

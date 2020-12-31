@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory;
 import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -42,8 +43,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -158,7 +157,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
     return packageLookupValue.packageExists();
   }
 
-  private List<Root> checkValidDirectoryAndGetRoots(
+  private ImmutableList<Root> checkValidDirectoryAndGetRoots(
       RepositoryName repository,
       PathFragment directory,
       ImmutableSet<PathFragment> ignoredSubdirectories,
@@ -171,9 +170,12 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
     for (TargetPattern pattern : universeTargetPatterns) {
-      boolean isTBD = pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY);
+      if (!pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
+        continue;
+      }
       PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
-      if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
+      if (((TargetsBelowDirectory) pattern)
+          .containsAllTransitiveSubdirectories(packageIdentifier)) {
         inUniverse = true;
         break;
       }
@@ -183,9 +185,8 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       return ImmutableList.of();
     }
 
-    List<Root> roots = new ArrayList<>();
     if (repository.isMain()) {
-      roots.addAll(pkgRoots);
+      return pkgRoots;
     } else {
       RepositoryDirectoryValue repositoryValue =
           (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
@@ -194,9 +195,8 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
         // "nothing".
         return ImmutableList.of();
       }
-      roots.add(Root.fromPath(repositoryValue.getPath()));
+      return ImmutableList.of(Root.fromPath(repositoryValue.getPath()));
     }
-    return roots;
   }
 
   @Override
@@ -208,7 +208,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    List<Root> roots =
+    ImmutableList<Root> roots =
         checkValidDirectoryAndGetRoots(
             repository, directory, ignoredSubdirectories, excludedSubdirectories);
 

@@ -26,7 +26,7 @@ public interface BuildEventArtifactUploaderFactory {
 
   /**
    * Returns a new instance of a {@link BuildEventArtifactUploader}. The call is responsible for
-   * calling {@link BuildEventArtifactUploader#shutdown()} on the returned instance.
+   * calling {@link BuildEventArtifactUploader#release()} on the returned instance.
    */
   BuildEventArtifactUploader create(CommandEnvironment env)
       throws InvalidPackagePathSymlinkException;

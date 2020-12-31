@@ -5,6 +5,9 @@ title: Remote execution overview
 
 # Remote execution overview
 
+This page covers the benefits, requirements, and options for running Bazel
+with remote execution.
+
 By default, Bazel executes builds and tests on your local machine. Remote
 execution of a Bazel build allows you to distribute build and test actions
 across multiple machines, such as a datacenter.
