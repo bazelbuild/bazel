@@ -333,6 +333,7 @@ final class TestResultAggregator {
     }
 
     summary
+        .mergeSystemFailure(result.getSystemFailure())
         .setStatus(status)
         .setNumCached(numCached)
         .setNumLocalActionCached(numLocalActionCached)

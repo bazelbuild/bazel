@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.Any;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
@@ -192,7 +193,8 @@ public final class BlazeWorkspace {
       OptionsParsingResult options,
       List<String> warnings,
       long waitTimeInMs,
-      long commandStartTime) {
+      long commandStartTime,
+      List<Any> commandExtensions) {
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -203,7 +205,8 @@ public final class BlazeWorkspace {
             options,
             warnings,
             waitTimeInMs,
-            commandStartTime);
+            commandStartTime,
+            commandExtensions);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }
