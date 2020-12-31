@@ -22,14 +22,18 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.android.AndroidAssetsTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidAssetsTest.WithoutPlatforms;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests {@link AndroidAssets} */
-@RunWith(Enclosed.class)
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidAssetsTest extends ResourceTestBase {
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)

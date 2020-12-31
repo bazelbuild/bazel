@@ -5,9 +5,11 @@ title: Rules
 
 # Rules
 
-The Bazel ecosystem has a growing and evolving set of rules to support popular languages
-and packages. Much of Bazel's strength comes from the ability to
+The Bazel ecosystem has a growing and evolving set of rules to support popular
+languages and packages. Much of Bazel's strength comes from the ability to
 [define new rules](skylark/concepts.html) that can be used by others.
+
+This page describes the recommended, native, and non-native Bazel rules.
 
 ## Recommended rules
 

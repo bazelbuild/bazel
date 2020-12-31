@@ -18,13 +18,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
+import io.netty.util.AbstractReferenceCounted;
+import io.netty.util.ReferenceCounted;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** An uploader that simply turns paths into local file URIs. */
-public class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
+public class LocalFilesArtifactUploader extends AbstractReferenceCounted
+    implements BuildEventArtifactUploader {
   private static final FileUriPathConverter FILE_URI_PATH_CONVERTER = new FileUriPathConverter();
   private final ConcurrentHashMap<Path, Boolean> fileIsDirectory = new ConcurrentHashMap<>();
 
@@ -34,8 +37,13 @@ public class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
   }
 
   @Override
-  public void shutdown() {
+  protected void deallocate() {
     // Intentionally left empty
+  }
+
+  @Override
+  public ReferenceCounted touch(Object o) {
+    return this;
   }
 
   @Override

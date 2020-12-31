@@ -22,6 +22,7 @@ syntax = "proto3";
 
 package command_server;
 
+import "google/protobuf/any.proto";
 import "src/main/protobuf/failure_details.proto";
 
 option java_package = "com.google.devtools.build.lib.server";
@@ -62,6 +63,11 @@ message RunRequest {
   // Whether the resulting command can be preempted if additional commands
   // are received.
   bool preemptible = 7;
+
+  // Additional per-command information passed to the server in the form of
+  // arbitrary messages which the server may be programmed to recognize and
+  // consume. Unrecognized message types are ignored.
+  repeated google.protobuf.Any command_extensions = 8;
 }
 
 // Contains the a startup option with its source file. Uses bytes to preserve
