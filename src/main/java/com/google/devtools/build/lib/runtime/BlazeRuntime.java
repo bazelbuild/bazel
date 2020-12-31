@@ -941,7 +941,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               LockingMode.ERROR_OUT,
               "batch client",
               runtime.getClock().currentTimeMillis(),
-              Optional.of(startupOptionsFromCommandLine.build()));
+              Optional.of(startupOptionsFromCommandLine.build()),
+              /*commandExtensions=*/ ImmutableList.of());
       if (result.getExecRequest() == null) {
         // Simple case: we are given an exit code
         return result.getExitCode().getNumericExitCode();
@@ -1214,7 +1215,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               try {
                 // TODO(adonovan): opt: cache seen files, as the stack often repeats the same files.
                 Path path = finalFS.getPath(PathFragment.create(loc.file()));
-                return Iterables.get(FileSystemUtils.readLines(path, UTF_8), loc.line() - 1, null);
+                List<String> lines = FileSystemUtils.readLines(path, UTF_8);
+                return lines.size() >= loc.line() ? lines.get(loc.line() - 1) : null;
               } catch (Throwable unused) {
                 // ignore any failure (e.g. ENOENT, security manager rejecting I/O)
               }
