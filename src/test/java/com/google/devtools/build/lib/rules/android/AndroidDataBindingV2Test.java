@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.android.AndroidDataBindingV2Test.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidDataBindingV2Test.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -37,12 +39,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for Bazel's Android data binding v2 support. */
-@RunWith(Enclosed.class)
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)

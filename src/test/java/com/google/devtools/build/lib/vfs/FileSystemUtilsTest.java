@@ -27,7 +27,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
@@ -749,19 +748,16 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testIterateLines() throws Exception {
+  public void testReadLines() throws Exception {
     Path file = fileSystem.getPath("/test.txt");
     FileSystemUtils.writeContent(file, ISO_8859_1, "a\nb");
-    assertThat(Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)))
-        .isEqualTo(Arrays.asList("a", "b"));
+    assertThat(FileSystemUtils.readLinesAsLatin1(file)).containsExactly("a", "b").inOrder();
 
     FileSystemUtils.writeContent(file, ISO_8859_1, "a\rb");
-    assertThat(Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)))
-        .isEqualTo(Arrays.asList("a", "b"));
+    assertThat(FileSystemUtils.readLinesAsLatin1(file)).containsExactly("a", "b").inOrder();
 
     FileSystemUtils.writeContent(file, ISO_8859_1, "a\r\nb");
-    assertThat(Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)))
-        .isEqualTo(Arrays.asList("a", "b"));
+    assertThat(FileSystemUtils.readLinesAsLatin1(file)).containsExactly("a", "b").inOrder();
   }
 
   @Test

@@ -74,7 +74,11 @@ public class TestResultAggregatorTest {
 
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(false).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ false));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ false,
+            /*systemFailure=*/ null));
     assertThat(underTest.getCurrentSummaryForTesting().peek().actionRan()).isTrue();
   }
 
@@ -84,7 +88,11 @@ public class TestResultAggregatorTest {
 
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(false).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ true,
+            /*systemFailure=*/ null));
     assertThat(underTest.getCurrentSummaryForTesting().peek().actionRan()).isFalse();
   }
 
@@ -94,7 +102,11 @@ public class TestResultAggregatorTest {
 
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(true).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ false));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ false,
+            /*systemFailure=*/ null));
     assertThat(underTest.getCurrentSummaryForTesting().peek().actionRan()).isFalse();
   }
 
@@ -104,7 +116,11 @@ public class TestResultAggregatorTest {
 
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(true).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ true,
+            /*systemFailure=*/ null));
     assertThat(underTest.getCurrentSummaryForTesting().peek().actionRan()).isTrue();
   }
 
@@ -115,12 +131,20 @@ public class TestResultAggregatorTest {
     TestResultData testResultData =
         TestResultData.newBuilder().setStartTimeMillisEpoch(7).setRunDurationMillis(10).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ true,
+            /*systemFailure=*/ null));
 
     testResultData =
         TestResultData.newBuilder().setStartTimeMillisEpoch(12).setRunDurationMillis(1).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ true,
+            /*systemFailure=*/ null));
     TestSummary summary = underTest.getCurrentSummaryForTesting().build();
 
     assertThat(summary.actionRan()).isTrue();
@@ -138,11 +162,19 @@ public class TestResultAggregatorTest {
     TestResultData testResultData =
         TestResultData.newBuilder().setStatus(BlazeTestStatus.PASSED).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ true,
+            /*systemFailure=*/ null));
 
     testResultData = TestResultData.newBuilder().setStatus(BlazeTestStatus.INCOMPLETE).build();
     underTest.incrementalAnalyze(
-        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+        new TestResult(
+            mock(TestRunnerAction.class),
+            testResultData,
+            /*cached=*/ true,
+            /*systemFailure=*/ null));
     TestSummary summary = underTest.getCurrentSummaryForTesting().build();
 
     assertThat(summary.getStatus()).isEqualTo(BlazeTestStatus.PASSED);

@@ -15,17 +15,21 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommonTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommonTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidStarlarkCommon}. */
-@RunWith(Enclosed.class)
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)

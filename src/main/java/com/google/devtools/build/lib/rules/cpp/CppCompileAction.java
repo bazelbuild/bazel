@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -549,7 +548,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           // If rewinding is enabled, this error is recoverable.
           throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
         }
-        BugReport.sendBugReport(e);
+        actionExecutionContext.getBugReporter().sendBugReport(e);
         throw new ActionExecutionException(
             code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
       }

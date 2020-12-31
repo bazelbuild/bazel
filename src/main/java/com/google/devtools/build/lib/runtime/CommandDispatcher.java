@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.protobuf.Any;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +44,7 @@ public interface CommandDispatcher {
       LockingMode lockingMode,
       String clientDescription,
       long firstContactTimeMillis,
-      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      List<Any> commandExtensions)
       throws InterruptedException;
 }

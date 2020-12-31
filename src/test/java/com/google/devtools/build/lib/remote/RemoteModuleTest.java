@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -76,7 +77,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RemoteModule}. */
 @RunWith(JUnit4.class)
-public class RemoteModuleTest {
+public final class RemoteModuleTest {
 
   private static CommandEnvironment createTestCommandEnvironment(RemoteOptions remoteOptions)
       throws IOException, AbruptExitException {
@@ -127,7 +128,7 @@ public class RemoteModuleTest {
             productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
-    return workspace.initCommand(command, options, new ArrayList<>(), 0, 0);
+    return workspace.initCommand(command, options, new ArrayList<>(), 0, 0, ImmutableList.of());
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {
@@ -147,7 +148,7 @@ public class RemoteModuleTest {
       responseObserver.onCompleted();
     }
 
-    public int getRequestCount() {
+    int getRequestCount() {
       return requestCount;
     }
   }
@@ -371,11 +372,7 @@ public class RemoteModuleTest {
 
       CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
 
-      assertThrows(
-          AbruptExitException.class,
-          () -> {
-            remoteModule.beforeCommand(env);
-          });
+      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
@@ -408,11 +405,7 @@ public class RemoteModuleTest {
 
       CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
 
-      assertThrows(
-          AbruptExitException.class,
-          () -> {
-            remoteModule.beforeCommand(env);
-          });
+      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();

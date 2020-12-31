@@ -102,7 +102,8 @@ public class BlazeRuntimeTest {
             options,
             ImmutableList.of(),
             0L,
-            0L);
+            0L,
+            ImmutableList.of());
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
     DetailedExitCode oom =
         DetailedExitCode.of(

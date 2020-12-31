@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bazel.rules.android.SdkMavenRepositoryTest.WithPlatforms;
+import com.google.devtools.build.lib.bazel.rules.android.SdkMavenRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -27,12 +29,14 @@ import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link SdkMavenRepository}. */
-@RunWith(Enclosed.class)
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)
