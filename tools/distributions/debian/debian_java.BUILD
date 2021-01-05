@@ -449,3 +449,12 @@ filegroup(
         "grpc-stub.jar",
     ],
 )
+
+# junit4
+java_import(
+    name = "junit4",
+    jars = [
+        "hamcrest-core.jar",
+        "junit4.jar",
+    ],
+)
