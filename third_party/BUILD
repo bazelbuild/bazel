@@ -624,8 +624,9 @@ java_import(
     jars = ["guava/guava-testlib-29.0-jre.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "junit4",
+    enable_distributions = ["debian"],
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.13.jar",
