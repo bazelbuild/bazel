@@ -1,6 +1,8 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//:distdir.bzl", "distdir_tar")
+load("//:distdir_deps.bzl", "DIST_DEPS", "dist_http_archive")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
 # of http_archive, in order to export the WORKSPACE file from the BUILD or
@@ -139,9 +141,6 @@ http_archive(
     ],
 )
 
-load("//:distdir.bzl", "distdir_tar")
-load("//:distdir_deps.bzl", "DIST_DEPS")
-
 distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
@@ -154,10 +153,6 @@ distdir_tar(
         "coverage_output_generator-v2.5.zip",
         # bazelbuid/stardoc
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-        # rules_sass
-        "1.25.0.zip",
-        # rules_nodejs
-        "rules_nodejs-2.2.2.tar.gz",
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz",
@@ -193,10 +188,6 @@ distdir_tar(
         "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
         # bazelbuild/stardoc
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
-        # rules_sass
-        "1.25.0.zip": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
-        # rules_nodejs
-        "rules_nodejs-2.2.2.tar.gz": "f2194102720e662dbf193546585d705e645314319554c6ce7e47d8b59f459e9c",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
@@ -244,14 +235,6 @@ distdir_tar(
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
             "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-        ],
-        "1.25.0.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-            "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-        ],
-        "rules_nodejs-2.2.2.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
         ],
         "android_tools_pkg-0.19.0rc3.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
@@ -691,14 +674,12 @@ exports_files(["_sass/style.scss"])
 # fetched unconditionally for everything (including just building bazel!), so
 # provide them as http_archives that can be shiped in the distdir, to keep the
 # distribution archive self-contained.
-http_archive(
+dist_http_archive(
     name = "io_bazel_rules_sass",
-    sha256 = "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
-    strip_prefix = "rules_sass-1.25.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-        "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-    ],
+)
+
+dist_http_archive(
+    name = "build_bazel_rules_nodejs",
 )
 
 http_archive(
@@ -1109,12 +1090,10 @@ sass_repositories()
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
 
 # Tools for building deb, rpm and tar files.
-http_archive(
+dist_http_archive(
     name = "rules_pkg",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = DIST_DEPS["rules_pkg"]["sha256"],
-    urls = DIST_DEPS["rules_pkg"]["urls"],
 )
 
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
