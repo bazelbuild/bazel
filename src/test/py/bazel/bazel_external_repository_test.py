@@ -49,7 +49,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    for f in ['six-1.10.0.tar.gz', 'archive_with_symlink.zip']:
+    for f in ['six-1.10.0.tar.gz', 'archive_with_symlink.zip', 'archive_with_symlink.tar.gz']:
       self.CopyFile(self.Rlocation('io_bazel/src/test/py/bazel/testdata/'
                                    'bazel_external_repository_test/' + f), f)
     self.StartHttpServer()
@@ -108,7 +108,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
     self.assertIn('name \'foobar\' is not defined', os.linesep.join(stderr))
 
-  def testNewHttpArchiveWithSymlinks(self):
+  def testNewHttpZipArchiveWithSymlinks(self):
     ip, port = self._http_server.server_address
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
@@ -133,6 +133,34 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel([
         'build',
         '@archive_with_symlink//:file-A',
+    ])
+    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+
+  def testNewHttpTarArchiveWithSymlinks(self):
+    ip, port = self._http_server.server_address
+    rule_definition = [
+      'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+      'http_archive(',
+      '    name = "archive_with_symlink",',
+      '    urls = ["http://%s:%s/archive_with_symlink.tar.gz"],' % (ip, port),
+      '    build_file = "@//:archive_with_symlink.BUILD",',
+      '    sha256 = ',
+      '  "7c08dc44c8e8b02bcd2f478121800fc94265335a28bb5e3a4d951cb41873842c",'
+      ')',
+      ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
+    # In the archive, A is a symlink pointing to B
+    self.ScratchFile('archive_with_symlink.BUILD', [
+      'filegroup(',
+      '    name = "file-A",',
+      '    srcs = ["A"],',
+      ')',
+    ])
+    self.ScratchFile('BUILD')
+    exit_code, _, stderr = self.RunBazel([
+      'build',
+      '@archive_with_symlink//:file-A',
     ])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
