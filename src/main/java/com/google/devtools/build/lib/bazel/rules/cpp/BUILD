@@ -14,11 +14,11 @@ filegroup(
         # cc_configure.WORKSPACE twice - once in the glob and once explicitly.
         # Excluding it here allows the PR to work.
         # TODO(#12081): Remove this exclude after #12743 is merged.
-        exclude = ["*.WORKSPACE"],
+        # exclude = ["*.WORKSPACE"],
     ) + [
         # We need the generated file in srcs so it gets in the source distfile.
         # That allows the boostrap build to work.
-        ":cc_configure.WORKSPACE",
+        # ":cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -77,4 +77,5 @@ gen_workspace_stanza(
         load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
         """,
     repos = ["rules_cc"],
+    visibility = ["//:__pkg__"],
 )
