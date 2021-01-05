@@ -39,11 +39,11 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
  */
 public abstract class CompressedTarFunction implements Decompressor {
   protected abstract InputStream getDecompressorStream(DecompressorDescriptor descriptor)
-          throws IOException;
+      throws IOException;
 
   @Override
   public Path decompress(DecompressorDescriptor descriptor)
-          throws InterruptedException, IOException {
+      throws InterruptedException, IOException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
@@ -62,7 +62,7 @@ public abstract class CompressedTarFunction implements Decompressor {
 
         if (prefix.isPresent() && !foundPrefix) {
           Optional<String> suggestion =
-                  CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
+              CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
           if (suggestion.isPresent()) {
             availablePrefixes.add(suggestion.get());
           }
