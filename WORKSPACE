@@ -465,7 +465,6 @@ http_archive(
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
 http_archive(
     name = "rules_cc",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
@@ -475,13 +474,10 @@ http_archive(
     urls = DIST_DEPS["rules_cc"]["urls"],
 )
 
-http_archive(
+dist_http_archive(
     name = "rules_java",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = DIST_DEPS["rules_java"]["sha256"],
-    strip_prefix = DIST_DEPS["rules_java"]["strip_prefix"],
-    urls = DIST_DEPS["rules_java"]["urls"],
 )
 
 http_archive(
