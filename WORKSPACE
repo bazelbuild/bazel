@@ -97,10 +97,8 @@ bind(
 
 dist_http_archive(
     name = "com_google_protobuf",
-    patch_args = ["-p1"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    patches = ["//third_party/protobuf:3.13.0.patch"],
 )
 
 # This is a mock version of bazelbuild/rules_python that contains only
@@ -154,8 +152,6 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        # grpc/grpc
-        "v1.32.0.tar.gz",
         # protocolbuffers/upb
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
     ],
@@ -177,8 +173,6 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
-        # grpc/grpc
-        "v1.32.0.tar.gz": "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
         # protocolbuffers/upb
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
     },
@@ -223,11 +217,6 @@ distdir_tar(
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
             "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        ],
-        # grpc/grpc
-        "v1.32.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         ],
         # protocolbuffers/upb
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": [
@@ -464,8 +453,6 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        # grpc/grpc
-        "v1.32.0.tar.gz",
         # protocolbuffers/upb
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
     ],
@@ -488,8 +475,6 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
-        # grpc/grpc
-        "v1.32.0.tar.gz": "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
         # protocolbuffers/upb
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
     },
@@ -520,11 +505,6 @@ distdir_tar(
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
             "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        ],
-        # grpc/grpc
-        "v1.32.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         ],
         # protocolbuffers/upb
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": [
@@ -999,16 +979,8 @@ register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
-http_archive(
+dist_http_archive(
     name = "com_github_grpc_grpc",
-    patch_args = ["-p1"],
-    patches = ["//third_party/grpc:grpc_1.32.0.patch"],
-    sha256 = "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
-    strip_prefix = "grpc-1.32.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-        "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-    ],
 )
 
 # Projects using gRPC as an external dependency must call both grpc_deps() and
