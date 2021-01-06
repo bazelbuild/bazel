@@ -7,11 +7,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["*"],
-        exclude = ["jdk.WORKSPACE"],
-    ) + [
-        ":jdk.WORKSPACE",
+    srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -86,4 +82,5 @@ gen_workspace_stanza(
         "rules_java",
     ],
     template = "jdk.WORKSPACE.tmpl",
+    visibility = ["//:__pkg__"],
 )

@@ -113,7 +113,10 @@ filegroup(
 # be included in //src:derived_java_sources).
 filegroup(
     name = "generated_resources",
-    srcs = ["//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip"],
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:workspace_with_jdk",
+    ],
 )
 
 pkg_tar(
