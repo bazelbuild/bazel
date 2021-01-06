@@ -673,7 +673,7 @@ config_setting(
 )
 ```
 
-`query` overapproximtes `:my_lib`'s dependencies:
+`query` overapproximates `:my_lib`'s dependencies:
 
 ```sh
 $ bazel query 'deps(//myapp:my_lib)'
