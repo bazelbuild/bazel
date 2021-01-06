@@ -46,6 +46,7 @@ final class MethodDescriptor {
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
+  private final boolean positionalsCanBeJavaArgumentVector;
 
   private enum HowToHandleReturn {
     NULL_TO_NONE, // any Starlark value; null -> None
@@ -100,6 +101,20 @@ final class MethodDescriptor {
     } else {
       howToHandleReturn = HowToHandleReturn.FROM_JAVA;
     }
+
+    this.positionalsCanBeJavaArgumentVector =
+        !extraKeywords
+            && !extraPositionals
+            && !useStarlarkSemantics
+            && !useStarlarkThread
+            && Arrays.stream(parameters)
+                .allMatch(MethodDescriptor::paramCanBeUsedAsPositionalWithoutChecks);
+  }
+
+  private static boolean paramCanBeUsedAsPositionalWithoutChecks(ParamDescriptor param) {
+    return param.isPositional()
+        && param.disabledByFlag() == null
+        && param.getAllowedClasses() == null;
   }
 
   /** Returns the StarlarkMethod annotation corresponding to this method. */
@@ -286,5 +301,13 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#selfCall() */
   boolean isSelfCall() {
     return selfCall;
+  }
+
+  /**
+   * Returns true if positional arguments can be used as a Java method call argument vector without
+   * further checks when parameter count matches.
+   */
+  boolean getPositionalsCanBeJavaArgumentVector() {
+    return positionalsCanBeJavaArgumentVector;
   }
 }
