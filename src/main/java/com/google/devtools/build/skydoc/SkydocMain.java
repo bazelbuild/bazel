@@ -423,9 +423,8 @@ public class SkydocMain {
       thread.setLoader(imports::get);
 
       Starlark.execFileProgram(prog, module, thread);
-    } catch (EvalException | InterruptedException ex) {
-      // This exception class seems a bit unnecessary. Replace with EvalException?
-      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
+    } catch (EvalException ex) {
+      throw new StarlarkEvaluationException(ex.getMessageWithStack());
     }
 
     pending.remove(path);
