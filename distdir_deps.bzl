@@ -13,33 +13,6 @@
 # limitations under the License.
 """List the distribution dependencies we need to build Bazel."""
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def dist_http_archive(name, **kwargs):
-    """Wraps http_archive but takes sha and urls from DIST_DEPS.
-
-    dist_http_archive wraps an http_archive invocation, but looks up relevant
-    information from DIST_DEPS so the user does not have to specify it. It
-    always strips sha256 and urls from kwargs.
-
-    Args:
-      name: repo name
-      **kwargs: see http_archive for allowed args.
-    """
-    info = DIST_DEPS[name]
-    if "patches" not in kwargs:
-        kwargs["patches"] = info.get("patches")
-    if "patch_args" not in kwargs:
-        kwargs["patch_args"] = info.get("patch_args")
-    if "strip_prefix" not in kwargs:
-        kwargs["strip_prefix"] = info.get("strip_prefix")
-    http_archive(
-        name = name,
-        sha256 = info["sha256"],
-        urls = info["urls"],
-        **kwargs
-    )
-
 DIST_DEPS = {
     ########################################
     #
@@ -202,3 +175,66 @@ DIST_DEPS = {
         ],
     },
 }
+
+def _gen_workspace_stanza_impl(ctx):
+    if ctx.attr.template and (ctx.attr.preamble or ctx.attr.postamble):
+        fail("Can not use template with either preamble or postamble")
+
+    repo_clause = """
+maybe(
+    http_archive,
+    "{repo}",
+    sha256 = "{sha256}",
+    strip_prefix = {strip_prefix},
+    urls = {urls},
+)
+"""
+    repo_stanzas = {}
+    for repo in ctx.attr.repos:
+        info = DIST_DEPS[repo]
+        strip_prefix = info.get("strip_prefix")
+        if strip_prefix:
+            strip_prefix = "\"%s\"" % strip_prefix
+        else:
+            strip_prefix = "None"
+
+        repo_stanzas["{%s}" % repo] = repo_clause.format(
+            repo = repo,
+            archive = info["archive"],
+            sha256 = str(info["sha256"]),
+            strip_prefix = strip_prefix,
+            urls = info["urls"],
+        )
+
+    if ctx.attr.template:
+        ctx.actions.expand_template(
+            output = ctx.outputs.out,
+            template = ctx.file.template,
+            substitutions = repo_stanzas,
+        )
+    else:
+        content = "\n".join([p.strip() for p in ctx.attr.preamble.strip().split("\n")])
+        content += "\n"
+        content += "".join(repo_stanzas.values())
+        content += "\n"
+        content += "\n".join([p.strip() for p in ctx.attr.postamble.strip().split("\n")])
+        content += "\n"
+        ctx.actions.write(ctx.outputs.out, content)
+
+    return [DefaultInfo(files = depset([ctx.outputs.out]))]
+
+gen_workspace_stanza = rule(
+    implementation = _gen_workspace_stanza_impl,
+    attrs = {
+        "repos": attr.string_list(doc = "Set of repos to inlcude"),
+        "out": attr.output(mandatory = True),
+        "preamble": attr.string(doc = "Preamble."),
+        "postamble": attr.string(doc = "setup rules to follow repos."),
+        "template": attr.label(
+            doc = "Template WORKSPACE file. May not be used with preable or postamble." +
+                  "Repo stanzas can be include with the syntax '{repo name}'.",
+            allow_single_file = True,
+            mandatory = False,
+        ),
+    },
+)

@@ -45,7 +45,7 @@ public class RequiredProvidersTest {
 
   static {
     try {
-      P_STARLARK.export(Label.create("foo/bar", "x.bzl"), "p_starlark");
+      P_STARLARK.export(ev -> {}, Label.create("foo/bar", "x.bzl"), "p_starlark");
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
