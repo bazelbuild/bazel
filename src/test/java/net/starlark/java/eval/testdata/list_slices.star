@@ -5,6 +5,21 @@ assert_eq([0, 1, 2, 3, 4, 5][-2:-1], [4])
 assert_eq([][1:2], [])
 assert_eq([0, 1, 2, 3][-10:10], [0, 1, 2, 3])
 
+assert_eq(["a", "b", "c"][:], ["a", "b", "c"])
+assert_eq(["a", "b", "c"][:2], ["a", "b"])
+assert_eq(["a", "b", "c"][2:], ["c"])
+
+# Negative bounds
+assert_eq(["a", "b", "c"][-2:-1], ["b"])
+assert_eq(["a", "b", "c"][-2:], ["b", "c"])
+assert_eq(["a", "b", "c"][0:-1], ["a", "b"])
+assert_eq(["a", "b", "c"][-1:1], [])
+
+assert_eq(["a", "b", "c"][0:5], ["a", "b", "c"])
+assert_eq(["a", "b", "c"][-10:2], ["a", "b"])
+assert_eq(["a", "b", "c"][3:10], [])
+assert_eq(["a", "b", "c"][-10:-9], [])
+
 # With step
 assert_eq([1, 2, 3, 4, 5][::1], [1, 2, 3, 4, 5])
 assert_eq([1, 2, 3, 4, 5][1::1], [2, 3, 4, 5])

@@ -36,6 +36,10 @@ assert_eq(foo, ["a", "b", "c"])
 foo.append("d")
 assert_eq(foo, ["a", "b", "c", "d"])
 
+bar = [1, 2]
+assert_eq(bar.append([3, 4]), None)
+assert_eq(bar, [1, 2, [3, 4]])
+
 assert_fails(lambda: (1, 2).append(3), "'tuple' value has no field or method 'append'")
 ---
 
