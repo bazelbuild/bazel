@@ -78,18 +78,40 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getResidue()).isEmpty();
   }
 
-  // test --@workspace//flag=value
+  // test --@main_workspace//flag=value parses out to //flag=value
+  // test --@other_workspace//flag=value parses out to @other_workspace//flag=value
   @Test
   public void testFlagNameWithWorkspace() throws Exception {
     writeBasicIntFlag();
-    rewriteWorkspace("workspace(name = 'starlark_options_test')");
+    scratch.file("test/repo2/WORKSPACE");
+    scratch.file(
+        "test/repo2/defs.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "my_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.int(flag = True),",
+        ")");
+    scratch.file(
+        "test/repo2/BUILD",
+        "load(':defs.bzl', 'my_flag')",
+        "my_flag(name = 'flag2', build_setting_default=2)");
+
+    rewriteWorkspace(
+        "workspace(name = 'starlark_options_test')",
+        "local_repository(",
+        "  name = 'repo2',",
+        "  path = 'test/repo2',",
+        ")");
 
     OptionsParsingResult result =
-        parseStarlarkOptions("--@starlark_options_test//test:my_int_setting=666");
+        parseStarlarkOptions(
+            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222");
 
-    assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("@starlark_options_test//test:my_int_setting"))
+    assertThat(result.getStarlarkOptions()).hasSize(2);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
         .isEqualTo(StarlarkInt.of(666));
+    assertThat(result.getStarlarkOptions().get("@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
     assertThat(result.getResidue()).isEmpty();
   }
 
