@@ -672,7 +672,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
-            doc = "List of user link flags passed as strings.",
+            doc = "Depset of user link flags passed as strings.",
             positional = false,
             named = true,
             defaultValue = "None",
