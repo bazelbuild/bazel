@@ -443,8 +443,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       throw new EvalException(
           rule.getLocation(),
           String.format(
-              "Bazel does not recognize Android build tools version %s", buildToolsVersion),
-          e);
+              "Bazel does not recognize Android build tools version %s: %s",
+              buildToolsVersion, e.getMessage()));
     }
   }
 

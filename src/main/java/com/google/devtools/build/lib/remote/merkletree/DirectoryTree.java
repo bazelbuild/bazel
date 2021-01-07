@@ -84,7 +84,6 @@ final class DirectoryTree {
       super(pathSegment);
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
-      ;
       this.digest = Preconditions.checkNotNull(digest, "digest");
     }
 

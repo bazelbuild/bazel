@@ -13,31 +13,6 @@
 # limitations under the License.
 """List the distribution dependencies we need to build Bazel."""
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def dist_http_archive(name, **kwargs):
-    """Wraps http_archive but takes sha and urls from DIST_DEPS.
-
-    dist_http_archive wraps an http_archive invocation, but looks up relevant
-    information from DIST_DEPS so the user does not have to specify it. It
-    always strips sha256 and urls from kwargs.
-
-    Args:
-      name: repo name
-      **kwargs: see http_archive for allowed args.
-    """
-    info = DIST_DEPS[name]
-    if "patches" not in kwargs:
-        kwargs["patches"] = info.get("patches")
-    if "strip_prefix" not in kwargs:
-        kwargs["strip_prefix"] = info.get("strip_prefix")
-    http_archive(
-        name = name,
-        sha256 = info["sha256"],
-        urls = info["urls"],
-        **kwargs
-    )
-
 DIST_DEPS = {
     ########################################
     #
@@ -140,11 +115,11 @@ maybe(
             substitutions = repo_stanzas,
         )
     else:
-        content = "\n".join([l.strip() for l in ctx.attr.preamble.strip().split("\n")])
+        content = "\n".join([p.strip() for p in ctx.attr.preamble.strip().split("\n")])
         content += "\n"
         content += "".join(repo_stanzas.values())
         content += "\n"
-        content += "\n".join([l.strip() for l in ctx.attr.postamble.strip().split("\n")])
+        content += "\n".join([p.strip() for p in ctx.attr.postamble.strip().split("\n")])
         content += "\n"
         ctx.actions.write(ctx.outputs.out, content)
 
