@@ -1031,11 +1031,7 @@ public class BzlLoadFunction implements SkyFunction {
           if (value instanceof StarlarkExportable) {
             StarlarkExportable exp = (StarlarkExportable) value;
             if (!exp.isExported()) {
-              try {
-                exp.export(label, name);
-              } catch (EvalException ex) {
-                handler.handle(Event.error(null, ex.getMessageWithStack()));
-              }
+              exp.export(handler, label, name);
             }
           }
         });
