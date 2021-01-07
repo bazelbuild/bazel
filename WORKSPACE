@@ -1,8 +1,8 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//:distdir.bzl", "distdir_tar")
-load("//:distdir_deps.bzl", "DIST_DEPS", "dist_http_archive")
+load("//:distdir.bzl", "distdir_tar", "dist_http_archive")
+load("//:distdir_deps.bzl", "DIST_DEPS")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
 # of http_archive, in order to export the WORKSPACE file from the BUILD or
@@ -474,14 +474,10 @@ http_archive(
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
-http_archive(
+dist_http_archive(
     name = "rules_cc",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = DIST_DEPS["rules_cc"]["sha256"],
-    strip_prefix = DIST_DEPS["rules_cc"]["strip_prefix"],
-    urls = DIST_DEPS["rules_cc"]["urls"],
 )
 
 http_archive(

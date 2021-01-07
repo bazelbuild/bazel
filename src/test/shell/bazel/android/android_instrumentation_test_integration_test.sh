@@ -34,6 +34,10 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 # (bazelbuild/continuous-integration#578).
 add_to_bazelrc "build --incompatible_use_python_toolchains=false"
 
+if [[ "$1" = '--with_platforms' ]]; then
+  resolve_android_toolchains_with_platforms
+fi
+
 function setup_android_instrumentation_test_env() {
   mkdir -p java/com/bin/res/values
   mkdir -p javatests/com/bin

@@ -360,6 +360,35 @@ android_sdk_repository(
 )
 register_toolchains("//tools/android:all")
 EOF
+
+  setup_android_platforms
+}
+
+# Sets up sufficient platform definitions to support Android shell tests using
+# platform-based toolchain resolution.
+#
+# See resolve_android_toolchains_with_platforms in
+# src/test/shell/bazel/android/android_helper.sh for how to platform-based
+# toolchain resolution.
+function setup_android_platforms() {
+  mkdir -p test_android_platforms
+
+  cat > test_android_platforms/BUILD <<EOF
+platform(
+    name = "simple",
+    constraint_values = [
+        "@bazel_tools//platforms:android",
+        "@bazel_tools//platforms:arm",
+    ],
+)
+EOF
+
+  cat > test_android_platforms/mappings <<EOF
+platforms:
+flags:
+  --cpu=armeabi-v7a
+    //test_android_platforms:simple
+EOF
 }
 
 function setup_android_ndk_support() {

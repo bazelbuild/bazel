@@ -1,12 +1,12 @@
 ---
 layout: documentation
-title: Persistent workers
+title: Persistent Workers
 ---
+
+# Persistent Workers
 
 This page covers how to use persistent workers, the benefits, requirements,
 and how workers affect sandboxing.
-
-# Overview
 
 A persistent worker is a long-running process started by the Bazel server, which
 functions as a _wrapper_ around the actual _tool_ (typically a compiler), or is
