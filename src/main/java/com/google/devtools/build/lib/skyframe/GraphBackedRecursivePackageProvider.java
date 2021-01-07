@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -207,7 +208,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       PathFragment directory,
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException {
+      throws InterruptedException, QueryException {
     ImmutableList<Root> roots =
         checkValidDirectoryAndGetRoots(
             repository, directory, ignoredSubdirectories, excludedSubdirectories);
