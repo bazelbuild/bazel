@@ -886,6 +886,7 @@ public abstract class CcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputsObject,
+      Object goLinkCArchiveObject,
       StarlarkThread thread)
       throws EvalException {
     if (Starlark.isNullOrNone(linkerInputs)) {
@@ -927,6 +928,15 @@ public abstract class CcModule
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
           Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
+      if (checkObjectsBound(goLinkCArchiveObject)) {
+        checkPrivateStarlarkificationAllowlist(thread);
+      }
+      ExtraLinkTimeLibrary goLinkCArchive =
+          convertFromNoneable(goLinkCArchiveObject, /* defaultValue= */ null);
+      if (goLinkCArchive != null) {
+        ccLinkingContextBuilder.setExtraLinkTimeLibraries(
+            ExtraLinkTimeLibraries.builder().add(goLinkCArchive).build());
+      }
 
       @SuppressWarnings("unchecked")
       Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);

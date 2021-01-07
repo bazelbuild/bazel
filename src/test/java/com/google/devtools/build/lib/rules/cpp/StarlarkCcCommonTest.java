@@ -7178,4 +7178,34 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }
   }
+
+  @Test
+  public void testExtraLinkTimeLibraryApiRaisesError() throws Exception {
+    scratch.file(
+        "b/BUILD",
+        "load('//b:rule.bzl', 'cc_rule')",
+        "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
+        "cc_rule(name='foo', cc_dep=':cc_dep')");
+    ImmutableList<String> calls =
+        ImmutableList.of(
+            "cc_common.create_linking_context(linker_inputs=depset([]), go_link_c_archive=None)",
+            "linking_context.go_link_c_archive()");
+    for (String call : calls) {
+      scratch.overwriteFile(
+          "b/rule.bzl",
+          "def _impl(ctx):",
+          "  linking_context = ctx.attr.cc_dep[CcInfo].linking_context",
+          "  " + call,
+          "  return [DefaultInfo()]",
+          "cc_rule = rule(",
+          "  implementation = _impl,",
+          "  attrs = { ",
+          "    'cc_dep': attr.label(),",
+          "  },",
+          ")");
+      invalidatePackages();
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+    }
+  }
 }

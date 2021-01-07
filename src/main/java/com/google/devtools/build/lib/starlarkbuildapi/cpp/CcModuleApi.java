@@ -753,12 +753,23 @@ public interface CcModuleApi<
             defaultValue = "None",
             valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+        @Param(
+            name = "go_link_c_archive",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = ExtraLinkTimeLibraryApi.class),
+              @ParamType(type = NoneType.class)
+            })
       })
   LinkingContextT createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
+      Object goLinkCArchive,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
