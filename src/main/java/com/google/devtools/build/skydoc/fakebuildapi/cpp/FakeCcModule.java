@@ -214,6 +214,7 @@ public class FakeCcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
+      Object goLinkCArchiveObject,
       StarlarkThread thread) {
     return null;
   }
