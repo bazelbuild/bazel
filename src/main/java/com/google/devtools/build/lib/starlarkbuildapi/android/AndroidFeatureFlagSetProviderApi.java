@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** */
 @StarlarkBuiltin(
@@ -33,7 +33,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "you will be broken when it is removed."
             + "Information about the android_binary feature flags",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface AndroidFeatureFlagSetProviderApi extends StructApi {
 
   /** The name of the provider for this info object. */
@@ -60,17 +60,10 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
         doc = "The <code>AndroidFeatureFlagSetProvider</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "flags",
-              doc = "Map of flags",
-              positional = true,
-              named = false,
-              type = Dict.class),
+          @Param(name = "flags", doc = "Map of flags", positional = true, named = false),
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = AndroidFeatureFlagSetProviderApi.class,
-        receiverNameForDoc = NAME)
+    @StarlarkConstructor
     AndroidFeatureFlagSetProviderApi create(Dict<?, ?> flags /* <Label, String> */)
         throws EvalException;
   }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Joiner;
@@ -33,7 +34,7 @@ import org.junit.runners.JUnit4;
  * but this test case exercises the composition of these various transformations.
  */
 @RunWith(JUnit4.class)
-public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
+public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
 
   private static final Pattern SETUP_COMMAND_PATTERN =
       Pattern.compile(".*/genrule-setup.sh;\\s+(?<command>.*)");
@@ -50,7 +51,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertCommandEquals(expected, command);
   }
 
-  private void assertCommandEquals(String expected, String command) {
+  private static void assertCommandEquals(String expected, String command) {
     // Ensure the command after the genrule setup is correct.
     Matcher m = SETUP_COMMAND_PATTERN.matcher(command);
     if (m.matches()) {
@@ -78,7 +79,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
         // somehow, duplicate events (same location, same message)
         // are being suppressed, so we must vary the location of the
         // genrule by inserting a unique number of newlines.
-        new String(new char[seq++]).replace("\0", "\n"),
+        new String(new char[seq++]).replace('\0', '\n'),
         "genrule(name = 'test',",
         "        outs = ['out'],",
         "        cmd = '" + command + "')");
@@ -453,6 +454,66 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void heuristicLabelExpansion_singletonFilegroupInTools_expandsToFile() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(name = 'fg', srcs = ['fg1.txt'])",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['gen.out'],",
+        "  tools = [':fg'],",
+        "  heuristic_label_expansion = True,",
+        "  cmd = 'cp :fg $@',",
+        ")");
+
+    useConfiguration("--experimental_enable_aggregating_middleman");
+    assertThat(getGenruleCommand("//foo:gen")).contains("foo/fg1.txt");
+
+    useConfiguration("--noexperimental_enable_aggregating_middleman");
+    assertThat(getGenruleCommand("//foo:gen")).contains("foo/fg1.txt");
+  }
+
+  @Test
+  public void heuristicLabelExpansion_emptyFilegroupInTools_fails() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(name = 'fg', srcs = [])",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['gen.out'],",
+        "  tools = [':fg'],",
+        "  heuristic_label_expansion = True,",
+        "  cmd = 'cp :fg $@',",
+        ")");
+
+    useConfiguration("--experimental_enable_aggregating_middleman");
+    assertExpansionFails("expands to 0 files", "//foo:gen");
+
+    useConfiguration("--noexperimental_enable_aggregating_middleman");
+    assertExpansionFails("expands to 0 files", "//foo:gen");
+  }
+
+  @Test
+  public void heuristicLabelExpansion_multiFilegroupInTools_fails() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(name = 'fg', srcs = ['fg1.txt', 'fg2.txt'])",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['gen.out'],",
+        "  tools = [':fg'],",
+        "  heuristic_label_expansion = True,",
+        "  cmd = 'cp :fg $@',",
+        ")");
+
+    useConfiguration("--experimental_enable_aggregating_middleman");
+    assertExpansionFails("expands to 2 files", "//foo:gen");
+
+    useConfiguration("--noexperimental_enable_aggregating_middleman");
+    assertExpansionFails("expands to 2 files", "//foo:gen");
+  }
+
+  @Test
   public void testDollarFileFails() throws Exception {
     checkError(
         "test",
@@ -470,7 +531,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
         getBuildFileWithCommand("${file%:.*8}"));
   }
 
-  private String getBuildFileWithCommand(String command) {
+  private static String getBuildFileWithCommand(String command) {
     return Joiner.on("\n")
         .join(
             "genrule(name = 'test',",

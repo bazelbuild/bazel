@@ -14,9 +14,10 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkMethod which does not have an appropriate StarlarkThread parameter
@@ -28,11 +29,11 @@ public class StarlarkThreadMissing implements StarlarkValue {
       name = "three_arg_method_missing_env",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
       },
       useStarlarkThread = true)
-  public String threeArgMethod(String one, Integer two, String shouldBeThread) {
+  public String threeArgMethod(String one, StarlarkInt two, String shouldBeThread) {
     return "bar";
   }
 }

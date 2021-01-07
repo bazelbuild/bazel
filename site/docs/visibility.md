@@ -2,6 +2,21 @@
 layout: documentation
 title: Visibility
 ---
+# Visibility
+
+
+This page covers visibility specifications, best practices, and examples.
+
+Visibility controls whether a target can be used (depended on) by targets in
+other packages. This helps other people distinguish between your library's
+public API and its implementation details, and is an important tool to help
+enforce structure as your workspace grows.
+
+If you need to disable the visibility check (for example when experimenting),
+use `--check_visibility=false`.
+
+## Visibility specifications
+
 All rule targets have a `visibility` attribute that takes a list of labels. One
 target is visible to another if they are in the same package, or if they are
 granted visibility by one of the labels.

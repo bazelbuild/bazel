@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumes
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -77,31 +76,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
     assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
-  public void packageNameCannotHaveHyphen() throws Exception {
-    checkError("pkg-hyphenated", "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-  }
-
-  @Test
-  public void srcsPackageNameCannotHaveHyphen() throws Exception {
-    scratch.file(
-        "pkg-hyphenated/BUILD", //
-        "exports_files(['bar.py'])");
-    checkError("otherpkg", "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'])");
   }
 
   @Test
@@ -232,47 +206,5 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'],",
         "    deps = [':dep'],",
         ")");
-  }
-
-  @Test
-  public void loadFromBzl_WithMagicTagPasses() throws Exception {
-    useConfiguration("--incompatible_load_python_rules_from_bzl=true");
-    scratch.file(
-        "pkg/BUILD",
-        MockPythonSupport.getMacroLoadStatementFor(ruleName),
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
-    assertThat(getConfiguredTarget("//pkg:foo")).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
-  public void loadFromBzl_WithoutMagicTagFails() throws Exception {
-    useConfiguration("--incompatible_load_python_rules_from_bzl=true");
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "Direct access to the native Python rules is deprecated",
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
-  }
-
-  @Test
-  public void loadFromBzl_WithoutFlagPasses() throws Exception {
-    useConfiguration("--incompatible_load_python_rules_from_bzl=false");
-    scratch.file(
-        "pkg/BUILD", //
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
-    assertThat(getConfiguredTarget("//pkg:foo")).isNotNull();
-    assertNoEvents();
   }
 }

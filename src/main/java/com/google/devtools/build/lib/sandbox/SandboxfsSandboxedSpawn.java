@@ -207,8 +207,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   @Override
   public void delete() {
     // We can only ask sandboxfs to unmap a sandbox if we successfully finished creating it.
-    // Otherwise, the request may fail, or we may fail our own sanity-checks that validate the
-    // lifecycle of the sandboxes.
+    // Otherwise, the request may fail, or we may fail our own checks that validate the lifecycle of
+    // the sandboxes.
     if (sandboxIsMapped) {
       try {
         process.destroySandbox(sandboxName);

@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.DefaultInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** DefaultInfo is provided by all targets implicitly and contains all standard fields. */
 @Immutable
@@ -63,13 +63,18 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       Runfiles defaultRunfiles,
       Artifact executable,
       @Nullable FilesToRunProvider filesToRunProvider) {
-    super(PROVIDER, loc);
+    super(loc);
     this.files = files;
     this.runfiles = runfiles;
     this.dataRunfiles = dataRunfiles;
     this.defaultRunfiles = defaultRunfiles;
     this.executable = executable;
     this.filesToRunProvider = filesToRunProvider;
+  }
+
+  @Override
+  public DefaultInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   public static DefaultInfo build(

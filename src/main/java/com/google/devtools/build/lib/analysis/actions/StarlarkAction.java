@@ -210,7 +210,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   }
 
   @Override
-  Spawn getSpawnForExtraAction() throws CommandLineExpansionException {
+  Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
     return getSpawn(allInputs);
   }
 
@@ -247,11 +247,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       return this;
     }
 
-    private static boolean getInMemoryUnusedInputsListFileFlag(
-        @Nullable BuildConfiguration configuration) {
-      return configuration == null ? false : configuration.inmemoryUnusedInputsList();
-    }
-
     /** Creates a SpawnAction. */
     @Override
     protected SpawnAction createSpawnAction(
@@ -270,7 +265,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
-      if (unusedInputsList.isPresent() && getInMemoryUnusedInputsListFileFlag(configuration)) {
+      if (unusedInputsList.isPresent()) {
+        // Always download unused_inputs_list file from remote cache.
         executionInfo =
             ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
                 .putAll(executionInfo)

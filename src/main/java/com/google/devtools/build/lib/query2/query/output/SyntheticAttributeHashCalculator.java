@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashFunction;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Map;
@@ -55,11 +55,10 @@ class SyntheticAttributeHashCalculator {
   static String compute(
       Rule rule,
       Map<Attribute, Build.Attribute> serializedAttributes,
-      Object extraDataForAttrHash) {
+      Object extraDataForAttrHash,
+      HashFunction hashFunction) {
     HashingOutputStream hashingOutputStream =
-        new HashingOutputStream(
-            DigestHashFunction.getDefaultUnchecked().getHashFunction(),
-            ByteStreams.nullOutputStream());
+        new HashingOutputStream(hashFunction, ByteStreams.nullOutputStream());
     CodedOutputStream codedOut = CodedOutputStream.newInstance(hashingOutputStream);
 
     RuleClass ruleClass = rule.getRuleClassObject();

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -62,8 +61,7 @@ public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredA
 
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
       Iterable<ObjcProtoProvider> depObjcProtoProviders =
-          ruleContext.getPrerequisites(
-              "deps", TransitionMode.TARGET, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
+          ruleContext.getPrerequisites("deps", ObjcProtoProvider.STARLARK_CONSTRUCTOR);
       aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
     }
 
@@ -75,16 +73,14 @@ public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredA
     if (attributes.isObjcProtoLibrary()) {
 
       // Gather up all the dependency protos depended by this target.
-      List<ProtoInfo> protoInfos =
-          ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER);
+      List<ProtoInfo> protoInfos = ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER);
 
       for (ProtoInfo protoInfo : protoInfos) {
         aspectObjcProtoProvider.addProtoFiles(protoInfo.getTransitiveProtoSources());
       }
 
       NestedSet<Artifact> portableProtoFilters =
-          PrerequisiteArtifacts.nestedSet(
-              ruleContext, ProtoAttributes.PORTABLE_PROTO_FILTERS_ATTR, TransitionMode.HOST);
+          PrerequisiteArtifacts.nestedSet(ruleContext, ProtoAttributes.PORTABLE_PROTO_FILTERS_ATTR);
 
       // If this target does not provide filters but specifies direct proto_library dependencies,
       // generate a filter file only for those proto files.
@@ -100,22 +96,9 @@ public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredA
 
       // Propagate protobuf's headers and search paths so the BinaryLinkingTargetFactory subclasses
       // (i.e. objc_binary) don't have to depend on it.
-      ObjcConfiguration objcConfiguration =
-          ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
-      CcCompilationContext protobufCcCompilationContext;
-      if (objcConfiguration.compileInfoMigration()) {
-        CcInfo protobufCcInfo =
-            ruleContext.getPrerequisite(
-                ObjcRuleClasses.PROTO_LIB_ATTR, TransitionMode.TARGET, CcInfo.PROVIDER);
-        protobufCcCompilationContext = protobufCcInfo.getCcCompilationContext();
-      } else {
-        ObjcProvider protobufObjcProvider =
-            ruleContext.getPrerequisite(
-                ObjcRuleClasses.PROTO_LIB_ATTR,
-                TransitionMode.TARGET,
-                ObjcProvider.STARLARK_CONSTRUCTOR);
-        protobufCcCompilationContext = protobufObjcProvider.getCcCompilationContext();
-      }
+      CcInfo protobufCcInfo =
+          ruleContext.getPrerequisite(ObjcRuleClasses.PROTO_LIB_ATTR, CcInfo.PROVIDER);
+      CcCompilationContext protobufCcCompilationContext = protobufCcInfo.getCcCompilationContext();
       aspectObjcProtoProvider.addProtobufHeaders(
           protobufCcCompilationContext.getDeclaredIncludeSrcs());
       aspectObjcProtoProvider.addProtobufHeaderSearchPaths(

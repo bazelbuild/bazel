@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -31,7 +31,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
             + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface ConstraintValueInfoApi extends StructApi {
 
   @StarlarkMethod(
@@ -40,13 +40,13 @@ public interface ConstraintValueInfoApi extends StructApi {
           "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
               + "applied to.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   ConstraintSettingInfoApi constraint();
 
   @StarlarkMethod(
       name = "label",
       doc = "The label of the target that created this constraint value.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Label label();
 }

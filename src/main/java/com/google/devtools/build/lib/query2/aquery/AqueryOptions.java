@@ -49,14 +49,6 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeArtifacts;
 
   @Option(
-      name = "include_aspects",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether to include aspect generated actions in the output.")
-  public boolean useAspects;
-
-  @Option(
       name = "include_param_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -80,15 +72,14 @@ public class AqueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "incompatible_proto_output_v2",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        OptionMetadataTag.DEPRECATED,
       },
-      help =
-          "Whether aquery should print proto/textproto results with proto v2 "
-              + "(with ids in uint64 instead of string).")
+      help = "No-op.")
   public boolean protoV2;
 }

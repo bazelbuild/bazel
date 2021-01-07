@@ -72,7 +72,8 @@ public interface ConfigurationTransition {
    *
    * <p>Returning an empty or null map triggers a {@link RuntimeException}.
    */
-  Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler);
+  Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException;
 
   /**
    * We want to keep the number of transition interfaces no larger than what's necessary to maintain

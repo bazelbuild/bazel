@@ -14,14 +14,15 @@
 package com.google.devtools.build.lib.causes;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
- * Failure due to something associated with a label; also adds a message. The difference between
- * this class and {@link LabelCause} is that instances of this class get posted to the EventBus as
- * {@link com.google.devtools.build.lib.pkgcache.LoadingFailureEvent}.
+ * Failure due to something associated with a label. The difference between this class and {@link
+ * LabelCause} is that instances of this class get posted to the EventBus as {@link
+ * com.google.devtools.build.lib.pkgcache.LoadingFailureEvent}.
  */
 public class LoadingFailedCause extends LabelCause {
-  public LoadingFailedCause(Label label, String msg) {
-    super(label, msg);
+  public LoadingFailedCause(Label label, DetailedExitCode detailedExitCode) {
+    super(label, detailedExitCode);
   }
 }

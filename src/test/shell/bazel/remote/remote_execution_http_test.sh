@@ -170,7 +170,7 @@ EOF
     expect_log "dir/l is a symbolic link"
 }
 
-function set_directory_artifact_skylark_testfixtures() {
+function set_directory_artifact_starlark_testfixtures() {
   mkdir -p a
   cat > a/rule.bzl <<'EOF'
 def _gen_output_dir_impl(ctx):
@@ -242,8 +242,8 @@ Shuffle, duffle, muzzle, muff
 EOF
 }
 
-function test_directory_artifact_skylark_local() {
-  set_directory_artifact_skylark_testfixtures
+function test_directory_artifact_starlark_local() {
+  set_directory_artifact_starlark_testfixtures
 
   bazel build //a:test >& $TEST_log \
     || fail "Failed to build //a:test without remote execution"
@@ -251,8 +251,8 @@ function test_directory_artifact_skylark_local() {
       || fail "Local execution generated different result"
 }
 
-function test_directory_artifact_skylark() {
-  set_directory_artifact_skylark_testfixtures
+function test_directory_artifact_starlark() {
+  set_directory_artifact_starlark_testfixtures
 
   bazel build \
       --spawn_strategy=remote \
@@ -272,8 +272,8 @@ function test_directory_artifact_skylark() {
       || fail "Remote cache hit generated different result"
 }
 
-function test_directory_artifact_skylark_grpc_cache() {
-  set_directory_artifact_skylark_testfixtures
+function test_directory_artifact_starlark_grpc_cache() {
+  set_directory_artifact_starlark_testfixtures
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
@@ -291,8 +291,8 @@ function test_directory_artifact_skylark_grpc_cache() {
       || fail "Remote cache hit generated different result"
 }
 
-function test_directory_artifact_skylark_http_cache() {
-  set_directory_artifact_skylark_testfixtures
+function test_directory_artifact_starlark_http_cache() {
+  set_directory_artifact_starlark_testfixtures
 
   bazel build \
       --remote_cache=http://localhost:${http_port} \
@@ -310,8 +310,8 @@ function test_directory_artifact_skylark_http_cache() {
       || fail "Remote cache hit generated different result"
 }
 
-function test_directory_artifact_in_runfiles_skylark_http_cache() {
-  set_directory_artifact_skylark_testfixtures
+function test_directory_artifact_in_runfiles_starlark_http_cache() {
+  set_directory_artifact_starlark_testfixtures
 
   bazel build \
       --remote_cache=http://localhost:${http_port} \
@@ -507,6 +507,26 @@ EOF
 
   expect_log "1 local"
   expect_not_log "remote cache hit"
+}
+
+function test_remote_http_cache_with_bad_netrc_content() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+  cat > a/.netrc <<EOF
+this is bad netrc content
+EOF
+
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      --action_env=NETRC="${PWD}/a/.netrc" \
+      //a:foo \
+      || fail "Failed to build //a:foo with bad netrc content"
 }
 
 run_suite "Remote execution and remote cache tests"

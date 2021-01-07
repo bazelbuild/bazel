@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -94,6 +96,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       setNumCached(existingSummary.numCached);
       setRanRemotely(existingSummary.ranRemotely);
       setWasUnreportedWrongSize(existingSummary.wasUnreportedWrongSize);
+      mergeSystemFailure(existingSummary.getSystemFailure());
     }
 
     // Implements copy on write logic, allowing reuse of the same builder.
@@ -130,6 +133,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     public Builder setStatus(BlazeTestStatus status) {
       checkMutation(status);
       summary.status = status;
+      return this;
+    }
+
+    public Builder setSkipped(boolean skipped) {
+      checkMutation(skipped);
+      summary.skipped = skipped;
       return this;
     }
 
@@ -290,6 +299,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    public Builder mergeSystemFailure(@Nullable DetailedExitCode systemFailure) {
+      checkMutation();
+      summary.systemFailure =
+          DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+              summary.systemFailure, systemFailure);
+      return this;
+    }
+
     /**
      * Records a new result for the given shard of the test.
      *
@@ -342,6 +359,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private ConfiguredTarget target;
   private BuildConfiguration configuration;
   private BlazeTestStatus status;
+  private boolean skipped;
   // Currently only populated if --runs_per_test_detects_flakes is enabled.
   private Multimap<Integer, BlazeTestStatus> shardRunStatuses = ArrayListMultimap.create();
   private int numCached;
@@ -361,6 +379,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private FailedTestCasesStatus failedTestCasesStatus = null;
   private int totalTestCases;
   private int totalUnknownTestCases;
+  @Nullable private DetailedExitCode systemFailure;
 
   // Don't allow public instantiation; go through the Builder.
   private TestSummary() {
@@ -387,6 +406,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public BlazeTestStatus getStatus() {
     return status;
+  }
+
+  public boolean isSkipped() {
+    return skipped;
   }
 
   /**
@@ -463,6 +486,11 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return failedTestCasesStatus;
   }
 
+  @Nullable
+  public DetailedExitCode getSystemFailure() {
+    return systemFailure;
+  }
+
   /**
    * Returns an immutable view of the warnings associated with this test.
    */
@@ -525,7 +553,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return lastStopTimeMillis;
   }
 
-  static Mode getStatusMode(BlazeTestStatus status) {
+  Mode getStatusMode() {
+    if (skipped) {
+      return Mode.WARNING;
+    }
     return status == BlazeTestStatus.PASSED
         ? Mode.INFO
         : (status == BlazeTestStatus.FLAKY ? Mode.WARNING : Mode.ERROR);

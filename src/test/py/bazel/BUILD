@@ -77,7 +77,10 @@ py_test(
     tags = [
         "requires-network",
     ],
-    deps = [":test_base"],
+    deps = [
+        ":test_base",
+        "//third_party/py/six",
+    ],
 )
 
 py_test(

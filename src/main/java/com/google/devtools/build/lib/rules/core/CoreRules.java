@@ -32,7 +32,7 @@ public final class CoreRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.setShouldInvalidateCacheForOptionDiff(
         TestConfiguration.SHOULD_INVALIDATE_FOR_OPTION_DIFF);
-    builder.addConfigurationFragment(new TestConfiguration.Loader());
+    builder.addConfigurationFragment(TestConfiguration.class);
     builder.addTrimmingTransitionFactory(new TestTrimmingTransitionFactory());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
@@ -40,7 +40,6 @@ public final class CoreRules implements RuleSet {
     builder.addRuleDefinition(new BaseRuleClasses.MakeVariableExpandingRule());
     builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
-    builder.addRuleDefinition(new BaseRuleClasses.ErrorRule());
   }
 
   @Override

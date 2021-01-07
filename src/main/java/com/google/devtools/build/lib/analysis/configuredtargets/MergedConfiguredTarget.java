@@ -32,10 +32,11 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Provider.Key;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.syntax.Printer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Printer;
 
 /**
  * A single dependency with its configured target and aspects merged together.
@@ -231,6 +232,11 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void repr(Printer printer) {
     printer.append("<merged target " + getLabel() + ">");
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
   }
 
   @VisibleForTesting

@@ -36,6 +36,7 @@ add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=3"
 add_to_bazelrc "build --debug_print_action_contexts"
+add_to_bazelrc "build --experimental_worker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -470,23 +471,25 @@ EOF
 
 function test_crashed_worker_causes_log_dump() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  # TODO(larsrc): Spread this pattern to other tests
+  func_name=${FUNCNAME[0]##test*:}  # Test name without generated prefix
+  cat | sed "s/##FUNCNAME##/$func_name/;" >>BUILD <<'EOF'
 [work(
-  name = "hello_world_%s" % idx,
+  name = "##FUNCNAME##_%s" % idx,
   worker = ":worker",
   worker_args = ["--poison_after=1", "--hard_poison"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
 
-  bazel build :hello_world_1 &> $TEST_log \
+  bazel build :${func_name}_1 &> $TEST_log \
     || fail "build failed"
 
-  bazel build :hello_world_2 &> $TEST_log \
+  bazel build :${func_name}_2 &> $TEST_log \
     && fail "expected build to fail" || true
 
-  expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
+  expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "I'm a very poisoned worker and will just crash."
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }

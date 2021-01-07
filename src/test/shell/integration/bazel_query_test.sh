@@ -272,7 +272,7 @@ function test_minrank_le_depth_bound() {
   done
 }
 
-function test_skylark_dep_in_sky_query() {
+function test_starlark_dep_in_sky_query() {
   rm -rf foo
   rm -rf bar
   mkdir -p foo bar || fail "Couldn't make directories"
@@ -286,7 +286,7 @@ function test_skylark_dep_in_sky_query() {
   expect_not_log "fakerule\.bzl"
 }
 
-function test_skylark_regular_file_not_included_in_rbuildfiles() {
+function test_starlark_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -299,7 +299,7 @@ function test_skylark_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_symlink_source_not_included_in_rbuildfiles() {
+function test_starlark_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
@@ -313,7 +313,7 @@ function test_skylark_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_symlink_target_not_included_in_rbuildfiles() {
+function test_starlark_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -327,7 +327,7 @@ function test_skylark_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_glob_regular_file_not_included_in_rbuildfiles() {
+function test_starlark_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -340,7 +340,7 @@ function test_skylark_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_glob_symlink_source_not_included_in_rbuildfiles() {
+function test_starlark_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
@@ -354,7 +354,7 @@ function test_skylark_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_glob_symlink_target_not_included_in_rbuildfiles() {
+function test_starlark_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -368,7 +368,7 @@ function test_skylark_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_recursive_glob_regular_file_not_included_in_rbuildfiles() {
+function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -381,7 +381,7 @@ function test_skylark_recursive_glob_regular_file_not_included_in_rbuildfiles() 
   rm -rf foo
 }
 
-function test_skylark_recursive_glob_symlink_source_not_included_in_rbuildfiles() {
+function test_starlark_recursive_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
@@ -395,7 +395,7 @@ function test_skylark_recursive_glob_symlink_source_not_included_in_rbuildfiles(
   rm -rf foo
 }
 
-function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles() {
+function test_starlark_recursive_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -409,7 +409,7 @@ function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles(
   rm -rf foo
 }
 
-function test_skylark_subdir_dep_in_sky_query() {
+function test_starlark_subdir_dep_in_sky_query() {
   rm -rf foo
   mkdir -p foo bar/baz || fail "Couldn't make directories"
   echo 'load("//bar:baz/fakerule.bzl", "const")' > foo/BUILD || fail "Couldn't write"
@@ -477,6 +477,127 @@ EOF
     expect_log "$expected_error_msg"
     assert_equals "$expected_exit_code" "$exit_code"
   done
+}
+
+function test_location_output_relative_locations() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name='foo')
+EOF
+
+  bazel query --output=location '//foo' >& $TEST_log || fail "Expected success"
+  expect_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log "//foo:foo"
+
+  bazel query --output=location --relative_locations '//foo' >& $TEST_log || fail "Expected success"
+  # Query with --relative_locations should not show full path
+  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log "^foo/BUILD"
+  expect_log "//foo:foo"
+}
+
+function test_location_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  # The incompatible_display_source_file_location flag displays the location of
+  # line 1 of the actual source file
+  bazel query \
+    --output=location \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+
+  # The noincompatible_display_source_file_location flag displays its location
+  # in the BUILD file
+  bazel query \
+    --output=location \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+
+  # The incompatible_display_source_file_location should still be affected by
+  # relative_locations flag to display the relative location of the source file
+  bazel query \
+    --output=location \
+    --relative_locations \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^foo/main.py:1:1"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+
+  # The noincompatible_display_source_file_location flag should still be
+  # affected by relative_locations flag to display the relative location of
+  # the BUILD file.
+  bazel query --output=location \
+    --relative_locations \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_log "^foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+}
+
+function test_proto_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=proto \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+
+  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+
+  bazel query --output=proto \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  expect_not_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+}
+
+function test_xml_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=xml \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+
+  bazel query --output=xml \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
 }
 
 function test_subdirectory_named_external() {
@@ -550,6 +671,44 @@ EOF
   local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto"
   bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
   expect_log "$expected_error_msg"
+}
+
+function test_graphless_genquery_somepath_output_in_dependency_order() {
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "c", deps = [":b"])
+sh_library(name = "b", deps = [":a"])
+sh_library(name = "a")
+genquery(name = "somepath",
+         scope = ['//foo:c'],
+         expression = "somepath(//foo:c, //foo:a)")
+genquery(name = "allpaths",
+         scope = ['//foo:c'],
+         expression = "allpaths(//foo:c, //foo:a)")
+EOF
+
+  # Somepath in genquery needs to output in dependency order instead of
+  # lexicographical order (which is the default for all other expressions)
+  cat > foo/expected_sp_output <<EOF
+//foo:c
+//foo:b
+//foo:a
+EOF
+  bazel build --experimental_genquery_use_graphless_query \
+      //foo:somepath >& $TEST_log || fail "Expected success"
+  assert_equals "$(cat foo/expected_sp_output)" "$(cat bazel-bin/foo/somepath)"
+
+  # Allpaths in genquery outputs in lexicographical order (just like all other
+  # expressions) as the dependency order is not preserved during computation
+  # in GraphlessBlazeQueryEnvironment
+  cat > foo/expected_ap_output <<EOF
+//foo:a
+//foo:b
+//foo:c
+EOF
+  bazel build --experimental_genquery_use_graphless_query \
+      //foo:allpaths >& $TEST_log || fail "Expected success"
+  assert_equals "$(cat foo/expected_ap_output)" "$(cat bazel-bin/foo/allpaths)"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
@@ -639,6 +798,24 @@ function test_infer_universe_scope_considers_only_target_patterns() {
   expect_log //c:c
 }
 
+function test_bogus_visibility() {
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+sh_library(name = 'a', visibility = ['//bad:visibility', '//bar:__pkg__'])
+sh_library(name = 'b', visibility = ['//visibility:public'])
+sh_library(name = 'c', visibility = ['//bad:visibility'])
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  ! bazel query --keep_going --output=label_kind \
+      'visible(//bar:BUILD, //foo:a + //foo:b + //foo:c)' \
+      >& "$TEST_log" || fail "Expected failure"
+  expect_log "no such package 'bad'"
+  expect_log "keep_going specified, ignoring errors. Results may be inaccurate"
+  expect_log "sh_library rule //foo:a"
+  expect_log "sh_library rule //foo:b"
+  expect_not_log "sh_library rule //foo:c"
+}
+
 function test_infer_universe_scope_defers_to_universe_scope_value() {
   # When we have two targets, in two different packages, that do not depend on
   # each other,
@@ -673,6 +850,72 @@ function test_infer_universe_scope_defers_to_universe_scope_value() {
   # inferred universe.
   expect_log //a:a
   expect_log //b:b
+}
+
+function test_query_failure_exit_code_behavior() {
+  bazel query //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going //targetdoesnotexist >& "$TEST_log" \
+      && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 3 "$exit_code"
+
+  bazel query '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 1 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 1 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=seven \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=seven \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+}
+
+function test_unnecessary_external_workspaces_not_loaded() {
+  cat > WORKSPACE <<'EOF'
+local_repository(
+    name = "notthere",
+    path = "/nope",
+)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(
+    name = "something",
+    srcs = ["@notthere"],
+)
+EOF
+  bazel query '//:*' || fail "Expected success"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

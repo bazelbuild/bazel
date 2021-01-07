@@ -47,6 +47,7 @@ public class FdoHelper {
     FdoInputFile fdoInputFile = null;
     FdoInputFile csFdoInputFile = null;
     FdoInputFile prefetchHints = null;
+    PropellerOptimizeInputFile propellerOptimizeInputFile = null;
     Artifact protoProfileArtifact = null;
     Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
@@ -56,6 +57,29 @@ public class FdoHelper {
         FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
         prefetchHints = provider.getInputFile();
       }
+
+      if (cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
+          || cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null) {
+        Artifact ccArtifact = null;
+        if (cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null) {
+          ccArtifact =
+              PropellerOptimizeInputFile.createAbsoluteArtifact(
+                  ruleContext, cppConfiguration.getPropellerOptimizeAbsoluteCCProfile());
+        }
+        Artifact ldArtifact = null;
+        if (cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null) {
+          ldArtifact =
+              PropellerOptimizeInputFile.createAbsoluteArtifact(
+                  ruleContext, cppConfiguration.getPropellerOptimizeAbsoluteLdProfile());
+        }
+        propellerOptimizeInputFile = new PropellerOptimizeInputFile(ccArtifact, ldArtifact);
+      } else if (cppConfiguration
+              .getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+          != null) {
+        PropellerOptimizeProvider provider = attributes.getPropellerOptimize();
+        propellerOptimizeInputFile = provider.getInputFile();
+      }
+
       if (cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() != null) {
         PathFragment fdoZip =
             cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration();
@@ -204,7 +228,8 @@ public class FdoHelper {
           new FdoContext.BranchFdoProfile(branchFdoMode, profileArtifact, protoProfileArtifact);
     }
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
-    return new FdoContext(branchFdoProfile, prefetchHintsArtifact);
+
+    return new FdoContext(branchFdoProfile, prefetchHintsArtifact, propellerOptimizeInputFile);
   }
 
   /**
@@ -448,8 +473,7 @@ public class FdoHelper {
   }
 
   private static FdoInputFile fdoInputFileFromArtifacts(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes)
-      throws InterruptedException {
+      RuleContext ruleContext, CcToolchainAttributesProvider attributes) {
     ImmutableList<Artifact> fdoArtifacts = attributes.getFdoOptimizeArtifacts();
     if (fdoArtifacts.size() != 1) {
       ruleContext.ruleError("--fdo_optimize does not point to a single target");
@@ -465,11 +489,7 @@ public class FdoHelper {
     Label fdoLabel = attributes.getFdoOptimize().getLabel();
     if (!fdoLabel
         .getPackageIdentifier()
-        .getExecPath(
-            ruleContext
-                .getAnalysisEnvironment()
-                .getStarlarkSemantics()
-                .experimentalSiblingRepositoryLayout())
+        .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
         .getRelative(fdoLabel.getName())
         .equals(fdoArtifact.getExecPath())) {
       ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");

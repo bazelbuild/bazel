@@ -18,15 +18,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.syntax.Location;
 
 /**
  * This class represents a package group BUILD target. It has a name, a list of {@link
@@ -53,17 +53,17 @@ public class PackageGroup implements Target {
     this.containingPackage = pkg;
     this.includes = ImmutableList.copyOf(includes);
 
-    // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents. 
+    // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents.
     ImmutableList.Builder<PackageSpecification> packagesBuilder = ImmutableList.builder();
     for (String packageSpecification : packageSpecifications) {
       PackageSpecification specification = null;
       try {
         specification =
-            PackageSpecification.fromString(
-                label.getPackageIdentifier().getRepository(), packageSpecification);
+            PackageSpecification.fromString(label.getRepository(), packageSpecification);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         containsErrors = true;
-        eventHandler.handle(Event.error(location, e.getMessage()));
+        eventHandler.handle(
+            Package.error(location, e.getMessage(), Code.INVALID_PACKAGE_SPECIFICATION));
       }
 
       if (specification != null) {

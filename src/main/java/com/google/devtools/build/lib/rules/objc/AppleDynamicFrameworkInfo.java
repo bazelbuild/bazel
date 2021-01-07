@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import javax.annotation.Nullable;
 
@@ -45,9 +45,9 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   public static final String STARLARK_NAME = "AppleDynamicFramework";
 
   /** Starlark constructor and identifier for AppleDynamicFrameworkInfo. */
-  public static final NativeProvider<AppleDynamicFrameworkInfo> STARLARK_CONSTRUCTOR =
-      new NativeProvider<AppleDynamicFrameworkInfo>(
-          AppleDynamicFrameworkInfo.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<AppleDynamicFrameworkInfo> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<AppleDynamicFrameworkInfo>(
+          STARLARK_NAME, AppleDynamicFrameworkInfo.class) {};
 
   /** Field name for the dylib binary artifact of the dynamic framework. */
   public static final String DYLIB_BINARY_FIELD_NAME = "binary";
@@ -68,11 +68,15 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
       ObjcProvider depsObjcProvider,
       NestedSet<String> dynamicFrameworkDirs,
       NestedSet<Artifact> dynamicFrameworkFiles) {
-    super(STARLARK_CONSTRUCTOR);
     this.dylibBinary = dylibBinary;
     this.depsObjcProvider = depsObjcProvider;
     this.dynamicFrameworkDirs = dynamicFrameworkDirs;
     this.dynamicFrameworkFiles = dynamicFrameworkFiles;
+  }
+
+  @Override
+  public BuiltinProvider<AppleDynamicFrameworkInfo> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   @Override

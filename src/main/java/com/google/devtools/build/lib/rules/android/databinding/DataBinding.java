@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -92,7 +91,10 @@ public final class DataBinding {
 
     if (enabled) {
       if (androidConfig.useDataBindingV2()) {
-        return new DataBindingV2Context(context, androidConfig.useDataBindingUpdatedArgs());
+        return new DataBindingV2Context(
+            context,
+            androidConfig.useDataBindingUpdatedArgs(),
+            androidConfig.useDataBindingAndroidX());
       } else {
         return new DataBindingV1Context(context, androidConfig.useDataBindingUpdatedArgs());
       }
@@ -127,6 +129,26 @@ public final class DataBinding {
     }
   }
 
+  /** Supplies a databinding context from an injected layout info zip file. */
+  public static DataBindingContext getInjectedDataBindingContext(
+      ActionConstructionContext context,
+      AndroidConfiguration androidConfig,
+      Artifact injectedLayoutInfoZip) {
+    if (androidConfig.useDataBindingV2()) {
+      if (injectedLayoutInfoZip == null) {
+        return DISABLED_V2_CONTEXT;
+      } else {
+        return new DataBindingV2Context(
+            context,
+            androidConfig.useDataBindingUpdatedArgs(),
+            androidConfig.useDataBindingAndroidX(),
+            injectedLayoutInfoZip);
+      }
+    } else {
+      return DISABLED_V1_CONTEXT;
+    }
+  }
+
   /** Returns this rule's data binding base output dir (as an execroot-relative path). */
   static PathFragment getDataBindingExecPath(RuleContext ruleContext) {
     return ruleContext
@@ -149,7 +171,7 @@ public final class DataBinding {
         binRelativeBasePath.getRelative(relativePath), ruleContext.getBinOrGenfilesDirectory());
   }
 
-  static ImmutableList<Artifact> getAnnotationFile(RuleContext ruleContext) {
+  static ImmutableList<Artifact> getAnnotationFile(RuleContext ruleContext, boolean useAndroidX) {
     // Add this rule's annotation processor input. If the rule doesn't have direct resources,
     // there's no direct data binding info, so there's strictly no need for annotation processing.
     // But it's still important to process the deps' .bin files so any Java class references get
@@ -161,7 +183,10 @@ public final class DataBinding {
     try {
       String contents =
           ResourceFileLoader.loadResource(
-              DataBinding.class, "databinding_annotation_template.txt");
+              DataBinding.class,
+              useAndroidX
+                  ? "databinding_annotation_template_androidx.txt"
+                  : "databinding_annotation_template_support_lib.txt");
       Artifact annotationFile = getDataBindingArtifact(ruleContext, "DataBindingInfo.java");
       ruleContext.registerAction(
           FileWriteAction.create(ruleContext, annotationFile, contents, false));
@@ -177,8 +202,7 @@ public final class DataBinding {
     ImmutableList.Builder<Artifact> dataBindingMetadataOutputs = ImmutableList.builder();
     if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
       for (UsesDataBindingProvider provider :
-          ruleContext.getPrerequisites(
-              attr, TransitionMode.TARGET, UsesDataBindingProvider.PROVIDER)) {
+          ruleContext.getPrerequisites(attr, UsesDataBindingProvider.PROVIDER)) {
         dataBindingMetadataOutputs.addAll(provider.getMetadataOutputs());
       }
     }

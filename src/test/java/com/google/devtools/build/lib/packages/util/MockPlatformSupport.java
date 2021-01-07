@@ -105,7 +105,7 @@ public class MockPlatformSupport {
         "    name = 'default_target',",
         "    parents = ['" + basePlatform + "'],",
         "    constraint_values = [",
-        "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:jdk8',",
+        "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:jdk11',",
         "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
         "    ],",
         ")",

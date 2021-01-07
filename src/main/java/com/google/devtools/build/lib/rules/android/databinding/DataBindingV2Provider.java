@@ -23,9 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A provider that exposes this enables <a
@@ -43,10 +42,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   private final NestedSet<Artifact> transitiveBRFiles;
 
-  /**
-   * The label and java package of this rule and any rules that this rule exports.
-   */
-  @Nullable
+  /** The label and java package of this rule and any rules that this rule exports. */
   private final ImmutableList<LabelJavaPackagePair> labelAndJavaPackages;
 
   private final NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages;
@@ -57,12 +53,16 @@ public final class DataBindingV2Provider extends NativeInfo
       NestedSet<Artifact> transitiveBRFiles,
       ImmutableList<LabelJavaPackagePair> labelAndJavaPackages,
       NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages) {
-    super(PROVIDER);
     this.classInfos = classInfos;
     this.setterStores = setterStores;
     this.transitiveBRFiles = transitiveBRFiles;
     this.labelAndJavaPackages = labelAndJavaPackages;
     this.transitiveLabelAndJavaPackages = transitiveLabelAndJavaPackages;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -85,7 +85,6 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
-  @Nullable
   public ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages() {
     return labelAndJavaPackages;
   }

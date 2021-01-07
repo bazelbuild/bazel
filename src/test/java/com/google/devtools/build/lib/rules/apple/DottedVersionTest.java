@@ -46,6 +46,8 @@ public class DottedVersionTest {
         .addEqualityGroup(DottedVersion.fromString("10.0.0.10A255"))
         .addEqualityGroup(DottedVersion.fromString("10.2"))
         .addEqualityGroup(DottedVersion.fromString("10.2.0.10P99q"))
+        .addEqualityGroup(
+            DottedVersion.fromString("10.10.simulator.internal"), DottedVersion.fromString("10.10"))
         .testCompare();
   }
 

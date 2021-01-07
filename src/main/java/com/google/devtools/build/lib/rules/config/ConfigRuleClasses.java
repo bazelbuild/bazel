@@ -279,7 +279,7 @@ public class ConfigRuleClasses {
           .build();
     }
   }
-  /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+  /*<!-- #BLAZE_RULE (NAME = config_setting, FAMILY = General)[GENERIC_RULE] -->
 
   <p>
     Matches an expected configuration state (expressed as Bazel flags or platform constraints) for

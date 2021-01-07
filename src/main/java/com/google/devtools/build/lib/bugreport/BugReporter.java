@@ -35,5 +35,5 @@ public interface BugReporter {
   void sendBugReport(Throwable exception, List<String> args, String... values);
 
   /** See {@link BugReport#handleCrash}. */
-  RuntimeException handleCrash(Throwable throwable, String... args);
+  void handleCrash(Crash crash, CrashContext ctx);
 }

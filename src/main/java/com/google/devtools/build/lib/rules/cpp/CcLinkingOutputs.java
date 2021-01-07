@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import javax.annotation.Nullable;
 
 /** A structured representation of the link outputs of a C++ rule. */
-public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
+public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBackendArtifacts> {
 
   public static final CcLinkingOutputs EMPTY = builder().build();
 

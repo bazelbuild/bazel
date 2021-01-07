@@ -21,8 +21,19 @@ public interface DynamicStrategyRegistry extends ActionContext {
 
   /** Indicator for whether a strategy is meant for remote or local branch of dynamic execution. */
   enum DynamicMode {
-    REMOTE,
-    LOCAL
+    REMOTE("remote"),
+    LOCAL("local");
+
+    private final String name;
+
+    DynamicMode(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   /**

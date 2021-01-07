@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -93,23 +92,6 @@ public final class AnalysisUtils {
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final NativeProvider<T> starlarkKey) {
-    ImmutableList.Builder<T> result = ImmutableList.builder();
-    for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(starlarkKey);
-      if (prerequisiteProvider != null) {
-        result.add(prerequisiteProvider);
-      }
-    }
-    return result.build();
-  }
-
-  /**
-   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
-   * a set of transitive info collections.
-   */
-  public static <T extends Info> List<T> getProviders(
-      Iterable<? extends TransitiveInfoCollection> prerequisites,
       final BuiltinProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
@@ -131,12 +113,6 @@ public final class AnalysisUtils {
 
   /** Returns the iterable of collections that have the specified provider. */
   public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
-      Iterable<S> prerequisites, final NativeProvider<C> provider) {
-    return Iterables.filter(prerequisites, target -> target.get(provider) != null);
-  }
-
-  /** Returns the iterable of collections that have the specified provider. */
-  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
       Iterable<S> prerequisites, final BuiltinProvider<C> provider) {
     return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
@@ -152,14 +128,17 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns a path fragment qualified by the rule name and unique fragment to
-   * disambiguate artifacts produced from the source file appearing in
-   * multiple rules.
+   * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
+   * artifacts produced from the source file appearing in multiple rules.
    *
    * <p>For example "//pkg:target" -> "pkg/&lt;fragment&gt;/target.
    */
-  public static PathFragment getUniqueDirectory(Label label, PathFragment fragment) {
-    return label.getPackageIdentifier().getSourceRoot().getRelative(fragment)
+  public static PathFragment getUniqueDirectory(
+      Label label, PathFragment fragment, boolean siblingRepositoryLayout) {
+    return label
+        .getPackageIdentifier()
+        .getPackagePath(siblingRepositoryLayout)
+        .getRelative(fragment)
         .getRelative(label.getName());
   }
 
@@ -189,7 +168,7 @@ public final class AnalysisUtils {
       ExtendedEventHandler eventHandler,
       ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationsCollector configurationsCollector)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());

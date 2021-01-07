@@ -75,11 +75,14 @@ public interface OsPathPolicy {
    */
   boolean endsWith(String path, String suffix);
 
-  /** Returns the separator used for normalized paths. */
-  char getSeparator();
-
   /** Returns whether the unnormalized character c is a separator. */
   boolean isSeparator(char c);
+
+  /**
+   * Returns an additional character besides '/' for which {@link #isSeparator} is true. 0 means
+   * there is no such additional character.
+   */
+  char additionalSeparator();
 
   boolean isCaseSensitive();
 

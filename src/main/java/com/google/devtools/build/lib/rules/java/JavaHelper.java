@@ -13,17 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +37,7 @@ public abstract class JavaHelper {
   public static TransitiveInfoCollection launcherForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher, TransitionMode.TARGET);
+    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher);
   }
 
   /**
@@ -51,14 +47,15 @@ public abstract class JavaHelper {
   public static Artifact launcherArtifactForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null)
-        ? null
-        : ruleContext.getPrerequisiteArtifact(launcher, TransitionMode.TARGET);
+    return (launcher == null) ? null : ruleContext.getPrerequisiteArtifact(launcher);
   }
 
   /**
    * Control structure abstraction for safely extracting a prereq from the launcher attribute or
-   * --java_launcher flag.
+   * {@code --java_launcher} flag.
+   *
+   * <p>Returns {@code null} if either {@code create_executable} or {@code use_launcher} are
+   * disabled.
    */
   private static String filterLauncherForTarget(RuleContext ruleContext) {
     // create_executable=0 disables the launcher
@@ -66,19 +63,20 @@ public abstract class JavaHelper {
         && !ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
       return null;
     }
+    // use_launcher=False disables the launcher
+    if (ruleContext.getRule().isAttrDefined("use_launcher", Type.BOOLEAN)
+        && !ruleContext.attributes().get("use_launcher", Type.BOOLEAN)) {
+      return null;
+    }
     // BUILD rule "launcher" attribute
     if (ruleContext.getRule().isAttrDefined("launcher", BuildType.LABEL)
         && ruleContext.attributes().get("launcher", BuildType.LABEL) != null) {
-      if (isJdkLauncher(ruleContext, ruleContext.attributes().get("launcher", BuildType.LABEL))) {
-        return null;
-      }
       return "launcher";
     }
     // Blaze flag --java_launcher
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     if (ruleContext.getRule().isAttrDefined(":java_launcher", BuildType.LABEL)
-        && javaConfig.getJavaLauncherLabel() != null
-        && !isJdkLauncher(ruleContext, javaConfig.getJavaLauncherLabel())) {
+        && javaConfig.getJavaLauncherLabel() != null) {
       return ":java_launcher";
     }
     return null;
@@ -111,48 +109,34 @@ public abstract class JavaHelper {
   }
 
   public static PathFragment getJavaResourcePath(
-      JavaSemantics semantics, RuleContext ruleContext, Artifact resource)
-      throws InterruptedException {
-    PathFragment rootRelativePath = resource.getRootRelativePath();
-    StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
-
-    if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
-      PathFragment workspace =
-          PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
-      rootRelativePath = rootRelativePath.relativeTo(workspace);
+      JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
+    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
+    PathFragment resourcePath = resource.getOutputDirRelativePath(siblingRepositoryLayout);
+    PathFragment repoExecPath =
+        ruleContext
+            .getLabel()
+            .getRepository()
+            .getExecPath(siblingRepositoryLayout);
+    if (!repoExecPath.isEmpty() && resourcePath.startsWith(repoExecPath)) {
+      resourcePath = resourcePath.relativeTo(repoExecPath);
     }
 
     if (!ruleContext.attributes().has("resource_strip_prefix", Type.STRING)
         || !ruleContext.attributes().isAttributeValueExplicitlySpecified("resource_strip_prefix")) {
-      return semantics.getDefaultJavaResourcePath(rootRelativePath);
+      return semantics.getDefaultJavaResourcePath(resourcePath);
     }
 
     PathFragment prefix =
         PathFragment.create(ruleContext.attributes().get("resource_strip_prefix", Type.STRING));
 
-    if (!rootRelativePath.startsWith(prefix)) {
+    if (!resourcePath.startsWith(prefix)) {
       ruleContext.attributeError(
           "resource_strip_prefix",
           String.format(
-              "Resource file '%s' is not under the specified prefix to strip", rootRelativePath));
-      return rootRelativePath;
+              "Resource file '%s' is not under the specified prefix to strip", resourcePath));
+      return resourcePath;
     }
 
-    return rootRelativePath.relativeTo(prefix);
-  }
-
-  /**
-   * Returns true if the given Label is of the pseudo-cc_binary that tells Bazel a Java target's
-   * JAVABIN is never to be replaced by the contents of --java_launcher; only the JDK's launcher
-   * will ever be used.
-   */
-  public static boolean isJdkLauncher(RuleContext ruleContext, Label label) {
-    if (!ruleContext.attributes().has("$no_launcher")) {
-      return false;
-    }
-    List<Label> noLauncherAttribute =
-        ruleContext.attributes().get("$no_launcher", NODEP_LABEL_LIST);
-    return noLauncherAttribute != null && noLauncherAttribute.contains(label);
+    return resourcePath.relativeTo(prefix);
   }
 }

@@ -240,16 +240,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batch;
 
   @Option(
-      name = "deep_execroot",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
-      help =
-          "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
-              + "$OUTPUT_BASE.")
-  public boolean deepExecRoot;
-
-  @Option(
       name = "block_for_lock",
       defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -386,12 +376,28 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean clientDebug;
 
   @Option(
+      name = "preemptible",
+      defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help = "If true, the command can be preempted if another command is started.")
+  public boolean preemptible;
+
+  @Option(
       name = "connect_timeout_secs",
       defaultValue = "30", // NOTE: only for documentation, value is set and used by the client.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The amount of time the client waits for each attempt to connect to the server")
   public int connectTimeoutSecs;
+
+  @Option(
+      name = "local_startup_timeout_secs",
+      defaultValue = "120", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum amount of time the client waits to connect to the server")
+  public int localStartupTimeoutSecs;
 
   // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
   // experimental tag once this has been tested and is ready for use.
@@ -482,4 +488,27 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
               + "greater.")
   public boolean enableWindowsSymlinks;
+
+  @Option(
+      name = "unix_digest_hash_attribute_name",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "The name of an extended attribute that can be placed on files to store a precomputed "
+              + "copy of the file's hash, corresponding with --digest_function. This option "
+              + "can be used to reduce disk I/O and CPU load caused by hash computation. This "
+              + "extended attribute is checked on all source files and output files, meaning "
+              + "that it causes a significant number of invocations of the getxattr() system call.")
+  public String unixDigestHashAttributeName;
+
+  @Option(
+      name = "autodetect_server_javabase",
+      defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "When --noautodetect_server_javabase is passed, Bazel does not fall back to the local "
+              + "JDK for running the bazel server and instead exits.")
+  public boolean autodetectServerJavabase;
 }

@@ -15,15 +15,15 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a configuration object which holds information about the build environment. */
 @StarlarkBuiltin(
     name = "configuration",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "This object holds information about the environment in which the build is running. See"
             + " the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the"

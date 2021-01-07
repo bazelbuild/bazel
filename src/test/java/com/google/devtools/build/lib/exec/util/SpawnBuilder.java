@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +44,7 @@ public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   private String ownerLabel = "//dummy:label";
+  @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
   private final List<String> args;
   private final Map<String, String> environment = new HashMap<>();
@@ -54,8 +54,10 @@ public final class SpawnBuilder {
   private final List<ActionInput> outputs = new ArrayList<>();
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
       new HashMap<>();
+  private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
+  private ResourceSet resourceSet = ResourceSet.ZERO;
 
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
@@ -63,7 +65,8 @@ public final class SpawnBuilder {
 
   public Spawn build() {
     ActionExecutionMetadata owner =
-        new FakeOwner(mnemonic, progressMessage, ownerLabel, platform, execProperties);
+        new FakeOwner(
+            mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -72,9 +75,9 @@ public final class SpawnBuilder {
         runfilesSupplier,
         ImmutableMap.copyOf(filesetMappings),
         inputs.build(),
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        tools.build(),
         ImmutableSet.copyOf(outputs),
-        ResourceSet.ZERO);
+        resourceSet);
   }
 
   public SpawnBuilder withPlatform(PlatformInfo platform) {
@@ -94,6 +97,11 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  public SpawnBuilder withOwnerPrimaryOutput(Artifact output) {
+    ownerPrimaryOutput = checkNotNull(output);
     return this;
   }
 
@@ -129,8 +137,19 @@ public final class SpawnBuilder {
     return this;
   }
 
+  public SpawnBuilder withOutput(ActionInput output) {
+    outputs.add(output);
+    return this;
+  }
+
   public SpawnBuilder withOutput(String name) {
-    this.outputs.add(ActionInputHelper.fromPath(name));
+    return withOutput(ActionInputHelper.fromPath(name));
+  }
+
+  public SpawnBuilder withOutputs(ActionInput... outputs) {
+    for (ActionInput output : outputs) {
+      withOutput(output);
+    }
     return this;
   }
 
@@ -150,6 +169,16 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withRunfilesSupplier(RunfilesSupplier runfilesSupplier) {
     this.runfilesSupplier = runfilesSupplier;
+    return this;
+  }
+
+  public SpawnBuilder withTool(ActionInput tool) {
+    tools.add(tool);
+    return this;
+  }
+
+  public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
+    this.resourceSet = resourceSet;
     return this;
   }
 }

@@ -43,6 +43,24 @@ class CommandManager {
     idle();
   }
 
+  void preemptEligibleCommands() {
+    synchronized (runningCommandsMap) {
+      ImmutableSet.Builder<String> commandsToInterruptBuilder = new ImmutableSet.Builder<>();
+
+      for (RunningCommand command : runningCommandsMap.values()) {
+        if (command.isPreemptible()) {
+          command.thread.interrupt();
+          commandsToInterruptBuilder.add(command.id);
+        }
+      }
+
+      ImmutableSet<String> commandsToInterrupt = commandsToInterruptBuilder.build();
+      if (!commandsToInterrupt.isEmpty()) {
+        startSlowInterruptWatcher(commandsToInterrupt);
+      }
+    }
+  }
+
   void interruptInflightCommands() {
     synchronized (runningCommandsMap) {
       for (RunningCommand command : runningCommandsMap.values()) {
@@ -54,7 +72,7 @@ class CommandManager {
   }
 
   void doCancel(CancelRequest request) {
-    try (RunningCommand cancelCommand = create()) {
+    try (RunningCommand cancelCommand = createCommand()) {
       synchronized (runningCommandsMap) {
         RunningCommand pendingCommand = runningCommandsMap.get(request.getCommandId());
         if (pendingCommand != null) {
@@ -88,8 +106,19 @@ class CommandManager {
     }
   }
 
-  RunningCommand create() {
-    RunningCommand command = new RunningCommand();
+  RunningCommand createPreemptibleCommand() {
+    RunningCommand command = new RunningCommand(true);
+    registerCommand(command);
+    return command;
+  }
+
+  RunningCommand createCommand() {
+    RunningCommand command = new RunningCommand(false);
+    registerCommand(command);
+    return command;
+  }
+
+  private void registerCommand(RunningCommand command) {
     synchronized (runningCommandsMap) {
       if (runningCommandsMap.isEmpty()) {
         busy();
@@ -98,7 +127,6 @@ class CommandManager {
       runningCommandsMap.notify();
     }
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
-    return command;
   }
 
   private void idle() {
@@ -148,10 +176,12 @@ class CommandManager {
   class RunningCommand implements AutoCloseable {
     private final Thread thread;
     private final String id;
+    private final boolean preemptible;
 
-    private RunningCommand() {
+    private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
       id = UUID.randomUUID().toString();
+      this.preemptible = preemptible;
     }
 
     @Override
@@ -169,6 +199,10 @@ class CommandManager {
 
     String getId() {
       return id;
+    }
+
+    boolean isPreemptible() {
+      return this.preemptible;
     }
   }
 }

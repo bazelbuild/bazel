@@ -84,14 +84,15 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.alwaysError(fooShFile);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
-    events.assertContainsError("//foo:top: missing input file '//foo:foo.sh': nope");
+    events.assertContainsError(
+        "Executing genrule //foo:top failed: missing input file '//foo:foo.sh': nope");
   }
 
   /**
    * Tests that IOExceptions encountered while handling non-mandatory inputs are properly handled.
    */
   @Test
-  public void testIOException_NonMandatoryInputs() throws Exception {
+  public void testIOException_nonMandatoryInputs() throws Exception {
     Path fooBuildFile =
         write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
@@ -104,7 +105,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     assertThat(rootCauses).hasSize(1);
     assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
-    events.assertContainsError("foo/BUILD:1:11: //foo:foo: missing input file 'foo/foo.h': nope");
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/foo.h': nope");
   }
 
   /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */
@@ -142,7 +144,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     assertThat(rootCauses).hasSize(1);
     assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
-    events.assertContainsError("foo/BUILD:1:11: //foo:foo: missing input file 'foo/error.h': nope");
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/error.h': nope");
   }
 
   /**
@@ -150,7 +153,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    * handled.
    */
   @Test
-  public void testIOException_NonMandatoryGeneratedInputs() throws Exception {
+  public void testIOException_nonMandatoryGeneratedInputs() throws Exception {
     write(
         "bar/BUILD",
         "cc_library(",
@@ -262,7 +265,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
-      super(DigestHashFunction.getDefaultUnchecked());
+      super(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
     }
 
     void alwaysError(Path path) {

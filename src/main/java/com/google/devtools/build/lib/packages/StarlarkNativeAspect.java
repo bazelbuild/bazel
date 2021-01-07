@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
 public abstract class StarlarkNativeAspect extends NativeAspectClass implements StarlarkAspect {

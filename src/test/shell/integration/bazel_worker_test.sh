@@ -20,7 +20,8 @@
 set -u
 ADDITIONAL_BUILD_FLAGS=$1
 WORKER_TYPE_LOG_STRING=$2
-shift 2
+WORKER_PROTOCOL=$3
+shift 3
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,8 +35,10 @@ example_worker=$(find $BAZEL_RUNFILES -name ExampleWorker_deploy.jar)
 
 add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
+add_to_bazelrc "build --experimental_worker_allow_json_protocol"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
 add_to_bazelrc "build --debug_print_action_contexts"
+add_to_bazelrc "build --noexperimental_worker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -100,7 +103,7 @@ function prepare_example_worker() {
   mkdir worker_data_dir
   echo "veryexample" > worker_data_dir/more_data.txt
 
-  cat >work.bzl <<'EOF'
+  cat >work.bzl <<EOF
 def _impl(ctx):
   worker = ctx.executable.worker
   output = ctx.outputs.out
@@ -126,7 +129,7 @@ def _impl(ctx):
     argfile_inputs.append(argfile)
     argfile_arguments.append("@" + argfile.path)
 
-  execution_requirements = {"supports-workers": "1"}
+  execution_requirements = {"supports-workers": "1", "requires-worker-protocol": "$WORKER_PROTOCOL"}
   if ctx.attr.worker_key_mnemonic:
     execution_requirements["worker-key-mnemonic"] = ctx.attr.worker_key_mnemonic
 
@@ -143,7 +146,7 @@ def _impl(ctx):
 work = rule(
     implementation=_impl,
     attrs={
-        "worker": attr.label(cfg="host", mandatory=True, allow_files=True, executable=True),
+        "worker": attr.label(cfg="exec", mandatory=True, allow_files=True, executable=True),
         "worker_args": attr.string_list(),
         "worker_key_mnemonic": attr.string(),
         "action_mnemonic": attr.string(default = "Work"),
@@ -182,12 +185,14 @@ function test_example_worker() {
 work(
   name = "hello_world",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["hello world"],
 )
 
 work(
   name = "hello_world_uppercase",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--uppercase", "hello world"],
 )
 EOF
@@ -201,12 +206,46 @@ EOF
   assert_equals "HELLO WORLD" "$(cat $BINS/hello_world_uppercase.out)"
 }
 
+function test_worker_requests() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["hello world", "--print_requests"],
+)
+
+work(
+  name = "hello_world_uppercase",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--uppercase", "hello world", "--print_requests"],
+)
+EOF
+
+  bazel build  :hello_world &> $TEST_log \
+    || fail "build failed"
+  assert_contains "hello world" "$BINS/hello_world.out"
+  assert_contains "arguments: \"hello world\"" "$BINS/hello_world.out"
+  assert_contains "path:.*hello_world_worker_input" "$BINS/hello_world.out"
+  assert_not_contains "request_id" "$BINS/hello_world.out"
+
+  bazel build  :hello_world_uppercase &> $TEST_log \
+    || fail "build failed"
+  assert_contains "HELLO WORLD" "$BINS/hello_world_uppercase.out"
+  assert_contains "arguments: \"hello world\"" "$BINS/hello_world_uppercase.out"
+  assert_contains "path:.*hello_world_uppercase_worker_input" "$BINS/hello_world_uppercase.out"
+  assert_not_contains "request_id" "$BINS/hello_world_uppercase.out"
+}
+
 function test_shared_worker() {
   prepare_example_worker
   cat >>BUILD <<EOF
 work(
   name = "hello_world",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   action_mnemonic = "Hello",
   worker_key_mnemonic = "SharedWorker",
   args = ["--write_uuid"],
@@ -215,6 +254,7 @@ work(
 work(
   name = "goodbye_world",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   action_mnemonic = "Goodbye",
   worker_key_mnemonic = "SharedWorker",
   args = ["--write_uuid"],
@@ -234,6 +274,7 @@ function test_multiple_flagfiles() {
 work(
   name = "multi_hello_world",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["hello", "world", "nice", "to", "meet", "you"],
   multiflagfiles = True,
 )
@@ -246,10 +287,11 @@ EOF
 
 function test_workers_quit_after_build() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -268,11 +310,11 @@ EOF
 
 function test_build_succeeds_even_if_worker_exits() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
-  worker_args = ["--exit_after=1"],
+  worker_args = ["--exit_after=1", "--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -284,17 +326,20 @@ EOF
   bazel build --worker_verbose :hello_world_2 &> $TEST_log \
     || fail "build failed"
 
-  expect_log "Work worker (id 2) has unexpectedly died with exit code 0."
+  expect_log "Work worker (id [0-9]\+) has unexpectedly died with exit code 0."
 }
 
 function test_build_fails_if_worker_dies_during_action() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
-  worker_args = ["--exit_during=1"],
-  args = ["--write_uuid", "--write_counter"],
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}","--exit_during=1"],
+  args = [
+    "--write_uuid",
+    "--write_counter",
+  ],
 ) for idx in range(10)]
 EOF
 
@@ -306,10 +351,11 @@ EOF
 
 function test_worker_restarts_when_worker_binary_changes() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -351,10 +397,11 @@ EOF
 
 function test_worker_restarts_when_worker_runfiles_change() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -394,11 +441,11 @@ EOF
 # protobuf, it must be killed and a helpful error message should be printed.
 function test_build_fails_when_worker_returns_junk() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
-  worker_args = ["--poison_after=1"],
+  worker_args = ["--poison_after=1", "--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -418,10 +465,11 @@ EOF
 
 function test_input_digests() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--print_inputs"],
   srcs = [":input.txt"],
 ) for idx in range(10)]
@@ -454,10 +502,11 @@ EOF
 
 function test_worker_verbose() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -471,10 +520,11 @@ EOF
 
 function test_logs_are_deleted_on_server_restart() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
@@ -497,9 +547,38 @@ EOF
     || fail "Worker log was not deleted"
 }
 
+function test_requires_worker_protocol_missing_defaults_to_proto {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world_proto",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=proto"],
+  args = ["hello world"],
+)
+work(
+  name = "hello_world_json",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=json"],
+)
+EOF
+
+  sed -i.bak 's/=execution_requirements/={"supports-workers": "1"}/g' work.bzl
+  rm -f work.bzl.bak
+
+  bazel build :hello_world_proto &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello world" "$(cat $BINS/hello_world_proto.out)"
+
+  bazel build :hello_world_json &> $TEST_log \
+    && fail "expected proto build with json worker to fail" || true
+}
+
 function test_missing_execution_requirements_fallback_to_standalone() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  # This test ignores the WORKER_PROTOCOL test arg since it doesn't use the
+  # persistent worker when execution falls back to standalone.
+  cat >>BUILD <<EOF
 work(
   name = "hello_world",
   worker = ":worker",
@@ -523,10 +602,11 @@ EOF
 
 function test_environment_is_clean() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 work(
   name = "hello_world",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--print_env"],
 )
 EOF
@@ -546,6 +626,7 @@ function test_workers_quit_on_clean() {
 work(
   name = "hello_clean",
   worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["hello clean"],
 )
 EOF
@@ -563,11 +644,15 @@ EOF
 
 function test_crashed_worker_causes_log_dump() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  cat >>BUILD <<EOF
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
-  worker_args = ["--poison_after=1", "--hard_poison"],
+  worker_args = [
+    "--poison_after=1",
+    "--hard_poison",
+    "--worker_protocol=${WORKER_PROTOCOL}"
+  ],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF

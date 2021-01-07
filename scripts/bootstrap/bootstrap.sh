@@ -36,10 +36,14 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --distdir=derived/distdir \
-      --java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-      --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+      --java_toolchain=//scripts/bootstrap:bootstrap_toolchain \
+      --host_java_toolchain=//scripts/bootstrap:bootstrap_toolchain \
+      --incompatible_use_toolchain_resolution_for_java_rules \
+      --extra_toolchains=//scripts/bootstrap:bootstrap_toolchain_definition \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
+
+cp scripts/bootstrap/BUILD.bootstrap scripts/bootstrap/BUILD
 
 if [ -z "${BAZEL-}" ]; then
   function _run_bootstrapping_bazel() {

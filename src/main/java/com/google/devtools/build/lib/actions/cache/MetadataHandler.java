@@ -77,5 +77,5 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * <p>May be called if an action can make multiple attempts that are expected to create the same
    * set of output files.
    */
-  void resetOutputs(Iterable<Artifact> outputs);
+  void resetOutputs(Iterable<? extends Artifact> outputs);
 }

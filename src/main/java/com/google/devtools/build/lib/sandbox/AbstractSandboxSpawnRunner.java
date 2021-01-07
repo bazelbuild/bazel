@@ -78,7 +78,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   @Override
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+      throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle ignored =
@@ -105,7 +105,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException;
+      throws IOException, ExecException, InterruptedException;
 
   private SpawnResult runSpawn(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
@@ -182,7 +182,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         subprocess.waitFor();
         terminationStatus = new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
       } catch (InterruptedException e) {
-        subprocess.destroy();
+        subprocess.destroyAndWait();
         throw e;
       }
     } catch (IOException e) {
@@ -197,7 +197,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
           .setFailureMessage(message)
-          .setFailureDetail(createFailureDetail(message, Code.EXECUTION_FAILED))
+          .setFailureDetail(createFailureDetail(message, Code.SUBPROCESS_START_FAILED))
           .build();
     }
 

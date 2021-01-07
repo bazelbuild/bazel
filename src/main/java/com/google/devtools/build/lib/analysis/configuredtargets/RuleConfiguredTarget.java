@@ -46,10 +46,11 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
@@ -153,9 +154,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
-  /**
-   * The configuration conditions that trigger this rule's configurable attributes.
-   */
+  /** The configuration conditions that trigger this rule's configurable attributes. */
+  @Override
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }
@@ -250,5 +250,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         outputLabel,
         this,
         this.artifactsByOutputLabel);
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
   }
 }

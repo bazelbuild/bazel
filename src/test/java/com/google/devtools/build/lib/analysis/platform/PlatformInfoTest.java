@@ -352,7 +352,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "    ],",
         ")");
 
-    setStarlarkSemanticsOptions("--experimental_platforms_api");
+    setBuildLanguageOptions("--experimental_platforms_api");
     ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
     assertThat(platform).isNotNull();
 
@@ -411,7 +411,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "    ],",
         ")");
 
-    setStarlarkSemanticsOptions("--experimental_platforms_api");
+    setBuildLanguageOptions("--experimental_platforms_api");
     ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
     assertThat(platform).isNotNull();
 
@@ -453,7 +453,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "constraint_value(name = 'foo',",
         "    constraint_setting = ':basic',",
         ")");
-    setStarlarkSemanticsOptions("--experimental_platforms_api");
+    setBuildLanguageOptions("--experimental_platforms_api");
     checkError(
         "test/platform",
         "custom",

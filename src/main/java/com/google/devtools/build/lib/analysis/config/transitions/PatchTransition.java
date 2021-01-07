@@ -66,11 +66,12 @@ public interface PatchTransition extends ConfigurationTransition {
    * @param eventHandler
    * @return the options representing the desired post-transition configuration
    */
-  BuildOptions patch(BuildOptionsView options, EventHandler eventHandler);
+  BuildOptions patch(BuildOptionsView options, EventHandler eventHandler)
+      throws InterruptedException;
 
   @Override
-  default Map<String, BuildOptions> apply(
-      BuildOptionsView buildOptions, EventHandler eventHandler) {
+  default Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException {
     return Collections.singletonMap(PATCH_TRANSITION_KEY, patch(buildOptions, eventHandler));
   }
 

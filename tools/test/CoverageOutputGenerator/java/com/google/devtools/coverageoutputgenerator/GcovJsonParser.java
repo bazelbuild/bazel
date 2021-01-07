@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -67,9 +68,14 @@ public class GcovJsonParser {
         for (GcovJsonLine line : file.lines) {
           currentFileCoverage.addLine(
               line.line_number, LineCoverage.create(line.line_number, line.count, null));
+          int branchNumber = 0;
+          boolean taken = Arrays.stream(line.branches).anyMatch(b -> b.count > 0);
           for (GcovJsonBranch branch : line.branches) {
             currentFileCoverage.addBranch(
-                line.line_number, BranchCoverage.create(line.line_number, branch.count));
+                line.line_number,
+                BranchCoverage.createWithBranch(
+                    line.line_number, Integer.toString(branchNumber), taken, branch.count));
+            branchNumber += 1;
           }
         }
         allSourceFiles.add(currentFileCoverage);
@@ -104,7 +110,7 @@ public class GcovJsonParser {
     int start_line;
     String name;
     int blocks_executed;
-    int execution_count;
+    long execution_count;
     String demangled_name;
     int start_column;
     int end_line;
@@ -112,7 +118,7 @@ public class GcovJsonParser {
 
   static class GcovJsonLine {
     GcovJsonBranch[] branches;
-    int count;
+    long count;
     int line_number;
     boolean unexecuted_block;
     String function_name;
@@ -120,7 +126,7 @@ public class GcovJsonParser {
 
   static class GcovJsonBranch {
     boolean fallthrough;
-    int count;
+    long count;
 
     @SerializedName("throw")
     boolean _throw;

@@ -46,7 +46,7 @@ java_library(
         ":os",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:processes",
+        "//src/main/java/com/google/devtools/build/lib/windows:processes",
     ],
 )
 
@@ -232,6 +232,7 @@ java_library(
         "ExitCode.java",
     ],
     deps = [
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

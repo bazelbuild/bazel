@@ -14,10 +14,10 @@
 package com.google.devtools.build.android.r8;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.CompatDxSupport;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
@@ -27,6 +27,7 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.google.common.io.ByteStreams;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -74,9 +75,8 @@ public class CompatDexBuilder {
 
   private String input;
   private String output;
-  private int numberOfThreads = 8;
+  private int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
   private boolean noLocals;
-  private boolean backportStatics;
 
   public static void main(String[] args)
       throws IOException, InterruptedException, ExecutionException {
@@ -126,9 +126,6 @@ public class CompatDexBuilder {
         case "--nolocals":
           noLocals = true;
           break;
-        case "--desugar-backport-statics":
-          backportStatics = true;
-          break;
         default:
           System.err.println("Unsupported option: " + flag);
           System.exit(1);
@@ -146,7 +143,8 @@ public class CompatDexBuilder {
     }
 
     ExecutorService executor = Executors.newWorkStealingPool(numberOfThreads);
-    try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(Paths.get(output)))) {
+    try (ZipOutputStream out =
+        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(Paths.get(output))))) {
 
       List<ZipEntry> toDex = new ArrayList<>();
 
@@ -187,9 +185,6 @@ public class CompatDexBuilder {
         .setMode(noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG)
         .setMinApiLevel(13) // H_MR2.
         .setDisableDesugaring(true);
-    if (backportStatics) {
-      CompatDxSupport.enableDesugarBackportStatics(builder);
-    }
     try (InputStream stream = zipFile.getInputStream(classEntry)) {
       builder.addClassProgramData(
           ByteStreams.toByteArray(stream),

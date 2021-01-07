@@ -14,19 +14,20 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.Sequence;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
 
 /** Provides information about flavors for all built protos. */
 @StarlarkBuiltin(
     name = "ProtoRegistryProvider",
     doc = "Information about flavors for all built protos.",
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface ProtoRegistryProviderApi<FileT extends FileApi> extends StructApi {
 
   @StarlarkMethod(name = "jars", documented = false, doc = "", structField = true)
@@ -41,5 +42,6 @@ public interface ProtoRegistryProviderApi<FileT extends FileApi> extends StructA
       doc = "",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   String getError();
 }

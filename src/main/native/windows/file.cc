@@ -29,6 +29,10 @@
 
 #include "src/main/native/windows/util.h"
 
+#ifndef IO_REPARSE_TAG_PROJFS
+#define IO_REPARSE_TAG_PROJFS 0x9000001C
+#endif
+
 namespace bazel {
 namespace windows {
 
@@ -524,6 +528,10 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
           p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
       return ReadSymlinkOrJunctionResult::kSuccess;
     }
+    case IO_REPARSE_TAG_PROJFS: {
+      // Virtual File System for Git
+      return ReadSymlinkOrJunctionResult::kNotALink;
+    }
     default:
       return ReadSymlinkOrJunctionResult::kUnknownLinkType;
   }
@@ -629,6 +637,15 @@ int DeletePath(const wstring& path, wstring* error) {
                                   GetLastError(), error);
   }
 
+  if (attr & FILE_ATTRIBUTE_READONLY) {
+    // Remove the read-only attribute.
+    attr &= ~FILE_ATTRIBUTE_READONLY;
+    if (!SetFileAttributesW(wpath, attr)) {
+      return GetResultFromErrorCode(L"SetFileAttributesW", path, GetLastError(),
+                                    error);
+    }
+  }
+
   if (attr & FILE_ATTRIBUTE_DIRECTORY) {
     // It's a directory or a junction, RemoveDirectoryW should be used.
     //
@@ -700,14 +717,6 @@ int DeletePath(const wstring& path, wstring* error) {
     }
   } else {
     // It's a regular file or symlink, DeleteFileW should be used.
-    if (attr & FILE_ATTRIBUTE_READONLY) {
-      // Remove the read-only attribute.
-      attr &= ~FILE_ATTRIBUTE_READONLY;
-      if (!SetFileAttributesW(wpath, attr)) {
-        return GetResultFromErrorCode(L"SetFileAttributesW", path,
-                                      GetLastError(), error);
-      }
-    }
     if (!DeleteFileW(wpath)) {
       // Failed to delete the file or symlink.
       return GetResultFromErrorCode(L"DeleteFileW", path,

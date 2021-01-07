@@ -31,7 +31,7 @@ fi
 fulljdk=$1
 out=$3
 ARCH=`uname -p`
-if [[ "${ARCH}" == 'ppc64le' ]]; then
+if [[ "${ARCH}" == 'ppc64le'  ]] || [[ "${ARCH}" == 's390x' ]]; then
   FULL_JDK_DIR="jdk*"
   DOCS=""
 else

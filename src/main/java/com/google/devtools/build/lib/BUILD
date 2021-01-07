@@ -55,10 +55,12 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
+        "//src/main/java/com/google/devtools/build/lib/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:srcs",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics:srcs",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
@@ -86,17 +88,19 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
         "//src/main/java/net/starlark/java/annot/processor:srcs",
         "//src/main/java/net/starlark/java/annot:srcs",
+        "//src/main/java/net/starlark/java/eval:srcs",
+        "//src/main/java/net/starlark/java/syntax:srcs",
+        "//src/main/java/net/starlark/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
-        "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/main/java/com/google/devtools/build/lib/util:srcs",
         "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
@@ -127,30 +131,13 @@ java_library(
     ],
 )
 
-# Starlark language for configuration files.
-#
-# IMPORTANT:  NOT A PUBLIC INTERFACE. TARGETS SHOULDN'T DEPEND ON THIS.
-#
-java_library(
-    name = "skylark-lang",
-    visibility = ["//visibility:public"],
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-    ],
-)
-
 java_library(
     name = "syntax",
     srcs = [],
     visibility = ["//visibility:public"],
     exports = [
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
     ],
 )
 
@@ -195,6 +182,11 @@ java_library(
 )
 
 java_library(
+    name = "runtime/safe_request_logging",
+    srcs = ["runtime/SafeRequestLogging.java"],
+)
+
+java_library(
     name = "keep-going-option",
     srcs = ["runtime/KeepGoingOption.java"],
     deps = ["//src/main/java/com/google/devtools/common/options"],
@@ -218,6 +210,7 @@ java_library(
         "runtime/BlazeCommandResult.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -247,6 +240,7 @@ java_library(
         ":runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
     ],
 )
@@ -275,6 +269,8 @@ java_library(
         ":runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
@@ -327,11 +323,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -343,7 +338,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
+        "//src/main/java/com/google/devtools/build/lib/server",
+        "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
+        "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib/server/signal",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
@@ -367,8 +365,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_down_action_cache",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -394,8 +390,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
@@ -508,7 +507,7 @@ genrule(
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
-        "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
+        "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>/dev/null && " +

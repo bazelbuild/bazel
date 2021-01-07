@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -281,6 +282,11 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
+      UrlRewriter rewriter =
+          UrlRewriter.getDownloaderUrlRewriter(
+              repoOptions == null ? null : repoOptions.downloaderConfig, env.getReporter());
+      downloadManager.setUrlRewriter(rewriter);
+
       if (repoOptions.experimentalDistdir != null) {
         downloadManager.setDistdir(
             repoOptions.experimentalDistdir.stream()
@@ -298,7 +304,7 @@ public class BazelRepositoryModule extends BlazeModule {
         httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
       } else {
         env.getReporter()
-            .handle(Event.warn("Ingoring request to scale http timeouts by a non-positive factor"));
+            .handle(Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
         httpDownloader.setTimeoutScaling(1.0f);
       }
 

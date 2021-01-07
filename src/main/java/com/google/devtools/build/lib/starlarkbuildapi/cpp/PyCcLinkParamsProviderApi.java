@@ -14,18 +14,18 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** A target that provides C++ libraries to be linked into Python targets. */
 @StarlarkBuiltin(
     name = "PyCcLinkParamsProvider",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "Wrapper for every C++ linking provider")
 public interface PyCcLinkParamsProviderApi<FileT extends FileApi> extends StructApi {
   @StarlarkMethod(name = "cc_info", doc = "", structField = true, documented = false)

@@ -1871,6 +1871,9 @@ public class OptionsParserTest {
     parser.parse("--old_name=foo");
     OldNameExample result = parser.getOptions(OldNameExample.class);
     assertThat(result.flag).isEqualTo("foo");
+    // Using old option name should cause a warning
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_name' is deprecated: Use --new_name instead");
 
     // Should also work by its new name.
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();

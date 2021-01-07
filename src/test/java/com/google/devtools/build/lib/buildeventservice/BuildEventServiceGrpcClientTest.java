@@ -19,9 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
-import com.google.devtools.build.lib.buildeventservice.client.UnmanagedBuildEventServiceGrpcClient;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
-import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventStub;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import io.grpc.ManagedChannel;
@@ -72,13 +70,12 @@ public class BuildEventServiceGrpcClientTest {
         .start();
 
     ManagedChannel channel = InProcessChannelBuilder.forName(uniqueName).directExecutor().build();
-
-    PublishBuildEventStub stub = PublishBuildEventGrpc.newStub(channel);
-    grpcClient = new UnmanagedBuildEventServiceGrpcClient(stub, null);
+    grpcClient = new BuildEventServiceGrpcClient(channel, null);
   }
 
   @After
   public void tearDown() {
+    grpcClient.shutdown();
     Mockito.validateMockitoUsage();
   }
 

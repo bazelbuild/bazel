@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
@@ -79,7 +79,6 @@ public class AndroidResourcesInfo extends NativeInfo
       NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
       NestedSet<Artifact> transitiveRTxt) {
-    super(PROVIDER);
     this.label = label;
     this.manifest = manifest;
     this.rTxt = rTxt;
@@ -93,6 +92,11 @@ public class AndroidResourcesInfo extends NativeInfo
     this.transitiveCompiledSymbols = transitiveCompiledSymbols;
     this.transitiveStaticLib = transitiveStaticLib;
     this.transitiveRTxt = transitiveRTxt;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -255,7 +259,7 @@ public class AndroidResourcesInfo extends NativeInfo
     private static <T> NestedSet<T> nestedSet(Object from, Class<T> with, String fieldName)
         throws EvalException {
       Preconditions.checkArgument(
-          from instanceof Depset || from == com.google.devtools.build.lib.syntax.Starlark.UNBOUND);
+          from instanceof Depset || from == net.starlark.java.eval.Starlark.UNBOUND);
 
       if (from instanceof Depset) {
         return nestedSet((Depset) from, with, fieldName);

@@ -17,7 +17,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.StarlarkAspectLoadingKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -49,9 +53,15 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
         return null;
       }
       if (!starlarkAspect.getParamAttributes().isEmpty()) {
-        String msg = "Cannot instantiate parameterized aspect " + starlarkAspect.getName()
-            + " at the top level.";
-        throw new AspectCreationException(msg, new LabelCause(starlarkFileLabel, msg));
+        String msg =
+            String.format(
+                "Cannot instantiate parameterized aspect %s at the top level.",
+                starlarkAspect.getName());
+        throw new AspectCreationException(
+            msg,
+            new LabelCause(
+                starlarkFileLabel,
+                createDetailedCode(msg, Code.PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID)));
       }
     } catch (AspectCreationException e) {
       throw new LoadStarlarkAspectFunctionException(e);
@@ -65,6 +75,14 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  private static DetailedExitCode createDetailedCode(String msg, Code code) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(msg)
+            .setAnalysis(Analysis.newBuilder().setCode(code))
+            .build());
   }
 
   /** Exceptions thrown from ToplevelStarlarkAspectFunction. */

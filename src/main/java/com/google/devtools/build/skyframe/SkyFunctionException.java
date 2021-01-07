@@ -14,79 +14,63 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import javax.annotation.Nullable;
 
 /**
  * Base class of exceptions thrown by {@link SkyFunction#compute} on failure.
  *
- * SkyFunctions should declare a subclass {@code C} of {@link SkyFunctionException} whose
- * constructors forward fine-grained exception types (e.g. {@code IOException}) to
- * {@link SkyFunctionException}'s constructor, and they should also declare
- * {@link SkyFunction#compute} to throw {@code C}. This way the type system checks that no
- * unexpected exceptions are thrown by the {@link SkyFunction}.
+ * <p>SkyFunctions should declare a subclass {@code C} of {@link SkyFunctionException} whose
+ * constructors forward fine-grained exception types (e.g. {@code IOException}) to {@link
+ * SkyFunctionException}'s constructor, and they should also declare {@link SkyFunction#compute} to
+ * throw {@code C}. This way the type system checks that no unexpected exceptions are thrown by the
+ * {@link SkyFunction}.
  *
  * <p>We took this approach over using a generic exception class since Java disallows it because of
- * type erasure
- * (see http://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#cannotCatch).
+ * type erasure (see
+ * http://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#cannotCatch).
  *
- * <p> Note that there are restrictions on what Exception types are allowed to be wrapped in this
+ * <p>Note that there are restrictions on what Exception types are allowed to be wrapped in this
  * manner. See {@link SkyFunctionException#validateExceptionType}.
  *
- * <p>Failures are explicitly either transient or persistent. The transience of the failure from
- * {@link SkyFunction#compute} should be influenced only by the computations done, and not by the
- * transience of the failures from computations requested via
- * {@link SkyFunction.Environment#getValueOrThrow}.
+ * <p>Failures are explicitly marked transient or persistent. Transient errors indicate that the
+ * node may yield a successful result on a retry, while persistent errors are guaranteed to remain
+ * if none of the inputs to the node change. An error should be marked persistent if either (1) it
+ * is propagating an error from a Skyframe dependency (observed via {@link
+ * SkyFunction.Environment#getValueOrThrow}, or (2) it is the result of computation done solely on
+ * the inputs received from its Skyframe dependencies. Any other errors should be marked transient.
+ * For example, an I/O exception should trigger a transient error in the node that directly
+ * performed the I/O, and persistent errors in its callers.
  */
 public abstract class SkyFunctionException extends Exception {
 
   /** The transience of the error. */
   public enum Transience {
     /**
-     * An error that may or may not occur again if the computation were re-run. If a computation
-     * results in a transient error and is needed on a subsequent MemoizingEvaluator#evaluate call,
-     * it will be re-executed.
+     * An error that may or may not occur again if the node were reevaluated, even when Skyframe
+     * dependencies have not changed. If a node results in a transient error and is needed on a
+     * subsequent MemoizingEvaluator#evaluate call, it will be reevaluated.
      */
     TRANSIENT,
 
     /**
-     * An error that is completely deterministic and persistent in terms of the computation's
-     * inputs. Persistent errors may be cached.
+     * An error that is completely deterministic in terms of the node's Skyframe dependencies.
+     * Persistent errors may be cached.
      */
     PERSISTENT;
   }
 
   private final Transience transience;
-  @Nullable
-  private final SkyKey rootCause;
 
   public SkyFunctionException(Exception cause, Transience transience) {
-    this(cause, transience, null);
-  }
-
-  /** Used to rethrow a child error that the parent cannot handle. */
-  public SkyFunctionException(Exception cause, SkyKey childKey) {
-    this(cause, Transience.PERSISTENT, childKey);
-  }
-
-  private SkyFunctionException(Exception cause, Transience transience, SkyKey rootCause) {
     super(Preconditions.checkNotNull(cause));
     SkyFunctionException.validateExceptionType(cause.getClass());
     this.transience = transience;
-    this.rootCause = rootCause;
-  }
-
-  @Nullable
-  public final SkyKey getRootCauseSkyKey() {
-    return rootCause;
   }
 
   public final boolean isTransient() {
     return transience == Transience.TRANSIENT;
   }
 
-  /**
-   * Catastrophic failures halt the build even when in keepGoing mode.
-   */
+  /** Catastrophic failures halt the build even when in keepGoing mode. */
   public boolean isCatastrophic() {
     return false;
   }
@@ -98,18 +82,22 @@ public abstract class SkyFunctionException extends Exception {
 
   static <E extends Exception> void validateExceptionType(Class<E> exceptionClass) {
     if (exceptionClass.isAssignableFrom(RuntimeException.class)) {
-      throw new IllegalStateException(exceptionClass.getSimpleName() + " is a supertype of "
-          + "RuntimeException. Don't do this since then you would potentially swallow all "
-          + "RuntimeExceptions, even those from Skyframe");
+      throw new IllegalStateException(
+          exceptionClass.getSimpleName()
+              + " is a supertype of RuntimeException. Don't do this since then you would"
+              + " potentially swallow all RuntimeExceptions, even those from Skyframe");
     }
     if (RuntimeException.class.isAssignableFrom(exceptionClass)) {
-      throw new IllegalStateException(exceptionClass.getSimpleName() + " is a subtype of "
-          + "RuntimeException. You should rewrite your code to use checked exceptions.");
+      throw new IllegalStateException(
+          exceptionClass.getSimpleName()
+              + " is a subtype of RuntimeException. You should rewrite your code to use checked"
+              + " exceptions.");
     }
     if (InterruptedException.class.isAssignableFrom(exceptionClass)) {
-      throw new IllegalStateException(exceptionClass.getSimpleName() + " is a subtype of "
-          + "InterruptedException. Don't do this; Skyframe handles interrupts separately from the "
-          + "general SkyFunctionException mechanism.");
+      throw new IllegalStateException(
+          exceptionClass.getSimpleName()
+              + " is a subtype of InterruptedException. Don't do this; Skyframe handles interrupts"
+              + " separately from the general SkyFunctionException mechanism.");
     }
   }
 
@@ -118,17 +106,15 @@ public abstract class SkyFunctionException extends Exception {
     private final boolean isCatastrophic;
     private final SkyFunctionException originalException;
 
-    public ReifiedSkyFunctionException(SkyFunctionException e, SkyKey key) {
-      this(e, e.transience, key, e.getRootCauseSkyKey(), e.isCatastrophic());
+    public ReifiedSkyFunctionException(SkyFunctionException e) {
+      this(e, e.transience, e.isCatastrophic());
     }
 
     protected ReifiedSkyFunctionException(
         SkyFunctionException e,
         Transience transience,
-        SkyKey key,
-        @Nullable SkyKey rootCauseSkyKey,
         boolean isCatastrophic) {
-      super(e.getCause(), transience, rootCauseSkyKey == null ? key : rootCauseSkyKey);
+      super(e.getCause(), transience);
       this.isCatastrophic = isCatastrophic;
       this.originalException = e;
     }

@@ -4,6 +4,10 @@ title: User manual
 ---
 <h1>Commands and options</h1>
 
+This page covers the options that are available with various Bazel commands,
+such a `bazel build`, `bazel run`, and `bazel test`. This page is a companion
+to the <a href="https://docs.bazel.build/versions/master/guide.html">Bazel user guide</a>,
+which lists Bazel's commands.
 <h2 id='target-patterns'>Target syntax</h2>
 
 Some commands, like <code>build</code> or <code>test</code>, can operate
@@ -318,7 +322,7 @@ Package path elements may be specified in three formats:
   Once the profile data tree has been generated, the profile tree
   should be zipped up, and provided to the
   <code class='flag'>--fdo_optimize=<var>profile-zip</var></code>
-  Bazel option to enable the FDO optimized compilation.
+  Bazel option to enable the FDO-optimized compilation.
 
 </p>
 <p>
@@ -330,6 +334,7 @@ Package path elements may be specified in three formats:
   The options <code class='flag'>--fdo_instrument</code> and <code class='flag'>--fdo_optimize</code>
   cannot be used at the same time.
 </p>
+
 
 <h4 id='flag--fdo_optimize'><code class='flag'>--fdo_optimize <var>profile-zip</var></code></h4>
 <p>
@@ -371,8 +376,57 @@ Package path elements may be specified in three formats:
   <code>[targetname].sc</code>.
 </p>
 <p>
- This option is disabled by default.
+  This option is disabled by default.
 </p>
+
+<h4 id='flag--java_language_version'><code class='flag'>--java_language_version=<var>version</var></code></h4>
+<p>
+  This option specifies the version of Java sources. For example:
+</p>
+<pre>
+  % bazel build --java_language_version=8 java/com/example/common/foo:all
+</pre>
+<p>
+  compiles and allows only constructs compatible with Java 8 specification.
+   Default value is 11. -->
+  Possible values are: 8,  9, 10, --> 11 <!--begin-block:external , 14, and 15  and may be extended by registering custom Java
+  toolchains using <code>default_java_toolchain</code> macro-->.
+</p>
+
+<h4 id='flag--tool_java_language_version'><code class='flag'>--tool_java_language_version=<var>version</var></code>
+</h4>
+<p>
+  The Java language version used to build tools that are executed during a build.
+  Default value is 11.
+</p>
+
+<h4 id='flag--java_runtime_version'><code class='flag'>--java_runtime_version=<var>version</var></code></h4>
+<p>
+  This option specifies the version of JVM to use to execute the code and run the tests. For
+  example:
+</p>
+<pre>
+  % bazel run --java_runtime_version=remotejdk_11 java/com/example/common/foo:java_application
+</pre>
+<p>
+  downloads JDK 11 from a remote repository and run the Java application using it.
+</p>
+<p>
+  Default value is <code>localjdk</code>.
+  Possible values are: <code>localjdk</code>, <code>localjdk_<var>version</var></code>,
+  <code>remotejdk_11</code>,
+  <code>remotejdk_14</code>, and <code>remote_jdk15</code>.
+  You can extend the values by registering custom JVM using either
+  <code>local_java_repository</code> or
+  <code>remote_java_repostory</code> repository rules.
+</p>
+
+<h4 id='flag--tool_java_runtime_version'><code class='flag'>--tool_java_runtime_version=<var>version</var></code></h4>
+<p>
+  The version of JVM used to execute tools that are needed during a build.
+  Default value is <code>remotejdk_11</code>.
+</p>
+-->
 
 <h4 id='flag--jvmopt'><code class='flag'>--jvmopt <var>jvm-option</var></code></h4>
 <p>
@@ -572,9 +626,16 @@ the compilation of binaries during the build.
   once for each CPU specified with <code class='flag'>--fat_apk_cpu</code> for the
   <code>android_binary</code> rule, and once for the CPU specified with
   <code class='flag'>--cpu</code> for the <code>cc_binary</code> rule.
+</p>
 
 <p>
-The default is <code>armeabi-v7a</code>.
+  The default is <code>armeabi-v7a</code>.
+</p>
+<p>
+  One <code>.so</code> file is created and packaged in the APK for
+  each CPU specified with <code class='flag'>--fat_apk_cpu</code>. The <code>.so</code> file's name
+  prefixes the name of the <code>android_binary</code> rule with "lib". For example, if the name of
+  the <code>android_binary</code> is "foo", then the file is <code>libfoo.so</code>.
 </p>
   <p>
     One <code>.so</code> file will be created and packaged in the APK for
@@ -591,6 +652,10 @@ The default is <code>armeabi-v7a</code>.
     <a href='#flag--android_crosstool_top'><code class='flag'>--android_crosstool_top</code></a>
     or <a href='#flag--crosstool_top'><code class='flag'>--crosstool_top</code></a> flags.
   </p>
+
+
+<h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
+    <var>[+-]regex[,[+-]regex]...@option[,option]...</var></code></h4>
 </p>
 
 <h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
@@ -925,7 +990,7 @@ other flags for specifying strategy.
 <p>
   These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
   that Bazel can take into consideration when scheduling build and test activities. They take
-  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<float>float</float>]
+  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
   (for example, <code class='flag'>--local_cpu_resources=2</code>,
   <code class='flag'>--local_ram_resources=HOST_RAM*.5</code>,
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
@@ -1126,6 +1191,11 @@ memory-saving mode</a>.
   filter is specified as comma delimited list of tag keywords, optionally
   preceded with '-' sign used to denote excluded tags. Required tags may also
   have a preceding '+' sign.
+</p>
+<p>
+  When running tests, Bazel ignores <code class='flag'>--build_tag_filters</code> for test targets,
+  which are built and run even if they do not match this filter. To avoid building them, filter
+  test targets using <code class='flag'>--test_tag_filters</code> or by explicitly excluding them.
 </p>
 
 <h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
@@ -1417,7 +1487,8 @@ either to the terminal, or to additional log files.
   The program should print zero or more key/value pairs to standard output, one entry on each line,
   then exit with zero (otherwise the build fails). The key names can be anything but they may only
   use upper case letters and underscores. The first space after the key name separates it from the
-  value. The value is the rest of the line (including additional whitespaces).
+  value. The value is the rest of the line (including additional whitespaces). Neither the key nor
+  the value may span multiple lines. Keys must not be duplicated.
 </p>
 <p>
   Bazel partitions the keys into two buckets: "stable" and "volatile". (The names "stable" and
@@ -1570,6 +1641,13 @@ echo "STABLE_USER_NAME $USER"
 </p>
 
 <h3 id='misc_build_options'>Miscellaneous</h3>
+
+<h4 id='flag--flag_alias'><code class='flag'>--flag_alias <var>alias_name=target_path</var></code></h4>
+<p>
+  A convenience flag used to bind longer Starlark build settings to a shorter name. For more
+  details, see the
+  <a href=https://docs.bazel.build/versions/master/skylark/config.html#using-build-setting-aliases">Starlark Configurations</a>.
+</p>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
 <p>
@@ -2516,15 +2594,19 @@ a user-friendly way.
 <h4 id='flag--start'><code class='flag'>--start=<i>start_type</i></code></h4>
 <p>
   How the app should be started after installing it. Supported <i>start_type</i>s are:
-  <ul>
-    <li><code>NO</code> Does not start the app. This is the default.</li>
-    <li><code>COLD</code> Starts the app from a clean state after install.</li>
-    <li><code>WARM</code> Preserves and restores the application state on incremental installs.</li>
-    <li><code>DEBUG</code> Waits for the debugger before starting the app in a clean state after install.</li>
-  </ul>
+</p>
+<ul>
+  <li><code>NO</code> Does not start the app. This is the default.</li>
+  <li><code>COLD</code> Starts the app from a clean state after install.</li>
+  <li><code>WARM</code> Preserves and restores the application state on incremental installs.</li>
+  <li><code>DEBUG</code> Waits for the debugger before starting the app in a clean state after
+    install.
+  </li>
+</ul>
+<p>
   Note that if more than one of <code class='flag'>--start=<i>start_type</i></code>,
   <code class='flag'>--start_app</code> or
-  <code class='flag'>--debug_app</code> is set, the last value will be used.
+  <code class='flag'>--debug_app</code> is set, the last value is used.
 </p>
 <h4 id='flag--adb'><code class='flag'>--adb <var>path</var></code></h4>
 <p>
@@ -2534,18 +2616,20 @@ a user-friendly way.
   <a href='#flag--android_sdk'><code class='flag'>--android_sdk</code></a>.
 
 </p>
-<h4 id='flag--adb_arg'><code class='flag'>--adb_arg <var>arg</var></code></h4>
+<h4 id='flag--adb_arg'><code class='flag'>--adb_arg <var>serial</var></code></h4>
 <p>
   Extra arguments to <code>adb</code>. These come before the subcommand in the
   command line and are typically used to specify which device to install to.
   For example, to select the Android device or emulator to use:
+</p>
 <pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
 </pre>
-will invoke <code>adb</code> as
+<p>
+  invokes <code>adb</code> as
+</p>
 <pre>
 adb -s deadbeef install ...
 </pre>
-</p>
 <h4 id='flag--incremental_install_verbosity'><code class='flag'>--incremental_install_verbosity <var>number</var></code></h4>
 <p>
   The verbosity for incremental install. Set to 1 for debug logging to be
@@ -2578,8 +2662,9 @@ adb -s deadbeef install ...
     including counts and action counts. This includes both native and Starlark rules.
     If memory tracking is enabled, then the rules' memory consumption is also printed.</li>
   <li><code class='flag'>--skylark_memory</code> dumps a
-    <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
-    You must enable memory tracking for this to work.</li>
+    <a href=https://github.com/google/pprof>pprof</a> compatible .gz file to the specified path.
+    You must enable memory tracking for this to work.
+  </li>
   <li><code class='flag'>--action_graph=/path/to/file</code> dumps the state of
     the internal Bazel action graph in proto format to
     <code>/path/to/file</code>. You have to run (at least) the analysis phase
@@ -2604,9 +2689,9 @@ adb -s deadbeef install ...
     <li><code>--host_jvm_args=-DRULE_MEMORY_TRACKER=1</code></li>
   </ul>
   <p>
-    The java-agent is checked into bazel at
+    The java-agent is checked into Bazel at
     third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
-    sure you adjust <code>$BAZEL</code> for where you keep your bazel repository.
+    sure you adjust <code>$BAZEL</code> for where you keep your Bazel repository.
 
     Do not forget to keep passing these options to Bazel for every command or the server will
     restart.
@@ -2641,32 +2726,9 @@ adb -s deadbeef install ...
   The following options are supported:
 </p>
 <ul>
-  <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
-  <a href='guide.html#dump-text-format'>human-readable format</a></li>
-  <li><code>--dump=raw</code> displays all gathered data in a
-  <a href='guide.html#dump-raw-format'>script-friendly format</a></li>
-  <li><code id='flag--html'>--html</code> generates an <a href='guide.html#dump-html-format'>HTML file</a> visualizing the
-  actions and rules executed in the build, as well as summary statistics for the build
-    <ul>
-      <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
-      information on actions and rules to the HTML visualization</li>
-        <ul>
-          <li><code id='flag--html_histograms'>--html_histograms</code> adds histograms for Starlark
-          functions clicked in the statistics table. This will increase file size massively</li>
-          <li><code id='flag--nochart'>--nochart</code> hides the task chart from generated HTML
-          </li>
-        </ul>
-    </ul>
-  </li>
-  <li><code id='flag--combine'>--combine</code> combines multiple profile data files into a single
-  report. Does not generate HTML task charts</li>
-  <li><code id='flag--task_tree'>--task_tree</code> prints the tree of tasks matching the given
-  regular expression
-    <ul>
-      <li><code id='flag--task_tree_threshold'>--task_tree_threshold</code> skip tasks with duration
-      less than threshold, in milliseconds. Default is 50ms</li>
-    </ul>
-  </li>
+  <li><code id='flag--dump'>--dump</code> displays all gathered data in a
+  <a href='guide.html#dump-text-format'>human-readable format</a>. However,
+  this it does not support other formats yet.</li>
 </ul>
 
 <p>
@@ -2678,7 +2740,8 @@ adb -s deadbeef install ...
 <h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
-  The <code>canonicalize-flags</code> command, which takes a list of options for
+  The <a href="https://docs.bazel.build/command-line-reference.html#canonicalize-flags-options">
+  <code>canonicalize-flags</code></a> command, which takes a list of options for
   a Bazel command and returns a list of options that has the same effect. The
   new list of options is canonical, i.e., two lists of options with the same
   effect are canonicalized to the same new list.
@@ -2690,8 +2753,17 @@ adb -s deadbeef install ...
 </p>
 <p>
   Note that a small number of options cannot be reordered, because Bazel cannot
-  ensure that the effect is identical.
+  ensure that the effect is identical. Also note that this command
+  <i>does not</i> expand flags from <code>--config</code>.
 </p>
+<p>
+  As an example:
+</p>
+<pre>
+  % bazel canonicalize-flags -- --config=any_name --test_tag_filters="-lint"
+  --config=any_name
+  --test_tag_filters=-lint
+</pre>
 
 <h3 id='startup_options'>Startup options</h3>
 
@@ -2833,6 +2905,14 @@ adb -s deadbeef install ...
 <p>
   (Please note that this does <i>not</i> affect any JVMs used by
   subprocesses of Bazel: applications, tests, tools, etc.)
+</p>
+
+<h4 id='flag--autodetect_server_javabase'><code class='flag'>--autodetect_server_javabase</code></h4>
+<p>
+  This option causes Bazel to automatically search for an installed JDK on startup,
+  and to fall back to the installed JRE if the embedded JRE isn't available.
+  <code>--explicit_server_javabase</code> can be used to pick an explicit JRE to
+  run bazel with.
 </p>
 
 <h4 id='flag--batch'><code class='flag'>--batch</code></h4>

@@ -35,7 +35,8 @@ public class KnownTargets extends BaseCache<Pair<String, String>, AnalysisProtos
   }
 
   @Override
-  AnalysisProtos.Target createProto(Pair<String, String> targetIdentifier, String id) {
+  AnalysisProtos.Target createProto(Pair<String, String> targetIdentifier, String id)
+      throws InterruptedException {
     String labelString = targetIdentifier.getFirst();
     String ruleClassString = targetIdentifier.getSecond();
     AnalysisProtos.Target.Builder targetBuilder =

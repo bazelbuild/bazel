@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
@@ -49,9 +48,8 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws ActionConflictException {
-    ConfiguredTarget actual =
-        (ConfiguredTarget) ruleContext.getPrerequisite(ATTRIBUTE_NAME, TransitionMode.TARGET);
+      throws ActionConflictException, InterruptedException {
+    ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite(ATTRIBUTE_NAME);
     if (actual == null) {
       return createEmptyConfiguredTarget(ruleContext);
     }
@@ -78,7 +76,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
   }
 
   private ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();

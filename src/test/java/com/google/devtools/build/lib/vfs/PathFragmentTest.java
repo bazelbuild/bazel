@@ -43,7 +43,7 @@ public class PathFragmentTest {
 
   @Test
   public void testEqualsAndHashCode() {
-    InMemoryFileSystem filesystem = new InMemoryFileSystem();
+    InMemoryFileSystem filesystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
     new EqualsTester()
         .addEqualityGroup(
@@ -172,6 +172,9 @@ public class PathFragmentTest {
   public void testGetChildWorks() {
     PathFragment pf = create("../some/path");
     assertThat(pf.getChild("hi")).isEqualTo(create("../some/path/hi"));
+    assertThat(pf.getChild("h\\i")).isEqualTo(create("../some/path/h\\i"));
+    assertThat(create("../some/path").getChild(".hi")).isEqualTo(create("../some/path/.hi"));
+    assertThat(create("../some/path").getChild("..hi")).isEqualTo(create("../some/path/..hi"));
   }
 
   @Test

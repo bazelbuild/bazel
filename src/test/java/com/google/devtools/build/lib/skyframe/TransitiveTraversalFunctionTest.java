@@ -23,13 +23,11 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.skyframe.TransitiveBaseTraversalFunction.TargetAndErrorIfAnyImpl;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException2;
@@ -49,11 +47,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   public void noRepeatedLabelVisitationForTransitiveTraversalFunction() throws Exception {
     // Create a basic package with a target //foo:foo.
     Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
-    Package pkg =
-        scratchPackage(
-            "workspace",
-            label.getPackageIdentifier(),
-            "sh_library(name = '" + label.getName() + "')");
+    scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "')");
+    Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAnyImpl targetAndErrorIfAny =
         new TargetAndErrorIfAnyImpl(
             /*packageLoadedSuccessfully=*/ true,
@@ -104,11 +99,9 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   @Test
   public void multipleErrorsForTransitiveTraversalFunction() throws Exception {
     Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
-    Package pkg =
-        scratchPackage(
-            "workspace",
-            label.getPackageIdentifier(),
-            "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
+    scratch.file(
+        "foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
+    Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAnyImpl targetAndErrorIfAny =
         new TargetAndErrorIfAnyImpl(
             /*packageLoadedSuccessfully=*/ true,
@@ -156,11 +149,9 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   @Test
   public void selfErrorWins() throws Exception {
     Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
-    Package pkg =
-        scratchPackage(
-            "workspace",
-            label.getPackageIdentifier(),
-            "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
+    scratch.file(
+        "foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
+    Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAnyImpl targetAndErrorIfAny =
         new TargetAndErrorIfAnyImpl(
             /*packageLoadedSuccessfully=*/ true,
@@ -195,22 +186,16 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         exn, NoSuchPackageException.class, NoSuchTargetException.class);
   }
 
-  private Package scratchPackage(String workspaceName, PackageIdentifier packageId, String... lines)
-      throws Exception {
-    Path buildFile = scratch.file("" + packageId.getSourceRoot() + "/BUILD", lines);
-    Package.Builder externalPkg =
-        Package.newExternalPackageBuilder(
-            DefaultPackageSettings.INSTANCE,
-            RootedPath.toRootedPath(root, buildFile.getRelative("WORKSPACE")),
-            "TESTING",
-            StarlarkSemantics.DEFAULT);
-    externalPkg.setWorkspaceName(workspaceName);
-    return pkgFactory.createPackageForTesting(
-        packageId,
-        externalPkg.build(),
-        RootedPath.toRootedPath(root, buildFile),
-        packageIdentifier -> buildFile,
-        reporter,
-        StarlarkSemantics.DEFAULT);
+  /* Invokes the loading phase, using Skyframe. */
+  private Package loadPackage(PackageIdentifier pkgid)
+      throws InterruptedException, NoSuchPackageException {
+    SkyKey key = PackageValue.key(pkgid);
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+    if (result.hasError()) {
+      throw (NoSuchPackageException) result.getError(key).getException();
+    }
+    return result.get(key).getPackage();
   }
 }

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -148,7 +148,7 @@ public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
     boolean siblingRepositoryLayout =
         actionExecutionContext
             .getOptions()
-            .getOptions(StarlarkSemanticsOptions.class)
+            .getOptions(BuildLanguageOptions.class)
             .experimentalSiblingRepositoryLayout;
 
     CppIncludeExtractionContext scanningContext =

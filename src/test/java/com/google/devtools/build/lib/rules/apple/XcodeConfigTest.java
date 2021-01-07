@@ -408,7 +408,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
     assertNoEvents();
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
-    assertContainsEvent("Dotted version components must all be of the form");
+    assertContainsEvent("Dotted version components must all start with the form");
     assertContainsEvent("got 'not a valid dotted version'");
   }
 
@@ -1297,6 +1297,31 @@ public class XcodeConfigTest extends BuildViewTestCase {
             .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
             .build();
     assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+  }
+
+  @Test
+  public void testAvailableXcodeModesDifferentAlias() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version5", "5.1", true, "5")
+        .addLocalVersion("version5.1.2", "5.1.2", true, "5")
+        .write(scratch, "xcode/BUILD");
+    useConfiguration("--xcode_version=5");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent("Xcode version 5 was selected");
+    assertContainsEvent("This corresponds to local Xcode version 5.1.2");
+  }
+
+  @Test
+  public void testAvailableXcodeModesDifferentAliasFullySpecified() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version5", "5.1", true, "5")
+        .addLocalVersion("version5.1.2", "5.1.2", true, "5")
+        .write(scratch, "xcode/BUILD");
+    useConfiguration("--xcode_version=5.1.2");
+    getConfiguredTarget("//xcode:foo");
+    assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
   }
 
   @Test

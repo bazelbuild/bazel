@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkExecutionResultApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -35,6 +34,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A structure callable from Starlark that stores the result of repository_ctx.execute() method. It

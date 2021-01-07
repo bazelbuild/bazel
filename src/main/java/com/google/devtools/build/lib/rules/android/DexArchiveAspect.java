@@ -39,12 +39,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -148,7 +147,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .exec()
                     .value(
                         Label.parseAbsoluteUnchecked(
@@ -164,12 +163,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
                 ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
-            .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
+            .requireAspectsWithBuiltinProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
-              .cfg(HostTransition.createFactory())
+              .cfg(ExecutionTransitionFactory.create())
               .exec()
               .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }
@@ -268,14 +267,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       ImmutableSet.Builder<Artifact> jars = ImmutableSet.builder();
       jars.addAll(javaInfo.getDirectRuntimeJars());
 
-      // If the target is an android_library, it may be a Starlark android_library in which case
-      // get the R.jar from the AndroidIdeInfoProvider.
-      if (isAndroidLibrary(ruleContext)) {
-        Artifact rJar = getAndroidLibraryRJar(base);
-        if (rJar != null) {
-          // TODO(b/124540821): Disable R.jar desugaring (with a flag).
-          jars.add(rJar);
-        }
+      Artifact rJar = getAndroidLibraryRJar(base);
+      if (rJar != null) {
+        // TODO(b/124540821): Disable R.jar desugaring (with a flag).
+        jars.add(rJar);
       }
 
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
@@ -298,7 +293,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Iterable<Artifact> getProducedRuntimeJars(
       ConfiguredTarget base, RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)) {
-      if (!ruleContext.getPrerequisites("srcs", TransitionMode.TARGET).isEmpty()) {
+      if (!ruleContext.getPrerequisites("srcs").isEmpty()) {
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
@@ -321,13 +316,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         jars.addAll(javaInfo.getDirectRuntimeJars());
       }
 
-      // The Starlark android_library does not put the R.jar file in the direct runtime deps of the
-      // JavaInfo, it can only be retrieved from the AndroidIdeInfoProvider.
-      if (isAndroidLibrary(ruleContext)) {
-        Artifact rJar = getAndroidLibraryRJar(base);
-        if (rJar != null) {
+      Artifact rJar = getAndroidLibraryRJar(base);
+      if (rJar != null) {
           jars.add(rJar);
-        }
       }
 
       return jars.build();
@@ -343,10 +334,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       return provider;
     }
     return isProtoLibrary(ruleContext) ? base.getProvider(JavaCompilationArgsProvider.class) : null;
-  }
-
-  private static boolean isAndroidLibrary(RuleContext ruleContext) {
-    return "android_library".equals(ruleContext.getRule().getRuleClass());
   }
 
   private static boolean isProtoLibrary(RuleContext ruleContext) {
@@ -377,7 +364,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     IterablesChain.Builder<T> result = IterablesChain.builder();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       if (ruleContext.attributes().getAttributeType(attr) != null) {
-        result.add(ruleContext.getPrerequisites(attr, TransitionMode.TARGET, classType));
+        result.add(ruleContext.getPrerequisites(attr, classType));
       }
     }
     return result.build();
@@ -393,7 +380,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
               ruleContext
                   .getPrerequisite(
                       ":dex_archive_android_sdk",
-                      TransitionMode.TARGET,
                       AndroidSdkProvider.PROVIDER)
                   .getAndroidJar())
           .build();
@@ -461,8 +447,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite(desugarPrereqName, TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
             .addInput(jar)
             .addTransitiveInputs(bootclasspath)
             .addTransitiveInputs(classpath)
@@ -499,8 +484,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite(dexbuilderPrereq, TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)

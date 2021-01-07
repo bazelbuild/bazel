@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkIndexable;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.

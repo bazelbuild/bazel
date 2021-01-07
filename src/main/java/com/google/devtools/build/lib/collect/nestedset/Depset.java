@@ -15,26 +15,27 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Debug;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A Depset is a Starlark value that wraps a {@link NestedSet}.
@@ -52,7 +53,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "depset",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "<p>A specialized data structure that supports efficient merge operations and has a"
             + " defined traversal order. Commonly used for accumulating data from transitive"
@@ -151,12 +152,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     //
     // TODO(adonovan): use this check instead:
     //   EvalUtils.checkHashable(x);
-    // and delete the StarlarkValue.isImmutable and EvalUtils.isImmutable.
+    // and delete the StarlarkValue.isImmutable and Starlark.isImmutable.
     // Unfortunately this is a breaking change because some users
     // construct depsets whose elements contain lists of strings,
     // which are Starlark-unhashable even if frozen.
     // TODO(adonovan): also remove StarlarkList.hashCode.
-    if (strict && !EvalUtils.isImmutable(x)) {
+    if (strict && !Starlark.isImmutable(x)) {
       // TODO(adonovan): improve this error message to include type(x).
       throw Starlark.errorf("depset elements must not be mutable values");
     }
@@ -322,7 +323,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   @Override
   public void repr(Printer printer) {
     printer.append("depset(");
-    printer.printList(set.toList(), "[", ", ", "]", null);
+    printer.printList(set.toList(), "[", ", ", "]");
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");
@@ -407,7 +408,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
    * A ElementType represents the type of elements in a Depset.
    *
    * <p>Call {@link #of} to obtain the ElementType for a Java class. The class must be a legal
-   * Starlark value class, such as String, Integer, Boolean, or a subclass of StarlarkValue.
+   * Starlark value class, such as String, Boolean, or a subclass of StarlarkValue.
    *
    * <p>An element type represents only the top-most type identifier of an element value. That is,
    * an element type may represent "list" but not "list of string".
@@ -444,18 +445,24 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       return new ElementType(getTypeClass(cls));
     }
 
-    // Returns the Java class representing the Starlark type of an instance of cls,
-    // which must be one of String, Integer, or Boolean (in which case the result is cls),
-    // or a StarlarkModule-annotated Starlark value class or one of its subclasses,
-    // in which case the result is the annotated class.
+    // If cls is a valid Starlark type, returns the canonical Java class for that
+    // Starlark type (which may be an ancestor); otherwise throws IllegalArgumentException.
     //
-    // TODO(adonovan): consider publishing something like this as Starlark.typeClass
-    // when we clean up the various EvalUtils.getDataType operators.
+    // If cls is String or Boolean, cls is returned. Otherwise, the
+    // @StarlarkBuiltin-annotated ancestor of cls is returned if it exists (it may
+    // be cls itself), or cls is returned if there is no such ancestor.
+    //
+    // TODO(adonovan): consider publishing something like this as Starlark.typeClass.
     private static Class<?> getTypeClass(Class<?> cls) {
-      if (cls == String.class || cls == Integer.class || cls == Boolean.class) {
+      if (cls == String.class || cls == Boolean.class) {
         return cls; // fast path for common case
       }
-      Class<?> superclass = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(cls);
+      if (cls == StarlarkInt.class) {
+        // StarlarkInt doesn't currently have a StarlarkBuiltin annotation
+        // because stardoc can't handle a type and a function with the same name.
+        return cls;
+      }
+      Class<?> superclass = StarlarkAnnotations.getParentWithStarlarkBuiltin(cls);
       if (superclass != null) {
         return superclass;
       }
@@ -522,20 +529,19 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     try {
       order = Order.parse(orderString);
     } catch (IllegalArgumentException ex) {
-      throw new EvalException(null, ex);
+      throw new EvalException(ex);
     }
 
-    if (semantics.incompatibleDisableDepsetItems()) {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS)) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {
           throw new EvalException(
-              null, "parameter 'direct' cannot be specified both positionally and by keyword");
+              "parameter 'direct' cannot be specified both positionally and by keyword");
         }
         direct = x;
       }
       if (direct instanceof Depset) {
         throw new EvalException(
-            null,
             "parameter 'direct' must contain a list of elements, and may no longer accept a"
                 + " depset. The deprecated behavior may be temporarily re-enabled by setting"
                 + " --incompatible_disable_depset_items=false");
@@ -545,12 +551,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
               order,
               Sequence.noneableCast(direct, Object.class, "direct"),
               Sequence.noneableCast(transitive, Depset.class, "transitive"),
-              semantics.incompatibleAlwaysCheckDepsetElements());
+              semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
     } else {
       if (x != Starlark.NONE) {
         if (!isEmptyStarlarkList(items)) {
           throw new EvalException(
-              null, "parameter 'items' cannot be specified both positionally and by keyword");
+              "parameter 'items' cannot be specified both positionally and by keyword");
         }
         items = x;
       }
@@ -578,7 +584,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
     if (direct != Starlark.NONE && !isEmptyStarlarkList(items)) {
       throw new EvalException(
-          null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
+          "Do not pass both 'direct' and 'items' argument to depset constructor.");
     }
 
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.
@@ -590,7 +596,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
 
     return fromDirectAndTransitive(
-        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
+        order,
+        directElements,
+        transitiveList,
+        semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
   }
 
   private static boolean isEmptyStarlarkList(Object o) {

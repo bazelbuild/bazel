@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdlProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
@@ -43,11 +43,15 @@ public final class AndroidIdlProvider extends NativeInfo
       NestedSet<Artifact> transitiveIdlImports,
       NestedSet<Artifact> transitiveIdlJars,
       NestedSet<Artifact> transitiveIdlPreprocessed) {
-    super(PROVIDER);
     this.transitiveIdlImportRoots = transitiveIdlImportRoots;
     this.transitiveIdlImports = transitiveIdlImports;
     this.transitiveIdlJars = transitiveIdlJars;
     this.transitiveIdlPreprocessed = transitiveIdlPreprocessed;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

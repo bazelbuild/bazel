@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
@@ -113,11 +115,15 @@ public class StandaloneModule extends BlazeModule {
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
 
+    boolean verboseFailures =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     registryBuilder.registerStrategy(
-        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner), "standalone", "local");
+        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner, verboseFailures),
+        "standalone",
+        "local");
 
     // This makes the "standalone" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.

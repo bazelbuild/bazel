@@ -57,7 +57,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <string>
+
+#include <atomic>
 #include <vector>
 
 #include "src/main/tools/linux-sandbox-options.h"
@@ -68,13 +69,17 @@
 int global_outer_uid;
 int global_outer_gid;
 
-static int global_child_pid;
+// The PID of our child process, for use in signal handlers.
+static std::atomic<pid_t> global_child_pid{0};
 
-// The signal that will be sent to the child when a timeout occurs.
-static volatile sig_atomic_t global_next_timeout_signal = SIGTERM;
+// Must we politely ask the child to exit before we send it a SIGKILL (once we
+// want it to exit)? Holds only zero or one.
+static std::atomic<int> global_need_polite_sigterm{false};
 
-// The signal that caused us to kill the child (e.g. on timeout).
-static volatile sig_atomic_t global_signal;
+#if __cplusplus >= 201703L
+static_assert(global_child_pid.is_always_lock_free);
+static_assert(global_need_polite_sigterm.is_always_lock_free);
+#endif
 
 // Make sure the child process does not inherit any accidentally left open file
 // handles from our parent.
@@ -115,20 +120,36 @@ static void CloseFds() {
   }
 }
 
-static void OnTimeoutOrTerm(int sig) {
-  if (global_signal == 0) {
-    global_signal = sig;
+static void OnTimeoutOrTerm(int) {
+  // Find the PID of the child, which main set up before installing us as a
+  // signal handler.
+  const pid_t child_pid = global_child_pid.load(std::memory_order_relaxed);
+
+  // Figure out whether we should send a SIGTERM here. If so, we won't want to
+  // next time we're called.
+  const bool need_polite_sigterm =
+      global_need_polite_sigterm.fetch_and(0, std::memory_order_relaxed);
+
+  // If we're not supposed to ask politely, simply forcibly kill the child.
+  if (!need_polite_sigterm) {
+    kill(child_pid, SIGKILL);
+    return;
   }
-  kill(global_child_pid, global_next_timeout_signal);
-  if (global_next_timeout_signal == SIGTERM && opt.kill_delay_secs > 0) {
-    global_next_timeout_signal = SIGKILL;
-    alarm(opt.kill_delay_secs);
-  }
+
+  // Otherwise make a polite request, then arrange to be called again after a
+  // delay, at which point we'll send SIGKILL.
+  //
+  // Note that main sets us up as the signal handler for SIGALRM, and arranges
+  // for this code path to be taken only if kill_delay_secs > 0.
+  kill(child_pid, SIGTERM);
+  alarm(opt.kill_delay_secs);
 }
 
-static void SpawnPid1() {
+static pid_t SpawnPid1() {
   const int kStackSize = 1024 * 1024;
   std::vector<char> child_stack(kStackSize);
+
+  PRINT_DEBUG("calling pipe(2)...");
 
   int sync_pipe[2];
   if (pipe(sync_pipe) < 0) {
@@ -147,13 +168,16 @@ static void SpawnPid1() {
   // We use clone instead of unshare, because unshare sometimes fails with
   // EINVAL due to a race condition in the Linux kernel (see
   // https://lkml.org/lkml/2015/7/28/833).
-  global_child_pid =
+  PRINT_DEBUG("calling clone(2)...");
+
+  const pid_t child_pid =
       clone(Pid1Main, child_stack.data() + kStackSize, clone_flags, sync_pipe);
-  if (global_child_pid < 0) {
+
+  if (child_pid < 0) {
     DIE("clone");
   }
 
-  PRINT_DEBUG("linux-sandbox-pid1 has PID %d", global_child_pid);
+  PRINT_DEBUG("linux-sandbox-pid1 has PID %d", child_pid);
 
   // We close the write end of the sync pipe, read a byte and then close the
   // pipe. This proves to the linux-sandbox-pid1 process that we still existed
@@ -169,88 +193,45 @@ static void SpawnPid1() {
   if (close(sync_pipe[0]) < 0) {
     DIE("close");
   }
+
+  PRINT_DEBUG("done manipulating pipes");
+
+  return child_pid;
 }
 
-static int WaitForPid1() {
-  int err, status;
+static int WaitForPid1(const pid_t child_pid) {
+  // Wait for the child to exit, obtaining usage information. Restart in the
+  // case of a signal interrupting us.
+  int child_status;
+  struct rusage child_rusage;
+  while (true) {
+    const int ret = wait4(child_pid, &child_status, 0, &child_rusage);
+    if (ret > 0) {
+      break;
+    }
+
+    if (errno == EINTR) {
+      continue;
+    }
+
+    DIE("wait4");
+  }
+
+  // If we're supposed to write stats to a file, do so now.
   if (!opt.stats_path.empty()) {
-    struct rusage child_rusage;
-    do {
-      err = wait4(global_child_pid, &status, 0, &child_rusage);
-    } while (err < 0 && errno == EINTR);
-    if (err < 0) {
-      DIE("wait4");
-    }
     WriteStatsToFile(&child_rusage, opt.stats_path);
-  } else {
-    do {
-      err = waitpid(global_child_pid, &status, 0);
-    } while (err < 0 && errno == EINTR);
-    if (err < 0) {
-      DIE("waitpid");
-    }
   }
 
-  if (global_signal > 0) {
-    // The child exited because we killed it due to receiving a signal
-    // ourselves. Do not trust the exitcode in this case, just calculate it from
-    // the signal.
-    PRINT_DEBUG("child exited due to us catching signal: %s",
-                strsignal(global_signal));
-    return 128 + global_signal;
-  } else if (WIFSIGNALED(status)) {
-    PRINT_DEBUG("child exited due to receiving signal: %s",
-                strsignal(WTERMSIG(status)));
-    return 128 + WTERMSIG(status);
-  } else {
-    PRINT_DEBUG("child exited normally with exitcode %d", WEXITSTATUS(status));
-    return WEXITSTATUS(status);
+  // We want to exit in the same manner as the child.
+  if (WIFSIGNALED(child_status)) {
+    const int signal = WTERMSIG(child_status);
+    PRINT_DEBUG("child exited due to receiving signal: %s", strsignal(signal));
+    return 128 + signal;
   }
-}
 
-static void ForwardSignal(int signum) {
-  PRINT_DEBUG("ForwardSignal(%d)", signum);
-  kill(global_child_pid, signum);
-}
-
-static void SetupSignalHandlers() {
-  ClearSignalMask();
-
-  for (int signum = 1; signum < NSIG; signum++) {
-    switch (signum) {
-      // Some signals should indeed kill us and not be forwarded to the child,
-      // thus we can use the default handler.
-      case SIGABRT:
-      case SIGBUS:
-      case SIGFPE:
-      case SIGILL:
-      case SIGSEGV:
-      case SIGSYS:
-      case SIGTRAP:
-        break;
-      // It's fine to use the default handler for SIGCHLD, because we use
-      // waitpid() in the main loop to wait for children to die anyway.
-      case SIGCHLD:
-        break;
-      // One does not simply install a signal handler for these two signals
-      case SIGKILL:
-      case SIGSTOP:
-        break;
-      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
-      // SpawnChild().
-      case SIGTTIN:
-      case SIGTTOU:
-        IgnoreSignal(signum);
-        break;
-      case SIGTERM:
-        InstallSignalHandler(signum, OnTimeoutOrTerm);
-        break;
-      // All other signals should be forwarded to the child.
-      default:
-        InstallSignalHandler(signum, ForwardSignal);
-        break;
-    }
-  }
+  const int exit_code = WEXITSTATUS(child_status);
+  PRINT_DEBUG("child exited normally with code %d", exit_code);
+  return exit_code;
 }
 
 int main(int argc, char *argv[]) {
@@ -259,25 +240,64 @@ int main(int argc, char *argv[]) {
     DIE("prctl");
   }
 
+  // Start with default signal actions and a clear signal mask.
+  ClearSignalMask();
+
+  // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
+  // SpawnChild.
+  IgnoreSignal(SIGTTIN);
+  IgnoreSignal(SIGTTOU);
+
+  // Parse our command-line options and set up a global variable used by
+  // PRINT_DEBUG.
   ParseOptions(argc, argv);
   global_debug = opt.debug;
 
+  // Redirect output as requested.
   Redirect(opt.stdout_path, STDOUT_FILENO);
   Redirect(opt.stderr_path, STDERR_FILENO);
 
+  // Set up two globals used by the child process.
   global_outer_uid = getuid();
   global_outer_gid = getgid();
 
+  // Ensure we don't pass on any FDs from our parent to our child.
   CloseFds();
 
-  SpawnPid1();
+  // Spawn the child that will fork the sandboxed progam with fresh namespaces
+  // etc.
+  const pid_t child_pid = SpawnPid1();
 
-  SetupSignalHandlers();
+  // Let the signal handlers installed below know the PID of the child.
+  global_child_pid.store(child_pid, std::memory_order_relaxed);
 
-  if (opt.timeout_secs > 0) {
-    InstallSignalHandler(SIGALRM, OnTimeoutOrTerm);
-    SetTimeout(opt.timeout_secs);
+  // If a kill delay has been configured, let the signal handlers installed
+  // below know that it needs to be respected.
+  if (opt.kill_delay_secs > 0) {
+    global_need_polite_sigterm.store(1, std::memory_order_relaxed);
   }
 
-  return WaitForPid1();
+  // OnTimeoutOrTerm, which is used for other signals below, assumes that it
+  // handles SIGALRM. We also explicitly invoke it after the timeout using
+  // alarm(2).
+  InstallSignalHandler(SIGALRM, OnTimeoutOrTerm);
+
+  // If requested, arrange for the child to be killed (optionally after being
+  // asked politely to terminate) once the timeout expires.
+  //
+  // Note that it's important to set this up before support for SIGTERM and
+  // SIGINT. Otherwise one of those signals could arrive before we get here, and
+  // then we would reset its opt.kill_delay_secs interval timer.
+  if (opt.timeout_secs > 0) {
+    alarm(opt.timeout_secs);
+  }
+
+  // Also ask/tell the child to quit on SIGTERM, and optionally for SIGINT too.
+  InstallSignalHandler(SIGTERM, OnTimeoutOrTerm);
+  if (opt.sigint_sends_sigterm) {
+    InstallSignalHandler(SIGINT, OnTimeoutOrTerm);
+  }
+
+  // Wait for the child to exit, returning an appropriate status.
+  return WaitForPid1(child_pid);
 }

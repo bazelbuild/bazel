@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -54,7 +55,7 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -62,7 +63,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -111,6 +112,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -134,6 +136,23 @@ public final class SkyframeActionExecutor {
   // Used to prevent check-then-act races in #createOutputDirectories. See the comment there for
   // more detail.
   private static final Striped<Lock> outputDirectoryDeletionLock = Striped.lock(64);
+
+  private static final MetadataInjector THROWING_METADATA_INJECTOR_FOR_ACTIONFS =
+      new MetadataInjector() {
+        @Override
+        public void injectFile(Artifact output, FileArtifactValue metadata) {
+          throw new IllegalStateException(
+              "Unexpected output during input discovery: " + output + " (" + metadata + ")");
+        }
+
+        @Override
+        public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
+          // ActionFS injects only metadata for files.
+          throw new UnsupportedOperationException(
+              String.format(
+                  "Unexpected injection of: %s for a tree artifact value: %s", output, tree));
+        }
+      };
 
   private final ActionKeyContext actionKeyContext;
   private Reporter reporter;
@@ -199,8 +218,6 @@ public final class SkyframeActionExecutor {
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
-  private boolean bazelRemoteExecutionEnabled;
-
   private NestedSetExpander nestedSetExpander;
 
   SkyframeActionExecutor(
@@ -257,8 +274,6 @@ public final class SkyframeActionExecutor {
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
-    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
 
     Cache<PathFragment, Boolean> cache =
         CacheBuilder.from(options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec)
@@ -287,6 +302,10 @@ public final class SkyframeActionExecutor {
     return executorEngine.getExecRoot();
   }
 
+  boolean useArchivedTreeArtifacts() {
+    return options.getOptions(CoreOptions.class).sendArchivedTreeArtifactInputs;
+  }
+
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
@@ -307,11 +326,12 @@ public final class SkyframeActionExecutor {
       Action action,
       FileSystem actionFileSystem,
       Environment env,
-      MetadataConsumer consumer,
+      MetadataInjector metadataInjector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws ActionExecutionException {
     try {
-      outputService.updateActionFileSystemContext(actionFileSystem, env, consumer, filesets);
+      outputService.updateActionFileSystemContext(
+          actionFileSystem, env, metadataInjector, filesets);
     } catch (IOException e) {
       String message = "Failed to update filesystem context: " + e.getMessage();
       DetailedExitCode code =
@@ -401,13 +421,9 @@ public final class SkyframeActionExecutor {
       ActionPostprocessing postprocessing,
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
-    MetadataAggregator metadataAggregator;
     if (actionFileSystem != null) {
-      metadataAggregator = new MetadataAggregator(metadataHandler);
       updateActionFileSystemContext(
-          action, actionFileSystem, env, metadataAggregator, expandedFilesets);
-    } else {
-      metadataAggregator = null;
+          action, actionFileSystem, env, metadataHandler, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -447,8 +463,7 @@ public final class SkyframeActionExecutor {
                         actionStartTime,
                         actionExecutionContext,
                         actionLookupData,
-                        postprocessing,
-                        metadataAggregator)));
+                        postprocessing)));
 
     SharedActionCallback callback =
         getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData);
@@ -486,7 +501,8 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
+      @Nullable Object skyframeDepsResult)
+      throws InterruptedException {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
@@ -554,7 +570,7 @@ public final class SkyframeActionExecutor {
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       ArtifactPathResolver pathResolver)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Token token;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
@@ -589,8 +605,9 @@ public final class SkyframeActionExecutor {
         //  better to integrate them with the action cache and rerun the action when they change.
         String actionKey = action.getKey(actionKeyContext, artifactExpander);
         FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
-        // Set the mightHaveOutput bit in FileOutErr. Otherwise hasRecordedOutput() doesn't check if
-        // the file exists and just returns false.
+        // getOutputPath and getErrorPath cause the FileOutErr to be marked as "dirty" which
+        // invalidates any prior in-memory state it had. Need to do this so that hasRecordedOutput()
+        // checks for file existence again.
         fileOutErr.getOutputPath();
         fileOutErr.getErrorPath();
         if (fileOutErr.hasRecordedOutput()) {
@@ -636,7 +653,7 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       Token token,
       Map<String, String> clientEnv)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
       return;
     }
@@ -707,10 +724,7 @@ public final class SkyframeActionExecutor {
           action,
           actionFileSystem,
           env,
-          (output, metadata) -> {
-            throw new IllegalStateException(
-                "Unexpected output during input discovery: " + output + " (" + metadata + ")");
-          },
+          THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
           /*filesets=*/ ImmutableMap.of());
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
@@ -759,10 +773,6 @@ public final class SkyframeActionExecutor {
       eventHandler.post(new StoppedScanningActionEvent(action));
       closeContext(actionExecutionContext, action, finalException);
     }
-  }
-
-  boolean isBazelRemoteExecutionEnabled() {
-    return bazelRemoteExecutionEnabled;
   }
 
   private MetadataProvider createFileCache(
@@ -859,7 +869,6 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
-    @Nullable private final MetadataAggregator metadataAggregator;
 
     ActionRunner(
         Action action,
@@ -867,8 +876,7 @@ public final class SkyframeActionExecutor {
         long actionStartTime,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
-        ActionPostprocessing postprocessing,
-        @Nullable MetadataAggregator metadataAggregator) {
+        ActionPostprocessing postprocessing) {
       this.action = action;
       this.metadataHandler = metadataHandler;
       this.actionStartTime = actionStartTime;
@@ -876,7 +884,6 @@ public final class SkyframeActionExecutor {
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
       this.postprocessing = postprocessing;
-      this.metadataAggregator = metadataAggregator;
     }
 
     @SuppressWarnings("LogAndThrow") // Thrown exception shown in user output, not info logs.
@@ -927,6 +934,7 @@ public final class SkyframeActionExecutor {
               // keep previous outputs in place.
               action.prepare(
                   actionExecutionContext.getExecRoot(),
+                  actionExecutionContext.getPathResolver(),
                   outputService != null ? outputService.bulkDeleter() : null);
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(
@@ -1098,10 +1106,6 @@ public final class SkyframeActionExecutor {
         Preconditions.checkState(action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known", action);
 
-        if (metadataAggregator != null) {
-          metadataAggregator.finish();
-        }
-
         if (!checkOutputs(action, metadataHandler)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
@@ -1248,36 +1252,51 @@ public final class SkyframeActionExecutor {
         }
       }
     } catch (IOException e) {
-      String message = "failed to create output directory: " + e.getMessage();
-      DetailedExitCode code =
-          createDetailedExitCode(message, Code.ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE);
-      ActionExecutionException ex = new ActionExecutionException(message, e, action, false, code);
-      printError(ex.getMessage(), action, null);
-      throw ex;
+      throw toActionExecutionException(
+          "failed to create output directory",
+          e,
+          action,
+          null,
+          Code.ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE);
     }
   }
 
   /**
-   * Ensure that no symlinks exists between the output root and the output file. These are all
-   * expected to be regular directories. Violations of this expectations can only come from state
-   * left behind by previous invocations or external filesystem mutation.
+   * Create an output directory and ensure that no symlinks exists between the output root and the
+   * output file. These are all expected to be regular directories. Violations of this expectations
+   * can only come from state left behind by previous invocations or external filesystem mutation.
    */
-  private void symlinkCheck(
+  private void createAndCheckForSymlinks(
       final Path dir, final Artifact outputFile, ActionExecutionContext context)
       throws IOException {
     PathFragment root = outputFile.getRoot().getRoot().asPath().asFragment();
     Path curDir = context.getPathResolver().convertPath(dir);
     Set<PathFragment> checkDirs = new HashSet<>();
+    List<Path> dirsToCreate = new ArrayList<>();
+
+    // If the output root has not been created yet, do so now.
+    if (!knownRegularDirectories.contains(root)) {
+      outputFile.getRoot().getRoot().asPath().createDirectoryAndParents();
+      knownRegularDirectories.add(root);
+    }
+
     while (!curDir.asFragment().equals(root)) {
       // Fast path: Somebody already checked that this is a regular directory this invocation.
       if (knownRegularDirectories.contains(curDir.asFragment())) {
-        return;
+        break;
       }
-      if (!curDir.isDirectory(Symlinks.NOFOLLOW)) {
+      FileStatus stat = curDir.statNullable(Symlinks.NOFOLLOW);
+      if (stat != null && !stat.isDirectory()) {
         throw new IOException(curDir + " is not a regular directory");
+      }
+      if (stat == null) {
+        dirsToCreate.add(curDir);
       }
       checkDirs.add(curDir.asFragment());
       curDir = curDir.getParentDirectory();
+    }
+    for (Path path : Lists.reverse(dirsToCreate)) {
+      path.createDirectory();
     }
 
     // Defer adding to known regular directories until we've checked all parent directories.
@@ -1298,10 +1317,7 @@ public final class SkyframeActionExecutor {
 
         if (done.add(outputDir)) {
           try {
-            if (!knownRegularDirectories.contains(outputDir.asFragment())) {
-              outputDir.createDirectoryAndParents();
-              symlinkCheck(outputDir, outputFile, context);
-            }
+            createAndCheckForSymlinks(outputDir, outputFile, context);
             continue;
           } catch (IOException e) {
             /* Fall through to plan B. */
@@ -1434,7 +1450,7 @@ public final class SkyframeActionExecutor {
     boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
 
     ActionExecutionException toThrow = e;
-    if (reported){
+    if (reported) {
       // If we already printed the error for the exception we mark it as already reported
       // so that we do not print it again in upper levels.
       // Note that we need to report it here since we want immediate feedback of the errors
@@ -1535,8 +1551,8 @@ public final class SkyframeActionExecutor {
 
   /**
    * Convenience function for creating an ActionExecutionException reporting that the action failed
-   * due to a the exception cause, if there is an additional explanatory message that clarifies the
-   * message of the exception. Combines the user-provided message and the exceptions' message and
+   * due to the exception cause, if there is an additional explanatory message that clarifies the
+   * message of the exception. Combines the user-provided message and the exception's message and
    * reports the combination as error.
    *
    * @param message A small text that explains why the action failed
@@ -1587,24 +1603,11 @@ public final class SkyframeActionExecutor {
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
   void printError(String message, ActionAnalysisMetadata action, FileOutErr actionOutput) {
+    message = action.describe() + " failed: " + message;
+    Event event = Event.error(action.getOwner().getLocation(), message);
     synchronized (reporter) {
-      if (options.getOptions(KeepGoingOption.class).keepGoing) {
-        message = "Couldn't " + describeAction(action) + ": " + message;
-      }
-      Event event = Event.error(action.getOwner().getLocation(), message);
       dumpRecordedOutErr(reporter, event, actionOutput);
       recordExecutionError();
-    }
-  }
-
-  /** Describe an action, for use in error messages. */
-  private static String describeAction(ActionAnalysisMetadata action) {
-    if (action.getOutputs().isEmpty()) {
-      return "run " + action.prettyPrint();
-    } else if (action.getActionType().isMiddleman()) {
-      return "build " + action.prettyPrint();
-    } else {
-      return "build file " + action.getPrimaryOutput().prettyPrint();
     }
   }
 
@@ -1752,33 +1755,6 @@ public final class SkyframeActionExecutor {
     public ActionInput getInput(String execPath) {
       ActionInput input = perActionCache.getInput(execPath);
       return input != null ? input : perBuildFileCache.getInput(execPath);
-    }
-  }
-
-  /**
-   * Assists with aggregation of tree artifacts for an action file system which is only aware of
-   * individual outputs.
-   */
-  private static final class MetadataAggregator implements MetadataConsumer {
-    private final TreeArtifactValue.MultiBuilder treeArtifacts =
-        TreeArtifactValue.newConcurrentMultiBuilder();
-    private final MetadataInjector metadataInjector;
-
-    MetadataAggregator(MetadataInjector metadataInjector) {
-      this.metadataInjector = metadataInjector;
-    }
-
-    @Override
-    public void accept(Artifact output, FileArtifactValue metadata) {
-      if (output.isChildOfDeclaredDirectory()) {
-        treeArtifacts.putChild((TreeFileArtifact) output, metadata);
-      } else {
-        metadataInjector.injectFile(output, metadata);
-      }
-    }
-
-    void finish() {
-      treeArtifacts.injectTo(metadataInjector);
     }
   }
 }

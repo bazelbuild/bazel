@@ -19,16 +19,17 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
-import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.TokenKind;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,20 +41,20 @@ public class StarlarkInfoTest {
   @Test
   public void nullLocationDefaultsToBuiltin() throws Exception {
     StarlarkInfo info = StarlarkInfo.create(makeProvider(), ImmutableMap.of(), null);
-    assertThat(info.getCreationLoc()).isEqualTo(Location.BUILTIN);
+    assertThat(info.getCreationLocation()).isEqualTo(Location.BUILTIN);
   }
 
   @Test
   public void instancesOfUnexportedProvidersAreMutable() throws Exception {
     StarlarkProvider provider = makeProvider();
-    StarlarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
+    StarlarkInfo info = makeInfoWithF1F2Values(provider, StarlarkInt.of(5), null);
     assertThat(info.isImmutable()).isFalse();
   }
 
   @Test
   public void instancesOfExportedProvidersMayBeImmutable() throws Exception {
     StarlarkProvider provider = makeExportedProvider();
-    StarlarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
+    StarlarkInfo info = makeInfoWithF1F2Values(provider, StarlarkInt.of(5), null);
     assertThat(info.isImmutable()).isTrue();
   }
 
@@ -61,7 +62,7 @@ public class StarlarkInfoTest {
   public void mutableIfContentsAreMutable() throws Exception {
     StarlarkProvider provider = makeExportedProvider();
     StarlarkValue v = new StarlarkValue() {};
-    StarlarkInfo info = makeInfoWithF1F2Values(provider, 5, v);
+    StarlarkInfo info = makeInfoWithF1F2Values(provider, StarlarkInt.of(5), v);
     assertThat(info.isImmutable()).isFalse();
   }
 
@@ -70,25 +71,25 @@ public class StarlarkInfoTest {
     StarlarkProvider provider1 = makeProvider();
     StarlarkProvider provider2 = makeProvider();
     // equal providers and fields
-    assertThat(makeInfoWithF1F2Values(provider1, 4, 5))
-        .isEqualTo(makeInfoWithF1F2Values(provider1, 4, 5));
+    assertThat(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5)))
+        .isEqualTo(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5)));
     // different providers => unequal
-    assertThat(makeInfoWithF1F2Values(provider1, 4, 5))
-        .isNotEqualTo(makeInfoWithF1F2Values(provider2, 4, 5));
+    assertThat(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5)))
+        .isNotEqualTo(makeInfoWithF1F2Values(provider2, StarlarkInt.of(4), StarlarkInt.of(5)));
     // different fields => unequal
-    assertThat(makeInfoWithF1F2Values(provider1, 4, 5))
-        .isNotEqualTo(makeInfoWithF1F2Values(provider1, 4, 6));
+    assertThat(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5)))
+        .isNotEqualTo(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(6)));
     // different sets of fields => unequal
-    assertThat(makeInfoWithF1F2Values(provider1, 4, 5))
-        .isNotEqualTo(makeInfoWithF1F2Values(provider1, 4, null));
+    assertThat(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5)))
+        .isNotEqualTo(makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), null));
   }
 
   @Test
   public void concatWithDifferentProvidersFails() throws Exception {
     StarlarkProvider provider1 = makeProvider();
     StarlarkProvider provider2 = makeProvider();
-    StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
-    StarlarkInfo info2 = makeInfoWithF1F2Values(provider2, 4, 5);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5));
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider2, StarlarkInt.of(4), StarlarkInt.of(5));
     EvalException expected =
         assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
     assertThat(expected).hasMessageThat()
@@ -98,8 +99,8 @@ public class StarlarkInfoTest {
   @Test
   public void concatWithOverlappingFieldsFails() throws Exception {
     StarlarkProvider provider1 = makeProvider();
-    StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
-    StarlarkInfo info2 = makeInfoWithF1F2Values(provider1, 4, null);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5));
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), null);
     EvalException expected =
         assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
     assertThat(expected)
@@ -110,23 +111,23 @@ public class StarlarkInfoTest {
   @Test
   public void concatWithSameFields() throws Exception {
     StarlarkProvider provider = makeProvider();
-    StarlarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
-    StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider, StarlarkInt.of(4), null);
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, StarlarkInt.of(5));
     StarlarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
-    assertThat(result.getValue("f1")).isEqualTo(4);
-    assertThat(result.getValue("f2")).isEqualTo(5);
+    assertThat(result.getValue("f1")).isEqualTo(StarlarkInt.of(4));
+    assertThat(result.getValue("f2")).isEqualTo(StarlarkInt.of(5));
   }
 
   @Test
   public void concatWithDifferentFields() throws Exception {
     StarlarkProvider provider = makeProvider();
-    StarlarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
-    StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider, StarlarkInt.of(4), null);
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, StarlarkInt.of(5));
     StarlarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
-    assertThat(result.getValue("f1")).isEqualTo(4);
-    assertThat(result.getValue("f2")).isEqualTo(5);
+    assertThat(result.getValue("f1")).isEqualTo(StarlarkInt.of(4));
+    assertThat(result.getValue("f2")).isEqualTo(StarlarkInt.of(5));
   }
 
   /** Creates an unexported schemaless provider type with builtin location. */

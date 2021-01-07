@@ -308,6 +308,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
+  const bool preemptible_;
   const blaze_util::Path output_base_;
 };
 
@@ -457,7 +458,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    startup_options.output_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(workspace));
-  result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  if (startup_options.autodetect_server_javabase) {
+    result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  }
 
   if (!startup_options.server_jvm_out.IsEmpty()) {
     result.push_back("--server_jvm_out=" +
@@ -470,11 +473,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         startup_options.failure_detail_out.AsCommandLineArgument());
   }
 
-  if (startup_options.deep_execroot) {
-    result.push_back("--deep_execroot");
-  } else {
-    result.push_back("--nodeep_execroot");
-  }
   if (startup_options.expand_configs_in_place) {
     result.push_back("--expand_configs_in_place");
   } else {
@@ -484,6 +482,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     // Only include this if a value is requested - we rely on the empty case
     // being "null" to set the programmatic default in the server.
     result.push_back("--digest_function=" + startup_options.digest_function);
+  }
+  if (!startup_options.unix_digest_hash_attribute_name.empty()) {
+    result.push_back("--unix_digest_hash_attribute_name=" +
+                     startup_options.unix_digest_hash_attribute_name);
   }
   if (startup_options.idle_server_tasks) {
     result.push_back("--idle_server_tasks");
@@ -779,7 +781,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
   const auto start_time = std::chrono::system_clock::now();
-  const auto try_until_time = start_time + std::chrono::seconds(120);
+  const auto try_until_time =
+      start_time +
+      std::chrono::seconds(startup_options.local_startup_timeout_secs);
   // Print an update at most once every 10 seconds if we are still trying to
   // connect.
   const auto min_message_interval = std::chrono::seconds(10);
@@ -821,7 +825,8 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     }
   }
   BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
+      << "couldn't connect to server (" << server_pid << ") after "
+      << startup_options.local_startup_timeout_secs << " seconds.";
 }
 
 // Ensures that any server previously associated with `server_dir` is no longer
@@ -1048,8 +1053,9 @@ static bool IsVolatileArg(const string &arg) {
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
-      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
-      "--client_debug="};
+      "--option_sources=",       "--max_idle_secs=",
+      "--connect_timeout_secs=", "--local_startup_timeout_secs=",
+      "--client_debug=",         "--preemptible="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1669,6 +1675,7 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
       block_for_lock_(startup_options.block_for_lock),
+      preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
   if (!startup_options.client_debug) {
     gpr_set_log_function(null_grpc_log_function);
@@ -1943,6 +1950,7 @@ unsigned int BlazeServer::Communicate(
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
+  request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
     request.add_arg(arg);

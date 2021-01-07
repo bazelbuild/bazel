@@ -5,6 +5,8 @@ title: Output directory layout
 
 # Output directory layout
 
+This page covers requirements and layout for output directories.
+
 ## Requirements
 
 Requirements for an output directory layout:
@@ -51,7 +53,7 @@ The solution that's currently implemented:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
 We put symlinks "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
-and "bazel-bin" in the workspace directory; these symlinks points to some
+and "bazel-bin" in the workspace directory; these symlinks point to some
 directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
 use them. Also, we only do this if the workspace directory is writable.

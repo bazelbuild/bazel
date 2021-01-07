@@ -149,7 +149,7 @@ public class AppleBinaryRule implements RuleDefinition {
             by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("stamp", TRISTATE).value(TriState.NO))
+        .add(attr("stamp", TRISTATE).value(TriState.AUTO))
         .add(
             attr("feature_flags", LABEL_KEYED_STRING_DICT)
                 .undocumented("the feature flag feature has not yet been launched")
@@ -170,6 +170,7 @@ public class AppleBinaryRule implements RuleDefinition {
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 

@@ -54,26 +54,23 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-JAVA_TOOLCHAIN="$1"; shift
 JAVA_TOOLS_ZIP="$1"; shift
-JAVA_RUNTIME="$1"; shift
+JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 
 echo "JAVA_TOOLS_ZIP=$JAVA_TOOLS_ZIP"
-
 
 JAVA_TOOLS_RLOCATION=$(rlocation io_bazel/$JAVA_TOOLS_ZIP)
 
 if "$is_windows"; then
     JAVA_TOOLS_ZIP_FILE_URL="file:///${JAVA_TOOLS_RLOCATION}"
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
 else
     JAVA_TOOLS_ZIP_FILE_URL="file://${JAVA_TOOLS_RLOCATION}"
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --javabase=${JAVA_RUNTIME}"
-add_to_bazelrc "build --host_javabase=${JAVA_RUNTIME}"
 
 function set_up() {
     cat >>WORKSPACE <<EOF
@@ -81,13 +78,26 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # java_tools versions only used to test Bazel with various JDK toolchains.
 
 http_archive(
-    name = "local_java_tools",
+    name = "remote_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_linux",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
     cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
+# Java source files version shall match --java_language_version_flag version.
 function test_java14_record_type() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -109,7 +119,18 @@ public class Javac14Example {
   }
 }
 EOF
-  bazel run java/main:Javac14Example --test_output=all --verbose_failures &>"${TEST_log}"
+  bazel run java/main:Javac14Example --java_language_version=14 --java_runtime_version=14 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      || fail "Running with --java_language_version=14 failed"
+  expect_log "0"
+
+  bazel run java/main:Javac14Example --java_language_version=11 --java_runtime_version=11 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      && fail "Running with --java_language_version=11 unexpectedly succeeded."
+
+  bazel run java/main:Javac14Example --java_language_version=15 --java_runtime_version=15 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      || fail "Running with --java_language_version=15 failed"
   expect_log "0"
 }
 

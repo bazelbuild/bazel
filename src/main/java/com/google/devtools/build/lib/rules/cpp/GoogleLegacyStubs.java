@@ -37,10 +37,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Tuple;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Tuple;
 
 /**
  * Fake stub implementations for C++-related Starlark API which are unsupported without use of
@@ -55,7 +55,7 @@ public final class GoogleLegacyStubs {
           FeatureConfigurationApi,
           ConstraintValueInfoApi,
           StarlarkRuleContextApi<ConstraintValueInfoApi>,
-          CcToolchainProviderApi<FeatureConfigurationApi>,
+          CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
           CompilationInfoApi<FileApi>,
           FileApi,
           CcCompilationContextApi<FileApi>,
@@ -64,7 +64,7 @@ public final class GoogleLegacyStubs {
     @Override
     public FeatureConfigurationApi starlarkGetFeatureConfiguration(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain)
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -79,7 +79,7 @@ public final class GoogleLegacyStubs {
     public CompilationInfoApi<FileApi> starlarkCreateCompileActions(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         FeatureConfigurationApi featureConfiguration,
-        CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
         FileApi ccFile,
         FileApi headerFile,
         Sequence<?> depCcCompilationContexts, // <CcCompilationContextApi>
@@ -105,7 +105,7 @@ public final class GoogleLegacyStubs {
     @Override
     public void registerSwigAction(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
         FeatureConfigurationApi featureConfiguration,
         CcCompilationContextApi<FileApi> wrapperCcCompilationContext,
         Depset swigIncludes,
@@ -133,7 +133,7 @@ public final class GoogleLegacyStubs {
           StarlarkRuleContextApi<ConstraintValueInfoApi>,
           CcInfoApi<FileApi>,
           FeatureConfigurationApi,
-          CcToolchainProviderApi<FeatureConfigurationApi>,
+          CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
           CompilationInfoApi<FileApi>,
           CcCompilationContextApi<FileApi>,
           WrapCcIncludeProviderApi> {
@@ -175,7 +175,7 @@ public final class GoogleLegacyStubs {
           StarlarkRuleContextApi<ConstraintValueInfoApi>,
           CcInfoApi<FileApi>,
           FeatureConfigurationApi,
-          CcToolchainProviderApi<FeatureConfigurationApi>,
+          CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
           CcLinkingContextApi<FileApi>,
           GoConfigurationApi,
           GoContextInfoApi,
@@ -221,18 +221,18 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public Tuple<FileApi> createGoCompileActions(
+    public Tuple createGoCompileActions(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
         Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 
     @Override
-    public Tuple<FileApi> createGoCompileActionsGopkg(
+    public Tuple createGoCompileActionsGopkg(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
         Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;

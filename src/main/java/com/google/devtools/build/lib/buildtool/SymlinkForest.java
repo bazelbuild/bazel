@@ -29,12 +29,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkForest.Code;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -43,6 +39,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Creates a symlink forest based on a package path map. */
 public class SymlinkForest {
@@ -114,11 +113,23 @@ public class SymlinkForest {
   @VisibleForTesting
   @ThreadSafety.ThreadSafe
   void deleteTreesBelowNotPrefixed(Path dir, String prefix) throws IOException {
+
     for (Path p : dir.getDirectoryEntries()) {
-      if (!p.getBaseName().startsWith(prefix)
-          && !notSymlinkedInExecrootDirectories.contains(p.getBaseName())) {
-        p.deleteTree();
+
+      if (p.getBaseName().startsWith(prefix)) {
+        continue;
       }
+
+      // If the path in question is a toplevel output directory, then it should not be deleted
+      // from the execroot here because it was not created as part of symlink forest creation,
+      // unless it is a symlink. If the path in question is a toplevel output directory and it is
+      // a symlink, then this means that it was created as part of a previous build where it was
+      // not a toplevel output directory at the time, and should be deleted.
+      if (notSymlinkedInExecrootDirectories.contains(p.getBaseName()) && !p.isSymbolicLink()) {
+        continue;
+      }
+
+      p.deleteTree();
     }
   }
 
@@ -187,8 +198,7 @@ public class SymlinkForest {
             detailedSymlinkForestExitCode(
                 "Directories specified with toplevel_output_directories should be ignored and can"
                     + " not be used as sources.",
-                Code.TOPLEVEL_OUTDIR_USED_AS_SOURCE,
-                ExitCode.COMMAND_LINE_ERROR));
+                Code.TOPLEVEL_OUTDIR_USED_AS_SOURCE));
       }
       link.createSymbolicLink(target);
       plantedSymlinks.add(link);
@@ -382,10 +392,7 @@ public class SymlinkForest {
         }
       } else {
         plantSymlinkForExternalRepo(
-            plantedSymlinks,
-            repository,
-            entry.getValue().getRelative(repository.getSourceRoot()),
-            externalRepoLinks);
+            plantedSymlinks, repository, entry.getValue().asPath(), externalRepoLinks);
       }
     }
 
@@ -398,8 +405,7 @@ public class SymlinkForest {
         throw new AbruptExitException(
             detailedSymlinkForestExitCode(
                 "toplevel_output_directories is not supported together with --package_path option.",
-                Code.TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT,
-                ExitCode.COMMAND_LINE_ERROR));
+                Code.TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT));
       }
       plantSymlinkForestMultiPackagePath(plantedSymlinks, packageRootsForMainRepo);
     } else if (shouldLinkAllTopLevelItems) {
@@ -413,10 +419,8 @@ public class SymlinkForest {
     return plantedSymlinks.build();
   }
 
-  private static DetailedExitCode detailedSymlinkForestExitCode(
-      String message, Code code, ExitCode exitCode) {
+  private static DetailedExitCode detailedSymlinkForestExitCode(String message, Code code) {
     return DetailedExitCode.of(
-        exitCode,
         FailureDetail.newBuilder()
             .setMessage(message)
             .setSymlinkForest(FailureDetails.SymlinkForest.newBuilder().setCode(code))

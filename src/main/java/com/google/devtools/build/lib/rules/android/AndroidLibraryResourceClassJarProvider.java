@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A provider which contains the resource class jars from android_library rules. See {@link
@@ -36,19 +36,23 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
   private final NestedSet<Artifact> resourceClassJars;
 
   private AndroidLibraryResourceClassJarProvider(NestedSet<Artifact> resourceClassJars) {
-    super(PROVIDER);
     this.resourceClassJars = resourceClassJars;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  // TODO(adonovan): rename to avoid unrelated overloading.
+  static AndroidLibraryResourceClassJarProvider getProvider(TransitiveInfoCollection target) {
+    return (AndroidLibraryResourceClassJarProvider)
+        target.get(AndroidLibraryResourceClassJarProvider.PROVIDER.getKey());
   }
 
   public static AndroidLibraryResourceClassJarProvider create(
       NestedSet<Artifact> resourceClassJars) {
     return new AndroidLibraryResourceClassJarProvider(resourceClassJars);
-  }
-
-  public static AndroidLibraryResourceClassJarProvider getProvider(
-      TransitiveInfoCollection target) {
-    return (AndroidLibraryResourceClassJarProvider)
-        target.get(AndroidLibraryResourceClassJarProvider.PROVIDER.getKey());
   }
 
   @Override

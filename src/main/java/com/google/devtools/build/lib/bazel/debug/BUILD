@@ -19,7 +19,6 @@ filegroup(
 proto_library(
     name = "workspace_log_proto",
     srcs = ["workspace_log.proto"],
-    deps = [],
 )
 
 java_proto_library(
@@ -43,7 +42,7 @@ java_library(
     deps = [
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/syntax",
     ],
 )
 

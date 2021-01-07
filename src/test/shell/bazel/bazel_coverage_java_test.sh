@@ -21,9 +21,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-JAVA_TOOLCHAIN="$1"; shift
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
@@ -35,10 +32,26 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
+JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
+    if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == file* ]]; then
+        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="${JAVA_TOOLS_PREBUILT_ZIP}"
+    else
+        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
+    fi
+fi
+JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
+
+COVERAGE_GENERATOR_DIR="$1"; shift
+if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
+  COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
+  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+fi
+
 if [[ $# -gt 0 ]]; then
-    JAVABASE_VALUE="$1"; shift
-    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
+    JAVA_RUNTIME_VERSION="$1"; shift
+    add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
+    add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
 
 function set_up() {
@@ -50,8 +63,20 @@ EOF
     if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
-    name = "local_java_tools",
+    name = "remote_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_linux",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
     fi
@@ -150,33 +175,30 @@ EOF
   cat $TEST_log
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
-  cat <<EOF > result.dat
-SF:src/main/com/example/Collatz.java
+  local expected_result="SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
 FNF:2
 FNH:1
-BA:6,2
-BA:9,2
-BRF:2
-BRH:2
+BRDA:6,0,0,1
+BRDA:6,0,1,1
+BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRF:4
+BRH:4
 DA:3,0
-DA:6,3
-DA:7,2
-DA:9,4
-DA:10,5
-DA:12,7
+DA:6,1
+DA:7,1
+DA:9,1
+DA:10,1
+DA:12,1
 LH:5
 LF:6
-end_of_record
-EOF
+end_of_record"
 
-  diff result.dat "$coverage_file_path" >> $TEST_log
-  if ! cmp result.dat $coverage_file_path; then
-    fail "Coverage output file is different with expected"
-  fi
+assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_java_test_coverage_combined_report() {
@@ -238,33 +260,30 @@ EOF
   bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
-  cat <<EOF > result.dat
-SF:src/main/com/example/Collatz.java
+  local expected_result="SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
 FNF:2
 FNH:1
-BA:6,2
-BA:9,2
-BRF:2
-BRH:2
+BRDA:6,0,0,1
+BRDA:6,0,1,1
+BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRF:4
+BRH:4
 DA:3,0
-DA:6,3
-DA:7,2
-DA:9,4
-DA:10,5
-DA:12,7
+DA:6,1
+DA:7,1
+DA:9,1
+DA:10,1
+DA:12,1
 LH:5
 LF:6
-end_of_record
-EOF
+end_of_record"
 
-  if ! cmp result.dat ./bazel-out/_coverage/_coverage_report.dat; then
-    diff result.dat bazel-out/_coverage/_coverage_report.dat >> $TEST_log
-    fail "Coverage output file is different with expected"
-  fi
+  assert_coverage_result "$expected_result" "./bazel-out/_coverage/_coverage_report.dat"
 }
 
 function test_java_test_java_import_coverage() {
@@ -331,30 +350,30 @@ EOF
   bazel coverage --test_output=all //:test &>$TEST_log || fail "Coverage for //:test failed"
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
-  cat <<EOF > result.dat
-SF:src/main/com/example/Collatz.java
+  local expected_result="SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
 FNF:2
 FNH:1
-BA:6,2
-BA:9,2
-BRF:2
-BRH:2
+BRDA:6,0,0,1
+BRDA:6,0,1,1
+BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRF:4
+BRH:4
 DA:3,0
-DA:6,3
-DA:7,2
-DA:9,4
-DA:10,5
-DA:12,7
+DA:6,1
+DA:7,1
+DA:9,1
+DA:10,1
+DA:12,1
 LH:5
 LF:6
-end_of_record
-EOF
-  diff result.dat "$coverage_file_path" >> $TEST_log
-  cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
+end_of_record"
+
+  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_run_jar_in_subprocess_empty_env() {
@@ -617,7 +636,47 @@ EOF
   bazel coverage --test_output=all --test_arg=--nooutputredirect \
       --instrumentation_filter=//java/cov javatests/cov:CovTest >"${TEST_log}"
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  assert_coverage_result "java/cov/Cov.java" ${coverage_file_path}
+
+  local expected_result_cov="SF:java/cov/Cov.java
+FN:2,cov/Cov::<init> ()V
+FN:4,cov/Cov::main ([Ljava/lang/String;)V
+FNDA:0,cov/Cov::<init> ()V
+FNDA:2,cov/Cov::main ([Ljava/lang/String;)V
+FNF:2
+FNH:1
+BRDA:4,0,0,0
+BRDA:4,0,1,2
+BRDA:5,0,0,1
+BRDA:5,0,1,1
+BRF:4
+BRH:3
+DA:2,0
+DA:4,2
+DA:5,2
+DA:6,1
+DA:8,1
+DA:11,2
+LH:5
+LF:6
+end_of_record"
+
+  local expected_result_random="SF:java/cov/RandomBinary.java
+FN:2,cov/RandomBinary::<init> ()V
+FN:4,cov/RandomBinary::main ([Ljava/lang/String;)V
+FNDA:0,cov/RandomBinary::<init> ()V
+FNDA:0,cov/RandomBinary::main ([Ljava/lang/String;)V
+FNF:2
+FNH:0
+DA:2,0
+DA:4,0
+LH:0
+LF:2
+end_of_record"
+
+  # we do not assert the order of the source files in the coverage report
+  # only that they are both included and correctly merged
+  assert_coverage_result "$expected_result_cov" ${coverage_file_path}
+  assert_coverage_result "$expected_result_random" ${coverage_file_path}
 }
 
 run_suite "test tests"

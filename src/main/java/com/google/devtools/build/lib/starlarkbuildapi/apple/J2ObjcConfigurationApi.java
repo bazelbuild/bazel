@@ -15,15 +15,15 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment for j2objc. */
 @StarlarkBuiltin(
     name = "j2objc",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT,
+    category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for j2Objc.")
 public interface J2ObjcConfigurationApi extends StarlarkValue {
 

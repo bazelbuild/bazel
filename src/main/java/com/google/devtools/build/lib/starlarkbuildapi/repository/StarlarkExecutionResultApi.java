@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A structure callable from Starlark that stores the result of repository_ctx.execute() method. It
@@ -26,7 +26,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "exec_result",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A structure storing result of repository_ctx.execute() method. It contains the standard"
             + " output stream content, the standard error stream content and the execution return"

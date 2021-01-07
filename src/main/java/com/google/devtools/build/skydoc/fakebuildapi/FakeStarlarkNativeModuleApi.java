@@ -17,27 +17,28 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Structure;
+import net.starlark.java.syntax.Location;
 
 /** Fake implementation of {@link StarlarkNativeModuleApi}. */
-public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, ClassObject {
+public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Structure {
 
   @Override
   public Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
-      Integer excludeDirectories,
+      StarlarkInt excludeDirectories,
       Object allowEmpty,
       StarlarkThread thread)
       throws EvalException, InterruptedException {

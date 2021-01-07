@@ -25,12 +25,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
-import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRu
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
+import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
@@ -60,18 +62,29 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
+import com.google.devtools.build.lib.rules.android.AndroidAssetsInfo;
+import com.google.devtools.build.lib.rules.android.AndroidBinaryDataInfo;
+import com.google.devtools.build.lib.rules.android.AndroidCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceScriptFixtureRule;
+import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidHostServiceFixtureRule;
+import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
+import com.google.devtools.build.lib.rules.android.AndroidIdlProvider;
 import com.google.devtools.build.lib.rules.android.AndroidInstrumentationInfo;
 import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryResourceClassJarProvider;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestConfiguration;
+import com.google.devtools.build.lib.rules.android.AndroidManifestInfo;
 import com.google.devtools.build.lib.rules.android.AndroidNativeLibsInfo;
 import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
+import com.google.devtools.build.lib.rules.android.AndroidPreDexJarProvider;
+import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
@@ -80,6 +93,8 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
+import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
@@ -95,7 +110,7 @@ import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
-import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
+import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
@@ -114,6 +129,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A rule class provider implementing the rules Bazel knows. */
@@ -149,17 +165,26 @@ public class BazelRuleClassProvider {
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
-  public static final ShellExecutableProvider SHELL_EXECUTABLE = (BuildOptions options) ->
-      ShellConfiguration.Loader.determineShellExecutable(
-          OS.getCurrent(),
-          options.get(ShellConfiguration.Options.class),
-          FALLBACK_SHELL);
+  public static final Function<BuildOptions, PathFragment> SHELL_EXECUTABLE =
+      (BuildOptions options) ->
+          ShellConfiguration.determineShellExecutable(
+              OS.getCurrent(), options.get(ShellConfiguration.Options.class), FALLBACK_SHELL);
+
+  /**
+   * {@link BuildConfigurationFunction} constructs {@link BuildOptions} out of the options required
+   * by the registered fragments. We create and register this fragment exclusively to ensure {@link
+   * StrictActionEnvOptions} is always available.
+   */
+  @RequiresOptions(options = {StrictActionEnvOptions.class})
+  public static class StrictActionEnvConfiguration extends Fragment {
+    public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
+  }
 
   public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
       (BuildOptions options) -> {
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();
-        PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
+        PathFragment shellExecutable = SHELL_EXECUTABLE.apply(options);
         TreeMap<String, String> env = new TreeMap<>();
 
         // All entries in the builder that have a value of null inherit the value from the client
@@ -204,40 +229,43 @@ public class BazelRuleClassProvider {
         return ActionEnvironment.split(env);
       };
 
-  /** Used by the build encyclopedia generator. */
+  /** Convenience wrapper around {@link #setup} that returns a final ConfiguredRuleClassProvider. */
+  // Used by the build encyclopedia generator.
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    builder.setToolsRepository(TOOLS_REPOSITORY);
-    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
     setup(builder);
     return builder.build();
   }
 
+  /** Adds this class's definitions to a builder. */
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setToolsRepository(TOOLS_REPOSITORY);
+    builder.setBuiltinsBzlZipResource(
+        ResourceFileLoader.resolveResource(BazelRuleClassProvider.class, "builtins_bzl.zip"));
+    builder.setBuiltinsBzlPackagePathInSource("src/main/starlark/builtins_bzl");
+    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
+
     for (RuleSet ruleSet : RULE_SETS) {
       ruleSet.init(builder);
     }
-    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
   }
 
   public static final RuleSet BAZEL_SETUP =
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
+          ShellConfiguration.injectShellExecutableFinder(SHELL_EXECUTABLE);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
               .addConfigurationOptions(ShellConfiguration.Options.class)
-              .addConfigurationFragment(
-                  new ShellConfiguration.Loader(
-                      SHELL_EXECUTABLE,
-                      ShellConfiguration.Options.class,
-                      StrictActionEnvOptions.class))
+              .addConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
-              .addConfigurationOptions(StrictActionEnvOptions.class)
+              .addConfigurationFragment(StrictActionEnvConfiguration.class)
+              .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
         }
 
@@ -252,7 +280,7 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationOptions(ProtoConfiguration.Options.class);
-          builder.addConfigurationFragment(new ProtoConfiguration.Loader());
+          builder.addConfigurationFragment(ProtoConfiguration.class);
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
 
@@ -310,8 +338,8 @@ public class BazelRuleClassProvider {
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
-          builder.addConfigurationFragment(new AndroidConfiguration.Loader());
-          builder.addConfigurationFragment(new AndroidLocalTestConfiguration.Loader());
+          builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
           DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
@@ -327,6 +355,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(
               new AndroidRuleClasses.AndroidBinaryBaseRule(
                   androidNeverlinkAspect, dexArchiveAspect));
+          builder.addRuleDefinition(new BazelSdkToolchainRule());
           builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect));
           builder.addRuleDefinition(new BazelAndroidLibraryRule());
           builder.addRuleDefinition(new BazelAndroidBinaryRule());
@@ -351,7 +380,20 @@ public class BazelRuleClassProvider {
                   AndroidResourcesInfo.PROVIDER,
                   AndroidNativeLibsInfo.PROVIDER,
                   AndroidApplicationResourceInfo.PROVIDER,
-                  AndroidSdkProvider.PROVIDER);
+                  AndroidSdkProvider.PROVIDER,
+                  AndroidManifestInfo.PROVIDER,
+                  AndroidAssetsInfo.PROVIDER,
+                  AndroidLibraryAarInfo.PROVIDER,
+                  AndroidProguardInfo.PROVIDER,
+                  AndroidIdlProvider.PROVIDER,
+                  AndroidIdeInfoProvider.PROVIDER,
+                  AndroidPreDexJarProvider.PROVIDER,
+                  AndroidCcLinkParamsProvider.PROVIDER,
+                  DataBindingV2Provider.PROVIDER,
+                  AndroidLibraryResourceClassJarProvider.PROVIDER,
+                  AndroidFeatureFlagSetProvider.PROVIDER,
+                  ProguardMappingProvider.PROVIDER,
+                  AndroidBinaryDataInfo.PROVIDER);
           builder.addStarlarkBootstrap(bootstrap);
 
           try {
@@ -377,8 +419,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfigurationFragment(new PythonConfigurationLoader());
-          builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
+          builder.addConfigurationFragment(PythonConfiguration.class);
+          builder.addConfigurationFragment(BazelPythonConfiguration.class);
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());

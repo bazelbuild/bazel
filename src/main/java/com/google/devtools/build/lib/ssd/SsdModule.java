@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.ssd;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.common.options.OptionsBase;
 
 /**

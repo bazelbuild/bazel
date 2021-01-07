@@ -209,7 +209,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSymlinkOutputAtCwdUnderWorkspace_WithFlagOn() throws Exception {
+  public void testSymlinkOutputAtCwdUnderWorkspace_withFlagOn() throws Exception {
     write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc", "void f() {}");
 
@@ -227,7 +227,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSymlinkOutputAtCwdUnderWorkspace_WithFlagOff() throws Exception {
+  public void testSymlinkOutputAtCwdUnderWorkspace_withFlagOff() throws Exception {
     write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc", "void f() {}");
 
@@ -247,7 +247,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSymlinkOutputAtCwdEqualWorkspace_WithFlagOn() throws Exception {
+  public void testSymlinkOutputAtCwdEqualWorkspace_withFlagOn() throws Exception {
     write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc", "void f() {}");
 
@@ -265,7 +265,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSymlinkPrefixAtCwdEqualWorkspace_WithFlagOff() throws Exception {
+  public void testSymlinkPrefixAtCwdEqualWorkspace_withFlagOff() throws Exception {
     write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc", "void f() {}");
 
@@ -283,7 +283,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSeeTempAtCwdUnderWorkspace_WithFlagOn() throws Exception {
+  public void testSeeTempAtCwdUnderWorkspace_withFlagOn() throws Exception {
     write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
     // trigger a warning to make the build fail:
     //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
@@ -307,7 +307,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSeeTempAtCwdUnderWorkspace_WithFlagOff() throws Exception {
+  public void testSeeTempAtCwdUnderWorkspace_withFlagOff() throws Exception {
     write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
     // trigger a warning to make the build fail:
     //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
@@ -327,7 +327,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSeeTempAtCwdEqualWorkspace_WithFlagOn() throws Exception {
+  public void testSeeTempAtCwdEqualWorkspace_withFlagOn() throws Exception {
     write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
     // trigger a warning to make the build fail:
     //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
@@ -343,7 +343,7 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
   }
 
   @Test
-  public void testSeeTempAtCwdEqualWorkspace_WithFlagOff() throws Exception {
+  public void testSeeTempAtCwdEqualWorkspace_withFlagOff() throws Exception {
     write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
     // trigger a warning to make the build fail:
     //   "control reaches end of non-void function [-Werror,-Wreturn-type]"

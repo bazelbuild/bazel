@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Class used to construct command lines from CROSSTOOL features. */
 @StarlarkBuiltin(
     name = "FeatureConfiguration",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc = "Class used to construct command lines from CROSSTOOL features.")
 public interface FeatureConfigurationApi extends StarlarkValue {}

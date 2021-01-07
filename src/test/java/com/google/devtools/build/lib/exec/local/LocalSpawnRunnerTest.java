@@ -313,12 +313,14 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
-    return new InMemoryFileSystem();
+    return new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   private static ProcessWrapper makeProcessWrapper(FileSystem fs, LocalExecutionOptions options) {
     return new ProcessWrapper(
-        fs.getPath("/process-wrapper"), options.getLocalSigkillGraceSeconds(), ImmutableList.of());
+        fs.getPath("/process-wrapper"),
+        options.getLocalSigkillGraceSeconds(),
+        /*gracefulSigterm=*/ false);
   }
 
   /**
@@ -638,10 +640,7 @@ public class LocalSpawnRunnerTest {
   public void interruptWaitsForProcessExit() throws Exception {
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    File tempDirFile = TestUtils.makeTempDir();
-    tempDirFile.deleteOnExit();
-    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
-    Path tempDir = fs.getPath(tempDirFile.getPath());
+    Path tempDir = TestUtils.createUniqueTmpDir(new JavaIoFileSystem(DigestHashFunction.SHA256));
 
     LocalSpawnRunner runner =
         new LocalSpawnRunner(
@@ -850,10 +849,7 @@ public class LocalSpawnRunnerTest {
   }
 
   private Path getTemporaryRoot(FileSystem fs, String name) throws IOException {
-    File tempDirFile = TestUtils.makeTempDir();
-    tempDirFile.deleteOnExit();
-
-    Path tempDirPath = fs.getPath(tempDirFile.getPath());
+    Path tempDirPath = TestUtils.createUniqueTmpDir(fs);
     assertThat(tempDirPath.exists()).isTrue();
 
     Path root = tempDirPath.getRelative(name);
@@ -882,7 +878,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
@@ -915,9 +911,7 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
             new ProcessWrapper(
-                processWrapperPath,
-                /*killDelay=*/ Duration.ZERO,
-                /*extraFlags=*/ ImmutableList.of()),
+                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
@@ -956,7 +950,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
@@ -982,9 +976,7 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
             new ProcessWrapper(
-                processWrapperPath,
-                /*killDelay=*/ Duration.ZERO,
-                /*extraFlags=*/ ImmutableList.of()),
+                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =

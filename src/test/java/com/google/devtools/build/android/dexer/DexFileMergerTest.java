@@ -289,8 +289,8 @@ public class DexFileMergerTest {
         }
       }
     }
-    assertThat(dexFiles.keySet().size()).isAtLeast(2); // test sanity
-    assertThat(dexFiles.size()).isAtLeast(1); // test sanity
+    assertThat(dexFiles.keySet().size()).isAtLeast(2);
+    assertThat(dexFiles.size()).isAtLeast(1);
     assertThat(dexFiles).hasSize(expectedClassCount);
     for (int i = 0; i < dexFiles.keySet().size(); ++i) {
       assertThat(dexFiles).containsKey(expectedDexFileName(i));

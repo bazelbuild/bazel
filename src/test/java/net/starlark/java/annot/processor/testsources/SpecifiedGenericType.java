@@ -14,10 +14,10 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkMethod method which has a parameter with an unsafely specified generic
@@ -30,7 +30,7 @@ public class SpecifiedGenericType implements StarlarkValue {
       name = "specified_generic_type",
       documented = false,
       parameters = {
-        @Param(name = "one", type = Sequence.class, named = true),
+        @Param(name = "one", named = true),
       })
   public String specifiedGenericType(Sequence<String> one) {
     return "bar";

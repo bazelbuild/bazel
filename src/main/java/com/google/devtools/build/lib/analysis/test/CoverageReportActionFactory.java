@@ -49,7 +49,8 @@ public interface CoverageReportActionFactory {
     public CoverageReportActionsWrapper(
         ActionAnalysisMetadata lcovWriteAction,
         ActionAnalysisMetadata coverageReportAction,
-        ActionKeyContext actionKeyContext) {
+        ActionKeyContext actionKeyContext)
+        throws InterruptedException {
       this.coverageReportAction = coverageReportAction;
       try {
         this.processedActions =
@@ -90,5 +91,6 @@ public interface CoverageReportActionFactory {
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
       ActionLookupKey actionLookupKey,
-      String workspaceName);
+      String workspaceName)
+      throws InterruptedException;
 }

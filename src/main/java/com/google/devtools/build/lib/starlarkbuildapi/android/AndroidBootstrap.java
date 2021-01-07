@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi.AndroidDeviceBrokerInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi.AndroidInstrumentationInfoApiProvider;
@@ -22,22 +23,14 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsI
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi.ApkInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import java.util.Map;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to Android rules. */
 public class AndroidBootstrap implements Bootstrap {
 
   private final AndroidStarlarkCommonApi<?, ?> androidCommon;
-  private final ApkInfoApiProvider apkInfoProvider;
-  private final AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider;
-  private final AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider;
-  private final AndroidResourcesInfoApiProvider<?, ?, ?>
-      androidResourcesInfoProvider;
-  private final AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider;
-  private final AndroidApplicationResourceInfoApiProvider<?>
-      androidApplicationResourceInfoApiProvider;
-  private final AndroidSdkProviderApi.Provider<?, ?, ?> androidSdkProviderApi;
+  private final ImmutableMap<String, Object> providers;
 
   public AndroidBootstrap(
       AndroidStarlarkCommonApi<?, ?> androidCommon,
@@ -47,15 +40,47 @@ public class AndroidBootstrap implements Bootstrap {
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
       AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider,
       AndroidApplicationResourceInfoApiProvider<?> androidApplicationResourceInfoApiProvider,
-      AndroidSdkProviderApi.Provider<?, ?, ?> androidSdkProviderApi) {
+      AndroidSdkProviderApi.Provider<?, ?, ?> androidSdkProviderApi,
+      AndroidManifestInfoApi.Provider<?> androidManifestInfo,
+      AndroidAssetsInfoApi.Provider<?, ?> androidAssetsInfoProvider,
+      AndroidLibraryAarInfoApi.Provider<?> androidLibraryAarInfoProvider,
+      AndroidProguardInfoApi.Provider<?> androidProguardInfoProvider,
+      AndroidIdlProviderApi.Provider<?> androidIdlProvider,
+      AndroidIdeInfoProviderApi.Provider<?, ?> androidIdeInfoProvider,
+      AndroidPreDexJarProviderApi.Provider<?> androidPreDexJarProviderApiProvider,
+      AndroidCcLinkParamsProviderApi.Provider<?, ?> androidCcLinkParamsProviderApiProvider,
+      DataBindingV2ProviderApi.Provider<?> dataBindingV2ProviderApiProvider,
+      AndroidLibraryResourceClassJarProviderApi.Provider<?>
+          androidLibraryResourceClassJarProviderApiProvider,
+      AndroidFeatureFlagSetProviderApi.Provider androidFeatureFlagSetProviderApiProvider,
+      ProguardMappingProviderApi.Provider<?> proguardMappingProviderApiProvider,
+      AndroidBinaryDataInfoApi.Provider<?, ?, ?, ?> androidBinaryDataInfoProvider) {
+
     this.androidCommon = androidCommon;
-    this.apkInfoProvider = apkInfoProvider;
-    this.androidInstrumentationInfoProvider = androidInstrumentationInfoProvider;
-    this.androidDeviceBrokerInfoProvider = androidDeviceBrokerInfoProvider;
-    this.androidResourcesInfoProvider = androidResourcesInfoProvider;
-    this.androidNativeLibsInfoProvider = androidNativeLibsInfoProvider;
-    this.androidApplicationResourceInfoApiProvider = androidApplicationResourceInfoApiProvider;
-    this.androidSdkProviderApi = androidSdkProviderApi;
+    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    builder.put(ApkInfoApi.NAME, apkInfoProvider);
+    builder.put(AndroidInstrumentationInfoApi.NAME, androidInstrumentationInfoProvider);
+    builder.put(AndroidDeviceBrokerInfoApi.NAME, androidDeviceBrokerInfoProvider);
+    builder.put(AndroidResourcesInfoApi.NAME, androidResourcesInfoProvider);
+    builder.put(AndroidNativeLibsInfoApi.NAME, androidNativeLibsInfoProvider);
+    builder.put(AndroidApplicationResourceInfoApi.NAME, androidApplicationResourceInfoApiProvider);
+    builder.put(AndroidSdkProviderApi.NAME, androidSdkProviderApi);
+    builder.put(AndroidManifestInfoApi.NAME, androidManifestInfo);
+    builder.put(AndroidAssetsInfoApi.NAME, androidAssetsInfoProvider);
+    builder.put(AndroidLibraryAarInfoApi.NAME, androidLibraryAarInfoProvider);
+    builder.put(AndroidProguardInfoApi.NAME, androidProguardInfoProvider);
+    builder.put(AndroidIdlProviderApi.NAME, androidIdlProvider);
+    builder.put(AndroidIdeInfoProviderApi.NAME, androidIdeInfoProvider);
+    builder.put(AndroidPreDexJarProviderApi.NAME, androidPreDexJarProviderApiProvider);
+    builder.put(AndroidCcLinkParamsProviderApi.NAME, androidCcLinkParamsProviderApiProvider);
+    builder.put(DataBindingV2ProviderApi.NAME, dataBindingV2ProviderApiProvider);
+    builder.put(
+        AndroidLibraryResourceClassJarProviderApi.NAME,
+        androidLibraryResourceClassJarProviderApiProvider);
+    builder.put(AndroidFeatureFlagSetProviderApi.NAME, androidFeatureFlagSetProviderApiProvider);
+    builder.put(ProguardMappingProviderApi.NAME, proguardMappingProviderApiProvider);
+    builder.put(AndroidBinaryDataInfoApi.NAME, androidBinaryDataInfoProvider);
+    providers = builder.build();
   }
 
   @Override
@@ -67,34 +92,11 @@ public class AndroidBootstrap implements Bootstrap {
     // change process.
     builder.put("android_common", androidCommon);
 
-    builder.put(
-        ApkInfoApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, apkInfoProvider));
-    builder.put(
-        AndroidInstrumentationInfoApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, androidInstrumentationInfoProvider));
-    builder.put(
-        AndroidDeviceBrokerInfoApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, androidDeviceBrokerInfoProvider));
-    builder.put(
-        AndroidResourcesInfoApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, androidResourcesInfoProvider));
-    builder.put(
-        AndroidNativeLibsInfoApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, androidNativeLibsInfoProvider));
-    builder.put(
-        AndroidApplicationResourceInfoApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API,
-            androidApplicationResourceInfoApiProvider));
-    builder.put(
-        AndroidSdkProviderApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, androidSdkProviderApi));
+    for (Map.Entry<String, Object> provider : providers.entrySet()) {
+      builder.put(
+          provider.getKey(),
+          FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+              BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, provider.getValue()));
+    }
   }
 }

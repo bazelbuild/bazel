@@ -141,7 +141,8 @@ public abstract class TestStrategy implements TestActionContext {
    * @return the command line as string list.
    * @throws ExecException if {@link #expandedArgsFromAction} throws
    */
-  public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
+  public static ImmutableList<String> getArgs(TestRunnerAction testAction)
+      throws ExecException, InterruptedException {
     try {
       return expandedArgsFromAction(testAction);
     } catch (CommandLineExpansionException e) {
@@ -163,7 +164,7 @@ public abstract class TestStrategy implements TestActionContext {
    * @throws CommandLineExpansionException
    */
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
     // consider the target configuration, not the machine Bazel happens to run on. Change this to
@@ -194,7 +195,7 @@ public abstract class TestStrategy implements TestActionContext {
       TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
+      args.add(execSettings.getRunUnderExecutable().getRunfilesPath().getCallablePathString());
     } else {
       if (execSettings.needsShell(executedOnWindows)) {
         // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
@@ -253,7 +254,7 @@ public abstract class TestStrategy implements TestActionContext {
    * the "categorical timeouts" which are based on the --test_timeout flag. A rule picks its timeout
    * but ends up with the same effective value as all other rules in that bucket.
    */
-  protected final Duration getTimeout(TestRunnerAction testAction) {
+  protected static final Duration getTimeout(TestRunnerAction testAction) {
     BuildConfiguration configuration = testAction.getConfiguration();
     return configuration
         .getFragment(TestConfiguration.class)
@@ -330,7 +331,10 @@ public abstract class TestStrategy implements TestActionContext {
       if (testResultData.getStatus() != BlazeTestStatus.INCOMPLETE
           && TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
         TestLogHelper.writeTestLog(
-            testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
+            testLog,
+            testName,
+            actionExecutionContext.getFileOutErr().getOutputStream(),
+            executionOptions.maxTestOutputBytes);
       }
     } finally {
       if (isPassed) {

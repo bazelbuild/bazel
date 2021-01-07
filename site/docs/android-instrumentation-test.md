@@ -25,27 +25,6 @@ documentation](https://developer.android.com/training/testing/unit-testing/instr
 
 Please file issues in the [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
 
-**Table of Contents**
-
-- [How it works](#how-it-works)
-- [Prerequisites](#prerequisites)
-- [Getting started](#getting-started)
-    - [`BUILD` file](#build-file)
-    - [`WORKSPACE` dependencies](#workspace-dependencies)
-- [Maven dependencies](#maven-dependencies)
-- [Choosing an `android_device` target](#choosing-an-android_device-target)
-- [Running tests](#running-tests)
-    - [Headless testing](#headless-testing)
-    - [GUI testing](#gui-testing)
-    - [Testing with a local emulator or device](#testing-with-a-local-emulator-or-device)
-- [Sample projects](#sample-projects)
-- [Espresso setup](#espresso-setup)
-- [Tips](#tips)
-    - [Reading test logs](#reading-test-logs)
-    - [Testing against multiple API levels](#testing-against-multiple-api-levels)
-- [Known issues](#known-issues)
-- [Planned features](#planned-features)
-
 # How it works
 
 When you run `bazel test` on an `android_instrumentation_test` target for the

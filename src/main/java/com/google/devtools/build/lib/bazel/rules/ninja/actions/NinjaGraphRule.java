@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * The rule that parses the Ninja graph and symlinks inputs into output_root.
@@ -77,14 +77,6 @@ public class NinjaGraphRule implements RuleDefinition {
                         + " <execroot>/<output_root> will be created by this rule."
                         + " <execroot>/<output_root> will be a separate directory, not a"
                         + " symlink.</p>"))
-        .add(
-            attr("output_root_symlinks", STRING_LIST)
-                .value(ImmutableList.of())
-                .setDoc(
-                    "<p>Output paths under output_root, that should be treated as symlink"
-                        + " artifacts.</p><p>In combination with"
-                        + " --experimental_allow_unresolved_symlinks flag, this allows Ninja"
-                        + " actions to create symlinks, not pointing to the existing file.</p>"))
         .add(
             attr("working_directory", STRING)
                 .value("")

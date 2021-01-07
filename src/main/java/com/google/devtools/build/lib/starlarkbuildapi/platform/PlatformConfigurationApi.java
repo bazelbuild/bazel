@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The platform configuration. */
 @StarlarkBuiltin(
     name = "platform",
     doc = "The platform configuration.",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+    category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface PlatformConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "host_platform", structField = true, doc = "The current host platform")

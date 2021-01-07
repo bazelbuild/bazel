@@ -18,7 +18,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace_log_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

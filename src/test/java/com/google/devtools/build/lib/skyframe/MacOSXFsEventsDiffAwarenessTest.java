@@ -18,16 +18,14 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
-import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
+import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -37,7 +35,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -84,7 +81,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     underTest = new MacOSXFsEventsDiffAwareness(watchedPath.toString());
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
-    watchFsEnabledProvider = new LocalDiffAwarenessOptionsProvider(localDiffOptions);
+    watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
   }
 
   @After
@@ -239,29 +236,5 @@ public class MacOSXFsEventsDiffAwarenessTest {
     }
 
     assertDiff(view1, Iterables.concat(dirToFilesToCreate.keySet(), dirToFilesToCreate.values()));
-  }
-
-  /**
-   * Only returns a fixed options class for {@link LocalDiffAwareness.Options}.
-   */
-  private static final class LocalDiffAwarenessOptionsProvider implements OptionsProvider {
-    private final Options localDiffOptions;
-
-    private LocalDiffAwarenessOptionsProvider(Options localDiffOptions) {
-      this.localDiffOptions = localDiffOptions;
-    }
-
-    @Override
-    public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
-      if (optionsClass.equals(LocalDiffAwareness.Options.class)) {
-        return optionsClass.cast(localDiffOptions);
-      }
-      return null;
-    }
-
-    @Override
-    public Map<String, Object> getStarlarkOptions() {
-      return ImmutableMap.of();
-    }
   }
 }

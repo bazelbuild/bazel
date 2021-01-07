@@ -10,9 +10,20 @@ filegroup(
 )
 
 java_library(
+    name = "file",
+    srcs = ["WindowsFileOperations.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
+)
+
+java_library(
+    name = "processes",
+    srcs = ["WindowsProcesses.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
+)
+
+java_library(
     name = "windows_short_path",
     srcs = ["WindowsShortPath.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/windows/jni"],  
 )
 
 java_library(
@@ -23,12 +34,13 @@ java_library(
         "WindowsSubprocessFactory.java",
     ],
     deps = [
+        ":file",
+        ":processes",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//third_party:guava",
     ],
 )

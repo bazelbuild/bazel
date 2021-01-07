@@ -57,6 +57,8 @@ public class NinjaParserStep {
     String name = asString(parseExpected(NinjaToken.IDENTIFIER));
     parseExpected(NinjaToken.EQUALS);
 
+    parseAndIgnoreWhitespace();
+
     NinjaVariableValue value = parseVariableValue();
     return Pair.of(nameInterner.intern(name), value);
   }
@@ -165,6 +167,7 @@ public class NinjaParserStep {
   private NinjaVariableValue parseIncludeOrSubNinja(NinjaToken token)
       throws GenericParsingException {
     parseExpected(token);
+    parseAndIgnoreWhitespace();
     NinjaVariableValue value = parseVariableValueImpl(false);
     if (value == null) {
       throw new GenericParsingException(
@@ -177,10 +180,34 @@ public class NinjaParserStep {
     return value;
   }
 
+  // Consume and skip over any TEXT with a consecutive sequence of ' ' characters.
+  private void parseAndIgnoreWhitespace() {
+    while (lexer.hasNextToken()) {
+      NinjaToken token = lexer.nextToken();
+      if (token != NinjaToken.TEXT) {
+        lexer.undo();
+        break;
+      }
+      byte[] bytes = lexer.getTokenBytes();
+      boolean foundNonWhitespace = false;
+      for (int i = 0; i < bytes.length; i++) {
+        if (bytes[i] != ' ') {
+          foundNonWhitespace = true;
+          break;
+        }
+      }
+      if (foundNonWhitespace) {
+        lexer.undo();
+        break;
+      }
+    }
+  }
+
   /** Parses Ninja rule at the current lexer position. */
   public NinjaRule parseNinjaRule() throws GenericParsingException {
     parseExpected(NinjaToken.RULE);
     String name = asString(parseExpected(NinjaToken.IDENTIFIER));
+    parseAndIgnoreWhitespace();
 
     ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> variablesBuilder =
         ImmutableSortedMap.naturalOrder();

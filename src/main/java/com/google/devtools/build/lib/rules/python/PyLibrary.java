@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -41,11 +40,10 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
-    PyCommon common = new PyCommon(ruleContext, semantics);
-    common.validatePackageName();
+    PyCommon common = new PyCommon(ruleContext, semantics, /*validatePackageAndSources=*/ true);
     semantics.validate(ruleContext, common);
 
-    List<Artifact> srcs = common.validateSrcs();
+    List<Artifact> srcs = common.getPythonSources();
     List<Artifact> allOutputs =
         new ArrayList<>(semantics.precompiledPythonFiles(ruleContext, srcs, common));
     if (ruleContext.hasErrors()) {
@@ -73,8 +71,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
             new PyCcLinkParamsProvider(
-                semantics.buildCcInfoProvider(
-                    ruleContext.getPrerequisites("deps", TransitionMode.TARGET))))
+                semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps"))))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfilesBuilder.build()))
         .build();
   }

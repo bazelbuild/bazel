@@ -55,29 +55,29 @@ function statistics_single() {
 }
 
 function test_local() {
-  statistics_single "--spawn_strategy=local" ": 1 local"
+  statistics_single "--spawn_strategy=local" ", 1 local"
 }
 
 function test_local_sandbox() {
   if [[ "$PLATFORM" == "linux" ]]; then
-    statistics_single "--spawn_strategy=linux-sandbox" ": 1 linux-sandbox"
+    statistics_single "--spawn_strategy=linux-sandbox" ", 1 linux-sandbox"
   fi
 }
 
 # We are correctly resetting the counts
 function test_repeat() {
   flags="--spawn_strategy=local"
-  statistics_single $flags ": 1 local"
+  statistics_single $flags ", 1 local"
   bazel clean $flags
-  statistics_single $flags ": 1 local"
+  statistics_single $flags ", 1 local"
 }
 
 # Locally cached results are not yet displayed
 function test_localcache() {
   flags="--spawn_strategy=local"
   # We are correctly resetting the counts
-  statistics_single $flags ": 1 local"
-  statistics_single $flags "0 processes."
+  statistics_single $flags ", 1 local"
+  statistics_single $flags "1 process: 1 internal."
 }
 
 run_suite "bazel statistics tests"

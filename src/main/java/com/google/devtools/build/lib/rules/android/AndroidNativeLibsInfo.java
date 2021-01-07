@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -32,14 +32,17 @@ public final class AndroidNativeLibsInfo extends NativeInfo
 
   private static final String STARLARK_NAME = "AndroidNativeLibsInfo";
 
-  public static final AndroidNativeLibsInfoProvider PROVIDER =
-      new AndroidNativeLibsInfoProvider();
+  public static final AndroidNativeLibsInfoProvider PROVIDER = new AndroidNativeLibsInfoProvider();
 
   private final NestedSet<Artifact> nativeLibs;
 
   public AndroidNativeLibsInfo(NestedSet<Artifact> nativeLibs) {
-    super(PROVIDER);
     this.nativeLibs = nativeLibs;
+  }
+
+  @Override
+  public AndroidNativeLibsInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override

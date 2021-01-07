@@ -12,9 +12,16 @@ filegroup(
 #   Support for rules which enable users to define configuration
 java_library(
     name = "config",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "FeatureFlagValue.java",
+            "ConfigFeatureFlagOptions.java",
+        ],
+    ),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
+        ":config_feature_flag_options",
+        ":feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -36,10 +43,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitive_option_details",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_config",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
@@ -48,8 +55,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -58,6 +64,31 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config_feature_flag_options",
+    srcs = ["ConfigFeatureFlagOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
+    name = "feature_flag_value",
+    srcs = ["FeatureFlagValue.java"],
+    deps = [
+        ":config_feature_flag_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

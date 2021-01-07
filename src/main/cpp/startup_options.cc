@@ -69,9 +69,9 @@ StartupOptions::StartupOptions(const string &product_name,
                                const WorkspaceLayout *workspace_layout)
     : product_name(product_name),
       ignore_all_rc_files(false),
-      deep_execroot(true),
       block_for_lock(true),
       host_jvm_debug(false),
+      autodetect_server_javabase(true),
       batch(false),
       batch_cpu_scheduling(false),
       io_nice_level(-1),
@@ -83,8 +83,10 @@ StartupOptions::StartupOptions(const string &product_name,
       fatal_event_bus_exceptions(false),
       command_port(0),
       connect_timeout_secs(30),
+      local_startup_timeout_secs(120),
       have_invocation_policy_(false),
       client_debug(false),
+      preemptible(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
       expand_configs_in_place(true),
@@ -130,12 +132,14 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
-  RegisterNullaryStartupFlag("deep_execroot", &deep_execroot);
+  RegisterNullaryStartupFlag("preemptible", &preemptible);
   RegisterNullaryStartupFlag("expand_configs_in_place",
                              &expand_configs_in_place);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
                              &fatal_event_bus_exceptions);
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
+  RegisterNullaryStartupFlag("autodetect_server_javabase",
+                             &autodetect_server_javabase);
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("incompatible_enable_execution_transition",
                              &incompatible_enable_execution_transition);
@@ -149,7 +153,9 @@ StartupOptions::StartupOptions(const string &product_name,
                              &windows_enable_symlinks);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
+  RegisterUnaryStartupFlag("local_startup_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
+  RegisterUnaryStartupFlag("unix_digest_hash_attribute_name");
   RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
@@ -355,10 +361,27 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["connect_timeout_secs"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg,
+                                     "--local_startup_timeout_secs")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &local_startup_timeout_secs) ||
+        local_startup_timeout_secs < 1) {
+      blaze_util::StringPrintf(
+          error,
+          "Invalid argument to --local_startup_timeout_secs: '%s'.\n"
+          "Must be a positive integer.\n",
+          value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["local_startup_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--digest_function")) !=
              NULL) {
     digest_function = value;
     option_sources["digest_function"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg,
+                                     "--unix_digest_hash_attribute_name")) !=
+             NULL) {
+    unix_digest_hash_attribute_name = value;
+    option_sources["unix_digest_hash_attribute_name"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
              NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
@@ -463,6 +486,10 @@ StartupOptions::GetServerJavabaseAndType() const {
       // 2) Use a bundled JVM if we have one.
       default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           bundled_jre_path, JavabaseType::EMBEDDED);
+    } else if (!autodetect_server_javabase) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Could not find embedded or explicit server javabase, and "
+             "--noautodetect_server_javabase is set.";
     } else {
       // 3) Otherwise fall back to using the default system JVM.
       blaze_util::Path system_javabase = GetSystemJavabase();

@@ -33,5 +33,42 @@ def check_sources(
     ]
     print("Hah. All that documentation but nothing really to see here")
 
+def returns_a_thing(name):
+    """Returns a suffixed name.
+
+    Args:
+        name: A unique name for this rule.
+
+    Returns:
+        A suffixed version of the name.
+    """
+    pass
+
+def deprecated_do_not_use():
+    """This function is deprecated.
+
+    Deprecated:
+        Use literally anything but this function.
+    """
+    pass
+
 def undocumented_function(a, b, c):
+    pass
+
+def param_doc_multiline(complex):
+    """Has a complex parameter.
+
+    Args:
+        complex: A parameter with some non-obvious behavior.
+
+            For example, it does things that require **multiple paragraphs** to explain.
+
+           Note: we should preserve the nested indent in the following code:
+
+           ```json
+           {
+               "key": "value"
+           }
+           ```
+    """
     pass

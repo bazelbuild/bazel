@@ -14,9 +14,9 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Test case which verifies a struct field method cannot have arguments. */
 public class StructFieldWithArguments implements StarlarkValue {
@@ -24,7 +24,7 @@ public class StructFieldWithArguments implements StarlarkValue {
   @StarlarkMethod(
       name = "struct_field_method",
       parameters = {
-        @Param(name = "foo", type = String.class, named = true),
+        @Param(name = "foo", named = true),
       },
       structField = true,
       doc = "A private method")

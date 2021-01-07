@@ -3,12 +3,11 @@ layout: documentation
 title: ${module.title}
 ---
 
-<!-- {% raw %} -->
-
 <a href="../concepts.html">Extensions</a> &gt;
 <a href="skylark-overview.html">API reference</a> &gt;
 ${module.title}
 
+<!-- {% raw %} -->
 <h1 id="modules.${module.name}">${module.title}</h1>
 
 ${module.documentation}
@@ -21,9 +20,6 @@ ${module.documentation}
     #if ($method.documented())
     <li>
       <a href="#${method.name}">${method.name}</a>
-      #if (${method.deprecated})
-      (Deprecated)
-      #end
     </li>
     #end
   #end
@@ -62,9 +58,14 @@ ${module.documentation}
             </td>
             <td>
             #if (!$param.type.isEmpty())
-              <p><code>${param.type}</code></p>
+              <code>${param.type}</code>;
             #end
-              <p>${param.documentation}</p>
+            #if (!$param.defaultValue.isEmpty())
+             default = ${param.defaultValue}<br/>
+            #else
+             required<br/>
+            #end
+              ${param.documentation}
             </td>
           </tr>
         #end

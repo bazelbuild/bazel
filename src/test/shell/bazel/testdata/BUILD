@@ -11,6 +11,7 @@ filegroup(
         "outer-planets-repo.tar.gz",
         "pluto-repo.tar.gz",
         "refetch-repo.tar.gz",
+        "strip-prefix-repo.tar.gz",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -30,5 +31,5 @@ filegroup(
     srcs = [
         "//src/test/shell/bazel/testdata:jdk_http_archives",
     ],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
+    visibility = ["//src/test/shell/bazel:__subpackages__"],
 )

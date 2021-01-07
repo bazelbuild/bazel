@@ -37,26 +37,33 @@ public final class SpawnStatsTest {
 
   @Test
   public void emptySet() {
-    assertThat(stats.getSummary()).isEqualTo("0 processes.");
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary())).isEqualTo("0 processes.");
   }
 
   @Test
   public void one() {
     stats.countRunnerName("foo");
-    assertThat(stats.getSummary()).isEqualTo("1 process: 1 foo.");
+    stats.incrementActionCount();
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("1 process: 1 foo.");
   }
 
   @Test
   public void oneRemote() {
     stats.countRunnerName("remote cache hit");
-    assertThat(stats.getSummary()).isEqualTo("1 process: 1 remote cache hit.");
+    stats.incrementActionCount();
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("1 process: 1 remote cache hit.");
   }
 
   @Test
   public void two() {
-    stats.countRunnerName("foo");
-    stats.countRunnerName("foo");
-    assertThat(stats.getSummary()).isEqualTo("2 processes: 2 foo.");
+    for (int i = 0; i < 2; i++) {
+      stats.countRunnerName("foo");
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("2 processes: 2 foo.");
   }
 
   @Test
@@ -67,7 +74,11 @@ public final class SpawnStatsTest {
     stats.countRunnerName("c");
     stats.countRunnerName("c");
     stats.countRunnerName("c");
-    assertThat(stats.getSummary()).isEqualTo("6 processes: 1 a, 2 b, 3 c.");
+    for (int i = 0; i < 6; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("6 processes: 1 a, 2 b, 3 c.");
   }
 
   @Test
@@ -78,7 +89,11 @@ public final class SpawnStatsTest {
     stats.countRunnerName("b");
     stats.countRunnerName("b");
     stats.countRunnerName("c");
-    assertThat(stats.getSummary()).isEqualTo("6 processes: 3 a, 2 b, 1 c.");
+    for (int i = 0; i < 6; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("6 processes: 3 a, 2 b, 1 c.");
   }
 
   @Test
@@ -90,7 +105,11 @@ public final class SpawnStatsTest {
     stats.countRunnerName("remote cache hit");
     stats.countRunnerName("b");
     stats.countRunnerName("c");
-    assertThat(stats.getSummary()).isEqualTo("7 processes: 1 remote cache hit, 3 a, 2 b, 1 c.");
+    for (int i = 0; i < 7; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("7 processes: 1 remote cache hit, 3 a, 2 b, 1 c.");
   }
 
   private final SpawnResult rA =
@@ -105,7 +124,9 @@ public final class SpawnStatsTest {
     spawns.add(rA);
 
     stats.countActionResult(ActionResult.create(spawns));
-    assertThat(stats.getSummary()).isEqualTo("1 process: 1 abc.");
+    stats.incrementActionCount();
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("1 process: 1 abc.");
   }
 
   @Test
@@ -118,7 +139,11 @@ public final class SpawnStatsTest {
     spawns.add(rA);
 
     stats.countActionResult(ActionResult.create(spawns));
-    assertThat(stats.getSummary()).isEqualTo("3 processes: 3 abc.");
+    for (int i = 0; i < 3; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("3 processes: 3 abc.");
   }
 
   @Test
@@ -131,7 +156,11 @@ public final class SpawnStatsTest {
     spawns.add(rB);
 
     stats.countActionResult(ActionResult.create(spawns));
-    assertThat(stats.getSummary()).isEqualTo("3 processes: 2 abc, 1 cde.");
+    for (int i = 0; i < 3; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("3 processes: 2 abc, 1 cde.");
   }
 
   @Test
@@ -155,6 +184,35 @@ public final class SpawnStatsTest {
     stats.countActionResult(ActionResult.create(spawns));
     stats.countActionResult(ActionResult.create(spawns));
 
-    assertThat(stats.getSummary()).isEqualTo("12 processes: 9 abc, 3 cde.");
+    for (int i = 0; i < 12; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("12 processes: 9 abc, 3 cde.");
+  }
+
+  @Test
+  public void onlyInternal() {
+    stats.incrementActionCount();
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("1 process: 1 internal.");
+  }
+
+  @Test
+  public void orderCacheInternalRest() {
+    stats.countRunnerName("a");
+    stats.countRunnerName("a");
+    stats.countRunnerName("a");
+    stats.countRunnerName("b");
+    stats.countRunnerName("remote cache hit");
+    stats.countRunnerName("b");
+    stats.countRunnerName("c");
+    stats.countRunnerName("z");
+    stats.countRunnerName("z");
+    for (int i = 0; i < 11; i++) {
+      stats.incrementActionCount();
+    }
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("11 processes: 1 remote cache hit, 2 internal, 3 a, 2 b, 1 c, 2 z.");
   }
 }

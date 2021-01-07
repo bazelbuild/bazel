@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
  * An ExecException that is related to the failure of an Action and therefore very likely the user's
@@ -36,11 +35,7 @@ public class UserExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
-    String message = String.format("%s failed: %s", messagePrefix, getMessage());
-    FailureDetail failureDetailWithPrefix = failureDetail.toBuilder().setMessage(message).build();
-    return new ActionExecutionException(
-        message, this, action, isCatastrophic(), DetailedExitCode.of(failureDetailWithPrefix));
+  protected FailureDetail getFailureDetail(String message) {
+    return failureDetail.toBuilder().setMessage(message).build();
   }
 }

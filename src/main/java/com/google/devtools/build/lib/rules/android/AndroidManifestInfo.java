@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInf
 public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {
 
   /** Provider singleton constant. */
-  public static final BuiltinProvider<AndroidManifestInfo> PROVIDER = new Provider();
+  public static final Provider PROVIDER = new Provider();
 
   /** Provider for {@link AndroidManifestInfo} objects. */
-  private static class Provider extends BuiltinProvider<AndroidManifestInfo>
+  public static class Provider extends BuiltinProvider<AndroidManifestInfo>
       implements AndroidManifestInfoApi.Provider<Artifact> {
     private Provider() {
       super(NAME, AndroidManifestInfo.class);
@@ -47,10 +47,14 @@ public class AndroidManifestInfo extends NativeInfo implements AndroidManifestIn
   }
 
   private AndroidManifestInfo(Artifact manifest, String pkg, boolean exportsManifest) {
-    super(PROVIDER);
     this.manifest = manifest;
     this.pkg = pkg;
     this.exportsManifest = exportsManifest;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

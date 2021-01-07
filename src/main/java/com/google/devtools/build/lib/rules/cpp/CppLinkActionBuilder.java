@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.Collecte
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -61,6 +60,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Builder class to construct {@link CppLinkAction}s. */
 public class CppLinkActionBuilder {
@@ -183,7 +183,7 @@ public class CppLinkActionBuilder {
 
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.actionConstructionContext = actionConstructionContext;
-    repositoryName = label.getPackageIdentifier().getRepository();
+    repositoryName = label.getRepository();
   }
 
   /** Returns the action name for purposes of querying the crosstool. */
@@ -532,6 +532,10 @@ public class CppLinkActionBuilder {
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
+      case OBJC_ARCHIVE:
+      case OBJC_FULLY_LINKED_ARCHIVE:
+      case OBJC_EXECUTABLE:
+      case OBJCPP_EXECUTABLE:
         return true;
 
       default:
@@ -742,7 +746,8 @@ public class CppLinkActionBuilder {
 
     @Nullable Artifact thinltoParamFile = null;
     @Nullable Artifact thinltoMergedObjectFile = null;
-    PathFragment outputRootPath = output.getRootRelativePath();
+    PathFragment outputRootPath =
+        output.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout());
     if (allowLtoIndexing && allLtoArtifacts != null) {
       // Create artifact for the file that the LTO indexing step will emit
       // object file names into for any that were included in the link as
@@ -865,8 +870,10 @@ public class CppLinkActionBuilder {
       variables =
           LinkBuildVariables.setupVariables(
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
-              configuration.getBinDirectory().getExecPath(),
+              configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
+              SolibSymlinkAction.getDynamicLibrarySoname(
+                  output.getRootRelativePath(), /* preserveName= */ false),
               linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
               paramFile != null ? paramFile.getExecPathString() : null,
               thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
@@ -1167,7 +1174,8 @@ public class CppLinkActionBuilder {
       LinkArtifactFactory linkArtifactFactory) {
     ImmutableMap.Builder<Linkstamp, Artifact> mapBuilder = ImmutableMap.builder();
 
-    PathFragment outputBinaryPath = outputBinary.getRootRelativePath();
+    PathFragment outputBinaryPath =
+        outputBinary.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout());
     PathFragment stampOutputDirectory =
         outputBinaryPath
             .getParentDirectory()

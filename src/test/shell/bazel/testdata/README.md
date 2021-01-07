@@ -11,13 +11,15 @@ workspace rules:
 * outer-planets-repo.tar.gz
 * pluto-repo.tar.gz
 * refetch-repo.tar.gz
+* strip-prefix.tar.gz
 
 For reference, the following files contain the output of `git log -p --decorate`
-for the two repositories:
+for the four repositories:
 
 * outer-planets.git_log
 * pluto.git_log
 * refetch.git_log
+* strip-prefix.git_log
 
 These files were created by manually creating a git repository and tarring up
 the result using `tar -zcvf`.

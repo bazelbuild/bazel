@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -70,13 +71,6 @@ public final class AqueryCommand implements BlazeCommand {
     // TODO(twerth): Reduce overlap with CqueryCommand.
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
-    if (aqueryOptions.protoV2) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Note that --incompatible_proto_output_v2 is still experimental "
-                      + "and its API will change in the future."));
-    }
 
     // When querying for the state of Skyframe, it's possible to omit the query expression.
     if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
@@ -93,8 +87,10 @@ public final class AqueryCommand implements BlazeCommand {
     QueryExpression expr;
     try {
       expr = query.isEmpty() ? null : QueryParser.parse(query, functions);
-    } catch (QueryException e) {
-      String message = "Error while parsing '" + query + "': " + e.getMessage();
+    } catch (QuerySyntaxException e) {
+      String message =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
@@ -103,7 +99,7 @@ public final class AqueryCommand implements BlazeCommand {
     try {
       topLevelTargets =
           AqueryCommandUtils.getTopLevelTargets(
-              aqueryOptions.universeScope, expr, queryCurrentSkyframeState, query);
+              aqueryOptions.universeScope, expr, queryCurrentSkyframeState);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return createFailureResult(

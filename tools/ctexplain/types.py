@@ -26,16 +26,20 @@ from frozendict import frozendict
 @dataclass(frozen=True)
 class Configuration():
   """Stores a build configuration as a collection of fragments and options."""
-  # BuildConfiguration.Fragments in this configuration, as base names without
-  # packages. For example: ["PlatformConfiguration", ...].
-  fragments: Tuple[str, ...]
+  # Mapping of each BuildConfiguration.Fragment in this configuration to the
+  # FragmentOptions it requires.
+  #
+  # All names are qualified up to the base file name, without package prefixes.
+  # For example, foo.bar.BazConfiguration appears as "BazConfiguration".
+  # foo.bar.BazConfiguration$Options appears as "BazeConfiguration$Options".
+  fragments: Mapping[str, Tuple[str, ...]]
   # Mapping of FragmentOptions to option key/value pairs. For example:
   # {"CoreOptions": {"action_env": "[]", "cpu": "x86", ...}, ...}.
   #
   # Option values are stored as strings of whatever "bazel config" outputs.
   #
   # Note that Fragment and FragmentOptions aren't the same thing.
-  options: [Mapping[str, Mapping[str, str]]]
+  options: Mapping[str, Mapping[str, str]]
 
 
 @dataclass(frozen=True)
@@ -49,7 +53,7 @@ class ConfiguredTarget():
   config_hash: str
   # Fragments required by this configured target and its transitive
   # dependencies. Stored as base names without packages. For example:
-  # "PlatformOptions".
+  # "PlatformOptions" or "FooConfiguration$Options".
   transitive_fragments: Tuple[str, ...]
 
 

@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ProguardMappingProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A target that can provide a proguard obfuscation mapping to Android binaries or tests. */
 @Immutable
@@ -30,8 +30,12 @@ public final class ProguardMappingProvider extends NativeInfo
   private final Artifact proguardMapping;
 
   public ProguardMappingProvider(Artifact proguardMapping) {
-    super(PROVIDER);
     this.proguardMapping = proguardMapping;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

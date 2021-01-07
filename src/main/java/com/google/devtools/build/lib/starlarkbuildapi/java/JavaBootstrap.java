@@ -15,26 +15,31 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi;
+  private final JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
   private final JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider;
+  private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
 
   public JavaBootstrap(
-      JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi,
+      JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
       JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
-      JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider) {
+      JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider,
+      ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
     this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;
     this.javaProtoCommonApi = javaProtoCommonApi;
     this.javaCcLinkParamsProviderApiProvider = javaCcLinkParamsProviderApiProvider;
+    this.proguardSpecProvider = proguardSpecProvider;
   }
 
   @Override
@@ -43,5 +48,10 @@ public class JavaBootstrap implements Bootstrap {
     builder.put("JavaInfo", javaInfoProviderApi);
     builder.put("java_proto_common", javaProtoCommonApi);
     builder.put("JavaCcLinkParamsInfo", javaCcLinkParamsProviderApiProvider);
+
+    builder.put(
+        ProguardSpecProviderApi.NAME,
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, proguardSpecProvider));
   }
 }

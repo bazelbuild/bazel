@@ -93,6 +93,10 @@ Dummy docstring with &lt;brackets&gt;.
 This rule runs checks on &lt;angle brackets&gt;.
 
 
+### Returns
+
+some &lt;angled&gt; brackets
+
 ### Parameters
 
 <table class="params-table">

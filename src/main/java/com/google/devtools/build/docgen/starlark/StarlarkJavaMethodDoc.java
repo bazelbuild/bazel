@@ -15,14 +15,13 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkDeprecated;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Starlark;
 
 /** A class representing a Java method callable from Starlark with annotation. */
 public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
@@ -31,8 +30,6 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   private final Method method;
   private final StarlarkMethod callable;
   private final ImmutableList<StarlarkParamDoc> params;
-  // TODO(cparsons): Move to superclass when StarlarkBuiltinMethodDoc is removed.
-  private final boolean deprecated;
 
   private boolean isOverloaded;
 
@@ -47,9 +44,9 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
             callable.extraKeywords());
-    this.deprecated = method.isAnnotationPresent(StarlarkDeprecated.class);
   }
 
+  @Override
   public Method getMethod() {
     return method;
   }
@@ -57,11 +54,6 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   @Override
   public boolean documented() {
     return callable.documented();
-  }
-
-  @Override
-  public boolean isDeprecated() {
-    return deprecated;
   }
 
   @Override
@@ -145,6 +137,6 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
 
   @Override
   public Boolean isCallable() {
-    return !StarlarkInterfaceUtils.getStarlarkMethod(this.method).structField();
+    return !StarlarkAnnotations.getStarlarkMethod(this.method).structField();
   }
 }

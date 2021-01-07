@@ -38,7 +38,7 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
           "Number of parallel threads to use for the loading/analysis phase."
               + "Takes "
               + ResourceConverter.FLAG_SYNTAX
-              + ". \"auto\" sets a reasonable default based on"
+              + ". \"auto\" sets a reasonable default based on "
               + "host resources. Must be at least 1.")
   public int threads;
 

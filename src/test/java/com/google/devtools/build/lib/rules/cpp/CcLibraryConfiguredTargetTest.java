@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -442,6 +443,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testWindowsFileNamePatternsCanBeSpecifiedInToolchain() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -484,7 +488,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     assertThat(
             artifactsToStrings(getOutputGroup(hello, CcLibrary.DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME)))
-        .containsExactly("bin hello/hello.dll", "bin hello/hello.if.lib");
+        .containsExactly("bin hello/hello_59017c88f7.dll", "bin hello/hello.if.lib");
   }
 
   @Test
@@ -1066,7 +1070,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers");
     ConfiguredTarget x =
         scratchConfiguredTarget("x", "x", "cc_library(name = 'x', hdrs = ['x.cc'])");
-    assertThat(getGeneratingAction(getBinArtifact("_objs/x/.pic.o", x))).isNull();
+    assertThat(getGeneratingAction(getBinArtifact("_objs/x/x.o", x))).isNull();
   }
 
   @Test
@@ -1104,8 +1108,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'z', srcs = ['z.cc'])");
     String hiddenTopLevel =
         ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL));
-    assertThat(hiddenTopLevel).contains("y.h.processed");
+    assertThat(hiddenTopLevel).doesNotContain("y.h.processed");
     assertThat(hiddenTopLevel).doesNotContain("z.pic.o");
+    String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
+    assertThat(validation).contains("y.h.processed");
   }
 
   @Test
@@ -1145,6 +1151,68 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSrcCompileActionMnemonic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', srcs = ['a.cc'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
+  }
+
+  @Test
+  public void testHeaderCompileActionMnemonic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "cc_library(name = 'x', srcs = ['y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+  }
+
+  @Test
+  public void testIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "cc_library(name = 'x', srcs = ['a.cc', 'y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompileHeader");
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompileHeader");
+  }
+
+  private CppCompileAction getGeneratingCompileAction(
+      String packageRelativePath, ConfiguredTarget owner) {
+    return (CppCompileAction) getGeneratingAction(getBinArtifact(packageRelativePath, owner));
+  }
+
+  @Test
   public void testIncludePathOrder() throws Exception {
     useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file("foo/BUILD",
@@ -1160,8 +1228,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
-    String binDir = getConfiguration(target).getBinFragment().toString();
+    String genfilesDir =
+        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
+    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1598,12 +1667,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "def _impl(settings, attr):",
         "    _ignore = (settings, attr)",
         "    return [",
-        "        {'//command_line_option:cpu': 'k8'},",
+        "        {'//command_line_option:test_arg': ['foo']},",
         "    ]",
         "cpu_transition = transition(",
         "    implementation = _impl,",
         "    inputs = [],",
-        "    outputs = ['//command_line_option:cpu'],",
+        "    outputs = ['//command_line_option:test_arg'],",
         ")",
         "def _transitioned_file_impl(ctx):",
         "    return DefaultInfo(files = depset([ctx.file.src]))",

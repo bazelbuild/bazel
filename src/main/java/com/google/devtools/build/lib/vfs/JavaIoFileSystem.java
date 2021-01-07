@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -52,10 +52,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   protected static final String ERR_FILE_EXISTS = " (File exists)";
   protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
   protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
-
-  public JavaIoFileSystem() throws DefaultHashFunctionNotSetException {
-    this.clock = new JavaClock();
-  }
 
   public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
@@ -116,10 +112,12 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected boolean exists(Path path, boolean followSymlinks) {
-    java.nio.file.Path nioPath = getNioPath(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
+      java.nio.file.Path nioPath = getNioPath(path);
       return Files.exists(nioPath, linkOpts(followSymlinks));
+    } catch (InvalidPathException e) {
+      return false;
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
     }

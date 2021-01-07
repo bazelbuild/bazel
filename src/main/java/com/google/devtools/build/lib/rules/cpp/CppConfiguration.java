@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -26,23 +24,30 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
+@RequiresOptions(options = {CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   /**
@@ -55,8 +60,13 @@ public final class CppConfiguration extends Fragment
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
 
   /**
-   * An enumeration of all the tools that comprise a toolchain.
+   * Packages that can use the extended parameters in CppConfiguration See javadoc for {@link
+   * com.google.devtools.build.lib.rules.cpp.CcModule}
    */
+  public static final ImmutableList<String> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
+      ImmutableList.of();
+
+  /** An enumeration of all the tools that comprise a toolchain. */
   public enum Tool {
     AR("ar"),
     CPP("cpp"),
@@ -64,6 +74,7 @@ public final class CppConfiguration extends Fragment
     GCOV("gcov"),
     GCOVTOOL("gcov-tool"),
     LD("ld"),
+    LLVM_COV("llvm-cov"),
     NM("nm"),
     OBJCOPY("objcopy"),
     OBJDUMP("objdump"),
@@ -138,17 +149,18 @@ public final class CppConfiguration extends Fragment
    */
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
-  private final String transformedCpuFromOptions;
-  // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
-  // that the CPU we get from the toolchain matches CoreOptions.cpu . So we store
-  // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
-  // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
-  private final String desiredCpu;
+  // TODO(lberki): This is only used for determining the output directory name.
+  // Unfortunately, we can't move it easily to OutputDirectories.buildMnemonic() because the CPU is
+  // currently in the middle of the name of the configuration directory (e.g. it comes after the
+  // Android configuration)
+  private final String cpu;
 
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
   private final PathFragment csFdoAbsolutePath;
+  private final PathFragment propellerOptimizeAbsoluteCCProfile;
+  private final PathFragment propellerOptimizeAbsoluteLdProfile;
 
   private final ImmutableList<String> conlyopts;
 
@@ -169,8 +181,9 @@ public final class CppConfiguration extends Fragment
 
   private final boolean appleGenerateDsym;
 
-  static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
-      throws InvalidConfigurationException {
+  private final CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer;
+
+  public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
     CoreOptions commonOptions = options.get(CoreOptions.class);
@@ -218,66 +231,65 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    return new CppConfiguration(
-        cppOptions.doNotUseCpuTransformer
-            ? commonOptions.cpu
-            : cpuTransformer.getTransformer().apply(commonOptions.cpu),
-        Preconditions.checkNotNull(commonOptions.cpu),
-        fdoPath,
-        fdoProfileLabel,
-        csFdoAbsolutePath,
-        ImmutableList.copyOf(cppOptions.conlyoptList),
-        ImmutableList.copyOf(cppOptions.coptList),
-        ImmutableList.copyOf(cppOptions.cxxoptList),
-        linkoptsBuilder.build(),
-        ImmutableList.copyOf(cppOptions.ltoindexoptList),
-        ImmutableList.copyOf(cppOptions.ltobackendoptList),
-        cppOptions,
-        (cppOptions.stripBinaries == StripMode.ALWAYS
-            || (cppOptions.stripBinaries == StripMode.SOMETIMES
-                && compilationMode == CompilationMode.FASTBUILD)),
-        compilationMode,
-        commonOptions.collectCodeCoverage,
-        commonOptions.isHost || commonOptions.isExec,
-        (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)));
-  }
+    PathFragment propellerOptimizeAbsoluteCCProfile = null;
+    if (cppOptions.propellerOptimizeAbsoluteCCProfile != null) {
+      propellerOptimizeAbsoluteCCProfile =
+          PathFragment.create(cppOptions.propellerOptimizeAbsoluteCCProfile);
+      if (!propellerOptimizeAbsoluteCCProfile.isAbsolute()) {
+        throw new InvalidConfigurationException(
+            "Path of '"
+                + propellerOptimizeAbsoluteCCProfile.getPathString()
+                + "' in --propeller_optimize_absolute_cc_profile is not an absolute path.");
+      }
+      try {
+        FileSystemUtils.checkBaseName(propellerOptimizeAbsoluteCCProfile.getBaseName());
+      } catch (IllegalArgumentException e) {
+        throw new InvalidConfigurationException(e);
+      }
+    }
 
-  private CppConfiguration(
-      String transformedCpuFromOptions,
-      String desiredCpu,
-      PathFragment fdoPath,
-      Label fdoOptimizeLabel,
-      PathFragment csFdoAbsolutePath,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      ImmutableList<String> cxxopts,
-      ImmutableList<String> linkopts,
-      ImmutableList<String> ltoindexOptions,
-      ImmutableList<String> ltobackendOptions,
-      CppOptions cppOptions,
-      boolean stripBinaries,
-      CompilationMode compilationMode,
-      boolean collectCodeCoverage,
-      boolean isToolConfiguration,
-      boolean appleGenerateDsym) {
-    this.transformedCpuFromOptions = transformedCpuFromOptions;
-    this.desiredCpu = desiredCpu;
+    PathFragment propellerOptimizeAbsoluteLdProfile = null;
+    if (cppOptions.propellerOptimizeAbsoluteLdProfile != null) {
+      propellerOptimizeAbsoluteLdProfile =
+          PathFragment.create(cppOptions.propellerOptimizeAbsoluteLdProfile);
+      if (!propellerOptimizeAbsoluteLdProfile.isAbsolute()) {
+        throw new InvalidConfigurationException(
+            "Path of '"
+                + propellerOptimizeAbsoluteLdProfile.getPathString()
+                + "' in --propeller_optimize_absolute_ld_profile is not an absolute path.");
+      }
+      try {
+        FileSystemUtils.checkBaseName(propellerOptimizeAbsoluteLdProfile.getBaseName());
+      } catch (IllegalArgumentException e) {
+        throw new InvalidConfigurationException(e);
+      }
+    }
+
+    this.cpu = commonOptions.cpu;
     this.fdoPath = fdoPath;
-    this.fdoOptimizeLabel = fdoOptimizeLabel;
+    this.fdoOptimizeLabel = fdoProfileLabel;
     this.csFdoAbsolutePath = csFdoAbsolutePath;
-    this.conlyopts = conlyopts;
-    this.copts = copts;
-    this.cxxopts = cxxopts;
-    this.linkopts = linkopts;
-    this.ltoindexOptions = ltoindexOptions;
-    this.ltobackendOptions = ltobackendOptions;
+    this.propellerOptimizeAbsoluteCCProfile = propellerOptimizeAbsoluteCCProfile;
+    this.propellerOptimizeAbsoluteLdProfile = propellerOptimizeAbsoluteLdProfile;
+    this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
+    this.copts = ImmutableList.copyOf(cppOptions.coptList);
+    this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
+    this.linkopts = linkoptsBuilder.build();
+    this.ltoindexOptions = ImmutableList.copyOf(cppOptions.ltoindexoptList);
+    this.ltobackendOptions = ImmutableList.copyOf(cppOptions.ltobackendoptList);
     this.cppOptions = cppOptions;
-    this.stripBinaries = stripBinaries;
+    this.stripBinaries =
+        cppOptions.stripBinaries == StripMode.ALWAYS
+            || (cppOptions.stripBinaries == StripMode.SOMETIMES
+                && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
-    this.collectCodeCoverage = collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
-    this.appleGenerateDsym = appleGenerateDsym;
+    this.collectCodeCoverage = commonOptions.collectCodeCoverage;
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 =
+        commonOptions.isHost || commonOptions.isExec;
+    this.appleGenerateDsym =
+        (cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
+    this.fatApkSplitSanitizer = commonOptions.fatApkSplitSanitizer;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -411,14 +423,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
-  /**
-   * @return value from the --cpu option transformed using {@link CpuTransformer}. If it was not
-   *     passed explicitly, {@link AutoCpuConverter} will try to guess something reasonable.
-   */
-  public String getTransformedCpuFromOptions() {
-    return transformedCpuFromOptions;
-  }
-
   /** @return value from --compiler option, null if the option was not passed. */
   @Nullable
   public String getCompilerFromOptions() {
@@ -527,12 +531,15 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public String getOutputDirectoryName() {
-    String toolchainPrefix = desiredCpu;
+    String result = cpu;
+    if (fatApkSplitSanitizer.feature != null) {
+      result += "-" + fatApkSplitSanitizer.feature;
+    }
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
-      toolchainPrefix += "-" + cppOptions.outputDirectoryTag;
+      result += "-" + cppOptions.outputDirectoryTag;
     }
 
-    return toolchainPrefix;
+    return result;
   }
 
   /**
@@ -580,6 +587,14 @@ public final class CppConfiguration extends Fragment
     return csFdoAbsolutePath;
   }
 
+  public PathFragment getPropellerOptimizeAbsoluteCCProfile() {
+    return propellerOptimizeAbsoluteCCProfile;
+  }
+
+  public PathFragment getPropellerOptimizeAbsoluteLdProfile() {
+    return propellerOptimizeAbsoluteLdProfile;
+  }
+
   Label getFdoPrefetchHintsLabel() {
     if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
@@ -608,6 +623,22 @@ public final class CppConfiguration extends Fragment
 
   public Label getCSFdoProfileLabel() {
     return cppOptions.csFdoProfileLabel;
+  }
+
+  public Label getPropellerOptimizeLabel() {
+    return cppOptions.propellerOptimizeLabel;
+  }
+
+  /**
+   * @deprecated Unsafe because it returns a value from target configuration even in the host
+   *     configuration.
+   */
+  @Deprecated
+  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+    if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
+      return null;
+    }
+    return cppOptions.getPropellerOptimizeLabel();
   }
 
   /**
@@ -737,4 +768,67 @@ public final class CppConfiguration extends Fragment
   public boolean strictHeaderCheckingFromStarlark() {
     return cppOptions.forceStrictHeaderCheckFromStarlark;
   }
+
+  public boolean useCppCompileHeaderMnemonic() {
+    return cppOptions.useCppCompileHeaderMnemonic;
+  }
+
+  public boolean generateLlvmLCov() {
+    return cppOptions.generateLlvmLcov;
+  }
+
+  @Override
+  public boolean macosSetInstallName() {
+    return cppOptions.macosSetInstallName;
+  }
+
+  private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
+      throws EvalException {
+    String rulePackage =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label()
+            .getPackageName();
+    if (!EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
+      throw Starlark.errorf(
+          "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
+    }
+  }
+
+  @Override
+  public boolean forcePicStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "force_pic");
+    return forcePic();
+  }
+
+  @Override
+  public boolean generateLlvmLcovStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "generate_llvm_lcov");
+    return generateLlvmLCov();
+  }
+
+  @Override
+  public String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "fdo_instrument");
+    return getFdoInstrument();
+  }
+
+  @Override
+  public boolean processHeadersInDependenciesStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "process_headers_in_dependencies");
+    return processHeadersInDependencies();
+  }
+
+  @Override
+  public boolean saveFeatureStateStarlark(StarlarkThread thread) throws EvalException {
+    checkInExpandedApiAllowlist(thread, "save_feature_state");
+    return saveFeatureState();
+  }
+
+  @Override
+  public boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkInExpandedApiAllowlist(thread, "fission_active_for_current_compilation_mode");
+    return fissionIsActiveForCurrentCompilationMode();
+  }
 }
+

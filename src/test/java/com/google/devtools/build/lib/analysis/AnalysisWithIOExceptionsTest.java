@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -37,7 +37,7 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance()) {
+    return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
       public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
@@ -66,5 +66,19 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
     assertThrows(
         TargetParsingException.class,
         () -> update(new FlagBuilder().with(Flag.KEEP_GOING), "//a:a"));
+  }
+
+  @Test
+  public void testGlobExceptionWithCrossingLabel() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    Path buildPath =
+        scratch.file(
+            "foo/BUILD",
+            "sh_library(name = 'foo', srcs = glob(['subdir/*.sh']))",
+            "sh_library(name = 'crosses/directory', srcs = ['foo.sh'])");
+    scratch.file("top/BUILD", "sh_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
+    Path errorPath = buildPath.getParentDirectory().getChild("subdir");
+    crashMessage = path -> errorPath.equals(path) ? "custom crash: bork" : null;
+    assertThrows(ViewCreationFailedException.class, () -> update("//top:top"));
   }
 }

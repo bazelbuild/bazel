@@ -42,14 +42,24 @@ def _py_runtime_pair_impl(ctx):
 py_runtime_pair = rule(
     implementation = _py_runtime_pair_impl,
     attrs = {
-        "py2_runtime": attr.label(providers = [PyRuntimeInfo], doc = """\
+        # The two runtimes are used by the py_binary at runtime, and so need to
+        # be built for the target platform.
+        "py2_runtime": attr.label(
+            providers = [PyRuntimeInfo],
+            cfg = "target",
+            doc = """\
 The runtime to use for Python 2 targets. Must have `python_version` set to
 `PY2`.
-"""),
-        "py3_runtime": attr.label(providers = [PyRuntimeInfo], doc = """\
+""",
+        ),
+        "py3_runtime": attr.label(
+            providers = [PyRuntimeInfo],
+            cfg = "target",
+            doc = """\
 The runtime to use for Python 3 targets. Must have `python_version` set to
 `PY3`.
-"""),
+""",
+        ),
     },
     doc = """\
 A toolchain rule for Python.

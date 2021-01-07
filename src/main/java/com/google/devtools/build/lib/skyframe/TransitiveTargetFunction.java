@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -67,10 +66,10 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  TransitiveTargetValueBuilder processTarget(Label label, TargetAndErrorIfAny targetAndErrorIfAny) {
+  TransitiveTargetValueBuilder processTarget(TargetAndErrorIfAny targetAndErrorIfAny) {
     Target target = targetAndErrorIfAny.getTarget();
     boolean packageLoadedSuccessfully = targetAndErrorIfAny.isPackageLoadedSuccessfully();
-    return new TransitiveTargetValueBuilder(label, target, packageLoadedSuccessfully);
+    return new TransitiveTargetValueBuilder(target, packageLoadedSuccessfully);
   }
 
   @Override
@@ -82,7 +81,6 @@ public class TransitiveTargetFunction
           depEntries) {
     boolean successfulTransitiveLoading = builder.isSuccessfulTransitiveLoading();
     Target target = targetAndErrorIfAny.getTarget();
-    NestedSetBuilder<Label> transitiveRootCauses = builder.getTransitiveRootCauses();
 
     for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
         depEntries) {
@@ -95,15 +93,12 @@ public class TransitiveTargetFunction
         }
       } catch (NoSuchPackageException | NoSuchTargetException e) {
         successfulTransitiveLoading = false;
-        transitiveRootCauses.add(depLabel);
         maybeReportErrorAboutMissingEdge(target, depLabel, e, eventHandler);
         continue;
       }
       builder.getTransitiveTargets().addTransitive(transitiveTargetValue.getTransitiveTargets());
-      NestedSet<Label> rootCauses = transitiveTargetValue.getTransitiveRootCauses();
-      if (rootCauses != null) {
+      if (transitiveTargetValue.encounteredLoadingError()) {
         successfulTransitiveLoading = false;
-        transitiveRootCauses.addTransitive(rootCauses);
         if (transitiveTargetValue.getErrorLoadingTarget() != null) {
           maybeReportErrorAboutMissingEdge(target, depLabel,
               transitiveTargetValue.getErrorLoadingTarget(), eventHandler);
@@ -142,8 +137,7 @@ public class TransitiveTargetFunction
       // Declared by the rule class:
       ConfigurationFragmentPolicy configurationFragmentPolicy =
           rule.getRuleClassObject().getConfigurationFragmentPolicy();
-      for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-        Class<? extends Fragment> fragment = factory.creates();
+      for (Class<? extends Fragment> fragment : ruleClassProvider.getConfigurationFragments()) {
         // isLegalConfigurationFragment considers both natively declared fragments and Starlark
         // (named) fragments.
         if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)) {
@@ -281,20 +275,14 @@ public class TransitiveTargetFunction
     private final NestedSetBuilder<Label> transitiveTargets;
     private final NestedSetBuilder<Class<? extends Fragment>> transitiveConfigFragments;
     private final Set<Class<? extends Fragment>> configFragmentsFromDeps;
-    private final NestedSetBuilder<Label> transitiveRootCauses;
 
-    public TransitiveTargetValueBuilder(Label label, Target target,
-        boolean packageLoadedSuccessfully) {
+    public TransitiveTargetValueBuilder(Target target, boolean packageLoadedSuccessfully) {
       this.transitiveTargets = NestedSetBuilder.stableOrder();
       this.transitiveConfigFragments = NestedSetBuilder.stableOrder();
       // No need to store directly required fragments that are also required by deps.
       this.configFragmentsFromDeps = new LinkedHashSet<>();
-      this.transitiveRootCauses = NestedSetBuilder.stableOrder();
 
       this.successfulTransitiveLoading = packageLoadedSuccessfully;
-      if (!packageLoadedSuccessfully) {
-        transitiveRootCauses.add(label);
-      }
       transitiveTargets.add(target.getLabel());
     }
 
@@ -308,10 +296,6 @@ public class TransitiveTargetFunction
 
     public Set<Class<? extends Fragment>> getConfigFragmentsFromDeps() {
       return configFragmentsFromDeps;
-    }
-
-    public NestedSetBuilder<Label> getTransitiveRootCauses() {
-      return transitiveRootCauses;
     }
 
     public boolean isSuccessfulTransitiveLoading() {
@@ -329,7 +313,6 @@ public class TransitiveTargetFunction
           ? TransitiveTargetValue.successfulTransitiveLoading(loadedTargets, configFragments)
           : TransitiveTargetValue.unsuccessfulTransitiveLoading(
               loadedTargets,
-              transitiveRootCauses.build(),
               errorLoadingTarget,
               configFragments);
     }

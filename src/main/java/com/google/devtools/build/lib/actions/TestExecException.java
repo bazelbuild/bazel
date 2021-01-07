@@ -13,30 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.server.FailureDetails;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.TestAction;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** An TestExecException that is related to the failure of a TestAction. */
 public final class TestExecException extends ExecException {
-  private final FailureDetails.TestAction.Code detailedCode;
+  private final FailureDetail failureDetail;
 
-  public TestExecException(String message, FailureDetails.TestAction.Code detailedCode) {
+  public TestExecException(String message, FailureDetail failureDetail) {
     super(message);
-    this.detailedCode = detailedCode;
+    this.failureDetail = checkNotNull(failureDetail);
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
-    String message = String.format("%s: %s", messagePrefix + " failed", getMessage());
-    DetailedExitCode code =
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setTestAction(TestAction.newBuilder().setCode(detailedCode))
-                .build());
-    return new ActionExecutionException(message, this, action, isCatastrophic(), code);
+  protected FailureDetail getFailureDetail(String message) {
+    return failureDetail.toBuilder().setMessage(message).build();
   }
 }

@@ -31,8 +31,12 @@ public final class PyCcLinkParamsProvider extends NativeInfo
   private final CcInfo ccInfo;
 
   public PyCcLinkParamsProvider(CcInfo ccInfo) {
-    super(PROVIDER);
     this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

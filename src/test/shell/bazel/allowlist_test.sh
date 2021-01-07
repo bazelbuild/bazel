@@ -61,7 +61,7 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep": attr.label(cfg = my_transition),
-        "_whitelist_function_transition": attr.label(default = "@bazel_tools//tools/whitelists/function_transition_whitelist"),
+        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF
@@ -130,7 +130,7 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     cfg = my_transition,
     attrs = {
-        "_whitelist_function_transition": attr.label(default = "@bazel_tools//tools/whitelists/bad"),
+        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/bad"),
     }
 )
 EOF
@@ -143,7 +143,7 @@ EOF
 
   bazel build //vinegar --experimental_starlark_config_transitions \
     >& $TEST_log && fail "Expected failure"
-  expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/whitelists/bad:bad)"
+  expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/allowlists/bad:bad)"
   expect_log "does not have the expected value //tools/allowlists/function_transition_allowlist:function_transition_allowlist"
 }
 
@@ -159,17 +159,17 @@ EOF
 #
 # The allowlist for starlark transitions is set to a package group of "//..."
 function test_allowlist_own_rep() {
-  mkdir -p tools/whitelists/function_transition_whitelist
-  cat > tools/whitelists/function_transition_whitelist/BUILD <<EOF
+  mkdir -p tools/allowlists/function_transition_allowlist
+  cat > tools/allowlists/function_transition_allowlist/BUILD <<EOF
 package_group(
-    name = "function_transition_whitelist",
+    name = "function_transition_allowlist",
     packages = ["//vinegar/..."],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools/whitelists:__pkg__"],
+    visibility = ["//tools/allowlists:__pkg__"],
 )
 EOF
 
@@ -189,7 +189,7 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep" : attr.label(cfg = my_transition),
-        "_whitelist_function_transition": attr.label(default = "@//tools/whitelists/function_transition_whitelist"),
+        "_allowlist_function_transition": attr.label(default = "@//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF

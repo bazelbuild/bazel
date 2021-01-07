@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidProguardInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A target that can provide local proguard specifications, returned by the {@link
@@ -38,8 +38,12 @@ public final class AndroidProguardInfo extends NativeInfo
   private final ImmutableList<Artifact> localProguardSpecs;
 
   public AndroidProguardInfo(ImmutableList<Artifact> localProguardSpecs) {
-    super(PROVIDER);
     this.localProguardSpecs = localProguardSpecs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

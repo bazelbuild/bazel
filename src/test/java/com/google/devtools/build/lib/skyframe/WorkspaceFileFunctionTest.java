@@ -31,10 +31,10 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,9 +46,13 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.StarlarkFile;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.junit.Test;
@@ -75,7 +79,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private static Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {
-    return (Label) ((Rule) pkg.getTarget(name)).getAttributeContainer().getAttr("actual");
+    return (Label) ((Rule) pkg.getTarget(name)).getAttr("actual");
   }
 
   private RootedPath createWorkspaceFile(String... contents) throws IOException {
@@ -272,7 +276,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
           "managed_directories attribute should not contain multiple (or duplicate)"
               + " repository mappings for the same directory ('a/b').");
       assertManagedDirectoriesParsingError(
-          "{'@repo1': [], '@repo1': [] }", "Duplicated key \"@repo1\" when creating dictionary");
+          "{'@repo1': [], '@repo1': [] }", "dictionary expression has duplicate key: \"@repo1\"");
       assertManagedDirectoriesParsingError(
           "{'@repo1': ['a/b'], '@repo2': ['a/b/c/..'] }",
           "managed_directories attribute should not contain multiple (or duplicate)"
@@ -474,7 +478,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     try {
       StarlarkSemantics semanticsWithNinjaActions =
-          StarlarkSemantics.builderWithDefaults().experimentalNinjaActions(true).build();
+          StarlarkSemantics.builder()
+              .setBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS, true)
+              .build();
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
 
       assertThat(
@@ -516,6 +522,24 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     } finally {
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
     }
+  }
+
+  @Test
+  public void testMangledExternalWorkspaceFileIsIgnored() throws Exception {
+    scratch.file("secondary/WORKSPACE", "garbage");
+    RootedPath workspace =
+        createWorkspaceFile(
+            "workspace(name = 'good')",
+            "local_repository(name = \"secondary\", path = \"./secondary/\")");
+
+    SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
+    EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
+    WorkspaceFileValue value1 = result1.get(key1);
+    RepositoryName good = RepositoryName.create("@good");
+    RepositoryName main = RepositoryName.create("@");
+    RepositoryName secondary = RepositoryName.create("@secondary");
+    assertThat(value1.getRepositoryMapping()).containsEntry(secondary, ImmutableMap.of(good, main));
+    assertNoEvents();
   }
 
   private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
@@ -569,5 +593,86 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     public void reset() {
       repositoryNames = null;
     }
+  }
+
+  // tests of splitAST, an internal helper function
+
+  @Test
+  public void testSplitASTNoLoad() {
+    List<StarlarkFile> asts = getASTs("foo_bar = 1");
+    assertThat(asts).hasSize(1);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+  }
+
+  @Test
+  public void testSplitASTOneLoadAtTop() {
+    List<StarlarkFile> asts = getASTs("load('//:foo.bzl', 'bar')", "foo_bar = 1");
+    assertThat(asts).hasSize(1);
+    assertThat(asts.get(0).getStatements()).hasSize(2);
+  }
+
+  @Test
+  public void testSplitASTOneLoad() {
+    List<StarlarkFile> asts = getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')");
+    assertThat(asts).hasSize(2);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(1);
+  }
+
+  @Test
+  public void testSplitASTTwoSuccessiveLoads() {
+    List<StarlarkFile> asts =
+        getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')", "load('//:bar.bzl', 'foo')");
+    assertThat(asts).hasSize(2);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(2);
+  }
+
+  @Test
+  public void testSplitASTTwoSucessiveLoadsWithNonLoadStatement() {
+    List<StarlarkFile> asts =
+        getASTs(
+            "foo_bar = 1",
+            "load('//:foo.bzl', 'bar')",
+            "load('//:bar.bzl', 'foo')",
+            "local_repository(name = 'foobar', path = '/bar/foo')");
+    assertThat(asts).hasSize(2);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(3);
+  }
+
+  @Test
+  public void testSplitASTThreeLoadsThreeSegments() {
+    List<StarlarkFile> asts =
+        getASTs(
+            "foo_bar = 1",
+            "load('//:foo.bzl', 'bar')",
+            "load('//:bar.bzl', 'foo')",
+            "local_repository(name = 'foobar', path = '/bar/foo')",
+            "load('@foobar//:baz.bzl', 'bleh')");
+    assertThat(asts).hasSize(3);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(3);
+    assertThat(asts.get(2).getStatements()).hasSize(1);
+  }
+
+  @Test
+  public void testSplitASTThreeLoadsThreeSegmentsWithContent() {
+    List<StarlarkFile> asts =
+        getASTs(
+            "foo_bar = 1",
+            "load('//:foo.bzl', 'bar')",
+            "load('//:bar.bzl', 'foo')",
+            "local_repository(name = 'foobar', path = '/bar/foo')",
+            "load('@foobar//:baz.bzl', 'bleh')",
+            "bleh()");
+    assertThat(asts).hasSize(3);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(3);
+    assertThat(asts.get(2).getStatements()).hasSize(2);
+  }
+
+  private static ImmutableList<StarlarkFile> getASTs(String... lines) {
+    return WorkspaceFileFunction.splitAST(StarlarkFile.parse(ParserInput.fromLines(lines)));
   }
 }

@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /** Provides resource class jars from android_library rules. */
 @StarlarkBuiltin(
@@ -32,7 +33,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "you will be broken when it is removed."
             + "Resource class jars from android_library rules.",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi>
     extends StructApi {
   /** The name of the provider for this info object. */
@@ -60,13 +61,10 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
               doc = "Resource class jars.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = AndroidLibraryResourceClassJarProviderApi.class,
-        receiverNameForDoc = NAME)
+    @StarlarkConstructor
     AndroidLibraryResourceClassJarProviderApi<FileT> create(Depset jars) throws EvalException;
   }
 }

@@ -1,3 +1,5 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -13,54 +15,113 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-# There is no config_setting for "linux".
-# See https://github.com/bazelbuild/bazel/issues/11107
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+)
 
 config_setting(
     name = "linux_aarch64",
-    values = {"cpu": "aarch64"},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "linux_arm",
-    values = {"cpu": "arm"},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:arm",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "linux_ppc",
-    values = {"cpu": "ppc"},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:ppc",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "linux_ppc64le",
-    values = {"cpu": "ppc"},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:ppc",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "linux_s390x",
-    values = {"cpu": "s390x"},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:s390x",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "linux_x86_64",
-    values = {"cpu": "k8"},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "darwin",
-    values = {"cpu": "darwin"},
+    constraint_values = ["@platforms//os:macos"],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "darwin_x86_64",
-    values = {"cpu": "darwin_x86_64"},
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64_constraint",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+config_setting(
+    name = "darwin_arm64_flag",
+    values = {"cpu": "darwin_arm64"},
+)
+
+# Workaround for an issue where the dummy cc toolchain isn't being picked up
+# when cross-compile from darwin_x86_64 to darwin_arm64 cpu.
+# TODO(https://github.com/bazelbuild/bazel/issues/12655): Remove the flag based
+# select when the issue is resolved.
+selects.config_setting_group(
+    name = "darwin_arm64",
+    match_any = [
+        ":darwin_arm64_constraint",
+        ":darwin_arm64_flag",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64e",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -72,25 +133,25 @@ config_setting(
 
 config_setting(
     name = "freebsd",
-    values = {"cpu": "freebsd"},
+    constraint_values = ["@platforms//os:freebsd"],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "openbsd",
-    values = {"cpu": "openbsd"},
+    constraint_values = ["@platforms//os:openbsd"],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "windows",
-    values = {"cpu": "x64_windows"},
+    constraint_values = ["@platforms//os:windows"],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "arm",
-    values = {"cpu": "arm"},
+    constraint_values = ["@platforms//cpu:arm"],
     visibility = ["//visibility:public"],
 )
 

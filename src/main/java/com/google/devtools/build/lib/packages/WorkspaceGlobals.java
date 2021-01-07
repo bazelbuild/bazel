@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.Starlark.NONE;
+import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,13 +30,6 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -45,12 +38,18 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
-  // Must start with a letter and can contain letters, numbers, and underscores
-  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
+  // Must start with a letter and can contain letters, numbers, underscores and hyphens.
+  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[-.\\w]*$");
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;
@@ -67,7 +66,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   @Override
-  public NoneType workspace(
+  public void workspace(
       String name,
       Dict<?, ?> managedDirectories, // <String, Object>
       StarlarkThread thread)
@@ -107,11 +106,10 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
         RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
     parseManagedDirectories(
         Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
-    return NONE;
   }
 
   @Override
-  public NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
+  public void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException {
     List<String> pathsList = Sequence.cast(paths, String.class, "paths");
     Set<String> set = Sets.newHashSet();
@@ -140,7 +138,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       }
     }
     doNotSymlinkInExecrootPaths = ImmutableSortedSet.copyOf(set);
-    return NONE;
   }
 
   private void parseManagedDirectories(
@@ -232,7 +229,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
 
     // registeration happened in a loaded bzl file
-    return label.getPackageIdentifier().getRepository();
+    return label.getRepository();
   }
 
   private static ImmutableList<String> renamePatterns(
@@ -247,27 +244,25 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   @Override
-  public NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
+  public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
     builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, thread));
-    return NONE;
   }
 
   @Override
-  public NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
+  public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
     builder.addRegisteredToolchains(renamePatterns(patterns, builder, thread));
-    return NONE;
   }
 
   @Override
-  public NoneType bind(String name, Object actual, StarlarkThread thread)
+  public void bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Label nameLabel;
     try {
@@ -288,8 +283,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-
-    return NONE;
   }
 
   /**

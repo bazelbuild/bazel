@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a set of runfiles. */
 @StarlarkBuiltin(
     name = "runfiles",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A container of information regarding a set of files required at runtime execution. This"
             + " object should be passed via <a href=\"DefaultInfo.html\">DefaultInfo</a> in order"
@@ -61,7 +61,6 @@ public interface RunfilesApi extends StarlarkValue {
             name = "other",
             positional = true,
             named = false,
-            type = RunfilesApi.class,
             doc = "The runfiles object to merge into this."),
       })
   RunfilesApi merge(RunfilesApi other);

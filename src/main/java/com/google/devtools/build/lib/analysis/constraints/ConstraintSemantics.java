@@ -18,6 +18,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -129,16 +134,18 @@ public interface ConstraintSemantics<T> {
   static EnvironmentGroup getEnvironmentGroup(Target envTarget) throws EnvironmentLookupException {
     if (!(envTarget instanceof Rule)
         || !((Rule) envTarget).getRuleClass().equals(ConstraintConstants.ENVIRONMENT_RULE)) {
-      throw new EnvironmentLookupException(
-          envTarget.getLabel() + " is not a valid environment definition");
+      throw createEnvironmentLookupException(
+          envTarget.getLabel() + " is not a valid environment definition",
+          Code.INVALID_ENVIRONMENT);
     }
     for (EnvironmentGroup group : envTarget.getPackage().getTargets(EnvironmentGroup.class)) {
       if (group.getEnvironments().contains(envTarget.getLabel())) {
         return group;
       }
     }
-    throw new EnvironmentLookupException(
-        "cannot find the group for environment " + envTarget.getLabel());
+    throw createEnvironmentLookupException(
+        "cannot find the group for environment " + envTarget.getLabel(),
+        Code.ENVIRONMENT_MISSING_FROM_GROUPS);
   }
 
   /**
@@ -187,10 +194,31 @@ public interface ConstraintSemantics<T> {
       EnvironmentCollection.Builder refinedEnvironments,
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits);
 
+  /**
+   * Returns an {@link EnvironmentLookupException} with the specified message and detailed failure
+   * code.
+   */
+  static EnvironmentLookupException createEnvironmentLookupException(String message, Code code) {
+    return new EnvironmentLookupException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setAnalysis(Analysis.newBuilder().setCode(code))
+                .build()));
+  }
+
   /** Exception indicating errors finding/parsing environments or their containing groups. */
-  class EnvironmentLookupException extends Exception {
-    private EnvironmentLookupException(String message) {
-      super(message);
+  class EnvironmentLookupException extends Exception implements DetailedException {
+    private final DetailedExitCode detailedExitCode;
+
+    private EnvironmentLookupException(DetailedExitCode detailedExitCode) {
+      super(detailedExitCode.getFailureDetail().getMessage());
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 }

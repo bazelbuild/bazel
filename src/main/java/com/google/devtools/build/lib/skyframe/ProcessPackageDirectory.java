@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -40,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Processes a directory that may contain a package and subdirectories for the benefit of processes
@@ -94,6 +96,23 @@ public final class ProcessPackageDirectory {
 
     if (!fileValue.isDirectory()) {
       return ProcessPackageDirectoryResult.EMPTY_RESULT;
+    }
+
+    if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+      SkyKey uniquenessKey =
+          FileSymlinkInfiniteExpansionUniquenessFunction.key(
+              fileValue.unboundedAncestorSymlinkExpansionChain());
+      env.getValue(uniquenessKey);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      FileSymlinkInfiniteExpansionException symlinkException =
+          new FileSymlinkInfiniteExpansionException(
+              fileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
+              fileValue.unboundedAncestorSymlinkExpansionChain());
+      return reportErrorAndReturn(
+          symlinkException.getMessage(), symlinkException, rootRelativePath, env.getListener());
     }
 
     PackageIdentifier packageId = PackageIdentifier.create(repositoryName, rootRelativePath);
@@ -162,9 +181,18 @@ public final class ProcessPackageDirectory {
     } catch (NoSuchPackageException e) {
       throw new IllegalStateException(e);
     }
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
     return new ProcessPackageDirectoryResult(
         pkgLookupValue.packageExists() && pkgLookupValue.getRoot().equals(rootedPath.getRoot()),
-        getSubdirDeps(dirListingValue, rootedPath, repositoryName, excludedPaths),
+        getSubdirDeps(
+            dirListingValue,
+            rootedPath,
+            repositoryName,
+            excludedPaths,
+            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
         /** additionalValuesToAggregate= */
         ImmutableMap.of());
   }
@@ -173,7 +201,8 @@ public final class ProcessPackageDirectory {
       DirectoryListingValue dirListingValue,
       RootedPath rootedPath,
       RepositoryName repositoryName,
-      ImmutableSet<PathFragment> excludedPaths) {
+      ImmutableSet<PathFragment> excludedPaths,
+      boolean siblingRepositoryLayout) {
     Root root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
@@ -192,8 +221,9 @@ public final class ProcessPackageDirectory {
       }
       String basename = dirent.getName();
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
-      if (subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)) {
-        // Not a real package.
+      if (!siblingRepositoryLayout && subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)) {
+        // Subpackages under //external can be processed only when
+        // --experimental_sibling_repository_layout is set.
         continue;
       }
 

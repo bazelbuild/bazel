@@ -28,6 +28,7 @@ java_library(
             ["*.java"],
             exclude = [
                 "NoAndroidSdkStub.java",
+                "CoreLibraryDesugar.java",
                 "Desugar.java",
                 "desugar/*.java",
             ],
@@ -37,7 +38,6 @@ java_library(
     visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/tools/android/java/com/android/tools/r8:r8_support",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
         "//third_party:guava",

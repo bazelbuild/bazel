@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 
 /** Miscellaneous utils internal to Packages. */
 final class PackageUtils {

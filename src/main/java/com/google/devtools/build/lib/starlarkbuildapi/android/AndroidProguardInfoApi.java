@@ -14,15 +14,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /** A target that can provide local proguard specifications. */
 @StarlarkBuiltin(
@@ -61,11 +62,10 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
               doc = "A list of local proguard specs.",
               positional = true,
               named = false,
-              type = Sequence.class,
-              generic1 = FileApi.class)
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)})
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidProguardInfoApi.class)
+    @StarlarkConstructor
     AndroidProguardInfoApi<FileT> createInfo(Sequence<?> localProguardSpecs /* <FileT> */)
         throws EvalException;
   }

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsParser;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -217,8 +219,7 @@ public class DynamicSpawnStrategyTest {
 
   @Before
   public void setUp() throws Exception {
-    testRoot = FileSystems.getNativeFileSystem().getPath(TestUtils.tmpDir());
-    testRoot.deleteTreesBelow();
+    testRoot = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
     outErr = new FileOutErr(testRoot.getRelative("stdout"), testRoot.getRelative("stderr"));
   }
 
@@ -346,10 +347,11 @@ public class DynamicSpawnStrategyTest {
 
     Executor executor =
         new BlazeExecutor(
-            null,
+            /*fileSystem=*/ null,
             testRoot,
-            null,
-            null,
+            /*reporter=*/ null,
+            /*clock=*/ null,
+            BugReporter.defaultInstance(),
             OptionsParser.builder()
                 .optionsClasses(ImmutableList.of(ExecutionOptions.class))
                 .build(),
@@ -399,6 +401,13 @@ public class DynamicSpawnStrategyTest {
   public void tearDown() throws Exception {
     if (executorServiceForCleanup != null) {
       executorServiceForCleanup.shutdownNow();
+    }
+    if (testRoot != null) {
+      try {
+        testRoot.deleteTree();
+      } catch (FileNotFoundException e) {
+        // This can happen if one of the dynamic threads are still cleaning up. No big deal.
+      }
     }
   }
 
@@ -711,7 +720,7 @@ public class DynamicSpawnStrategyTest {
               // for InterruptedException to propagate. Make sure that's the case here by checking
               // that we did indeed wait for the slow process.
               if (!slowCleanupFinished.get()) {
-                fail("Did not await for the other branch to do its cleanup");
+                fail("Did not await for the local branch to do its cleanup");
               }
             });
 

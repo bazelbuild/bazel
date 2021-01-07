@@ -43,8 +43,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
-  public static final SkyFunctionName AST_FILE_LOOKUP =
-      SkyFunctionName.createHermetic("AST_FILE_LOOKUP");
+  public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
   public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
@@ -84,8 +83,6 @@ public final class SkyFunctions {
   static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
       SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
   static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.createHermetic("RECURSIVE_PKG");
-  static final SkyFunctionName TRANSITIVE_TARGET =
-      SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.createHermetic("CONFIGURED_TARGET");
   static final SkyFunctionName ACTION_LOOKUP_CONFLICT_FINDING =

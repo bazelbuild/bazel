@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.java.ProguardSpecProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A target that can provide proguard specifications to Android binaries. */
 @Immutable
@@ -34,8 +34,12 @@ public final class ProguardSpecProvider extends NativeInfo
   private final NestedSet<Artifact> transitiveProguardSpecs;
 
   public ProguardSpecProvider(NestedSet<Artifact> transitiveProguardSpecs) {
-    super(PROVIDER);
     this.transitiveProguardSpecs = transitiveProguardSpecs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

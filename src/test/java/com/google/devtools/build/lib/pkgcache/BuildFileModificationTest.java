@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -102,14 +103,14 @@ public class BuildFileModificationTest extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(PackageOptions.class, StarlarkSemanticsOptions.class)
+            .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
     setUpSkyframe(
-        parser.getOptions(PackageOptions.class), parser.getOptions(StarlarkSemanticsOptions.class));
+        parser.getOptions(PackageOptions.class), parser.getOptions(BuildLanguageOptions.class));
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -123,7 +124,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(clock));
@@ -133,7 +134,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(clock);
+    return new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
   }
 
   private void invalidatePackages() throws InterruptedException {

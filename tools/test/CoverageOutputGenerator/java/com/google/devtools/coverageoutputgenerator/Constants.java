@@ -14,8 +14,6 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import com.google.common.collect.ImmutableList;
-
 /**
  * Stores markers used by the lcov tracefile and gcov intermediate format file. See <a
  * href="http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php">lcov documentation</a> and the flag
@@ -36,7 +34,7 @@ class Constants {
   static final String LH_MARKER = "LH:";
   static final String LF_MARKER = "LF:";
   static final String END_OF_RECORD_MARKER = "end_of_record";
-  static final String TAKEN = "-";
+  static final String NEVER_EVALUATED = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
   static final String GCOV_EXTENSION = ".gcov";
   static final String GCOV_JSON_EXTENSION = ".gcov.json.gz";
@@ -49,11 +47,6 @@ class Constants {
   static final String GCOV_LINE_MARKER = "lcount:";
   static final String GCOV_BRANCH_MARKER = "branch:";
   static final String GCOV_BRANCH_NOTEXEC = "notexec";
-  static final String GCOV_BRANCH_NOTTAKEN = "taken";
-  static final String GCOV_BRANCH_TAKEN = "nottaken";
-  // Please keep in sync with the extensions in CppFileTypes.
-  static final ImmutableList<String> CC_EXTENSIONS =
-      ImmutableList.of(
-          ".cc", ".cpp", ".cxx", ".c++", ".C", ".c", ".cu", ".cl", ".h", ".hh", ".hpp", ".ipp",
-          ".hxx", ".inc", ".inl", ".tlh", ".tli", ".H");
+  static final String GCOV_BRANCH_NOTTAKEN = "nottaken";
+  static final String GCOV_BRANCH_TAKEN = "taken";
 }

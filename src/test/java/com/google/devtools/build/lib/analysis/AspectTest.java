@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -451,7 +450,7 @@ public class AspectTest extends AnalysisTestCase {
           AspectParameters parameters,
           String toolsRepository)
           throws InterruptedException, ActionConflictException {
-        Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
+        Object lateBoundPrereq = ruleContext.getPrerequisite(":late");
         return new ConfiguredAspect.Builder(ruleContext)
             .addProvider(
                 AspectInfo.class,
@@ -623,7 +622,7 @@ public class AspectTest extends AnalysisTestCase {
         "extra_action(name='xa', cmd='echo dont-care')",
         "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
 
-    // Sanity check: //x:d injects an aspect which produces some extra-action.
+    // Check: //x:d injects an aspect which produces some extra-action.
     {
       AnalysisResult analysisResult = update("//x:d");
 

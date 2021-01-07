@@ -29,18 +29,18 @@ import com.google.devtools.build.lib.packages.Type.DictType;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Collection of data types that are specific to building things, i.e. not inherent to Starlark.
@@ -200,11 +200,15 @@ public final class BuildType {
   public static class LabelConversionContext {
     private final Label label;
     private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+    private final HashMap<String, Label> convertedLabelsInPackage;
 
     public LabelConversionContext(
-        Label label, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+        Label label,
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+        HashMap<String, Label> convertedLabelsInPackage) {
       this.label = label;
       this.repositoryMapping = repositoryMapping;
+      this.convertedLabelsInPackage = convertedLabelsInPackage;
     }
 
     public Label getLabel() {
@@ -213,6 +217,10 @@ public final class BuildType {
 
     public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return repositoryMapping;
+    }
+
+    HashMap<String, Label> getConvertedLabelsInPackage() {
+      return convertedLabelsInPackage;
     }
 
     @Override
@@ -276,9 +284,21 @@ public final class BuildType {
           return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
         } else if (context instanceof LabelConversionContext) {
           LabelConversionContext labelConversionContext = (LabelConversionContext) context;
-          return labelConversionContext
-              .getLabel()
-              .getRelativeWithRemapping(str, labelConversionContext.getRepositoryMapping());
+          HashMap<String, Label> convertedLabelsInPackage =
+              labelConversionContext.getConvertedLabelsInPackage();
+          // Optimization: First check the package-local map, avoiding Label validation, Label
+          // construction, and global Interner lookup. This approach tends to be very profitable
+          // overall, since it's common for the targets in a single package to have duplicate
+          // label-strings across all their attribute values.
+          Label label = convertedLabelsInPackage.get(str);
+          if (label == null) {
+            label =
+                labelConversionContext
+                    .getLabel()
+                    .getRelativeWithRemapping(str, labelConversionContext.getRepositoryMapping());
+            convertedLabelsInPackage.put(str, label);
+          }
+          return label;
         } else {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }
@@ -325,7 +345,7 @@ public final class BuildType {
         convertedFrom.computeIfAbsent(label, k -> new ArrayList<Object>());
         convertedFrom.get(label).add(original);
       }
-      BasePrinter errorMessage = Printer.getPrinter();
+      Printer errorMessage = new Printer();
       errorMessage.append("duplicate labels");
       if (what != null) {
         errorMessage.append(" in ").append(what.toString());
@@ -566,7 +586,7 @@ public final class BuildType {
 
     @Override
     public void repr(Printer printer) {
-      // Convert to a lib.syntax.SelectorList to guarantee consistency with callers that serialize
+      // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
       List<SelectorValue> selectorValueList = new ArrayList<>();
       for (Selector<T> element : elements) {
@@ -767,7 +787,7 @@ public final class BuildType {
         //       + "instead, use 0 or 1, or None for the default)");
         return ((Boolean) x) ? TriState.YES : TriState.NO;
       }
-      Integer xAsInteger = INTEGER.convert(x, what, context);
+      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
       if (xAsInteger == -1) {
         return TriState.AUTO;
       } else if (xAsInteger == 1) {

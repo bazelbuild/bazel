@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getClasspath;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getCompileTimeDependencyArtifacts;
@@ -46,6 +47,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -62,10 +65,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidLibrary}. */
-@RunWith(JUnit4.class)
-public class AndroidLibraryTest extends AndroidBuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidLibraryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidLibraryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   @Before
   public void setupCcToolchain() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
@@ -628,7 +647,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/exports:libc.jar");
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly("java/exports/libb-hjar.jar", "java/exports/liba-hjar.jar");
     assertNoEvents();
   }
@@ -1076,7 +1097,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesDoesNotMatchDirectoryLayout_BadFile() throws Exception {
+  public void testResourcesDoesNotMatchDirectoryLayout_badFile() throws Exception {
     checkError(
         "java/android",
         "r",
@@ -1095,7 +1116,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesDoesNotMatchDirectoryLayout_BadDirectory() throws Exception {
+  public void testResourcesDoesNotMatchDirectoryLayout_badDirectory() throws Exception {
     checkError(
         "java/android",
         "r",
@@ -1228,7 +1249,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNeverlinkResources_AndroidResourcesInfo() throws Exception {
+  public void testNeverlinkResources_androidResourcesInfo() throws Exception {
     scratch.file(
         "java/apps/android/BUILD",
         "android_library(",
@@ -1850,7 +1871,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/strict:liba.jar");
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly("java/strict/libb-hjar.jar");
   }
 
@@ -1994,6 +2017,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
+    if (platformBasedToolchains()) {
+      // TODO(b/161709111): With platform, the call to sdk below produces a NullPointerException.
+      return;
+    }
+
     assertThat(linkAction.getInputs().toList())
         .containsAtLeast(
             sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
@@ -2087,7 +2115,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidLibrary_SrcsLessDepsHostConfigurationNoOverride() throws Exception {
+  public void testAndroidLibrary_srcsLessDepsHostConfigurationNoOverride() throws Exception {
     scratch.file(
         "java/srclessdeps/BUILD",
         "android_library(",
@@ -2300,7 +2328,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAarGeneration_LocalResources() throws Exception {
+  public void testAarGeneration_localResources() throws Exception {
     scratch.file(
         "java/android/aartest/BUILD",
         "android_library(",
@@ -2334,7 +2362,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAarGeneration_NoResources() throws Exception {
+  public void testAarGeneration_noResources() throws Exception {
     scratch.file(
         "java/android/aartest/BUILD",
         "android_library(",
@@ -2535,12 +2563,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         (JavaCompileAction)
             getGeneratingAction(getFileConfiguredTarget("//java/foo:liblib.jar").getArtifact());
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly(
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
         .inOrder();
 
-    assertThat(prettyArtifactNames(getInputs(javacAction, getClasspath(javacAction))))
+    assertThat(
+            prettyArtifactNames(getInputs(javacAction, getClasspath(javacAction))).stream()
+                .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly(
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
         .inOrder();

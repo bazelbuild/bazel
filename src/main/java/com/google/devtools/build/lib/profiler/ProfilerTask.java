@@ -58,6 +58,7 @@ public enum ProfilerTask {
   VFS_VMFS_READ("VMFS read", Threshold.TEN_MILLIS),
   WAIT("thread wait", Threshold.TEN_MILLIS),
   THREAD_NAME("thread name"), // Do not use directly!
+  THREAD_SORT_INDEX("thread sort index"),
   SKYFRAME_EVAL("skyframe evaluator"),
   SKYFUNCTION("skyfunction"),
   CRITICAL_PATH("critical path"),

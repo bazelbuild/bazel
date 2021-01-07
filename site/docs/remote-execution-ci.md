@@ -1,17 +1,15 @@
 ---
 layout: documentation
-title: Configuring Bazel CI for testing rules against remote execution
+title: Configuring Bazel CI to test rules for remote execution
 ---
 
-# Configuring Bazel CI to test Bazel rules for remote execution
+# Configuring Bazel CI to test rules for remote execution
 
-## Overview
-
-This document is for owners and maintainers of Bazel rule repositories. It
-describes how to configure the Bazel Continuous Integration (CI) system for your
-repository to test your rules for compatibility against a remote execution
-scenario. The instructions in this document apply to projects stored in GitHub
-repositories.
+This page is for owners and maintainers of Bazel rule repositories. It
+describes how to configure the Bazel Continuous Integration (CI) system for
+your repository to test your rules for compatibility against a remote execution
+scenario. The instructions on this page apply to projects stored in
+GitHub repositories.
 
 ## Prerequisites
 
@@ -67,11 +65,11 @@ If your build or tests fail, it's likely due to the following:
 
 *   **Required build or test tools are not installed in the default container.**
     Builds using the `rbe_ubuntu1604` config run by default inside an
-    [`rbe-ubuntu16-04`](https://pantheon.corp.google.com/marketplace/details/google/rbe-ubuntu16-04)
+    [`rbe-ubuntu16-04`](https://console.cloud.google.com/marketplace/details/google/rbe-ubuntu16-04)
     container, which includes tools common to many Bazel builds. However, if
     your rules require tools not present in the default container, you must
     create a custom container based on the
-    [`rbe-ubuntu16-04`](https://pantheon.corp.google.com/marketplace/details/google/rbe-ubuntu16-04)
+    [`rbe-ubuntu16-04`](https://console.cloud.google.com/marketplace/details/google/rbe-ubuntu16-04)
     container and include those tools as described later in this document.
 
 *   **Build or test targets are using rules that are incompatible with remote
@@ -104,7 +102,7 @@ gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<sh
 ```
 
 Replace `<sha256-checksum>` with the SHA256 checksum value for
-[the latest container](https://pantheon.corp.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
+[the latest container](https://console.cloud.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
 
 ### Building the `rbe-ubuntu16-04` container from source
 
@@ -137,7 +135,7 @@ To run the custom container, do one of the following:
     ```
 
     Replace `sha256-checksum` with the SHA256 checksum value for the
-    [latest container](https://pantheon.corp.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
+    [latest container](https://console.cloud.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
 
 *   If you built the container from source, run the following command:
 
@@ -170,7 +168,8 @@ Container Registry as follows:
 1. Build the container image:
 
     ```
-    docker build -t <custom-container-name> .docker tag <custom-container-name> gcr.io/<project-id>/<custom-container-name>
+    docker build -t <custom-container-name> .
+    docker tag <custom-container-name> gcr.io/<project-id>/<custom-container-name>
     ```
 
 2.  Push the container image to Container Registry:

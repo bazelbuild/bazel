@@ -77,7 +77,7 @@ std::string ResolveEnvvars(const std::string &path) {
   size_t start = 0;
   while ((start = result.find("${", start)) != std::string::npos) {
     // Just match to the next }
-    size_t end = result.find("}", start + 1);
+    size_t end = result.find('}', start + 1);
     if (end == std::string::npos) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "ResolveEnvvars(" << path << "): incomplete variable at position "

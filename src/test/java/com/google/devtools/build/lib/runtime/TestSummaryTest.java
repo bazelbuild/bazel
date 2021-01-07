@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -73,7 +74,7 @@ public class TestSummaryTest {
 
   @Before
   public final void createFileSystem() throws Exception  {
-    fs = new InMemoryFileSystem(BlazeClock.instance());
+    fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     stubTarget = stubTarget();
     basicBuilder = getTemplateBuilder();
   }
@@ -252,7 +253,7 @@ public class TestSummaryTest {
     when(testParams.getRuns()).thenReturn(2);
     when(testParams.getShards()).thenReturn(3);
 
-    TestProvider testProvider = new TestProvider(testParams, ImmutableList.of());
+    TestProvider testProvider = new TestProvider(testParams);
     when(stubTarget.getProvider(eq(TestProvider.class))).thenReturn(testProvider);
 
     PathConverter pathConverter = mock(PathConverter.class);

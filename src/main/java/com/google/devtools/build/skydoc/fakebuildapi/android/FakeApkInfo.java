@@ -17,9 +17,9 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link ApkInfoApi}.
@@ -33,6 +33,11 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
 
   @Override
   public FileApi getUnsignedApk() {
+    return null;
+  }
+
+  @Override
+  public FileApi getDeployJar() {
     return null;
   }
 

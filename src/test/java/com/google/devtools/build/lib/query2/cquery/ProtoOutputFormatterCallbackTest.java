@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
@@ -57,10 +56,14 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   @Before
   public final void setUpCqueryOptions() {
     this.options = new CqueryOptions();
+    // TODO(bazel-team): reduce the confusion about these two seemingly similar settings.
+    // options.aspectDeps impacts how proto and similar output formatters output aspect results.
+    // Setting.INCLUDE_ASPECTS impacts whether or not aspect dependencies are included when
+    // following target deps. See CommonQueryOptions for further flag details.
     options.aspectDeps = Mode.OFF;
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     options.protoIncludeConfigurations = true;
     options.protoIncludeRuleInputsAndOutputs = true;
-
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
@@ -140,7 +143,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     // Assert checksum from proto is proper checksum.
     AnalysisProtos.ConfiguredTarget myRuleProto =
         Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
-    ConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
 
     assertThat(myRuleProto.getConfiguration().getChecksum())
         .isEqualTo(myRule.getConfigurationChecksum());
@@ -212,7 +215,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<ConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
     ProtoOutputFormatterCallback callback =

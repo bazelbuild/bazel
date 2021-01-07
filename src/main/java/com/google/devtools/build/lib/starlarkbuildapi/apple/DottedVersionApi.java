@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Interface for a value representing a version with multiple components, separated by periods, such
@@ -26,7 +26,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "DottedVersion",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A value representing a version with multiple components, separated by periods, such as "
             + "1.2.3.4.")
@@ -39,12 +39,7 @@ public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
           "Compares based on most signifigant (first) not-matching version component. "
               + "So, for example, 1.2.3 < 1.2.4",
       parameters = {
-        @Param(
-            name = "other",
-            positional = true,
-            named = false,
-            type = DottedVersionApi.class,
-            doc = "The other dotted version.")
+        @Param(name = "other", positional = true, named = false, doc = "The other dotted version.")
       })
   int compareTo_starlark(SelfT other);
 }

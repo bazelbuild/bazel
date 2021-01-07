@@ -68,6 +68,19 @@ public interface AttributeMap {
   <T> T get(String attributeName, Type<T> type);
 
   /**
+   * Returns the value of the named rule attribute if it exists, otherwise the given default value.
+   * This may be null (for example, for an attribute with no default value that isn't explicitly set
+   * in the rule - see {@link Type#getDefaultValue}).
+   */
+  default <T> T getOrDefault(String attributeName, Type<T> type, T defaultValue) {
+    if (has(attributeName)) {
+      T value = get(attributeName, type);
+      return value;
+    }
+    return defaultValue;
+  }
+
+  /**
    * Returns true if the given attribute is configurable for this rule instance, false
    * if it isn't configurable or doesn't exist.
    */

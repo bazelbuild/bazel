@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -36,28 +34,29 @@ import javax.annotation.Nullable;
  * thereof).
  */
 @Immutable
+@RequiresOptions(options = {J2ObjcCommandLineOptions.class})
 public class J2ObjcConfiguration extends Fragment implements J2ObjcConfigurationApi {
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
    * transpiler, and cannot be overridden by user-specified flags in {@link
-   * J2ObjcCommandLineOptions}. See http://j2objc.org/docs/j2objc.html for flag documentation.
+   * J2ObjcCommandLineOptions}. See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
-  private static final ImmutableList<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS = ImmutableList.of(
-      "-encoding",
-      "UTF-8",
-      "--doc-comments",
-      "-XcombineJars");
+  private static final ImmutableList<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS =
+      ImmutableList.of("-encoding", "UTF-8", "--doc-comments", "-XcombineJars");
 
   /**
    * Default flags for J2ObjC translation. These flags are used by default when invoking the J2ObjC
    * transpiler, but can be overridden by user-specified flags in {@link J2ObjcCommandLineOptions}.
-   * See http://j2objc.org/docs/j2objc.html for flag documentation.
+   * See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_DEFAULT_TRANSLATION_FLAGS =
       ImmutableList.of("-g");
 
+  /** The j2objc flag to generate ARC-compatible code. */
+  private static final String J2OBJC_USE_ARC_FLAG = "-use-arc";
+
   /**
-   * Disallowed flags for J2ObjC translation. See http://j2objc.org/docs/j2objc.html for flag
+   * Disallowed flags for J2ObjC translation. See https://j2objc.org/reference/j2objc.html for flag
    * documentation.
    */
   static final ImmutableList<String> J2OBJC_BLACKLISTED_TRANSLATION_FLAGS =
@@ -66,33 +65,14 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   static final String INVALID_TRANSLATION_FLAGS_MSG_TEMPLATE =
       "J2Objc translation flags: %s not supported. Unsupported flags are: %s";
 
-  /**
-   * Configuration loader for {@link J2ObjcConfiguration}.
-   */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new J2ObjcConfiguration(buildOptions.get(J2ObjcCommandLineOptions.class));
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return J2ObjcConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(J2ObjcCommandLineOptions.class);
-    }
-  }
-
   private final ImmutableList<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean experimentalJ2ObjcHeaderMap;
   private final boolean experimentalShorterHeaderPath;
   @Nullable private final Label deadCodeReport;
 
-  private J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
+  public J2ObjcConfiguration(BuildOptions buildOptions) {
+    J2ObjcCommandLineOptions j2ObjcOptions = buildOptions.get(J2ObjcCommandLineOptions.class);
     this.translationFlags =
         ImmutableList.<String>builder()
             .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)
@@ -157,6 +137,11 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    */
   public boolean experimentalShorterHeaderPath() {
     return experimentalShorterHeaderPath;
+  }
+
+  /** Returns whether objc_library should build generated files using ARC (-fobjc-arc). */
+  public boolean compileWithARC() {
+    return translationFlags.contains(J2OBJC_USE_ARC_FLAG);
   }
 
   @Override

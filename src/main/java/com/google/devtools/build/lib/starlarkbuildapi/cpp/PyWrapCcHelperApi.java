@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * Helper class for the C++ aspects of {py,java,go}_wrap_cc. Provides methods to create the swig and
@@ -37,14 +37,14 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "py_wrap_cc_helper_do_not_use",
     documented = false,
     doc = "",
-    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE)
+    category = DocCategory.TOP_LEVEL_TYPE)
 public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
@@ -63,7 +63,7 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true),
       })
   // TODO(plf): PyExtension is not in Starlark.
   public Sequence<String> getPyExtensionLinkopts(StarlarkRuleContextT starlarkRuleContext)
@@ -74,8 +74,8 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "py_file", positional = false, named = true, type = FileApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "py_file", positional = false, named = true),
       })
   // TODO(plf): Not written in Starlark because of PyCommon.
   public Depset getTransitivePythonSources(StarlarkRuleContextT starlarkRuleContext, FileT pyFile)
@@ -86,8 +86,8 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "files_to_build", positional = false, named = true, type = Depset.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "files_to_build", positional = false, named = true),
       })
   // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
   public RunfilesApi getPythonRunfiles(
@@ -99,8 +99,8 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_info", positional = false, named = true),
       })
   // TODO(plf): PyWrapCcInfo is not written in Starlark because several native rules use it.
   public PyWrapCcInfoApi<FileT> getPyWrapCcInfo(

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -43,23 +43,45 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
-/**
- * Module implementing the rule set of Bazel.
- */
+/** Module implementing the rule set of Bazel. */
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
     @Option(
-        name = "incompatible_disallow_legacy_java_provider",
-        defaultValue = "true",
+        name = "incompatible_load_python_rules_from_bzl",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        help = "Deprecated no-op.")
+    public boolean loadPythonRulesFromBzl;
+
+    @Option(
+        name = "incompatible_load_proto_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
         help = "Deprecated no-op.")
-    public boolean incompatibleDisallowLegacyJavaProvider;
+    public boolean loadProtoRulesFromBzl;
+
+    @Option(
+        name = "incompatible_load_java_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean loadJavaRulesFromBzl;
 
     @Option(
         name = "incompatible_disable_legacy_proto_provider",
@@ -357,7 +379,7 @@ public class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public String glibc;
-    
+
     @Deprecated
     @Option(
         name = "experimental_shortened_obj_file_path",
@@ -438,16 +460,29 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op.")
     public boolean postProfileStartedEvent;
+
+    @Option(
+        name = "incompatible_enable_profile_by_default",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op.")
+    public boolean enableProfileByDefault;
   }
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-    builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     BazelRuleClassProvider.setup(builder);
 
     try {
       // Load auto-configuration files, it is made outside of the rule class provider so that it
       // will not be loaded for our Java tests.
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
@@ -478,7 +513,8 @@ public class BazelRulesModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(GraveyardOptions.class) : ImmutableList.of();
+        ? ImmutableList.of(GraveyardOptions.class)
+        : ImmutableList.of();
   }
 
   private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
@@ -508,7 +544,6 @@ public class BazelRulesModule extends BlazeModule {
       String message, Code remoteExecutionCode) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            ExitCode.COMMAND_LINE_ERROR,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setRemoteExecution(RemoteExecution.newBuilder().setCode(remoteExecutionCode))

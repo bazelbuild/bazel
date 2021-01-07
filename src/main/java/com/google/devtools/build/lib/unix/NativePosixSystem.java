@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.unix;
 
-import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
+import com.google.devtools.build.lib.jni.JniLoader;
 import java.io.IOException;
 
 /**
@@ -24,13 +24,11 @@ import java.io.IOException;
  */
 public class NativePosixSystem {
 
-  private NativePosixSystem() {}
-
   static {
-    if (!"0".equals(System.getProperty("io.bazel.EnableJni"))) {
-      UnixJniLoader.loadJni();
-    }
+    JniLoader.loadJni();
   }
+
+  private NativePosixSystem() {}
 
   /**
    * Native wrapper around POSIX sysctlbyname(3) syscall.

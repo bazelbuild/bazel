@@ -14,22 +14,23 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.NoneType;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Wrapper for every C++ compilation and linking provider. */
 @StarlarkBuiltin(
     name = "CcInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "A provider for compilation and linking of C++. This "
             + "is also a marking provider telling C++ rules that they can depend on the rule "
@@ -50,6 +51,14 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   CcLinkingContextApi<?> getCcLinkingContext();
 
+  @StarlarkMethod(
+      name = "debug_context",
+      documented = false,
+      doc = "Returns the <code>DebugContext</code>",
+      useStarlarkThread = true)
+  CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread)
+      throws EvalException;
+
   /** The provider implementing this can construct CcInfo objects. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -68,7 +77,6 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               doc = "The <code>CompilationContext</code>.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcCompilationContextApi.class),
@@ -79,16 +87,25 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               doc = "The <code>LinkingContext</code>.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcLinkingContextApi.class),
                 @ParamType(type = NoneType.class)
+              }),
+          @Param(
+              name = "debug_context",
+              doc = "The <code>DebugContext</code>.",
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {
+                @ParamType(type = CcDebugInfoContextApi.class),
+                @ParamType(type = NoneType.class)
               })
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
-    CcInfoApi<FileT> createInfo(Object ccCompilationContext, Object ccLinkingInfo)
-        throws EvalException;
+    @StarlarkConstructor
+    CcInfoApi<FileT> createInfo(
+        Object ccCompilationContext, Object ccLinkingInfo, Object ccDebugInfo) throws EvalException;
   }
 }

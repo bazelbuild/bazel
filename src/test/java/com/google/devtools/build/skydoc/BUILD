@@ -21,13 +21,14 @@ java_test(
     srcs = ["SkydocTest.java"],
     visibility = ["//devtools/blaze/main:__pkg__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skydoc:skydoc_lib",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
         "//third_party:junit4",
@@ -161,7 +162,7 @@ skydoc_test(
     input_file = "testdata/filter_rules_test/input.bzl",
     symbol_names = [
         "my_rule",
-        "whitelisted_dep_rule",
+        "allowlisted_dep_rule",
     ],
     deps = [
         "testdata/filter_rules_test/dep.bzl",
@@ -193,7 +194,7 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "namespace_test_with_whitelist",
+    name = "namespace_test_with_allowlist",
     golden_file = "testdata/namespace_test/golden.txt",
     input_file = "testdata/namespace_test/input.bzl",
     symbol_names = [
@@ -208,9 +209,9 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "multi_level_namespace_test_with_whitelist",
-    golden_file = "testdata/multi_level_namespace_test_with_whitelist/golden.txt",
-    input_file = "testdata/multi_level_namespace_test_with_whitelist/input.bzl",
+    name = "multi_level_namespace_test_with_allowlist",
+    golden_file = "testdata/multi_level_namespace_test_with_allowlist/golden.txt",
+    input_file = "testdata/multi_level_namespace_test_with_allowlist/input.bzl",
     symbol_names = [
         "my_namespace",
         "other_namespace.foo.nothing",

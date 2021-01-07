@@ -14,19 +14,16 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /**
  * The set of Apple versions computed from command line options and the {@code xcode_config} rule.
@@ -50,7 +47,7 @@ public class XcodeConfigInfo extends NativeInfo
   private final DottedVersion macosMinimumOsVersion;
   @Nullable private final DottedVersion xcodeVersion;
   @Nullable private final Availability availability;
-  @Nullable private final Map<String, String> executionRequirements;
+  @Nullable private final Dict<String, String> executionRequirements; // immutable
 
   public XcodeConfigInfo(
       DottedVersion iosSdkVersion,
@@ -63,7 +60,6 @@ public class XcodeConfigInfo extends NativeInfo
       DottedVersion macosMinimumOsVersion,
       DottedVersion xcodeVersion,
       Availability availability) {
-    super(PROVIDER);
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
     this.watchosSdkVersion = Preconditions.checkNotNull(watchosSdkVersion);
@@ -75,7 +71,7 @@ public class XcodeConfigInfo extends NativeInfo
     this.xcodeVersion = xcodeVersion;
     this.availability = availability;
 
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    Dict.Builder<String, String> builder = Dict.builder();
     builder.put(ExecutionRequirements.REQUIRES_DARWIN, "");
     switch (availability) {
       case LOCAL:
@@ -88,7 +84,12 @@ public class XcodeConfigInfo extends NativeInfo
         break;
     }
     builder.put(ExecutionRequirements.REQUIREMENTS_SET, "");
-    this.executionRequirements = builder.build();
+    this.executionRequirements = builder.buildImmutable();
+  }
+
+  @Override
+  public BuiltinProvider<XcodeConfigInfo> getProvider() {
+    return PROVIDER;
   }
 
   /** Indicates the platform(s) on which an Xcode version is available. */
@@ -144,7 +145,7 @@ public class XcodeConfigInfo extends NativeInfo
             DottedVersion.fromString(xcodeVersion),
             Availability.UNKNOWN);
       } catch (DottedVersion.InvalidDottedVersionException e) {
-        throw new EvalException(null, e);
+        throw new EvalException(e);
       }
     }
   }
@@ -168,6 +169,14 @@ public class XcodeConfigInfo extends NativeInfo
     // apple_platform_type.
     switch (platformType) {
       case IOS:
+      case CATALYST:
+        /*
+         * Catalyst builds require usage of the iOS minimum version when building, but require
+         * the usage of the macOS SDK to actually do the build. This means that the particular
+         * version used for Catalyst differs based on what you are using the version number for -
+         * the SDK or the actual application. In this method we return the OS version used for the
+         * application, and so return the iOS version.
+         */
         return iosMinimumOsVersion;
       case TVOS:
         return tvosMinimumOsVersion;
@@ -196,6 +205,13 @@ public class XcodeConfigInfo extends NativeInfo
       case WATCHOS_SIMULATOR:
         return watchosSdkVersion;
       case MACOS:
+      case CATALYST:
+        /*
+         * Catalyst builds require usage of the iOS minimum version when building, but require
+         * the usage of the macOS SDK to actually do the build. This means that the particular
+         * version used for Catalyst differs based on what you are using the version for. As this
+         * is the SDK version specifically, we use the macOS version here.
+         */
         return macosSdkVersion;
     }
     throw new IllegalArgumentException("Unhandled platform: " + platform);
@@ -213,17 +229,17 @@ public class XcodeConfigInfo extends NativeInfo
   }
 
   /** Returns the execution requirements for actions that use this Xcode version. */
-  public Map<String, String> getExecutionRequirements() {
+  public Dict<String, String> getExecutionRequirements() {
     return executionRequirements;
   }
 
   @Override
   public Dict<String, String> getExecutionRequirementsDict() {
-    return Dict.copyOf(null, executionRequirements);
+    return executionRequirements;
   }
 
   public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, TransitionMode.TARGET, XcodeConfigInfo.PROVIDER);
+        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, XcodeConfigInfo.PROVIDER);
   }
 }

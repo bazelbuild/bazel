@@ -17,7 +17,7 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /** Fakes for callables under the {@link StarlarkConfigApi} module. */
 public class ConfigApiFakes {

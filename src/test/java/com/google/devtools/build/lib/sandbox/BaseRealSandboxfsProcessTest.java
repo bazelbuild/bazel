@@ -34,7 +34,7 @@ import org.junit.Before;
  * Common code to unit test {@link RealSandboxfsProcess}.
  *
  * <p>These tests validate the communication protocol between Bazel and a sandboxfs but do so using
- * golden data. They are meant to sanity-check changes to the Bazel codebase against all supported
+ * golden data. They are meant to smoke-test changes to the Bazel codebase against all supported
  * sandboxfs versions but cannot guarantee that the integration with a real sandboxfs binary work.
  */
 public abstract class BaseRealSandboxfsProcessTest {
@@ -65,7 +65,7 @@ public abstract class BaseRealSandboxfsProcessTest {
 
   @Before
   public void setUp() throws Exception {
-    fileSystem = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    fileSystem = new JavaIoFileSystem(DigestHashFunction.SHA256);
     tmpDir = fileSystem.getPath(System.getenv("TEST_TMPDIR")).getRelative("test");
     tmpDir.createDirectory();
   }

@@ -54,7 +54,9 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
@@ -63,7 +65,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.StringActionInput;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -210,10 +211,13 @@ public class GrpcCacheClientTest {
     Scratch scratch = new Scratch();
     scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
 
-    CallCredentials creds;
+    CallCredentialsProvider callCredentialsProvider;
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
-      creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
+      callCredentialsProvider =
+          GoogleAuthUtils.newCallCredentialsProvider(
+              GoogleAuthUtils.newCredentials(in, authTlsOptions.googleAuthScopes));
     }
+    CallCredentials creds = callCredentialsProvider.getCallCredentials();
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
@@ -229,11 +233,11 @@ public class GrpcCacheClientTest {
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
             channel.retain(),
-            creds,
+            callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     return new GrpcCacheClient(
-        channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL, uploader);
   }
 
   private static byte[] downloadBlob(GrpcCacheClient cacheClient, Digest digest)
@@ -250,7 +254,8 @@ public class GrpcCacheClientTest {
     RemoteExecutionCache client =
         new RemoteExecutionCache(newClient(options), options, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
-    VirtualActionInput virtualActionInput = new StringActionInput("hello", execPath);
+    VirtualActionInput virtualActionInput =
+        ActionsTestUtil.createVirtualActionInput(execPath, "hello");
     MerkleTree merkleTree =
         MerkleTree.build(
             ImmutableSortedMap.of(execPath, virtualActionInput),
@@ -1078,13 +1083,13 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(client, digest), UTF_8)).isEqualTo("abcdefg");
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
   }
 
   @Test
   public void downloadBlobPassesThroughDeadlineExceededWithoutProgress() throws IOException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
-    Mockito.when(mockBackoff.nextDelayMillis()).thenReturn(-1L);
+    Mockito.when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
     final GrpcCacheClient client =
         newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
@@ -1104,7 +1109,7 @@ public class GrpcCacheClientTest {
     IOException e = assertThrows(IOException.class, () -> downloadBlob(client, digest));
     Status st = Status.fromThrowable(e);
     assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
-    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
   }
 
   @Test

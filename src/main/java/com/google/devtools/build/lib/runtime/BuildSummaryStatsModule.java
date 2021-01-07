@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -110,6 +112,12 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
+  public void actionCompletion(ActionCompletionEvent event) {
+    spawnStats.incrementActionCount();
+  }
+
+  @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     try {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
@@ -162,9 +170,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
         }
       }
 
-      String spawnSummary = spawnStats.getSummary();
+      ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
+      String spawnSummaryString = SpawnStats.convertSummaryToString(spawnSummary);
       if (statsSummary) {
-        reporter.handle(Event.info(spawnSummary));
+        reporter.handle(Event.info(spawnSummaryString));
         reporter.handle(
             Event.info(
                 String.format(
@@ -184,11 +193,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
                     executionTime / 1000.0)));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
-        reporter.handle(Event.info(spawnSummary));
+        reporter.handle(Event.info(spawnSummaryString));
       }
 
-      event.getResult().getBuildToolLogCollection()
-          .addDirectValue("process stats", spawnSummary.getBytes(StandardCharsets.UTF_8));
+      event
+          .getResult()
+          .getBuildToolLogCollection()
+          .addDirectValue("process stats", spawnSummaryString.getBytes(StandardCharsets.UTF_8));
     } finally {
       if (criticalPathComputer != null) {
         eventBus.unregister(criticalPathComputer);

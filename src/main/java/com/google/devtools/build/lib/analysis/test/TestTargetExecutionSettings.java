@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -61,7 +60,8 @@ public final class TestTargetExecutionSettings {
       Artifact instrumentedFileManifest,
       Artifact persistentTestRunnerFlagFile,
       int shards,
-      int runs) {
+      int runs)
+      throws InterruptedException {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
@@ -114,8 +114,7 @@ public final class TestTargetExecutionSettings {
   }
 
   private static Artifact getRunUnderExecutable(RuleContext ruleContext) {
-    TransitiveInfoCollection runUnderTarget =
-        ruleContext.getPrerequisite(":run_under", TransitionMode.DONT_CHECK);
+    TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
     return runUnderTarget == null
         ? null
         : runUnderTarget.getProvider(FilesToRunProvider.class).getExecutable();

@@ -24,14 +24,14 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
 
 /** Helpers for serialization tests. */
 public class TestUtils {
@@ -103,9 +103,6 @@ public class TestUtils {
   public static void assertModulesEqual(Module module1, Module module2) {
     assertThat(module1.getClientData()).isEqualTo(module2.getClientData());
     assertThat(module1.getGlobals()).containsExactlyEntriesIn(module2.getGlobals()).inOrder();
-    assertThat(module1.getExportedGlobals())
-        .containsExactlyEntriesIn(module2.getExportedGlobals())
-        .inOrder();
     assertThat(module1.getPredeclaredBindings())
         .containsExactlyEntriesIn(module2.getPredeclaredBindings())
         .inOrder();

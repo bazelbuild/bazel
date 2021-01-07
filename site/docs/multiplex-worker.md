@@ -5,6 +5,9 @@ title: Multiplex workers
 
 # Multiplex workers (experimental feature)
 
+This page describes multiplex workers, how to write multiplex-compatible
+rules, and workarounds for certain limitations.
+
 **Caution:** Experimental features are subject to change at any time.
 
 _Multiplex workers_ allow Bazel to handle multiple requests with a single worker
@@ -14,13 +17,6 @@ worker process per worker, Bazel can have four multiplexed workers talking to
 the same worker process, which can then handle requests in parallel. For
 languages like Java and Scala, this saves JVM warm-up time and JIT compilation
 time.
-
-## Contents
-
-*  [Overview](#overview)
-*  [Writing multiplex-compatible rules](#writing-multiplex-compatible-rules)
-*  [Enabling multiplex workers](#enabling-multiplex-workers)
-   *  [WARNING](#warning)
 
 ## Overview
 

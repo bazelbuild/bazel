@@ -14,9 +14,9 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkMethod method which has more arguments than are declared by the
@@ -28,7 +28,7 @@ public class TooManyArguments implements StarlarkValue {
       name = "method_with_too_many_arguments",
       documented = false,
       parameters = {
-        @Param(name = "parameter_one", type = String.class, named = true),
+        @Param(name = "parameter_one", named = true),
       })
   public String methodWithTooManyArguments(String parameterOne, String parameterTwo) {
     return "dolphin";

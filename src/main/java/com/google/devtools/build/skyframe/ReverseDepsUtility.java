@@ -52,6 +52,10 @@ import java.util.Set;
  * done.
  */
 abstract class ReverseDepsUtility {
+
+  private static final boolean TOLERATE_REVERSE_DEP_INCONSISTENCIES =
+      System.getenv("BLAZE_TOLERATE_REVERSE_DEP_INCONSISTENCIES") != null;
+
   private ReverseDepsUtility() {}
 
   @VisibleForTesting static final int MAYBE_CHECK_THRESHOLD = 10;
@@ -81,34 +85,6 @@ abstract class ReverseDepsUtility {
 
   private static boolean isSingleReverseDep(InMemoryNodeEntry entry) {
     return !(entry.getReverseDepsRawForReverseDepsUtil() instanceof List);
-  }
-
-  /**
-   * We only check if reverse deps is small and there are no delayed data to consolidate, since then
-   * presence or absence would not be known.
-   */
-  static void maybeCheckReverseDepNotPresent(InMemoryNodeEntry entry, SkyKey reverseDep) {
-    if (entry.getReverseDepsDataToConsolidateForReverseDepsUtil() != null) {
-      return;
-    }
-    if (isSingleReverseDep(entry)) {
-      Preconditions.checkState(
-          !entry.getReverseDepsRawForReverseDepsUtil().equals(reverseDep),
-          "Reverse dep %s already present in %s",
-          reverseDep,
-          entry);
-      return;
-    }
-    @SuppressWarnings("unchecked")
-    List<SkyKey> asList = (List<SkyKey>) entry.getReverseDepsRawForReverseDepsUtil();
-    if (asList.size() < MAYBE_CHECK_THRESHOLD) {
-      Preconditions.checkState(
-          !asList.contains(reverseDep),
-          "Reverse dep %s already present in %s for %s",
-          reverseDep,
-          asList,
-          entry);
-    }
   }
 
   @SuppressWarnings("unchecked") // Cast to list.
@@ -178,7 +154,7 @@ abstract class ReverseDepsUtility {
       @SuppressWarnings("unchecked")
       List<SkyKey> reverseDeps = (List<SkyKey>) entry.getReverseDepsRawForReverseDepsUtil();
       ImmutableSet<SkyKey> set = ImmutableSet.copyOf(reverseDeps);
-      Preconditions.checkState(
+      maybeAssertReverseDepsConsistency(
           set.size() == reverseDeps.size(),
           "Duplicate reverse deps present in %s: %s",
           reverseDeps,
@@ -211,14 +187,14 @@ abstract class ReverseDepsUtility {
       SkyKey key = KeyToConsolidate.key(keyToConsolidate);
       switch (KeyToConsolidate.op(keyToConsolidate, opToStoreBare)) {
         case CHECK:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.contains(key),
               "Reverse dep not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
               dataToConsolidate,
               entry);
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               newData.add(key),
               "Duplicate new reverse dep: %s %s %s %s",
               keyToConsolidate,
@@ -227,14 +203,14 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case REMOVE:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.remove(key),
               "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
               dataToConsolidate,
               entry);
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               newData.remove(key),
               "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
@@ -243,14 +219,14 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case REMOVE_OLD:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.remove(key),
               "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
               dataToConsolidate,
               entry);
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               !newData.contains(key),
               "Reverse dep shouldn't have been added to new: %s %s %s %s",
               keyToConsolidate,
@@ -259,14 +235,14 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case ADD:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.add(key),
               "Duplicate reverse deps: %s %s %s %s",
               keyToConsolidate,
               reverseDeps,
               dataToConsolidate,
               entry);
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               newData.add(key),
               "Duplicate new reverse deps: %s %s %s %s",
               keyToConsolidate,
@@ -344,7 +320,7 @@ abstract class ReverseDepsUtility {
       SkyKey key = KeyToConsolidate.key(keyToConsolidate);
       switch (KeyToConsolidate.op(keyToConsolidate, DEFAULT_OP_TO_STORE_BARE)) {
         case CHECK:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.contains(key),
               "%s %s %s %s",
               keyToConsolidate,
@@ -353,7 +329,7 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case REMOVE:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.remove(key),
               "%s %s %s %s",
               keyToConsolidate,
@@ -362,7 +338,7 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case ADD:
-          Preconditions.checkState(
+          maybeAssertReverseDepsConsistency(
               reverseDepsAsSet.add(key),
               "%s %s %s %s",
               keyToConsolidate,
@@ -402,7 +378,8 @@ abstract class ReverseDepsUtility {
       InMemoryNodeEntry entry, List<SkyKey> reverseDepsAsList) {
     Set<SkyKey> reverseDepsAsSet = CompactHashSet.create(reverseDepsAsList);
 
-    if (reverseDepsAsSet.size() != reverseDepsAsList.size()) {
+    if (reverseDepsAsSet.size() != reverseDepsAsList.size()
+        && !TOLERATE_REVERSE_DEP_INCONSISTENCIES) {
       // We're about to crash. Try to print an informative error message.
       Set<SkyKey> seen = new HashSet<>();
       List<SkyKey> duplicates = new ArrayList<>();
@@ -427,5 +404,24 @@ abstract class ReverseDepsUtility {
         .add("singleReverseDep", isSingleReverseDep(entry))
         .add("dataToConsolidate", entry.getReverseDepsDataToConsolidateForReverseDepsUtil())
         .toString();
+  }
+
+  private static void maybeAssertReverseDepsConsistency(
+      boolean consistent, String errorMessageTemplate, Object arg1, Object arg2) {
+    if (!TOLERATE_REVERSE_DEP_INCONSISTENCIES) {
+      Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2);
+    }
+  }
+
+  private static void maybeAssertReverseDepsConsistency(
+      boolean consistent,
+      String errorMessageTemplate,
+      Object arg1,
+      Object arg2,
+      Object arg3,
+      Object arg4) {
+    if (!TOLERATE_REVERSE_DEP_INCONSISTENCIES) {
+      Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2, arg3, arg4);
+    }
   }
 }

@@ -13,22 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /** Provides information about proguard specs for Android binaries. */
 @StarlarkBuiltin(
     name = "ProguardSpecProvider",
     doc = "Proguard specifications used for Android binaries.",
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructApi {
 
   String NAME = "ProguardSpecProvider";
@@ -49,11 +50,10 @@ public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructAp
               doc = "Transitive proguard specs.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = ProguardSpecProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor
     ProguardSpecProviderApi<FileT> create(Depset specs) throws EvalException;
   }
 }

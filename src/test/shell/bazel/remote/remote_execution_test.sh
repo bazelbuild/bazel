@@ -192,7 +192,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "2 processes: 2 remote"
+  expect_log "6 processes: 4 internal, 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -398,7 +398,7 @@ EOF
       || fail "Expected success"
 
   mv gen1.log $TEST_log
-  expect_log "1 process: 1 local"
+  expect_log "2 processes: 1 internal, 1 local"
 }
 
 function test_local_fallback_with_sandbox_strategy_lists() {
@@ -421,7 +421,7 @@ EOF
       || fail "Expected success"
 
   mv gen1.log $TEST_log
-  expect_log "1 process: 1 .*-sandbox"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
 }
 
 function test_local_fallback_to_sandbox_by_default() {
@@ -443,7 +443,7 @@ EOF
       || fail "Expected success"
 
   mv gen1.log $TEST_log
-  expect_log "1 process: 1 .*-sandbox"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
 }
 
 function test_local_fallback_works_with_sandboxed_strategy() {
@@ -854,13 +854,13 @@ function test_treeartifact_in_runfiles() {
 load(":output_directory.bzl", "gen_output_dir", "gen_output_dir_test")
 
 gen_output_dir(
-    name = "skylark_output_dir",
+    name = "starlark_output_dir",
     outdir = "dir",
 )
 
 gen_output_dir_test(
-    name = "skylark_output_dir_test",
-    dir = ":skylark_output_dir",
+    name = "starlark_output_dir_test",
+    dir = ":starlark_output_dir",
 )
 EOF
      cat > a/output_directory.bzl <<'EOF'
@@ -908,14 +908,14 @@ EOF
      # a test into the sandboxing module.
      bazel test \
            --spawn_strategy=sandboxed \
-           //a:skylark_output_dir_test \
-           || fail "Failed to run //a:skylark_output_dir_test with sandboxing"
+           //a:starlark_output_dir_test \
+           || fail "Failed to run //a:starlark_output_dir_test with sandboxing"
 
      bazel test \
            --spawn_strategy=remote \
            --remote_executor=grpc://localhost:${worker_port} \
-           //a:skylark_output_dir_test \
-           || fail "Failed to run //a:skylark_output_dir_test with remote execution"
+           //a:starlark_output_dir_test \
+           || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
 function test_downloads_minimal() {
@@ -1034,7 +1034,7 @@ EOF
     --remote_download_minimal \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
-  expect_log "1 process: 1 remote"
+  expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
     --genrule_strategy=remote \
@@ -1044,7 +1044,7 @@ EOF
 
   # Changing --remote_download_outputs to "all" should invalidate SkyFrames in-memory
   # caching and make it re-run the action.
-  expect_log "1 process: 1 remote"
+  expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
 function test_downloads_minimal_native_prefetch() {
@@ -1099,7 +1099,7 @@ EOF
 
   # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
   # should be a native action running locally.
-  expect_log "1 process: 1 remote"
+  expect_log "3 processes: 2 internal, 1 remote"
 
   outtxt="bazel-bin/a/substitute-buchgr.txt"
   [[ $(< ${outtxt}) == "Hello buchgr!" ]] \
@@ -1151,7 +1151,7 @@ EOF
     --remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "1 process: 1 remote cache hit"
+  expect_log "2 processes: 1 remote cache hit, 1 internal"
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
@@ -1205,6 +1205,125 @@ EOF
 
   [[ -f bazel-bin/a/create_bar.sh ]] \
   || fail "Expected runfile bazel-bin/a/create_bar.sh to be downloaded"
+}
+
+# Test that --remote_download_toplevel fetches inputs to symlink actions. In
+# particular, cc_binary links against a symlinked imported .so file, and only
+# the symlink is in the runfiles.
+function test_downloads_toplevel_symlinks() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+
+  cat > a/bar.cc <<'EOF'
+int f() {
+  return 42;
+}
+EOF
+
+  cat > a/foo.cc <<'EOF'
+extern int f();
+int main() { return f() == 42 ? 0 : 1; }
+EOF
+
+  cat > a/BUILD <<'EOF'
+cc_binary(
+  name = "foo",
+  srcs = ["foo.cc"],
+  deps = [":libbar_lib"],
+)
+
+cc_import(
+  name = "libbar_lib",
+  shared_library = ":libbar.so",
+)
+
+cc_binary(
+  name = "libbar.so",
+  srcs = ["bar.cc"],
+  linkshared = 1,
+  linkstatic = 1,
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
+}
+
+function test_symlink_outputs_not_allowed_with_minimial() {
+  mkdir -p a
+  cat > a/input.txt <<'EOF'
+Input file
+EOF
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["input.txt"],
+  outs = ["output.txt", "output_symlink"],
+  cmd = "cp $< $(location :output.txt) && ln -s output.txt $(location output_symlink)",
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:foo >& $TEST_log && fail "Expected failure to build //a:foo"
+  expect_log "Symlinks in action outputs are not yet supported"
+}
+
+# Regression test that --remote_download_toplevel does not crash when the
+# top-level output is a tree artifact.
+function test_downloads_toplevel_tree_artifact() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+
+  # We need the top-level output to be a tree artifact generated by a template
+  # action. This is one way to do that: generate a tree artifact of C++ source
+  # files, and then compile them with a cc_library / cc_binary rule.
+  #
+  # The default top-level output of a cc_binary is the final binary, which is
+  # not what we want. Instead, we use --output_groups=compilation_outputs to
+  # fetch the .o files as the top-level outputs.
+
+  cat > a/gentree.bzl <<'EOF'
+def _gentree(ctx):
+    out = ctx.actions.declare_directory("dir.cc")
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p %s && echo 'int main(int c, char** v){return 1;}' > %s/foo.cc" %
+            (out.path, out.path),
+    )
+    return DefaultInfo(files = depset([out]))
+
+gentree = rule(implementation = _gentree)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":gentree.bzl", "gentree")
+gentree(name = "tree")
+cc_binary(name = "main", srcs = [":tree"])
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --output_groups=compilation_outputs \
+    //a:main || fail "Failed to build //a:main"
 }
 
 function test_downloads_toplevel_src_runfiles() {
@@ -1541,6 +1660,30 @@ EOF
   assert_contains "test_case succeeded" "$TESTXML"
 }
 
+# Regression test that Bazel does not crash if remote execution is disabled,
+# but --remote_download_toplevel is enabled.
+function test_download_toplevel_no_remote_execution() {
+  bazel build --remote_download_toplevel \
+      || fail "Failed to run bazel build --remote_download_toplevel"
+}
+
+function test_download_toplevel_can_delete_directory_outputs() {
+  cat > BUILD <<'EOF'
+genrule(
+    name = 'g',
+    outs = ['out'],
+    cmd = "touch $@",
+)
+EOF
+  bazel build
+  mkdir $(bazel info bazel-genfiles)/out
+  touch $(bazel info bazel-genfiles)/out/f
+  bazel build \
+        --remote_download_toplevel \
+        --remote_executor=grpc://localhost:${worker_port} \
+        //:g \
+        || fail "should have worked"
+}
 
 function test_tag_no_remote_cache() {
   mkdir -p a
@@ -1656,7 +1799,7 @@ EOF
     --remote_default_exec_properties="build=1234" \
     //test:test >& $TEST_log || fail "Failed to build //a:remote"
 
-  expect_log "1 process: 1 remote"
+  expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -1665,7 +1808,7 @@ EOF
 
   # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
   # caching and make it re-run the action.
-  expect_log "1 process: 1 remote"
+  expect_log "2 processes: 1 internal, 1 remote"
 
   bazel  build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -1674,7 +1817,7 @@ EOF
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
   #  and make the action should not be re-run.
-  expect_log "0 processes"
+  expect_log "1 process: 1 internal"
 
   bazel shutdown
 
@@ -1685,7 +1828,7 @@ EOF
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames od-disk cache
   #  and the action should not be re-run.
-  expect_log "0 processes"
+  expect_log "1 process: 1 internal"
 
   bazel build\
     --remote_executor=grpc://localhost:${worker_port} \
@@ -2016,7 +2159,218 @@ EOF
     @local_foo//:all
 }
 
+function test_exclusive_tag() {
+  # Test that the exclusive tag works with the remote cache.
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+  tags = ["exclusive"],
+)
+EOF
+
+  bazel test \
+    --incompatible_exclusive_test_sandboxed \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:success_test || fail "Failed to test //a:success_test"
+
+  bazel test \
+    --incompatible_exclusive_test_sandboxed \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --nocache_test_results \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  expect_log "remote cache hit"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
+
+function test_remote_download_toplevel_with_non_toplevel_unused_inputs_list() {
+  # Test that --remote_download_toplevel should download non-toplevel
+  # unused_inputs_list for starlark action. See #11732.
+
+  touch WORKSPACE
+
+  cat > test.bzl <<'EOF'
+def _test_rule_impl(ctx):
+    inputs = ctx.files.inputs
+    output = ctx.outputs.out
+    unused_inputs_list = ctx.actions.declare_file(ctx.label.name + ".unused")
+    arguments = []
+    arguments += [output.path]
+    arguments += [unused_inputs_list.path]
+    for input in inputs:
+        arguments += [input.path]
+    ctx.actions.run(
+        inputs = inputs,
+        outputs = [output, unused_inputs_list],
+        arguments = arguments,
+        executable = ctx.executable._executable,
+        unused_inputs_list = unused_inputs_list,
+    )
+
+test_rule = rule(
+    implementation = _test_rule_impl,
+    attrs = {
+        "inputs": attr.label_list(allow_files = True),
+        "out": attr.output(),
+        "_executable": attr.label(executable = True, cfg = "host", default = "//:exe"),
+    },
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load(":test.bzl", "test_rule")
+
+test_rule(
+    name = "test_non_toplevel",
+    inputs = ["1.txt", "2.txt"],
+    out = "3.txt",
+)
+
+sh_binary(
+    name = "exe",
+    srcs = ["a.sh"],
+)
+
+genrule(
+    name = "test",
+    srcs = [":test_non_toplevel"],
+    outs = ["4.txt"],
+    cmd = "cat $< > $@",
+)
+EOF
+
+  cat > a.sh <<'EOF'
+#!/bin/sh
+
+output="$1"
+shift
+unused="$1"
+shift
+inp0="$1"
+shift
+
+cat "$inp0" > "$output"
+echo "$1" > "$unused"
+EOF
+
+  chmod a+x a.sh
+
+  touch 1.txt 2.txt
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test || fail "Failed to build :test"
+
+  bazel clean || fail "Failed to clean"
+
+  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test >& $TEST_log
+
+  expect_log "INFO: Build completed successfully"
+}
+
+# This test uses the flag experimental_split_coverage_postprocessing. Without
+# the flag coverage won't work remotely. Without the flag, tests and coverage
+# post-processing happen in the same spawn, but only the runfiles tree of the
+# tests is made available to the spawn. The solution was not to merge the
+# runfiles tree which could cause its own problems but to split both into
+# different spawns. The reason why this only failed remotely and not locally was
+# because the coverage post-processing tool escaped the sandbox to find its own
+# runfiles. The error we would see here without the flag would be "Cannot find
+# runfiles". See #4685.
+function test_rbe_coverage_produces_report() {
+  mkdir -p java/factorial
+
+  if is_darwin; then
+      add_to_bazelrc "build --java_runtime_version=14"
+      add_to_bazelrc "build --tool_java_runtime_version=14"
+  fi
+  JAVA_TOOLS_ZIP="released"
+  COVERAGE_GENERATOR_DIR="released"
+
+  cd java/factorial
+
+  cat > BUILD <<'EOF'
+java_library(
+    name = "fact",
+    srcs = ["Factorial.java"],
+)
+
+java_test(
+    name = "fact-test",
+    size = "small",
+    srcs = ["FactorialTest.java"],
+    test_class = "factorial.FactorialTest",
+    deps = [
+        ":fact",
+    ],
+)
+
+EOF
+
+  cat > Factorial.java <<'EOF'
+package factorial;
+
+public class Factorial {
+  public static int factorial(int x) {
+    return x <= 0 ? 1 : x * factorial(x-1);
+  }
+}
+EOF
+
+  cat > FactorialTest.java <<'EOF'
+package factorial;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+
+public class FactorialTest {
+  @Test
+  public void testFactorialOfZeroIsOne() throws Exception {
+    assertEquals(Factorial.factorial(3),6);
+  }
+}
+EOF
+  cd ../..
+
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+
+  bazel coverage \
+    --test_output=all \
+    --experimental_fetch_all_coverage_outputs \
+    --experimental_split_coverage_postprocessing \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --instrumentation_filter=//java/factorial \
+    //java/factorial:fact-test >& $TEST_log || fail "Shouldn't fail"
+
+  local expected_result="SF:java/factorial/Factorial.java
+FN:3,factorial/Factorial::<init> ()V
+FN:5,factorial/Factorial::factorial (I)I
+FNDA:0,factorial/Factorial::<init> ()V
+FNDA:1,factorial/Factorial::factorial (I)I
+FNF:2
+FNH:1
+BRDA:5,0,0,1
+BRDA:5,0,1,1
+BRF:2
+BRH:2
+DA:3,0
+DA:5,1
+LH:1
+LF:2
+end_of_record"
+
+  assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
+}
 
 run_suite "Remote execution and remote cache tests"

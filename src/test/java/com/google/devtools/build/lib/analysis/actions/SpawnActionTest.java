@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -165,8 +167,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/java", "-Xverify:none", "-jvmarg", "-cp", "pkg/exe.jar", "MyMainClass")
+        .containsExactly("/bin/java", "-jvmarg", "-cp", "pkg/exe.jar", "MyMainClass")
         .inOrder();
   }
 
@@ -192,8 +193,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
     // The action reports all arguments, including those inside the param file
     assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/java", "-Xverify:none", "-jvmarg", "-cp", "pkg/exe.jar", "MyMainClass", "-X")
+        .containsExactly("/bin/java", "-jvmarg", "-cp", "pkg/exe.jar", "MyMainClass", "-X")
         .inOrder();
 
     Spawn spawn =
@@ -204,7 +204,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(spawn.getArguments())
         .containsExactly(
             "/bin/java",
-            "-Xverify:none",
+
             "-jvmarg",
             "-cp",
             "pkg/exe.jar",
@@ -217,7 +217,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         spawn.getInputFiles().toList().stream()
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
-    assertThat(input.isPresent()).isTrue();
+    assertThat(input).isPresent();
     VirtualActionInput paramFile = (VirtualActionInput) input.get();
     assertThat(paramFile.getBytes().toString(ISO_8859_1).trim()).isEqualTo("-X");
   }
@@ -240,7 +240,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(action.getArguments())
         .containsExactly(
             "/bin/java",
-            "-Xverify:none",
+
             "-jvmarg",
             "-cp",
             "pkg/exe.jar",
@@ -493,7 +493,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testWorkerSupport() throws Exception {
     SpawnAction workerSupportSpawn =
         createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
-    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isEqualTo(true);
+    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isTrue();
   }
 
   @Test
@@ -501,8 +501,35 @@ public class SpawnActionTest extends BuildViewTestCase {
     SpawnAction multiplexWorkerSupportSpawn =
         createWorkerSupportSpawn(
             ImmutableMap.<String, String>of("supports-multiplex-workers", "1"));
-    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn()))
-        .isEqualTo(true);
+    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn())).isTrue();
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_defaultIsProto() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_explicitProto() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "proto"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_explicitJson() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "json"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.JSON);
   }
 
   @Test
@@ -519,6 +546,27 @@ public class SpawnActionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of("worker-key-mnemonic", "ToolPoolMnemonic"));
     assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawn()))
         .isEqualTo("ToolPoolMnemonic");
+  }
+
+  @Test
+  public void testExecutableBuilder() throws Exception {
+    SpawnAction.Builder builder = builder().addOutput(destinationArtifact);
+    builder.executableArguments().add("binary").add("execArg1").add("execArg2");
+    Action[] actions = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+  }
+
+  @Test
+  public void testExecutableBuilderAfterSetExecutable() throws Exception {
+    SpawnAction.Builder builder = builder().addOutput(destinationArtifact);
+    builder.setExecutable(PathFragment.create("binary"));
+    builder.executableArguments().add("execArg1").add("execArg2");
+    Action[] actions = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {

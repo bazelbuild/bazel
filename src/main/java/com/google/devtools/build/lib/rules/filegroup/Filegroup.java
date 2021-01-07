@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -65,31 +64,27 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild =
         outputGroupName.isEmpty()
-            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", TransitionMode.TARGET)
-            : getArtifactsForOutputGroup(
-                outputGroupName, ruleContext.getPrerequisites("srcs", TransitionMode.TARGET));
+            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs")
+            : getArtifactsForOutputGroup(outputGroupName, ruleContext.getPrerequisites("srcs"));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collectTransitive(
             ruleContext,
             // Seems strange to have "srcs" in "dependency attributes" instead of "source
-            // attributes", but that's correct behavior here because:
-            // 1. This rule is essentially forwarding, it has no idea how the stuff in srcs is used.
-            //    Thus, it needs to look at any dependencies transitively via
-            //    InstrumentedFilesProvider.
-            // 2. This rule doesn't _process_ any source files. The rule which does process the
-            //    source files in filegroup.srcs will include those files in its inputs and in its
-            //    InstrumentedFileProvider the same way, via FileProvider. This ensures that when
-            //    --instrumentation_filter says a rule's sources should be instrumented for coverage
-            //    data collection, it also says all of those sources should be included in the
-            //    coverage manifest.
-            // Previously, this would have needed to include "srcs" in "source attributes" anyways,
-            // since it might have been _consumed_ by a rule using the legacy InstrumentationSpec.
-            // In that case, since filegroup provided InstrumentedFilesProvider, the legacy
-            // consumer would never try to gather filegroup's instrumented sources via FileProvider.
-            new InstrumentationSpec(FileTypeSet.ANY_FILE)
-                .withDeprecatedSourceOrDependencyAttributes("srcs", "deps", "data")
-                .withDependencyAttributes("srcs", "data"),
+            // attributes", but that's correct behavior here because this rule just forwards
+            // files, it doesn't process them. It doesn't know if the dependencies of the stuff
+            // in srcs is a runtime dependency of its consumers or not. Consumers decide which
+            // of the following is the case about a filegroup it depends on based on whether the
+            // attribute the dependency is via is in the consumer's source attributes or
+            // dependency attributes:
+            // * If the filegroup contains coverage-relevant source files, it should be depended
+            //   on via something in source attributes. The dependencies for actions which generate
+            //   source files are generally not runtime dependencies.
+            // * If the dependencies of the filegroup might be coverage-relevant source files (e.g.
+            //   a binary target is included in filegroup's srcs and the filegroup target is
+            //   included in some other target's data), it should be depended on via something in
+            //   dependency attributes.
+            new InstrumentationSpec(FileTypeSet.ANY_FILE).withDependencyAttributes("srcs", "data"),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
     RunfilesProvider runfilesProvider =

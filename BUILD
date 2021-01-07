@@ -49,6 +49,7 @@ filegroup(
     srcs = [
         ":WORKSPACE",
         ":distdir.bzl",
+        ":distdir_deps.bzl",
     ],
     visibility = [
         "//src/test/shell/bazel:__subpackages__",
@@ -79,6 +80,7 @@ pkg_tar(
     srcs = [
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_javalite",
     ],
     remap_paths = {
         "..": "derived/jars",
@@ -107,9 +109,22 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
+# Additional generated files that are not Java sources (which could otherwise
+# be included in //src:derived_java_sources).
+filegroup(
+    name = "generated_resources",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
+    ],
+)
+
 pkg_tar(
     name = "bazel-srcs",
-    srcs = [":srcs"],
+    srcs = [
+        ":generated_resources",
+        ":srcs",
+    ],
     remap_paths = {
         "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.

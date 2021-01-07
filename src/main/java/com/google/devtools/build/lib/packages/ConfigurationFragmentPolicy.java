@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
@@ -22,9 +23,11 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Policy used to express the set of configuration fragments which are legal for a rule or aspect to
@@ -70,6 +73,7 @@ public final class ConfigurationFragmentPolicy {
      */
     private final SetMultimap<ConfigurationTransition, Class<?>> requiredConfigurationFragments
         = LinkedHashMultimap.create();
+
     /**
      * Sets of configuration fragments required by this rule, as defined by their Starlark names
      * (see {@link StarlarkBuiltin}, a set for each configuration.
@@ -79,7 +83,8 @@ public final class ConfigurationFragmentPolicy {
     private final SetMultimap<ConfigurationTransition, String>
         starlarkRequiredConfigurationFragments = LinkedHashMultimap.create();
 
-    private MissingFragmentPolicy missingFragmentPolicy = MissingFragmentPolicy.FAIL_ANALYSIS;
+    private final Map<Class<?>, MissingFragmentPolicy> missingFragmentPolicy =
+        new LinkedHashMap<>();
 
     /**
      * Declares that the implementation of the associated rule class requires the given
@@ -148,20 +153,22 @@ public final class ConfigurationFragmentPolicy {
     /**
      * Adds the configuration fragments from the {@code other} policy to this Builder.
      *
-     * <p>Does not change the missing fragment policy.
+     * <p>Missing fragment policy is also copied over, overriding previously set values.
      */
     public Builder includeConfigurationFragmentsFrom(ConfigurationFragmentPolicy other) {
       requiredConfigurationFragments.putAll(other.requiredConfigurationFragments);
       starlarkRequiredConfigurationFragments.putAll(other.starlarkRequiredConfigurationFragments);
+      missingFragmentPolicy.putAll(other.missingFragmentPolicy);
       return this;
     }
 
     /**
-     * Sets the policy for the case where the configuration is missing required fragments (see
-     * {@link #requiresConfigurationFragments}).
+     * Sets the policy for the case where the configuration is missing specified required fragment
+     * class (see {@link #requiresConfigurationFragments}).
      */
-    public Builder setMissingFragmentPolicy(MissingFragmentPolicy missingFragmentPolicy) {
-      this.missingFragmentPolicy = missingFragmentPolicy;
+    public Builder setMissingFragmentPolicy(
+        Class<?> fragmentClass, MissingFragmentPolicy missingFragmentPolicy) {
+      this.missingFragmentPolicy.put(fragmentClass, missingFragmentPolicy);
       return this;
     }
 
@@ -169,7 +176,7 @@ public final class ConfigurationFragmentPolicy {
       return new ConfigurationFragmentPolicy(
           ImmutableSetMultimap.copyOf(requiredConfigurationFragments),
           ImmutableSetMultimap.copyOf(starlarkRequiredConfigurationFragments),
-          missingFragmentPolicy);
+          ImmutableMap.copyOf(missingFragmentPolicy));
     }
   }
 
@@ -187,16 +194,14 @@ public final class ConfigurationFragmentPolicy {
   private final ImmutableSetMultimap<ConfigurationTransition, String>
       starlarkRequiredConfigurationFragments;
 
-  /**
-   * What to do during analysis if a configuration fragment is missing.
-   */
-  private final MissingFragmentPolicy missingFragmentPolicy;
+  /** What to do during analysis if a configuration fragment is missing. */
+  private final ImmutableMap<Class<?>, MissingFragmentPolicy> missingFragmentPolicy;
 
   @AutoCodec.VisibleForSerialization
   ConfigurationFragmentPolicy(
       ImmutableSetMultimap<ConfigurationTransition, Class<?>> requiredConfigurationFragments,
       ImmutableSetMultimap<ConfigurationTransition, String> starlarkRequiredConfigurationFragments,
-      MissingFragmentPolicy missingFragmentPolicy) {
+      ImmutableMap<Class<?>, MissingFragmentPolicy> missingFragmentPolicy) {
     this.requiredConfigurationFragments = requiredConfigurationFragments;
     this.starlarkRequiredConfigurationFragments = starlarkRequiredConfigurationFragments;
     this.missingFragmentPolicy = missingFragmentPolicy;
@@ -249,8 +254,7 @@ public final class ConfigurationFragmentPolicy {
    */
   private boolean hasLegalFragmentName(
       Class<?> configurationFragment, ConfigurationTransition transition) {
-    StarlarkBuiltin fragmentModule =
-        StarlarkInterfaceUtils.getStarlarkBuiltin(configurationFragment);
+    StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(configurationFragment);
 
     return fragmentModule != null
         && starlarkRequiredConfigurationFragments.containsEntry(transition, fragmentModule.name());
@@ -261,17 +265,18 @@ public final class ConfigurationFragmentPolicy {
    * configuration.
    */
   private boolean hasLegalFragmentName(Class<?> configurationFragment) {
-    StarlarkBuiltin fragmentModule =
-        StarlarkInterfaceUtils.getStarlarkBuiltin(configurationFragment);
+    StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(configurationFragment);
 
     return fragmentModule != null
         && starlarkRequiredConfigurationFragments.containsValue(fragmentModule.name());
   }
 
   /**
-   * Whether to fail analysis if any of the required configuration fragments are missing.
+   * Whether to fail analysis if any of the specified configuration fragment class is missing.
+   *
+   * <p>If unset for the specific fragment class, defaults to FAIL_ANALYSIS
    */
-  public MissingFragmentPolicy getMissingFragmentPolicy() {
-    return missingFragmentPolicy;
+  public MissingFragmentPolicy getMissingFragmentPolicy(Class<?> fragmentClass) {
+    return missingFragmentPolicy.getOrDefault(fragmentClass, MissingFragmentPolicy.FAIL_ANALYSIS);
   }
 }

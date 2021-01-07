@@ -45,7 +45,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testOneTracefile() {
+  public void testOneTracefile() throws Exception {
     SourceFileCoverage sourceFileCoverage = createSourceFile1(createLinesExecution1());
     coverage.add(sourceFileCoverage);
     assertThat(coverage.getAllSourceFiles()).hasSize(1);
@@ -53,7 +53,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testTwoOverlappingTracefiles() {
+  public void testTwoOverlappingTracefiles() throws Exception {
     int[] linesExecution1 = createLinesExecution1();
     int[] linesExecution2 = createLinesExecution2();
     SourceFileCoverage sourceFileCoverage1 = createSourceFile1(linesExecution1);
@@ -68,7 +68,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testTwoTracefiles() {
+  public void testTwoTracefiles() throws Exception {
     SourceFileCoverage sourceFileCoverage1 = createSourceFile1(createLinesExecution1());
     SourceFileCoverage sourceFileCoverage2 =
         createSourceFile1("SOME_OTHER_FILENAME", createLinesExecution1());
@@ -81,7 +81,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testFilterSources() {
+  public void testFilterSources() throws Exception {
     Coverage coverage = new Coverage();
 
     coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
@@ -98,7 +98,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testFilterSourcesEmptyResult() {
+  public void testFilterSourcesEmptyResult() throws Exception {
     Coverage coverage = new Coverage();
 
     coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
@@ -111,7 +111,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testFilterSourcesNoMatches() {
+  public void testFilterSourcesNoMatches() throws Exception {
     Coverage coverage = new Coverage();
 
     SourceFileCoverage validSource1 = new SourceFileCoverage("/valid/package/file3.c");
@@ -126,7 +126,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testFilterSourcesMultipleRegex() {
+  public void testFilterSourcesMultipleRegex() throws Exception {
     Coverage coverage = new Coverage();
 
     coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
@@ -145,7 +145,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testFilterSourcesNoFilter() {
+  public void testFilterSourcesNoFilter() throws Exception {
     Coverage coverage = new Coverage();
 
     SourceFileCoverage validSource1 = new SourceFileCoverage("/valid/package/file3.c");
@@ -178,7 +178,7 @@ public class CoverageTest {
   }
 
   @Test
-  public void testGetOnlyTheseSources() {
+  public void testGetOnlyTheseSources() throws Exception {
     Coverage coverage = new Coverage();
     coverage.add(new SourceFileCoverage("source/common/protobuf/utility.cc"));
     coverage.add(new SourceFileCoverage("source/common/grpc/common.cc"));
@@ -191,29 +191,29 @@ public class CoverageTest {
 
     assertThat(
             getSourceFileNames(
-                Coverage.getOnlyTheseCcSources(coverage, sourcesToKeep).getAllSourceFiles()))
+                Coverage.getOnlyTheseSources(coverage, sourcesToKeep).getAllSourceFiles()))
         .containsExactly("source/common/protobuf/utility.cc", "source/common/grpc/common.cc");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetOnlyTheseSourcesNullCoverage() {
-    Coverage.getOnlyTheseCcSources(null, new HashSet<>());
+    Coverage.getOnlyTheseSources(null, new HashSet<>());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetOnlyTheseSourcesNullSources() {
-    Coverage.getOnlyTheseCcSources(new Coverage(), null);
+    Coverage.getOnlyTheseSources(new Coverage(), null);
   }
 
   @Test
-  public void testGetOnlyTheseSourcesEmptySources() {
+  public void testGetOnlyTheseSourcesEmptySources() throws Exception {
     Coverage coverage = new Coverage();
     coverage.add(new SourceFileCoverage("source/common/protobuf/utility.cc"));
     coverage.add(new SourceFileCoverage("source/common/grpc/common.cc"));
     coverage.add(new SourceFileCoverage("source/server/options.cc"));
     coverage.add(new SourceFileCoverage("source/server/manager.cc"));
 
-    assertThat(Coverage.getOnlyTheseCcSources(coverage, new HashSet<>()).getAllSourceFiles())
+    assertThat(Coverage.getOnlyTheseSources(coverage, new HashSet<>()).getAllSourceFiles())
         .isEmpty();
   }
 }

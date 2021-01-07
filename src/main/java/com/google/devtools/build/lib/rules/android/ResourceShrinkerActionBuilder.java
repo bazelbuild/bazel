@@ -24,8 +24,7 @@ public class ResourceShrinkerActionBuilder {
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
   private Artifact proguardMapping;
-  private ValidatedAndroidResources primaryResources;
-  private ResourceDependencies dependencyResources;
+  private Artifact rTxt;
   private Artifact resourceApkOut;
   private Artifact shrunkResourcesOut;
   private Artifact resourceOptimizationConfigOut;
@@ -65,21 +64,9 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /**
-   * @param primary The fully processed {@link ValidatedAndroidResources} of the resources to be
-   *     shrunk. Must contain both an R.txt and merged manifest.
-   */
-  public ResourceShrinkerActionBuilder withPrimary(ValidatedAndroidResources primary) {
-    checkNotNull(primary);
-    checkNotNull(primary.getManifest());
-    checkNotNull(primary.getRTxt());
-    this.primaryResources = primary;
-    return this;
-  }
-
-  /** @param resourceDeps The full dependency tree of resources. */
-  public ResourceShrinkerActionBuilder withDependencies(ResourceDependencies resourceDeps) {
-    this.dependencyResources = resourceDeps;
+  /** @param rTxt The R.txt file produced during resource packaging. */
+  public ResourceShrinkerActionBuilder withRTxt(Artifact rTxt) {
+    this.rTxt = rTxt;
     return this;
   }
 
@@ -113,9 +100,7 @@ public class ResourceShrinkerActionBuilder {
     checkNotNull(resourceFilesZip);
     checkNotNull(shrunkJar);
     checkNotNull(proguardMapping);
-    checkNotNull(primaryResources);
-    checkNotNull(primaryResources.getRTxt());
-    checkNotNull(primaryResources.getManifest());
+    checkNotNull(rTxt);
     checkNotNull(resourceApkOut);
 
     BusyBoxActionBuilder builder = BusyBoxActionBuilder.create(dataContext, "SHRINK_AAPT2");
@@ -127,11 +112,12 @@ public class ResourceShrinkerActionBuilder {
         .addInput("--resources", resourceFilesZip)
         .addInput("--shrunkJar", shrunkJar)
         .addInput("--proguardMapping", proguardMapping)
-        .addInput("--rTxt", primaryResources.getRTxt())
+        .addInput("--rTxt", rTxt)
         .addOutput("--shrunkResourceApk", resourceApkOut)
         .addOutput("--shrunkResources", shrunkResourcesOut)
         .maybeAddOutput("--resourcesConfigOutput", resourceOptimizationConfigOut)
         .addOutput("--log", logOut)
+        .maybeAddFlag("--useDataBindingAndroidX", dataContext.useDataBindingAndroidX())
         .buildAndRegister("Shrinking resources", "ResourceShrinker");
 
     return resourceApkOut;

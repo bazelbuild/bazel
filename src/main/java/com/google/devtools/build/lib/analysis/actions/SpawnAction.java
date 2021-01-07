@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -72,10 +71,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -93,6 +88,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements CommandAction {
@@ -240,7 +238,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public List<String> getArguments() throws CommandLineExpansionException {
+  public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
     return ImmutableList.copyOf(commandLines.allArguments());
   }
 
@@ -259,11 +257,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public Sequence<String> getStarlarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
-    } catch (CommandLineExpansionException exception) {
-      throw new EvalException(Location.BUILTIN, exception);
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
     }
   }
 
@@ -275,13 +273,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   /** Returns command argument, argv[0]. */
   @VisibleForTesting
-  public String getCommandFilename() throws CommandLineExpansionException {
+  public String getCommandFilename() throws CommandLineExpansionException, InterruptedException {
     return Iterables.getFirst(getArguments(), null);
   }
 
   /** Returns the (immutable) list of arguments, excluding the command name, argv[0]. */
   @VisibleForTesting
-  public List<String> getRemainingArguments() throws CommandLineExpansionException {
+  public List<String> getRemainingArguments()
+      throws CommandLineExpansionException, InterruptedException {
     return ImmutableList.copyOf(Iterables.skip(getArguments(), 1));
   }
 
@@ -322,9 +321,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+      throw e.toActionExecutionException(this);
     } catch (CommandLineExpansionException e) {
-      throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
+      throw createCommandLineException(e);
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
@@ -333,52 +332,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
-  private ActionExecutionException createDetailedException(Exception e, Code detailedCode) {
+  private ActionExecutionException createCommandLineException(CommandLineExpansionException e) {
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setMessage(Strings.nullToEmpty(e.getMessage()))
-                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(detailedCode))
+                .setSpawn(
+                    FailureDetails.Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
                 .build());
     return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
-  }
-
-  private ActionExecutionException toActionExecutionException(
-      ExecException e, boolean verboseFailures) {
-    String failMessage;
-    if (isShellCommand()) {
-      // The possible reasons it could fail are: shell executable not found, shell
-      // exited non-zero, or shell died from signal.  The first is impossible
-      // and the second two aren't very interesting, so in the interests of
-      // keeping the noise-level down, we don't print a reason why, just the
-      // command that failed.
-      //
-      // 0=shell executable, 1=shell command switch, 2=command
-      try {
-        failMessage =
-            "error executing shell command: "
-                + "'"
-                + truncate(Joiner.on(" ").join(getArguments()), 200)
-                + "'";
-      } catch (CommandLineExpansionException commandLineExpansionException) {
-        failMessage =
-            "error executing shell command, and error expanding command line: "
-                + commandLineExpansionException;
-      }
-    } else {
-      failMessage = getRawProgressMessage();
-    }
-    return e.toActionExecutionException(failMessage, verboseFailures, this);
-  }
-
-  /**
-   * Returns s, truncated to no more than maxLen characters, appending an
-   * ellipsis if truncation occurred.
-   */
-  private static String truncate(String s, int maxLen) {
-    return s.length() > maxLen
-        ? s.substring(0, maxLen - "...".length()) + "..."
-        : s;
   }
 
   /**
@@ -390,11 +352,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * spawn should override the other getSpawn() methods instead.
    */
   @VisibleForTesting
-  public final Spawn getSpawn() throws CommandLineExpansionException {
+  public final Spawn getSpawn() throws CommandLineExpansionException, InterruptedException {
     return getSpawn(getInputs());
   }
 
-  final Spawn getSpawn(NestedSet<Artifact> inputs) throws CommandLineExpansionException {
+  final Spawn getSpawn(NestedSet<Artifact> inputs)
+      throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
         commandLines.allArguments(),
         ImmutableMap.of(),
@@ -408,7 +371,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * client environment.
    */
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
@@ -419,7 +382,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ArtifactExpander artifactExpander,
       Map<String, String> clientEnv,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
     return new ActionSpawn(
@@ -430,7 +393,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         filesetMappings);
   }
 
-  Spawn getSpawnForExtraAction() throws CommandLineExpansionException {
+  Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
     return getSpawn(getInputs());
   }
 
@@ -439,7 +402,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
     fp.addString(getMnemonic());
@@ -479,6 +442,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         message.append(argument);
         message.append('\n');
       }
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      message.append("Interrupted while expanding command line\n");
     } catch (CommandLineExpansionException e) {
       message.append("Could not expand command line: ");
       message.append(e);
@@ -502,7 +468,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     ExtraActionInfo.Builder builder = super.getExtraActionInfo(actionKeyContext);
     if (extraActionInfoSupplier == null) {
       SpawnInfo spawnInfo = getExtraActionSpawnInfo();
@@ -520,7 +486,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * <p>Subclasses of SpawnAction may override this in order to provide action-specific behaviour.
    * This can be necessary, for example, when the action discovers inputs.
    */
-  protected SpawnInfo getExtraActionSpawnInfo() throws CommandLineExpansionException {
+  protected SpawnInfo getExtraActionSpawnInfo()
+      throws CommandLineExpansionException, InterruptedException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
     Spawn spawn = getSpawnForExtraAction();
     info.addAllArgument(spawn.getArguments());
@@ -1049,7 +1016,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArgs =
           CustomCommandLine.builder()
               .addPath(javaExecutable)
-              .add("-Xverify:none")
               .addAll(ImmutableList.copyOf(jvmArgs))
               .addAll(ImmutableList.copyOf(launchArgs));
       toolsBuilder.add(deployJar);
@@ -1118,7 +1084,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     /** Returns a {@link CustomCommandLine.Builder} for executable arguments. */
     public CustomCommandLine.Builder executableArguments() {
-      Preconditions.checkState(executableArgs != null);
+      if (executableArgs == null) {
+        executableArgs = CustomCommandLine.builder();
+      }
       return this.executableArgs;
     }
 
@@ -1340,18 +1308,18 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException {
+    public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
       return expandArguments(null);
     }
 
     @Override
     public Iterable<String> arguments(ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       return expandArguments(artifactExpander);
     }
 
     private Iterable<String> expandArguments(@Nullable ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException {
+        throws CommandLineExpansionException, InterruptedException {
       ImmutableList.Builder<String> result = ImmutableList.builder();
       int count = values.length;
       for (int i = 0; i < count; ++i) {
@@ -1406,7 +1374,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw e.toActionExecutionException(SpawnAction.this);
       }
     }
   }

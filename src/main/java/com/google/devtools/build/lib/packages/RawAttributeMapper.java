@@ -32,17 +32,12 @@ import javax.annotation.Nullable;
  */
 public class RawAttributeMapper extends AbstractAttributeMapper {
 
-  RawAttributeMapper(
-      Package pkg, RuleClass ruleClass, Label ruleLabel, AttributeContainer attributes) {
-    super(pkg, ruleClass, ruleLabel, attributes);
+  RawAttributeMapper(Rule rule) {
+    super(rule);
   }
 
   public static RawAttributeMapper of(Rule rule) {
-    return new RawAttributeMapper(
-        rule.getPackage(),
-        rule.getRuleClassObject(),
-        rule.getLabel(),
-        rule.getAttributeContainer());
+    return new RawAttributeMapper(rule);
   }
 
   /**

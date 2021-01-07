@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -53,7 +52,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
       RuleContext ruleContext,
       AspectParameters parameters,
       String toolsRepository)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
       return new ConfiguredAspect.Builder(ruleContext).build();
@@ -69,7 +68,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
         continue;
       }
 
-      deps.addAll(ruleContext.getPrerequisites(attribute, TransitionMode.TARGET));
+      deps.addAll(ruleContext.getPrerequisites(attribute));
     }
 
     NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.naiveLinkOrder();

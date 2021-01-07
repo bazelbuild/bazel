@@ -501,7 +501,7 @@ function test_test_start_times() {
 }
 
 function test_test_attempts_multi_runs() {
-  # Sanity check on individual test attempts. Even in more complicated
+  # Check individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
   ( bazel test --build_event_text_file=$TEST_log \
@@ -513,7 +513,7 @@ function test_test_attempts_multi_runs() {
 }
 
 function test_test_attempts_multi_runs_flake_detection() {
-  # Sanity check on individual test attempts. Even in more complicated
+  # Check individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
   ( bazel test --build_event_text_file=$TEST_log \
@@ -1025,7 +1025,7 @@ function test_tool_command_line() {
   bazel build --experimental_tool_command_line="foo bar" --build_event_text_file=$TEST_log \
     || fail "build failed"
 
-  # Sanity check the arglist
+  # Check the arglist
   expect_log_once 'args: "build"'
   expect_log_once 'args: "--experimental_tool_command_line='
 
@@ -1101,6 +1101,92 @@ EOF
 
   expect_log 'option_name: "//:my_int_setting"'
   expect_log 'option_value: "666"'
+}
+
+function test_empty_tree_in_named_files() {
+  mkdir -p foo
+  cat > foo/rule.bzl <<'EOF'
+def _leaf_impl(ctx):
+  ctx.actions.write(output = ctx.outputs.out2, content = 'hello\n')
+  ctx.actions.write(output = ctx.outputs.out1, content = 'hello\n')
+  return [DefaultInfo(files = depset([ctx.outputs.out1, ctx.outputs.out2]))]
+
+def _top_impl(ctx):
+  dir = ctx.actions.declare_directory('dir')
+  ctx.actions.run_shell(outputs = [dir], command = 'true')
+  return [DefaultInfo(files = depset([dir],
+                      transitive = [dep[DefaultInfo].files
+                                        for dep in ctx.attr.deps]))]
+
+leaf = rule(
+    implementation = _leaf_impl,
+    attrs = {"out1": attr.output(), "out2": attr.output()},
+)
+
+top = rule(
+    implementation = _top_impl,
+    attrs = { "deps": attr.label_list()}
+)
+EOF
+  cat > foo/BUILD <<'EOF'
+load('//foo:rule.bzl', 'leaf', 'top')
+
+leaf(name = 'leaf', out1 = '1.out', out2 = '2.out')
+top(name = 'top', deps = [':leaf'])
+EOF
+
+  bazel build --build_event_text_file=bep.txt //foo:top >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log ClassCastException
+  cat bep.txt > "$TEST_log"
+  expect_log "1.out"
+  expect_log "2.out"
+}
+
+function test_tree_to_split_in_named_files() {
+  mkdir -p foo
+  cat > foo/rule.bzl <<'EOF'
+def _leaf_impl(ctx):
+  ctx.actions.write(output = ctx.outputs.out2, content = 'hello\n')
+  ctx.actions.write(output = ctx.outputs.out1, content = 'hello\n')
+  return [DefaultInfo(files = depset([ctx.outputs.out1, ctx.outputs.out2]))]
+
+def _top_impl(ctx):
+  dir = ctx.actions.declare_directory('dir')
+  ctx.actions.run_shell(outputs = [dir],
+                        command = 'touch %s/{out1,out2,out3}' % dir.path)
+  return [DefaultInfo(files = depset([dir],
+                      transitive = [dep[DefaultInfo].files
+                                        for dep in ctx.attr.deps]))]
+
+leaf = rule(
+    implementation = _leaf_impl,
+    attrs = {"out1": attr.output(), "out2": attr.output()},
+)
+
+top = rule(
+    implementation = _top_impl,
+    attrs = { "deps": attr.label_list()}
+)
+EOF
+  cat > foo/BUILD <<'EOF'
+load('//foo:rule.bzl', 'leaf', 'top')
+
+leaf(name = 'leaf', out1 = '1.out', out2 = '2.out')
+top(name = 'top', deps = [':leaf'])
+EOF
+
+  bazel build --build_event_text_file=bep.txt \
+      --build_event_max_named_set_of_file_entries=2 //foo:top >& "$TEST_log" \
+      || fail "Expected success"
+  mv bep.txt "$TEST_log"
+  # Depending on a hard-coded index is a bit brittle, but 0 should be the index
+  # of the top-level nested set at least.
+  # Strip newlines. BSD grep doesn't support -z, so use tr first.
+  tr -s <"$TEST_log" '\n' ' ' |
+      grep -q \
+          'event { id { named_set { id: "0" } } named_set_of_files { file_sets { id: "[0-9]" } file_sets { id: "[0-9]" } } }' \
+      || fail "Couldn't find top-level named set"
 }
 
 run_suite "Integration tests for the build event stream"

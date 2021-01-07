@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a helper class containing CC compilation providers. */
 @StarlarkBuiltin(
     name = "compilation_info",
     documented = false,
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc = "Helper class containing CC compilation providers.")
 public interface CompilationInfoApi<FileT extends FileApi> extends StarlarkValue {
   @StarlarkMethod(name = "cc_compilation_outputs", structField = true, documented = false)

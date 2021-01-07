@@ -37,9 +37,8 @@ public final class ExecutionStatisticsTest {
 
   @Before
   public final void createFileSystem() throws Exception {
-    FileSystem testFS = new InMemoryFileSystem(DigestHashFunction.getDefaultUnchecked());
-    workingDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
-    workingDir.createDirectoryAndParents();
+    FileSystem testFS = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    workingDir = TestUtils.createUniqueTmpDir(testFS);
   }
 
   private Path createExecutionStatisticsProtoFile(

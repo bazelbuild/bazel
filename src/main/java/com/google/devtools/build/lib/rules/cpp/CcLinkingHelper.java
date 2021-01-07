@@ -21,9 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -42,12 +42,12 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkingInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
@@ -174,7 +174,7 @@ public final class CcLinkingHelper {
   public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
     addCcLinkingContexts(
         CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET))));
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
     addNonCodeLinkerInputs(common.getLinkerScripts());
     return this;
   }
@@ -202,6 +202,10 @@ public final class CcLinkingHelper {
       Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
       Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
       this.nonCodeLinkerInputs.add(nonCodeLinkerInput);
+    }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      this.nonCodeLinkerInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     return this;
   }
@@ -369,14 +373,19 @@ public final class CcLinkingHelper {
   }
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
-      List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext) {
+      List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext)
+      throws InterruptedException {
     ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
     for (Artifact linkstamp : linkstamps.build().toList()) {
-      linkstampBuilder.add(
-          new Linkstamp(
-              linkstamp,
-              ccCompilationContext.getDeclaredIncludeSrcs(),
-              actionConstructionContext.getActionKeyContext()));
+      try {
+        linkstampBuilder.add(
+            new Linkstamp( // throws InterruptedException
+                linkstamp,
+                ccCompilationContext.getDeclaredIncludeSrcs(),
+                actionConstructionContext.getActionKeyContext()));
+      } catch (CommandLineExpansionException ex) {
+        throw new AssertionError("unexpected failure of command line expansion", ex);
+      }
     }
     CcLinkingContext ccLinkingContext = CcLinkingContext.EMPTY;
     if (!neverlink) {

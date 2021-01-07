@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,9 +49,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
-        .addDeps(
-            ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", TransitionMode.TARGET))
-        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", TransitionMode.TARGET))
+        .addDeps(ruleContext.getPrerequisiteConfiguredTargets("deps"))
+        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps"))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -88,13 +86,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
-            ruleContext.getPrerequisites(
-                "deps", TransitionMode.TARGET, J2ObjcMappingFileProvider.class));
+            ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.class));
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
         new J2ObjcEntryClassProvider.Builder()
-            .addTransitive(
-                ruleContext.getPrerequisites(
-                    "deps", TransitionMode.TARGET, J2ObjcEntryClassProvider.class))
+            .addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.class))
             .build();
     ObjcProvider objcProvider = compilationSupport.getObjcProvider();
     CcCompilationContext ccCompilationContext = objcProvider.getCcCompilationContext();

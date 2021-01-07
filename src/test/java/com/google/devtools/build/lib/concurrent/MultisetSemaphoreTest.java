@@ -43,7 +43,7 @@ import org.junit.runners.JUnit4;
 public class MultisetSemaphoreTest {
 
   @Test
-  public void testSimple_Serial() throws Exception {
+  public void testSimple_serial() throws Exception {
     // When we have a MultisetSemaphore
     MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
         // with 3 max num unique values,
@@ -91,7 +91,7 @@ public class MultisetSemaphoreTest {
   }
 
   @Test
-  public void testSimple_Concurrent() throws Exception {
+  public void testSimple_concurrent() throws Exception {
     // When we have N and M, with M > N and M|N.
     final int n = 10;
     int m = n * 2;
@@ -160,7 +160,7 @@ public class MultisetSemaphoreTest {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
     }
-    // And the counters we used for sanity checks were correctly reset to 0.
+    // And the counters were correctly reset to 0.
     assertThat(numThreadsJustAfterAcquireInFirstRound.get()).isEqualTo(0);
     assertThat(numThreadsJustAfterAcquireInSecondRound.get()).isEqualTo(0);
     // And all M Runnables completed the second round.
@@ -232,7 +232,7 @@ public class MultisetSemaphoreTest {
   }
 
   @Test
-  public void testConcurrentRace_AllPermuations() throws Exception {
+  public void testConcurrentRace_allPermuations() throws Exception {
     // When we have N values
     int n = 6;
     ArrayList<String> vals = new ArrayList<>();
@@ -285,7 +285,7 @@ public class MultisetSemaphoreTest {
   }
 
   @Test
-  public void testConcurrentRace_AllSameSizedCombinations() throws Exception {
+  public void testConcurrentRace_allSameSizedCombinations() throws Exception {
     // When we have n values
     int n = 10;
     ImmutableSet.Builder<String> valsBuilder = ImmutableSet.builder();

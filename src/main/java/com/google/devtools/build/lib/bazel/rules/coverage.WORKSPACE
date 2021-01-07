@@ -10,8 +10,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_coverage_tools",
-    sha256 = "0d6f73ed76908d7ec2840edd765a264b34036e4e3ec1c21a00421770523bcb27",
+    sha256 = "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
     urls = [
-        "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.3.zip",
+        "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
     ],
 )

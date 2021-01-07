@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -95,7 +96,8 @@ public class StandaloneSpawnStrategyTest {
 
   private Path createTestRoot() throws IOException {
     fileSystem = FileSystems.getNativeFileSystem();
-    Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    Path testRoot = fileSystem.getPath(TestUtils.tmpDir()).getRelative("test");
+    testRoot.createDirectoryAndParents();
     try {
       testRoot.deleteTreesBelow();
     } catch (IOException e) {
@@ -151,7 +153,8 @@ public class StandaloneSpawnStrategyTest {
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
                 /*processWrapper=*/ null,
-                Mockito.mock(RunfilesTreeUpdater.class)));
+                Mockito.mock(RunfilesTreeUpdater.class)),
+            /*verboseFailures=*/ false);
     this.executor =
         new TestExecutorBuilder(fileSystem, directories, binTools)
             .addStrategy(strategy, "standalone")
@@ -314,7 +317,7 @@ public class StandaloneSpawnStrategyTest {
   public void testVerboseFailures() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
     ActionExecutionException actionExecutionException =
-        e.toActionExecutionException("", /* verboseFailures= */ true, null);
+        e.toActionExecutionException(new NullAction());
     assertWithMessage("got: " + actionExecutionException.getMessage())
         .that(actionExecutionException.getMessage().contains("failed: error executing command"))
         .isTrue();

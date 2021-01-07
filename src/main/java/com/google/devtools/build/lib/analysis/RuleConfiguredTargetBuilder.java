@@ -38,9 +38,11 @@ import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -53,8 +55,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -62,6 +62,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * Builder class for analyzed rule instances.
@@ -98,11 +100,11 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
-   * Returns null if there were rule errors reported.
+   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder. Returns
+   * null if there were rule errors reported.
    */
   @Nullable
-  public ConfiguredTarget build() throws ActionConflictException {
+  public ConfiguredTarget build() throws ActionConflictException, InterruptedException {
     // If allowing analysis failures, the current target may not propagate all of the
     // expected providers; be lenient on such cases (for example, avoid precondition checks).
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
@@ -158,13 +160,18 @@ public final class RuleConfiguredTargetBuilder {
       addNativeDeclaredProvider(InstrumentedFilesCollector.forwardAll(ruleContext));
     }
     // Create test action and artifacts if target was successfully initialized
-    // and is a test.
+    // and is a test. Also, as an extreme hack, only bother doing this if the TestConfiguration
+    // is actually present.
     if (TargetUtils.isTestRule(ruleContext.getTarget())) {
-      if (runfilesSupport != null) {
-        add(TestProvider.class, initializeTestProvider(filesToRunProvider));
-      } else {
-        if (!allowAnalysisFailures) {
-          throw new IllegalStateException("Test rules must have runfiles");
+      ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
+      add(TestTagsProvider.class, new TestTagsProvider(testTags));
+      if (ruleContext.getConfiguration().hasFragment(TestConfiguration.class)) {
+        if (runfilesSupport != null) {
+          add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+        } else {
+          if (!allowAnalysisFailures) {
+            throw new IllegalStateException("Test rules must have runfiles");
+          }
         }
       }
     }
@@ -287,8 +294,7 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext.attributes().getAttributeDefinition(attributeName).getType();
       if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
         for (TransitiveLabelsInfo labelsInfo :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, TransitiveLabelsInfo.class)) {
+            ruleContext.getPrerequisites(attributeName, TransitiveLabelsInfo.class)) {
           nestedSetBuilder.addTransitive(labelsInfo.getLabels());
         }
       }
@@ -320,8 +326,7 @@ public final class RuleConfiguredTargetBuilder {
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
         for (OutputGroupInfo outputGroup :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+            ruleContext.getPrerequisites(attributeName, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
@@ -372,8 +377,10 @@ public final class RuleConfiguredTargetBuilder {
     }
   }
 
-  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
-    int explicitShardCount = ruleContext.attributes().get("shard_count", Type.INTEGER);
+  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider)
+      throws InterruptedException {
+    int explicitShardCount =
+        ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
     if (explicitShardCount < 0
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("shard_count")) {
       ruleContext.attributeError("shard_count", "Must not be negative.");
@@ -406,8 +413,7 @@ public final class RuleConfiguredTargetBuilder {
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
             .build();
-    ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
-    return new TestProvider(testParams, testTags);
+    return new TestProvider(testParams);
   }
 
   /**

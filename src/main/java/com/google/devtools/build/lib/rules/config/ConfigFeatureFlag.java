@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.List;
 import java.util.Optional;
+import net.starlark.java.eval.Starlark;
 
 /**
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.

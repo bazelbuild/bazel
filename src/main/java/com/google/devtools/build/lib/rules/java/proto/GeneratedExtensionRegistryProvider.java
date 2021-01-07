@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider} for {@link Artifact}s
@@ -88,12 +88,16 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
       Artifact classJar,
       Artifact srcJar,
       NestedSet<Artifact> inputs) {
-    super(PROVIDER);
     this.generatingRuleLabel = generatingRuleLabel;
     this.isLite = isLite;
     this.classJar = classJar;
     this.srcJar = srcJar;
     this.inputs = inputs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /** A builder for {@link GeneratedExtensionRegistryProvider}. */

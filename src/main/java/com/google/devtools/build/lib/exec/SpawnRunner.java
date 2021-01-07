@@ -184,7 +184,7 @@ public interface SpawnRunner {
      * to any of the output file locations. This method is used to coordinate - implementations must
      * throw an {@link InterruptedException} for all but one caller.
      */
-    void lockOutputFiles() throws InterruptedException, IOException;
+    void lockOutputFiles() throws InterruptedException;
 
     /**
      * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,

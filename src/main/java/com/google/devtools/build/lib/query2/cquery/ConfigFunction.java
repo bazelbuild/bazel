@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -30,10 +29,11 @@ import java.util.List;
 
 /**
  * A "config" query expression for cquery. The first argument is the expression to be evaluated. The
- * second argument is either "host", "target", or "null" to specify which configuration the
- * user is seeking to query in. If some but not all results of expr can be found in the specified
- * config, then the subset that can be is returned. If no results of expr can be found in the
- * specified config, then an error is thrown.
+ * second argument is either "host", "target", "null", or an arbitrary configuration's hash (the
+ * same hash cquery annotates label outputs with) to specify which configuration the user is seeking
+ * to query in. If some but not all results of expr can be found in the specified config, the subset
+ * that can be is returned. If no results of expr can be found in the specified config, an error is
+ * thrown.
  *
  * <pre> expr ::= CONFIG '(' expr ',' word ')'</pre>
  */
@@ -59,7 +59,7 @@ public final class ConfigFunction implements QueryFunction {
 
   /**
    * This function is only viable with ConfiguredTargetQueryEnvironment which extends {@link
-   * AbstractBlazeQueryEnvironment <ConfiguredTarget>}
+   * AbstractBlazeQueryEnvironment <KeyedConfiguredTarget>}
    */
   @Override
   @SuppressWarnings("unchecked")
@@ -81,10 +81,10 @@ public final class ConfigFunction implements QueryFunction {
     return env.whenSucceedsCall(
         targets,
         ((ConfiguredTargetQueryEnvironment) env)
-            .getConfiguredTargets(
+            .getConfiguredTargetsForConfigFunction(
                 targetExpression.toString(),
-                (ThreadSafeMutableSet<ConfiguredTarget>) targets.getIfSuccessful(),
+                (ThreadSafeMutableSet<KeyedConfiguredTarget>) targets.getIfSuccessful(),
                 configuration,
-                (Callback<ConfiguredTarget>) callback));
+                (Callback<KeyedConfiguredTarget>) callback));
   }
 }

@@ -12,10 +12,7 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(
-        ["**"],
-        exclude = ["private/version.bzl"],
-    ) + [
+    srcs = glob(["**"]) + [
         "//tools/python/runfiles:embedded_tools",
     ],
     visibility = ["//tools:__pkg__"],

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.util.OS;
@@ -30,7 +31,8 @@ import java.io.PrintStream;
  */
 public class TestLogHelper {
 
-  public static final String HEADER_DELIMITER =
+  @VisibleForTesting
+  static final String HEADER_DELIMITER =
       "-----------------------------------------------------------------------------";
 
   /**
@@ -43,33 +45,36 @@ public class TestLogHelper {
   }
 
   /**
-   * Reads the contents of the test log from the provided testOutput file, adds header and footer
-   * and returns the result. This method also looks for a header delimiter and cuts off the text
-   * before it, except if the header is 50 lines or longer.
+   * Streams the contents of testOutput file to the provided output, adding a new header and footer.
+   * The internal test header is elided. The test output is not emitted if its size is greater than
+   * the provided threshold.
+   *
+   * @param maxTestOutputBytes Maximum test log size, including header, to output. Negative implies
+   *     no limit.
    */
-  public static void writeTestLog(Path testOutput, String testName, OutputStream out)
+  public static void writeTestLog(
+      Path testOutput, String testName, OutputStream out, int maxTestOutputBytes)
       throws IOException {
     PrintStream printOut = new PrintStream(new BufferedOutputStream(out));
     try {
-      final String outputHeader = "==================== Test output for " + testName + ":";
-      final String outputFooter =
-          "================================================================================";
-
-      printOut.println(outputHeader);
+      printOut.println("==================== Test output for " + testName + ":");
       printOut.flush();
 
-      FilterTestHeaderOutputStream filteringOutputStream = getHeaderFilteringOutputStream(printOut);
-      try (InputStream input = testOutput.getInputStream()) {
-        ByteStreams.copy(input, filteringOutputStream);
-      }
-
-      if (!filteringOutputStream.foundHeader()) {
-        try (InputStream inputAgain = testOutput.getInputStream()) {
-          ByteStreams.copy(inputAgain, out);
+      if (maxTestOutputBytes < 0) {
+        // No limit, print it all.
+        streamTestLog(testOutput, printOut);
+      } else {
+        long testOutputBytes = testOutput.getFileSize();
+        if (testOutputBytes <= maxTestOutputBytes) {
+          streamTestLog(testOutput, printOut);
+        } else {
+          printOut.printf(
+              "Test log too large (%s > %s), skipping...\n", testOutputBytes, maxTestOutputBytes);
         }
       }
 
-      printOut.println(outputFooter);
+      printOut.println(
+          "================================================================================");
     } finally {
       printOut.flush();
     }
@@ -128,6 +133,19 @@ public class TestLogHelper {
 
     public boolean foundHeader() {
       return seenDelimiter;
+    }
+  }
+
+  private static void streamTestLog(Path fromPath, PrintStream out) throws IOException {
+    FilterTestHeaderOutputStream filteringOutputStream = getHeaderFilteringOutputStream(out);
+    try (InputStream input = fromPath.getInputStream()) {
+      ByteStreams.copy(input, filteringOutputStream);
+    }
+
+    if (!filteringOutputStream.foundHeader()) {
+      try (InputStream inputAgain = fromPath.getInputStream()) {
+        ByteStreams.copy(inputAgain, out);
+      }
     }
   }
 }

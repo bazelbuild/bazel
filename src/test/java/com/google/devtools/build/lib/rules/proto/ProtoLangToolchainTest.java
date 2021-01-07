@@ -141,41 +141,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void protoToolchainMixedBlacklist() throws Exception {
-    scratch.file(
-        "third_party/x/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "proto_library(name = 'metadata', srcs = ['metadata.proto'])",
-        "proto_library(",
-        "    name = 'descriptor',",
-        "    srcs = ['descriptor.proto'],",
-        "    strip_import_prefix = '/third_party')",
-        "filegroup(name = 'any', srcs = ['any.proto'])");
-
-    scratch.file(
-        "foo/BUILD",
-        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        "    plugin = '//third_party/x:plugin',",
-        "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = [",
-        "        '//third_party/x:metadata',",
-        "        '//third_party/x:descriptor',",
-        "        '//third_party/x:any']",
-        ")");
-
-    update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
-
-    validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
-  }
-
-  @Test
   public void optionalFieldsAreEmpty() throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -193,49 +158,5 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
     assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
-  }
-
-  @Test
-  public void testMigrationLabel() throws Exception {
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        // Don't use |ProtoCommon.PROTO_RULES_MIGRATION_LABEL| here
-        // so we don't accidentally change it without breaking a local test.
-        "    tags = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
-
-    getConfiguredTarget("//a:toolchain");
-  }
-
-  @Test
-  public void testMissingMigrationLabel() throws Exception {
-    useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        ")");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:toolchain");
-    assertContainsEvent("The native Protobuf rules are deprecated.");
-  }
-
-  @Test
-  public void testMigrationLabelNotRequiredWhenDisabled() throws Exception {
-    useConfiguration("--noincompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        ")");
-
-    getConfiguredTarget("//a:toolchain");
   }
 }

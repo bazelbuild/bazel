@@ -216,26 +216,16 @@ public class CommonCommandOptions extends OptionsBase {
   public String oomMessage;
 
   @Option(
-      name = "incompatible_enable_profile_by_default",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, Bazel will generate a JSON profile by default.")
-  public boolean enableProfileByDefault;
-
-  @Option(
-      name = "experimental_generate_json_trace_profile",
-      defaultValue = "false",
+      name = "generate_json_trace_profile",
+      oldName = "experimental_generate_json_trace_profile",
+      defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help =
           "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in"
-              + " the output base. View profile by loading into chrome://tracing.")
-  public boolean enableTracer;
+              + " the output base. View profile by loading into chrome://tracing. By default Bazel"
+              + " writes the profile for all build-like commands and query.")
+  public TriState enableTracer;
 
   @Option(
       name = "json_trace_compression",
@@ -251,7 +241,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_profile_cpu_usage",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")

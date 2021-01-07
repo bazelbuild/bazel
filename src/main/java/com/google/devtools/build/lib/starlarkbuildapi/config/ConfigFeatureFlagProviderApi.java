@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** An info object for config_feature_flag rules. */
 @StarlarkBuiltin(
     name = "FeatureFlagInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "A provider used to access information about config_feature_flag rules.")
 public interface ConfigFeatureFlagProviderApi extends StructApi {
 
@@ -37,10 +37,7 @@ public interface ConfigFeatureFlagProviderApi extends StructApi {
       name = "is_valid_value",
       doc = "The value of the flag in the configuration used by the flag rule.",
       parameters = {
-        @Param(
-            name = "value",
-            type = String.class,
-            doc = "String, the value to check for validity for this flag."),
+        @Param(name = "value", doc = "String, the value to check for validity for this flag."),
       })
   boolean isValidValue(String value);
 }

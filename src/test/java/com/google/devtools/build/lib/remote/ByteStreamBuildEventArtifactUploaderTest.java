@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -167,7 +168,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
-        new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
+        new ByteStreamUploader(
+            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
@@ -179,7 +181,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
     }
 
-    artifactUploader.shutdown();
+    artifactUploader.release();
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
@@ -196,7 +198,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
-    artifactUploader.shutdown();
+    artifactUploader.release();
   }
 
   @Test
@@ -252,7 +254,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
-        new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
+        new ByteStreamUploader(
+            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     ExecutionException e =
@@ -264,7 +267,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     assertThat(e.getCause().getCause()).isInstanceOf(StatusRuntimeException.class);
     assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
 
-    artifactUploader.shutdown();
+    artifactUploader.release();
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
@@ -330,7 +333,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
     ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
-    when(uploader.uploadBlobAsync(any(), any(), anyBoolean()))
+    when(uploader.uploadBlobAsync(any(Digest.class), any(), anyBoolean()))
         .thenReturn(Futures.immediateFuture(null));
     ByteStreamBuildEventArtifactUploader artifactUploader =
         newArtifactUploader(uploader, digestQuerier);
@@ -346,8 +349,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     // assert
     verify(digestQuerier).findMissingDigests(any());
-    verify(uploader)
-        .uploadBlobAsync(eq(HashCode.fromString(localDigest.getHash())), any(), anyBoolean());
+    verify(uploader).uploadBlobAsync(eq(localDigest), any(), anyBoolean());
     assertThat(pathConverter.apply(remoteFile)).contains(remoteDigest.getHash());
     assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
   }

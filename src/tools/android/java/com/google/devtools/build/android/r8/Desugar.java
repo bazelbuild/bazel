@@ -16,12 +16,14 @@ package com.google.devtools.build.android.r8;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
+import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.StringResource;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -60,7 +62,7 @@ public class Desugar {
         converter = ExistingPathConverter.class,
         abbrev = 'i',
         help =
-            "Input Jar or directory with classes to desugar (required, the n-th input is paired"
+            "Input jars with classes to desugar (required, the n-th input is paired"
                 + " with the n-th output).")
     public List<Path> inputJars;
 
@@ -73,7 +75,7 @@ public class Desugar {
         effectTags = {OptionEffectTag.UNKNOWN},
         converter = ExistingPathConverter.class,
         help =
-            "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
+            "Ordered classpath jars to resolve symbols in the --input jars, like "
                 + "javac's -cp flag.")
     public List<Path> classpath;
 
@@ -86,7 +88,7 @@ public class Desugar {
         effectTags = {OptionEffectTag.UNKNOWN},
         converter = ExistingPathConverter.class,
         help =
-            "Bootclasspath that was used to compile the --input Jar with, like javac's "
+            "Bootclasspath that was used to compile the --input jars with, like javac's "
                 + "-bootclasspath flag (required).")
     public List<Path> bootclasspath;
 
@@ -338,6 +340,18 @@ public class Desugar {
         metadataTags = {OptionMetadataTag.HIDDEN},
         help = "Run as a Bazel persistent worker.")
     public boolean persistentWorker;
+
+    @Option(
+        name = "desugared_lib_config",
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help =
+            "Specify desugared library configuration. "
+                + "The input file is a desugared library configuration (json)")
+    public Path desugaredLibConfig;
   }
 
   private final DesugarOptions options;
@@ -411,18 +425,23 @@ public class Desugar {
       List<ClassFileResourceProvider> bootclasspathProviders,
       ClassFileResourceProvider classpath,
       Path input,
-      Path output)
+      Path output,
+      Path desugaredLibConfig)
       throws CompilationFailedException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
-    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector);
+    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector, input);
     D8Command.Builder builder =
         D8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addClasspathResourceProvider(classpath)
-            .addProgramFiles(input)
+            .addProgramResourceProvider(ArchiveProgramResourceProvider.fromArchive(input))
+            .setIntermediate(true)
             .setMinApiLevel(options.minSdkVersion)
             .setProgramConsumer(consumer);
     bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
+    if (desugaredLibConfig != null) {
+      builder.addDesugaredLibraryConfiguration(StringResource.fromFile(desugaredLibConfig));
+    }
     D8.run(builder.build());
   }
 
@@ -457,7 +476,8 @@ public class Desugar {
           bootclasspathProviders,
           classpathProvider,
           options.inputJars.get(i),
-          options.outputJars.get(i));
+          options.outputJars.get(i),
+          options.desugarCoreLibs ? options.desugaredLibConfig : null);
     }
   }
 
@@ -488,11 +508,12 @@ public class Desugar {
     if (options.alwaysRewriteLongCompare) {
       throw new AssertionError("--rewrite_calls_to_long_compare has no effect");
     }
-    if (!options.tolerateMissingDependencies) {
-      throw new AssertionError("--best_effort_tolerate_missing_deps must be enabled");
-    }
     if (options.desugarCoreLibs) {
-      throw new AssertionError("--desugar_supported_core_libs is not supported");
+      if (options.desugaredLibConfig == null) {
+        throw new AssertionError(
+            "If --desugar_supported_core_libs is set --desugared_lib_config "
+                + " must also be set.");
+      }
     }
     if (!options.desugarInterfaceMethodBodiesIfNeeded) {
       throw new AssertionError("--desugar_interface_method_bodies_if_needed must be enabled");

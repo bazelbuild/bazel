@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -68,6 +67,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Utilities for analysis phase tests.
@@ -104,7 +104,7 @@ public final class AnalysisTestUtil {
     }
 
     /** Calls {@link MutableActionGraph#registerAction} for all collected actions. */
-    public void registerWith(MutableActionGraph actionGraph) {
+    public void registerWith(MutableActionGraph actionGraph) throws InterruptedException {
       for (ActionAnalysisMetadata action : actions) {
         try {
           actionGraph.registerAction(action);
@@ -187,6 +187,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+      return original.getStarlarkDefinedBuiltins();
+    }
+
+    @Override
     public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
       return original.getStableWorkspaceStatusArtifact();
     }
@@ -233,7 +238,8 @@ public final class AnalysisTestUtil {
       super(
           ActionOwner.SYSTEM_ACTION_OWNER,
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          ImmutableSet.of(stableStatus, volatileStatus));
+          ImmutableSet.of(stableStatus, volatileStatus),
+          "workspace status");
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
     }
@@ -400,6 +406,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+      return null;
+    }
+
+    @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
@@ -506,7 +517,7 @@ public final class AnalysisTestUtil {
     for (Artifact artifact : artifacts) {
       ArtifactRoot root = artifact.getRoot();
       if (root.isSourceRoot()) {
-        files.add("src " + artifact.getRootRelativePath());
+        files.add("src " + artifact.getExecPath());
       } else {
         String name = rootMap.getOrDefault(root.getRoot().toString(), "/");
         files.add(name + " " + artifact.getRootRelativePath());

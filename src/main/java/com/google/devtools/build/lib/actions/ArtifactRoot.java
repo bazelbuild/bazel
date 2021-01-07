@@ -18,15 +18,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.Serializable;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
@@ -55,7 +56,25 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * <p>Returns the given path as a source root. The path may not be {@code null}.
    */
   public static ArtifactRoot asSourceRoot(Root root) {
-    return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source);
+    return INTERNER.intern(new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source));
+  }
+
+  /**
+   * Do not use except in tests and in {@link
+   * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
+   *
+   * <p>Returns the given path as the external source root. The path should end with {@link
+   * LabelConstants.EXTERNAL_REPOSITORY_LOCATION} since the external repository root is always
+   * $OUTPUT_BASE/external regardless of the layout of the exec root.
+   */
+  public static ArtifactRoot asExternalSourceRoot(Root root) {
+    Preconditions.checkArgument(
+        root.asPath()
+            .asFragment()
+            .getParentDirectory()
+            .endsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
+    return INTERNER.intern(
+        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.ExternalSource));
   }
 
   /**
@@ -66,16 +85,30 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
    */
   public static ArtifactRoot asDerivedRoot(Path execRoot, String... prefixes) {
-    Path root = execRoot;
+    PathFragment execPath = PathFragment.EMPTY_FRAGMENT;
     for (String prefix : prefixes) {
       // Tests can have empty segments here, be gentle to them.
       if (!prefix.isEmpty()) {
-        root = root.getChild(prefix);
+        execPath = execPath.getChild(prefix);
       }
     }
-    Preconditions.checkArgument(root.startsWith(execRoot));
-    Preconditions.checkArgument(!root.equals(execRoot));
-    PathFragment execPath = root.relativeTo(execRoot);
+    return asDerivedRoot(execRoot, execPath);
+  }
+
+  /**
+   * Constructs an {@link ArtifactRoot} given the execPath, relative to the execRoot.
+   *
+   * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
+   * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
+   */
+  public static ArtifactRoot asDerivedRoot(Path execRoot, PathFragment execPath) {
+    // Make sure that we are not creating a derived artifact under the execRoot.
+    Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
+    Preconditions.checkArgument(
+        !execPath.getSegments().contains(".."),
+        "execPath: %s contains parent directory reference (..)",
+        execPath);
+    Path root = execRoot.getRelative(execPath);
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output));
   }
 
@@ -102,7 +135,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   enum RootType {
     Source,
     Output,
-    Middleman
+    Middleman,
+    ExternalSource
   }
 
   private final Root root;
@@ -142,7 +176,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   public boolean isSourceRoot() {
-    return rootType == RootType.Source;
+    return rootType == RootType.Source || isExternalSourceRoot();
+  }
+
+  public boolean isExternalSourceRoot() {
+    return rootType == RootType.ExternalSource;
   }
 
   boolean isMiddlemanRoot() {

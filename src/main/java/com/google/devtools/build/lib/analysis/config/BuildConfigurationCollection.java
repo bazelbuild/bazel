@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import java.util.HashMap;
 
 /**
@@ -45,7 +46,7 @@ public final class BuildConfigurationCollection {
       BuildConfiguration old = cacheKeyConflictDetector.put(config.checksum(), config);
       if (old != null) {
         throw new InvalidConfigurationException(
-            "Conflicting configurations: " + config + " & " + old);
+            "Conflicting configurations: " + config + " & " + old, Code.CONFLICTING_CONFIGURATIONS);
       }
     }
   }

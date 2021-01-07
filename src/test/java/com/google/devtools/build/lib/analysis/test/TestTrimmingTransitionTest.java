@@ -40,7 +40,7 @@ public class TestTrimmingTransitionTest {
       TestTrimmingTransitionFactory.TestTrimmingTransition.INSTANCE;
 
   @Test
-  public void removesTestOptionsWhenSet() throws OptionsParsingException {
+  public void removesTestOptionsWhenSet() throws OptionsParsingException, InterruptedException {
     BuildOptions options =
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, TestOptions.class), "--trim_test_configuration");
@@ -57,7 +57,7 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void isNOPWhenUnset() throws OptionsParsingException {
+  public void isNOPWhenUnset() throws OptionsParsingException, InterruptedException {
     BuildOptions options =
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, TestOptions.class), "--notrim_test_configuration");
@@ -73,7 +73,7 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void retainsStarlarkOptions() throws OptionsParsingException {
+  public void retainsStarlarkOptions() throws OptionsParsingException, InterruptedException {
     Label starlarkOptionKey = Label.parseAbsoluteUnchecked("//options:foo");
     String starlarkOptionValue = "bar";
 
@@ -96,7 +96,8 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void composeCommutativelyWithExecutionTransition() throws OptionsParsingException {
+  public void composeCommutativelyWithExecutionTransition()
+      throws OptionsParsingException, InterruptedException {
     Label executionPlatform = Label.parseAbsoluteUnchecked("//platform:exec");
 
     PatchTransition execTransition =

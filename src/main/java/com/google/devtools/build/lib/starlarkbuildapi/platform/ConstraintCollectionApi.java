@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Info object representing data about a specific platform. */
 @StarlarkBuiltin(
@@ -30,7 +30,7 @@ import net.starlark.java.annot.StarlarkMethod;
     doc =
         "Provides access to data about a collection of ConstraintValueInfo providers. "
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface ConstraintCollectionApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
         ConstraintValueInfoT extends ConstraintValueInfoApi>
@@ -40,7 +40,7 @@ public interface ConstraintCollectionApi<
       name = "constraint_settings",
       doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Sequence<ConstraintSettingInfoT> constraintSettings();
 
   @StarlarkMethod(
@@ -50,11 +50,10 @@ public interface ConstraintCollectionApi<
       parameters = {
         @Param(
             name = "constraint",
-            type = ConstraintSettingInfoApi.class,
             named = true,
             doc = "The constraint setting to fetch the value for.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   @Nullable
   ConstraintValueInfoT get(ConstraintSettingInfoT constraint);
 
@@ -64,11 +63,10 @@ public interface ConstraintCollectionApi<
       parameters = {
         @Param(
             name = "constraint",
-            type = ConstraintSettingInfoApi.class,
             named = true,
             doc = "The constraint setting to check.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   boolean has(ConstraintSettingInfoT constraint);
 
   @StarlarkMethod(
@@ -77,10 +75,9 @@ public interface ConstraintCollectionApi<
       parameters = {
         @Param(
             name = "constraint_value",
-            type = ConstraintValueInfoApi.class,
             named = true,
             doc = "The constraint value to check.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   boolean hasConstraintValue(ConstraintValueInfoT constraintValue);
 }

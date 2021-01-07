@@ -5,9 +5,8 @@ title: Toolchains
 
 # Toolchains
 
-## Overview
 
-This page describes the toolchain framework -- a way for rule authors to
+This page describes the toolchain framework, which is a way for rule authors to
 decouple their rule logic from platform-based selection of tools. It is
 recommended to read the
 [rules](skylark/rules.html)
@@ -365,7 +364,7 @@ Bazel will see that `//my_pkg:my_bar_binary` is being built with a platform that
 has `@platforms//os:linux` and therefore resolve the
 `//bar_tools:toolchain_type` reference to `//bar_tools:barc_linux_toolchain`.
 This will end up building `//bar_tools:barc_linux` but not
-`//barc_tools:barc_windows`.
+`//bar_tools:barc_windows`.
 
 ## Toolchain resolution
 

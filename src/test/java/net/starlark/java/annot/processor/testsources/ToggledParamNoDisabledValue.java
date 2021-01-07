@@ -14,10 +14,10 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkMethod method which has a parameter which may be disabled with semantic
@@ -25,18 +25,16 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 public class ToggledParamNoDisabledValue implements StarlarkValue {
 
+  private static final String FOO = "-foo";
+
   @StarlarkMethod(
       name = "no_disabled_value_method",
       documented = false,
       parameters = {
         @Param(name = "one", named = true, positional = true),
-        @Param(
-            name = "two",
-            named = true,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS,
-            positional = true)
+        @Param(name = "two", named = true, enableOnlyWithFlag = FOO, positional = true)
       })
-  public Integer noDisabledValueMethod(Integer one, Integer two) {
+  public Integer noDisabledValueMethod(StarlarkInt one, StarlarkInt two) {
     return 42;
   }
 }

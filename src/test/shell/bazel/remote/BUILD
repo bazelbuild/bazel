@@ -25,6 +25,7 @@ sh_test(
         ":remote_utils",
         ":uds_proxy.py",
         "//src/test/shell/bazel:test-deps",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -84,6 +85,19 @@ sh_test(
         ":remote_utils",
         "//src/test/shell/bazel:test-deps",
         "//src/test/testdata/test_tls_certificate",
+        "//src/tools/remote:worker",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "remote_execution_with_xattr_test",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["remote_execution_with_xattr_test.sh"],
+    data = [
+        ":remote_utils",
+        "//src/test/shell/bazel:test-deps",
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
     ],

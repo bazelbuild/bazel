@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.CompatDxSupport;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
@@ -27,8 +26,6 @@ import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.ProgramConsumer;
 import com.android.tools.r8.Version;
-import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
@@ -48,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -334,15 +330,6 @@ public class CompatDx {
     public int minApiLevel;
 
     @Option(
-        name = "desugar-backport-statics",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Backport additional Java 8 APIs.")
-    public boolean backportStatics;
-
-    @Option(
         name = "input-list",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -394,7 +381,6 @@ public class CompatDx {
     public final String mainDexList;
     public final boolean minimalMainDex;
     public final int minApiLevel;
-    public final boolean backportStatics;
     public final String inputList;
     public final List<String> inputs;
     // Undocumented option
@@ -468,7 +454,6 @@ public class CompatDx {
       mainDexList = options.mainDexList;
       minimalMainDex = options.minimalMainDex;
       minApiLevel = options.minApiLevel;
-      backportStatics = options.backportStatics;
       inputList = options.inputList;
       inputs = remaining;
       maxIndexNumber = options.maxIndexNumber;
@@ -523,11 +508,11 @@ public class CompatDx {
     }
 
     if (dexArgs.verboseDump) {
-      throw new Unimplemented("verbose dump file not yet supported");
+      throw new CompatDxUnimplemented("verbose dump file not yet supported");
     }
 
     if (dexArgs.methodToDump != null) {
-      throw new Unimplemented("method-dump not yet supported");
+      throw new CompatDxUnimplemented("method-dump not yet supported");
     }
 
     if (dexArgs.output != null) {
@@ -557,7 +542,7 @@ public class CompatDx {
     }
 
     if (dexArgs.incremental) {
-      throw new Unimplemented("incremental merge not supported yet");
+      throw new CompatDxUnimplemented("incremental merge not supported yet");
     }
 
     if (dexArgs.forceJumbo && dexArgs.verbose) {
@@ -573,11 +558,11 @@ public class CompatDx {
     }
 
     if (dexArgs.optimizeList != null) {
-      throw new Unimplemented("no support for optimize-method list");
+      throw new CompatDxUnimplemented("no support for optimize-method list");
     }
 
     if (dexArgs.noOptimizeList != null) {
-      throw new Unimplemented("no support for dont-optimize-method list");
+      throw new CompatDxUnimplemented("no support for dont-optimize-method list");
     }
 
     if (dexArgs.statistics && dexArgs.verbose) {
@@ -603,7 +588,13 @@ public class CompatDx {
     }
 
     if (dexArgs.minimalMainDex && dexArgs.verbose) {
-      System.out.println("Warning: minimal main-dex support is not yet supported");
+      if (dexArgs.debug) {
+        System.out.println(
+            "Info: minimal main-dex generation is always done for D8 debug builds."
+                + " Please remove option --minimal-main-dex");
+      } else {
+        throw new DxUsageMessage("Error: minimal main-dex is not supported for D8 release builds");
+      }
     }
 
     if (dexArgs.maxIndexNumber != 0 && dexArgs.verbose) {
@@ -630,26 +621,7 @@ public class CompatDx {
       if (mainDexList != null) {
         builder.addMainDexListFiles(mainDexList);
       }
-      if (dexArgs.backportStatics) {
-        CompatDxSupport.enableDesugarBackportStatics(builder);
-      }
-      try {
-        // Check if the referenced r8.jar has these methods. If so, the support code accessing
-        // the internals is not required.
-        Method setEnableMainDexListCheck =
-            D8Command.Builder.class.getDeclaredMethod("setEnableMainDexListCheck", boolean.class);
-        Method setMinimalMainDex =
-            D8Command.Builder.class.getDeclaredMethod("setMinimalMainDex", boolean.class);
-        // The methods are package private to not reveal them as part of the external API.
-        setEnableMainDexListCheck.setAccessible(true);
-        setMinimalMainDex.setAccessible(true);
-        setEnableMainDexListCheck.invoke(builder, Boolean.FALSE);
-        setMinimalMainDex.invoke(builder, dexArgs.minimalMainDex);
-        D8.run(builder.build());
-      } catch (ReflectiveOperationException e) {
-        // Go through the support support code accessing the internals for the compilation.
-        CompatDxSupport.run(builder.build(), dexArgs.minimalMainDex);
-      }
+      D8.run(builder.build());
     } finally {
       executor.shutdown();
     }
@@ -696,7 +668,7 @@ public class CompatDx {
     public void accept(
         int fileIndex, ByteDataView data, Set<String> descriptors, DiagnosticsHandler handler) {
       if (fileIndex > 0) {
-        throw new CompilationError(
+        throw new CompatDxCompilationError(
             "Compilation result could not fit into a single dex file. "
                 + "Reduce the input-program size or run with --multi-dex enabled");
       }
@@ -870,7 +842,7 @@ public class CompatDx {
 
   private static void processPath(Path path, List<Path> files) throws IOException {
     if (!Files.exists(path)) {
-      throw new CompilationError("File does not exist: " + path);
+      throw new CompatDxCompilationError("File does not exist: " + path);
     }
     if (Files.isDirectory(path)) {
       processDirectory(path, files);
@@ -881,7 +853,7 @@ public class CompatDx {
       return;
     }
     if (FileUtils.isApkFile(path)) {
-      throw new Unimplemented("apk files not yet supported: " + path);
+      throw new CompatDxUnimplemented("apk files not yet supported: " + path);
     }
   }
 

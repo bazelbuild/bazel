@@ -75,4 +75,11 @@ function test_command_args_are_not_parsed_as_startup_args() {
   expect_not_log "Error: Unable to read .bazelrc file"
 }
 
+# Test that normal bazel works with and without --autodetect_server_javabase
+# because it has an embedded JRE.
+function test_autodetect_server_javabase() {
+  bazel --autodetect_server_javabase version &> $TEST_log || fail "Should pass"
+  bazel --noautodetect_server_javabase version &> $TEST_log || fail "Should pass"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"

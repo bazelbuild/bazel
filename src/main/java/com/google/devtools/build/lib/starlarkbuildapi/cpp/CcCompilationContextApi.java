@@ -14,20 +14,22 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Interface for a store of information needed for C++ compilation aggregated across dependencies.
  */
 @StarlarkBuiltin(
     name = "CompilationContext",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")
@@ -118,4 +120,10 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       doc = "Returns the list of textual headers that are declared by this target.",
       structField = true)
   StarlarkList<FileT> getStarlarkDirectTextualHeaders();
+
+  @StarlarkMethod(
+      name = "transitive_compilation_prerequisites",
+      documented = false,
+      useStarlarkThread = true)
+  Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread) throws EvalException;
 }

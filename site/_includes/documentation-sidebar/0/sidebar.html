@@ -1,0 +1,299 @@
+<h3>Home</h3>
+<ul class="sidebar-nav">
+    <li><a href="/versions/{{ current_version }}/bazel-overview.html">Bazel overview</a></li>
+    <li><a href="/versions/{{ current_version }}/bazel-vision.html">Bazel vision</a></li>
+    <li><a href="/versions/{{ current_version }}/getting-started.html">Getting started</a></li>
+    <li><a href="/versions/{{ current_version }}/backward-compatibility.html">Backward compatibility</a></li>
+    <li><a href="/versions/{{ current_version }}/versioning.html">Release versioning</a></li>
+</ul>
+
+<h3>Installing Bazel</h3>
+<ul class="sidebar-nav">
+
+    <li class="sidebar-nav">
+        <a href="/versions/{{ current_version }}/install.html">Installation overview</a>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#installing-menu" aria-expanded="false"
+           aria-controls="installing-menu">
+            Installation steps<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
+
+            <li><a href="/versions/{{ current_version }}/install-ubuntu.html">Ubuntu</a></li>
+            <li><a href="/versions/{{ current_version }}/install-redhat.html">Fedora/CentOS</a></li>
+            <li><a href="/versions/{{ current_version }}/install-os-x.html">macOS</a></li>
+            <li><a href="/versions/{{ current_version }}/install-windows.html">Windows</a></li>
+            <li><a href="/versions/{{ current_version }}/install-compile-source.html">Compiling from source</a></li>
+            <li><a href="/versions/{{ current_version }}/completion.html">Command-line completion</a></li>
+            <li><a href="/versions/{{ current_version }}/ide.html">Integrating with IDEs</a></li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Tutorials</h3>
+<ul class="sidebar-nav">
+    <li><a href="/versions/{{ current_version }}/tutorial/cpp.html">C++</a></li>
+    <li><a href="/versions/{{ current_version }}/tutorial/java.html">Java</a></li>
+    <li><a href="/versions/{{ current_version }}/tutorial/android-app.html">Android</a></li>
+    <li><a href="/versions/{{ current_version }}/tutorial/ios-app.html">iOS</a></li>
+</ul>
+
+<h3>Using Bazel</h3>
+<ul class="sidebar-nav">
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#using-menu" aria-expanded="false"
+           aria-controls="using-menu">
+            Concepts<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="using-menu">
+            <li><a href="/versions/{{ current_version }}/build-ref.html">Core concepts</a></li>
+            <li><a href="/versions/{{ current_version }}/external.html">External dependencies</a></li>
+            <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable attributes</a></li>
+            <li><a href="/versions/master/platforms-intro.html">Platforms and toolchains</a></li>
+            <li><a href="/versions/master/visibility.html">Visibility</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#guides-menu" aria-expanded="false"
+           aria-controls="build-files-menu">
+            Guides<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="guides-menu">
+            <li><a href="/versions/{{ current_version }}/guide.html">Running Bazel</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/tutorial-creating-a-macro.html">Creating a macro</a></li>
+            <li><a href="/versions/{{ current_version }}/memory-saving-mode.html">Optimizing memory</a></li>
+            <li><a href="/versions/{{ current_version }}/windows.html">Building on Windows</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#query-menu" aria-expanded="false"
+           aria-controls="query-menu">
+            Queries<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="query-menu">
+            <li><a href="/versions/{{ current_version }}/query-how-to.html">The query command</a></li>
+            <li><a href="/versions/{{ current_version }}/cquery.html">The cquery command</a></li>
+            <li><a href="/versions/{{ current_version }}/aquery.html">The aquery command</a></li>
+            <li><a href="/versions/{{ current_version }}/query.html">Query language</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#best-practices-menu" aria-expanded="false"
+           aria-controls="best-practices-menu">
+            Best practices<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="best-practices-menu">
+            <li><a href="/versions/{{ current_version }}/best-practices.html">General best practices</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing BUILD variables</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#remote-execution-menu" aria-expanded="false"
+           aria-controls="remote-execution-menu">
+            Remote execution<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="remote-execution-menu">
+            <li><a href="/versions/{{ current_version }}/remote-execution.html">Overview</a></li>
+            <li><a href="/versions/{{ current_version }}/remote-execution-rules.html">Guidelines</a></li>
+            <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                   href="#troubleshoot-remote-execution-menu" aria-expanded="false"
+                   aria-controls="troubleshoot-remote-execution-menu">
+                    Troubleshooting<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="troubleshoot-remote-execution-menu">
+                    <li><a href="/versions/{{ current_version }}/remote-execution-sandbox.html">Troubleshooting with Bazel sandbox</a></li>
+                    <li><a href="/versions/{{ current_version }}/workspace-log.html">Non-hermetic WORKSPACE rules</a></li>
+                    <li><a href="/versions/{{ current_version }}/remote-execution-caching-debug.html">Debugging remote cache hits</a></li>
+                </ul>
+            </li>
+            <li><a href="/versions/{{ current_version }}/remote-execution-ci.html">Remote execution and CI</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#remote-caching-menu" aria-expanded="false"
+           aria-controls="remote-caching-menu">
+            Remote caching<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="remote-caching-menu">
+            <li><a href="/versions/{{ current_version }}/remote-caching.html">Overview</a></li>
+            <li><a href="/versions/{{ current_version }}/remote-caching-debug.html">Debugging remote cache hits with local execution</a></li>
+        </ul>
+    </li>
+</ul>
+
+<h4>Rules</h4>
+<ul class="sidebar-nav">
+    <li><a href="/versions/{{ current_version }}/be/overview.html">Build encyclopedia</a></li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#android-menu" aria-expanded="false"
+           aria-controls="android-menu">
+            Android<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
+            <li><a href="/versions/{{ current_version }}/tutorial/android-app.html">Tutorial</a></li>
+            <li><a href="/versions/{{ current_version }}/bazel-and-android.html">Android resources</a></li>
+            <li><a href="/versions/{{ current_version }}/mobile-install.html">Using mobile-install</a></li>
+            <li><a href="/versions/{{ current_version }}/android-instrumentation-test.html">Android instrumentation tests</a></li>
+            <li><a href="/versions/{{ current_version }}/android-ndk.html">Android NDK</a></li>
+            <li><a href="https://plugins.jetbrains.com/plugin/9185-bazel">Android Studio plugin</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#apple-menu" aria-expanded="false"
+           aria-controls="apple-menu">
+            Apple<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
+            <li><a href="/versions/{{ current_version }}/tutorial/ios-app.html">Tutorial</a></li>
+            <li><a href="/versions/{{ current_version }}/bazel-and-apple.html">Apple resources</a></li>
+            <li><a href="/versions/{{ current_version }}/migrate-xcode.html">Migrating from Xcode</a></li>
+            <li><a href="/versions/{{ current_version }}/migrate-cocoapods.html">Converting CocoaPods</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#cpp-menu" aria-expanded="false"
+           aria-controls="cpp-menu">
+            C++<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
+            <li><a href="/versions/{{ current_version }}/tutorial/cpp.html">Tutorial</a></li>
+            <li><a href="/versions/{{ current_version }}/bazel-and-cpp.html">C++ resources</a></li>
+            <li><a href="/versions/{{ current_version }}/cpp-use-cases.html">C++ use cases</a></li>
+            <li>
+                <a href="/versions/{{ current_version }}/cc-toolchain-config-reference.html">
+                    C++ Toolchain Configuration
+                </a>
+            </li>
+            <li>
+                <a href="/versions/{{ current_version }}/tutorial/cc-toolchain-config.html">
+                    Tutorial: Configuring C++ Toolchains
+                </a>
+            </li>
+            <li>
+                <a href="/versions/{{ current_version }}/integrating-with-rules-cc.html">
+                    Integrating with C++ rules
+                </a>
+            </li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#java-menu" aria-expanded="false"
+           aria-controls="java-menu">
+            Java<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
+            <li><a href="/versions/{{ current_version }}/tutorial/java.html">Tutorial</a></li>
+            <li><a href="/versions/{{ current_version }}/bazel-and-java.html">Java resources</a></li>
+            <li><a href="/versions/{{ current_version }}/migrate-maven.html">Migrating from Maven</a></li>
+            <li><a href="/versions/{{ current_version }}/generate-workspace.html">Converting Maven dependencies</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#javascript-menu" aria-expanded="false"
+           aria-controls="javascript-menu">
+            JavaScript<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="javascript-menu">
+            <li><a href="/versions/{{ current_version }}/bazel-and-javascript.html">JavaScript resources</a></li>
+            <li><a href="/versions/{{ current_version }}/build-javascript.html">Building JavaScript</a></li>
+        </ul>
+    </li>
+
+</ul>
+
+<h3>Reference</h3>
+<ul class="sidebar-nav">
+    <li><a href="/versions/{{ current_version }}/user-manual.html">Commands and options</a></li>
+    <li><a href="/versions/{{ current_version }}/glossary.html">Glossary</a></li>
+    <li><a href="/versions/{{ current_version }}/be/overview.html">Build encyclopedia</a></li>
+    <li><a href="/versions/{{ current_version }}/test-encyclopedia.html">Test encyclopedia</a></li>
+    <li><a href="/versions/{{ current_version }}/command-line-reference.html">Command line reference</a></li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#build-files-menu" aria-expanded="false"
+           aria-controls="build-files-menu">
+            BUILD files<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="build-files-menu">
+            <li><a href="/versions/{{ current_version }}/be/functions.html">Functions</a></li>
+            <li><a href="/versions/{{ current_version }}/be/common-definitions.html">Common rule definitions</a></li>
+            <li><a href="/versions/{{ current_version }}/be/make-variables.html">"Make" variables</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/build-style.html">BUILD style guide</a></li>
+        </ul>
+    </li>
+
+    <li><a href="/versions/{{ current_version }}/build-event-protocol.html">Build Event Protocol</a></li>
+    <li><a href="/versions/{{ current_version }}/output_directories.html">Output directory layout</a></li>
+    <li><a href="/versions/{{ current_version }}/platforms.html">Platforms</a></li>
+    <li><a href="/versions/{{ current_version }}/exec-groups.html">Execution Groups</a></li>
+    <li><a href="/versions/{{ current_version }}/toolchains.html">Toolchains</a></li>
+</ul>
+
+<h3>Extending Bazel</h3>
+<ul class="sidebar-nav">
+    <li><a href="/versions/{{ current_version }}/skylark/concepts.html">Extension overview</a></li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#starlark-concepts" aria-expanded="false"
+           aria-controls="starlark-concepts">
+            Concepts<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-concepts">
+            <li><a href="/versions/{{ current_version }}/skylark/macros.html">Macros</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/rules.html">Rules</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/depsets.html">Depsets</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/aspects.html">Aspects</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/repository_rules.html">Repository rules</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/config.html">Configurations</a></li>
+        </ul>
+    </li>
+
+    <li>
+        <a class="sidebar-nav-heading" data-toggle="collapse"
+           href="#starlark-practices" aria-expanded="false"
+           aria-controls="starlark-practices">
+            Best practices<span class="caret"></span>
+        </a>
+        <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-practices">
+            <li><a href="/versions/{{ current_version }}/skylark/bzl-style.html">.bzl style guide</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/testing.html">Testing extensions</a></li>
+            <li><a href="https://github.com/bazelbuild/stardoc">Documenting rules with Stardoc</a></li>
+            <li><a href="https://github.com/bazelbuild/buildtools/tree/master/buildifier">Linting</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/performance.html">Optimizing performance</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/deploying.html">Deploying rules</a></li>
+            <li><a href="/versions/{{ current_version }}/skylark/windows_tips.html">Writing rules on Windows</a></li>
+        </ul>
+    </li>
+
+    <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
+    <li><a href="/versions/{{ current_version }}/skylark/lib/skylark-overview.html">Extensions API</a></li>
+    <li><a href="/versions/{{ current_version }}/skylark/faq.html">FAQ</a></li>
+    <li><a href="/versions/{{ current_version }}/skylark/language.html">Starlark language</a></li>
+</ul>

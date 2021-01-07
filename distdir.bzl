@@ -13,6 +13,9 @@
 # limitations under the License.
 """Defines a repository rule that generates an archive consisting of the specified files to fetch"""
 
+load("//:distdir_deps.bzl", "DIST_DEPS")
+load("//tools/build_defs/repo:http.bzl", "http_archive")
+
 _BUILD = """
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
@@ -41,7 +44,57 @@ _distdir_tar_attrs = {
     "dirname": attr.string(default = "distdir"),
 }
 
-distdir_tar = repository_rule(
+_distdir_tar = repository_rule(
     implementation = _distdir_tar_impl,
     attrs = _distdir_tar_attrs,
 )
+
+def distdir_tar(name, archives, sha256, urls, dirname, dist_deps = None):
+    """Creates a repository whose content is a set of tar files.
+
+    Args:
+      name: repo name.
+      archives: list of tar file names.
+      sha256: map of tar file names to SHAs.
+      urls: map of tar file names to URL lists.
+      dirname: output directory in repo.
+      dist_deps: map of repo names to dict of archive, sha256, and urls.
+    """
+    if dist_deps:
+        for dep, info in dist_deps.items():
+            archive_file = info["archive"]
+            archives.append(archive_file)
+            sha256[archive_file] = info["sha256"]
+            urls[archive_file] = info["urls"]
+    _distdir_tar(
+        name = name,
+        archives = archives,
+        sha256 = sha256,
+        urls = urls,
+        dirname = dirname,
+    )
+
+def dist_http_archive(name, **kwargs):
+    """Wraps http_archive but takes sha and urls from DIST_DEPS.
+
+    dist_http_archive wraps an http_archive invocation, but looks up relevant
+    information from DIST_DEPS so the user does not have to specify it. It
+    always strips sha256 and urls from kwargs.
+
+    Args:
+      name: repo name
+      **kwargs: see http_archive for allowed args.
+    """
+    info = DIST_DEPS[name]
+    if "patch_args" not in kwargs:
+        kwargs["patch_args"] = info.get("patch_args")
+    if "patches" not in kwargs:
+        kwargs["patches"] = info.get("patches")
+    if "strip_prefix" not in kwargs:
+        kwargs["strip_prefix"] = info.get("strip_prefix")
+    http_archive(
+        name = name,
+        sha256 = info["sha256"],
+        urls = info["urls"],
+        **kwargs
+    )

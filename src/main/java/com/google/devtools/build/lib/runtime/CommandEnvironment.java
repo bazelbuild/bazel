@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -23,10 +24,11 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -41,7 +43,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.protobuf.Any;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -95,6 +97,7 @@ public class CommandEnvironment {
   private final PathFragment relativeWorkingDirectory;
   private final Duration waitTime;
   private final long commandStartTime;
+  private final ImmutableList<Any> commandExtensions;
 
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
@@ -151,7 +154,8 @@ public class CommandEnvironment {
       OptionsParsingResult options,
       List<String> warnings,
       long waitTimeInMs,
-      long commandStartTime) {
+      long commandStartTime,
+      List<Any> commandExtensions) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -192,6 +196,7 @@ public class CommandEnvironment {
 
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
+    this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     // If this command supports --package_path we initialize the package locator scoped
     // to the command environment
     if (commandHasPackageOptions(command) && workspacePath != null) {
@@ -252,7 +257,6 @@ public class CommandEnvironment {
       if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
                 FailureDetail.newBuilder()
                     .setMessage("Client cwd '" + clientCwd + "' contains uplevel references")
                     .setClientEnvironment(
@@ -264,7 +268,6 @@ public class CommandEnvironment {
       if (clientCwd.isAbsolute() && !clientCwd.startsWith(workspace.asFragment())) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
                 FailureDetail.newBuilder()
                     .setMessage(
                         String.format(
@@ -308,6 +311,14 @@ public class CommandEnvironment {
 
   public BlazeRuntime getRuntime() {
     return runtime;
+  }
+
+  public Clock getClock() {
+    return getRuntime().getClock();
+  }
+
+  public OptionsProvider getStartupOptionsProvider() {
+    return getRuntime().getStartupOptionsProvider();
   }
 
   public BlazeWorkspace getBlazeWorkspace() {
@@ -669,7 +680,7 @@ public class CommandEnvironment {
             reporter,
             options.getOptions(PackageOptions.class),
             packageLocator,
-            options.getOptions(StarlarkSemanticsOptions.class),
+            options.getOptions(BuildLanguageOptions.class),
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor,
@@ -780,5 +791,16 @@ public class CommandEnvironment {
       }
       return fileCache;
     }
+  }
+
+  /**
+   * Returns the {@linkplain
+   * com.google.devtools.build.lib.server.CommandProtos.RunRequest#getCommandExtensions extensions}
+   * passed to the server for this command.
+   *
+   * <p>Extensions are arbitrary messages containing additional per-command information.
+   */
+  public ImmutableList<Any> getCommandExtensions() {
+    return commandExtensions;
   }
 }

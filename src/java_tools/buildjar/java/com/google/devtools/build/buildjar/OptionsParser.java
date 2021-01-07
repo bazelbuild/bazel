@@ -70,7 +70,6 @@ public final class OptionsParser {
   private int fullClasspathLength = -1;
   private int reducedClasspathLength = -1;
 
-  private String sourceGenDir;
   private String generatedSourcesOutputJar;
   private String manifestProtoPath;
 
@@ -88,9 +87,6 @@ public final class OptionsParser {
 
   private String outputJar;
   @Nullable private String nativeHeaderOutput;
-
-  private String classDir;
-  private String tempDir;
 
   private final Map<String, List<String>> postProcessors = new LinkedHashMap<>();
 
@@ -166,9 +162,6 @@ public final class OptionsParser {
         case "--reduced_classpath_length":
           reducedClasspathLength = Integer.parseInt(getArgument(argQueue, arg));
           break;
-        case "--sourcegendir":
-          sourceGenDir = getArgument(argQueue, arg);
-          break;
         case "--generated_sources_output":
           generatedSourcesOutputJar = getArgument(argQueue, arg);
           break;
@@ -203,26 +196,11 @@ public final class OptionsParser {
         case "--builtin_processors":
           collectProcessorArguments(builtinProcessorNames, argQueue, "-");
           break;
-        case "--extclasspath":
-        case "--extdir":
-          // TODO(b/149114743): delete once Blaze stops passing the flag
-          collectFlagArguments(new ArrayList<>(), argQueue, "-");
-          break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
           break;
         case "--native_header_output":
           nativeHeaderOutput = getArgument(argQueue, arg);
-          break;
-        case "--classdir":
-          classDir = getArgument(argQueue, arg);
-          break;
-        case "--tempdir":
-          tempDir = getArgument(argQueue, arg);
-          break;
-        case "--gendir":
-          // TODO(bazel-team) - remove when Bazel no longer passes this flag to buildjar.
-          getArgument(argQueue, arg);
           break;
         case "--post_processor":
           addExternalPostProcessor(argQueue, arg);
@@ -408,10 +386,6 @@ public final class OptionsParser {
     return reducedClasspathLength;
   }
 
-  public String getSourceGenDir() {
-    return sourceGenDir;
-  }
-
   public String getGeneratedSourcesOutputJar() {
     return generatedSourcesOutputJar;
   }
@@ -463,14 +437,6 @@ public final class OptionsParser {
   @Nullable
   public String getNativeHeaderOutput() {
     return nativeHeaderOutput;
-  }
-
-  public String getClassDir() {
-    return classDir;
-  }
-
-  public String getTempDir() {
-    return tempDir;
   }
 
   public Map<String, List<String>> getPostProcessors() {

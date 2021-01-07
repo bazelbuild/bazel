@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -28,18 +29,21 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
@@ -104,10 +108,12 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * <p>This object is required because linkstamp files may include other headers which will have to
    * be provided during compilation.
    */
-  public static final class Linkstamp {
+  public static final class Linkstamp implements LinkstampApi<Artifact> {
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
     private final byte[] nestedDigest;
+
+    private static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
 
     // TODO(janakr): if action key context is not available, the digest can be computed lazily,
     // only if we are doing an equality comparison and artifacts are equal. That should never
@@ -117,7 +123,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     Linkstamp(
         Artifact artifact,
         NestedSet<Artifact> declaredIncludeSrcs,
-        ActionKeyContext actionKeyContext) {
+        ActionKeyContext actionKeyContext)
+        throws CommandLineExpansionException, InterruptedException {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
       Fingerprint fp = new Fingerprint();
@@ -130,9 +137,21 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return artifact;
     }
 
+    @Override
+    public Artifact getArtifactForStarlark(StarlarkThread thread) throws EvalException {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+      return artifact;
+    }
+
     /** Returns the declared includes. */
     public NestedSet<Artifact> getDeclaredIncludeSrcs() {
       return declaredIncludeSrcs;
+    }
+
+    @Override
+    public Depset getDeclaredIncludeSrcsForStarlark(StarlarkThread thread) throws EvalException {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+      return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
     }
 
     @Override
@@ -161,7 +180,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   // TODO(bazel-team): choose less confusing names for this class and the package-level interface of
   // the same name.
   @Immutable
-  public static class LinkerInput implements LinkerInputApi<LibraryToLink, Artifact> {
+  public static class LinkerInput
+      implements LinkerInputApi<LibraryToLink, LtoBackendArtifacts, Artifact> {
 
     public static final Depset.ElementType TYPE = Depset.ElementType.of(LinkerInput.class);
 
@@ -441,7 +461,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Override
   public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
     // TODO(plf): Flag can be removed already.
-    if (semantics.incompatibleDepsetForLibrariesToLinkGetter()) {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER)) {
       return Depset.of(LibraryToLink.TYPE, getLibraries());
     } else {
       return StarlarkList.immutableCopyOf(getLibraries().toList());
@@ -474,6 +494,12 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       linkstamps.addAll(linkerInput.getLinkstamps());
     }
     return linkstamps.build();
+  }
+
+  @Override
+  public Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Linkstamp.TYPE, getLinkstamps());
   }
 
   public NestedSet<Artifact> getNonCodeInputs() {

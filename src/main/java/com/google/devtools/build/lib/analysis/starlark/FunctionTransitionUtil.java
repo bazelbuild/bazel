@@ -28,25 +28,24 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -78,7 +77,7 @@ public class FunctionTransitionUtil {
       StructImpl attrObject,
       EventHandler eventHandler)
       throws EvalException, InterruptedException {
-    checkForBlacklistedOptions(starlarkTransition);
+    checkForDenylistedOptions(starlarkTransition);
 
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
@@ -92,18 +91,51 @@ public class FunctionTransitionUtil {
     validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
 
     for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
+      Map<String, Object> newValues = handleImplicitPlatformChange(entry.getValue());
       BuildOptions transitionedOptions =
-          applyTransition(buildOptions, entry.getValue(), optionInfoMap, starlarkTransition);
+          applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
       splitBuildOptions.put(entry.getKey(), transitionedOptions);
     }
     return splitBuildOptions.build();
   }
 
-  private static void checkForBlacklistedOptions(StarlarkDefinedConfigTransition transition)
+  /**
+   * If the transition changes --cpu but not --platforms, clear out --platforms.
+   *
+   * <p>Purpose:
+   *
+   * <ol>
+   *   <li>A platform mapping sets --cpu=foo when --platforms=foo.
+   *   <li>A transition sets --cpu=bar.
+   *   <li>Because --platforms=foo, the platform mapping kicks in to set --cpu back to foo.
+   *   <li>Result: the mapping accidentally overrides the transition
+   * </ol>
+   *
+   * <p>Transitions can alo explicitly set --platforms to be clear what platform they set.
+   *
+   * <p>Platform mappings:
+   * https://docs.bazel.build/versions/master/platforms-intro.html#platform-mappings.
+   *
+   * <p>This doesn't check that the changed value is actually different than the source (i.e.
+   * setting {@code --cpu=foo} when {@code --cpu} is already {@code foo}). That could unnecessarily
+   * fork configurations that are really the same. That's a possible optimization TODO.
+   */
+  private static Map<String, Object> handleImplicitPlatformChange(
+      Map<String, Object> originalOutput) {
+    boolean changesCpu = originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "cpu");
+    boolean changesPlatforms = originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms");
+    return changesCpu && !changesPlatforms
+        ? ImmutableMap.<String, Object>builder()
+            .putAll(originalOutput)
+            .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
+            .build()
+        : originalOutput;
+  }
+
+  private static void checkForDenylistedOptions(StarlarkDefinedConfigTransition transition)
       throws EvalException {
     if (transition.getOutputs().contains("//command_line_option:define")) {
-      throw new EvalException(
-          transition.getLocationForErrorReporting(),
+      throw Starlark.errorf(
           "Starlark transition on --define not supported - try using build settings"
               + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
     }
@@ -123,18 +155,14 @@ public class FunctionTransitionUtil {
           Sets.newLinkedHashSet(starlarkTransition.getOutputs());
       for (String outputKey : transition.keySet()) {
         if (!remainingOutputs.remove(outputKey)) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              String.format("transition function returned undeclared output '%s'", outputKey));
+          throw Starlark.errorf("transition function returned undeclared output '%s'", outputKey);
         }
       }
 
       if (!remainingOutputs.isEmpty()) {
-        throw new EvalException(
-            starlarkTransition.getLocationForErrorReporting(),
-            String.format(
-                "transition outputs [%s] were not defined by transition function",
-                Joiner.on(", ").join(remainingOutputs)));
+        throw Starlark.errorf(
+            "transition outputs [%s] were not defined by transition function",
+            Joiner.on(", ").join(remainingOutputs));
       }
     }
   }
@@ -197,7 +225,7 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue == null ? Starlark.NONE : optionValue, (Location) null);
+          dict.putEntry(optionKey, optionValue == null ? Starlark.NONE : optionValue);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
@@ -209,15 +237,13 @@ public class FunctionTransitionUtil {
         if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
           continue;
         }
-        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), (Location) null);
+        dict.putEntry(starlarkOption.getKey().toString(), starlarkOption.getValue());
       }
 
       if (!remainingInputs.isEmpty()) {
-        throw new EvalException(
-            starlarkTransition.getLocationForErrorReporting(),
-            String.format(
-                "transition inputs [%s] do not correspond to valid settings",
-                Joiner.on(", ").join(remainingInputs)));
+        throw Starlark.errorf(
+            "transition inputs [%s] do not correspond to valid settings",
+            Joiner.on(", ").join(remainingInputs));
       }
 
       return dict;
@@ -245,18 +271,28 @@ public class FunctionTransitionUtil {
       StarlarkDefinedConfigTransition starlarkTransition)
       throws EvalException {
     BuildOptions buildOptions = buildOptionsToTransition.clone();
-    HashMap<String, Object> convertedNewValues = new HashMap<>();
+    // The names and values of options that are different after this transition.
+    Set<String> convertedNewValues = new HashSet<>();
     for (Map.Entry<String, Object> entry : newValues.entrySet()) {
       String optionName = entry.getKey();
       Object optionValue = entry.getValue();
 
       if (!optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        buildOptions =
-            BuildOptions.builder()
-                .merge(buildOptions)
-                .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
-                .build();
-        convertedNewValues.put(optionName, optionValue);
+        Object oldValue =
+            buildOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
+        if ((oldValue == null && optionValue != null)
+            || (oldValue != null && optionValue == null)
+            || (oldValue != null && !oldValue.equals(optionValue))) {
+          // TODO(bazel-team): Figure out if we need to create a whole new build options every
+          // time. Can we just keep track of the running changes and actually build a new build
+          // options after this loop?
+          buildOptions =
+              BuildOptions.builder()
+                  .merge(buildOptions)
+                  .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
+                  .build();
+          convertedNewValues.add(optionName);
+        }
       } else {
         optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
 
@@ -266,11 +302,8 @@ public class FunctionTransitionUtil {
         }
         try {
           if (!optionInfoMap.containsKey(optionName)) {
-            throw new EvalException(
-                starlarkTransition.getLocationForErrorReporting(),
-                String.format(
-                    "transition output '%s' does not correspond to a valid setting",
-                    entry.getKey()));
+            throw Starlark.errorf(
+                "transition output '%s' does not correspond to a valid setting", entry.getKey());
           }
 
           OptionInfo optionInfo = optionInfoMap.get(optionName);
@@ -303,26 +336,31 @@ public class FunctionTransitionUtil {
             }
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
             convertedValue = optionValue;
+          } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
+            convertedValue = ((Boolean) optionValue).booleanValue();
           } else if (optionValue instanceof String) {
             convertedValue = def.getConverter().convert((String) optionValue);
           } else {
-            throw new EvalException(
-                starlarkTransition.getLocationForErrorReporting(),
-                "Invalid value type for option '" + optionName + "'");
+            throw Starlark.errorf("Invalid value type for option '%s'", optionName);
           }
-          field.set(options, convertedValue);
-          convertedNewValues.put(entry.getKey(), convertedValue);
+
+          Object oldValue = field.get(options);
+          if ((oldValue == null && convertedValue != null)
+              || (oldValue != null && convertedValue == null)
+              || (oldValue != null && !oldValue.equals(convertedValue))) {
+            field.set(options, convertedValue);
+            convertedNewValues.add(entry.getKey());
+          }
+
         } catch (IllegalArgumentException e) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              "IllegalArgumentError for option '" + optionName + "': " + e.getMessage());
+          throw Starlark.errorf(
+              "IllegalArgumentError for option '%s': %s", optionName, e.getMessage());
         } catch (IllegalAccessException e) {
           throw new RuntimeException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              "OptionsParsingError for option '" + optionName + "': " + e.getMessage());
+          throw Starlark.errorf(
+              "OptionsParsingError for option '%s': %s", optionName, e.getMessage());
         }
       }
     }
@@ -331,9 +369,12 @@ public class FunctionTransitionUtil {
     buildConfigOptions = buildOptions.get(CoreOptions.class);
 
     if (starlarkTransition.isForAnalysisTesting()) {
+      // We need to record every time we change a configuration option.
+      // see {@link #updateOutputDirectoryNameFragment} for usage.
+      convertedNewValues.add("//command_line_option:evaluating for analysis test");
       buildConfigOptions.evaluatingForAnalysisTest = true;
     }
-    updateOutputDirectoryNameFragment(convertedNewValues.keySet(), optionInfoMap, buildOptions);
+    updateOutputDirectoryNameFragment(convertedNewValues, optionInfoMap, buildOptions);
 
     return buildOptions;
   }
@@ -356,6 +397,11 @@ public class FunctionTransitionUtil {
   // makes it so that two configurations that are the same in value may hash differently.
   private static void updateOutputDirectoryNameFragment(
       Set<String> changedOptions, Map<String, OptionInfo> optionInfoMap, BuildOptions toOptions) {
+    // Return without doing anything if this transition hasn't changed any option values.
+    if (changedOptions.isEmpty()) {
+      return;
+    }
+
     CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
     Set<String> updatedAffectedByStarlarkTransition =
         new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);

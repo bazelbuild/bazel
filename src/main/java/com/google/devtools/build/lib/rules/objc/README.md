@@ -26,7 +26,7 @@ build information (that is, information that cannot always be derived strictly
 from BUILD files).  The contents of these configurations can be inspected by
 looking at `rules/objc/ObjcConfiguration.java` and
 `rules/apple/AppleConfiguration.java`.  To access a configuration fragment from
-skylark, the fragment must be declared in the rule definition:
+Starlark, the fragment must be declared in the rule definition:
 
 ```
 def __impl(ctx):

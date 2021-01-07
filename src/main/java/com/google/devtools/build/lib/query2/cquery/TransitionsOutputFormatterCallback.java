@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -43,7 +45,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -53,6 +54,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Output formatter that prints {@link ConfigurationTransition} information for rule configured
@@ -79,7 +81,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
@@ -89,7 +91,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
     CqueryOptions.Transitions verbosity = options.transitions;
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       eventHandler.handle(
@@ -98,25 +101,21 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                   + " flag explicitly to 'lite' or 'full'"));
       return;
     }
-    partialResult.forEach(
-        ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
-    for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getLabel());
-      BuildConfiguration config =
-          skyframeExecutor.getConfiguration(
-              eventHandler, configuredTarget.getConfigurationKey());
+    partialResult.forEach(kct -> partialResultMap.put(kct.getLabel(), accessor.getTarget(kct)));
+    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
+      Target target = partialResultMap.get(keyedConfiguredTarget.getLabel());
+      BuildConfiguration config = getConfiguration(keyedConfiguredTarget.getConfigurationKey());
       addResult(
-          getRuleClassTransition(configuredTarget, target)
-              + configuredTarget.getLabel()
-              + " ("
-              + (config != null && config.isHostConfiguration() ? "HOST" : config)
-              + ")");
-      if (!(configuredTarget instanceof RuleConfiguredTarget)) {
+          getRuleClassTransition(keyedConfiguredTarget.getConfiguredTarget(), target)
+              + String.format(
+                  "%s (%s)",
+                  keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel(), shortId(config)));
+      if (!(keyedConfiguredTarget.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
         continue;
       }
       OrderedSetMultimap<DependencyKind, DependencyKey> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
+          keyedConfiguredTarget.getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
       ToolchainCollection<ToolchainContext> toolchainContexts =
@@ -136,6 +135,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
+        // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
@@ -171,16 +171,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .concat(dep.getLabel().toString())
                 .concat("#")
                 .concat(dep.getTransition().getName())
-                .concat(" ( -> ")
+                .concat(" -> ")
                 .concat(
                     toOptions.stream()
                         .map(
                             options -> {
                               String checksum = options.computeChecksum();
-                              return checksum.equals(hostConfigurationChecksum) ? "HOST" : checksum;
+                              return checksum.equals(hostConfigurationChecksum)
+                                  ? "HOST"
+                                  : shortId(checksum);
                             })
-                        .collect(Collectors.joining(", ")))
-                .concat(")"));
+                        .collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }
@@ -221,4 +222,3 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 }
-

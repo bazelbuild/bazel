@@ -14,22 +14,22 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for actions in Starlark. */
 @StarlarkBuiltin(
     name = "Action",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "An action created during rule analysis."
             + "<p>This object is visible for the purpose of testing, and may be obtained from an "
@@ -68,7 +68,8 @@ public interface ActionApi extends StarlarkValue {
               + "and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
-  Sequence<String> getStarlarkArgv() throws EvalException;
+  @Nullable
+  Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "args",
@@ -82,9 +83,9 @@ public interface ActionApi extends StarlarkValue {
               + " <p>Note that some types of actions do not yet support exposure of this field."
               + " For such action types, this is <code>None</code>.",
       structField = true,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
-  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
+      allowReturnNones = true)
+  @Nullable
+  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException, InterruptedException;
 
   /**
    * If the action writes a file whose content is known at analysis time, returns that content;
@@ -109,7 +110,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  String getStarlarkContent() throws IOException, EvalException;
+  String getStarlarkContent() throws IOException, EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "substitutions",
@@ -119,6 +120,7 @@ public interface ActionApi extends StarlarkValue {
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Dict<String, String> getStarlarkSubstitutions();
 
   @StarlarkMethod(
@@ -140,7 +142,7 @@ public interface ActionApi extends StarlarkValue {
               + " code base; all relevant info is in the keyset. Returns None if this action does"
               + " not expose execution requirements.",
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   @Nullable
   public Dict<String, String> getExecutionInfoDict();
 }

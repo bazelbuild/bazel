@@ -308,7 +308,7 @@ message Rule {
   repeated string default_setting = 7;
 
   // The rule's class's public by default value.
-  optional bool public_by_default = 9;
+  optional bool DEPRECATED_public_by_default = 9;
 
   optional bool DEPRECATED_is_skylark = 10;
 
@@ -322,8 +322,14 @@ message Rule {
   // the frame for the rule function itself is omitted.
   // The file name may be relative to package's source root directory.
   //
-  // Requires --record_rule_instantiation_callstack=true.
+  // Requires --proto:instantiation_stack=true.
   repeated string instantiation_stack = 13;
+
+  // The Starlark call stack for the definition of the rule class of this
+  // particular rule instance. If empty, either populating the field was not
+  // enabled on the command line with the --proto:definition_stack flag or the
+  // rule is a native one.
+  repeated string definition_stack = 14;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent

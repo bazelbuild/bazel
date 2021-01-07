@@ -40,11 +40,6 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -61,6 +56,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 
 /**
  * Metadata of a rule attribute. Contains the attribute name and type, and an default value to be
@@ -286,6 +286,9 @@ public final class Attribute implements Comparable<Attribute> {
     public AllowedValueSet(Iterable<?> values) {
       Preconditions.checkNotNull(values);
       Preconditions.checkArgument(!Iterables.isEmpty(values));
+      for (Object v : values) {
+        Starlark.checkValid(v);
+      }
       allowedValues = ImmutableSet.copyOf(values);
     }
 
@@ -787,11 +790,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
      * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
-     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * fulfill {@link #mandatoryBuiltinProvidersList}, the build continues without error. Else the
      * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #mandatoryNativeProvidersList} build without error.
+     * fulfill {@link #mandatoryBuiltinProvidersList} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -807,11 +810,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
      * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
-     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * fulfill {@link #mandatoryBuiltinProvidersList}, the build continues without error. Else the
      * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #mandatoryNativeProvidersList} build without error.
+     * fulfill {@link #mandatoryBuiltinProvidersList} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -830,11 +833,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
      * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
-     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * fulfill {@link #mandatoryBuiltinProvidersList}, the build continues without error. Else the
      * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #mandatoryNativeProvidersList} build without error.
+     * fulfill {@link #mandatoryBuiltinProvidersList} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -884,18 +887,18 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * If this is a label or label-list attribute, then this sets the allowed rule types with
-     * warning for the labels occurring in the attribute. This must be a disjoint set from
-     * {@link #allowedRuleClasses}.
+     * warning for the labels occurring in the attribute. This must be a disjoint set from {@link
+     * #allowedRuleClasses}.
      *
      * <p>If the attribute contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * allowedRuleClasses()) and they fulfill {@link #mandatoryBuiltinProvidersList}}, the build
      * continues without error. Else the build fails during analysis.
      *
-     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that fulfill
+     * {@link #mandatoryBuiltinProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Collection<String> allowedRuleClasses) {
       return allowedRuleClassesWithWarning(
@@ -904,18 +907,18 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * If this is a label or label-list attribute, then this sets the allowed rule types with
-     * warning for the labels occurring in the attribute. This must be a disjoint set from
-     * {@link #allowedRuleClasses}.
+     * warning for the labels occurring in the attribute. This must be a disjoint set from {@link
+     * #allowedRuleClasses}.
      *
      * <p>If the attribute contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * allowedRuleClasses()) and they fulfill {@link #mandatoryBuiltinProvidersList}}, the build
      * continues without error. Else the build fails during analysis.
      *
-     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that fulfill
+     * {@link #mandatoryBuiltinProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(RuleClassNamePredicate allowedRuleClasses) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
@@ -945,25 +948,25 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets a list of lists of mandatory native providers. Every configured target occurring in this
-     * label type attribute has to provide all the providers from one of those lists, otherwise an
-     * error is produced during the analysis phase.
+     * Sets a list of lists of mandatory built-in providers. Every configured target occurring in
+     * this label type attribute has to provide all the providers from one of those lists, otherwise
+     * an error is produced during the analysis phase.
      */
-    public final Builder<TYPE> mandatoryNativeProvidersList(
+    public final Builder<TYPE> mandatoryBuiltinProvidersList(
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
           "must be a label-valued type");
 
       for (Iterable<Class<? extends TransitiveInfoProvider>> providers : providersList) {
-        this.requiredProvidersBuilder.addNativeSet(ImmutableSet.copyOf(providers));
+        this.requiredProvidersBuilder.addBuiltinSet(ImmutableSet.copyOf(providers));
       }
       return this;
     }
 
-    public Builder<TYPE> mandatoryNativeProviders(
+    public Builder<TYPE> mandatoryBuiltinProviders(
         Iterable<Class<? extends TransitiveInfoProvider>> providers) {
       if (providers.iterator().hasNext()) {
-        mandatoryNativeProvidersList(ImmutableList.of(providers));
+        mandatoryBuiltinProvidersList(ImmutableList.of(providers));
       }
       return this;
     }
@@ -1463,7 +1466,7 @@ public final class Attribute implements Comparable<Attribute> {
         Attribute attr = rule.getAttributeDefinition(attrName);
         if (!attr.hasComputedDefault()) {
           Object value = rule.get(attrName, attr.getType());
-          if (!EvalUtils.isNullOrNone(value)) {
+          if (!Starlark.isNullOrNone(value)) {
             // Some attribute values are not valid Starlark values:
             // visibility is an ImmutableList, for example.
             attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
@@ -1475,7 +1478,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     private Object invokeCallback(EventHandler eventHandler, Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
-      ClassObject attrs =
+      Structure attrs =
           StructProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(eventHandler, attrs);
@@ -2374,5 +2377,44 @@ public final class Attribute implements Comparable<Attribute> {
 
   public Attribute.Builder<?> cloneBuilder() {
     return cloneBuilder(this.type);
+  }
+
+  /**
+   * Converts a rule attribute value from internal form to Starlark form. Internal form may use any
+   * subtype of {@link List} or {@link Map} for {@code list} and {@code dict} attributes, whereas
+   * Starlark uses only immutable {@link StarlarkList} and {@link Dict}.
+   *
+   * <p>The conversion is similar to {@link Starlark#fromJava} for all types except {@code
+   * attr.string_list_dict} ({@code Map<String, List<String>>}), for which fromJava does not
+   * recursively convert elements. (Doing so is expensive.)
+   *
+   * <p>It is tempting to require that attributes are stored internally in Starlark form. However, a
+   * number of obstacles would need to be overcome:
+   *
+   * <ol>
+   *   <li>Some obscure attribute types such as TRISTATE and DISTRIBUTION are not currently legal
+   *       Starlark values.
+   *   <li>ImmutableList is significantly more compact than StarlarkList for small lists (n &lt; 2).
+   *       StarlarkList would need multiple representations and a builder to achieve parity.
+   *   <li>The types used by the Type mechanism would need changing; this has extensive
+   *       ramifications.
+   * </ol>
+   */
+  public static Object valueToStarlark(Object x) {
+    // Is x a non-empty string_list_dict?
+    if (x instanceof Map) {
+      Map<?, ?> map = (Map) x;
+      if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
+        // Recursively convert subelements.
+        Dict.Builder<Object, Object> dict = Dict.builder();
+        for (Map.Entry<?, ?> e : map.entrySet()) {
+          dict.put((String) e.getKey(), Starlark.fromJava(e.getValue(), null));
+        }
+        return dict.buildImmutable();
+      }
+    }
+
+    // For all other attribute values, shallow conversion is safe.
+    return Starlark.fromJava(x, null);
   }
 }

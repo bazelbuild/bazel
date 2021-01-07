@@ -24,7 +24,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RootedPathAndCasing}. */
 @RunWith(JUnit4.class)
 public class RootedPathAndCasingTest {
-  private final Path root = new InMemoryFileSystem(BlazeClock.instance()).getPath("c:/");
+  private final Path root =
+      new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256).getPath("c:/");
 
   @Test
   public void testSanityCheckFilesystemIsCaseInsensitive() {

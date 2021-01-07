@@ -39,7 +39,8 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   }
 
   @Override
-  public void registerAction(ActionAnalysisMetadata action) throws ActionConflictException {
+  public void registerAction(ActionAnalysisMetadata action)
+      throws ActionConflictException, InterruptedException {
     for (Artifact artifact : action.getOutputs()) {
       OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
       ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(wrapper, action);
@@ -54,7 +55,7 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   }
 
   @Override
-  public void unregisterAction(ActionAnalysisMetadata action) {
+  public void unregisterAction(ActionAnalysisMetadata action) throws InterruptedException {
     for (Artifact artifact : action.getOutputs()) {
       OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
       generatingActionMap.remove(wrapper, action);

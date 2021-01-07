@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -39,6 +38,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -820,7 +820,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testCombinedArgs() {
+  public void testCombinedArgs() throws Exception {
     CustomCommandLine cl =
         builder()
             .add("--arg")
@@ -889,7 +889,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testTreeFileArtifactExecPathArgs() {
+  public void testTreeFileArtifactExecPathArgs() throws Exception {
     SpecialArtifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
     SpecialArtifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
@@ -948,7 +948,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testKeyComputation() {
+  public void testKeyComputation() throws Exception {
     NestedSet<String> values = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
     ImmutableList<CustomCommandLine> commandLines =
         ImmutableList.<CustomCommandLine>builder()

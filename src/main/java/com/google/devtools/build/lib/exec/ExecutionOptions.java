@@ -18,7 +18,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -31,7 +30,6 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -257,6 +255,22 @@ public class ExecutionOptions extends OptionsBase {
   public TestOutputFormat testOutput;
 
   @Option(
+      name = "max_test_output_bytes",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {
+        OptionEffectTag.TEST_RUNNER,
+        OptionEffectTag.TERMINAL_OUTPUT,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+              + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
+              + "output. The test header is included in the log size. Negative values imply no "
+              + "limit. Output is all or nothing.")
+  public int maxTestOutputBytes;
+
+  @Option(
       name = "test_summary",
       defaultValue = "short",
       converter = TestSummaryFormat.Converter.class,
@@ -276,34 +290,6 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "This flag has no effect, and is deprecated")
   public boolean useResourceAutoSense;
-
-  @Option(
-      name = "local_resources",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Deprecated by '--incompatible_remove_local_resources'. Please use "
-              + "'--local_ram_resources' and '--local_cpu_resources'",
-      deprecationWarning =
-          "--local_resources is deprecated. Please use"
-              + " --local_ram_resources and --local_cpu_resources instead.",
-      converter = ResourceSet.ResourceSetConverter.class)
-  public ResourceSet availableResources;
-
-  @Option(
-      name = "incompatible_remove_local_resources",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Deprecate local_resources in favor of --local_ram_resources and "
-              + "--local_cpu_resources.")
-  public boolean removeLocalResources;
 
   @Option(
       name = "local_cpu_resources",

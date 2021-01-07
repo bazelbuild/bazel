@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
@@ -22,7 +23,7 @@ import io.grpc.Context;
 class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorFactory {
 
   private final RemoteExecutionCache remoteExecutionCache;
-  private final GrpcRemoteExecutor remoteExecutor;
+  private final RemoteExecutionClient remoteExecutor;
   private final DigestUtil digestUtil;
   private final Context requestCtx;
 
@@ -31,7 +32,7 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
 
   RemoteRepositoryRemoteExecutorFactory(
       RemoteExecutionCache remoteExecutionCache,
-      GrpcRemoteExecutor remoteExecutor,
+      RemoteExecutionClient remoteExecutor,
       DigestUtil digestUtil,
       Context requestCtx,
       String remoteInstanceName,

@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -580,12 +581,16 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
             FileArtifactValue metadata1 =
                 md.constructMetadataForDigest(
-                    child1, stat, Hashing.sha256().hashString("one", UTF_8).asBytes());
+                    child1,
+                    stat,
+                    DigestHashFunction.SHA256.getHashFunction().hashString("one", UTF_8).asBytes());
 
             stat = child2.getPath().stat(Symlinks.NOFOLLOW);
             FileArtifactValue metadata2 =
                 md.constructMetadataForDigest(
-                    child2, stat, Hashing.sha256().hashString("two", UTF_8).asBytes());
+                    child2,
+                    stat,
+                    DigestHashFunction.SHA256.getHashFunction().hashString("two", UTF_8).asBytes());
 
             // The metadata will not be equal to reading from the filesystem since the filesystem
             // won't have the digest. However, we should be able to detect that nothing could have
@@ -1035,7 +1040,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(

@@ -14,23 +14,25 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Either libraries, flags or other files that may be passed to the linker as inputs. */
 @StarlarkBuiltin(
     name = "LinkerInput",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc = "Either libraries, flags or other files that may be passed to the linker as inputs.")
 public interface LinkerInputApi<
-        LibraryToLinkT extends LibraryToLinkApi<FileT>, FileT extends FileApi>
+        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
+        LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
+        FileT extends FileApi>
     extends StarlarkValue {
   @StarlarkMethod(
       name = "owner",

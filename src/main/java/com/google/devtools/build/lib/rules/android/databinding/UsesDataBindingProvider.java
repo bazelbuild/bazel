@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A provider that exposes this enables <a
@@ -35,8 +35,12 @@ public final class UsesDataBindingProvider extends NativeInfo
   private final ImmutableList<Artifact> metadataOutputs;
 
   public UsesDataBindingProvider(Collection<Artifact> metadataOutputs) {
-    super(PROVIDER);
     this.metadataOutputs = ImmutableList.copyOf(metadataOutputs);
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

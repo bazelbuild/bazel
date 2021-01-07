@@ -89,7 +89,7 @@ public class DexFileSplitterTest {
   public void testSingleInputMultidexOutput() throws Exception {
     Path dexArchive = buildDexArchive();
     ImmutableList<Path> outputArchives = runDexSplitter(200, "multidex_from_single", dexArchive);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
 
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
     assertExpectedEntries(outputArchives, expectedEntries);
@@ -100,7 +100,7 @@ public class DexFileSplitterTest {
     Path dexArchive = buildDexArchive();
     Path dexArchive2 = buildDexArchive(INPUT_JAR2, "jar2.dex.zip");
     ImmutableList<Path> outputArchives = runDexSplitter(200, "multidex", dexArchive, dexArchive2);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
 
     HashSet<String> expectedEntries = new HashSet<>();
     expectedEntries.addAll(dexEntries(dexArchive));
@@ -117,7 +117,7 @@ public class DexFileSplitterTest {
     Path dexArchive = buildDexArchive();
     Path dexArchive2 = buildDexArchive(INPUT_JAR2, "jar2.dex.zip");
     ImmutableList<Path> outputArchives = runDexSplitter(200, "det1", dexArchive, dexArchive2);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
     ImmutableList<Path> outputArchives2 = runDexSplitter(200, "det2", dexArchive, dexArchive2);
     assertThat(outputArchives2).hasSize(outputArchives.size()); // paths differ though
 
@@ -156,7 +156,7 @@ public class DexFileSplitterTest {
             dexArchive);
 
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
     assertThat(dexEntries(outputArchives.get(0)))
         .containsAtLeastElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
@@ -194,7 +194,7 @@ public class DexFileSplitterTest {
             dexArchive);
 
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
     assertThat(dexEntries(outputArchives.get(0)))
         .containsExactlyElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
@@ -278,7 +278,7 @@ public class DexFileSplitterTest {
               .map(ZipEntryName.INSTANCE)
               .filter(Predicates.containsPattern(".*\\.class.dex$"))
               .collect(ImmutableSet.<String>toImmutableSet());
-      assertThat(result).isNotEmpty(); // test sanity
+      assertThat(result).isNotEmpty();
       return result;
     }
   }

@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
@@ -84,7 +84,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       boolean toolCheckAtDefinition = false;
       try {
         toolCheckAtDefinition =
-            context.getStarlarkSemantics().incompatibleVisibilityPrivateAttributesAtDefinition();
+            context
+                .getStarlarkSemantics()
+                .getBool(
+                    BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }

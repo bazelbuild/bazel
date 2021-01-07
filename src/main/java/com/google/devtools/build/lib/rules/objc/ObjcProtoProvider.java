@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -45,8 +45,8 @@ public class ObjcProtoProvider extends NativeInfo {
   public static final String STARLARK_NAME = "ObjcProto";
 
   /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
-  public static final NativeProvider<ObjcProtoProvider> STARLARK_CONSTRUCTOR =
-      new NativeProvider<ObjcProtoProvider>(ObjcProtoProvider.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<ObjcProtoProvider> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<ObjcProtoProvider>(STARLARK_NAME, ObjcProtoProvider.class) {};
 
   private final NestedSet<Artifact> protoFiles;
   private final NestedSet<Artifact> protobufHeaders;
@@ -58,11 +58,15 @@ public class ObjcProtoProvider extends NativeInfo {
       NestedSet<Artifact> portableProtoFilters,
       NestedSet<Artifact> protobufHeaders,
       NestedSet<PathFragment> protobufHeaderSearchPaths) {
-    super(STARLARK_CONSTRUCTOR);
     this.protoFiles = Preconditions.checkNotNull(protoFiles);
     this.portableProtoFilters = Preconditions.checkNotNull(portableProtoFilters);
     this.protobufHeaders = Preconditions.checkNotNull(protobufHeaders);
     this.protobufHeaderSearchPaths = Preconditions.checkNotNull(protobufHeaderSearchPaths);
+  }
+
+  @Override
+  public BuiltinProvider<ObjcProtoProvider> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /** Returns the set of all proto files that the dependencies of this provider has seen. */

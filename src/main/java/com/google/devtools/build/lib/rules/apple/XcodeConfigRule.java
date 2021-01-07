@@ -97,7 +97,7 @@ public class XcodeConfigRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = xcode_config, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = xcode_config, TYPE = OTHER, FAMILY = Objective-C) -->
 
 <p>A single target of this rule can be referenced by the <code>--xcode_version_config</code> build
 flag to translate the <code>--xcode_version</code> flag into an accepted official xcode version.

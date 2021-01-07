@@ -24,9 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -48,6 +47,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -609,24 +609,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
   }
 
+  /** Test fragment. */
   @StarlarkBuiltin(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
-  private static final class DiffResetFragment extends Fragment implements StarlarkValue {}
-
-  private static final class DiffResetFactory implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions options) {
-      return new DiffResetFragment();
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return DiffResetFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(DiffResetOptions.class);
-    }
+  @RequiresOptions(options = {DiffResetOptions.class})
+  public static final class DiffResetFragment extends Fragment implements StarlarkValue {
+    public DiffResetFragment(BuildOptions buildOptions) {}
   }
 
   private void setupDiffResetTesting() throws Exception {
@@ -635,7 +622,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
             DiffResetOptions.PROBABLY_IRRELEVANT_OPTION, DiffResetOptions.ALSO_IRRELEVANT_OPTION);
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(new DiffResetFactory());
+    builder.addConfigurationFragment(DiffResetFragment.class);
     builder.overrideShouldInvalidateCacheForOptionDiffForTesting(
         (newOptions, changedOption, oldValue, newValue) -> {
           return !optionsThatCanChange.contains(changedOption);

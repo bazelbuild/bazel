@@ -32,6 +32,15 @@ public @interface Param {
   String doc() default "";
 
   /**
+   * Determines whether the parameter appears in generated documentation. Set this to false to
+   * suppress parameters whose use is intentionally restricted.
+   *
+   * <p>An undocumented parameter must be {@link #named} and may not be followed by positional
+   * parameters or {@code **kwargs}.
+   */
+  boolean documented() default true;
+
+  /**
    * Default value for the parameter, written as a Starlark expression (e.g. "False", "True", "[]",
    * "None").
    *
@@ -40,51 +49,20 @@ public @interface Param {
    *
    * <p>If the function implementation needs to distinguish the case where the caller does not
    * supply a value for this parameter, you can set the default to the magic string "unbound", which
-   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Starlark#UNBOUND}
-   * (which can't appear in normal Starlark code).
+   * maps to the sentinal object {@link net.starlark.java.eval.Starlark#UNBOUND} (which can't appear
+   * in normal Starlark code).
    */
   String defaultValue() default "";
 
   /**
-   * Type of the parameter, e.g. {@link String}.class or {@link
-   * com.google.devtools.build.lib.syntax.Sequence}.class.
-   */
-  Class<?> type() default Object.class;
-
-  /**
-   * List of allowed types for the parameter if multiple types are allowed.
+   * List of allowed types for the parameter.
    *
-   * <p>If using this, {@link #type()} should be set to {@code Object.class}.
+   * <p>The array may be omitted, in which case the parameter accepts any value whose class is
+   * assignable to the class of the parameter variable.
+   *
+   * <p>If a function should accept None, NoneType should be in this list.
    */
   ParamType[] allowedTypes() default {};
-
-  /**
-   * When {@link #type()} is a generic type (e.g., {@link
-   * com.google.devtools.build.lib.syntax.Sequence}), specify the type parameter (e.g. {@link
-   * String}.class} along with {@link com.google.devtools.build.lib.syntax.Sequence} for {@link
-   * #type()} to specify a list of strings).
-   *
-   * <p>This is only used for documentation generation. The actual generic type is not checked at
-   * runtime, so the Java method signature should use a generic type of Object and cast
-   * appropriately.
-   */
-  Class<?> generic1() default Object.class;
-
-  /**
-   * Whether the name of a callback function can be given instead of a computed value. If a callback
-   * function is used then the value of this parameter will be computed only when actually
-   * requested. E.g., if a parameter {@code foo} of a function {@code bar} is passed a callback
-   * function, then only when the method {@code bar} actually asks for the value {@code foo},
-   * replacing it by a {@link com.google.devtools.build.lib.syntax.StarlarkCallbackFunction} in
-   * between.
-   */
-  boolean callbackEnabled() default false;
-
-  /**
-   * If true, this parameter can be passed the "None" value in addition to whatever types it allows.
-   * If false, this parameter cannot be passed "None", no matter the types it allows.
-   */
-  boolean noneable() default false;
 
   /**
    * If true, the parameter may be specified as a named parameter. For example for an integer named
@@ -155,8 +133,4 @@ public @interface Param {
    * {@link #defaultValue}.)
    */
   String valueWhenDisabled() default "";
-
-  // TODO(bazel-team): parse the type from a single field in Starlark syntax,
-  // and allow a Union as "ThisType or ThatType or NoneType":
-  // String type() default "Object";
 }

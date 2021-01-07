@@ -18,11 +18,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Helper class for Java proto compilation. */
 @StarlarkBuiltin(name = "java_proto_common", doc = "Helper class for Java proto compilation.")
@@ -38,30 +38,11 @@ public interface JavaProtoCommonApi<
       // This function is experimental for now.
       documented = false,
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = true,
-            named = false,
-            type = StarlarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
-            name = "target",
-            positional = true,
-            named = false,
-            type = TransitiveInfoCollectionApi.class,
-            doc = "The target."),
-        @Param(name = "src_jar", positional = false, named = true, type = FileApi.class),
-        @Param(
-            name = "proto_toolchain_attr",
-            positional = false,
-            named = true,
-            type = String.class),
-        @Param(
-            name = "flavour",
-            positional = false,
-            named = true,
-            type = String.class,
-            defaultValue = "'java'")
+        @Param(name = "ctx", positional = true, named = false, doc = "The rule context."),
+        @Param(name = "target", positional = true, named = false, doc = "The target."),
+        @Param(name = "src_jar", positional = false, named = true),
+        @Param(name = "proto_toolchain_attr", positional = false, named = true),
+        @Param(name = "flavour", positional = false, named = true, defaultValue = "'java'"),
       })
   void createProtoCompileAction(
       StarlarkRuleContextT starlarkRuleContext,
@@ -69,7 +50,7 @@ public interface JavaProtoCommonApi<
       FileT sourceJar,
       String protoToolchainAttr,
       String flavour)
-      throws EvalException, InterruptedException;
+      throws EvalException;
 
   @StarlarkMethod(
       name = "has_proto_sources",
@@ -82,7 +63,6 @@ public interface JavaProtoCommonApi<
             name = "target",
             positional = true,
             named = false,
-            type = TransitiveInfoCollectionApi.class,
             doc = "The proto_library target."),
       })
   boolean hasProtoSources(TransitiveInfoCollectionT target);
@@ -92,13 +72,8 @@ public interface JavaProtoCommonApi<
       // This function is experimental for now.
       documented = false,
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = true,
-            named = false,
-            type = StarlarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
+        @Param(name = "ctx", positional = true, named = false, doc = "The rule context."),
+        @Param(name = "proto_toolchain_attr", positional = false, named = true)
       })
   JavaInfoApi<FileT> getRuntimeToolchainProvider(
       StarlarkRuleContextT starlarkRuleContext, String protoToolchainAttr) throws EvalException;

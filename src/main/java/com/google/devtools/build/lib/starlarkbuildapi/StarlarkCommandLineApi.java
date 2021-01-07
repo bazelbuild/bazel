@@ -14,21 +14,19 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a module associated with creating efficient command lines. */
 @StarlarkBuiltin(
     name = "cmd_helper",
-    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
-@StarlarkDeprecated
 public interface StarlarkCommandLineApi extends StarlarkValue {
 
   @StarlarkMethod(
@@ -37,12 +35,8 @@ public interface StarlarkCommandLineApi extends StarlarkValue {
           "Deprecated. Creates a single command line argument joining the paths of a set "
               + "of files on the separator string.",
       parameters = {
-        @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
-        @Param(
-            name = "files",
-            type = Depset.class,
-            generic1 = FileApi.class,
-            doc = "the files to concatenate.")
+        @Param(name = "separator", doc = "the separator string to join on."),
+        @Param(name = "files", doc = "the files to concatenate.")
       })
   String joinPaths(String separator, Depset files) throws EvalException;
 }

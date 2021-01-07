@@ -63,7 +63,16 @@ def CreateNativeLibsZip(aar, cpu, native_libs_zip):
       # Only replaces the first instance of jni, in case the AAR contains
       # something like /jni/x86/jni.so.
       new_filename = lib.replace("jni", "lib", 1)
-      native_libs_zip.writestr(new_filename, aar.read(lib))
+      # To guarantee reproducible zips we must specify a new zipinfo.
+      # From writestr docs: "If its a name, the date and time is set to the
+      # current date and time." which will break the HASH calculation and result
+      # in a cache miss.
+      old_zipinfo = aar.getinfo(lib)
+      new_zipinfo = zipfile.ZipInfo(filename=new_filename)
+      new_zipinfo.date_time = old_zipinfo.date_time
+      new_zipinfo.compress_type = old_zipinfo.compress_type
+
+      native_libs_zip.writestr(new_zipinfo, aar.read(lib))
 
 
 def Main(input_aar_path, output_zip_path, cpu, input_aar_path_for_error_msg):

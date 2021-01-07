@@ -21,8 +21,9 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * An attribute mapper for workspace rules. Similar to NonconfigurableAttributeWrapper, but throws
@@ -49,8 +50,8 @@ public class WorkspaceAttributeMapper {
     Object value = getObject(attributeName);
     try {
       return type.cast(value);
-    } catch (ClassCastException e) {
-      throw new EvalException(rule.getLocation(), e.getMessage());
+    } catch (ClassCastException ex) {
+      throw new EvalException(ex);
     }
   }
 
@@ -59,20 +60,18 @@ public class WorkspaceAttributeMapper {
    */
   @Nullable
   public Object getObject(String attributeName) throws EvalException {
-    Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
+    Object value = rule.getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
-      throw new EvalException(
-          rule.getLocation(),
-          String.format(
-              "got value of type 'select' for attribute '%s' of %s rule '%s'; select may not be "
-                  + "used in repository rules",
-              attributeName, rule.getRuleClass(), rule.getName()));
+      throw Starlark.errorf(
+          "got value of type 'select' for attribute '%s' of %s rule '%s'; select may not be used"
+              + " in repository rules",
+          attributeName, rule.getRuleClass(), rule.getName());
     }
     return value;
   }
 
   public boolean isAttributeValueExplicitlySpecified(String attr) {
-    return rule.getAttributeContainer().isAttributeValueExplicitlySpecified(attr);
+    return rule.isAttributeValueExplicitlySpecified(attr);
   }
 
   public Iterable<String> getAttributeNames() {

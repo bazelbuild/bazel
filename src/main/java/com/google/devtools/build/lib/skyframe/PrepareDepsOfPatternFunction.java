@@ -55,7 +55,6 @@ import javax.annotation.Nullable;
  * transitive dependencies.
  */
 public class PrepareDepsOfPatternFunction implements SkyFunction {
-
   private final AtomicReference<PathPackageLocator> pkgPath;
   private final boolean traverseTestSuites;
 
@@ -192,7 +191,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         }
         return ResolvedTargets.empty();
       } catch (NoSuchThingException e) {
-        throw new TargetParsingException(e.getMessage(), e);
+        throw new TargetParsingException(e.getMessage(), e, e.getDetailedExitCode());
       }
     }
 
@@ -225,7 +224,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       } catch (NoSuchThingException e) {
         String message = TargetPatternResolverUtil.getParsingErrorMessage(
             "package contains errors", originalPattern);
-        throw new TargetParsingException(message, e);
+        throw new TargetParsingException(message, e, e.getDetailedExitCode());
       }
     }
 

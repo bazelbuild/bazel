@@ -95,13 +95,17 @@ public interface ActionAnalysisMetadata {
    * unique key will depend on knowing the tree artifact contents. At analysis time, we only know
    * about the tree artifact directory and we find what is in it only after we execute that action.
    */
-  String getKey(ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander);
+  String getKey(ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      throws InterruptedException;
 
   /**
    * Returns a pretty string representation of this action, suitable for use in
    * progress messages or error messages.
    */
   String prettyPrint();
+
+  /** Returns a description of this action. */
+  String describe();
 
   /**
    * Returns the tool Artifacts that this Action depends upon. May be empty. This is a subset of

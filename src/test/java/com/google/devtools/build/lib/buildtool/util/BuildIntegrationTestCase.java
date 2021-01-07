@@ -28,7 +28,6 @@ import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -95,11 +94,11 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -108,7 +107,6 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -137,22 +135,11 @@ public abstract class BuildIntegrationTestCase {
     }
 
     @Override
-    public ActionExecutionException toActionExecutionException(
-        String messagePrefix, boolean verboseFailures, Action action) {
-      String message = messagePrefix + getMessage();
-      // Append cause.getMessage() if it's different from getMessage(). It typically
-      // isn't but if it is we'd like to surface cause.getMessage() as part of the
-      // exception message.
-      if (getCause() != null && !getMessage().equals(getCause().getMessage())) {
-        message += ": " + getCause().getMessage();
-      }
-      // The detailed code doesn't matter, but it should be well-formed.
-      DetailedExitCode code =
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
-                  .build());
-      return new ActionExecutionException(message, getCause(), action, true, code);
+    protected FailureDetail getFailureDetail(String message) {
+      return FailureDetail.newBuilder()
+          .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+          .setMessage(message)
+          .build();
     }
   }
 
@@ -289,7 +276,11 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected FileSystem createFileSystem() throws Exception {
-    return FileSystems.getNativeFileSystem();
+    return FileSystems.getNativeFileSystem(getDigestHashFunction());
+  }
+
+  protected DigestHashFunction getDigestHashFunction() {
+    return DigestHashFunction.SHA256;
   }
 
   protected Path createTestRoot(FileSystem fileSystem) {
@@ -302,6 +293,10 @@ public abstract class BuildIntegrationTestCase {
     // (Almost) every integration test calls BuildView.doLoadingPhase, which loads the default
     // crosstool, etc.  So we create these package here.
     AnalysisMock.get().setupMockClient(mockToolsConfig);
+  }
+
+  protected FileSystem getFileSystem() {
+    return fileSystem;
   }
 
   protected BlazeModule getBuildInfoModule() {
@@ -679,24 +674,15 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Fork/exec/wait the specified command.  A utility method for subclasses.
-   */
-  protected String exec(String... argv) throws CommandException {
-    return new String(new Command(argv).execute().getStdout(), StandardCharsets.UTF_8);
-  }
-
-  /**
-   * Performs a local direct spawn execution given spawn information broken out
-   * into individual arguments. Directs standard out/err to {@code outErr}.
+   * Performs a local direct spawn execution given spawn information broken out into individual
+   * arguments. Directs standard out/err to {@code outErr}.
    *
    * @param workingDirectory the directory from which to execute the subprocess
-   * @param environment the environment map to provide to the subprocess. If
-   *        null, the environment is inherited from the parent process.
+   * @param environment the environment map to provide to the subprocess. If null, the environment
+   *     is inherited from the parent process.
    * @param argv the argument vector including the command itself
-   * @param outErr the out+err stream pair to receive stdout and stderr from the
-   *        subprocess
-   * @throws ExecException if any kind of abnormal termination or command
-   *         exception occurs
+   * @param outErr the out+err stream pair to receive stdout and stderr from the subprocess
+   * @throws ExecException if any kind of abnormal termination or command exception occurs
    */
   public static void execute(
       Path workingDirectory,
@@ -704,7 +690,7 @@ public abstract class BuildIntegrationTestCase {
       List<String> argv,
       FileOutErr outErr,
       boolean verboseFailures)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     Command command =
         new CommandBuilder()
             .addArgs(argv)

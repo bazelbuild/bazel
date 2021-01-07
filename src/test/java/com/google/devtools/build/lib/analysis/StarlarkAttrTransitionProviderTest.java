@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -23,7 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.analysis.StarlarkRuleTransitionProviderTest.DummyTestLoader;
+import com.google.devtools.build.lib.analysis.StarlarkRuleTransitionProviderTest.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
@@ -37,12 +38,17 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,7 +62,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(new DummyTestLoader());
+    builder.addConfigurationFragment(DummyTestFragment.class);
     return builder.build();
   }
 
@@ -86,7 +92,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeBasicTestFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
@@ -101,8 +106,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  outputs = ['//command_line_option:cpu'])",
         "def impl(ctx): ",
         "  return MyInfo(",
-        "    attr_deps = ctx.attr.deps,",
-        "    attr_dep = ctx.attr.dep)",
+        "    attr_deps = ctx.split_attr.deps,",
+        "    attr_dep = ctx.split_attr.dep)",
         "my_rule = rule(",
         "  implementation = impl,",
         "  attrs = {",
@@ -123,7 +128,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkSplitTransitionSplitAttr() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -181,7 +185,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkListSplitTransitionSplitAttr() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -233,7 +236,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkPatchTransitionSplitAttr() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -284,7 +286,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   public void testStarlarkConfigSplitAttr() throws Exception {
     // This is a customized test case for b/152078818, where a starlark transition that takes a
     // starlark config as input caused a failure when no custom values were provided for the config.
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -348,7 +349,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTargetAndRuleNotInAllowlist() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
@@ -386,16 +386,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void testSplitTransitionCheckAttrDeps(ConfiguredTarget target) throws Exception {
-    // The regular ctx.attr.deps should be a single list with all the branches of the split merged
-    // together (i.e. for aspects).
     @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> attrDeps =
-        (List<ConfiguredTarget>) getMyInfoFromTarget(target).getValue("attr_deps");
-    assertThat(attrDeps).hasSize(4);
-    ListMultimap<String, Object> attrDepsMap = ArrayListMultimap.create();
-    for (ConfiguredTarget ct : attrDeps) {
-      attrDepsMap.put(getConfiguration(ct).getCpu(), target);
-    }
+    Dict<String, List<ConfiguredTarget>> attrDeps =
+        (Dict<String, List<ConfiguredTarget>>) getMyInfoFromTarget(target).getValue("attr_deps");
+    assertThat(attrDeps.size()).isEqualTo(2);
+    ListMultimap<String, Object> attrDepsMap =
+        attrDeps.values().stream()
+            .flatMap(Collection::stream)
+            .map(ct -> getConfiguration(ct).getCpu())
+            .collect(toMultimap(cpu -> cpu, (ignored) -> target, ArrayListMultimap::create));
     assertThat(attrDepsMap).valuesForKey("k8").hasSize(2);
     assertThat(attrDepsMap).valuesForKey("armeabi-v7a").hasSize(2);
   }
@@ -404,19 +403,18 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     // Check that even though my_rule.dep is defined as a single label, ctx.attr.dep is still a list
     // with multiple ConfiguredTarget objects because of the two different CPUs.
     @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> attrDep =
-        (List<ConfiguredTarget>) getMyInfoFromTarget(target).getValue("attr_dep");
-    assertThat(attrDep).hasSize(2);
-    ListMultimap<String, Object> attrDepMap = ArrayListMultimap.create();
-    for (ConfiguredTarget ct : attrDep) {
-      attrDepMap.put(getConfiguration(ct).getCpu(), target);
-    }
+    Dict<String, ConfiguredTarget> attrDep =
+        (Dict<String, ConfiguredTarget>) getMyInfoFromTarget(target).getValue("attr_dep");
+    assertThat(attrDep.size()).isEqualTo(2);
+    ListMultimap<String, Object> attrDepMap =
+        attrDep.values().stream()
+            .map(ct -> getConfiguration(ct).getCpu())
+            .collect(toMultimap(cpu -> cpu, (ignored) -> target, ArrayListMultimap::create));
     assertThat(attrDepMap).valuesForKey("k8").hasSize(1);
     assertThat(attrDepMap).valuesForKey("armeabi-v7a").hasSize(1);
   }
 
   private void writeReadSettingsTestFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -431,7 +429,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  inputs = ['//command_line_option:fat_apk_cpu'],",
         "  outputs = ['//command_line_option:cpu'])",
         "def impl(ctx): ",
-        "  return MyInfo(attr_dep = ctx.attr.dep)",
+        "  return MyInfo(attr_dep = ctx.split_attr.dep)",
         "my_rule = rule(",
         "  implementation = impl,",
         "  attrs = {",
@@ -457,16 +455,17 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
     @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> splitDep =
-        (List<ConfiguredTarget>) getMyInfoFromTarget(target).getValue("attr_dep");
-    assertThat(splitDep).hasSize(2);
-    assertThat(
-            splitDep.stream().map(ct -> getConfiguration(ct).getCpu()).collect(Collectors.toList()))
-        .containsExactly("k8", "armeabi-v7a");
+    Dict<String, ConfiguredTarget> splitDep =
+        (Dict<String, ConfiguredTarget>) getMyInfoFromTarget(target).getValue("attr_dep");
+    assertThat(splitDep.size()).isEqualTo(2);
+    List<String> cpus =
+        splitDep.values().stream()
+            .map(ct -> getConfiguration(ct).getCpu())
+            .collect(Collectors.toList());
+    assertThat(cpus).containsExactly("k8", "armeabi-v7a");
   }
 
   private void writeOptionConversionTestFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -503,7 +502,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testOptionConversionCpu() throws Exception {
     writeOptionConversionTestFiles();
-    BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+    BazelMockAndroidSupport.setupNdk(mockToolsConfig); // cc_binary needs this
 
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
@@ -514,9 +513,91 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertThat(getConfiguration(Iterables.getOnlyElement(dep)).getCpu()).isEqualTo("armeabi-v7a");
   }
 
+  private void writeReadAndPassthroughOptionsTestFiles() throws Exception {
+    writeAllowlistFile();
+
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "settings_under_test = {",
+        "  '//command_line_option:cpu': 'armeabi-v7a',",
+        "  '//command_line_option:compilation_mode': 'dbg',",
+        "  '//command_line_option:crosstool_top': '//android/crosstool:everything',",
+        "  '//command_line_option:platform_suffix': 'my-platform-suffix',",
+        "}",
+        "def set_options_transition_func(settings, attr):",
+        "  return settings_under_test",
+        "def passthrough_transition_func(settings, attr):",
+        // All values in this test should be possible to copy within Starlark.
+        "  ret = dict(settings)",
+        // All values in this test should be possible to read within Starlark.
+        // This does not mean that it is possible to set a string value for all settings,
+        // e.g. //command_line_option:test_arg should be set to a list of strings.
+        "  for key, expected_value in settings_under_test.items():",
+        "    if str(ret[key]) != expected_value:",
+        "      fail('%s did not pass through, got %r expected %r' %",
+        "        (key, str(ret[key]), expected_value))",
+        "  ret['//command_line_option:test_arg'] = ['ok']",
+        "  return ret",
+        "my_set_options_transition = transition(",
+        "  implementation = set_options_transition_func,",
+        "  inputs = [],",
+        "  outputs = settings_under_test.keys())",
+        "my_passthrough_transition = transition(",
+        "  implementation = passthrough_transition_func,",
+        "  inputs = settings_under_test.keys(),",
+        "  outputs = ['//command_line_option:test_arg'] + settings_under_test.keys())",
+        "def impl(ctx): ",
+        "  return MyInfo(attr_dep = ctx.attr.dep)",
+        "my_set_options_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_set_options_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })",
+        "my_passthrough_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_passthrough_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_passthrough_rule', 'my_set_options_rule')",
+        "my_set_options_rule(name = 'top', dep = ':test')",
+        "my_passthrough_rule(name = 'test', dep = ':main')",
+        "cc_binary(name = 'main', srcs = ['main.c'])");
+  }
+
+  @Test
+  public void testCompilationModeReadableInStarlarkTransitions() throws Exception {
+    writeReadAndPassthroughOptionsTestFiles();
+    BazelMockAndroidSupport.setupNdk(mockToolsConfig); // cc_binary needs this
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//test/skylark:top");
+
+    @SuppressWarnings("unchecked")
+    List<ConfiguredTarget> topDep =
+        (List<ConfiguredTarget>) getMyInfoFromTarget(topTarget).getValue("attr_dep");
+    assertThat(topDep).hasSize(1);
+    ConfiguredTarget testTarget = Iterables.getOnlyElement(topDep);
+    @SuppressWarnings("unchecked")
+    List<ConfiguredTarget> testDep =
+        (List<ConfiguredTarget>) getMyInfoFromTarget(testTarget).getValue("attr_dep");
+    assertThat(testDep).hasSize(1);
+    ConfiguredTarget mainTarget = Iterables.getOnlyElement(testDep);
+    List<String> testArguments =
+        getConfiguration(mainTarget).getOptions().get(TestOptions.class).testArguments;
+    assertThat(testArguments).containsExactly("ok");
+  }
+
   @Test
   public void testUndeclaredOptionKey() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -549,7 +630,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDeclaredOutputNotReturned() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -586,7 +666,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testSettingsContainOnlyInputs() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -623,7 +702,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidInputKey() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -658,7 +736,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionInput() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -694,7 +771,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionOutput() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -728,8 +804,87 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBannedNativeOptionOutput() throws Exception {
+    // Just picked an arbirtary incompatible_ flag; however, could be any flag
+    // besides incompatible_enable_cc_toolchain_resolution (and might not even need to be real).
+    writeAllowlistFile();
+
+    scratch.file(
+        "test/starlark/my_rule.bzl",
+        "def transition_func(settings, attr):",
+        "  return {'//command_line_option:incompatible_merge_genfiles_directory': True}",
+        "my_transition = transition(implementation = transition_func,",
+        "  inputs = [], outputs = ['//command_line_option:incompatible_merge_genfiles_directory'])",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/starlark:test");
+    assertContainsEvent(
+        "Invalid transition output '//command_line_option:incompatible_merge_genfiles_directory'. "
+            + "Cannot transition on --experimental_* or --incompatible_* options");
+  }
+
+  @Test
+  public void testAllowIncompatibleEnableCcToolchainResolution() throws Exception {
+    writeAllowlistFile();
+
+    scratch.file(
+        "test/starlark/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
+        "  return {'//command_line_option:incompatible_enable_cc_toolchain_resolution': True}",
+        "my_transition = transition(implementation = transition_func,",
+        "  inputs = ['//command_line_option:incompatible_enable_cc_toolchain_resolution'], ",
+        "  outputs = ['//command_line_option:incompatible_enable_cc_toolchain_resolution'])",
+        "def impl(ctx): ",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "genrule(name = 'main1', outs = ['out.txt'], cmd = 'echo true > $@')");
+    // Actually using cc_binary instead of genrule would require also mocking up
+    // platforms-based toolchain resolution as well and this is tested elsewhere.
+
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
+    @SuppressWarnings("unchecked")
+    List<ConfiguredTarget> dep =
+        (List<ConfiguredTarget>) getMyInfoFromTarget(target).getValue("dep");
+    assertThat(dep).hasSize(1);
+
+    assertThat(
+            getConfiguration(Iterables.getOnlyElement(dep))
+                .getFragment(CppConfiguration.class)
+                .enableCcToolchainResolution())
+        .isTrue();
+  }
+
+  @Test
   public void testInvalidOutputKey() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -764,7 +919,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidOptionValue() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -797,7 +951,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDuplicateOutputs() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -890,7 +1043,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testCannotTransitionWithoutFlag() throws Exception {
     writeBasicTestFiles();
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=false");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=false");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:test");
@@ -962,7 +1115,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
-        .isEqualTo(42);
+        .isEqualTo(StarlarkInt.of(42));
   }
 
   @Test
@@ -996,7 +1149,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
-        .isEqualTo(42);
+        .isEqualTo(StarlarkInt.of(42));
   }
 
   private CoreOptions getCoreOptions(ConfiguredTarget target) {
@@ -1161,60 +1314,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
   }
 
-  // Test that a no-op starlark transition to the top level configuration results in a
-  // different configuration.
-  // TODO(bazel-team): This can be optimized. Make these the same configuration.
-  @Test
-  public void testOutputDirHash_noop_changeToDifferentStateAsTopLevel() throws Exception {
-    writeAllowlistFile();
-    scratch.file(
-        "test/transitions.bzl",
-        "def _bar_impl(settings, attr):",
-        "  return {'//test:bar': 'barsball'}",
-        "bar_transition = transition(implementation = _bar_impl, inputs = [],",
-        "  outputs = ['//test:bar'])");
-    scratch.file(
-        "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'bar_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = bar_transition), ",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _basic_impl,",
-        "  build_setting = config.string(flag = True),",
-        ")",
-        "simple = rule(_basic_impl)");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'string_flag', 'simple')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "simple(name = 'dep')",
-        "string_flag(name = 'bar', build_setting_default = '')");
-
-    // Use configuration that is same as what the transition will change.
-    useConfiguration(ImmutableMap.of("//test:bar", "barsball"));
-
-    ConfiguredTarget test = getConfiguredTarget("//test");
-
-    @SuppressWarnings("unchecked")
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
-            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment).isNull();
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment).isNotNull();
-  }
-
   // Test that setting all starlark options back to default != null hash of top level.
   // We could set some starlark options on the command line but we don't count this as a starlark
   // transition to the command line configuration will always have a null values for
@@ -1274,58 +1373,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
                 getMyInfoFromTarget(getConfiguredTarget("//test")).getValue("dep"));
 
     assertThat(getCoreOptions(dep).transitionDirectoryNameFragment).isNotNull();
-  }
-
-  // Test that setting a starlark option to default (if it was already at default) doesn't
-  // produce the same hash. This is because we do hashing  before scrubbing default values
-  // out of {@code BuildOptions}.
-  // TODO(bazel-team): This can be optimized. Make these the same configuration.
-  @Test
-  public void testOutputDirHash_multipleStarlarkOptionTransitions_backToDefault() throws Exception {
-    writeAllowlistFile();
-    scratch.file(
-        "test/transitions.bzl",
-        "def _foo_two_impl(settings, attr):",
-        "  return {'//test:foo': 'foosballerina'}",
-        "foo_two_transition = transition(implementation = _foo_two_impl, inputs = [],",
-        "  outputs = ['//test:foo'])");
-    scratch.file(
-        "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'foo_two_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = foo_two_transition), ",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _basic_impl,",
-        "  build_setting = config.string(flag = True),",
-        ")",
-        "simple = rule(_basic_impl)");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'string_flag', 'simple')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "simple(name = 'dep')",
-        "string_flag(name = 'foo', build_setting_default = 'foosballerina')");
-
-    ConfiguredTarget test = getConfiguredTarget("//test");
-
-    @SuppressWarnings("unchecked")
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
-            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
-        .isNotEqualTo(getCoreOptions(test).transitionDirectoryNameFragment);
   }
 
   /** See comment above {@link FunctionTransitionUtil#updateOutputDirectoryNameFragment} */
@@ -1841,6 +1888,135 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         .containsExactly("CppOptions");
   }
 
+  /**
+   * @param directRead if set to true, reads the output value directly from the input dict, else
+   *     just passes in the same value as a string
+   */
+  private void testNoOpTransitionLeavesSameConfig_native(boolean directRead) throws Exception {
+    writeAllowlistFile();
+
+    String outputValue = directRead ? "settings['//command_line_option:test_arg']" : "['frisbee']";
+    String inputs = directRead ? "['//command_line_option:test_arg']" : "[]";
+
+    scratch.file(
+        "test/defs.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _transition_impl(settings, attr):",
+        "  return {'//command_line_option:test_arg': " + outputValue + "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = " + inputs + ",",
+        "  outputs = ['//command_line_option:test_arg'],",
+        ")",
+        "def _impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')");
+
+    useConfiguration("--test_arg=frisbee");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+  }
+
+  @Test
+  public void testNoOpTransitionLeavesSameConfig_native_directRead() throws Exception {
+    testNoOpTransitionLeavesSameConfig_native(true);
+  }
+
+  @Test
+  public void testNoOpTransitionLeavesSameConfig_native_setToSame() throws Exception {
+    testNoOpTransitionLeavesSameConfig_native(false);
+  }
+
+  /**
+   * @param directRead if set to true, reads the output value directly from the input dict, else
+   *     just passes in the same value as a string
+   * @param setToDefault if set to true, value getting passed through the transition is the default
+   *     value of the build settings. Internally we don't keep default values in the build settings
+   *     map inside {@link BuildOptions} so it's nice to test this separately.
+   */
+  private void testNoOpTransitionLeavesSameConfig_starlark(boolean directRead, boolean setToDefault)
+      throws Exception {
+    writeAllowlistFile();
+
+    String outputValue = directRead ? "settings['//test:flag']" : "'frisbee'";
+    String inputs = directRead ? "['//test:flag']" : "[]";
+    String buildSettingsDefault = setToDefault ? "frisbee" : "waterpolo";
+
+    scratch.file(
+        "test/defs.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _flag_impl(ctx):",
+        "  return []",
+        "my_flag = rule(",
+        "  implementation = _flag_impl,",
+        "  build_setting = config.string(flag = True)",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:flag': " + outputValue + "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = " + inputs + ",",
+        "  outputs = ['//test:flag'],",
+        ")",
+        "def _impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule', 'my_flag')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')",
+        "my_flag(name = 'flag', build_setting_default = '" + buildSettingsDefault + "')");
+
+    useConfiguration(ImmutableMap.of("//test:flag", "frisbee"));
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+  }
+
+  @Test
+  public void testNoOpTransitionLeavesSameConfig_starlark_directRead() throws Exception {
+    testNoOpTransitionLeavesSameConfig_starlark(true, false);
+  }
+
+  @Test
+  public void testNoOpTransitionLeavesSameConfig_starlark_setToSame() throws Exception {
+    testNoOpTransitionLeavesSameConfig_starlark(false, false);
+  }
+
+  @Test
+  public void testNoOpTransitionLeavesSameConfig_starlark_setToDefault() throws Exception {
+    testNoOpTransitionLeavesSameConfig_starlark(false, true);
+  }
+
   @Test
   public void testOptionConversionDynamicMode() throws Exception {
     // TODO(waltl): check that dynamic_mode is parsed properly.
@@ -1849,5 +2025,131 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testOptionConversionCrosstoolTop() throws Exception {
     // TODO(waltl): check that crosstool_top is parsed properly.
+  }
+
+  /**
+   * Changing --cpu implicitly changes the target platform. Test that the old value of --platforms
+   * gets cleared out (platform mappings can then kick in to set --platforms correctly).
+   */
+  @Test
+  public void testImplicitPlatformsChange() throws Exception {
+    writeAllowlistFile();
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    scratch.file("platforms/BUILD", "platform(name = 'my_platform', constraint_values = [])");
+    scratch.file(
+        "test/starlark/my_rule.bzl",
+        "def transition_func(settings, attr):",
+        "  return {'//command_line_option:cpu': 'armeabi-v7a'}",
+        "my_transition = transition(implementation = transition_func,",
+        "  inputs = [], outputs = ['//command_line_option:cpu'])",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    useConfiguration("--platforms=//platforms:my_platform");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
+    // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
+    // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+        .containsExactly(
+            Label.parseAbsoluteUnchecked(TestConstants.PLATFORM_PACKAGE_ROOT + ":default_host"));
+  }
+
+  @Test
+  public void testExplicitPlatformsChange() throws Exception {
+    writeAllowlistFile();
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    scratch.file(
+        "platforms/BUILD",
+        "platform(name = 'my_platform', constraint_values = [])",
+        "platform(name = 'my_other_platform', constraint_values = [])");
+    scratch.file(
+        "test/starlark/my_rule.bzl",
+        "def transition_func(settings, attr):",
+        "  return {",
+        "    '//command_line_option:cpu': 'armeabi-v7a',",
+        "    '//command_line_option:platforms': ['//platforms:my_other_platform']",
+        "  }",
+        "my_transition = transition(implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = [",
+        "    '//command_line_option:cpu',",
+        "    '//command_line_option:platforms'",
+        "  ]",
+        ")",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    useConfiguration("--platforms=//platforms:my_platform");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_other_platform"));
+  }
+
+  /* If the transition doesn't change --cpu, it doesn't constitute a platform change. */
+  @Test
+  public void testNoPlatformChange() throws Exception {
+    writeAllowlistFile();
+    scratch.file("platforms/BUILD", "platform(name = 'my_platform', constraint_values = [])");
+    scratch.file(
+        "test/starlark/my_rule.bzl",
+        "def transition_func(settings, attr):",
+        "  return {",
+        "    '//command_line_option:test_arg': ['blah'],",
+        "  }",
+        "my_transition = transition(implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = [",
+        "    '//command_line_option:test_arg',",
+        "  ]",
+        ")",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    useConfiguration("--platforms=//platforms:my_platform");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
   }
 }

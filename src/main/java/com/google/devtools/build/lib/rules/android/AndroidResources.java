@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.android.resources.ResourceFolderType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -24,13 +23,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -47,22 +44,34 @@ import javax.annotation.Nullable;
 public class AndroidResources {
   private static final String DEFAULT_RESOURCES_ATTR = "resource_files";
 
-  public static final String[] RESOURCES_ATTRIBUTES =
-      new String[] {
-        "manifest",
-        DEFAULT_RESOURCES_ATTR,
-        "local_resource_files",
-        "assets",
-        "assets_dir",
-        "inline_constants",
-        "exports_manifest"
-      };
+  public static final ImmutableList<String> RESOURCES_ATTRIBUTES =
+      ImmutableList.of(
+          "manifest",
+          DEFAULT_RESOURCES_ATTR,
+          "local_resource_files",
+          "assets",
+          "assets_dir",
+          "inline_constants",
+          "exports_manifest");
 
   /** Set of allowable android directories prefixes. */
+  // Based on com.android.resources.ResourceFolderType
   public static final ImmutableSet<String> RESOURCE_DIRECTORY_TYPES =
-      Arrays.stream(ResourceFolderType.values())
-          .map(ResourceFolderType::getName)
-          .collect(ImmutableSet.toImmutableSet());
+      ImmutableSet.of(
+          "anim",
+          "animator",
+          "color",
+          "drawable",
+          "font",
+          "interpolator",
+          "layout",
+          "menu",
+          "mipmap",
+          "navigation",
+          "raw",
+          "transition",
+          "values",
+          "xml");
 
   public static final String INCORRECT_RESOURCE_LAYOUT_MESSAGE =
       String.format(
@@ -108,7 +117,7 @@ public class AndroidResources {
   private static void validateNoAndroidResourcesInSources(RuleContext ruleContext)
       throws RuleErrorException {
     Iterable<AndroidResourcesInfo> resources =
-        ruleContext.getPrerequisites("srcs", TransitionMode.TARGET, AndroidResourcesInfo.PROVIDER);
+        ruleContext.getPrerequisites("srcs", AndroidResourcesInfo.PROVIDER);
     for (AndroidResourcesInfo info : resources) {
       ruleContext.throwWithAttributeError(
           "srcs",
@@ -117,7 +126,7 @@ public class AndroidResources {
   }
 
   private static void validateManifest(RuleContext ruleContext) throws RuleErrorException {
-    if (ruleContext.getPrerequisiteArtifact("manifest", TransitionMode.TARGET) == null) {
+    if (ruleContext.getPrerequisiteArtifact("manifest") == null) {
       ruleContext.throwWithAttributeError(
           "manifest", "manifest is required when resource_files or assets are defined.");
     }
@@ -131,7 +140,7 @@ public class AndroidResources {
 
     return from(
         ruleContext,
-        ruleContext.getPrerequisites(resourcesAttr, TransitionMode.TARGET, FileProvider.class),
+        ruleContext.getPrerequisites(resourcesAttr, FileProvider.class),
         resourcesAttr);
   }
 

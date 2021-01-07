@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -133,8 +132,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     Pair<CommandType, String> cmdTypeAndAttr = determineCommandTypeAndAttribute(ruleContext);
 
     ImmutableMap.Builder<Label, Iterable<Artifact>> labelMap = ImmutableMap.builder();
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("srcs", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("srcs")) {
       // This target provides specific types of files for genrules.
       GenRuleSourcesProvider provider = dep.getProvider(GenRuleSourcesProvider.class);
       NestedSet<Artifact> files = (provider != null)
@@ -186,10 +184,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       command =
           String.format(
               "source %s; %s",
-              ruleContext
-                  .getPrerequisiteArtifact("$genrule_setup", TransitionMode.HOST)
-                  .getExecPath(),
-              command);
+              ruleContext.getPrerequisiteArtifact("$genrule_setup").getExecPath(), command);
     }
 
     String messageAttr = ruleContext.attributes().get("message", Type.STRING);
@@ -217,8 +212,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     inputs.addTransitive(commandHelper.getResolvedTools());
     if (cmdType == CommandType.BASH) {
       FilesToRunProvider genruleSetup =
-          ruleContext.getPrerequisite(
-              "$genrule_setup", TransitionMode.HOST, FilesToRunProvider.class);
+          ruleContext.getPrerequisite("$genrule_setup", FilesToRunProvider.class);
       inputs.addTransitive(genruleSetup.getFilesToRun());
     }
     if (ruleContext.hasErrors()) {
@@ -357,13 +351,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
       }
 
-      PathFragment ruleDirRootRelativePath =
-          ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
+      PathFragment ruleDirPackagePath = ruleContext.getPackageDirectory();
       PathFragment ruleDirExecPath =
-          ruleContext
-              .getBinOrGenfilesDirectory()
-              .getExecPath()
-              .getRelative(ruleDirRootRelativePath);
+          ruleContext.getBinOrGenfilesDirectory().getExecPath().getRelative(ruleDirPackagePath);
 
       if (variableName.equals("RULEDIR")) {
         // The output root directory. This variable expands to the package's root directory

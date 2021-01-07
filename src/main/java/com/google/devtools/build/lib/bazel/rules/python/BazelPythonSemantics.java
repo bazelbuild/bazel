@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -70,7 +69,6 @@ public class BazelPythonSemantics implements PythonSemantics {
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC =
       new InstrumentationSpec(FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE))
-          .withDeprecatedSourceOrDependencyAttributes("srcs", "deps", "data")
           .withSourceAttributes("srcs")
           .withDependencyAttributes("deps", "data");
 
@@ -89,6 +87,11 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void validate(RuleContext ruleContext, PyCommon common) {
+  }
+
+  @Override
+  public boolean prohibitHyphensInPackagePaths() {
+    return false;
   }
 
   @Override
@@ -313,8 +316,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       RunfilesSupport runfilesSupport,
       PyCommon common,
       RuleConfiguredTargetBuilder builder) {
-    FilesToRunProvider zipper =
-        ruleContext.getExecutablePrerequisite("$zipper", TransitionMode.HOST);
+    FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper");
     Artifact executable = common.getExecutable();
     Artifact zipFile = common.getPythonZipArtifact(executable);
 
@@ -329,18 +331,19 @@ public class BazelPythonSemantics implements PythonSemantics {
     builder.addOutputGroup("python_zip_file", zipFile);
   }
 
-  private static boolean isUnderWorkspace(PathFragment path) {
-    return !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX);
-  }
-
-  private static String getZipRunfilesPath(PathFragment path, PathFragment workspaceName) {
+  private static String getZipRunfilesPath(
+      PathFragment path, PathFragment workspaceName, boolean legacyExternalRunfiles) {
     String zipRunfilesPath;
-    if (isUnderWorkspace(path)) {
-      // If the file is under workspace, add workspace name as prefix
-      zipRunfilesPath = workspaceName.getRelative(path).toString();
-    } else {
-      // If the file is in external package, strip "external"
+    if (legacyExternalRunfiles && path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      // If the path starts with 'external' and --legacy_external_runfiles is set, this file is in
+      // an external repository. Convert it to the new runfiles path by removing the 'external'
+      // prefix.
       zipRunfilesPath = path.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX).toString();
+    } else {
+      // If not, it means the runfiles path is either under the workspace or an external file path
+      // in the new runfiles path format. In either case, simply appending it to the workspace name
+      // works just fine.
+      zipRunfilesPath = workspaceName.getRelative(path).toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
@@ -348,8 +351,9 @@ public class BazelPythonSemantics implements PythonSemantics {
     return ZIP_RUNFILES_DIRECTORY_NAME.getRelative(zipRunfilesPath).toString();
   }
 
-  private static String getZipRunfilesPath(String path, PathFragment workspaceName) {
-    return getZipRunfilesPath(PathFragment.create(path), workspaceName);
+  private static String getZipRunfilesPath(
+      String path, PathFragment workspaceName, boolean legacyExternalRunfiles) {
+    return getZipRunfilesPath(PathFragment.create(path), workspaceName, legacyExternalRunfiles);
   }
 
   private static void createPythonZipAction(
@@ -365,12 +369,14 @@ public class BazelPythonSemantics implements PythonSemantics {
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     inputsBuilder.add(stubFile);
     argv.addPrefixedExecPath("__main__.py=", stubFile);
+    boolean legacyExternalRunfiles = ruleContext.getConfiguration().legacyExternalRunfiles();
 
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");
-    argv.addDynamicString(getZipRunfilesPath("__init__.py", workspaceName) + "=");
+    argv.addDynamicString(
+        getZipRunfilesPath("__init__.py", workspaceName, legacyExternalRunfiles) + "=");
     for (String path : runfilesSupport.getRunfiles().getEmptyFilenames().toList()) {
-      argv.addDynamicString(getZipRunfilesPath(path, workspaceName) + "=");
+      argv.addDynamicString(getZipRunfilesPath(path, workspaceName, legacyExternalRunfiles) + "=");
     }
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
@@ -378,7 +384,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     for (Artifact artifact : runfilesSupport.getRunfilesArtifacts().toList()) {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
         argv.addDynamicString(
-            getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)
+            getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName, legacyExternalRunfiles)
                 + "="
                 + artifact.getExecPathString());
         inputsBuilder.add(artifact);
@@ -416,8 +422,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   private static PyRuntimeInfo getRuntime(RuleContext ruleContext, PyCommon common) {
     return common.shouldGetRuntimeFromToolchain()
         ? common.getRuntimeFromToolchain()
-        : ruleContext.getPrerequisite(
-            ":py_interpreter", TransitionMode.TARGET, PyRuntimeInfo.PROVIDER);
+        : ruleContext.getPrerequisite(":py_interpreter", PyRuntimeInfo.PROVIDER);
   }
 
   private static void addRuntime(

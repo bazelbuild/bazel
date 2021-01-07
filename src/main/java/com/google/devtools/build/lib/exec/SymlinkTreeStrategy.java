@@ -13,15 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
@@ -77,13 +82,21 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             symlinks = Maps.transformValues(runfilesToMap(action, actionExecutionContext), TO_PATH);
           } else {
             Preconditions.checkState(action.isFilesetTree());
-            Preconditions.checkNotNull(inputManifest);
+            checkNotNull(inputManifest);
+
+            ImmutableList<FilesetOutputSymlink> filesetLinks;
+            try {
+              filesetLinks =
+                  actionExecutionContext
+                      .getArtifactExpander()
+                      .getFileset(action.getInputManifest());
+            } catch (MissingExpansionException e) {
+              throw new IllegalStateException(e);
+            }
 
             symlinks =
                 SymlinkTreeHelper.processFilesetLinks(
-                    actionExecutionContext
-                        .getArtifactExpander()
-                        .getFileset(action.getInputManifest()),
+                    filesetLinks,
                     action.getFilesetRoot(),
                     actionExecutionContext.getExecRoot().asFragment());
           }
@@ -123,8 +136,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                   actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            action.getProgressMessage(), actionExecutionContext.getVerboseFailures(), action);
+        throw e.toActionExecutionException(action);
       }
     }
   }

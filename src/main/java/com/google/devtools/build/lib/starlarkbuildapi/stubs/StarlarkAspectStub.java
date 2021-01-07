@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.stubs;
 
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Stub implementation of {@link StarlarkAspectApi}. Should only be used for experimental,

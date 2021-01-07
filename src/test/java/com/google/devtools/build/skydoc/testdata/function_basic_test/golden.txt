@@ -87,6 +87,98 @@ Use `bazel build` to run the check.
 </table>
 
 
+<a name="#deprecated_do_not_use"></a>
+
+## deprecated_do_not_use
+
+<pre>
+deprecated_do_not_use()
+</pre>
+
+This function is deprecated.
+
+### Deprecated
+
+Use literally anything but this function.
+
+
+
+<a name="#param_doc_multiline"></a>
+
+## param_doc_multiline
+
+<pre>
+param_doc_multiline(<a href="#param_doc_multiline-complex">complex</a>)
+</pre>
+
+Has a complex parameter.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="param_doc_multiline-complex">
+      <td><code>complex</code></td>
+      <td>
+        required.
+        <p>
+          A parameter with some non-obvious behavior.
+
+ For example, it does things that require **multiple paragraphs** to explain.
+
+Note: we should preserve the nested indent in the following code:
+
+```json
+{
+    "key": "value"
+}
+```
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#returns_a_thing"></a>
+
+## returns_a_thing
+
+<pre>
+returns_a_thing(<a href="#returns_a_thing-name">name</a>)
+</pre>
+
+Returns a suffixed name.
+
+### Returns
+
+A suffixed version of the name.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="returns_a_thing-name">
+      <td><code>name</code></td>
+      <td>
+        required.
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
 <a name="#undocumented_function"></a>
 
 ## undocumented_function

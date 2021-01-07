@@ -228,7 +228,7 @@ public final class BazelPyRuleClasses {
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
-          // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
+          // TODO(brandjon): Consider adding to py_interpreter a .mandatoryBuiltinProviders() of
           // PyRuntimeInfoProvider. (Add a test case to PythonConfigurationTest for violations of
           // this requirement.) Probably moot now that this is going to be replaced by toolchains.
           .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
@@ -236,6 +236,7 @@ public final class BazelPyRuleClasses {
               attr("$py_toolchain_type", NODEP_LABEL)
                   .value(env.getToolsLabel("//tools/python:toolchain_type")))
           .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
+          .useToolchainTransition(true)
           .build();
     }
 

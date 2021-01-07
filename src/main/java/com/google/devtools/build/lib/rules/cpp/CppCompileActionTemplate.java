@@ -34,12 +34,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
 public final class CppCompileActionTemplate extends ActionKeyCacher
@@ -131,7 +131,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             TreeFileArtifact.createTemplateExpansionOutput(
                 outputTreeArtifact, outputName, artifactOwner);
         TreeFileArtifact dotdFileArtifact = null;
-        if (dotdTreeArtifact != null) {
+        if (dotdTreeArtifact != null
+            && cppCompileActionBuilder.useDotdFile(inputTreeFileArtifact)) {
           dotdFileArtifact =
               TreeFileArtifact.createTemplateExpansionOutput(
                   dotdTreeArtifact, outputName + ".d", artifactOwner);
@@ -152,7 +153,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
             sourceTreeArtifact,
@@ -322,6 +323,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   @Override
   public String prettyPrint() {
     return "CppCompileActionTemplate compiling " + sourceTreeArtifact.getExecPathString();
+  }
+
+  @Override
+  public String describe() {
+    return "Compiling all C++ files in " + sourceTreeArtifact.prettyPrint();
   }
 
   @Override

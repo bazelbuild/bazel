@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.actions.util;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
@@ -27,6 +28,7 @@ public class DummyExecutor implements Executor {
 
   private final FileSystem fileSystem;
   private final Path inputDir;
+  private final ManualClock clock = new ManualClock();
 
   public DummyExecutor(FileSystem fileSystem, Path inputDir) {
     this.fileSystem = fileSystem;
@@ -49,12 +51,12 @@ public class DummyExecutor implements Executor {
 
   @Override
   public Clock getClock() {
-    return BlazeClock.instance();
+    return clock;
   }
 
   @Override
-  public boolean getVerboseFailures() {
-    throw new UnsupportedOperationException();
+  public BugReporter getBugReporter() {
+    return BugReporter.defaultInstance();
   }
 
   @Override

@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto.FlagInfo;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -78,7 +79,7 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testConcurrentWrites() throws Exception {
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path logPath = fileSystem.getPath("/logFile");
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(logPath);
     Thread[] writers = new Thread[10];
@@ -118,7 +119,7 @@ public class AsynchronousFileOutputStreamTest {
   @Test
   public void testConcurrentProtoWrites() throws Exception {
     final String filename = "/logFile";
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path logPath = fileSystem.getPath(filename);
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(logPath);
     ArrayList<FlagInfo> messages = new ArrayList<>();

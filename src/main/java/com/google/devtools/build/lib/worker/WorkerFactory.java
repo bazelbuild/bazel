@@ -25,10 +25,8 @@ import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
-/**
- * Factory used by the pool to create / destroy / validate worker processes.
- */
-final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
+/** Factory used by the pool to create / destroy / validate worker processes. */
+class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
 
   // It's fine to use an AtomicInteger here (which is 32-bit), because it is only incremented when
   // spawning a new worker, thus even under worst-case circumstances and buggy workers quitting
@@ -67,15 +65,12 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);
     } else if (key.getProxied()) {
+      WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
       worker =
           new WorkerProxy(
-              key,
-              workerId,
-              key.getExecRoot(),
-              logFile,
-              WorkerMultiplexerManager.getInstance(key.hashCode()));
+              key, workerId, key.getExecRoot(), workerMultiplexer.getLogFile(), workerMultiplexer);
     } else {
-      worker = new Worker(key, workerId, key.getExecRoot(), logFile);
+      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
     if (workerOptions.workerVerbose) {
       reporter.handle(
@@ -86,7 +81,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
                   key.getMnemonic(),
                   workTypeName,
                   workerId,
-                  logFile)));
+                  worker.getLogFile())));
     }
     return worker;
   }

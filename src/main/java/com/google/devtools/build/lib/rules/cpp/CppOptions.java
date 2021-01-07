@@ -246,7 +246,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_avoid_conflict_dlls",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {
@@ -508,6 +508,36 @@ public class CppOptions extends FragmentOptions {
   public boolean enableFdoProfileAbsolutePath;
 
   @Option(
+      name = "propeller_optimize_absolute_cc_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+  public String propellerOptimizeAbsoluteCCProfile;
+
+  @Option(
+      name = "propeller_optimize_absolute_ld_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+  public String propellerOptimizeAbsoluteLdProfile;
+
+  @Option(
+      name = "propeller_optimize",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "The layout file for propeller code layout optimizations.")
+  public Label propellerOptimizeLabel;
+
+  public Label getPropellerOptimizeLabel() {
+    return propellerOptimizeLabel;
+  }
+
+  @Option(
     name = "save_temps",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -560,21 +590,31 @@ public class CppOptions extends FragmentOptions {
               + "except bar.o.")
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
+  /**
+   * The value of "--crosstool_top" to use for building tools.
+   *
+   * <p>We want to make sure this stays bound to the top-level configuration when not explicitly set
+   * (as opposed to a configuration that comes out of a transition). Otherwise we risk using the
+   * wrong crosstool (i.e., trying to build tools with an Android-specific crosstool).
+   *
+   * <p>To accomplish this, we initialize this to null and, if it isn't explicitly set, use {@link
+   * #getNormalized} to rewrite it to {@link #crosstoolTop}. Blaze always evaluates top-level
+   * configurations first, so they'll trigger this. But no followup transitions can.
+   */
   @Option(
-    name = "host_crosstool_top",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.LOADING_AND_ANALYSIS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.AFFECTS_OUTPUTS
-    },
-    help =
-        "By default, the --crosstool_top and --compiler options are also used "
-            + "for the host configuration. If this flag is provided, Bazel uses the default libc "
-            + "and compiler for the given crosstool_top."
-  )
+      name = "host_crosstool_top",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      help =
+          "By default, the --crosstool_top and --compiler options are also used "
+              + "for the host configuration. If this flag is provided, Bazel uses the default libc "
+              + "and compiler for the given crosstool_top.")
   public Label hostCrosstoolTop;
 
   @Option(
@@ -832,7 +872,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attribtues "
+          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attributes "
               + "are set "
               + "(see https://github.com/bazelbuild/bazel/issues/7075 for migration instructions).")
   public boolean removeCpuCompilerCcToolchainAttributes;
@@ -862,15 +902,6 @@ public class CppOptions extends FragmentOptions {
               + "includes attribute set, it is allowed to include anything under its folder, even "
               + "across subpackage boundaries.")
   public boolean experimentalIncludesAttributeSubpackageTraversal;
-
-  @Option(
-      name = "experimental_do_not_use_cpu_transformer",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, cpu transformer is not used for CppConfiguration")
-  public boolean doNotUseCpuTransformer;
 
   @Option(
       name = "incompatible_disable_legacy_cc_provider",
@@ -991,7 +1022,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_force_strict_header_check_from_starlark",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {
@@ -1001,13 +1032,59 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, set strict header checking in the Starlark API")
   public boolean forceStrictHeaderCheckFromStarlark;
 
+  @Option(
+      name = "experimental_generate_llvm_lcov",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "If true, coverage for clang will generate an LCOV report.")
+  public boolean generateLlvmLcov;
+
+  @Option(
+      name = "incompatible_use_cpp_compile_header_mnemonic",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, give distinguishing mnemonic to header processing actions")
+  public boolean useCppCompileHeaderMnemonic;
+
+  @Option(
+      name = "incompatible_macos_set_install_name",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Whether to explicitly set `-install_name` when creating dynamic libraries. "
+              + "See https://github.com/bazelbuild/bazel/issues/12370")
+  public boolean macosSetInstallName;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
+    CppOptions newOptions = (CppOptions) this.clone();
+    boolean changed = false;
     if (targetLibcTopLabel != null
         && targetLibcTopLabel.getName().equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
-      CppOptions newOptions = (CppOptions) this.clone();
       newOptions.targetLibcTopLabel = libcTopLabel;
+      changed = true;
+    }
+    if (hostCrosstoolTop == null) {
+      // Default to the initial target crosstoolTop.
+      newOptions.hostCrosstoolTop = crosstoolTop;
+      // Reset this, also, to maintain the invariant that host_compiler is ignored if
+      // host_crosstool_top is unset.
+      newOptions.hostCppCompiler = cppCompiler;
+      changed = true;
+    }
+    if (changed) {
       return newOptions;
     }
     return this;
@@ -1017,14 +1094,8 @@ public class CppOptions extends FragmentOptions {
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
 
-    // The crosstool options are partially copied from the target configuration.
-    if (hostCrosstoolTop == null) {
-      host.cppCompiler = cppCompiler;
-      host.crosstoolTop = crosstoolTop;
-    } else {
-      host.crosstoolTop = hostCrosstoolTop;
-      host.cppCompiler = hostCppCompiler;
-    }
+    host.crosstoolTop = hostCrosstoolTop;
+    host.cppCompiler = hostCppCompiler;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.
@@ -1058,7 +1129,6 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
-    host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
@@ -1081,6 +1151,10 @@ public class CppOptions extends FragmentOptions {
     host.hostCxxoptList = hostCxxoptList;
     host.hostLibcTopLabel = hostLibcTopLabel;
     host.hostLinkoptList = hostLinkoptList;
+
+    host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
+
+    host.macosSetInstallName = macosSetInstallName;
 
     return host;
   }

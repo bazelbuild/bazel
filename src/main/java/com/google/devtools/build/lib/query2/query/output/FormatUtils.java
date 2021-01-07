@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Comparator;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Given a set of query options, returns a BinaryPredicate suitable for passing to {@link
@@ -58,6 +59,27 @@ class FormatUtils {
    */
   static String getLocation(Target target, boolean relative) {
     Location loc = target.getLocation();
+
+    if (relative) {
+      loc = getRootRelativeLocation(loc, target.getPackage());
+    }
+    return loc.toString();
+  }
+
+  /**
+   * Returns the target location string, optionally relative to its package's source root directory
+   * and optionally to display the location of source files.
+   *
+   * @param relative flag to display the location relative to its package's source root directory.
+   * @param displaySourceFileLocation flag to display the location of line 1 of the actual source
+   *     file instead of its location in the BUILD file.
+   */
+  static String getLocation(Target target, boolean relative, boolean displaySourceFileLocation) {
+    Location loc = target.getLocation();
+    if (target instanceof InputFile && displaySourceFileLocation) {
+      PathFragment packageDir = target.getPackage().getPackageDirectory().asFragment();
+      loc = Location.fromFileLineColumn(packageDir.getRelative(target.getName()).toString(), 1, 1);
+    }
     if (relative) {
       loc = getRootRelativeLocation(loc, target.getPackage());
     }

@@ -59,10 +59,11 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       converter = JobsConverter.class,
       help =
-          "The number of concurrent jobs to run. Takes {@value FLAG_SYNTAX}. Values must be"
-              + " between 1 and"
+          "The number of concurrent jobs to run. Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". Values must be between 1 and "
               + MAX_JOBS
-              + " values above "
+              + ". Values above "
               + JOBS_TOO_HIGH_WARNING
               + " may cause memory issues. \"auto\" calculates a reasonable default based on"
               + " host resources.")
@@ -116,9 +117,10 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
-              + "the build to stop before starting the analysis phase, returning zero iff the "
-              + "package loading completed successfully; this mode is useful for testing.")
+          "Execute the loading/analysis phase; this is the usual behaviour. Specifying --noanalyze"
+              + "causes the build to stop before starting the loading/analysis phase, just doing "
+              + "target pattern parsing and returning zero iff that completed successfully; this "
+              + "mode is useful for testing.")
   public boolean performAnalysisPhase;
 
   @Option(
@@ -141,10 +143,13 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       defaultValue = "null",
       help =
-          "Specifies which output groups of the top-level targets to build. If omitted, a default "
-              + "set of output groups are built. When specified the default set is overridden. "
-              + "However you may use --output_groups=+<output_group> or "
-              + "--output_groups=-<output_group> to instead modify the set of output groups.")
+          "A list of comma-separated output group names, each of which optionally prefixed by a +"
+              + " or a -. A group prefixed by + is added to the default set of output groups,"
+              + " while a group prefixed by - is removed from the default set. If at least one"
+              + " group is not prefixed, the default set of output groups is omitted. For example,"
+              + " --output_groups=+foo,+bar builds the union of the default set, foo, and bar,"
+              + " while --output_groups=foo,bar overrides the default set such that only foo and"
+              + " bar are built.")
   public List<String> outputGroups;
 
   @Option(
@@ -405,7 +410,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_nested_set_as_skykey_threshold",
-      defaultValue = "0",
+      defaultValue = "1",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},
@@ -499,6 +504,17 @@ public class BuildRequestOptions extends OptionsBase {
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
 
+  @Option(
+      name = "experimental_skyframe_eval_with_ordered_list",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION, OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set to true, Skyframe evaluation of certain SkyKeys will not construct"
+              + " an intermediate result with a map, but instead with a list, ordered based on the"
+              + " sequence of supplied SkyKeys.")
+  public boolean skyframeEvalWithOrderedList;
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.base.Verify;
@@ -23,15 +25,16 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -63,7 +66,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Handles the 'config' command on the Blaze command line. */
@@ -124,16 +127,22 @@ public class ConfigCommand implements BlazeCommand {
   protected static class ConfigurationForOutput {
     final String skyKey;
     final String configHash;
+    final boolean isHost;
+    final boolean isExec;
     final List<FragmentForOutput> fragments;
     final List<FragmentOptionsForOutput> fragmentOptions;
 
     ConfigurationForOutput(
         String skyKey,
         String configHash,
+        boolean isHost,
+        boolean isExec,
         List<FragmentForOutput> fragments,
         List<FragmentOptionsForOutput> fragmentOptions) {
       this.skyKey = skyKey;
       this.configHash = configHash;
+      this.isHost = isHost;
+      this.isExec = isExec;
       this.fragments = fragments;
       this.fragmentOptions = fragmentOptions;
     }
@@ -153,6 +162,10 @@ public class ConfigCommand implements BlazeCommand {
     @Override
     public int hashCode() {
       return Objects.hash(skyKey, configHash, fragments, fragmentOptions);
+    }
+
+    String checksum() {
+      return configHash;
     }
   }
 
@@ -365,12 +378,11 @@ public class ConfigCommand implements BlazeCommand {
     ImmutableSortedMap.Builder<
             Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
         fragments = ImmutableSortedMap.orderedBy((c1, c2) -> c1.getName().compareTo(c2.getName()));
-    for (ConfigurationFragmentFactory fragmentFactory :
-        ruleClassProvider.getConfigurationFragments()) {
+    for (Class<? extends Fragment> fragmentClass : ruleClassProvider.getConfigurationFragments()) {
       fragments.put(
-          fragmentFactory.creates(),
+          fragmentClass,
           ImmutableSortedSet.copyOf(
-              (c1, c2) -> c1.getName().compareTo(c2.getName()), fragmentFactory.requiredOptions()));
+              comparing(Class::getName), Fragment.requiredOptions(fragmentClass)));
     }
     return fragments.build();
   }
@@ -442,8 +454,42 @@ public class ConfigCommand implements BlazeCommand {
     return new ConfigurationForOutput(
         skyKey.toString(),
         configHash,
+        config.isHostConfiguration(),
+        config.isExecConfiguration(),
         fragments.build().asList(),
         fragmentOptions.build().asList());
+  }
+
+  /**
+   * Returns the configuration matching a hash prefix.
+   *
+   * @param configurations collection of configurations to search
+   * @param checksumGetter function for retrieving a configuration's checksum
+   * @param configPrefix prefix or exact value of the matching configuration's hash
+   * @throws InvalidConfigurationException if not exactly one configuration matches
+   */
+  private static <C> C getConfiguration(
+      Collection<C> configurations, Function<C, String> checksumGetter, String configPrefix)
+      throws InvalidConfigurationException {
+    ImmutableList<C> matches =
+        configurations.stream()
+            .filter(config -> checksumGetter.apply(config).startsWith(configPrefix))
+            .collect(toImmutableList());
+    if (matches.isEmpty()) {
+      throw new InvalidConfigurationException(
+          String.format("No configuration found with ID prefix %s", configPrefix));
+    } else if (matches.size() > 1) {
+      throw new InvalidConfigurationException(
+          String.format(
+              "Configuration identifier '%s' is ambiguous.\n"
+                  + "'%s' is a prefix of multiple configurations:\n "
+                  + matches.stream().map(checksumGetter::apply).collect(joining("\n "))
+                  + "\n\n"
+                  + "Use a sufficient prefix to uniquely identify one configuration.",
+              configPrefix,
+              configPrefix));
+    }
+    return Iterables.getOnlyElement(matches);
   }
 
   /**
@@ -505,8 +551,7 @@ public class ConfigCommand implements BlazeCommand {
   private BlazeCommandResult reportConfigurationIds(
       ConfigCommandOutputFormatter writer,
       ImmutableSortedSet<ConfigurationForOutput> configurations) {
-    writer.writeConfigurationIDs(
-        configurations.stream().map(config -> config.configHash).collect(toList()));
+    writer.writeConfigurationIDs(configurations);
     return BlazeCommandResult.success();
   }
 
@@ -520,18 +565,13 @@ public class ConfigCommand implements BlazeCommand {
       ImmutableSortedSet<ConfigurationForOutput> allConfigurations,
       String configHash) {
     env.getReporter().handle(Event.info(String.format("Displaying config with id %s", configHash)));
-
-    Optional<ConfigurationForOutput> match =
-        allConfigurations.stream().filter(entry -> entry.configHash.equals(configHash)).findFirst();
-
-    if (!match.isPresent()) {
-      String message = String.format("No configuration found with id: %s", configHash);
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.CONFIGURATION_NOT_FOUND);
+    try {
+      writer.writeConfiguration(getConfiguration(allConfigurations, c -> c.configHash, configHash));
+      return BlazeCommandResult.success();
+    } catch (InvalidConfigurationException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return createFailureResult(e.getMessage(), Code.CONFIGURATION_NOT_FOUND);
     }
-
-    writer.writeConfiguration(match.get());
-    return BlazeCommandResult.success();
   }
 
   /**
@@ -550,27 +590,17 @@ public class ConfigCommand implements BlazeCommand {
                 String.format(
                     "Displaying diff between configs" + " %s and" + " %s",
                     configHash1, configHash2)));
-
-    Optional<BuildConfiguration> config1 =
-        allConfigs.stream().filter(config -> config.checksum().equals(configHash1)).findFirst();
-
-    if (!config1.isPresent()) {
-      String message = String.format("No configuration found with id: %s", configHash1);
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.CONFIGURATION_NOT_FOUND);
+    try {
+      BuildConfiguration config1 = getConfiguration(allConfigs, c -> c.checksum(), configHash1);
+      BuildConfiguration config2 = getConfiguration(allConfigs, c -> c.checksum(), configHash2);
+      Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffs =
+          diffConfigurations(config1, config2);
+      writer.writeConfigurationDiff(getConfigurationDiffForOutput(configHash1, configHash2, diffs));
+      return BlazeCommandResult.success();
+    } catch (InvalidConfigurationException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return createFailureResult(e.getMessage(), Code.CONFIGURATION_NOT_FOUND);
     }
-    Optional<BuildConfiguration> config2 =
-        allConfigs.stream().filter(config -> config.checksum().equals(configHash2)).findFirst();
-    if (!config2.isPresent()) {
-      String message = String.format("No configuration found with id: %s", configHash2);
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.CONFIGURATION_NOT_FOUND);
-    }
-
-    Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffs =
-        diffConfigurations(config1.get(), config2.get());
-    writer.writeConfigurationDiff(getConfigurationDiffForOutput(configHash1, configHash2, diffs));
-    return BlazeCommandResult.success();
   }
 
   /**

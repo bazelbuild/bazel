@@ -28,11 +28,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -116,7 +118,20 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    AppleBinaryOutput appleBinaryOutput = linkMultiArchBinary(ruleContext);
+    ObjcConfiguration objcConfig =
+        ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
+    if (objcConfig.disableNativeAppleBinaryRule()) {
+      ruleContext.throwWithRuleError(
+          "The native apple_binary rule is deprecated and will be deleted. Please use the Starlark"
+              + " rule from https://github.com/bazelbuild/rules_apple.");
+    }
+
+    AppleBinaryOutput appleBinaryOutput =
+        linkMultiArchBinary(
+            ruleContext,
+            ImmutableList.of(),
+            ImmutableList.of(),
+            AnalysisUtils.isStampingEnabled(ruleContext));
 
     return ruleConfiguredTargetFromProvider(ruleContext, appleBinaryOutput);
   }
@@ -129,41 +144,33 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
    * functionality.
    *
    * @param ruleContext the current rule context
-   * @return a tuple containing all necessary information about the linked binary
-   */
-  public static AppleBinaryOutput linkMultiArchBinary(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
-    return linkMultiArchBinary(ruleContext, ImmutableList.of(), ImmutableList.of());
-  }
-
-  /**
-   * Links a (potentially multi-architecture) binary targeting Apple platforms.
-   *
-   * <p>This method comprises a bulk of the logic of the {@code apple_binary} rule, and is
-   * statically available so that it may be referenced by Starlark APIs that replicate its
-   * functionality.
-   *
-   * @param ruleContext the current rule context
    * @param extraLinkopts extra linkopts to pass to the linker actions
    * @param extraLinkInputs extra input files to pass to the linker action
+   * @param isStampingEnabled whether linkstamping is enabled
    * @return a tuple containing all necessary information about the linked binary
    */
   public static AppleBinaryOutput linkMultiArchBinary(
-      RuleContext ruleContext, Iterable<String> extraLinkopts, Iterable<Artifact> extraLinkInputs)
+      RuleContext ruleContext,
+      Iterable<String> extraLinkopts,
+      Iterable<Artifact> extraLinkInputs,
+      boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
-    ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
+    ApplePlatform platform = null;
+    try {
+      platform = appleConfiguration.getMultiArchPlatform(platformType);
+    } catch (IllegalArgumentException e) {
+      ruleContext.throwWithRuleError(e);
+    }
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
-        MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisitesByConfiguration("deps", TransitionMode.SPLIT));
+        MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
     ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
         MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
-                "deps", TransitionMode.SPLIT));
+            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps"));
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
@@ -191,6 +198,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             allLinkopts,
             dependencySpecificConfigurations,
             allLinkInputs,
+            isStampingEnabled,
             cpuToDepsCollectionMap,
             outputGroupCollector);
 
@@ -199,6 +207,16 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             binariesToLipo,
             outputArtifact,
             platform);
+
+    ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
+    for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
+        buildConfigToOutputGroupInfoMap.entries()) {
+      OutputGroupInfo dep = entry.getValue();
+      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
+    }
+    outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
@@ -281,12 +299,11 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     switch (binaryType) {
       case LOADABLE_BUNDLE:
         extraLinkArgs.add("-bundle");
-        extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
+        extraLinkArgs.add("-Wl,-rpath,@loader_path/Frameworks");
         if (didProvideBundleLoader) {
           AppleExecutableBinaryInfo executableProvider =
               ruleContext.getPrerequisite(
                   BUNDLE_LOADER_ATTR_NAME,
-                  TransitionMode.TARGET,
                   AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
@@ -305,8 +322,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   private static ImmutableList<TransitiveInfoCollection> getDylibProviderTargets(
       RuleContext ruleContext) {
     return ImmutableList.<TransitiveInfoCollection>builder()
-        .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, TransitionMode.TARGET))
-        .addAll(ruleContext.getPrerequisites(BUNDLE_LOADER_ATTR_NAME, TransitionMode.TARGET))
+        .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME))
+        .addAll(ruleContext.getPrerequisites(BUNDLE_LOADER_ATTR_NAME))
         .build();
   }
 
@@ -314,7 +331,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     AppleExecutableBinaryInfo executableProvider =
         ruleContext.getPrerequisite(
             BUNDLE_LOADER_ATTR_NAME,
-            TransitionMode.TARGET,
             AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
@@ -330,7 +346,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
   private static ConfiguredTarget ruleConfiguredTargetFromProvider(
       RuleContext ruleContext, AppleBinaryOutput appleBinaryOutput)
-      throws RuleErrorException, ActionConflictException {
+      throws RuleErrorException, ActionConflictException, InterruptedException {
     NativeInfo nativeInfo = appleBinaryOutput.getBinaryInfoProvider();
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 

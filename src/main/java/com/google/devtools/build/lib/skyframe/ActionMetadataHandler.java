@@ -26,6 +26,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -35,9 +36,9 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -86,24 +87,29 @@ final class ActionMetadataHandler implements MetadataHandler {
   static ActionMetadataHandler create(
       ActionInputMap inputArtifactData,
       boolean forInputDiscovery,
+      boolean archivedTreeArtifactsEnabled,
       ImmutableSet<Artifact> outputs,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
+      PathFragment derivedPathPrefix,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
     return new ActionMetadataHandler(
         inputArtifactData,
         forInputDiscovery,
+        archivedTreeArtifactsEnabled,
         outputs,
         tsgm,
         artifactPathResolver,
         execRoot,
+        derivedPathPrefix,
         createFilesetMapping(expandedFilesets, execRoot),
         new OutputStore());
   }
 
   private final ActionInputMap inputArtifactData;
   private final boolean forInputDiscovery;
+  private final boolean archivedTreeArtifactsEnabled;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
@@ -112,6 +118,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
   private final PathFragment execRoot;
+  private final PathFragment derivedPathPrefix;
 
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
   private final OutputStore store;
@@ -119,18 +126,22 @@ final class ActionMetadataHandler implements MetadataHandler {
   private ActionMetadataHandler(
       ActionInputMap inputArtifactData,
       boolean forInputDiscovery,
+      boolean archivedTreeArtifactsEnabled,
       ImmutableSet<Artifact> outputs,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
+      PathFragment derivedPathPrefix,
       ImmutableMap<PathFragment, FileArtifactValue> filesetMapping,
       OutputStore store) {
     this.inputArtifactData = checkNotNull(inputArtifactData);
     this.forInputDiscovery = forInputDiscovery;
+    this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputs = checkNotNull(outputs);
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
     this.execRoot = checkNotNull(execRoot);
+    this.derivedPathPrefix = checkNotNull(derivedPathPrefix);
     this.filesetMapping = checkNotNull(filesetMapping);
     this.store = checkNotNull(store);
   }
@@ -150,10 +161,12 @@ final class ActionMetadataHandler implements MetadataHandler {
     return new ActionMetadataHandler(
         inputArtifactData,
         /*forInputDiscovery=*/ false,
+        archivedTreeArtifactsEnabled,
         outputs,
         tsgm,
         artifactPathResolver,
         execRoot,
+        derivedPathPrefix,
         filesetMapping,
         store);
   }
@@ -348,6 +361,13 @@ final class ActionMetadataHandler implements MetadataHandler {
           tree.putChild(child, metadata);
         });
 
+    if (archivedTreeArtifactsEnabled) {
+      ArchivedTreeArtifact archivedTreeArtifact =
+          ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+      tree.setArchivedRepresentation(
+          archivedTreeArtifact, constructFileArtifactValueFromFilesystem(archivedTreeArtifact));
+    }
+
     return tree.build();
   }
 
@@ -389,6 +409,11 @@ final class ActionMetadataHandler implements MetadataHandler {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
     checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
+    checkArgument(
+        archivedTreeArtifactsEnabled == tree.getArchivedRepresentation().isPresent(),
+        "Archived representation presence mismatched for: %s with archivedTreeArtifactsEnabled: %s",
+        tree,
+        archivedTreeArtifactsEnabled);
 
     store.putTreeArtifactData(output, tree);
   }
@@ -415,7 +440,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void resetOutputs(Iterable<Artifact> outputs) {
+  public void resetOutputs(Iterable<? extends Artifact> outputs) {
     checkState(
         executionMode.get(), "resetOutputs() should only be called from within a running action.");
     for (Artifact output : outputs) {
@@ -489,7 +514,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (type.isSymlink()) {
-      // We never create a FileArtifactValue for an unresolved symlink without a digest (calling
+      // We always create a FileArtifactValue for an unresolved symlink with a digest (calling
       // readlink() is easy, unlike checksumming a potentially huge file).
       checkNotNull(fileDigest, "%s missing digest", value);
       return value;
@@ -574,7 +599,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (artifact.isSymlink()) {
-      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow.readSymbolicLink());
+      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat

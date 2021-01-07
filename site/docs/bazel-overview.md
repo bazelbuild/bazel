@@ -1,11 +1,9 @@
 ---
 layout: documentation
-title: Bazel overview
+title: Bazel Overview
 ---
 
-# Bazel overview
-
-## What is Bazel?
+# Bazel Overview
 
 Bazel is an open-source build and test tool similar to Make, Maven, and Gradle.
 It uses a human-readable, high-level build language. Bazel supports projects in
@@ -13,7 +11,7 @@ multiple languages and builds outputs for multiple platforms. Bazel supports
 large codebases across multiple repositories, and large numbers of users.
 
 
-## Why should I use Bazel?
+## Benefits
 
 Bazel offers the following advantages:
 
@@ -43,7 +41,7 @@ Bazel offers the following advantages:
     framework.
 
 
-## How do I use Bazel?
+## Using Bazel
 
 To build or test a project with Bazel, you typically do the following:
 
@@ -77,7 +75,7 @@ In addition to building, you can also use Bazel to run
 to trace dependencies in your code.
 
 
-## How does Bazel work?
+## Bazel build process
 
 When running a build or a test, Bazel does the following:
 
@@ -98,7 +96,7 @@ correctness, you can set up Bazel to run builds and tests
 and maximizing [reproducibility](guide.html#correctness).
 
 
-### What is the action graph?
+### Action graph
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
@@ -108,7 +106,7 @@ know what build work has previously been done. The graph also enables you to
 easily [trace dependencies](query-how-to.html) in your code.
 
 
-## How do I get started?
+## Getting started tutorials
 
 To get started with Bazel, see [Getting Started](getting-started.html) or jump
 directly to the Bazel tutorials:

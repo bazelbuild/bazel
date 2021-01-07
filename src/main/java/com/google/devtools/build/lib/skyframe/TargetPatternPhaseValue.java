@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -157,7 +158,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(
       ImmutableList<String> targetPatterns,
-      String offset,
+      PathFragment offset,
       boolean compileOneDependency,
       boolean buildTestsOnly,
       boolean determineTests,
@@ -185,7 +186,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
    * @param offset relative path to the working directory
    */
   @ThreadSafe
-  public static SkyKey keyWithoutFilters(ImmutableList<String> targetPatterns, String offset) {
+  public static SkyKey keyWithoutFilters(
+      ImmutableList<String> targetPatterns, PathFragment offset) {
     return new TargetPatternPhaseKey(
         targetPatterns, offset, false, false, false, ImmutableList.of(), false, false, null);
   }
@@ -196,7 +198,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @AutoCodec
   public static final class TargetPatternPhaseKey implements SkyKey, Serializable {
     private final ImmutableList<String> targetPatterns;
-    private final String offset;
+    private final PathFragment offset;
     private final boolean compileOneDependency;
     private final boolean buildTestsOnly;
     private final boolean determineTests;
@@ -207,7 +209,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
     TargetPatternPhaseKey(
         ImmutableList<String> targetPatterns,
-        String offset,
+        PathFragment offset,
         boolean compileOneDependency,
         boolean buildTestsOnly,
         boolean determineTests,
@@ -238,7 +240,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       return targetPatterns;
     }
 
-    public String getOffset() {
+    public PathFragment getOffset() {
       return offset;
     }
 

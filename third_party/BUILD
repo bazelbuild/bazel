@@ -42,7 +42,6 @@ filegroup(
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
-        "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
@@ -69,7 +68,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-stripped.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
     ],
     deps = [
@@ -103,7 +102,7 @@ java_import(
         "android_common/com.android.tools_common_25.0.0.jar",
         "android_common/com.android.tools_dvlib_25.0.0.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
     ],
     runtime_deps = [
@@ -141,7 +140,7 @@ distrib_java_import(
 distrib_java_import(
     name = "apache_commons_compress",
     enable_distributions = ["debian"],
-    jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
+    jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
 )
 
 distrib_java_import(
@@ -455,7 +454,10 @@ filegroup(
 distrib_java_import(
     name = "guava",
     enable_distributions = ["debian"],
-    jars = ["guava/guava-25.1-jre.jar"],
+    jars = [
+        "guava/failureaccess-1.0.1.jar",
+        "guava/guava-29.0-jre.jar",
+    ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -503,14 +505,14 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-25.1-jre.jar"],
+    srcs = ["guava/guava-29.0-jre.jar"],
     enable_distributions = ["debian"],
 )
 
 java_import(
     name = "javax_activation",
     jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
-    srcjar = "javax_annotations/javax.activation-api-1.2.0-sources.jar",
+    srcjar = "javax_activation/javax.activation-api-1.2.0-sources.jar",
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -549,7 +551,6 @@ java_import(
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:windows": "*.so *.jnilib",
     "//src/conditions:darwin": "*.so *.dll",
-    "//src/conditions:darwin_x86_64": "*.so *.dll",
     "//src/conditions:linux_x86_64": "*.jnilib *.dll",
     # The .so file is an x86 one, so we can just remove it if the CPU is not x86
     "//src/conditions:arm": "*.so *.jnilib *.dll",
@@ -620,11 +621,12 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-25.1-jre.jar"],
+    jars = ["guava/guava-testlib-29.0-jre.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "junit4",
+    enable_distributions = ["debian"],
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.13.jar",

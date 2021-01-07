@@ -26,7 +26,6 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -53,15 +52,14 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -233,7 +231,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator packageLocator,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -258,7 +256,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         eventHandler,
         packageOptions,
         packageLocator,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         commandId,
         clientEnv,
         tsgm,
@@ -302,10 +300,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyFunctions.TARGET_PATTERN_PHASE);
 
   @Override
-  protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
-      PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
+  protected void onPkgLocatorChange(PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
-    return super.createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator);
   }
 
   @Override
@@ -805,19 +801,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return buildActionGraphContainerFromDump(actionGraphDump);
   }
 
-  /** Get ActionGraphContainer from the Skyframe evaluator. Used for aquery. */
-  public ActionGraphContainer getActionGraphContainer(
-      boolean includeActionCmdLine,
-      AqueryActionFilter aqueryActionFilter,
-      boolean includeParamFiles,
-      boolean includeArtifacts)
-      throws CommandLineExpansionException {
-    ActionGraphDump actionGraphDump =
-        new ActionGraphDump(
-            includeActionCmdLine, includeArtifacts, aqueryActionFilter, includeParamFiles);
-    return buildActionGraphContainerFromDump(actionGraphDump);
-  }
-
   private ActionGraphContainer buildActionGraphContainerFromDump(ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException {
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
@@ -847,7 +830,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return actionGraphDump.build();
   }
 
-  /** Support for aquery output with --incompatible_proto_output_v2. */
+  /** Support for aquery output. */
   public void dumpSkyframeState(
       com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, IOException {

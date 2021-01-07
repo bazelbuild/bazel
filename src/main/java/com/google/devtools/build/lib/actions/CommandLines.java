@@ -101,7 +101,7 @@ public class CommandLines {
    */
   public ExpandedCommandLines expand(
       ArtifactExpander artifactExpander, PathFragment paramFileBasePath, CommandLineLimits limits)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     return expand(artifactExpander, paramFileBasePath, limits, PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
@@ -111,7 +111,8 @@ public class CommandLines {
    * <p>Suitable for debugging and printing messages to users. This expands all command lines, so it
    * is potentially expensive.
    */
-  public ImmutableList<String> allArguments() throws CommandLineExpansionException {
+  public ImmutableList<String> allArguments()
+      throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     for (CommandLineAndParamFileInfo pair : getCommandLines()) {
       arguments.addAll(pair.commandLine.arguments());
@@ -125,7 +126,7 @@ public class CommandLines {
       PathFragment paramFileBasePath,
       CommandLineLimits limits,
       int paramFileArgLengthEstimate)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     // Optimize for simple case of single command line
     if (commandLines instanceof CommandLine) {
       CommandLine commandLine = (CommandLine) commandLines;
@@ -168,12 +169,28 @@ public class CommandLines {
                   paramFileInfo.getFlagFormatString(), paramFileExecPath.getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
-          paramFiles.add(
-              new ParamFileActionInput(
-                  paramFileExecPath,
-                  args,
-                  paramFileInfo.getFileType(),
-                  paramFileInfo.getCharset()));
+
+          if (paramFileInfo.flagsOnly()) {
+            // Move just the flags into the file, and keep the positional parameters on the command
+            // line.
+            paramFiles.add(
+                new ParamFileActionInput(
+                    paramFileExecPath,
+                    ParameterFile.flagsOnly(args),
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
+            for (String positionalArg : ParameterFile.nonFlags(args)) {
+              arguments.addElement(positionalArg);
+              cmdLineLength += positionalArg.length() + 1;
+            }
+          } else {
+            paramFiles.add(
+                new ParamFileActionInput(
+                    paramFileExecPath,
+                    args,
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
+          }
         }
       }
     }
@@ -184,7 +201,7 @@ public class CommandLines {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fingerprint)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     // Optimize for simple case of single command line
     if (commandLines instanceof CommandLine) {
       CommandLine commandLine = (CommandLine) commandLines;

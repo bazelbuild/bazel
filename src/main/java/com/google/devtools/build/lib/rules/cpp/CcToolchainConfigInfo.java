@@ -34,11 +34,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import net.starlark.java.eval.EvalException;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
@@ -83,7 +83,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       ImmutableList<Pair<String, String>> makeVariables,
       String builtinSysroot,
       String ccTargetOs) {
-    super(PROVIDER);
     this.actionConfigs = actionConfigs;
     this.features = features;
     this.artifactNamePatterns = artifactNamePatterns;
@@ -100,6 +99,11 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.makeVariables = makeVariables;
     this.builtinSysroot = builtinSysroot;
     this.ccTargetOs = ccTargetOs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {

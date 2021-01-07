@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Stores toolchains available to a given rule. */
 @StarlarkBuiltin(
     name = "ToolchainContext",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
             + " indexing with the toolchain type, as in"

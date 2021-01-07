@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -33,12 +35,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.protobuf.ByteString;
 import io.grpc.BindableService;
+import io.grpc.CallCredentials;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -72,6 +76,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -146,8 +151,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -223,7 +228,11 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 3, retrier);
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -322,7 +331,7 @@ public class ByteStreamUploaderTest {
     uploader.uploadBlob(hash, chunker, true);
 
     // This test should not have triggered any retries.
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
     Mockito.verify(mockBackoff, Mockito.times(1)).getRetryAttempts();
 
     blockUntilInternalStateConsistent(uploader);
@@ -339,7 +348,11 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 1, retrier);
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            1,
+            retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -397,7 +410,11 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 3, retrier);
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -453,7 +470,7 @@ public class ByteStreamUploaderTest {
 
     // This test should have triggered a single retry, because it made
     // no progress.
-    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
 
     blockUntilInternalStateConsistent(uploader);
 
@@ -467,7 +484,11 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 3, retrier);
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -504,7 +525,11 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 3, retrier);
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -547,8 +572,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     int numUploads = 10;
@@ -585,8 +610,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
@@ -702,8 +727,8 @@ public class ByteStreamUploaderTest {
                 InProcessChannelBuilder.forName("Server for " + this.getClass())
                     .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
                     .build()),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
@@ -765,8 +790,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 10];
@@ -833,8 +858,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
@@ -868,8 +893,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     CountDownLatch cancellations = new CountDownLatch(2);
@@ -935,8 +960,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
@@ -973,10 +998,10 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            /* instanceName */ null,
+            /* instanceName= */ null,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
@@ -1020,10 +1045,10 @@ public class ByteStreamUploaderTest {
             () -> new FixedBackoff(1, 0), /* No Status is retriable. */ (e) -> false, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            /* instanceName */ null,
+            /* instanceName= */ null,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     AtomicInteger numCalls = new AtomicInteger();
@@ -1060,8 +1085,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1141,8 +1166,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            null, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1199,6 +1224,158 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
+  @Test
+  public void unauthenticatedErrorShouldNotBeRetried() throws Exception {
+    Context prevContext = withEmptyMetadata.attach();
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+
+    AtomicInteger refreshTimes = new AtomicInteger();
+    CallCredentialsProvider callCredentialsProvider =
+        new CallCredentialsProvider() {
+          @Nullable
+          @Override
+          public CallCredentials getCallCredentials() {
+            return null;
+          }
+
+          @Override
+          public void refresh() throws IOException {
+            refreshTimes.incrementAndGet();
+          }
+        };
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            callCredentialsProvider,
+            /* callTimeoutSecs= */ 60,
+            retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    AtomicInteger numUploads = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            numUploads.incrementAndGet();
+
+            streamObserver.onError(Status.UNAUTHENTICATED.asException());
+            return new NoopStreamObserver();
+          }
+        });
+
+    assertThrows(
+        IOException.class,
+        () -> {
+          uploader.uploadBlob(hash, chunker, true);
+        });
+
+    assertThat(refreshTimes.get()).isEqualTo(1);
+    assertThat(numUploads.get()).isEqualTo(2);
+
+    // This test should not have triggered any retries.
+    Mockito.verifyZeroInteractions(mockBackoff);
+
+    blockUntilInternalStateConsistent(uploader);
+
+    withEmptyMetadata.detach(prevContext);
+  }
+
+  @Test
+  public void shouldRefreshCredentialsOnAuthenticationError() throws Exception {
+    Context prevContext = withEmptyMetadata.attach();
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+
+    AtomicInteger refreshTimes = new AtomicInteger();
+    CallCredentialsProvider callCredentialsProvider =
+        new CallCredentialsProvider() {
+          @Nullable
+          @Override
+          public CallCredentials getCallCredentials() {
+            return null;
+          }
+
+          @Override
+          public void refresh() throws IOException {
+            refreshTimes.incrementAndGet();
+          }
+        };
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channel),
+            callCredentialsProvider,
+            /* callTimeoutSecs= */ 60,
+            retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    AtomicInteger numUploads = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            numUploads.incrementAndGet();
+
+            if (refreshTimes.get() == 0) {
+              streamObserver.onError(Status.UNAUTHENTICATED.asException());
+              return new NoopStreamObserver();
+            }
+
+            return new StreamObserver<WriteRequest>() {
+              long nextOffset = 0;
+
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                nextOffset += writeRequest.getData().size();
+                boolean lastWrite = blob.length == nextOffset;
+                assertThat(writeRequest.getFinishWrite()).isEqualTo(lastWrite);
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                assertThat(nextOffset).isEqualTo(blob.length);
+
+                WriteResponse response =
+                    WriteResponse.newBuilder().setCommittedSize(nextOffset).build();
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    uploader.uploadBlob(hash, chunker, true);
+
+    assertThat(refreshTimes.get()).isEqualTo(1);
+    assertThat(numUploads.get()).isEqualTo(2);
+
+    // This test should not have triggered any retries.
+    Mockito.verifyZeroInteractions(mockBackoff);
+
+    blockUntilInternalStateConsistent(uploader);
+
+    withEmptyMetadata.detach(prevContext);
+  }
+
   private static class NoopStreamObserver implements StreamObserver<WriteRequest> {
     @Override
     public void onNext(WriteRequest writeRequest) {
@@ -1226,7 +1403,7 @@ public class ByteStreamUploaderTest {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (retries < maxRetries) {
         retries++;
         return delayMillis;

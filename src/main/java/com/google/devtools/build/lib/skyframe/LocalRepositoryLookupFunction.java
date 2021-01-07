@@ -192,7 +192,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
               null);
       if (rule != null) {
         try {
-          String path = (String) rule.getAttributeContainer().getAttr("path");
+          String path = (String) rule.getAttr("path");
           return Optional.of(
               LocalRepositoryLookupValue.success(
                   RepositoryName.create("@" + rule.getName()), PathFragment.create(path)));

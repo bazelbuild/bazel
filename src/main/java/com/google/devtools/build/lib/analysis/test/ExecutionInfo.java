@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.test.ExecutionInfoApi;
 import java.util.Map;
 
@@ -28,14 +28,18 @@ import java.util.Map;
 public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi {
 
   /** Starlark constructor and identifier for ExecutionInfo. */
-  public static final NativeProvider<ExecutionInfo> PROVIDER =
-      new NativeProvider<ExecutionInfo>(ExecutionInfo.class, "ExecutionInfo") {};
+  public static final BuiltinProvider<ExecutionInfo> PROVIDER =
+      new BuiltinProvider<ExecutionInfo>("ExecutionInfo", ExecutionInfo.class) {};
 
   private final ImmutableMap<String, String> executionInfo;
 
   public ExecutionInfo(Map<String, String> requirements) {
-    super(PROVIDER);
     this.executionInfo = ImmutableMap.copyOf(requirements);
+  }
+
+  @Override
+  public BuiltinProvider<ExecutionInfo> getProvider() {
+    return PROVIDER;
   }
 
   /**

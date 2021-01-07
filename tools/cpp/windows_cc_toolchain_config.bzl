@@ -498,7 +498,7 @@ def _impl(ctx):
                             expand_if_available = "output_execpath",
                         ),
                         flag_group(
-                            flags = ["/MACHINE:X64"],
+                            flags = ctx.attr.archiver_flags,
                         ),
                     ],
                 ),
@@ -1325,6 +1325,7 @@ cc_toolchain_config = rule(
         "abi_libc_version": attr.string(),
         "tool_paths": attr.string_dict(),
         "cxx_builtin_include_directories": attr.string_list(),
+        "archiver_flags": attr.string_list(default = []),
         "default_link_flags": attr.string_list(default = []),
         "msvc_env_tmp": attr.string(default = "msvc_not_found"),
         "msvc_env_path": attr.string(default = "msvc_not_found"),

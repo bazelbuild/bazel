@@ -171,7 +171,7 @@ EOF
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
 }
 
-function test_skylark_flags_affect_workspace() {
+function test_starlark_flags_affect_workspace() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:macro.bzl", "macro")
 print("In workspace: ")
@@ -187,7 +187,7 @@ EOF
 
   MARKER="<== Starlark flag test ==>"
 
-  # Sanity check.
+  # Initial check.
   bazel build //:x &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: " "Did not find workspace print output"

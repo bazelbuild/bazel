@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -55,6 +56,13 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return interner.intern(new ConfiguredTargetKey(label, configurationKey));
   }
 
+  public Builder toBuilder() {
+    return builder()
+        .setConfigurationKey(getConfigurationKey())
+        .setLabel(getLabel())
+        .setToolchainContextKey(getToolchainContextKey());
+  }
+
   @Override
   public final Label getLabel() {
     return label;
@@ -66,7 +74,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   @Nullable
-  final BuildConfigurationValue.Key getConfigurationKey() {
+  public final BuildConfigurationValue.Key getConfigurationKey() {
     return configurationKey;
   }
 
@@ -134,10 +142,13 @@ public class ConfiguredTargetKey implements ActionLookupKey {
 
   @Override
   public final String toString() {
+    // TODO(b/162809183): consider reverting to less verbose toString when bug is resolved.
+    MoreObjects.ToStringHelper helper =
+        MoreObjects.toStringHelper(this).add("label", label).add("config", configurationKey);
     if (getToolchainContextKey() != null) {
-      return String.format("%s %s %s", label, configurationKey, getToolchainContextKey());
+      helper.add("toolchainContextKey", getToolchainContextKey());
     }
-    return String.format("%s %s", label, configurationKey);
+    return helper.toString();
   }
 
   @AutoCodec.VisibleForSerialization

@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.remote.disk;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,7 +36,8 @@ import javax.annotation.Nullable;
 /** A on-disk store for the remote action cache. */
 public class DiskCacheClient implements RemoteCacheClient {
 
-  private static final String ACTION_KEY_PREFIX = "ac_";
+  private static final String AC_DIRECTORY = "ac";
+  private static final String CAS_DIRECTORY = "cas";
 
   private final Path root;
   private final boolean verifyDownloads;
@@ -60,6 +61,7 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
     Path target = toPath(digest.getHash(), isActionCache);
+    target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
   }
 
@@ -80,14 +82,13 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     @Nullable
-    HashingOutputStream hashOut = verifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
+    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, hashOut != null ? hashOut : out, /* isActionCache= */ false),
+        download(digest, digestOut != null ? digestOut : out, /* isActionCache= */ false),
         (v) -> {
           try {
-            if (hashOut != null) {
-              Utils.verifyBlobContents(
-                  digest.getHash(), DigestUtil.hashCodeToString(hashOut.hash()));
+            if (digestOut != null) {
+              Utils.verifyBlobContents(digest, digestOut.digest());
             }
             out.flush();
             return Futures.immediateFuture(null);
@@ -109,7 +110,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException {
     try (InputStream data = actionResult.toByteString().newInput()) {
-      saveFile(getDiskKey(actionKey.getDigest().getHash(), /* actionResult= */ true), data);
+      saveFile(actionKey.getDigest().getHash(), data, /* actionResult= */ true);
     }
   }
 
@@ -119,7 +120,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     try (InputStream in = file.getInputStream()) {
-      saveFile(digest.getHash(), in);
+      saveFile(digest.getHash(), in, /* actionResult= */ false);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -129,7 +130,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
     try (InputStream in = data.newInput()) {
-      saveFile(digest.getHash(), in);
+      saveFile(digest.getHash(), in, /* actionResult= */ false);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -143,22 +144,25 @@ public class DiskCacheClient implements RemoteCacheClient {
     return Futures.immediateFuture(ImmutableSet.copyOf(digests));
   }
 
+  protected Path toPathNoSplit(String key) {
+    return root.getChild(key);
+  }
+
   protected Path toPath(String key, boolean actionResult) {
-    return root.getChild(getDiskKey(key, actionResult));
+    String cacheFolder = actionResult ? AC_DIRECTORY : CAS_DIRECTORY;
+    // Create the file in a subfolder to bypass possible folder file count limits
+    return root.getChild(cacheFolder).getChild(key.substring(0, 2)).getChild(key);
   }
 
-  private static String getDiskKey(String key, boolean actionResult) {
-    return actionResult ? ACTION_KEY_PREFIX + key : key;
-  }
-
-  private void saveFile(String key, InputStream in) throws IOException {
-    Path target = toPath(key, /* actionResult= */ false);
+  private void saveFile(String key, InputStream in, boolean actionResult) throws IOException {
+    Path target = toPath(key, actionResult);
     if (target.exists()) {
       return;
     }
+    target.getParentDirectory().createDirectoryAndParents();
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-    Path temp = toPath(UUID.randomUUID().toString(), /* actionResult= */ false);
+    Path temp = toPathNoSplit(UUID.randomUUID().toString());
     try (OutputStream out = temp.getOutputStream()) {
       ByteStreams.copy(in, out);
     }

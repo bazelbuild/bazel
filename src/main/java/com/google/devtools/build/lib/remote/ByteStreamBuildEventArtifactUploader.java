@@ -19,7 +19,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -33,6 +32,8 @@ import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;
+import io.netty.util.AbstractReferenceCounted;
+import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,10 +45,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
-/**
- * A {@link BuildEventArtifactUploader} backed by {@link ByteStreamUploader}.
- */
-class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader {
+/** A {@link BuildEventArtifactUploader} backed by {@link ByteStreamUploader}. */
+class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
+    implements BuildEventArtifactUploader {
 
   private final ListeningExecutorService uploadExecutor;
   private final Context ctx;
@@ -194,11 +194,7 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
         final ListenableFuture<Void> upload;
         Context prevCtx = ctx.attach();
         try {
-          upload =
-              uploader.uploadBlobAsync(
-                  HashCode.fromString(path.getDigest().getHash()),
-                  chunker,
-                  /* forceUpload=*/ false);
+          upload = uploader.uploadBlobAsync(path.getDigest(), chunker, /* forceUpload=*/ false);
         } finally {
           ctx.detach(prevCtx);
         }
@@ -248,12 +244,17 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
   }
 
   @Override
-  public void shutdown() {
+  protected void deallocate() {
     if (shutdown.getAndSet(true)) {
       return;
     }
     uploader.release();
     uploadExecutor.shutdown();
+  }
+
+  @Override
+  public ReferenceCounted touch(Object o) {
+    return this;
   }
 
   private static class PathConverterImpl implements PathConverter {

@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -53,7 +53,6 @@ import javax.annotation.Nullable;
  * Helper class to create test actions.
  */
 public final class TestActionBuilder {
-
   private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
@@ -86,7 +85,7 @@ public final class TestActionBuilder {
    *
    * @return ordered list of test status artifacts
    */
-  public TestParams build() {
+  public TestParams build() throws InterruptedException {
     Preconditions.checkNotNull(runfilesSupport);
     TestShardingStrategy strategy =
         ruleContext.getConfiguration().getFragment(TestConfiguration.class).testShardingStrategy();
@@ -149,19 +148,19 @@ public final class TestActionBuilder {
   }
 
   /**
-   * Creates a test action and artifacts for the given rule. The test action will
-   * use the specified executable and runfiles.
+   * Creates a test action and artifacts for the given rule. The test action will use the specified
+   * executable and runfiles.
    *
-   * @return ordered list of test artifacts, one per action. These are used to drive
-   *    execution in Skyframe, and by AggregatingTestListener and
-   *    TestResultAnalyzer to keep track of completed and pending test runs.
+   * @return ordered list of test artifacts, one per action. These are used to drive execution in
+   *     Skyframe, and by AggregatingTestListener and TestResultAnalyzer to keep track of completed
+   *     and pending test runs.
    */
-  private TestParams createTestAction(int shards) {
+  private TestParams createTestAction(int shards) throws InterruptedException {
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfiguration config = ruleContext.getConfiguration();
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-    ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
+    ArtifactRoot root = ruleContext.getTestLogsDirectory();
 
     // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
     // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
@@ -175,7 +174,7 @@ public final class TestActionBuilder {
 
     if (!isUsingTestWrapperInsteadOfTestSetupScript) {
       NestedSet<Artifact> testRuntime =
-          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime", TransitionMode.HOST);
+          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
     TestTargetProperties testProperties =
@@ -202,6 +201,9 @@ public final class TestActionBuilder {
 
     int runsPerTest = testConfiguration.getRunsPerTestForLabel(ruleContext.getLabel());
 
+    NestedSetBuilder<Artifact> lcovMergerFilesToRun = NestedSetBuilder.compileOrder();
+    RunfilesSupplier lcovMergerRunfilesSupplier = null;
+
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
       collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
@@ -212,8 +214,12 @@ public final class TestActionBuilder {
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
-          PrerequisiteArtifacts.nestedSet(
-              ruleContext, ":coverage_support", TransitionMode.DONT_CHECK));
+          PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support"));
+      inputsBuilder.addTransitive(
+          ruleContext
+              .getPrerequisite(":coverage_support", RunfilesProvider.class)
+              .getDataRunfiles()
+              .getAllArtifacts());
 
       if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
         Artifact collectCcCoverage =
@@ -248,12 +254,17 @@ public final class TestActionBuilder {
         lcovMergerAttr = "$lcov_merger";
       }
       if (lcovMergerAttr != null) {
-        TransitiveInfoCollection lcovMerger =
-            ruleContext.getPrerequisite(lcovMergerAttr, TransitionMode.TARGET);
+        TransitiveInfoCollection lcovMerger = ruleContext.getPrerequisite(lcovMergerAttr);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
+
+          lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
+          if (lcovFilesToRun.getRunfilesSupport() != null) {
+            lcovMergerFilesToRun.add(lcovFilesToRun.getRunfilesSupport().getRunfilesMiddleman());
+          }
+          lcovMergerRunfilesSupplier = lcovFilesToRun.getRunfilesSupplier();
         } else {
           NestedSet<Artifact> filesToBuild =
               lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
@@ -262,6 +273,7 @@ public final class TestActionBuilder {
             Artifact lcovMergerArtifact = filesToBuild.getSingleton();
             extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
             inputsBuilder.add(lcovMergerArtifact);
+            lcovMergerFilesToRun.add(lcovMergerArtifact);
           } else {
             ruleContext.attributeError(
                 lcovMergerAttr,
@@ -375,6 +387,7 @@ public final class TestActionBuilder {
           tools.add(executionSettings.getExecutable());
           tools.addAll(additionalTools.build());
         }
+        boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
@@ -388,7 +401,7 @@ public final class TestActionBuilder {
                 coverageArtifact,
                 coverageDirectory,
                 testProperties,
-                extraTestEnv,
+                runfilesSupport.getActionEnvironment().addFixedVariables(extraTestEnv),
                 executionSettings,
                 shard,
                 run,
@@ -399,7 +412,10 @@ public final class TestActionBuilder {
                     ? ShToolchain.getPathOrError(ruleContext)
                     : null,
                 cancelConcurrentTests,
-                tools.build());
+                tools.build(),
+                splitCoveragePostProcessing,
+                lcovMergerFilesToRun,
+                lcovMergerRunfilesSupplier);
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());
@@ -416,7 +432,7 @@ public final class TestActionBuilder {
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
       TransitiveInfoCollection reportGeneratorTarget =
-          ruleContext.getPrerequisite(":coverage_report_generator", TransitionMode.HOST);
+          ruleContext.getPrerequisite(":coverage_report_generator");
       reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
     }
 

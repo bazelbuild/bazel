@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -39,6 +37,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.Printer;
 
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
@@ -189,6 +188,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** The default macOS CPU value. */
   public static final String DEFAULT_MACOS_CPU = "x86_64";
 
+  /** The default Catalyst CPU value. */
+  public static final String DEFAULT_CATALYST_CPU = "x86_64";
+
   @Option(
     name = "ios_cpu",
     defaultValue = DEFAULT_IOS_CPU,
@@ -320,13 +322,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> macosCpus;
 
   @Option(
-    name = "default_ios_provisioning_profile",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    converter = DefaultProvisioningProfileConverter.class
-  )
-  public Label defaultProvisioningProfile;
+      name = "catalyst_cpus",
+      allowMultiple = true,
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Comma-separated list of architectures for which to build Apple Catalyst binaries.")
+  public List<String> catalystCpus;
 
   @Option(
     name = "xcode_version_config",
@@ -347,13 +350,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   // TODO(cparsons): Update all callers to reference the actual xcode_version_config flag value.
   @VisibleForTesting
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
-
-  /** Converter for --default_ios_provisioning_profile. */
-  public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
-    public DefaultProvisioningProfileConverter() {
-      super("//tools/objc:default_provisioning_profile");
-    }
-  }
 
   @Option(
       name = "apple_bitcode",
@@ -376,6 +372,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     DottedVersion.Option option;
     switch (applePlatformType) {
       case IOS:
+      case CATALYST:
         option = iosMinimumOs;
         break;
       case MACOS:

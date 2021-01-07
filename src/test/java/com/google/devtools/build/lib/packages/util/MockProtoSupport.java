@@ -173,9 +173,7 @@ public final class MockProtoSupport {
         "net/proto2/go/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'protodeps',",
-        "           srcs = [ 'protodeps.go' ])",
-        "go_library(name = 'proto',",
-        "           srcs = [ 'proto.go' ])");
+        "           srcs = [ 'protodeps.go' ])");
     config.create("net/proto2/compiler/go/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "go_binary(name = 'protoc-gen-go',",

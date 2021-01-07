@@ -22,5 +22,5 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
  */
 public interface FragmentProvider extends RuleClassProvider {
   /** Returns the set of configuration fragments provided by this module. */
-  ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments();
+  ImmutableList<Class<? extends Fragment>> getConfigurationFragments();
 }

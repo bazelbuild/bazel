@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactMatching;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,6 +29,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.android.AndroidDataBindingV2Test.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidDataBindingV2Test.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -37,17 +41,32 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for Bazel's Android data binding v2 support. */
-@RunWith(JUnit4.class)
-public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidDataBindingV2Test {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidDataBindingV2Test {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setDataBindingV2Flag() throws Exception {
     useConfiguration("--experimental_android_databinding_v2");
   }
 
-  private void writeDataBindingFiles() throws Exception {
+  private void writeDataBindingLibrariesFiles() throws Exception {
 
     scratch.file(
         "java/android/library2/BUILD",
@@ -72,6 +91,42 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/library/MyLib.java", "package android.library; public class MyLib {};");
+  }
+
+  private void writeNonDataBindingLocalTestFiles() throws Exception {
+
+    scratch.file(
+        "javatests/android/test/BUILD",
+        "android_local_test(",
+        "    name = 'databinding_enabled_test',",
+        "    deps = ['//java/android/library:lib_with_databinding'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyTest.java'],",
+        ")");
+
+    scratch.file(
+        "javatests/android/test/MyTest.java", "package android.test; public class MyTest {};");
+  }
+
+  private void writeDataBindingLocalTestFiles() throws Exception {
+
+    scratch.file(
+        "javatests/android/test/BUILD",
+        "android_local_test(",
+        "    name = 'databinding_enabled_test',",
+        "    deps = ['//java/android/library:lib_with_databinding'],",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyTest.java'],",
+        ")");
+
+    scratch.file(
+        "javatests/android/test/MyTest.java", "package android.test; public class MyTest {};");
+  }
+
+  private void writeDataBindingFiles() throws Exception {
+
+    writeDataBindingLibrariesFiles();
 
     scratch.file(
         "java/android/binary/BUILD",
@@ -123,6 +178,26 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         "    srcs = ['MyApp.java'],",
         "    deps = ['//java/android/lib_no_resource_files'],",
         ")");
+    scratch.file(
+        "java/android/binary/MyApp.java", "package android.binary; public class MyApp {};");
+  }
+
+  private void writeDataBindingFilesWithShrinkage() throws Exception {
+
+    writeDataBindingLibrariesFiles();
+
+    scratch.file(
+        "java/android/binary/BUILD",
+        "android_binary(",
+        "    name = 'app',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    shrink_resources = 1,",
+        "    srcs = ['MyApp.java'],",
+        "    deps = ['//java/android/library:lib_with_databinding'],",
+        "    proguard_specs = ['proguard-spec.pro'],",
+        ")");
+
     scratch.file(
         "java/android/binary/MyApp.java", "package android.binary; public class MyApp {};");
   }
@@ -1042,5 +1117,259 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs=[]");
     assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
+  }
+
+  @Test
+  public void dataBinding_aapt2PackageAction_withoutAndroidX_doesNotPassAndroidXFlag()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact aapt2PackageArtifact = getAapt2PackgeActionArtifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(aapt2PackageArtifact))
+        .doesNotContain("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_aapt2PackageAction_withAndroidX_passesAndroidXFlag() throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2",
+        "--android_databinding_use_v3_4_args",
+        "--android_databinding_use_androidx");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact aapt2PackageArtifact = getAapt2PackgeActionArtifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(aapt2PackageArtifact))
+        .contains("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_processingDatabindingAction_withoutAndroidX_doesNotPassAndroidXFlag()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact processingDatabindingArtifact = getProcessingDatabindingArtifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(processingDatabindingArtifact))
+        .doesNotContain("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_processingDatabindingAction_withAndroidX_passesAndroidXFlag()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2",
+        "--android_databinding_use_v3_4_args",
+        "--android_databinding_use_androidx");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact processingDatabindingArtifact = getProcessingDatabindingArtifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(processingDatabindingArtifact))
+        .contains("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_compileLibraryResourcesAction_withoutAndroidX_doesNotPassAndroidXFlag()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact compileLibraryResourcesArtifact = getCompileLibraryResourcesArtifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(compileLibraryResourcesArtifact))
+        .doesNotContain("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_compileLibraryResourcesAction_withAndroidX_passesAndroidXFlag()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2",
+        "--android_databinding_use_v3_4_args",
+        "--android_databinding_use_androidx");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact compileLibraryResourcesArtifact = getCompileLibraryResourcesArtifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(compileLibraryResourcesArtifact))
+        .contains("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_shrinkAapt2Action_withoutAndroidX_doesNotPassAndroidXFlag()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFilesWithShrinkage();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact shrinkAapt2Artifact = getShrinkAapt2Artifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(shrinkAapt2Artifact))
+        .doesNotContain("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_shrinkAapt2Action_withAndroidX_passesAndroidXFlag() throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2",
+        "--android_databinding_use_v3_4_args",
+        "--android_databinding_use_androidx");
+    writeDataBindingFilesWithShrinkage();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+
+    Artifact shrinkAapt2Artifact = getShrinkAapt2Artifact(allArtifacts);
+    assertThat(getGeneratingSpawnActionArgs(shrinkAapt2Artifact))
+        .contains("--useDataBindingAndroidX");
+  }
+
+  @Test
+  public void dataBinding_androidLocalTest_dataBindingDisabled_doesNotUseDataBindingFlags()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+    writeNonDataBindingLocalTestFiles();
+
+    if (platformBasedToolchains()) {
+      // TODO(b/161709111): With platforms, the below fails with
+      // "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
+      return;
+    }
+
+    ConfiguredTarget testTarget =
+        getConfiguredTarget("//javatests/android/test:databinding_enabled_test");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(testTarget));
+    JavaCompileAction testCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(allArtifacts, "databinding_enabled_test-class.jar"));
+    ImmutableList<String> expectedMissingJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.sdkDir=/not/used",
+            "-Aandroid.databinding.artifactType=APPLICATION",
+            "-Aandroid.databinding.exportClassListOutFile=/tmp/exported_classes",
+            "-Aandroid.databinding.modulePackage=android.test",
+            "-Aandroid.databinding.minApi=14",
+            "-Aandroid.databinding.enableV2=1",
+            "-Aandroid.databinding.directDependencyPkgs=[android.library]");
+    assertThat(getJavacArguments(testCompileAction)).containsNoneIn(expectedMissingJavacopts);
+
+    JavaCompileInfo javaCompileInfo =
+        testCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
+    assertThat(javaCompileInfo.getJavacOptList()).containsNoneIn(expectedMissingJavacopts);
+  }
+
+  @Test
+  public void dataBinding_androidLocalTest_dataBindingEnabled_usesDataBindingFlags()
+      throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+    writeDataBindingLocalTestFiles();
+
+    if (platformBasedToolchains()) {
+      // TODO(b/161709111): With platforms, the below fails with
+      // "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
+      return;
+    }
+
+    ConfiguredTarget testTarget =
+        getConfiguredTarget("//javatests/android/test:databinding_enabled_test");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(testTarget));
+    JavaCompileAction testCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(allArtifacts, "databinding_enabled_test-class.jar"));
+    String dataBindingFilesDir =
+        targetConfig
+            .getBinDirectory(RepositoryName.MAIN)
+            .getExecPath()
+            .getRelative("javatests/android/test/databinding/databinding_enabled_test")
+            .getPathString();
+    String inputDir = dataBindingFilesDir + "/" + DataBinding.DEP_METADATA_INPUT_DIR;
+    String outputDir = dataBindingFilesDir + "/" + DataBinding.METADATA_OUTPUT_DIR;
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.dependencyArtifactsDir=" + inputDir,
+            "-Aandroid.databinding.aarOutDir=" + outputDir,
+            "-Aandroid.databinding.sdkDir=/not/used",
+            "-Aandroid.databinding.artifactType=APPLICATION",
+            "-Aandroid.databinding.exportClassListOutFile=/tmp/exported_classes",
+            "-Aandroid.databinding.modulePackage=android.test",
+            "-Aandroid.databinding.minApi=14",
+            "-Aandroid.databinding.enableV2=1",
+            "-Aandroid.databinding.directDependencyPkgs=[android.library]");
+    assertThat(getJavacArguments(testCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
+
+    JavaCompileInfo javaCompileInfo =
+        testCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAtLeastElementsIn(expectedJavacopts);
+  }
+
+  private Artifact getAapt2PackgeActionArtifact(Set<Artifact> allArtifacts) {
+    return getArtifactForTool(allArtifacts, /* toolName= */ "AAPT2_PACKAGE");
+  }
+
+  private Artifact getProcessingDatabindingArtifact(Set<Artifact> allArtifacts) {
+    return getArtifactForTool(allArtifacts, /* toolName= */ "PROCESS_DATABINDING");
+  }
+
+  private Artifact getCompileLibraryResourcesArtifact(Set<Artifact> allArtifacts) {
+    return getArtifactForTool(allArtifacts, /* toolName= */ "COMPILE_LIBRARY_RESOURCES");
+  }
+
+  private Artifact getShrinkAapt2Artifact(Set<Artifact> allArtifacts) {
+    return getArtifactForTool(allArtifacts, /* toolName= */ "SHRINK_AAPT2");
+  }
+
+  private Artifact getArtifactForTool(Set<Artifact> allArtifacts, String toolName) {
+    Artifact artifact = getFirstArtifactMatching(allArtifacts, isSpawnActionWithTool(toolName));
+    assertWithMessage("Expected to find an artifact using tool: %s", toolName)
+        .that(artifact)
+        .isNotNull();
+    return artifact;
+  }
+
+  private Predicate<Artifact> isSpawnActionWithTool(String toolName) {
+    return artifact -> {
+      List<String> actionArgs;
+      try {
+        actionArgs = getGeneratingSpawnActionArgs(artifact);
+      } catch (Exception e) {
+        // Some artifacts are not compatible spawn artifacts.
+        return false;
+      }
+      int toolIndicatorIndex = actionArgs.indexOf("--tool");
+      return toolIndicatorIndex > -1
+          && toolIndicatorIndex + 1 < actionArgs.size()
+          && actionArgs.get(toolIndicatorIndex + 1).equals(toolName);
+    };
   }
 }

@@ -145,7 +145,7 @@ public final class StarlarkMethodProcessorTest {
                 + " StarlarkThread");
     // Also reports:
     // - annotated type java.lang.String of parameter 'one' is not assignable
-    //   to variable of type com.google.devtools.build.lib.events.StarlarkThread
+    //   to variable of type net.starlark.java.eval.StarlarkThread
     // - annotated type java.lang.Integer of parameter 'two' is not assignable
     //   to variable of type java.lang.String
   }
@@ -159,27 +159,6 @@ public final class StarlarkMethodProcessorTest {
         .withErrorContaining(
             "method methodWithTooManyArguments is annotated with 1 Params plus 0 special"
                 + " parameters, yet has 2 parameter variables");
-  }
-
-  @Test
-  public void testInvalidParamNoneDefault() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("InvalidParamNoneDefault.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Parameter 'a_parameter' has 'None' default value but is not noneable.");
-  }
-
-  @Test
-  public void testParamTypeConflict() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("ParamTypeConflict.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Parameter 'a_parameter' has both 'type' and 'allowedTypes' specified."
-                + " Only one may be specified.");
   }
 
   @Test
@@ -219,7 +198,8 @@ public final class StarlarkMethodProcessorTest {
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Positional-only parameter 'two' is specified after one or more named parameters");
+            "Positional-only parameter 'two' is specified after one or more named or undocumented"
+                + " parameters");
   }
 
   @Test
@@ -280,8 +260,8 @@ public final class StarlarkMethodProcessorTest {
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Only one of StarlarkMethod.enablingFlag and StarlarkMethod.disablingFlag may be "
-                + "specified.");
+            "Only one of StarlarkMethod.enableOnlyWithFlag and StarlarkMethod.disableWithFlag may"
+                + " be specified.");
   }
 
   @Test
@@ -342,29 +322,26 @@ public final class StarlarkMethodProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "parameter 'one' has generic type "
-                + "com.google.devtools.build.lib.syntax.Sequence<java.lang.String>");
+                + "net.starlark.java.eval.Sequence<java.lang.String>");
   }
 
   @Test
-  public void testInvalidNoneableParameter() throws Exception {
+  public void testKwargsWithUndocumentedParam() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("InvalidNoneableParameter.java"))
+        .that(getFile("KwargsWithUndocumentedParams.java"))
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Expected type 'Object' but got type 'java.lang.String' "
-                + "for noneable parameter 'aParameter'.");
+            "Method 'undocumented_with_kwargs' has undocumented parameters but also allows extra"
+                + " keyword parameters");
   }
 
   @Test
-  public void testDoesntImplementStarlarkValue() throws Exception {
+  public void testUndocumentedPositionalParam() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("DoesntImplementStarlarkValue.java"))
+        .that(getFile("UndocumentedPositionalParam.java"))
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
-        .withErrorContaining(
-            "method x has StarlarkMethod annotation but enclosing class"
-                + " DoesntImplementStarlarkValue does not implement StarlarkValue nor has"
-                + " StarlarkGlobalLibrary annotation");
+        .withErrorContaining("Parameter 'one' must be documented because it is positional");
   }
 }

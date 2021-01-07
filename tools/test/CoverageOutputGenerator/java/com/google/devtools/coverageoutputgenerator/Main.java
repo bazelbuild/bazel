@@ -18,11 +18,14 @@ import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSI
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_JSON_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
+import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,7 +36,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,7 +55,7 @@ public class Main {
       int exitCode = runWithArgs(args);
       System.exit(exitCode);
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Unhandled exception on lcov tool: " + e.getMessage());
+      logger.log(Level.SEVERE, "Unhandled exception on lcov tool: " + e.getMessage(), e);
       System.exit(1);
     }
   }
@@ -72,7 +74,7 @@ public class Main {
     List<File> filesInCoverageDir =
         flags.coverageDir() != null
             ? getCoverageFilesInDir(flags.coverageDir())
-            : Collections.emptyList();
+            : ImmutableList.of();
     Coverage coverage =
         Coverage.merge(
             parseFiles(
@@ -147,12 +149,9 @@ public class Main {
     }
 
     if (flags.hasSourceFileManifest()) {
-      // The source file manifest is only required for C++ code coverage.
-      Set<String> ccSources = getCcSourcesFromSourceFileManifest(flags.sourceFileManifest());
-      if (!ccSources.isEmpty()) {
-        // Only filter out coverage if there were C++ sources found in the coverage manifest.
-        coverage = Coverage.getOnlyTheseCcSources(coverage, ccSources);
-      }
+      coverage =
+          Coverage.getOnlyTheseSources(
+              coverage, getSourcesFromSourceFileManifest(flags.sourceFileManifest()));
     }
 
     if (coverage.isEmpty()) {
@@ -195,13 +194,13 @@ public class Main {
    * <p>This method only returns the C++ source files, ignoring the other files as they are not
    * necessary when putting together the final coverage report.
    */
-  private static Set<String> getCcSourcesFromSourceFileManifest(String sourceFileManifest) {
+  private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
     Set<String> sourceFiles = new HashSet<>();
     try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest));
         InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
         BufferedReader reader = new BufferedReader(inputStreamReader)) {
       for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-        if (!isMetadataFile(line) && isCcFile(line)) {
+        if (!isMetadataFile(line)) {
           sourceFiles.add(line);
         }
       }
@@ -213,11 +212,6 @@ public class Main {
 
   private static boolean isMetadataFile(String filename) {
     return filename.endsWith(".gcno") || filename.endsWith(".em");
-  }
-
-  private static boolean isCcFile(String filename) {
-    return filename.endsWith(".cc") || filename.endsWith(".c") || filename.endsWith(".cpp")
-        || filename.endsWith(".hh") || filename.endsWith(".h") || filename.endsWith(".hpp");
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
@@ -324,7 +318,8 @@ public class Main {
       } catch (IOException e) {
         logger.log(
             Level.SEVERE,
-            "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage());
+            "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
+            e);
         System.exit(1);
       }
     }
@@ -334,26 +329,13 @@ public class Main {
   static Coverage parseFilesInParallel(List<File> files, Parser parser, int parallelism)
       throws ExecutionException, InterruptedException {
     ForkJoinPool pool = new ForkJoinPool(parallelism);
+    int partitionSize = max(1, files.size() / parallelism);
+    List<List<File>> partitions = Lists.partition(files, partitionSize);
     return pool.submit(
             () ->
-                files.parallelStream()
-                    .map(
-                        file -> {
-                          try (FileInputStream inputStream = new FileInputStream(file)) {
-                            logger.log(Level.INFO, "Parsing file " + file);
-                            return Coverage.create(parser.parse(inputStream));
-                          } catch (IOException e) {
-                            logger.log(
-                                Level.SEVERE,
-                                "File "
-                                    + file.getAbsolutePath()
-                                    + " could not be parsed due to: "
-                                    + e.getMessage());
-                            System.exit(1);
-                          }
-                          return null;
-                        })
-                    .reduce(Coverage::merge)
+                partitions.parallelStream()
+                    .map((p) -> parseFilesSequentially(p, parser))
+                    .reduce((c1, c2) -> Coverage.merge(c1, c2))
                     .orElse(Coverage.create()))
         .get();
   }

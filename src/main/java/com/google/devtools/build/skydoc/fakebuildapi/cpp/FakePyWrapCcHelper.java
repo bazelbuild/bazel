@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.eval.Sequence;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
 public class FakePyWrapCcHelper
@@ -37,7 +37,7 @@ public class FakePyWrapCcHelper
         StarlarkRuleContextApi<ConstraintValueInfoApi>,
         CcInfoApi<FileApi>,
         FeatureConfigurationApi,
-        CcToolchainProviderApi<FeatureConfigurationApi>,
+        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
         CompilationInfoApi<FileApi>,
         CcCompilationContextApi<FileApi>,
         WrapCcIncludeProviderApi> {
@@ -70,7 +70,7 @@ public class FakePyWrapCcHelper
   @Override
   public FeatureConfigurationApi starlarkGetFeatureConfiguration(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain) {
     return null;
   }
 
@@ -95,7 +95,7 @@ public class FakePyWrapCcHelper
   @Override
   public void registerSwigAction(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi<FileApi> wrapperCcCompilationContext,
       Depset swigIncludes,
@@ -114,7 +114,7 @@ public class FakePyWrapCcHelper
   public CompilationInfoApi<FileApi> starlarkCreateCompileActions(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       FeatureConfigurationApi featureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
+      CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
       Sequence<?> depCcCompilationContexts,

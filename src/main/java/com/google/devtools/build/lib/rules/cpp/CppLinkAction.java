@@ -59,10 +59,6 @@ import com.google.devtools.build.lib.server.FailureDetails.CppLink.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -71,6 +67,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** Action that represents a linking step. */
 @ThreadCompatible
@@ -331,7 +330,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
     CppLinkInfo.Builder info = CppLinkInfo.newBuilder();
@@ -473,8 +472,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
         throw e.toActionExecutionException(
-            "Linking of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
             CppLinkAction.this);
       }
     }
@@ -484,8 +481,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
-    } catch (CommandLineExpansionException exception) {
-      throw new EvalException(Location.BUILTIN, exception);
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
     }
   }
 

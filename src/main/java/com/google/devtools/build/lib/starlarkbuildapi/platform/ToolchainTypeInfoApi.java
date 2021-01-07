@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object representing data about a specific toolchain type. */
@@ -26,7 +26,7 @@ import net.starlark.java.annot.StarlarkMethod;
     doc =
         "Provides access to data about a specific toolchain type. "
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface ToolchainTypeInfoApi extends StructApi {
 
   @StarlarkMethod(

@@ -44,7 +44,9 @@ public final class StarlarkDocUtils {
       Param extraKeywords) {
     ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
     for (Param param : userSuppliedParams) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, param));
+      if (param.documented()) {
+        paramsBuilder.add(new StarlarkParamDoc(methodDoc, param));
+      }
     }
     if (!extraPositionals.name().isEmpty()) {
       paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraPositionals));

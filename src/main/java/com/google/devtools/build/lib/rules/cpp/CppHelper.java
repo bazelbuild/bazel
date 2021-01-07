@@ -41,9 +41,9 @@ import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -58,17 +58,16 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
@@ -78,6 +77,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Helper class for functionality shared by cpp related rules.
@@ -106,9 +107,9 @@ public class CppHelper {
   public static TransitiveInfoCollection mallocForTarget(
       RuleContext ruleContext, String mallocAttrName) {
     if (ruleContext.getFragment(CppConfiguration.class).customMalloc() != null) {
-      return ruleContext.getPrerequisite(":default_malloc", TransitionMode.TARGET);
+      return ruleContext.getPrerequisite(":default_malloc");
     } else {
-      return ruleContext.getPrerequisite(mallocAttrName, TransitionMode.TARGET);
+      return ruleContext.getPrerequisite(mallocAttrName);
     }
   }
 
@@ -174,7 +175,7 @@ public class CppHelper {
 
     if (ruleContext.attributes().has("additional_linker_inputs", LABEL_LIST)) {
       for (TransitiveInfoCollection current :
-          ruleContext.getPrerequisites("additional_linker_inputs", TransitionMode.TARGET)) {
+          ruleContext.getPrerequisites("additional_linker_inputs")) {
         builder.put(
             AliasProvider.getDependencyLabel(current),
             current.getProvider(FileProvider.class).getFilesToBuild().toList());
@@ -192,12 +193,18 @@ public class CppHelper {
       RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
       throws RuleErrorException {
     if (cppConfiguration.collectCodeCoverage()) {
+      String llvmCov = toolchain.getToolPathStringOrNull(Tool.LLVM_COV);
+      if (llvmCov == null) {
+        llvmCov = "";
+      }
       NestedSetBuilder<Pair<String, String>> coverageEnvironment =
           NestedSetBuilder.<Pair<String, String>>stableOrder()
               .add(
                   Pair.of(
                       "COVERAGE_GCOV_PATH",
-                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()));
+                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()))
+              .add(Pair.of("LLVM_COV", llvmCov))
+              .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
       if (cppConfiguration.getFdoInstrument() != null) {
         coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
       }
@@ -304,8 +311,7 @@ public class CppHelper {
       // TODO(bazel-team): Report an error or throw an exception in this case.
       return null;
     }
-    TransitiveInfoCollection dep =
-        ruleContext.getPrerequisite(toolchainAttribute, TransitionMode.TARGET);
+    TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute);
     return getToolchain(ruleContext, dep);
   }
 
@@ -357,22 +363,25 @@ public class CppHelper {
   }
 
   /** Returns the directory where object files are created. */
-  public static PathFragment getObjDirectory(Label ruleLabel, boolean usePic) {
+  public static PathFragment getObjDirectory(Label ruleLabel, boolean siblingRepositoryLayout) {
+    return getObjDirectory(ruleLabel, false, siblingRepositoryLayout);
+  }
+
+  /** Returns the directory where object files are created. */
+  public static PathFragment getObjDirectory(
+      Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
     if (usePic) {
-      return AnalysisUtils.getUniqueDirectory(ruleLabel, PIC_OBJS);
+      return AnalysisUtils.getUniqueDirectory(ruleLabel, PIC_OBJS, siblingRepositoryLayout);
     } else {
-      return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS);
+      return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS, siblingRepositoryLayout);
     }
   }
 
   /** Returns the directory where object files are created. */
-  private static PathFragment getDotdDirectory(Label ruleLabel, boolean usePic) {
-    return AnalysisUtils.getUniqueDirectory(ruleLabel, usePic ? PIC_DOTD_FILES : DOTD_FILES);
-  }
-
-  /** Returns the directory where object files are created. */
-  public static PathFragment getObjDirectory(Label ruleLabel) {
-    return getObjDirectory(ruleLabel, false);
+  private static PathFragment getDotdDirectory(
+      Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
+    return AnalysisUtils.getUniqueDirectory(
+        ruleLabel, usePic ? PIC_DOTD_FILES : DOTD_FILES, siblingRepositoryLayout);
   }
 
   /**
@@ -476,7 +485,7 @@ public class CppHelper {
       PathFragment name) {
     Artifact result =
         actionConstructionContext.getPackageRelativeArtifact(
-            name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+            name, config.getBinDirectory(label.getRepository()));
 
     // If the linked artifact is not the linux default, then a FailAction is generated for said
     // linux default to satisfy the requirements of any implicit outputs.
@@ -491,7 +500,8 @@ public class CppHelper {
               ImmutableList.of(linuxDefault),
               String.format(
                   "the given toolchain supports creation of %s instead of %s",
-                  result.getExecPathString(), linuxDefault.getExecPathString())));
+                  result.getExecPathString(), linuxDefault.getExecPathString()),
+              Code.INCORRECT_TOOLCHAIN));
     }
 
     return result;
@@ -515,7 +525,7 @@ public class CppHelper {
     }
 
     return actionConstructionContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+        name, config.getBinDirectory(label.getRepository()));
   }
 
   /**
@@ -566,7 +576,7 @@ public class CppHelper {
                 label.getName()
                     + suffix
                     + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions())),
-            configuration.getGenfilesDirectory(label.getPackageIdentifier().getRepository()));
+            configuration.getGenfilesDirectory(label.getRepository()));
     return new CppModuleMap(mapFile, label.toString());
   }
 
@@ -593,8 +603,7 @@ public class CppHelper {
         true,
         true,
         solibDir,
-        solibDirOverride,
-        configuration);
+        solibDirOverride);
   }
 
   @VisibleForTesting
@@ -607,15 +616,7 @@ public class CppHelper {
       String solibDir,
       BuildConfiguration configuration) {
     return getMiddlemanInternal(
-        ruleContext,
-        owner,
-        purpose,
-        artifacts,
-        useSolibSymlinks,
-        false,
-        solibDir,
-        null,
-        configuration);
+        ruleContext, owner, purpose, artifacts, useSolibSymlinks, false, solibDir, null);
   }
 
   /** Internal implementation for getAggregatingMiddlemanForCppRuntimes. */
@@ -627,8 +628,7 @@ public class CppHelper {
       boolean useSolibSymlinks,
       boolean isCppRuntime,
       String solibDir,
-      String solibDirOverride,
-      BuildConfiguration configuration) {
+      String solibDirOverride) {
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     if (useSolibSymlinks) {
       NestedSetBuilder<Artifact> symlinkedArtifacts = NestedSetBuilder.stableOrder();
@@ -656,7 +656,7 @@ public class CppHelper {
             ruleContext.getPackageDirectory(),
             purpose,
             artifacts,
-            configuration.getMiddlemanDirectory(ruleContext.getRule().getRepository())));
+            ruleContext.getMiddlemanDirectory()));
   }
 
   /** Returns the FDO build subtype. */
@@ -779,10 +779,9 @@ public class CppHelper {
       Label label,
       String outputName,
       BuildConfiguration config) {
-    PathFragment objectDir = getObjDirectory(label);
+    PathFragment objectDir = getObjDirectory(label, config.isSiblingRepositoryLayout());
     return actionConstructionContext.getDerivedArtifact(
-        objectDir.getRelative(outputName),
-        config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+        objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
   }
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
@@ -793,7 +792,12 @@ public class CppHelper {
       String outputName,
       boolean usePic) {
     return actionConstructionContext.getTreeArtifact(
-        getObjDirectory(label, usePic).getRelative(outputName), sourceTreeArtifact.getRoot());
+        getObjDirectory(
+                label,
+                usePic,
+                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
+            .getRelative(outputName),
+        sourceTreeArtifact.getRoot());
   }
 
   /** Returns the corresponding dotd files TreeArtifact given the source TreeArtifact. */
@@ -804,7 +808,12 @@ public class CppHelper {
       String outputName,
       boolean usePic) {
     return actionConstructionContext.getTreeArtifact(
-        getDotdDirectory(label, usePic).getRelative(outputName), sourceTreeArtifact.getRoot());
+        getDotdDirectory(
+                label,
+                usePic,
+                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
+            .getRelative(outputName),
+        sourceTreeArtifact.getRoot());
   }
 
   public static String getArtifactNameForCategory(
@@ -846,7 +855,7 @@ public class CppHelper {
       RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
         && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS)
-        && ruleContext.getPrerequisiteArtifact("win_def_file", TransitionMode.TARGET) == null;
+        && ruleContext.getPrerequisiteArtifact("win_def_file") == null;
   }
 
   /**
@@ -940,7 +949,11 @@ public class CppHelper {
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
     if (cppOptions.renameDLL
         && cppOptions.dynamicMode != DynamicMode.OFF
-        && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+        && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
+        // Because the custom DEF file in `win_def_file` does not contain the suffix of the DLL, we
+        // should not calculate _{hash} when `win_def_file` is used.
+        && (!ruleContext.isAttrDefined("win_def_file", LABEL)
+            || ruleContext.getPrerequisiteArtifact("win_def_file") == null)) {
       Fingerprint digest = new Fingerprint();
       digest.addString(ruleContext.getRepository().getName());
       digest.addPath(ruleContext.getPackageDirectory());
@@ -1036,13 +1049,13 @@ public class CppHelper {
 
   public static Artifact getGrepIncludes(RuleContext ruleContext) {
     return ruleContext.attributes().has("$grep_includes")
-        ? ruleContext.getPrerequisiteArtifact("$grep_includes", TransitionMode.HOST)
+        ? ruleContext.getPrerequisiteArtifact("$grep_includes")
         : null;
   }
 
   public static boolean doNotSplitLinkingCmdLine(
       StarlarkSemantics starlarkSemantics, CcToolchainProvider ccToolchain) {
-    return starlarkSemantics.incompatibleDoNotSplitLinkingCmdline()
+    return starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE)
         || ccToolchain.doNotSplitLinkingCmdline();
   }
 }

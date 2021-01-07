@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import javax.annotation.Nullable;
@@ -43,7 +42,7 @@ public interface ProviderCollection {
   /**
    * Returns the declared provider requested, or null, if the information is not found.
    *
-   * <p>Use {@link #get(NativeProvider)} for native providers.
+   * <p>Use {@link #get(BuiltinProvider)} for built-in providers.
    */
   @Nullable
   Info get(Provider.Key providerKey);
@@ -51,17 +50,7 @@ public interface ProviderCollection {
   /**
    * Returns the native declared provider requested, or null, if the information is not found.
    *
-   * <p>Type-safe version of {@link #get(Provider.Key)} for native providers.
-   */
-  @Nullable
-  default <T extends Info> T get(NativeProvider<T> provider) {
-    return provider.getValueClass().cast(get(provider.getKey()));
-  }
-
-  /**
-   * Returns the native declared provider requested, or null, if the information is not found.
-   *
-   * <p>Type-safe version of {@link #get(Provider.Key)} for native providers.
+   * <p>Type-safe version of {@link #get(Provider.Key)} for built-in providers.
    */
   @Nullable
   default <T extends Info> T get(BuiltinProvider<T> provider) {

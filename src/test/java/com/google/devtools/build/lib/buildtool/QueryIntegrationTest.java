@@ -15,45 +15,38 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.common.UniverseScope;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
-import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
-import com.google.devtools.build.lib.query2.engine.QueryException;
-import com.google.devtools.build.lib.query2.engine.QueryUtil;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
-import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
-import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
+import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -72,14 +65,38 @@ import org.w3c.dom.NodeList;
  */
 @RunWith(JUnit4.class)
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
-  private QueryOptions queryOptions;
-  private boolean keepGoing;
+  private final CustomFileSystem fs = new CustomFileSystem();
+  private BlazeCommandResult lastBlazeCommandResult;
+  private final List<String> options = new ArrayList<>();
+
+  private static class CustomFileSystem extends UnixFileSystem {
+    final Map<Path, FileStatus> stubbedStats = new HashMap<>();
+
+    CustomFileSystem() {
+      super(DigestHashFunction.SHA256, "");
+    }
+
+    void stubStat(Path path, @Nullable FileStatus stubbedResult) {
+      stubbedStats.put(path, stubbedResult);
+    }
+
+    @Override
+    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+      if (stubbedStats.containsKey(path)) {
+        return stubbedStats.get(path);
+      }
+      return super.statIfFound(path, followSymlinks);
+    }
+  }
+
+  @Override
+  protected FileSystem createFileSystem() {
+    return fs;
+  }
 
   @Before
-  public final void setQueryOptions() throws Exception  {
-    queryOptions = Options.getDefaults(QueryOptions.class);
-    keepGoing = Options.getDefaults(KeepGoingOption.class).keepGoing;
-    queryOptions.universeScope = ImmutableList.of("//...:*");
+  public final void setQueryOptions() {
+    runtimeWrapper.addOptionsClass(QueryOptions.class);
   }
 
   // Number large enough that an unordered collection with this many elements will never happen to
@@ -123,7 +140,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write("foo/BUILD", "sh_library(name = 'a', deps = [" + depString + "])", targets);
     QueryResult result = getProtoQueryResult("deps(//foo:a)");
     assertSameElementsDifferentOrder(getTargetNames(result), expected);
-    queryOptions.orderOutput = OrderOutput.FULL;
+    options.add("--order_output=full");
     result = getProtoQueryResult("deps(//foo:a)");
     assertThat(getTargetNames(result)).containsExactlyElementsIn(expected).inOrder();
   }
@@ -161,13 +178,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     }
     Collections.sort(expected);
     expected.add(0, "0 //foo:a");
-    queryOptions.outputFormat = minRank ? "minrank" : "maxrank";
-    keepGoing = true;
+    options.add("--output=" + (minRank ? "minrank" : "maxrank"));
+    options.add("--keep_going");
     write("foo/BUILD", "sh_library(name = 'a', deps = ['cycle0', " + depString + "])", targets);
     List<String> result = getStringQueryResult("deps(//foo:a)");
     assertWithMessage(result.toString()).that(result.get(0)).isEqualTo("0 //foo:a");
     assertSameElementsDifferentOrder(result, expected);
-    queryOptions.orderOutput = OrderOutput.FULL;
+    options.add("--order_output=full");
     result = getStringQueryResult("deps(//foo:a)");
     assertWithMessage(result.toString()).that(result.get(0)).isEqualTo("0 //foo:a");
     assertThat(result).containsExactlyElementsIn(expected).inOrder();
@@ -199,7 +216,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write("foo/BUILD", "sh_library(name = 'a', deps = [" + depString + "])", targets);
     List<String> result = getStringQueryResult("deps(//foo:a)");
     assertThat(result).containsExactlyElementsIn(expected).inOrder();
-    queryOptions.orderOutput = OrderOutput.DEPS;
+    options.add("--order_output=deps");
     result = getStringQueryResult("deps(//foo:a)");
     assertSameElementsDifferentOrder(result, expected);
   }
@@ -234,27 +251,123 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testStrictTests() throws Exception {
-    queryOptions.strictTestSuite = true;
+    options.add("--strict_test_suite=true");
     write("donut/BUILD",
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
         "test_suite(name = 'cop', tests = [':thief'])");
 
-    QueryException e =
-        assertThrows(QueryException.class, () -> getProtoQueryResult("tests(//donut:cop)"));
-    assertThat(e)
-        .hasMessageThat()
+    getProtoQueryResult("tests(//donut:cop)");
+    assertThat(lastBlazeCommandResult.getExitCode()).isEqualTo(ExitCode.ANALYSIS_FAILURE);
+    assertThat(lastBlazeCommandResult.getFailureDetail().getMessage())
         .contains(
             "The label '//donut:thief' in the test_suite "
                 + "'//donut:cop' does not refer to a test");
   }
 
+  private void createBadBarBuild() throws IOException {
+    Path barBuildFile = write("bar/BUILD", "sh_library(name = 'bar/baz')");
+    FileStatus inconsistentFileStatus =
+        new FileStatus() {
+          @Override
+          public boolean isFile() {
+            return false;
+          }
+
+          @Override
+          public boolean isSpecialFile() {
+            return false;
+          }
+
+          @Override
+          public boolean isDirectory() {
+            return false;
+          }
+
+          @Override
+          public boolean isSymbolicLink() {
+            return false;
+          }
+
+          @Override
+          public long getSize() {
+            return 0;
+          }
+
+          @Override
+          public long getLastModifiedTime() {
+            return 0;
+          }
+
+          @Override
+          public long getLastChangeTime() {
+            return 0;
+          }
+
+          @Override
+          public long getNodeId() {
+            return 0;
+          }
+        };
+    fs.stubStat(barBuildFile, inconsistentFileStatus);
+  }
+
+  // Regression test for b/14248208.
+  private void runInconsistentFileSystem(boolean keepGoing) throws Exception {
+    createBadBarBuild();
+    if (keepGoing) {
+      options.add("--keep_going");
+    }
+    getQueryResult("deps(//bar:baz)");
+    assertThat(lastBlazeCommandResult.getExitCode())
+        .isEqualTo(keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE);
+    events.assertContainsError("Inconsistent filesystem operations");
+    assertThat(events.errors()).hasSize(1);
+  }
+
+  @Test
+  public void inconsistentFileSystemKeepGoing() throws Exception {
+    runInconsistentFileSystem(/*keepGoing=*/ true);
+  }
+
+  @Test
+  public void inconsistentFileSystemNoKeepGoing() throws Exception {
+    runInconsistentFileSystem(/*keepGoing=*/ false);
+  }
+
+  private void runDepInconsistentFileSystem(boolean keepGoing) throws Exception {
+    write("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:baz'])");
+    createBadBarBuild();
+    if (keepGoing) {
+      options.add("--keep_going");
+    }
+    getQueryResult("deps(//foo:foo)");
+    assertThat(lastBlazeCommandResult.getExitCode())
+        .isEqualTo(keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE);
+    events.assertContainsError("Inconsistent filesystem operations");
+    events.assertContainsError("and referenced by '//foo:foo'");
+    events.assertContainsError("Evaluation of query \"deps(//foo:foo)\" failed: errors were ");
+    // TODO(janakr): We emit duplicate events: in the ErrorPrintingTargetEdgeErrorObserver and in
+    //  TransitiveTargetFunction. Should be able to remove one of them, most likely
+    //  TransitiveTargetFunction.
+    assertThat(events.errors()).hasSize(3);
+  }
+
+  @Test
+  public void depInconsistentFileSystemKeepGoing() throws Exception {
+    runDepInconsistentFileSystem(/*keepGoing=*/ true);
+  }
+
+  @Test
+  public void depInconsistentFileSystemNoKeepGoing() throws Exception {
+    runDepInconsistentFileSystem(/*keepGoing=*/ false);
+  }
+
   private byte[] getQueryResult(String queryString) throws Exception {
-    // TODO(hanwen): this should probably use BlazeRuntimeWrapper so
-    // we don't have to duplicate option/module handling.
-    OptionsParser optionsParser = runtimeWrapper.createOptionsParser();
-    Command command = QueryCommand.class.getAnnotation(Command.class);
-    CommandEnvironment env =
-        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>(), 0L, 0L);
+    runtimeWrapper.resetOptions();
+    runtimeWrapper.addOptions(options);
+    runtimeWrapper.addOptions(queryString);
+    CommandEnvironment env = runtimeWrapper.newCommand(QueryCommand.class);
+    OptionsParsingResult options = env.getOptions();
     for (BlazeModule module : getRuntime().getBlazeModules()) {
       module.beforeCommand(env);
     }
@@ -263,7 +376,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         .post(
             new GotOptionsEvent(
                 getRuntime().getStartupOptionsProvider(),
-                optionsParser,
+                options,
                 InvocationPolicy.getDefaultInstance()));
 
     for (BlazeModule module : getRuntime().getBlazeModules()) {
@@ -279,42 +392,24 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       // Ignored, as we know the test deviates from normal calling order.
     }
 
-    env.syncPackageLoading(optionsParser);
-
-    OutputFormatter formatter =
-        OutputFormatters.getFormatter(
-            OutputFormatters.getDefaultFormatters(), queryOptions.outputFormat);
-    // TODO(ulfjack): This should run the code in QueryCommand instead.
-    Set<Setting> settings = queryOptions.toSettings();
-    AbstractBlazeQueryEnvironment<Target> queryEnv =
-        QueryCommand.newQueryEnvironment(
-            env,
-            keepGoing,
-            !QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
-            UniverseScope.EMPTY,
-            /*loadingPhaseThreads=*/ 1,
-            settings,
-            /*useGraphlessQuery=*/ false);
-    AggregateAllOutputFormatterCallback<Target, ?> callback =
-        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
-    QueryEvalResult result = queryEnv.evaluateQuery(queryString, callback);
-
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-
-    Reporter reporter = new Reporter(new EventBus(), events.collector());
-    QueryOutputUtils.output(
-        queryOptions,
-        result,
-        callback.getResult(),
-        formatter,
-        outputStream,
-        queryOptions.aspectDeps.createResolver(env.getPackageManager(), reporter),
-        reporter);
-    return outputStream.toByteArray();
+    ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+    env.getReporter()
+        .addHandler(
+            event -> {
+              if (event.getKind().equals(EventKind.STDOUT)) {
+                try {
+                  stdout.write(event.getMessageBytes());
+                } catch (IOException e) {
+                  throw new IllegalStateException(e);
+                }
+              }
+            });
+    lastBlazeCommandResult = new QueryCommand().exec(env, options);
+    return stdout.toByteArray();
   }
 
   private Document getXmlQueryResult(String queryString) throws Exception {
-    queryOptions.outputFormat = "xml";
+    options.add("--output=xml");
     byte[] queryResult = getQueryResult(queryString);
     return DocumentBuilderFactory.newInstance().newDocumentBuilder()
         .parse(new ByteArrayInputStream(queryResult));
@@ -336,8 +431,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private QueryResult getProtoQueryResult(String queryString) throws Exception {
-    queryOptions.outputFormat = "proto";
-    return QueryResult.parseFrom(getQueryResult(queryString));
+    options.add("--output=proto");
+    return QueryResult.parseFrom(getQueryResult(queryString), ExtensionRegistry.getEmptyRegistry());
   }
 
   Element getResultNode(Document xml, String ruleName) throws Exception {

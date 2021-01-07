@@ -18,29 +18,29 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
-import com.google.devtools.build.lib.syntax.Tuple;
-import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,7 +55,7 @@ public class StarlarkDocumentationTest {
   @Test
   public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    StarlarkModules.addStarlarkGlobalsToBuilder(env);
+    StarlarkModules.addPredeclared(env);
     checkStarlarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
@@ -63,8 +63,7 @@ public class StarlarkDocumentationTest {
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, StarlarkBuiltinDoc> modules =
-        StarlarkDocumentationCollector.collectModules(
-            Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
+        new TreeMap<>(StarlarkDocumentationCollector.getAllModules());
     StarlarkBuiltinDoc topLevel =
         modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
     for (StarlarkMethodDoc method : topLevel.getMethods()) {
@@ -194,12 +193,36 @@ public class StarlarkDocumentationTest {
     }
   }
 
+  /** MockClassI */
+  @StarlarkBuiltin(name = "MockClassI", doc = "MockClassI")
+  private static class MockClassI implements StarlarkValue {
+    @StarlarkMethod(
+        name = "test",
+        doc = "MockClassI#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+          @Param(
+              name = "e",
+              named = true,
+              positional = false,
+              documented = false,
+              defaultValue = "2"),
+        },
+        extraPositionals = @Param(name = "myArgs"))
+    public Integer test(int a, int b, int c, int d, int e, Sequence<?> args) {
+      return 0;
+    }
+  }
+
   /**
    * MockGlobalLibrary. While nothing directly depends on it, a test method in
    * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
    * shows up.
    */
-  @StarlarkGlobalLibrary
+  @DocumentMethods
   @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @StarlarkMethod(
@@ -230,7 +253,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "tuple", doc = "tuple")
-    public Tuple<Integer> getTuple() {
+    public Tuple getTuple() {
       return null;
     }
 
@@ -323,7 +346,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
-    @StarlarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
+    @StarlarkConstructor
     public MockClassA makeMockClassA() {
       return new MockClassA();
     }
@@ -389,12 +412,25 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
+  public void testStarlarkUndocumentedParameters() throws Exception {
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassI.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassI");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassI");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassI#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassI.test(a, b, *, c, d=1, *myArgs)");
+    assertThat(methodDoc.getParams()).hasSize(5);
+  }
+
+  @Test
   public void testStarlarkGlobalLibraryCallable() throws Exception {
-    Map<String, StarlarkBuiltinDoc> modules =
-        StarlarkDocumentationCollector.collectModules(
-            Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
     StarlarkBuiltinDoc topLevel =
-        modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
+        StarlarkDocumentationCollector.getAllModules()
+            .get(StarlarkDocumentationCollector.getTopLevelModule().name());
 
     boolean foundGlobalLibrary = false;
     for (StarlarkMethodDoc methodDoc : topLevel.getMethods()) {
@@ -428,7 +464,7 @@ public class StarlarkDocumentationTest {
   public void testStarlarkContainerReturnTypesWithoutAnnotations() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassWithContainerReturnValues.class);
     assertThat(objects).containsKey("MockClassWithContainerReturnValues");
-    Collection<StarlarkMethodDoc> methods =
+    Collection<? extends StarlarkMethodDoc> methods =
         objects.get("MockClassWithContainerReturnValues").getMethods();
 
     List<String> signatures =
@@ -464,7 +500,8 @@ public class StarlarkDocumentationTest {
                 PointsToCommonNameAndUndocumentedModule.class,
                 MockClassCommonNameOne.class,
                 MockClassCommonNameUndocumented.class));
-    Collection<StarlarkMethodDoc> methods = objects.get("MockClassCommonName").getMethods();
+    Collection<? extends StarlarkMethodDoc> methods =
+        objects.get("MockClassCommonName").getMethods();
     List<String> methodNames =
         methods.stream().map(m -> m.getName()).collect(Collectors.toList());
     assertThat(methodNames).containsExactly("one");
@@ -478,7 +515,8 @@ public class StarlarkDocumentationTest {
                 PointsToCommonNameOneWithSubclass.class,
                 MockClassCommonNameOne.class,
                 SubclassOfMockClassCommonNameOne.class));
-    Collection<StarlarkMethodDoc> methods = objects.get("MockClassCommonName").getMethods();
+    Collection<? extends StarlarkMethodDoc> methods =
+        objects.get("MockClassCommonName").getMethods();
     List<String> methodNames =
         methods.stream().map(m -> m.getName()).collect(Collectors.toList());
     assertThat(methodNames).containsExactly("one", "two");
@@ -488,7 +526,7 @@ public class StarlarkDocumentationTest {
   public void testDocumentSelfcallConstructor() {
     Map<String, StarlarkBuiltinDoc> objects =
         collect(ImmutableList.of(MockClassA.class, MockClassWithSelfCallConstructor.class));
-    Collection<StarlarkMethodDoc> methods = objects.get("MockClassA").getMethods();
+    Collection<? extends StarlarkMethodDoc> methods = objects.get("MockClassA").getMethods();
     StarlarkMethodDoc firstMethod = methods.iterator().next();
     assertThat(firstMethod).isInstanceOf(StarlarkConstructorMethodDoc.class);
 

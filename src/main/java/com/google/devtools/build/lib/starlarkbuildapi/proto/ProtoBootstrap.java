@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */
 public class ProtoBootstrap implements Bootstrap {
@@ -54,10 +54,10 @@ public class ProtoBootstrap implements Bootstrap {
     builder.put(
         "ProtoRegistryAspect",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryAspect));
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryAspect));
     builder.put(
         "ProtoRegistryProvider",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryProvider));
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryProvider));
   }
 }

@@ -21,12 +21,13 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
  * Record errors, such as missing package/target or rules containing errors, encountered during
- * visitation. Emit an error message upon encountering missing edges
+ * visitation. Emit an error message upon encountering missing edges.
  *
- * <p>The accessor {@link #hasErrors}) may not be called until the concurrent phase is over, i.e.
+ * <p>The accessor {@link #hasErrors()}) may not be called until the concurrent phase is over, i.e.
  * all external calls to visit() methods have completed.
  */
 @ThreadSafety.ConditionallyThreadSafe // condition: only call hasErrors
@@ -43,9 +44,12 @@ class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
   @ThreadSafety.ThreadSafe
   @Override
   public void missingEdge(Target target, Label label, NoSuchThingException e) {
+    DetailedExitCode detailedExitCode = e.getDetailedExitCode();
     eventHandler.handle(
         Event.error(
-            TargetUtils.getLocationMaybe(target), TargetUtils.formatMissingEdge(target, label, e)));
+                TargetUtils.getLocationMaybe(target),
+                TargetUtils.formatMissingEdge(target, label, e))
+            .withProperty(DetailedExitCode.class, detailedExitCode));
     super.missingEdge(target, label, e);
   }
 }

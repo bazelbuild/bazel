@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * An enum that represents different types of rule attributes, based on where their values come
@@ -44,16 +45,14 @@ public enum AttributeValueSource {
   /** Throws an {@link EvalException} if the given Starlark name is not valid for this type. */
   public void validateStarlarkName(String attrStarlarkName) throws EvalException {
     if (attrStarlarkName.isEmpty()) {
-      throw new EvalException(null, "Attribute name must not be empty.");
+      throw new EvalException("Attribute name must not be empty.");
     }
 
     if (mustHaveStarlarkPrefix && !attrStarlarkName.startsWith(STARLARK_PREFIX)) {
-      throw new EvalException(
-          null,
-          String.format(
-              "When an attribute value is a function, the attribute must be private "
-                  + "(i.e. start with '%s'). Found '%s'",
-              STARLARK_PREFIX, attrStarlarkName));
+      throw Starlark.errorf(
+          "When an attribute value is a function, the attribute must be private "
+              + "(i.e. start with '%s'). Found '%s'",
+          STARLARK_PREFIX, attrStarlarkName);
     }
   }
 

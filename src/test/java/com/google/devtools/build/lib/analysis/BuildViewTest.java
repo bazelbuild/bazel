@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
@@ -170,7 +171,8 @@ public class BuildViewTest extends BuildViewTestBase {
             ctad.getConfiguration()
                 .getBinDirectory(output.getLabel().getPackageIdentifier().getRepository()));
     assertThat(outputArtifact.getExecPath())
-        .isEqualTo(ctad.getConfiguration().getBinFragment().getRelative("pkg/a.out"));
+        .isEqualTo(
+            ctad.getConfiguration().getBinFragment(RepositoryName.MAIN).getRelative("pkg/a.out"));
     assertThat(outputArtifact.getRootRelativePath()).isEqualTo(PathFragment.create("pkg/a.out"));
 
     Action action = getGeneratingAction(outputArtifact);
@@ -549,7 +551,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<DependencyKey> targets =
         getView()
             .getDirectPrerequisiteDependenciesForTesting(
-                reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null)
+                reporter, top, getBuildConfigurationCollection(), /* toolchainContexts= */ null)
             .values();
 
     DependencyKey innerDependency =
@@ -823,9 +825,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(getGeneratingAction(getBinArtifact("A_deploy.jar", ct))).isNotNull();
   }
 
-  /**
-   * Regression test: ClassCastException in SkyframeLabelVisitor.updateRootCauses.
-   */
+  /** Regression test for b/14248208. */
   @Test
   public void testDepOnGoodTargetInBadPkgAndTransitivelyBadTarget() throws Exception {
     reporter.removeHandler(failFastHandler);
@@ -840,19 +840,18 @@ public class BuildViewTest extends BuildViewTestBase {
     Path badpkg2BuildFile =
         scratch.file("badpkg2/BUILD", "sh_library(name = 'bad-target')", "fail()");
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
-    assertThat(getFrequencyOfErrorsWithLocation(badpkg1BuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
-    assertThat(getFrequencyOfErrorsWithLocation(badpkg2BuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
+    // Each event string may contain stack traces and error messages with multiple file names.
+    assertContainsEventWithFrequency(badpkg1BuildFile.asFragment().getPathString(), 1);
+    assertContainsEventWithFrequency(badpkg2BuildFile.asFragment().getPathString(), 1);
   }
 
   @Test
-  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_NotIncremental() throws Exception {
+  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_notIncremental() throws Exception {
     runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(/*incremental=*/false);
   }
 
   @Test
-  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_Incremental() throws Exception {
+  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_incremental() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
@@ -865,7 +864,7 @@ public class BuildViewTest extends BuildViewTestBase {
    * in error.
    */
   @Test
-  public void testCycleReporting_TargetCycleWhenPackageInError() throws Exception {
+  public void testCycleReporting_targetCycleWhenPackageInError() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
@@ -1254,7 +1253,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_keepGoing() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1271,7 +1270,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1291,7 +1290,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener_KeepGoing() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener_keepGoing() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1551,8 +1550,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     @Override
     @Test
-    public void testCycleReporting_TargetCycleWhenPackageInError() {
-    }
+    public void testCycleReporting_targetCycleWhenPackageInError() {}
 
     @Override
     @Test

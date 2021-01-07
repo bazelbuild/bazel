@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -238,12 +238,12 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .allowedRuleClasses("java_plugin")
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .allowedRuleClasses("java_plugin")
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
@@ -420,10 +420,19 @@ public class BazelJavaRuleClasses {
                   .allowedFileTypes(FileTypeSet.NO_FILE)
                   .mandatoryProviders(
                       StarlarkProviderIdentifier.forKey(CcLauncherInfo.PROVIDER.getKey())))
+          /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(use_launcher) -->
+          Whether the binary should use a custom launcher.
+
+          <p>If this attribute is set to false, the
+          <a href="${link java_binary.launcher}">launcher</a> attribute  and the related
+          <a href="../user-manual.html#flag--java_launcher"><code>--java_launcher</code></a> flag
+          will be ignored for this target.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("use_launcher", BOOLEAN).value(true))
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER)) // blaze flag
           .add(
               attr("$launcher", LABEL)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .value(env.getToolsLabel("//tools/launcher:launcher")))
           .build();
     }

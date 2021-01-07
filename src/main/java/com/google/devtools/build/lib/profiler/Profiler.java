@@ -36,7 +36,6 @@ import java.io.OutputStreamWriter;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -48,6 +47,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -125,8 +126,7 @@ public final class Profiler {
   }
 
   /**
-   * Container for the single task record. Should never be instantiated directly - use
-   * TaskStack.create() instead.
+   * Container for the single task record.
    *
    * <p>Class itself is not thread safe, but all access to it from Profiler methods is.
    */
@@ -249,15 +249,6 @@ public final class Profiler {
    * are disabled. This can happen when slowest task recording is enabled.
    */
   private AtomicReference<FileWriter> writerRef = new AtomicReference<>();
-
-  /**
-   * This is a per-thread data structure that's used to track the current stack of open tasks, the
-   * purpose of which is to track the parent id of every task. This is also used to ensure that
-   * {@link #profile} and {@link #completeTask} calls always occur in pairs.
-   */
-  // TODO(ulfjack): We can infer the parent/child relationship after the fact instead of tracking it
-  // at runtime. That would allow us to remove this data structure entirely.
-  private ThreadLocal<ArrayDeque<TaskData>> taskStack;
 
   private final SlowestTaskAggregator[] slowestTasks =
       new SlowestTaskAggregator[ProfilerTask.values().length];
@@ -385,15 +376,15 @@ public final class Profiler {
     this.actionCountTimeSeries =
         new TimeSeries(Duration.ofNanos(actionCountStartTime).toMillis(), ACTION_COUNT_BUCKET_MS);
 
-    // sanity check for current limitation on the number of supported types due
-    // to using enum.ordinal() to store them instead of EnumSet for performance reasons.
-    Preconditions.checkState(TASK_COUNT < 256,
+    // Check for current limitation on the number of supported types due to using enum.ordinal() to
+    // store them instead of EnumSet for performance reasons.
+    Preconditions.checkState(
+        TASK_COUNT < 256,
         "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
     // reset state for the new profiling session
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
-    this.taskStack = ThreadLocal.withInitial(ArrayDeque::new);
     FileWriter writer = null;
     if (stream != null && format != null) {
       switch (format) {
@@ -498,7 +489,6 @@ public final class Profiler {
       writer.shutdown();
       writer = null;
     }
-    taskStack = null;
     initHistograms();
     profileStartTime = 0L;
     profileCpuStartTime = null;
@@ -662,10 +652,9 @@ public final class Profiler {
     // tasks that have a minimum duration.
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      taskStack
-          .get()
-          .push(new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description));
-      return () -> completeTask(type);
+      TaskData taskData =
+          new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description);
+      return () -> completeTask(taskData);
     } else {
       return NOP;
     }
@@ -679,17 +668,15 @@ public final class Profiler {
       ProfilerTask type, String description, String primaryOutput, String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      taskStack
-          .get()
-          .push(
-              new ActionTaskData(
-                  taskId.incrementAndGet(),
-                  clock.nanoTime(),
-                  type,
-                  description,
-                  primaryOutput,
-                  targetLabel));
-      return () -> completeTask(type);
+      TaskData taskData =
+          new ActionTaskData(
+              taskId.incrementAndGet(),
+              clock.nanoTime(),
+              type,
+              description,
+              primaryOutput,
+              targetLabel);
+      return () -> completeTask(taskData);
     } else {
       return NOP;
     }
@@ -727,38 +714,24 @@ public final class Profiler {
         || (type == ProfilerTask.INFO && "discoverInputs".equals(taskData.description));
   }
 
-  /**
-   * Records the end of the task and moves tasks from the thread-local stack to
-   * the main queue. Will validate that given task type matches task at the top
-   * of the stack.
-   *
-   * @param type task type.
-   */
-  private void completeTask(ProfilerTask type) {
-    if (isActive() && isProfiling(type)) {
+  /** Records the end of the task. */
+  private void completeTask(TaskData data) {
+    if (isActive()) {
       long endTime = clock.nanoTime();
-      TaskData data = taskStack.get().pop();
-      Preconditions.checkState(
-          data.type == type,
-          "Inconsistent Profiler.completeTask() call: should have been %s but got %s (%s, %s)",
-          data.type,
-          type,
-          data,
-          taskStack.get());
       data.duration = endTime - data.startTimeNanos;
-      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, data.duration);
+      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(data.type, data.duration);
       FileWriter writer = writerRef.get();
       if (shouldRecordTask && writer != null) {
         writer.enqueue(data);
       }
 
       if (shouldRecordTask) {
-        if (actionCountTimeSeries != null && countAction(type, data)) {
+        if (actionCountTimeSeries != null && countAction(data.type, data)) {
           actionCountTimeSeries.addRange(
               Duration.ofNanos(data.startTimeNanos).toMillis(),
               Duration.ofNanos(endTime).toMillis());
         }
-        SlowestTaskAggregator aggregator = slowestTasks[type.ordinal()];
+        SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
         if (aggregator != null) {
           aggregator.add(data);
         }
@@ -770,7 +743,6 @@ public final class Profiler {
   public void markPhase(ProfilePhase phase) throws InterruptedException {
     MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
-      Preconditions.checkState(taskStack.get().isEmpty(), "Phase tasks must not be nested");
       logEvent(ProfilerTask.PHASE, phase.description);
     }
   }
@@ -826,6 +798,22 @@ public final class Profiler {
     private static final long SLIM_PROFILE_EVENT_THRESHOLD = 10_000;
     private static final long SLIM_PROFILE_MAXIMAL_PAUSE_NS = Duration.ofMillis(100).toNanos();
     private static final long SLIM_PROFILE_MAXIMAL_DURATION_NS = Duration.ofMillis(250).toNanos();
+    private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
+
+    /**
+     * These constants describe ranges of threads. We suppose that there are no more than 10_000
+     * threads of each kind, otherwise the profile becomes unreadable anyway. So the sort index of
+     * skyframe threads is in range [10_000..20_000) for example.
+     */
+    private static final long SKYFRAME_EVALUATOR_SHIFT = 10_000;
+
+    private static final long DYNAMIC_EXECUTION_SHIFT = 20_000;
+    private static final long INCLUDE_SCANNER_SHIFT = 30_000;
+
+    private static final long CRITICAL_PATH_SORT_INDEX = 0;
+    private static final long MAIN_THREAD_SORT_INDEX = 1;
+    private static final long GC_THREAD_SORT_INDEX = 2;
+    private static final long MAX_SORT_INDEX = 1_000_000;
 
     JsonTraceFileWriter(
         OutputStream outStream,
@@ -855,6 +843,12 @@ public final class Profiler {
                 /* startTimeNanos= */ -1,
                 ProfilerTask.THREAD_NAME,
                 Thread.currentThread().getName()));
+        queue.add(
+            new TaskData(
+                /* id= */ 0,
+                /* startTimeNanos= */ -1,
+                ProfilerTask.THREAD_SORT_INDEX,
+                String.valueOf(getSortIndex(Thread.currentThread().getName()))));
       }
       queue.add(data);
     }
@@ -960,6 +954,57 @@ public final class Profiler {
       writer.endObject();
     }
 
+    private static String getReadableName(String threadName) {
+      if (isMainThread(threadName)) {
+        return "Main Thread";
+      }
+
+      if (isGCThread(threadName)) {
+        return "Garbage Collector";
+      }
+
+      return threadName;
+    }
+
+    private static long getSortIndex(String threadName) {
+      if (isMainThread(threadName)) {
+        return MAIN_THREAD_SORT_INDEX;
+      }
+
+      if (isGCThread(threadName)) {
+        return GC_THREAD_SORT_INDEX;
+      }
+
+      Matcher numberMatcher = NUMBER_PATTERN.matcher(threadName);
+      if (!numberMatcher.find()) {
+        return MAX_SORT_INDEX;
+      }
+
+      long extractedNumber = Long.parseLong(numberMatcher.group());
+
+      if (threadName.startsWith("skyframe-evaluator")) {
+        return SKYFRAME_EVALUATOR_SHIFT + extractedNumber;
+      }
+
+      if (threadName.startsWith("dynamic-execution")) {
+        return DYNAMIC_EXECUTION_SHIFT + extractedNumber;
+      }
+
+      if (threadName.startsWith("Include scanner")) {
+        return INCLUDE_SCANNER_SHIFT + extractedNumber;
+      }
+
+      return MAX_SORT_INDEX;
+    }
+
+    private static boolean isMainThread(String threadName) {
+      return threadName.startsWith("grpc-command");
+    }
+
+    private static boolean isGCThread(String threadName) {
+      return threadName.equals("Service Thread");
+    }
+
     /**
      * Saves all gathered information from taskQueue queue to the file.
      * Method is invoked internally by the Timer-based thread and at the end of
@@ -999,6 +1044,19 @@ public final class Profiler {
           writer.endObject();
           writer.endObject();
 
+          writer.setIndent("  ");
+          writer.beginObject();
+          writer.setIndent("");
+          writer.name("name").value("thread_sort_index");
+          writer.name("ph").value("M");
+          writer.name("pid").value(1);
+          writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
+          writer.name("args");
+          writer.beginObject();
+          writer.name("sort_index").value(CRITICAL_PATH_SORT_INDEX);
+          writer.endObject();
+          writer.endObject();
+
           HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
           int eventCount = 0;
           while ((data = queue.take()) != POISON_PILL) {
@@ -1015,7 +1073,25 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              writer.name("name").value(data.description);
+              writer.name("name").value(getReadableName(data.description));
+              writer.endObject();
+
+              writer.endObject();
+              continue;
+            }
+
+            if (data.type == ProfilerTask.THREAD_SORT_INDEX) {
+              writer.setIndent("  ");
+              writer.beginObject();
+              writer.setIndent("");
+              writer.name("name").value("thread_sort_index");
+              writer.name("ph").value("M");
+              writer.name("pid").value(1);
+              writer.name("tid").value(data.threadId);
+              writer.name("args");
+
+              writer.beginObject();
+              writer.name("sort_index").value(data.description);
               writer.endObject();
 
               writer.endObject();
@@ -1042,7 +1118,12 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              writer.name("cpu").value(data.description);
+              if (data.type == ProfilerTask.LOCAL_CPU_USAGE) {
+                writer.name("cpu").value(data.description);
+              } else {
+                writer.name("action").value(data.description);
+              }
+
               writer.endObject();
 
               writer.endObject();

@@ -5,19 +5,15 @@ title: Query language
 <h1>The Bazel query reference</h1>
 
 
-<p>
-  When you use <code>bazel query</code> to analyze build
-  dependencies, you use a little language, the <em>Bazel Query
-  Language</em>.  This document is the reference manual for that
-  language.  This document also describes the output
-  formats <code>bazel query</code> supports.
-</p>
+This page is the reference manual for the <em>Bazel Query Language</em> used
+when you use <code>bazel query</code> to analyze build dependencies. It also
+describes the output formats <code>bazel query</code> supports.
 
 <p>
   If you were looking for a how-to, please see the <a href='query-how-to.md'>Bazel Query How-To</a>.
 </p>
 <h3> bazel cquery </h3>
-<p>Traditional bazel query runs on the post-loading phase target graph and therefore
+<p>Traditional Bazel query runs on the post-loading phase target graph and therefore
   has no concept of configurations and their related concepts. Notably, this means it does not
   correctly resolve <a href = "be/functions.html#select">select statements</a>
   and rather returns all possible resolutions of selects. A newer query environment, cquery,
@@ -1186,18 +1182,20 @@ genrule(
   ordered by the dependency order or rank.
 </p>
 <p>
-  When this flag is <code>deps</code>, bazel will print results ordered by the
-  dependency order. However, nodes that are unordered by the dependency order
-  (because there is no path from either one to the other) may be printed in any
-  order.
+  When this flag is <code>deps</code>, bazel prints results in some topological order&mdash;that is,
+  dependencies first. However, nodes that are unordered by the dependency order
+  (because there is no path from either one to the other) may be printed in any order.
 </p>
 <p>
-  When this flag is <code>full</code>, bazel will print results ordered by the
-  dependency order, with unordered nodes ordered alphabetically or reverse
-  alphabetically, depending on the output format. This may be slower than the
-  other options, and so should only be used when deterministic results are
-  important &mdash; it is guaranteed with this option that running the same query
-  multiple times will always produce the same output.
+  When this flag is <code>full</code>, bazel prints nodes in a fully deterministic (total) order.
+  First, all nodes are sorted alphabetically. Then, each node in the list is used as the start of a
+  post-order depth-first search in which outgoing edges to unvisited nodes are traversed in
+  alphabetical order of the successor nodes. Finally, nodes are printed in the reverse of the order
+  in which they were visited.
+</p>
+<p>
+  Printing nodes in this order may be slower, so it should be used only when determinism is
+  important.
 </p>
 
 <h3 id="output-build">Print the source form of targets as they would appear in BUILD</h3>
@@ -1542,9 +1540,9 @@ maxrank
 
 <h3 id="regex">Regular expressions</h3>
 
-Regular expressions in the query language are implemented using the Java
-regex library, so they support the full syntax documented
-for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html"><code>java.util.regex.Pattern</code></a>.
+Regular expressions in the query language use the Java regex library, so you can use the
+full syntax for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html"><code>java.util.regex.Pattern</code></a>.
+
 
 <h3 id="external-repos">Querying with external repositories</h3>
 
@@ -1568,10 +1566,10 @@ for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.h
 
 <pre>
   # Querying over all members of //external returns the repository.
-  bazel query 'kind(maven_jar, //external:*)'
+  bazel query 'kind(http_archive, //external:*)'
   //external:other-repo
 
   # ...but the repository is not a dependency.
-  bazel query 'kind(maven_jar, deps(//foo:bar))'
+  bazel query 'kind(http_archive, deps(//foo:bar))'
   INFO: Empty results
 </pre>

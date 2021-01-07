@@ -170,11 +170,24 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   /**
-   * Returns a relative path to the source code for this package. Returns pkgName if this is in the
-   * main repository or external/[repository name]/[pkgName] if not.
+   * Returns a path to the source code for this package relative to the corresponding source root.
+   * Returns pkgName for all repositories.
    */
   public PathFragment getSourceRoot() {
-    return repository.getSourceRoot().getRelative(pkgName);
+    return pkgName;
+  }
+
+  /**
+   * Returns the package path fragment to derived artifacts for this package. Returns pkgName if
+   * this is in the main repository or siblingRepositoryLayout is true. Otherwise, returns
+   * external/[repository name]/[pkgName].
+   */
+  public PathFragment getPackagePath(boolean siblingRepositoryLayout) {
+    return repository.isDefault() || repository.isMain() || siblingRepositoryLayout
+        ? pkgName
+        : LabelConstants.EXTERNAL_PATH_PREFIX
+            .getRelative(repository.strippedName())
+            .getRelative(pkgName);
   }
 
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {

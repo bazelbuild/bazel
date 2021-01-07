@@ -38,8 +38,8 @@ public class GoogleAutoProfilerUtils {
     return AutoProfiler.create(makeReceiver(description, logger, minTimeForLogging));
   }
 
-  public static AutoProfiler logged(String description, Duration duration) {
-    return logged(description, selfLogger, duration);
+  public static AutoProfiler logged(String description, Duration minTimeForLogging) {
+    return logged(description, selfLogger, minTimeForLogging);
   }
 
   public static AutoProfiler logged(String description) {

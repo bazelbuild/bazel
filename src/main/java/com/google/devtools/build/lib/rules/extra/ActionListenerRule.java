@@ -62,7 +62,7 @@ public final class ActionListenerRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = action_listener, TYPE = BINARY, FAMILY = Extra Actions)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = action_listener, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
 <p>
   <b>DISCLAIMER:</b>

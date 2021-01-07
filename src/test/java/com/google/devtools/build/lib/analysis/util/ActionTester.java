@@ -102,7 +102,7 @@ public class ActionTester {
         firstAction = action;
       }
     }
-    // Sanity check that the count is correct.
+    // Check that the count is correct.
     assertThat(
             Actions.canBeShared(
                 actionKeyContext,
@@ -113,7 +113,7 @@ public class ActionTester {
   }
 
   /** Checks that all actions are different. */
-  public void runTest() {
+  public void runTest() throws Exception {
     assertThat(actions).isNotEmpty();
     for (int i = 0; i < actions.size(); i++) {
       for (int j = i + 1; j < actions.size(); j++) {

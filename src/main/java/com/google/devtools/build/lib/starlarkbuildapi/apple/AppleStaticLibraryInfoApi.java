@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Interface for an info type containing information regarding multi-architecture Apple static
@@ -30,7 +30,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "AppleStaticLibrary",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "A provider containing information regarding multi-architecture Apple static libraries, "
             + "as is propagated by the apple_static_library rule.")
@@ -64,13 +64,11 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
         parameters = {
           @Param(
               name = "archive",
-              type = FileApi.class,
               named = true,
               positional = false,
               doc = "Multi-architecture archive (.a) representing a static library"),
           @Param(
               name = "objc",
-              type = ObjcProviderApi.class,
               named = true,
               positional = false,
               doc =
@@ -78,7 +76,7 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
                       + "linked into the archive."),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AppleStaticLibraryInfoApi.class)
+    @StarlarkConstructor
     AppleStaticLibraryInfoApi appleStaticLibrary(FileApiT archive, ObjcProviderApiT objcProvider)
         throws EvalException;
   }

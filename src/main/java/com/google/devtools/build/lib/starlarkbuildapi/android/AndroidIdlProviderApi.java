@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
@@ -35,7 +36,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "you will be broken when it is removed."
             + "Information about Android IDLs",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi {
 
   /** Name of this info object. */
@@ -92,15 +93,13 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
               doc = "A depset of strings of all the idl import roots in the transitive closure.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = String.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = String.class)}),
           @Param(
               name = "transitive_idl_imports",
               doc = "A depset of artifacts of all the idl imports in the transitive closure.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_idl_jars",
               doc =
@@ -108,8 +107,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
                       + "transitive closure.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_idl_preprocessed",
               doc =
@@ -117,11 +115,10 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
                       + "closure.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidIdlProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor
     AndroidIdlProviderApi<FileT> createInfo(
         Depset transitiveIdlImportRoots,
         Depset transitiveIdlImports,

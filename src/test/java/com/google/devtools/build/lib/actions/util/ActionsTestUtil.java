@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -76,11 +78,11 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -96,7 +98,9 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,6 +117,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** A bunch of utilities that are useful for tests concerning actions, artifacts, etc. */
 public final class ActionsTestUtil {
@@ -261,6 +266,45 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * Creates a {@link VirtualActionInput} with given string as contents and provided relative path.
+   */
+  public static VirtualActionInput createVirtualActionInput(String relativePath, String contents) {
+    return createVirtualActionInput(PathFragment.create(relativePath), contents);
+  }
+
+  /** Creates a {@link VirtualActionInput} with given string as contents and provided path. */
+  public static VirtualActionInput createVirtualActionInput(PathFragment path, String contents) {
+    return new VirtualActionInput() {
+      @Override
+      public ByteString getBytes() throws IOException {
+        ByteString.Output out = ByteString.newOutput();
+        writeTo(out);
+        return out.toByteString();
+      }
+
+      @Override
+      public String getExecPathString() {
+        return path.getPathString();
+      }
+
+      @Override
+      public PathFragment getExecPath() {
+        return path;
+      }
+
+      @Override
+      public boolean isSymlink() {
+        return false;
+      }
+
+      @Override
+      public void writeTo(OutputStream out) throws IOException {
+        out.write(contents.getBytes(UTF_8));
+      }
+    };
+  }
+
+  /**
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
    * requested keys, blocking until the values are ready.
    */
@@ -311,6 +355,12 @@ public final class ActionsTestUtil {
     }
 
     @Override
+    protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
+        Iterable<? extends SkyKey> depKeys) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ExtendedEventHandler getListener() {
       return null;
     }
@@ -345,7 +395,8 @@ public final class ActionsTestUtil {
 
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(
-          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())),
+          ArtifactRoot.asSourceRoot(
+              Root.absoluteRoot(new InMemoryFileSystem(DigestHashFunction.SHA256))),
           PathFragment.create("/dummy"),
           NULL_ARTIFACT_OWNER);
 
@@ -712,23 +763,26 @@ public final class ActionsTestUtil {
     }
   }
 
-  /**
-   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
-   * suffix and returns the Artifact.
-   */
+  /** Returns the first artifact found in the given set whose path ends with the given suffix. */
   public static Artifact getFirstArtifactEndingWith(
       NestedSet<? extends Artifact> artifacts, String suffix) {
     return getFirstArtifactEndingWith(artifacts.toList(), suffix);
   }
 
   /**
-   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
-   * suffix and returns the Artifact.
+   * Returns the first artifact found in the given Iterable whose path ends with the given suffix.
    */
   public static Artifact getFirstArtifactEndingWith(
       Iterable<? extends Artifact> artifacts, String suffix) {
+    return getFirstArtifactMatching(
+        artifacts, artifact -> artifact.getExecPath().getPathString().endsWith(suffix));
+  }
+
+  /** Returns the first Artifact in the provided Iterable that matches the specified predicate. */
+  public static Artifact getFirstArtifactMatching(
+      Iterable<? extends Artifact> artifacts, Predicate<Artifact> predicate) {
     for (Artifact a : artifacts) {
-      if (a.getExecPath().getPathString().endsWith(suffix)) {
+      if (predicate.test(a)) {
         return a;
       }
     }
@@ -937,7 +991,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void resetOutputs(Iterable<Artifact> outputs) {
+    public void resetOutputs(Iterable<? extends Artifact> outputs) {
       throw new UnsupportedOperationException();
     }
   }

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
@@ -28,7 +30,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.Path;
@@ -46,8 +48,6 @@ import java.util.TreeMap;
  * laid out.
  */
 public class SpawnInputExpander {
-  public static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
-
   private final Path execRoot;
   private final boolean strict;
   private final RelativeSymlinkBehavior relSymlinkBehavior;
@@ -132,8 +132,13 @@ public class SpawnInputExpander {
                   input);
             }
           } else if (localArtifact.isFileset()) {
-            addFilesetManifest(
-                location, localArtifact, artifactExpander.getFileset(localArtifact), inputMap);
+            ImmutableList<FilesetOutputSymlink> filesetLinks;
+            try {
+              filesetLinks = artifactExpander.getFileset(localArtifact);
+            } catch (MissingExpansionException e) {
+              throw new IllegalStateException(e);
+            }
+            addFilesetManifest(location, localArtifact, filesetLinks, inputMap);
           } else {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);
@@ -141,7 +146,7 @@ public class SpawnInputExpander {
             addMapping(inputMap, location, localArtifact);
           }
         } else {
-          addMapping(inputMap, location, EMPTY_FILE);
+          addMapping(inputMap, location, VirtualActionInput.EMPTY_MARKER);
         }
       }
     }
@@ -189,10 +194,10 @@ public class SpawnInputExpander {
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
-        ActionInput artifact =
-            value == null
-                ? EMPTY_FILE
-                : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
+      ActionInput artifact =
+          value == null
+              ? VirtualActionInput.EMPTY_MARKER
+              : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
         addMapping(inputMappings, mapping.getKey(), artifact);
       }
   }

@@ -83,14 +83,6 @@ public class LocalExecutionOptions extends OptionsBase {
   public boolean processWrapperGracefulSigterm;
 
   @Option(
-      name = "experimental_process_wrapper_wait_fix",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "Helper to roll out the process-wrapper's --wait_fix bug fix in a controlled manner.")
-  public boolean processWrapperWaitFix;
-
-  @Option(
       name = "experimental_local_retries_on_crash",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

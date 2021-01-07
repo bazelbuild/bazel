@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -28,7 +29,7 @@ public class FileSymlinkCycleUniquenessFunctionTest {
 
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
-    Root root = Root.fromPath(new InMemoryFileSystem().getPath("/root"));
+    Root root = Root.fromPath(new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/root"));
     RootedPath p1 = RootedPath.toRootedPath(root, PathFragment.create("p1"));
     RootedPath p2 = RootedPath.toRootedPath(root, PathFragment.create("p2"));
     RootedPath p3 = RootedPath.toRootedPath(root, PathFragment.create("p3"));

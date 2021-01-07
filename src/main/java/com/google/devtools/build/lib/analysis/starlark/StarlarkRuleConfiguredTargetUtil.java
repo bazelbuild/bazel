@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.Allowlist;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -34,15 +34,11 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -51,23 +47,19 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations defined
@@ -88,27 +80,13 @@ public final class StarlarkRuleConfiguredTargetUtil {
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
       AdvertisedProviderSet advertisedProviders,
-      StarlarkCallable ruleImplementation,
       Location location,
-      StarlarkSemantics starlarkSemantics,
       String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     StarlarkRuleContext starlarkRuleContext = null;
-    try (Mutability mu = Mutability.create("configured target")) {
-      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null, starlarkSemantics);
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
-      thread.setPrintHandler(
-          Event.makeDebugPrintHandler(ruleContext.getAnalysisEnvironment().getEventHandler()));
-
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.ANALYSIS,
-              toolsRepository,
-              /*fragmentNameToClass=*/ null,
-              ruleContext.getTarget().getPackage().getRepositoryMapping(),
-              ruleContext.getSymbolGenerator(),
-              ruleContext.getLabel())
-          .storeInThread(thread);
+    try {
+      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null);
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
       if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
@@ -127,12 +105,13 @@ public final class StarlarkRuleConfiguredTargetUtil {
         }
       }
 
+      // call rule.implementation(ctx)
       Object target =
-          Starlark.call(
-              thread,
-              ruleImplementation,
-              /*args=*/ ImmutableList.of(starlarkRuleContext),
-              /*kwargs=*/ ImmutableMap.of());
+          Starlark.fastcall(
+              ruleContext.getStarlarkThread(),
+              ruleClass.getConfiguredTargetFunction(),
+              /*positional=*/ new Object[] {starlarkRuleContext},
+              /*named=*/ new Object[0]);
 
       if (ruleContext.hasErrors()) {
         return null;
@@ -155,15 +134,21 @@ public final class StarlarkRuleConfiguredTargetUtil {
         checkDeclaredProviders(configuredTarget, advertisedProviders, location);
       }
       return configuredTarget;
-    } catch (EvalException e) {
-      addRuleToStackTrace(e, ruleContext.getRule(), ruleImplementation);
+
+    } catch (Starlark.UncheckedEvalException ex) {
+      // MissingDepException is expected to transit through Starlark execution.
+      throw ex.getCause() instanceof CachingAnalysisEnvironment.MissingDepException
+          ? (CachingAnalysisEnvironment.MissingDepException) ex.getCause()
+          : ex;
+
+    } catch (EvalException ex) {
       // If the error was expected, return an empty target.
-      if (!expectFailure.isEmpty() && getMessageWithoutStackTrace(e).matches(expectFailure)) {
+      if (!expectFailure.isEmpty() && ex.getMessage().matches(expectFailure)) {
         return new RuleConfiguredTargetBuilder(ruleContext)
             .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
             .build();
       }
-      ruleContext.ruleError("\n" + e.print());
+      ruleContext.ruleError("\n" + ex.getMessageWithStack());
       return null;
     } finally {
       if (starlarkRuleContext != null) {
@@ -186,30 +171,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
   }
 
-  /** Adds the given rule to the stack trace of the exception (if there is one). */
-  private static void addRuleToStackTrace(EvalException ex, Rule rule, StarlarkCallable ruleImpl) {
-    if (ex instanceof EvalExceptionWithStackTrace) {
-      ((EvalExceptionWithStackTrace) ex)
-          .registerPhantomCall(
-              String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
-              rule.getLocation(),
-              ruleImpl);
-    }
-  }
-
-  /**
-   * Returns the message of the given exception after removing the stack trace, if present.
-   */
-  private static String getMessageWithoutStackTrace(EvalException ex) {
-    if (ex instanceof EvalExceptionWithStackTrace) {
-      return ((EvalExceptionWithStackTrace) ex).getOriginalMessage();
-    }
-    return ex.getMessage();
-  }
-
   @Nullable
   private static ConfiguredTarget createTarget(StarlarkRuleContext context, Object target)
-      throws EvalException, RuleErrorException, ActionConflictException {
+      throws EvalException, InterruptedException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(
         context.getRuleContext());
     // Set the default files to build.
@@ -232,10 +196,13 @@ public final class StarlarkRuleConfiguredTargetUtil {
     try {
       addProviders(context, builder, target, loc);
     } catch (EvalException ex) {
-      if (ex.getLocation() == null) {
+      // TODO(adonovan): this is the only use of the getDeprecatedLocation feature.
+      // Eliminate it, and ensure that the error message strings contain any
+      // relevant non-stack locations.
+      if (ex.getDeprecatedLocation() == null) {
         // Prefer target struct's creation location in error messages.
         if (target instanceof Info) {
-          loc = ((Info) target).getCreationLoc();
+          loc = ((Info) target).getCreationLocation();
         }
         ex = new EvalException(loc, ex.getMessage());
       }
@@ -312,10 +279,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // Either an old-style struct or a single declared provider (not in a list)
       Info info = (Info) target;
       // Use the creation location of this struct as a better reference in error messages
-      loc = info.getCreationLoc();
+      loc = info.getCreationLocation();
       if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
-        if (context.getStarlarkSemantics().incompatibleDisallowStructProviderSyntax()) {
+        if (context
+            .getStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX)) {
           throw Starlark.errorf(
               "Returning a struct from a rule implementation function is deprecated and will "
                   + "be removed soon. It may be temporarily re-enabled by setting "
@@ -415,9 +384,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
         builder.addNativeDeclaredProvider(info);
       }
 
-      if (info.getProvider() instanceof NativeProvider.WithLegacyStarlarkName) {
-        WithLegacyStarlarkName providerWithLegacyName =
-            (WithLegacyStarlarkName) info.getProvider();
+      if (info.getProvider() instanceof BuiltinProvider.WithLegacyStarlarkName) {
+        BuiltinProvider.WithLegacyStarlarkName providerWithLegacyName =
+            (BuiltinProvider.WithLegacyStarlarkName) info.getProvider();
         if (shouldAddWithLegacyKey(oldStyleProviders, providerWithLegacyName)) {
           builder.addStarlarkTransitiveInfo(providerWithLegacyName.getStarlarkName(), info);
         }
@@ -436,9 +405,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
     if (builder.containsProviderKey(info.getProvider().getKey())) {
       return false;
     }
-    if (info.getProvider() instanceof NativeProvider.WithLegacyStarlarkName) {
+    if (info.getProvider() instanceof BuiltinProvider.WithLegacyStarlarkName) {
       String canonicalLegacyKey =
-          ((WithLegacyStarlarkName) info.getProvider()).getStarlarkName();
+          ((BuiltinProvider.WithLegacyStarlarkName) info.getProvider()).getStarlarkName();
       // Add info using its modern key if it was specified using its canonical legacy key, or
       // if no provider was used using that canonical legacy key.
       return fieldName.equals(canonicalLegacyKey)
@@ -450,7 +419,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
   @SuppressWarnings("deprecation") // For legacy migrations
   private static boolean shouldAddWithLegacyKey(
-      StructImpl oldStyleProviders, WithLegacyStarlarkName provider)
+      StructImpl oldStyleProviders, BuiltinProvider.WithLegacyStarlarkName provider)
       throws EvalException {
     String canonicalLegacyKey = provider.getStarlarkName();
     // Add info using its canonical legacy key if no provider was specified using that canonical
@@ -490,7 +459,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
     Runfiles defaultRunfiles = null;
     Artifact executable = null;
 
-    Location loc = provider.getCreationLoc();
+    Location loc = provider.getCreationLocation();
 
     if (getProviderKey(loc, provider).equals(DefaultInfo.PROVIDER.getKey())) {
       DefaultInfo defaultInfo = (DefaultInfo) provider;
@@ -553,10 +522,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
     if (context.getRuleContext().getRule().isAnalysisTest()) {
       // The Starlark Build API should already throw exception if the rule implementation attempts
-      // to register any actions. This is just a sanity check of this invariant.
+      // to register any actions. This is just a check of this invariant.
       Preconditions.checkState(
           context.getRuleContext().getAnalysisEnvironment().getRegisteredActions().isEmpty(),
-          "%s", context.getRuleContext().getLabel());
+          "%s",
+          context.getRuleContext().getLabel());
 
       executable = context.getRuleContext().createOutputArtifactScript();
     }

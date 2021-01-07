@@ -94,8 +94,29 @@ public class TestTargetProperties {
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
-    if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule)) {
+
+    boolean incompatibleExclusiveTestSandboxed = false;
+
+    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    if (testConfiguration != null) {
+      incompatibleExclusiveTestSandboxed = testConfiguration.incompatibleExclusiveTestSandboxed();
+    }
+
+    if (incompatibleExclusiveTestSandboxed) {
+      if (TargetUtils.isLocalTestRule(rule)) {
+        executionInfo.put(ExecutionRequirements.LOCAL, "");
+      } else if (TargetUtils.isExclusiveTestRule(rule)) {
+        executionInfo.put(ExecutionRequirements.NO_REMOTE_EXEC, "");
+      }
+    } else {
+      if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule)) {
+        executionInfo.put(ExecutionRequirements.LOCAL, "");
+      }
+    }
+
+    if (TargetUtils.isNoTestloasdTestRule(rule)) {
       executionInfo.put(ExecutionRequirements.LOCAL, "");
+      executionInfo.put(ExecutionRequirements.NO_TESTLOASD, "");
     }
 
     if (executionRequirements != null) {
@@ -149,7 +170,7 @@ public class TestTargetProperties {
 
     ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
 
-    // Tests can override their CPU reservation with a "cpus:<n>" tag.
+    // Tests can override their CPU reservation with a "cpu:<n>" tag.
     ResourceSet testResourcesFromTag = null;
     for (String tag : executionInfo.keySet()) {
       try {

@@ -53,5 +53,6 @@ public interface LocalEnvProvider {
    *     that's unavailable, the implementation may decide to use this {@code fallbackTmpDir}.
    */
   ImmutableMap<String, String> rewriteLocalEnv(
-      Map<String, String> env, BinTools binTools, String fallbackTmpDir) throws IOException;
+      Map<String, String> env, BinTools binTools, String fallbackTmpDir)
+      throws IOException, InterruptedException;
 }

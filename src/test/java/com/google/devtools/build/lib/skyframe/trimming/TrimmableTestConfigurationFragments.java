@@ -32,14 +32,13 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -62,9 +61,6 @@ import com.google.devtools.build.lib.rules.ToolchainType.ToolchainTypeRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
@@ -74,9 +70,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.List;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Set of trimmable fragments for testing automatic trimming. */
 public final class TrimmableTestConfigurationFragments {
@@ -95,7 +93,7 @@ public final class TrimmableTestConfigurationFragments {
       throws LabelSyntaxException, IOException {
     scratch.file(
         path,
-        "toolchainTypeLabel = " + Printer.getPrinter().repr(toolchainTypeLabel),
+        "toolchainTypeLabel = " + Starlark.repr(toolchainTypeLabel),
         "def _impl(ctx):",
         "  ctx.actions.write(ctx.outputs.main, '')",
         "  files = depset(",
@@ -189,7 +187,7 @@ public final class TrimmableTestConfigurationFragments {
         .setPrelude("//:prelude.bzl")
         // must be part of BuildOptions for various reasons e.g. dynamic configs
         .addConfigurationOptions(CoreOptions.class)
-        .addConfigurationFragment(new TestConfiguration.Loader())
+        .addConfigurationFragment(TestConfiguration.class)
         // needed for the default workspace
         .addRuleDefinition(new WorkspaceBaseRule())
         .addRuleDefinition(new BindRule())
@@ -368,11 +366,11 @@ public final class TrimmableTestConfigurationFragments {
                     });
 
     builder
-        .addConfigurationFragment(AConfig.FACTORY)
-        .addConfigurationFragment(BConfig.FACTORY)
-        .addConfigurationFragment(CConfig.FACTORY)
-        .addConfigurationFragment(DConfig.FACTORY)
-        .addConfigurationFragment(EConfig.FACTORY)
+        .addConfigurationFragment(AConfig.class)
+        .addConfigurationFragment(BConfig.class)
+        .addConfigurationFragment(CConfig.class)
+        .addConfigurationFragment(DConfig.class)
+        .addConfigurationFragment(EConfig.class)
         .addRuleDefinition(transitionRule)
         .addRuleDefinition(alphaRule)
         .addRuleDefinition(bravoRule)
@@ -403,39 +401,6 @@ public final class TrimmableTestConfigurationFragments {
     }
   }
 
-  /** General purpose fragment loader for the test fragments in this file. */
-  private static final class FragmentLoader<
-          OptionsT extends FragmentOptions, FragmentT extends Fragment>
-      implements ConfigurationFragmentFactory {
-    private final Class<FragmentT> fragmentType;
-    private final Class<OptionsT> optionsType;
-    private final Function<OptionsT, FragmentT> fragmentMaker;
-
-    FragmentLoader(
-        Class<FragmentT> fragmentType,
-        Class<OptionsT> optionsType,
-        Function<OptionsT, FragmentT> fragmentMaker) {
-      this.fragmentType = fragmentType;
-      this.optionsType = optionsType;
-      this.fragmentMaker = fragmentMaker;
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return fragmentType;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(optionsType);
-    }
-
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return fragmentMaker.apply(buildOptions.get(optionsType));
-    }
-  }
-
   /** Set of test options. */
   public static final class AOptions extends FragmentOptions {
     @Option(
@@ -448,15 +413,12 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @StarlarkBuiltin(name = "alpha", doc = "Test config fragment.")
+  @RequiresOptions(options = {AOptions.class})
   public static final class AConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            AConfig.class, AOptions.class, (options) -> new AConfig(options.alpha));
-
     private final String value;
 
-    public AConfig(String value) {
-      this.value = value;
+    public AConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(AOptions.class).alpha;
     }
 
     @Override
@@ -477,15 +439,12 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @StarlarkBuiltin(name = "bravo", doc = "Test config fragment.")
+  @RequiresOptions(options = {BOptions.class})
   public static final class BConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            BConfig.class, BOptions.class, (options) -> new BConfig(options.bravo));
-
     private final String value;
 
-    public BConfig(String value) {
-      this.value = value;
+    public BConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(BOptions.class).bravo;
     }
 
     @Override
@@ -506,15 +465,12 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @StarlarkBuiltin(name = "charlie", doc = "Test config fragment.")
+  @RequiresOptions(options = {COptions.class})
   public static final class CConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            CConfig.class, COptions.class, (options) -> new CConfig(options.charlie));
-
     private final String value;
 
-    public CConfig(String value) {
-      this.value = value;
+    public CConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(COptions.class).charlie;
     }
 
     @Override
@@ -535,15 +491,12 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @StarlarkBuiltin(name = "delta", doc = "Test config fragment.")
+  @RequiresOptions(options = {DOptions.class})
   public static final class DConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(
-            DConfig.class, DOptions.class, (options) -> new DConfig(options.delta));
-
     private final String value;
 
-    public DConfig(String value) {
-      this.value = value;
+    public DConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(DOptions.class).delta;
     }
 
     @Override
@@ -567,14 +520,12 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @StarlarkBuiltin(name = "echo", doc = "Test config fragment.")
+  @RequiresOptions(options = {EOptions.class})
   public static final class EConfig extends Fragment implements StarlarkValue {
-    public static final ConfigurationFragmentFactory FACTORY =
-        new FragmentLoader<>(EConfig.class, EOptions.class, (options) -> new EConfig(options.echo));
-
     private final String value;
 
-    public EConfig(String value) {
-      this.value = value;
+    public EConfig(BuildOptions buildOptions) {
+      this.value = buildOptions.get(EOptions.class).echo;
     }
 
     @Override
@@ -677,8 +628,7 @@ public final class TrimmableTestConfigurationFragments {
         throws InterruptedException, RuleErrorException, ActionConflictException {
       NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
       filesToBuild.addAll(ruleContext.getOutputArtifacts());
-      for (FileProvider dep :
-          ruleContext.getPrerequisites("deps", TransitionMode.TARGET, FileProvider.class)) {
+      for (FileProvider dep : ruleContext.getPrerequisites("deps", FileProvider.class)) {
         filesToBuild.addTransitive(dep.getFilesToBuild());
       }
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {

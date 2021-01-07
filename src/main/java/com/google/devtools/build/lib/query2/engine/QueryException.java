@@ -13,30 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
-import java.util.Optional;
 
 /** Exception indicating a failure in Blaze query, aquery, or cquery. */
 public class QueryException extends Exception {
-  /**
-   * Returns a better error message for the query.
-   */
+
+  /** Returns a better error message for the query. */
   static String describeFailedQuery(QueryException e, QueryExpression toplevel) {
     QueryExpression badQuery = e.getFailedExpression();
     if (badQuery == null) {
       return "Evaluation failed: " + e.getMessage();
     }
     return badQuery == toplevel
-        ? "Evaluation of query \"" + toplevel + "\" failed: " + e.getMessage()
-        : "Evaluation of subquery \"" + badQuery
-            + "\" failed (did you want to use --keep_going?): " + e.getMessage();
+        ? "Evaluation of query \"" + toplevel.toTrunctatedString() + "\" failed: " + e.getMessage()
+        : "Evaluation of subquery \""
+            + badQuery.toTrunctatedString()
+            + "\" failed (did you want to use --keep_going?): "
+            + e.getMessage();
   }
 
   private final QueryExpression expression;
-  private final Optional<FailureDetail> failureDetail;
+  private final FailureDetail failureDetail;
 
   public QueryException(QueryException e, QueryExpression toplevel) {
     super(describeFailedQuery(e, toplevel), e);
@@ -44,23 +45,17 @@ public class QueryException extends Exception {
     this.failureDetail = e.getFailureDetail();
   }
 
-  public QueryException(QueryExpression expression, String message) {
-    super(message);
-    this.expression = expression;
-    this.failureDetail = Optional.empty();
-  }
-
   public QueryException(
       QueryExpression expression, String message, Throwable cause, FailureDetail failureDetail) {
     super(message, cause);
     this.expression = expression;
-    this.failureDetail = Optional.of(failureDetail);
+    this.failureDetail = Preconditions.checkNotNull(failureDetail);
   }
 
   public QueryException(QueryExpression expression, String message, FailureDetail failureDetail) {
     super(message);
     this.expression = expression;
-    this.failureDetail = Optional.of(failureDetail);
+    this.failureDetail = Preconditions.checkNotNull(failureDetail);
   }
 
   public QueryException(QueryExpression expression, String message, Query.Code queryCode) {
@@ -99,7 +94,13 @@ public class QueryException extends Exception {
   public QueryException(String message, Throwable cause, FailureDetail failureDetail) {
     super(message, cause);
     this.expression = null;
-    this.failureDetail = Optional.of(failureDetail);
+    this.failureDetail = Preconditions.checkNotNull(failureDetail);
+  }
+
+  public QueryException(String message, FailureDetail failureDetail) {
+    super(message);
+    this.expression = null;
+    this.failureDetail = Preconditions.checkNotNull(failureDetail);
   }
 
   public QueryException(String message, Query.Code queryCode) {
@@ -122,8 +123,8 @@ public class QueryException extends Exception {
     return expression;
   }
 
-  /** Returns an optional {@link FailureDetail} containing fine grained detail code. */
-  public Optional<FailureDetail> getFailureDetail() {
+  /** Returns a {@link FailureDetail} with a corresponding code of the query error. */
+  public FailureDetail getFailureDetail() {
     return failureDetail;
   }
 }

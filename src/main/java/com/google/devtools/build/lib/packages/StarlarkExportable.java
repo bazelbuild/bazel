@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.events.EventHandler;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link StarlarkValue}s that need special handling when they are exported from an extension file.
@@ -30,8 +30,8 @@ public interface StarlarkExportable extends StarlarkValue {
   boolean isExported();
 
   /**
-   * Notify the value that it is exported from {@code extensionLabel}
-   * extension with name {@code exportedName}.
+   * Notify the value that it is exported from {@code extensionLabel} extension with name {@code
+   * exportedName}.
    */
-  void export(Label extensionLabel, String exportedName) throws EvalException;
+  void export(EventHandler handler, Label extensionLabel, String exportedName);
 }

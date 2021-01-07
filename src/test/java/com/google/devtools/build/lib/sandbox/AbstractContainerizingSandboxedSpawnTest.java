@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +41,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
 
   @Test
   public void testMoveOutputs() throws Exception {
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
     testRoot.createDirectoryAndParents();
 
@@ -113,8 +114,12 @@ public class AbstractContainerizingSandboxedSpawnTest {
   }
 
   @Test
-  public void testMoveOutputs_WarnOnceIfCopyHappened() throws Exception {
+  public void testMoveOutputs_warnOnceIfCopyHappened() throws Exception {
     class MultipleDeviceFS extends InMemoryFileSystem {
+      MultipleDeviceFS() {
+        super(DigestHashFunction.SHA256);
+      }
+
       @Override
       public void renameTo(Path source, Path target) throws IOException {
         throw new IOException("EXDEV");

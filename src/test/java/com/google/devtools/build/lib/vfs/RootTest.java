@@ -39,12 +39,12 @@ public class RootTest {
 
   @Before
   public final void initializeFileSystem() throws Exception {
-    fs = new InMemoryFileSystem(BlazeClock.instance());
+    fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   }
 
   @Test
   public void testEqualsAndHashCodeContract() throws Exception {
-    FileSystem otherFs = new InMemoryFileSystem(BlazeClock.instance());
+    FileSystem otherFs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     new EqualsTester()
         .addEqualityGroup(Root.absoluteRoot(fs), Root.absoluteRoot(fs))
         .addEqualityGroup(Root.absoluteRoot(otherFs), Root.absoluteRoot(otherFs))
@@ -71,7 +71,7 @@ public class RootTest {
 
   @Test
   public void testFilesystemTransform() throws Exception {
-    FileSystem fs2 = new InMemoryFileSystem(BlazeClock.instance());
+    FileSystem fs2 = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     Root root = Root.fromPath(fs.getPath("/foo"));
     Root root2 = Root.toFileSystem(root, fs2);
     assertThat(root2.asPath().getFileSystem()).isSameInstanceAs(fs2);
@@ -108,7 +108,7 @@ public class RootTest {
   }
 
   @Test
-  public void testSerialization_Simple() throws Exception {
+  public void testSerialization_simple() throws Exception {
     Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root barPathRoot = Root.fromPath(fs.getPath("/bar"));
     new SerializationTester(Root.absoluteRoot(fs), fooPathRoot, barPathRoot)
@@ -120,7 +120,7 @@ public class RootTest {
   }
 
   @Test
-  public void testSerialization_LikelyPopularRootIsCanonicalized() throws Exception {
+  public void testSerialization_likelyPopularRootIsCanonicalized() throws Exception {
     Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root otherFooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root barPathRoot = Root.fromPath(fs.getPath("/bar"));

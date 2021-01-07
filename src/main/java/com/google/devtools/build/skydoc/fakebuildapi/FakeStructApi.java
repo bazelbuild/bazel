@@ -20,18 +20,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Structure;
 
-/**
- * Fake implementation of {@link StructApi}.
- */
-public class FakeStructApi implements StructApi, ClassObject {
+/** Fake implementation of {@link StructApi}. */
+public class FakeStructApi implements StructApi, Structure {
 
   private final Map<String, Object> objects;
 
@@ -54,7 +52,7 @@ public class FakeStructApi implements StructApi, ClassObject {
   }
 
   /**
-   * Wraps {@link ClassObject#getValue(String)}, returning null in cases where {@link EvalException}
+   * Wraps {@link Structure#getValue(String)}, returning null in cases where {@link EvalException}
    * would have been thrown.
    */
   @VisibleForTesting

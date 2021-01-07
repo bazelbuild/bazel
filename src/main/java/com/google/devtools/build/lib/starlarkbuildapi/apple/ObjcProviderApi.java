@@ -14,15 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * An interface for an info type that provides all compiling and linking information in the
@@ -30,18 +28,9 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "ObjcProvider",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "A provider for compilation and linking of objc.")
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "define",
-      structField = true,
-      doc =
-          "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
-              + "all invocations of the compiler for this target and all depending targets.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<String>*/ defineForStarlark();
 
   @StarlarkMethod(
       name = "dynamic_framework_file",
@@ -58,33 +47,17 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ exportedDebugArtifacts();
 
   @StarlarkMethod(
-      name = "framework_search_path_only",
-      structField = true,
-      doc =
-          "Exec paths of .framework directories corresponding to frameworks to include "
-              + "in search paths, but not to link.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<String>*/ frameworkIncludeForStarlark();
-
-  @StarlarkMethod(
       name = "force_load_library",
       structField = true,
       doc = "Libraries to load with -force_load.")
   Depset /*<FileApiT>*/ forceLoadLibrary();
 
   @StarlarkMethod(
-      name = "header",
-      structField = true,
-      doc = "All header files. These may be either public or private headers.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<FileApiT>*/ headerForStarlark();
-
-  @StarlarkMethod(
       name = "direct_headers",
       structField = true,
       doc =
-          "Header files from this target directly (no transitive headers). "
-              + "These may be either public or private headers.")
+          "Public header files from this target directly (no transitive headers). "
+              + "These are mostly headers from the 'hdrs' attribute.")
   Sequence<FileApiT> directHeaders();
 
   @StarlarkMethod(
@@ -94,35 +67,12 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ importedLibrary();
 
   @StarlarkMethod(
-      name = "include",
-      structField = true,
-      doc =
-          "Include search paths specified with '-I' on the command line. Also known as "
-              + "header search paths (and distinct from <em>user</em> header search paths).",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset includeForStarlark();
-
-  @StarlarkMethod(
       name = "strict_include",
       structField = true,
       doc =
           "Non-propagated include search paths specified with '-I' on the command line. Also known "
               + "as header search paths (and distinct from <em>user</em> header search paths).")
   Depset strictIncludeForStarlark();
-
-  @StarlarkMethod(
-      name = "include_system",
-      structField = true,
-      doc = "System include search paths (typically specified with -isystem).",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset systemIncludeForStarlark();
-
-  @StarlarkMethod(
-      name = "iquote",
-      structField = true,
-      doc = "User header search paths (typically specified with -iquote).",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset quoteIncludeForStarlark();
 
   @StarlarkMethod(
       name = "j2objc_library",
@@ -168,16 +118,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
 
   @StarlarkMethod(name = "linkopt", structField = true, doc = "Linking options.")
   Depset /*<String>*/ linkopt();
-
-  @StarlarkMethod(
-      name = "merge_zip",
-      structField = true,
-      doc =
-          "Merge zips to include in the bundle. The entries of these zip files are included "
-              + "in the final bundle with the same path. The entries in the merge zips should not "
-              + "include the bundle root path (e.g. 'Foo.app').",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  Depset /*<FileApiT>*/ mergeZip();
 
   @StarlarkMethod(
       name = "module_map",
@@ -229,7 +169,9 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   @StarlarkMethod(
       name = "direct_sources",
       structField = true,
-      doc = "All direct source files from this target (no transitive files).")
+      doc =
+          "All direct source files from this target (no transitive files), "
+              + "including any headers in the 'srcs' attribute.")
   Sequence<FileApiT> directSources();
 
   @StarlarkMethod(
@@ -278,13 +220,4 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       structField = true,
       doc = "Returns all framework paths to static frameworks in this provider.")
   Depset /*<String>*/ staticFrameworkPathsForStarlark();
-
-  @StarlarkMethod(
-      name = "compilation_context",
-      doc =
-          "Returns the embedded <code>CcCompilationContext</code> that contains the"
-              + "provider's compilation information.",
-      structField = true,
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)
-  CcCompilationContextApi<FileApiT> getCcCompilationContext();
 }

@@ -19,12 +19,14 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryTest.WithPlatforms;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -34,10 +36,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidNdkRepositoryTest}. */
-@RunWith(JUnit4.class)
-public class AndroidNdkRepositoryTest extends BuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidNdkRepositoryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidNdkRepositoryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -117,7 +135,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'not a valid release string')."
-            + " Bazel will attempt to treat the NDK as if it was r20.");
+            + " Bazel will attempt to treat the NDK as if it was r21.");
   }
 
   @Test
@@ -145,7 +163,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'invalid package revision'). "
-            + "Bazel will attempt to treat the NDK as if it was r20.");
+            + "Bazel will attempt to treat the NDK as if it was r21.");
   }
 
   @Test
@@ -162,16 +180,16 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
 
     scratch.overwriteFile(
-        "/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 21.0.3675639-beta2");
+        "/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 22.0.3675639-beta2");
     invalidatePackages();
 
     assertThat(getConfiguredTarget("@androidndk//:files")).isNotNull();
     MoreAsserts.assertContainsEvent(
         eventCollector,
         "The major revision of the Android NDK referenced by android_ndk_repository rule "
-            + "'androidndk' is 21. The major revisions supported by Bazel are "
-            + "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]. "
-            + "Bazel will attempt to treat the NDK as if it was r20.");
+            + "'androidndk' is 22. The major revisions supported by Bazel are "
+            + "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]. "
+            + "Bazel will attempt to treat the NDK as if it was r21.");
   }
 
   @Test
@@ -191,13 +209,12 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
 
     ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndData("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
-    AttributeContainer attributes =
-        cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();
-    assertThat(attributes.isAttributeValueExplicitlySpecified("srcs")).isTrue();
-    assertThat(attributes.getAttr("srcs").toString())
+    Rule rule = cpufeatures.getTarget().getAssociatedRule();
+    assertThat(rule.isAttributeValueExplicitlySpecified("srcs")).isTrue();
+    assertThat(rule.getAttr("srcs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");
-    assertThat(attributes.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
-    assertThat(attributes.getAttr("hdrs").toString())
+    assertThat(rule.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
+    assertThat(rule.getAttr("hdrs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
   }
 
@@ -212,6 +229,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         "    path = '/ndk',",
         ")");
     invalidatePackages(false);
+    reporter.removeHandler(failFastHandler);
     RepositoryFetchException e =
         assertThrows(RepositoryFetchException.class, () -> getTarget("@androidndk//:files"));
     assertThat(e)

@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link LateBoundDefaultApi}.

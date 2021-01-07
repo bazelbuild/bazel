@@ -22,6 +22,7 @@ java_library(
         "//external:has_androidsdk": glob(
             ["*Test.java"],
             exclude = [
+                "DexFileMergerTest.java",
                 "NoAndroidSdkStubTest.java",
                 "AllTests.java",
             ],
@@ -37,7 +38,6 @@ java_library(
         "@bazel_tools//tools/java/runfiles",
     ] + select({
         "//external:has_androidsdk": [
-            "//external:android/dx_jar_import",
             "//external:android/d8_jar_import",
         ],
         "//conditions:default": [],

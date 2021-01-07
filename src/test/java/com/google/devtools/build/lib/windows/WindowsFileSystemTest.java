@@ -51,10 +51,9 @@ public class WindowsFileSystemTest {
 
   @Before
   public void loadJni() throws Exception {
-    fs =
-        new WindowsFileSystem(
-            DigestHashFunction.getDefaultUnchecked(), /*createSymbolicLinks=*/ false);
-    scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("x");
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ false);
+    scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("test").getRelative("x");
+    scratchRoot.createDirectoryAndParents();
     testUtil = new WindowsTestUtil(scratchRoot.getPathString());
     cleanupScratchDir();
   }
@@ -336,9 +335,7 @@ public class WindowsFileSystemTest {
 
   @Test
   public void testCreateSymbolicLinkWithRealSymlinks() throws Exception {
-    fs =
-        new WindowsFileSystem(
-            DigestHashFunction.getDefaultUnchecked(), /*createSymbolicLinks=*/ true);
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ true);
     java.nio.file.Path helloPath = testUtil.scratchFile("hello.txt", "hello");
     PathFragment targetFragment = PathFragment.create(helloPath.toString());
     Path linkPath = scratchRoot.getRelative("link.txt");

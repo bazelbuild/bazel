@@ -30,19 +30,19 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkIterable;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkIterable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Location;
 
 /**
  * {@code ConfiguredTarget}s implementing this interface can provide artifacts that <b>can</b> be
@@ -137,8 +137,13 @@ public final class OutputGroupInfo extends StructImpl
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(STARLARK_CONSTRUCTOR, Location.BUILTIN);
+    super(Location.BUILTIN);
     this.outputGroups = outputGroups;
+  }
+
+  @Override
+  public OutputGroupInfoProvider getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   @Override
@@ -286,10 +291,9 @@ public final class OutputGroupInfo extends StructImpl
     }
 
     @Override
-    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException {
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, Object> entry :
-          Dict.cast(kwargs, String.class, Object.class, "kwargs").entrySet()) {
+      for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
         builder.put(
             entry.getKey(),
             StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(

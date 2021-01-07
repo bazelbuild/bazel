@@ -40,38 +40,32 @@ class PathExistenceCache {
 
   /** Returns true if given path exists and is a file, false otherwise. */
   boolean fileExists(PathFragment execPath, boolean isSource) {
+    // This is not using computeIfAbsent() as that can lead to substantial contention. As per the
+    // CompactHashMap documentation, the computation for computeIfAbsent() "should be short and
+    // simple", which file stat'ing is not.
     Boolean exists = fileExistenceCache.get(execPath);
-    if (exists == null) {
-      // We do a second lookup on failure to avoid generating garbage in the cache hit case.
-      // The closure captures at least isSource, so the lambda will turn into a heap allocation.
-      exists =
-          fileExistenceCache.computeIfAbsent(
-              execPath,
-              k -> {
-                Path path =
-                    isSource
-                        ? artifactFactory.getPathFromSourceExecPath(execRoot, execPath)
-                        : execRoot.getRelative(execPath);
-                return path.isFile();
-              });
+    if (exists != null) {
+      return exists;
     }
+    Path path =
+        isSource
+            ? artifactFactory.getPathFromSourceExecPath(execRoot, execPath)
+            : execRoot.getRelative(execPath);
+    exists = path.isFile();
+    fileExistenceCache.put(execPath, exists);
     return exists;
   }
 
   /** Returns true if given path exists and is a directory, false otherwise. */
   boolean directoryExists(PathFragment execPath) {
-    Boolean exists = directoryExistenceCache.get(execPath);
-    if (exists == null) {
-      // We do a second lookup on failure to avoid generating garbage in the cache hit case.
-      // The closure captures at least execPath, so the lambda will turn into a heap allocation.
-      exists =
-          directoryExistenceCache.computeIfAbsent(
-              execPath,
-              k -> {
-                Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
-                return path.isDirectory();
-              });
+    // Like for fileExists(), do not use computeIfAbsent() to avoid contention (see comment there).
+    Boolean result = directoryExistenceCache.get(execPath);
+    if (result != null) {
+      return result;
     }
-    return exists;
+    Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
+    result = path.isDirectory();
+    directoryExistenceCache.put(execPath, result);
+    return result;
   }
 }

@@ -32,13 +32,13 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.S
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ThreadContinuedEvent;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ThreadPausedEvent;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Debug;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper class for constructing event or response protos to be sent from the debug server to a

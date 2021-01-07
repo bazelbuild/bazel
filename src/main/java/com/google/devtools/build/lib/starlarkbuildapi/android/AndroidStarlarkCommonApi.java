@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Common utilities for Starlark rules related to Android. */
 @StarlarkBuiltin(
@@ -35,7 +36,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
   @StarlarkMethod(
       name = "create_device_broker_info",
       documented = false,
-      parameters = {@Param(name = "type", type = String.class)})
+      parameters = {@Param(name = "type")})
   AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
 
   @StarlarkMethod(
@@ -52,9 +53,9 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
             name = "resource",
             doc = "The android resource file.",
             positional = true,
-            named = false,
-            type = FileApi.class)
+            named = false)
       })
+  @Nullable
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @StarlarkMethod(
@@ -70,7 +71,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
       name = "enable_implicit_sourceless_deps_exports_compatibility",
       doc = "Takes a JavaInfo and converts it to an implicit exportable JavaInfo.",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(
             name = "dep",
@@ -78,8 +79,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
                 "A JavaInfo that will be used as an implicit export for sourceless deps exports"
                     + " compatibility.",
             positional = true,
-            named = false,
-            type = JavaInfoApi.class)
+            named = false)
       })
   JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo);
 }

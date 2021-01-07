@@ -13,14 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 
 /** Supplies a resource apk file (".ap_") and related info. */
 @StarlarkBuiltin(
@@ -41,6 +44,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceApk();
 
   /** The jar containing the R java source files. */
@@ -50,6 +54,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceJavaSrcJar();
 
   /** The jar containing the R java class files. */
@@ -59,6 +64,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceJavaClassJar();
 
   /** The final proessed manifest. */
@@ -76,6 +82,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getResourceProguardConfig();
 
   /** The main dex proguard config file. */
@@ -85,7 +92,38 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getMainDexProguardConfig();
+
+  /** The R.txt file. */
+  @StarlarkMethod(
+      name = "r_txt",
+      doc = "The R.txt file.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getRTxt();
+
+  /** The merged resource files zip. */
+  @StarlarkMethod(
+      name = "resources_zip",
+      doc = "The merged resource files zip.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getResourcesZip();
+
+  /** The databinding layout info file */
+  @StarlarkMethod(
+      name = "databinding_info",
+      doc = "The databinding layout info file.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getDatabindingLayoutInfoZip();
 
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
@@ -103,45 +141,85 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         parameters = {
           @Param(
               name = "resource_apk",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               doc = ""),
           @Param(
               name = "resource_java_src_jar",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               doc = ""),
           @Param(
               name = "resource_java_class_jar",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               doc = ""),
-          @Param(name = "manifest", type = FileApi.class, named = true, doc = ""),
+          @Param(name = "manifest", named = true, doc = ""),
           @Param(
               name = "resource_proguard_config",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               doc = ""),
           @Param(
               name = "main_dex_proguard_config",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               doc = ""),
+          @Param(
+              name = "r_txt",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
+          @Param(
+              name = "resources_zip",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
+          @Param(
+              name = "databinding_info",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidApplicationResourceInfoApi.class)
+    @StarlarkConstructor
     AndroidApplicationResourceInfoApi<FileT> createInfo(
         Object resourceApk,
         Object resourceJavaSrcJar,
         Object resourceJavaClassJar,
         FileT manifest,
         Object resourceProguardConfig,
-        Object mainDexProguardConfig)
+        Object mainDexProguardConfig,
+        Object rTxt,
+        Object resourcesZip,
+        Object databindingLayoutInfoZip)
         throws EvalException;
   }
 }

@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a configuration transition across a dependency edge. */
 @StarlarkBuiltin(
     name = "transition",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "<p>Represents a configuration transition across a dependency edge. For example, if"
             + " <code>//package:foo</code> depends on <code>//package:bar</code> with a"

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -58,7 +59,7 @@ public final class ActionMetadataHandlerTest {
 
   private final Scratch scratch =
       new Scratch(
-          new InMemoryFileSystem() {
+          new InMemoryFileSystem(DigestHashFunction.SHA256) {
             @Override
             public void chmod(Path path, int mode) throws IOException {
               assertThat(mode).isEqualTo(0555); // Read only and executable.
@@ -74,8 +75,9 @@ public final class ActionMetadataHandlerTest {
 
   private final ArtifactRoot sourceRoot =
       ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+  private final PathFragment derivedPathPrefix = PathFragment.create("bin");
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), "bin");
+      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), derivedPathPrefix);
   private final Path execRoot = outputRoot.getRoot().asPath();
 
   @Before
@@ -89,10 +91,12 @@ public final class ActionMetadataHandlerTest {
     return ActionMetadataHandler.create(
         inputMap,
         forInputDiscovery,
+        /*archivedTreeArtifactsEnabled=*/ false,
         outputs,
         tsgm,
         ArtifactPathResolver.IDENTITY,
         execRoot.asFragment(),
+        derivedPathPrefix,
         /*expandedFilesets=*/ ImmutableMap.of());
   }
 
@@ -431,10 +435,12 @@ public final class ActionMetadataHandlerTest {
         ActionMetadataHandler.create(
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
+            /*archivedTreeArtifactsEnabled=*/ false,
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
             execRoot.asFragment(),
+            derivedPathPrefix,
             expandedFilesets);
 
     // Only the regular FileArtifactValue should have its metadata stored.

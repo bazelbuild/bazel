@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
@@ -34,8 +34,12 @@ public class AndroidInstrumentationInfo extends NativeInfo
   private final ApkInfo target;
 
   AndroidInstrumentationInfo(ApkInfo target) {
-    super(PROVIDER);
     this.target = target;
+  }
+
+  @Override
+  public AndroidInstrumentationInfoProvider getProvider() {
+    return PROVIDER;
   }
 
   @Override

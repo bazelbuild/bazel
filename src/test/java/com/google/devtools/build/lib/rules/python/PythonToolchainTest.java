@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.syntax.Starlark.NONE;
+import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -73,6 +73,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
         "myrule = rule(",
         "    implementation = _myrule_impl,",
         "    toolchains = ['" + TOOLCHAIN_TYPE + "'],",
+        "    incompatible_use_toolchain_transition = True,",
         ")");
     // A toolchain implementation and an instance of the rule that will use it.
     scratch.file(

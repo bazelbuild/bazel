@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -44,4 +45,18 @@ public interface MetadataProvider {
   /** Looks up an input from its exec path. */
   @Nullable
   ActionInput getInput(String execPath);
+
+  /**
+   * Returns a {@link FileSystem} which, if not-null, should be used instead of the one associated
+   * with {@linkplain Artifact#getPath() the path provided for input artifacts}.
+   *
+   * <p>For {@linkplain ActionInput ActionInputs} which are {@linkplain Artifact Artifacts}, we can
+   * perform direct operations on the {@linkplain Artifact#getPath path}. Doing so, may require
+   * {@link FileSystem} redirection. This method defines whether that is the case and which {@link
+   * FileSystem} to use for that.
+   */
+  @Nullable
+  default FileSystem getFileSystemForInputResolution() {
+    return null;
+  }
 }

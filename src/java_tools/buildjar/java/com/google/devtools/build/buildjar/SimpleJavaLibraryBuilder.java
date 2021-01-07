@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
@@ -27,16 +29,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.ProviderNotFoundException;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Enumeration;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
@@ -45,18 +43,13 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   /** The name of the protobuf meta file. */
   private static final String PROTOBUF_META_NAME = "protobuf.meta";
 
-  /** Cache of opened zip filesystems for srcjars. */
-  private final Map<Path, FileSystem> filesystems = new HashMap<>();
-
   BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
     BlazeJavacResult result =
         javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
 
     BlazeJavacStatistics.Builder stats =
-        result
-            .statistics()
-            .toBuilder()
+        result.statistics().toBuilder()
             .transitiveClasspathLength(build.getClassPath().size())
             .reducedClasspathLength(build.getClassPath().size())
             .transitiveClasspathFallback(false);
@@ -108,7 +101,8 @@ public class SimpleJavaLibraryBuilder implements Closeable {
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
    */
-  public BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build) throws Exception {
+  private BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build)
+      throws Exception {
     prepareSourceCompilation(build);
     if (build.getSourceFiles().isEmpty()) {
       return BlazeJavacResult.ok();
@@ -117,6 +111,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   }
 
   /** Perform the build. */
+  @CheckReturnValue
   public BlazeJavacResult run(JavaLibraryBuildRequest build) throws Exception {
     BlazeJavacResult result = BlazeJavacResult.error("");
     try {
@@ -143,6 +138,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   }
 
   public void buildJar(JavaLibraryBuildRequest build) throws IOException {
+    Files.createDirectories(build.getOutputJar().getParent());
     JarCreator jar = new JarCreator(build.getOutputJar());
     JacocoInstrumentationProcessor processor = null;
     try {
@@ -191,22 +187,33 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
     final ByteArrayOutputStream protobufMetadataBuffer = new ByteArrayOutputStream();
     for (Path sourceJar : build.getSourceJars()) {
-      for (Path root : getJarFileSystem(sourceJar).getRootDirectories()) {
-        Files.walkFileTree(
-            root,
-            new SimpleFileVisitor<Path>() {
-              @Override
-              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                  throws IOException {
-                String fileName = path.getFileName().toString();
-                if (fileName.endsWith(".java")) {
-                  build.getSourceFiles().add(path);
-                } else if (fileName.equals(PROTOBUF_META_NAME)) {
-                  Files.copy(path, protobufMetadataBuffer);
-                }
-                return FileVisitResult.CONTINUE;
-              }
-            });
+      try (JarFile jarFile = new JarFile(sourceJar.toFile())) {
+        Enumeration<JarEntry> entries = jarFile.entries();
+        while (entries.hasMoreElements()) {
+          JarEntry entry = entries.nextElement();
+          String fileName = entry.getName();
+          if (fileName.endsWith(".java")) {
+            if (fileName.charAt(0) == '/') {
+              fileName = CharMatcher.is('/').trimLeadingFrom(fileName);
+            }
+            Path to = sourcesDir.resolve(fileName);
+            int root = 1;
+            if (Files.exists(to)) {
+              // Make paths unique e.g. if extracting two srcjar entries that differ only in case
+              // to a case-insenitive target filesystem (e.g. on Macs).
+              do {
+                to = sourcesDir.resolve(Integer.toString(root++)).resolve(fileName);
+              } while (Files.exists(to));
+            }
+            Files.createDirectories(to.getParent());
+            Files.copy(jarFile.getInputStream(entry), to);
+            build.getSourceFiles().add(to);
+          } else if (fileName.equals(PROTOBUF_META_NAME)) {
+            ByteStreams.copy(jarFile.getInputStream(entry), protobufMetadataBuffer);
+          }
+        }
+      } catch (IOException e) {
+        throw new IOException("unable to open " + sourceJar + " as a jar file", e);
       }
     }
     Path output = build.getClassDir().resolve(PROTOBUF_META_NAME);
@@ -220,23 +227,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     }
   }
 
-  private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
-    FileSystem fs = filesystems.get(sourceJar);
-    if (fs == null) {
-      try {
-        fs = FileSystems.newFileSystem(sourceJar, null);
-      } catch (ProviderNotFoundException e) {
-        throw new IOException(String.format("unable to open %s as a jar file", sourceJar), e);
-      }
-      filesystems.put(sourceJar, fs);
-    }
-    return fs;
-  }
-
   @Override
-  public void close() throws IOException {
-    for (FileSystem fs : filesystems.values()) {
-      fs.close();
-    }
-  }
+  public void close() throws IOException {}
 }

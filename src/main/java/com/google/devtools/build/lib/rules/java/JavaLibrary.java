@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -39,7 +41,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     JavaCommon common = new JavaCommon(ruleContext, semantics);
     return init(
         ruleContext,
@@ -53,7 +54,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       final JavaCommon common,
       boolean includeGeneratedExtensionRegistry,
       boolean isJavaPluginRule)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+      throws InterruptedException, ActionConflictException {
     semantics.checkDependencyRuleKinds(ruleContext);
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
@@ -195,8 +196,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .build();
 
     builder
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
@@ -207,6 +206,19 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(javaInfo)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs);
+
+    Artifact validation =
+        AndroidLintActionBuilder.create(
+            ruleContext,
+            javaConfig,
+            attributes,
+            helper.getBootclasspathOrDefault(),
+            common,
+            outputs);
+    if (validation != null) {
+      builder.addOutputGroup(
+          OutputGroupInfo.VALIDATION, NestedSetBuilder.create(STABLE_ORDER, validation));
+    }
 
     if (ruleContext.hasErrors()) {
       return null;

@@ -83,12 +83,12 @@ abstract class AndroidRepositoryFunction extends RepositoryFunction {
   static final ImmutableSortedSet<Integer> getApiLevels(Dirents platformsDirectories) {
     ImmutableSortedSet.Builder<Integer> apiLevels = ImmutableSortedSet.reverseOrder();
     for (Dirent platformDirectory : platformsDirectories) {
-      if (platformDirectory.getType() != Dirent.Type.DIRECTORY) {
-        continue;
-      }
-      Matcher matcher = PLATFORMS_API_LEVEL_PATTERN.matcher(platformDirectory.getName());
-      if (matcher.matches()) {
-        apiLevels.add(Integer.parseInt(matcher.group(1)));
+      if (platformDirectory.getType() == Dirent.Type.DIRECTORY
+          || platformDirectory.getType() == Dirent.Type.SYMLINK) {
+        Matcher matcher = PLATFORMS_API_LEVEL_PATTERN.matcher(platformDirectory.getName());
+        if (matcher.matches()) {
+          apiLevels.add(Integer.parseInt(matcher.group(1)));
+        }
       }
     }
     return apiLevels.build();

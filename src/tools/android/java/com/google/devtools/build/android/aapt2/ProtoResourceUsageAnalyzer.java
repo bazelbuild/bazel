@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+import com.android.aapt.Resources;
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
@@ -27,10 +28,12 @@ import com.android.tools.lint.checks.ResourceUsageModel;
 import com.android.tools.lint.checks.ResourceUsageModel.Resource;
 import com.android.tools.lint.detector.api.LintUtils;
 import com.android.utils.XmlUtils;
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.ListMultimap;
@@ -140,10 +143,22 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
     keepPossiblyReferencedResources();
 
     final List<Resource> resources = model().getResources();
+    final ImmutableListMultimap<ResourceTypeAndJavaName, String> unJavafiedNames =
+        getUnJavafiedResourceNames(apk);
 
     ImmutableList<String> resourceConfigs =
         resources.stream()
             .filter(Resource::isKeep)
+            .flatMap(
+                r ->
+                    // aapt2 expects the original resource names, not the Java-sanitized names.
+                    //
+                    // "Resource" is written in such a way so that Resource#getField (Java) and
+                    // Resource#getUrl (actual name) cannot both work, so we have to undo that.
+                    unJavafiedNames
+                        .get(ResourceTypeAndJavaName.of(r.type.getName(), r.name))
+                        .stream()
+                        .map(orig -> new Resource(r.type, orig, r.value)))
             .map(r -> String.format("%s/%s#no_collapse", r.type.getName(), r.name))
             .collect(toImmutableList());
     Files.write(resourcesConfigFile, resourceConfigs, StandardCharsets.UTF_8);
@@ -361,5 +376,43 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         return simpleValue;
       }
     };
+  }
+
+  /**
+   * Maps resource type and Java-fied name (i.e. dots converted to underscores) to the original
+   * name(s).
+   */
+  // This is used to work around the fact that (a) ResourceUsageModel throws away the original
+  // names, and (b) ResourceUsageModel is from an external library not synced with Bazel.
+  //
+  // Using a multimap because LintUtils.getFieldName is a many-to-one mapping, meaning that multiple
+  // resources could have the same Java name.  Assuming that the rest of the build system doesn't
+  // blow up, neither should we.
+  static ImmutableListMultimap<ResourceTypeAndJavaName, String> getUnJavafiedResourceNames(
+      ProtoApk apk) throws IOException {
+    ImmutableListMultimap.Builder<ResourceTypeAndJavaName, String> unJavafiedNames =
+        ImmutableListMultimap.builder();
+    for (Resources.Package pkg : apk.getResourceTable().getPackageList()) {
+      for (Resources.Type type : pkg.getTypeList()) {
+        for (Resources.Entry entry : type.getEntryList()) {
+          String originalName = entry.getName();
+          String javafiedName = LintUtils.getFieldName(originalName);
+          unJavafiedNames.put(
+              ResourceTypeAndJavaName.of(type.getName(), javafiedName), originalName);
+        }
+      }
+    }
+    return unJavafiedNames.build();
+  }
+
+  @AutoValue
+  abstract static class ResourceTypeAndJavaName {
+    abstract String type();
+
+    abstract String javaName();
+
+    static ResourceTypeAndJavaName of(String type, String javaName) {
+      return new AutoValue_ProtoResourceUsageAnalyzer_ResourceTypeAndJavaName(type, javaName);
+    }
   }
 }

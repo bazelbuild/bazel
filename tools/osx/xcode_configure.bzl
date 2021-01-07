@@ -74,7 +74,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     build_contents += "xcode_version(\n  name = '%s'," % name
     build_contents += "\n  version = '%s'," % version
     if aliases:
-        build_contents += "\n  aliases = [%s]," % " ,".join(decorated_aliases)
+        build_contents += "\n  aliases = [%s]," % ", ".join(decorated_aliases)
     if ios_sdk_version:
         build_contents += "\n  default_ios_sdk_version = '%s'," % ios_sdk_version
     if tvos_sdk_version:
@@ -115,9 +115,11 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
           to build and run xcode-locator, or None if the run was successful.
     """
     xcodeloc_src_path = str(repository_ctx.path(xcode_locator_src_label))
+    env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
         "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
         "xcrun",
         "--sdk",
         "macosx",
@@ -181,10 +183,15 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
 
 def _darwin_build_file(repository_ctx):
     """Evaluates local system state to create xcode_config and xcode_version targets."""
-    xcodebuild_result = repository_ctx.execute(
-        ["env", "-i", "xcrun", "xcodebuild", "-version"],
-        _EXECUTE_TIMEOUT,
-    )
+    env = repository_ctx.os.environ
+    xcodebuild_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "xcodebuild",
+        "-version",
+    ], _EXECUTE_TIMEOUT)
 
     (toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
@@ -224,7 +231,7 @@ def _darwin_build_file(repository_ctx):
         if (version.startswith(default_xcode_version) and
             version.endswith(default_xcode_build_version)):
             default_xcode_target = target_label
-    buildcontents += "xcode_config(name = 'host_xcodes',"
+    buildcontents += "xcode_config(\n  name = 'host_xcodes',"
     if target_names:
         buildcontents += "\n  versions = [%s]," % ", ".join(target_names)
     if not default_xcode_target and target_names:
@@ -235,7 +242,7 @@ def _darwin_build_file(repository_ctx):
         buildcontents += "\n  default = %s," % default_xcode_target
 
     buildcontents += "\n)\n"
-    buildcontents += "available_xcodes(name = 'host_available_xcodes',"
+    buildcontents += "available_xcodes(\n  name = 'host_available_xcodes',"
     if target_names:
         buildcontents += "\n  versions = [%s]," % ", ".join(target_names)
     if default_xcode_target:

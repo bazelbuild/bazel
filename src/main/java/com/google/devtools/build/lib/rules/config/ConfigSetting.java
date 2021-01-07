@@ -38,8 +38,8 @@ import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.util.ClassName;
@@ -158,8 +157,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   boolean constraintValuesMatch(RuleContext ruleContext) {
     List<ConstraintValueInfo> constraintValues = new ArrayList<>();
     for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites(
-            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, TransitionMode.DONT_CHECK)) {
+        ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE)) {
       if (!PlatformProviderUtils.hasConstraintValue(dep)) {
         ruleContext.attributeError(
             ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE,
@@ -303,7 +301,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           if (selectRestriction.isVisibleWithinToolsPackage()) {
             errorMessage +=
                 String.format(
-                    " (it is whitelisted to %s//tools/... only)",
+                    " (it is allowlisted to %s//tools/... only)",
                     getToolsRepository(ruleContext).getDefaultCanonicalForm());
           }
           if (selectRestriction.getErrorMessage() != null) {
@@ -443,8 +441,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
       // Get the actual targets the 'flag_values' keys reference.
       Iterable<? extends TransitiveInfoCollection> prerequisites =
-          ruleContext.getPrerequisites(
-              ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, TransitionMode.TARGET);
+          ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE);
 
       for (TransitiveInfoCollection target : prerequisites) {
         Label actualLabel = target.getLabel();
@@ -497,20 +494,25 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           }
 
           if (configurationValue instanceof List) {
-            // If the build_setting is a list, we use the same semantics as for multi-value native
-            // flags: if *any* entry in the list matches the config_setting's expected entry, it's
-            // a match. In other words, config_setting(flag_values {"//foo": "bar"} matches
-            // //foo=["bar", "baz"].
+            // If the build_setting is a list it's either an allow-multiple string-typed build
+            // setting or a string_list-typed build setting. We use the same semantics as for
+            // multi-value native flags: if *any* entry in the list matches the config_setting's
+            // expected entry, it's a match. In other words,
+            // config_setting(flag_values {"//foo": "bar"} matches //foo=["bar", "baz"].
 
-            // If the config_setting expects "foo", convertedSpecifiedValue converts it to the
-            // flag's native type, which produces ["foo"]. So unpack that again.
-            Iterable<?> specifiedValueAsIterable = (Iterable<?>) convertedSpecifiedValue;
+            // If this is an allow-multiple build setting, the converter will have converted the
+            // config settings value to a singular object, if it's a string_list build setting the
+            // converter will have converted it to a list.
+            Iterable<?> specifiedValueAsIterable =
+                provider.allowsMultiple()
+                    ? ImmutableList.of(convertedSpecifiedValue)
+                    : (Iterable<?>) convertedSpecifiedValue;
             if (Iterables.size(specifiedValueAsIterable) != 1) {
               ruleContext.attributeError(
                   ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                   String.format(
-                      "\"%s\" not a valid value for flag %s. Only single, exact values are allowed."
-                          + " If you want to match multiple values, consider Skylib's "
+                      "\"%s\" not a valid value for flag %s. Only single, exact values are"
+                          + " allowed. If you want to match multiple values, consider Skylib's "
                           + "selects.config_setting_group",
                       specifiedValue, specifiedLabel));
               matches = false;

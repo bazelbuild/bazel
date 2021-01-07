@@ -52,7 +52,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testMostlyEmpty_OriginalCommandLine() {
+  public void testMostlyEmpty_originalCommandLine() {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
@@ -79,7 +79,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testMostlyEmpty_CanonicalCommandLine() {
+  public void testMostlyEmpty_canonicalCommandLine() {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
@@ -105,7 +105,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testActiveBazelrcs_OriginalCommandLine() throws OptionsParsingException {
+  public void testActiveBazelrcs_originalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder()
             .optionsClasses(BlazeServerStartupOptions.class, Options.class)
@@ -144,7 +144,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testPassedInBazelrcs_OriginalCommandLine() throws OptionsParsingException {
+  public void testPassedInBazelrcs_originalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder()
             .optionsClasses(BlazeServerStartupOptions.class, Options.class)
@@ -188,7 +188,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testBazelrcs_CanonicalCommandLine() throws OptionsParsingException {
+  public void testBazelrcs_canonicalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder()
             .optionsClasses(BlazeServerStartupOptions.class, Options.class)
@@ -220,7 +220,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testOptionsAtVariousPriorities_OriginalCommandLine() throws OptionsParsingException {
+  public void testOptionsAtVariousPriorities_originalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
@@ -264,7 +264,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testOptionsAtVariousPriorities_CanonicalCommandLine() throws OptionsParsingException {
+  public void testOptionsAtVariousPriorities_canonicalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
@@ -307,7 +307,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testExpansionOption_OriginalCommandLine() throws OptionsParsingException {
+  public void testExpansionOption_originalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
@@ -340,7 +340,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testExpansionOption_CanonicalCommandLine() throws OptionsParsingException {
+  public void testExpansionOption_canonicalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
@@ -375,7 +375,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testOptionWithImplicitRequirement_OriginalCommandLine()
+  public void testOptionWithImplicitRequirement_originalCommandLine()
       throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
@@ -410,7 +410,7 @@ public class CommandLineEventTest {
   }
 
   @Test
-  public void testOptionWithImplicitRequirement_CanonicalCommandLine()
+  public void testOptionWithImplicitRequirement_canonicalCommandLine()
       throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();

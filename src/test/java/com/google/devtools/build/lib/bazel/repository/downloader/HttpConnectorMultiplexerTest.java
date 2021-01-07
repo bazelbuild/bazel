@@ -104,13 +104,25 @@ public class HttpConnectorMultiplexerTest {
     when(connector.connect(eq(URL2), any(Function.class))).thenReturn(connection2);
     when(connector.connect(eq(URL3), any(Function.class))).thenReturn(connection3);
     when(streamFactory.create(
-            same(connection1), any(URL.class), any(Optional.class), any(Reconnector.class)))
+            same(connection1),
+            any(URL.class),
+            any(Optional.class),
+            any(Reconnector.class),
+            any(Optional.class)))
         .thenReturn(stream1);
     when(streamFactory.create(
-            same(connection2), any(URL.class), any(Optional.class), any(Reconnector.class)))
+            same(connection2),
+            any(URL.class),
+            any(Optional.class),
+            any(Reconnector.class),
+            any(Optional.class)))
         .thenReturn(stream2);
     when(streamFactory.create(
-            same(connection3), any(URL.class), any(Optional.class), any(Reconnector.class)))
+            same(connection3),
+            any(URL.class),
+            any(Optional.class),
+            any(Reconnector.class),
+            any(Optional.class)))
         .thenReturn(stream3);
   }
 
@@ -157,7 +169,11 @@ public class HttpConnectorMultiplexerTest {
     verify(connector).connect(eq(URL1), any(Function.class));
     verify(streamFactory)
         .create(
-            any(URLConnection.class), any(URL.class), eq(DUMMY_CHECKSUM), any(Reconnector.class));
+            any(URLConnection.class),
+            any(URL.class),
+            eq(DUMMY_CHECKSUM),
+            any(Reconnector.class),
+            any(Optional.class));
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
 
@@ -190,7 +206,11 @@ public class HttpConnectorMultiplexerTest {
     verify(connector).connect(eq(URL2), any(Function.class));
     verify(streamFactory)
         .create(
-            any(URLConnection.class), any(URL.class), eq(DUMMY_CHECKSUM), any(Reconnector.class));
+            any(URLConnection.class),
+            any(URL.class),
+            eq(DUMMY_CHECKSUM),
+            any(Reconnector.class),
+            any(Optional.class));
     verify(sleeper).sleepMillis(anyLong());
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }

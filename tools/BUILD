@@ -1,9 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-# Used by Bazel. If a test program depends on this target, it is
-# assumed to be sharding-compliant.
-exports_files(["test_sharding_compliant"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -93,7 +89,6 @@ test_suite(
     tests = [
         "//tools/android:all_windows_tests",
         "//tools/aquery_differ:aquery_differ_test",
-        "//tools/aquery_differ:aquery_differ_v2_test",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
         "//tools/cpp/runfiles:all_windows_tests",

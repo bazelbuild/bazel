@@ -19,23 +19,24 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.HasBinary;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.HasBinary;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.TokenKind;
 
-/** An Info (provider instance) for providers defined in Starlark. */
-public final class StarlarkInfo extends StructImpl implements HasBinary, ClassObject {
+/** An struct-like Info (provider instance) for providers defined in Starlark. */
+public final class StarlarkInfo extends StructImpl implements HasBinary {
 
+  // TODO(adonovan): move to sole use in js_common.provider(transpilation_mapping=...).
   public static final Depset.ElementType TYPE = Depset.ElementType.of(StarlarkInfo.class);
+
+  private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
@@ -46,16 +47,33 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, ClassOb
   // TODO(adonovan): make the provider determine the error message
   // (but: this has implications for struct+struct, the equivalence
   // relation, and other observable behaviors).
+  // Perhaps it should be a property of the StarlarkInfo instance, but
+  // defined by a subclass?
   @Nullable private final String unknownFieldError;
 
+  // TODO(adonovan): restrict type of provider to StarlarkProvider?
+  // Do we ever need StarlarkInfos of BuiltinProviders? Such BuiltinProviders could
+  // be  moved to Starlark using bzl builtins injection.
+  // Alternatively: what about this implementation is specific to StarlarkProvider?
+  // It's really just a "generic" or "dynamic" representation of a struct,
+  // analogous to reflection versus generated message classes in the protobuf world.
+  // The efficient table algorithms would be a nice addition to the Starlark
+  // interpreter, to allow other clients to define their own fast structs
+  // (or to define a standard one). See also comments at Info about upcoming clean-ups.
   private StarlarkInfo(
       Provider provider,
       Object[] table,
       @Nullable Location loc,
       @Nullable String unknownFieldError) {
-    super(provider, loc);
+    super(loc);
+    this.provider = provider;
     this.table = table;
     this.unknownFieldError = unknownFieldError;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return provider;
   }
 
   // Converts a map to a table of sorted keys followed by corresponding values.
@@ -235,30 +253,22 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, ClassOb
     return ImmutableList.copyOf(keys);
   }
 
-  /**
-   * Returns the custom (i.e. per-instance, as opposed to per-provider-type) error message string
-   * format used by this provider instance, or null if not set.
-   */
-  @Nullable
+  /** Returns the per-instance error message, if specified, or the provider's message otherwise. */
   @Override
-  protected String getErrorMessageFormatForUnknownField() {
+  public String getErrorMessageForUnknownField(String name) {
     return unknownFieldError != null
-        ? unknownFieldError
-        : super.getErrorMessageFormatForUnknownField();
+        ? String.format(unknownFieldError, name) + allAttributesSuffix()
+        : super.getErrorMessageForUnknownField(name);
   }
 
   @Override
   public boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
-    // TODO(adonovan): implement isHashable?
     if (!getProvider().isExported()) {
       return false;
     }
-    // TODO(bazel-team): If we export at the end of a full module's evaluation, instead of at the
-    // end of every top-level statement, then we can assume that exported implies frozen, and just
-    // return true here without a traversal.
     for (int i = table.length / 2; i < table.length; i++) {
-      if (!EvalUtils.isImmutable(table[i])) {
+      if (!Starlark.isImmutable(table[i])) {
         return false;
       }
     }
@@ -296,14 +306,32 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, ClassOb
    * <p>{@code unknownFieldError} is a string format, as for {@link
    * Provider#getErrorMessageFormatForUnknownField}.
    *
-   * @deprecated Do not use this method. Instead, create a new subclass of {@link NativeProvider}
+   * @deprecated Do not use this method. Instead, create a new subclass of {@link BuiltinProvider}
    *     with the desired error message format, and create a corresponding {@link NativeInfo}
    *     subclass.
    */
   // TODO(bazel-team): Make the special structs that need a custom error message use a different
-  // provider (subclassing NativeProvider) and a different StructImpl implementation. Then remove
+  // provider (subclassing BuiltinProvider) and a different StructImpl implementation. Then remove
   // this functionality, thereby saving a string pointer field for the majority of providers that
-  // don't need it.
+  // don't need it. However, this is tricky: if the error message is a property of the provider,
+  // then each flavor of struct must have a distinct provider of a unique class, and this would be
+  // observable to Starlark code. What would be their names: "struct", or something else? Should
+  // struct+struct fail when different flavors are mixed (as happens today when adding info
+  // instances of different providers)? Or should it return a new struct picking the provider of one
+  // operand arbitrarily (as it does today for custom error strings)? Or ignore providers and return
+  // a plain old struct, always? Or only if they differ? Or should we abolish struct+struct
+  // altogether? In other words, the advice in the @deprecated tag above is not compatible.
+  //
+  // brandjon notes: nearly all the uses of custom errors are for objects that properly should be
+  // Structures but not structs. They only leveraged the struct machinery for historical reasons and
+  // convenience.
+  // For instance, ctx.attr should have a custom error message, but should not support concatenation
+  // (it fails today but only because you can't produce two ctx.attr's that don't have common
+  // fields). It also should not support to_json().
+  // It's possible someone was crazy enough to take ctx.attr.to_json(), but we can probably break
+  // that case without causing too much trouble.
+  // If we migrate all these cases of non-providers away, whatever is left should be happy to use a
+  // default error message, and we can eliminate this extra detail.
   @Deprecated
   public static StarlarkInfo createWithCustomMessage(
       Provider provider, Map<String, Object> values, String unknownFieldError) {

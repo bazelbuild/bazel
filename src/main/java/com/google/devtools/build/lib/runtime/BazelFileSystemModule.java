@@ -13,20 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultAlreadySetException;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
@@ -38,69 +38,44 @@ import com.google.devtools.common.options.OptionsParsingResult;
  * {@code SHA256} as the default hash function, or else what's specified by {@code
  * -Dbazel.DigestFunction}.
  *
- * <p>For legacy reasons we can't make the {@link com.google.devtools.build.lib.vfs.FileSystem}
- * class use {@code SHA256} by default.
+ * <p>Because of Blaze/Bazel divergence we can't make the {@link
+ * com.google.devtools.build.lib.vfs.FileSystem} class use {@code SHA256} by default.
  */
 public class BazelFileSystemModule extends BlazeModule {
-
-  @Override
-  public void globalInit(OptionsParsingResult startupOptionsProvider) throws AbruptExitException {
-    BlazeServerStartupOptions startupOptions =
-        Preconditions.checkNotNull(
-            startupOptionsProvider.getOptions(BlazeServerStartupOptions.class));
-    DigestHashFunction commandLineHashFunction = startupOptions.digestHashFunction;
-    try {
-      if (commandLineHashFunction != null) {
-        DigestHashFunction.setDefault(commandLineHashFunction);
-      } else {
-        String value = System.getProperty("bazel.DigestFunction", "SHA256");
-        DigestHashFunction jvmPropertyHash;
-        try {
-          jvmPropertyHash = new DigestFunctionConverter().convert(value);
-        } catch (OptionsParsingException e) {
-          throw new AbruptExitException(
-              DetailedExitCode.of(
-                  ExitCode.COMMAND_LINE_ERROR,
-                  FailureDetail.newBuilder()
-                      .setMessage(Strings.nullToEmpty(e.getMessage()))
-                      .setFilesystem(
-                          Filesystem.newBuilder()
-                              .setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE))
-                      .build()),
-              e);
-        }
-        DigestHashFunction.setDefault(jvmPropertyHash);
-      }
-    } catch (DefaultAlreadySetException e) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              ExitCode.BLAZE_INTERNAL_ERROR,
-              FailureDetail.newBuilder()
-                  .setMessage(Strings.nullToEmpty(e.getMessage()))
-                  .setFilesystem(
-                      Filesystem.newBuilder().setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_CHANGED))
-                  .build()),
-          e);
-    }
-  }
-
   @Override
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)
-      throws DefaultHashFunctionNotSetException {
-    BlazeServerStartupOptions options = startupOptions.getOptions(BlazeServerStartupOptions.class);
-    boolean enableSymLinks = options != null && options.enableWindowsSymlinks;
-    if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
-      // Ignore UnixFileSystem, to be used for bootstrapping.
-      return ModuleFileSystem.create(
-          OS.getCurrent() == OS.WINDOWS
-              ? new WindowsFileSystem(enableSymLinks)
-              : new JavaIoFileSystem());
+      throws AbruptExitException {
+    BlazeServerStartupOptions options =
+        checkNotNull(startupOptions.getOptions(BlazeServerStartupOptions.class));
+    DigestHashFunction digestHashFunction = options.digestHashFunction;
+    if (digestHashFunction == null) {
+      String value = System.getProperty("bazel.DigestFunction", "SHA256");
+      try {
+        digestHashFunction = new DigestFunctionConverter().convert(value);
+      } catch (OptionsParsingException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(Strings.nullToEmpty(e.getMessage()))
+                    .setFilesystem(
+                        Filesystem.newBuilder()
+                            .setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE))
+                    .build()),
+            e);
+      }
     }
-    // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return ModuleFileSystem.create(
-        OS.getCurrent() == OS.WINDOWS
-            ? new WindowsFileSystem(enableSymLinks)
-            : new UnixFileSystem());
+
+    FileSystem fs;
+    if (OS.getCurrent() == OS.WINDOWS) {
+      fs = new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
+    } else {
+      if (JniLoader.isJniAvailable()) {
+        fs = new UnixFileSystem(digestHashFunction, options.unixDigestHashAttributeName);
+      } else {
+        fs = new JavaIoFileSystem(digestHashFunction);
+      }
+    }
+    return ModuleFileSystem.create(fs);
   }
 }

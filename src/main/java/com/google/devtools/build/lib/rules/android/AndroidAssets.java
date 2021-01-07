@@ -20,10 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -110,7 +109,7 @@ public class AndroidAssets {
       return null;
     }
 
-    return ruleContext.getPrerequisitesIf(ASSETS_ATTR, TransitionMode.TARGET, FileProvider.class);
+    return ruleContext.getPrerequisitesIf(ASSETS_ATTR, FileProvider.class);
   }
 
   @Nullable
@@ -172,7 +171,8 @@ public class AndroidAssets {
     return assetDir;
   }
 
-  public ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {
+  @VisibleForTesting
+  ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {
     return ParsedAndroidAssets.parseFrom(dataContext, this);
   }
 

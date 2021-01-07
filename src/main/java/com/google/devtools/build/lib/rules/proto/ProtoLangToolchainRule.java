@@ -18,14 +18,12 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 
 /** Implements {code proto_lang_toolchain}. */
@@ -52,7 +50,11 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         passed to the proto-compiler:
         <code>--plugin=protoc-gen-PLUGIN=<executable>.</code>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("plugin", LABEL).exec().cfg(HostTransition.createFactory()).allowedFileTypes())
+        .add(
+            attr("plugin", LABEL)
+                .exec()
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(runtime) -->
         A language-specific library that the generated code is compiled against.
@@ -70,8 +72,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         .add(
             attr("blacklisted_protos", LABEL_LIST)
                 .allowedFileTypes()
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
+                .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .advertiseProvider(ProtoLangToolchainProvider.class)
         .removeAttribute("data")

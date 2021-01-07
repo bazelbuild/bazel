@@ -434,4 +434,31 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
         .isEmpty();
   }
+
+  @Test
+  public void packageNameCanHaveHyphen() throws Exception {
+    scratch.file(
+        "pkg-hyphenated/BUILD", //
+        "py_binary(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        ")");
+    assertThat(getConfiguredTarget("//pkg-hyphenated:foo")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void srcsPackageNameCanHaveHyphen() throws Exception {
+    scratch.file(
+        "pkg-hyphenated/BUILD", //
+        "exports_files(['bar.py'])");
+    scratch.file(
+        "otherpkg/BUILD", //
+        "py_binary(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'],",
+        ")");
+    assertThat(getConfiguredTarget("//otherpkg:foo")).isNotNull();
+    assertNoEvents();
+  }
 }

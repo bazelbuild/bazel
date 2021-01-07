@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
@@ -89,6 +90,31 @@ public final class Spawns {
   public static boolean supportsMultiplexWorkers(Spawn spawn) {
     return "1"
         .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
+  }
+
+  /**
+   * Returns which worker protocol format a Spawn claims a persistent worker uses. Defaults to proto
+   * if the protocol format is not specified.
+   */
+  public static ExecutionRequirements.WorkerProtocolFormat getWorkerProtocolFormat(Spawn spawn)
+      throws IOException {
+    String protocolFormat =
+        spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL);
+
+    if (protocolFormat != null) {
+      switch (protocolFormat) {
+        case "json":
+          return ExecutionRequirements.WorkerProtocolFormat.JSON;
+        case "proto":
+          return ExecutionRequirements.WorkerProtocolFormat.PROTO;
+        default:
+          throw new IOException(
+              "requires-worker-protocol must be set to a valid worker protocol format: json or"
+                  + " proto");
+      }
+    } else {
+      return ExecutionRequirements.WorkerProtocolFormat.PROTO;
+    }
   }
 
   /** Returns the mnemonic that should be used in the worker's key. */

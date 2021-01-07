@@ -344,9 +344,9 @@ public class EagerInvalidatorTest {
     SkyKey parent = GraphTester.skyKey("parent");
     tester.getOrCreate(parent).addDependency(family[numValues - 1]).setComputedValue(CONCATENATE);
     eval(/*keepGoing=*/false, parent);
-    final Thread mainThread = Thread.currentThread();
-    final AtomicReference<SkyKey> badKey = new AtomicReference<>();
-    final DirtyTrackingProgressReceiver receiver =
+    Thread mainThread = Thread.currentThread();
+    AtomicReference<SkyKey> badKey = new AtomicReference<>();
+    DirtyTrackingProgressReceiver receiver =
         new DirtyTrackingProgressReceiver(
             new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
               @Override
@@ -370,6 +370,7 @@ public class EagerInvalidatorTest {
                 } catch (InterruptedException e) {
                   // We may well have thrown here because by the time we try to await, the main
                   // thread is already interrupted.
+                  Thread.currentThread().interrupt();
                 }
               }
             });

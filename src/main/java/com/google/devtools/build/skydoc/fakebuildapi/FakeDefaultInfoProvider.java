@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.DefaultInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.DefaultInfoApi.DefaultInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Fake implementation of {@link DefaultInfoApiProvider}.

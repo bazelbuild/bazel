@@ -34,11 +34,10 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -94,7 +93,7 @@ public class StarlarkAttributeTransitionProvider
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       for (String attribute : attributeMap.getAttributeNames()) {
         Object val = attributeMap.get(attribute, attributeMap.getAttributeType(attribute));
-        attributes.put(Attribute.getStarlarkName(attribute), Starlark.fromJava(val, null));
+        attributes.put(Attribute.getStarlarkName(attribute), Attribute.valueToStarlark(val));
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
     }
@@ -105,7 +104,7 @@ public class StarlarkAttributeTransitionProvider
      */
     @Override
     public final Map<String, BuildOptions> split(
-        BuildOptionsView buildOptionsView, EventHandler eventHandler) {
+        BuildOptionsView buildOptionsView, EventHandler eventHandler) throws InterruptedException {
       // Starlark transitions already have logic to enforce they only access declared inputs and
       // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
       // we just use the original BuildOptions and trust the transition's enforcement logic.
@@ -113,17 +112,11 @@ public class StarlarkAttributeTransitionProvider
       try {
         return applyAndValidate(
             buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        eventHandler.handle(
-            Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                "Starlark transition interrupted during attribute transition implementation"));
-        return ImmutableMap.of("error", buildOptions.clone());
       } catch (EvalException e) {
         eventHandler.handle(
             Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                e.getMessageWithStack()));
         return ImmutableMap.of("error", buildOptions.clone());
       }
     }

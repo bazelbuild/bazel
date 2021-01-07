@@ -23,9 +23,9 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -80,17 +80,24 @@ final class ProtoAttributes {
   /** Returns the list of portable proto filters. */
   ImmutableList<Artifact> getPortableProtoFilters() {
     if (ruleContext.attributes().has(PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)) {
-      return ruleContext
-          .getPrerequisiteArtifacts(PORTABLE_PROTO_FILTERS_ATTR, TransitionMode.HOST)
-          .list();
+      return ruleContext.getPrerequisiteArtifacts(PORTABLE_PROTO_FILTERS_ATTR).list();
     }
     return ImmutableList.of();
   }
 
   /** Returns the list of well known type protos. */
   NestedSet<Artifact> getWellKnownTypeProtos() {
-    return PrerequisiteArtifacts.nestedSet(
-        ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES, TransitionMode.HOST);
+    NestedSetBuilder<Artifact> wellKnownTypeProtos = NestedSetBuilder.stableOrder();
+    for (TransitiveInfoCollection protos :
+        ruleContext.getPrerequisites(ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES)) {
+      ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
+      if (protoInfo != null) {
+        wellKnownTypeProtos.addTransitive(protoInfo.getTransitiveProtoSources());
+      } else {
+        wellKnownTypeProtos.addTransitive(protos.getProvider(FileProvider.class).getFilesToBuild());
+      }
+    }
+    return wellKnownTypeProtos.build();
   }
 
   /** Returns the list of proto files to compile. */
@@ -102,15 +109,12 @@ final class ProtoAttributes {
 
   /** Returns the proto compiler to be used. */
   Artifact getProtoCompiler() {
-    return ruleContext.getPrerequisiteArtifact(
-        ObjcRuleClasses.PROTO_COMPILER_ATTR, TransitionMode.HOST);
+    return ruleContext.getPrerequisiteArtifact(ObjcRuleClasses.PROTO_COMPILER_ATTR);
   }
 
   /** Returns the list of files needed by the proto compiler. */
   Iterable<Artifact> getProtoCompilerSupport() {
-    return ruleContext
-        .getPrerequisiteArtifacts(ObjcRuleClasses.PROTO_COMPILER_SUPPORT_ATTR, TransitionMode.HOST)
-        .list();
+    return ruleContext.getPrerequisiteArtifacts(ObjcRuleClasses.PROTO_COMPILER_SUPPORT_ATTR).list();
   }
 
   /**
@@ -188,8 +192,7 @@ final class ProtoAttributes {
   /** Returns the sets of proto files that were added using proto_library dependencies. */
   private NestedSet<Artifact> getProtoDepsSources() {
     NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.stableOrder();
-    Iterable<ProtoInfo> providers =
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER);
+    Iterable<ProtoInfo> providers = ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER);
     for (ProtoInfo provider : providers) {
       artifacts.addTransitive(provider.getTransitiveProtoSources());
     }

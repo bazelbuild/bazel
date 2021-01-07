@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -64,12 +66,19 @@ public class ExampleWorkerOptions extends OptionsBase {
     public boolean writeCounter;
 
     @Option(
-      name = "print_inputs",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false",
-      help = "Writes a list of input files and their digests."
-    )
+        name = "print_requests",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Prints out all requests.")
+    public boolean printRequests;
+
+    @Option(
+        name = "print_inputs",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Writes a list of input files and their digests.")
     public boolean printInputs;
 
     @Option(
@@ -125,4 +134,21 @@ public class ExampleWorkerOptions extends OptionsBase {
     help = "Instead of writing an error message to stdout, write it to stderr and terminate."
   )
   public boolean hardPoison;
+
+  /** Enum converter for --worker_protocol. */
+  public static class WorkerProtocolEnumConverter
+      extends EnumConverter<ExecutionRequirements.WorkerProtocolFormat> {
+    public WorkerProtocolEnumConverter() {
+      super(ExecutionRequirements.WorkerProtocolFormat.class, "worker protocol format option");
+    }
+  }
+
+  @Option(
+      name = "worker_protocol",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "proto",
+      help = "The protocol (JSON or proto) to use for communication between this worker and Bazel.",
+      converter = WorkerProtocolEnumConverter.class)
+  public ExecutionRequirements.WorkerProtocolFormat workerProtocol;
 }

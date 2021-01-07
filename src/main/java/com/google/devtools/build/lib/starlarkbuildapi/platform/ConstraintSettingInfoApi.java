@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object representing a specific constraint setting that may be used to define a platform. */
@@ -30,14 +30,14 @@ import net.starlark.java.annot.StarlarkMethod;
             + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
             + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface ConstraintSettingInfoApi extends StructApi {
 
   @StarlarkMethod(
       name = "label",
       doc = "The label of the target that created this constraint.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Label label();
 
   @StarlarkMethod(
@@ -45,7 +45,7 @@ public interface ConstraintSettingInfoApi extends StructApi {
       doc = "The default constraint_value for this setting.",
       structField = true,
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   @Nullable
   ConstraintValueInfoApi defaultConstraintValue();
 

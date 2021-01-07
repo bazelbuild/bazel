@@ -36,7 +36,7 @@ public final class BazelAarImportRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("aar_import")
-        .ancestors(AarImportBaseRule.class, JavaBaseRule.class)
+        .ancestors(AarImportBaseRule.class, JavaBaseRule.class, BazelSdkToolchainRule.class)
         .factoryClass(BazelAarImport.class)
         .build();
   }
