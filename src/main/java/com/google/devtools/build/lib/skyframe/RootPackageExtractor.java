@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -53,5 +54,5 @@ public interface RootPackageExtractor {
       PathFragment directory,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException;
+      throws InterruptedException, QueryException;
 }
