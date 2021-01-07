@@ -151,7 +151,11 @@ public class StarlarkOptionsParser {
     // Map of flag label as a string to its loaded target and set value after parsing.
     HashMap<String, Pair<Target, Object>> buildSettingWithTargetAndValue = new HashMap<>();
     for (Map.Entry<String, Pair<String, Target>> option : unparsedOptions.entries()) {
+      // These are already in umambiguous canonical form - this just turns main repo
+      // label from @//myflag -> //myflag since that's how users are used to seeing this label.
       String loadedFlag = option.getKey();
+      // String loadedFlag =
+      // Label.parseAbsoluteUnchecked(option.getKey()).getDefaultCanonicalForm();
       String unparsedValue = option.getValue().first;
       Target buildSettingTarget = option.getValue().second;
       BuildSetting buildSetting =
@@ -238,7 +242,11 @@ public class StarlarkOptionsParser {
     if (value != null) {
       // --flag=value or -flag=value form
       Target buildSettingTarget = loadBuildSetting(name, eventHandler);
-      unparsedOptions.put(name, new Pair<>(value, buildSettingTarget));
+      // Use the unambiguous canonical form to ensure we don't have
+      // duplicate options getting into the starlark options map.
+      unparsedOptions.put(
+          buildSettingTarget.getLabel().getDefaultCanonicalForm(),
+          new Pair<>(value, buildSettingTarget));
     } else {
       boolean booleanValue = true;
       // check --noflag form

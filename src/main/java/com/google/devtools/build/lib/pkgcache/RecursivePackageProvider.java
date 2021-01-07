@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
@@ -56,7 +57,7 @@ public interface RecursivePackageProvider extends PackageProvider {
       PathFragment directory,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException;
+      throws InterruptedException, QueryException;
 
   /**
    * Returns the {@link Package} corresponding to each Package in "pkgIds". If any of the packages

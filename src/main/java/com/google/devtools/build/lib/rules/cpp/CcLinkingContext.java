@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -471,6 +472,22 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Override
   public Depset getStarlarkNonCodeInputs() {
     return Depset.of(Artifact.TYPE, getNonCodeInputs());
+  }
+
+  @Override
+  public ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    ExtraLinkTimeLibrary goLinkCArchive = null;
+    if (extraLinkTimeLibraries != null) {
+      for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {
+        if (goLinkCArchive != null) {
+          throw new EvalException("multiple GoLinkCArchive entries in go_link_c_archive");
+        }
+        goLinkCArchive = extraLibrary;
+      }
+    }
+    return goLinkCArchive;
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {
