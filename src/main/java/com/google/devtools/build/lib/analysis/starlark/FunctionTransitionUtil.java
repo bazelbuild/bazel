@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -52,8 +53,6 @@ import net.starlark.java.eval.Starlark;
  * StarlarkRuleTransitionProvider}.
  */
 public class FunctionTransitionUtil {
-
-  public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
   // The length of the hash of the config tacked onto the end of the output path.
   // Limited for ergonomics and MAX_PATH reasons.
