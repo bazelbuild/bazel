@@ -70,9 +70,9 @@ sh_test(
     name = "shell_utils_test",
     srcs = ["shell_utils_test.sh"],
     data = [
-        ":testenv.sh",
         ":bashunit",
         ":shell_utils",
+        ":testenv.sh",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
@@ -81,9 +81,9 @@ sh_test(
     name = "shell_utils_symlinks_test",
     srcs = ["shell_utils_symlinks_test.sh"],
     data = [
-        ":testenv.sh",
         ":bashunit",
         ":shell_utils",
+        ":testenv.sh",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [
