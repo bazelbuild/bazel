@@ -33,7 +33,7 @@ else
 
   CURRENT_SCRIPT=${BASH_SOURCE[0]}
   # Go to the directory where the script is running
-  c//src/test/shell/bazel:external_integration_test d "$(dirname ${CURRENT_SCRIPT})" \
+  cd "$(dirname ${CURRENT_SCRIPT})" \
     || print_message_and_exit "Unable to access $(dirname ${CURRENT_SCRIPT})"
 
   DIR=$(pwd)
