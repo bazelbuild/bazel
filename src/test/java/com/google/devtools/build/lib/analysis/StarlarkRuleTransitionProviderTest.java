@@ -133,7 +133,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("Transition function must return a dictionary or list of dictionaries.");
+    assertContainsEvent("transition function returned string, want dict or list of dicts");
   }
 
   @Test
