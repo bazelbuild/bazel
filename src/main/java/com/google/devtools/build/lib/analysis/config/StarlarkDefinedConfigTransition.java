@@ -44,6 +44,21 @@ import net.starlark.java.syntax.Location;
  */
 public abstract class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
 
+  public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
+
+  /**
+   * The two groups of build settings that are relevant for a {@link
+   * StarlarkDefinedConfigTransition}
+   */
+  public enum Settings {
+    /** Build settings that are read by a {@link StarlarkDefinedConfigTransition} */
+    INPUTS,
+    /** Build settings that are written by a {@link StarlarkDefinedConfigTransition} */
+    OUTPUTS,
+    /** Build settings that are read and/or written by a {@link StarlarkDefinedConfigTransition } */
+    INPUTS_AND_OUTPUTS
+  }
+
   private final List<String> inputs;
   private final List<String> outputs;
   private final Location location;
