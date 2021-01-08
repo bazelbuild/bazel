@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests the java rules with the default values provided by Bazel.
+# Tests Java toolchains, configured using flags or the default_java_toolchain macro.
 #
 
 set -euo pipefail
@@ -133,6 +133,7 @@ EOF
   expect_log "major version: 59"
 }
 
+# When coverage is requested with no Jacoco configured, an error shall be reported.
 function test_tools_jdk_toolchain_nojacocorunner() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -167,7 +168,7 @@ EOF
   expect_log "jacocorunner not set in java_toolchain:"
 }
 
-
+# Specific toolchain attributes can be overridden.
 function test_default_java_toolchain_manualConfiguration() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
@@ -177,9 +178,15 @@ default_java_toolchain(
   jvm_opts = [],
 )
 EOF
+
   bazel build //:vanilla || fail "default_java_toolchain target failed to build"
+  bazel cquery --output=build //:vanilla >& $TEST_log || fail "failed to query //:vanilla"
+
+  expect_log 'jvm_opts = \[\]'
+  expect_log 'javabuilder = \["//:VanillaJavaBuilder"\]'
 }
 
+# Specific toolchain attributes - jvm_opts containing location function - can be overridden.
 function test_default_java_toolchain_manualConfigurationWithLocation() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JDK9_JVM_OPTS")
@@ -200,9 +207,15 @@ default_java_toolchain(
     ],
 )
 EOF
+
   bazel build //:toolchain || fail "default_java_toolchain target failed to build"
+  bazel cquery --output=build //:toolchain >& $TEST_log || fail "failed to query //:toolchain"
+
+  expect_log 'jvm_opts = \["-XX:+UseParallelOldGC", "-XX:-CompactStrings", "--patch-module=java.compiler=$(location @remote_java_tools//:java_compiler_jar)", "--patch-module=jdk.compiler=$(location @remote_java_tools//:jdk_compiler_jar)",'
+  expect_log 'tools = \["@remote_java_tools//:java_compiler_jar", "@remote_java_tools//:jdk_compiler_jar"\]'
 }
 
+# JVM8_TOOLCHAIN_CONFIGURATION shall override Java 8 internal compiler classes.
 function test_default_java_toolchain_jvm8Toolchain() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JVM8_TOOLCHAIN_CONFIGURATION")
@@ -212,9 +225,18 @@ default_java_toolchain(
   java_runtime = "@local_jdk//:jdk",
 )
 EOF
+
   bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
+  bazel cquery 'deps(//:jvm8_toolchain)' >& $TEST_log || fail "failed to query //:jvm8_toolchain"
+
+  expect_log ":JavaBuilder"
+  expect_log ":javac_jar"
+  expect_not_log ":java_compiler_jar"
+  expect_not_log ":jdk_compiler_jar"
+  expect_not_log ":VanillaJavaBuilder"
 }
 
+# DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.
 function test_default_java_toolchain_javabuilderToolchain() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
@@ -223,9 +245,18 @@ default_java_toolchain(
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
 )
 EOF
+
   bazel build //:javabuilder_toolchain || fail "default_java_toolchain target failed to build"
+  bazel cquery 'deps(//:javabuilder_toolchain)' >& $TEST_log || fail "failed to query //:javabuilder_toolchain"
+
+  expect_log ":JavaBuilder"
+  expect_log ":java_compiler_jar"
+  expect_log ":jdk_compiler_jar"
+  expect_not_log ":VanillaJavaBuilder"
+  expect_not_log ":javac_jar"
 }
 
+# VANILLA_TOOLCHAIN_CONFIGURATION shall use VanillaJavaBuilder and not override any JDK internal compiler classes.
 function test_default_java_toolchain_vanillaToolchain() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
@@ -235,9 +266,18 @@ default_java_toolchain(
   java_runtime = "@local_jdk//:jdk",
 )
 EOF
+
   bazel build //:vanilla_toolchain || fail "default_java_toolchain target failed to build"
+  bazel cquery 'deps(//:vanilla_toolchain)' >& $TEST_log || fail "failed to query //:vanilla_toolchain"
+
+  expect_log ":VanillaJavaBuilder"
+  expect_not_log ":JavaBuilder"
+  expect_not_log ":java_compiler_jar"
+  expect_not_log ":jdk_compiler_jar"
+  expect_not_log ":javac_jar"
 }
 
+# PREBUILT_TOOLCHAIN_CONFIGURATION shall use prebuilt ijar and singlejar binaries.
 function test_default_java_toolchain_prebuiltToolchain() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "PREBUILT_TOOLCHAIN_CONFIGURATION")
@@ -246,9 +286,17 @@ default_java_toolchain(
   configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
 )
 EOF
+
   bazel build //:prebuilt_toolchain || fail "default_java_toolchain target failed to build"
+  bazel cquery 'deps(//:prebuilt_toolchain)' >& $TEST_log || fail "failed to query //:prebuilt_toolchain"
+
+  expect_log "ijar/ijar\(.exe\)\? "
+  expect_log "singlejar/singlejar_local"
+  expect_not_log "ijar/ijar.cc"
+  expect_not_log "singlejar/singlejar_main.cc"
 }
 
+# NONPREBUILT_TOOLCHAIN_CONFIGURATION shall compile ijar and singlejar from sources.
 function test_default_java_toolchain_nonprebuiltToolchain() {
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
@@ -257,8 +305,14 @@ default_java_toolchain(
   configuration = NONPREBUILT_TOOLCHAIN_CONFIGURATION,
 )
 EOF
+
   bazel build //:nonprebuilt_toolchain || fail "default_java_toolchain target failed to build"
+  bazel cquery 'deps(//:nonprebuilt_toolchain)' >& $TEST_log || fail "failed to query //:nonprebuilt_toolchain"
+
+  expect_log "ijar/ijar.cc"
+  expect_log "singlejar/singlejar_main.cc"
+  expect_not_log "ijar/ijar\(.exe\)\? "
+  expect_not_log "singlejar/singlejar_local"
 }
 
-
-run_suite "Java integration tests with default Bazel values"
+run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."
