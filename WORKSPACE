@@ -148,10 +148,6 @@ distdir_tar(
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz",
-        # bazelbuild/platforms
-        "platforms-0.0.2.tar.gz",
-        # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/upb

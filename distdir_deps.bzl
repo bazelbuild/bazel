@@ -72,9 +72,8 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "need_in_test_WORKSPACE": True,
     },
-    ########################################
+    #################################################
     #
     # Dependencies which are part of the Bazel binary
     #
