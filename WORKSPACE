@@ -148,8 +148,10 @@ distdir_tar(
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        # bazelbuild/platforms
+        "platforms-0.0.2.tar.gz",
+        # bazelbuild/bazel-toolchains
+        "bazel-toolchains-3.1.0.tar.gz",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/upb
@@ -169,8 +171,6 @@ distdir_tar(
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/upb
@@ -207,11 +207,6 @@ distdir_tar(
         "bazel-skylib-1.0.3.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-        ],
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
@@ -403,16 +398,10 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-http_archive(
+dist_http_archive(
     name = "rules_java",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-    ],
 )
 
 http_archive(
@@ -445,8 +434,6 @@ distdir_tar(
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/upb
@@ -467,8 +454,6 @@ distdir_tar(
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/bazel-skylib
         "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/upb
@@ -492,10 +477,6 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
-        # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [

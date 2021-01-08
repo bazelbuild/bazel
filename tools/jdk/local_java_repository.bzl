@@ -26,7 +26,7 @@ def _detect_java_version(repository_ctx, java_bin):
     strip_properties = [property.strip() for property in properties_out.splitlines()]
     version_property = [property for property in strip_properties if property.startswith("java.version = ")]
     if len(version_property) != 1:
-        return "unknown"
+        return None
 
     version_value = version_property[0][len("java.version = "):]
     (major, minor, rest) = version_value.split(".", 2)
@@ -69,17 +69,23 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
         values = {"java_runtime_version": version},
         visibility = ["//visibility:private"],
     )
+    native.config_setting(
+        name = name + "_name_version_setting",
+        values = {"java_runtime_version": name + "_" + version},
+        visibility = ["//visibility:private"],
+    )
     native.alias(
-        name = name + "_version_or_name_setting",
+        name = name + "_settings_alias",
         actual = select({
+            name + "_name_setting": name + "_name_setting",
             name + "_version_setting": name + "_version_setting",
-            "//conditions:default": name + "_name_setting",
+            "//conditions:default": name + "_name_version_setting",
         }),
         visibility = ["//visibility:private"],
     )
     native.toolchain(
         name = "runtime_toolchain_definition",
-        target_settings = [":%s_version_or_name_setting" % name],
+        target_settings = [":%s_settings_alias" % name],
         toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
         toolchain = runtime_name,
     )
@@ -92,7 +98,7 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
             target_version = version,
             java_runtime = runtime_name,
         )
-    else:
+    elif type(version) == type("") and version.isdigit() and int(version) > 8:
         for version in range(8, int(version) + 1):
             default_java_toolchain(
                 name = name + "_toolchain_java" + str(version),
@@ -100,6 +106,8 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
                 target_version = str(version),
                 java_runtime = runtime_name,
             )
+
+    # else version is not recognized and no compilation toolchains are predefined
 
 def _local_java_repository_impl(repository_ctx):
     """Repository rule local_java_repository implementation.
@@ -148,8 +156,8 @@ def _local_java_repository_impl(repository_ctx):
 local_java_runtime(
     name = "%s",
     runtime_name = %s,
-     java_home = "%s",
-     version = "%s",
+    java_home = "%s",
+    version = "%s",
 )
 """ % (repository_ctx.name, runtime_name, java_home, version)
 
