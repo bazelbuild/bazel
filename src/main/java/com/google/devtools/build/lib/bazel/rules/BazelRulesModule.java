@@ -472,6 +472,15 @@ public class BazelRulesModule extends BlazeModule {
         },
         help = "No-op.")
     public boolean enableProfileByDefault;
+
+    @Option(
+        name = "experimental_skyframe_eval_with_ordered_list",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean skyframeEvalWithOrderedList;
   }
 
   @Override
