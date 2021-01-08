@@ -33,6 +33,21 @@ DIST_DEPS = {
         ],
         "need_in_test_WORKSPACE": True,
     },
+    "rules_java": {
+        "archive": "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "sha256": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+        "strip_prefix": "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+        "need_in_test_WORKSPACE": True,
+    },
+
     ########################################
     #
     # Build time dependencies
@@ -71,7 +86,8 @@ def _gen_workspace_stanza_impl(ctx):
     if ctx.attr.template and (ctx.attr.preamble or ctx.attr.postamble):
         fail("Can not use template with either preamble or postamble")
 
-    repo_clause = """
+    if ctx.attr.use_maybe:
+        repo_clause = """
 maybe(
     http_archive,
     "{repo}",
@@ -80,6 +96,16 @@ maybe(
     urls = {urls},
 )
 """
+    else:
+        repo_clause = """
+http_archive(
+    name = "{repo}",
+    sha256 = "{sha256}",
+    strip_prefix = {strip_prefix},
+    urls = {urls},
+)
+"""
+
     repo_stanzas = {}
     for repo in ctx.attr.repos:
         info = DIST_DEPS[repo]
@@ -116,6 +142,8 @@ maybe(
 
 gen_workspace_stanza = rule(
     implementation = _gen_workspace_stanza_impl,
+    doc = "Use specifications from DIST_DEPS to generate WORKSPACE http_archive stanzas or to fill" +
+          "drop them into a template.",
     attrs = {
         "repos": attr.string_list(doc = "Set of repos to inlcude"),
         "out": attr.output(mandatory = True),
@@ -127,5 +155,6 @@ gen_workspace_stanza = rule(
             allow_single_file = True,
             mandatory = False,
         ),
+        "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive"),
     },
 )

@@ -2385,7 +2385,7 @@ EOF
   # Also verify that the repository class and its definition is reported, to
   # help finding out where the implict dependency comes from.
   expect_log "Repository data instantiated at:"
-  expect_log ".../WORKSPACE:47"
+  expect_log ".../WORKSPACE:[0-9]*"
   expect_log "Repository rule data_repo defined at:"
   expect_log ".../withimplicit.bzl:6"
 }
