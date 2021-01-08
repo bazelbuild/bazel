@@ -412,6 +412,48 @@ replacements {
 
 replacements {
   source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Double"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Double8"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/lang/Double"
+      name: "hashCode"
+      desc: "()I"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Double8"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
     method_id {
       owner: "java/lang/Integer"
       name: "max"
@@ -464,6 +506,64 @@ replacements {
 replacements {
   source {
     method_id {
+      owner: "java/lang/Integer"
+      name: "toUnsignedLong"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Integer8"
+      name: "toUnsignedLong"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer8"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/lang/Integer"
+      name: "hashCode"
+      desc: "()I"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer8"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    method_id {
       owner: "java/lang/Long"
       name: "max"
     }
@@ -509,6 +609,66 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+   source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long8"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/lang/Long"
+      name: "hashCode"
+      desc: "()I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long8"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Long"
+      name: "divideUnsigned"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Long8"
+      name: "divideUnsigned"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
