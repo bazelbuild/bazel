@@ -15,7 +15,7 @@
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
+    "-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)",
 ]
 
 # JVM options, without patching java.compiler and jdk.compiler modules.
