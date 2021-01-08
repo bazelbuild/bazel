@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
+import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.DESUGAR_JAVA8_CORE_LIBS;
 import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.DESUGAR_JAVA8_LIBS;
 import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.REPLACE_CALLS_TO_LONG_UNSIGNED;
 import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS;
@@ -161,6 +162,10 @@ public class Desugar {
 
     if (options.desugarCoreLibs && options.autoDesugarShadowedApiUse) {
       invocationReplacementRangesBuilder.add(DESUGAR_JAVA8_LIBS);
+    }
+
+    if (options.coreLibrary) {
+      invocationReplacementRangesBuilder.add(DESUGAR_JAVA8_CORE_LIBS);
     }
 
     enabledInvocationReplacementRanges = invocationReplacementRangesBuilder.build();

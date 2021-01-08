@@ -370,6 +370,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -387,6 +388,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -404,6 +406,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -506,6 +509,114 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "addExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "addExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "subtractExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "subtractExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "multiplyExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "multiplyExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "incrementExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "incrementExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "decrementExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "decrementExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "negateExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "negateExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -523,73 +634,104 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
-    opcode: 184
     method_id {
       owner: "java/lang/Math"
-      name: "floorDiv"
-      desc: "(JI)J"
+      name: "multiplyFull"
     }
-    is_interface: false
   }
   destination {
-    opcode: 184
     method_id {
       owner: "java/lang/Math8"
-      name: "floorDiv"
-      desc: "(JI)J"
+      name: "multiplyFull"
     }
-    is_interface: false
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
-    opcode: 184
     method_id {
       owner: "java/lang/Math"
-      name: "floorMod"
-      desc: "(JI)J"
+      name: "multiplyHigh"
     }
-    is_interface: false
   }
   destination {
-    opcode: 184
     method_id {
       owner: "java/lang/Math8"
-      name: "floorMod"
-      desc: "(JI)J"
+      name: "multiplyHigh"
     }
-    is_interface: false
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
-    opcode: 184
     method_id {
       owner: "java/lang/Math"
-      name: "multiplyExact"
-      desc: "(JI)J"
+      name: "floorDiv"
     }
     is_interface: false
   }
   destination {
-    opcode: 184
     method_id {
       owner: "java/lang/Math8"
-      name: "multiplyExact"
-      desc: "(JI)J"
+      name: "floorDiv"
     }
     is_interface: false
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "floorMod"
+    }
+    is_interface: false
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "floorMod"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "nextDown"
+    }
+    is_interface: false
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "nextDown"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
