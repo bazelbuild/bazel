@@ -290,7 +290,7 @@ EOF
   bazel build //:prebuilt_toolchain || fail "default_java_toolchain target failed to build"
   bazel cquery 'deps(//:prebuilt_toolchain)' >& $TEST_log || fail "failed to query //:prebuilt_toolchain"
 
-  expect_log "ijar/ijar(.exe)? "
+  expect_log "ijar/ijar\(.exe\)\? "
   expect_log "singlejar/singlejar_local"
   expect_not_log "ijar/ijar.cc"
   expect_not_log "singlejar/singlejar_main.cc"
@@ -311,7 +311,7 @@ EOF
 
   expect_log "ijar/ijar.cc"
   expect_log "singlejar/singlejar_main.cc"
-  expect_not_log "ijar/ijar(.exe)? "
+  expect_not_log "ijar/ijar\(.exe\)\? "
   expect_not_log "singlejar/singlejar_local"
 }
 
