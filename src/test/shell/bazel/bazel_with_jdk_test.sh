@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests that the version of Bazel with a bundled JDK works.
+# Tests detection of local JDK and that Bazel executes with a bundled JDK.
 #
 
 set -euo pipefail
@@ -90,6 +90,19 @@ function set_up() {
     setup_bazelrc
   fi
 
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_library(
+    name = 'JavaExample',
+    srcs = ['JavaExample.java'],
+)
+EOF
+
+  cat >java/main/JavaExample.java <<EOF
+public class JavaExample {
+}
+EOF
+
   # ... but ensure JAVA_HOME is set, so we can find a default local jdk
   export JAVA_HOME="${javabase}"
 }
@@ -123,7 +136,6 @@ function test_bazel_license_prints_jdk_license() {
 # JVM selection: Do not automatically use remote JDK for execution JVM if local
 # JDK is not found. Print an error message guiding the user how to use remote JDK.
 # Rationale: Keeping build systems stable upon Bazel releases.
-
 function test_bazel_reports_missing_local_jdk() {
   # Make a JAVA_HOME with javac and without java
   # This fails discovery on systems that rely on JAVA_HOME, rely on PATH and
@@ -135,21 +147,97 @@ function test_bazel_reports_missing_local_jdk() {
   export JAVA_HOME="$PWD"
   export PATH="$PWD/bin:$PATH"
 
-  mkdir -p java/main
-  cat >java/main/BUILD <<EOF
-java_library(
-    name = 'JavaExample',
-    srcs = ['JavaExample.java'],
-)
-EOF
-
-  cat >java/main/JavaExample.java <<EOF
-public class JavaExample {
-}
-EOF
-
-  bazel build java/main:JavaExample &>"${TEST_log}" && fail "build should have failed" || true
+  bazel build java/main:JavaExample &>"${TEST_log}" \
+      && fail "build with missing local JDK should have failed" || true
   expect_log "Auto-Configuration Error: Cannot find Java binary"
 }
 
-run_suite "bazel test suite"
+# Bazel shall detect JDK version and configure it with "local_jdk_{version}" and "{version}" setting.
+function test_bazel_detects_local_jdk_version8() {
+  # Fake Java version 8
+  mkdir -p jdk/bin
+  touch jdk/bin/javac
+  chmod +x jdk/bin/javac
+  cat >jdk/bin/java <<EOF
+#!/bin/bash
+
+echo " Property settings:" >&2
+echo "  java.version = 1.8.0 " >&2
+EOF
+  chmod +x jdk/bin/java
+  export JAVA_HOME="$PWD/jdk"
+  export PATH="$PWD/jdk/bin:$PATH"
+
+  bazel cquery --toolchain_resolution_debug --java_runtime_version=8 '//java/main:JavaExample' \
+      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
+  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+
+  bazel cquery --toolchain_resolution_debug --java_runtime_version=local_jdk_8 '//java/main:JavaExample' \
+      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
+  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+
+  bazel cquery --toolchain_resolution_debug --java_runtime_version=11 '//java/main:JavaExample' \
+      &>"${TEST_log}" || fail "Selecting prepackaged JDK version 11 failed"
+  expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+}
+
+# Bazel shall detect JDK version and configure it with "local_jdk_{version}" and "{version}" setting.
+function test_bazel_detects_local_jdk_version11() {
+  # Fake Java version 11
+  mkdir -p jdk/bin
+  touch jdk/bin/javac
+  chmod +x jdk/bin/javac
+  cat >jdk/bin/java <<EOF
+#!/bin/bash
+
+echo " Property settings:" >&2
+echo "  java.version = 11.0.1 " >&2
+EOF
+  chmod +x jdk/bin/java
+  export JAVA_HOME="$PWD/jdk"
+  export PATH="$PWD/jdk/bin:$PATH"
+
+  bazel cquery --toolchain_resolution_debug --java_runtime_version=11 '//java/main:JavaExample' \
+      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
+  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+
+  bazel cquery --toolchain_resolution_debug --java_runtime_version=local_jdk_11 '//java/main:JavaExample' \
+      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
+  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+
+  bazel cquery --toolchain_resolution_debug --java_runtime_version=15 '//java/main:JavaExample' \
+      &>"${TEST_log}"  || fail "Selecting prepackaged JDK version 15 failed"
+  expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+}
+
+# Failure to detect JDK version shall be handled gracefully.
+function test_bazel_gracefully_handles_unknown_java() {
+  # Fake Java version 11
+  mkdir -p jdk/bin
+  touch jdk/bin/javac
+  chmod +x jdk/bin/javac
+  cat >jdk/bin/java <<EOF
+#!/bin/bash
+
+echo " Property settings:" >&2
+echo "  java.version = xxx.superfuture.version " >&2
+EOF
+  chmod +x jdk/bin/java
+  export JAVA_HOME="$PWD/jdk"
+  export PATH="$PWD/jdk/bin:$PATH"
+
+  bazel cquery --toolchain_resolution_debug '//java/main:JavaExample' &>"${TEST_log}" \
+      || fail "Failed to resolve Java toolchain when version cannot be detected"
+  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+}
+
+# Bazel shall provide Java compilation toolchains that use local JDK.
+function test_bazel_compiles_with_localjdk() {
+  bazel aquery '//java/main:JavaExample' --extra_toolchains=@local_jdk//:all &>"${TEST_log}" \
+      || fail "Failed to use extra toolchains provided by @local_jdk repository."
+
+  expect_log "exec external/local_jdk/bin/java"
+  expect_not_log "exec external/remotejdk11_linux/bin/java"
+}
+
+run_suite "Tests detection of local JDK and that Bazel executes with a bundled JDK."
