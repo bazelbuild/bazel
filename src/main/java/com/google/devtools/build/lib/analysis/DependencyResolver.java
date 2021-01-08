@@ -61,8 +61,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
 
 /**
  * Resolver for dependencies between configured targets.
@@ -184,7 +183,7 @@ public abstract class DependencyResolver {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
-      throws EvalException, InterruptedException, InconsistentAspectOrderException {
+      throws Failure, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         dependentNodeMap(
@@ -242,7 +241,7 @@ public abstract class DependencyResolver {
       boolean useToolchainTransition,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
-      throws EvalException, InterruptedException, InconsistentAspectOrderException {
+      throws Failure, InterruptedException, InconsistentAspectOrderException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
@@ -304,11 +303,11 @@ public abstract class DependencyResolver {
       partiallyResolveDependencies(
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
-          ConfiguredAttributeMapper attributeMap,
+          @Nullable ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
           boolean useToolchainTransition,
           Iterable<Aspect> aspects)
-          throws EvalException {
+          throws Failure {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
 
@@ -394,15 +393,11 @@ public abstract class DependencyResolver {
           String execGroup =
               ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
           if (!toolchainContexts.hasToolchainContext(execGroup)) {
-            String error =
+            throw new Failure(
+                fromRule != null ? fromRule.getLocation() : null,
                 String.format(
                     "Attr '%s' declares a transition for non-existent exec group '%s'",
-                    attribute.getName(), execGroup);
-            if (fromRule != null) {
-              throw new EvalException(fromRule.getLocation(), error);
-            } else {
-              throw Starlark.errorf("%s", error);
-            }
+                    attribute.getName(), execGroup));
           }
           if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
             executionPlatformLabel =
@@ -477,6 +472,22 @@ public abstract class DependencyResolver {
     return outgoingEdges;
   }
 
+  /** A DependencyResolver.Failure indicates a failure during dependency resolution. */
+  public static class Failure extends Exception {
+    @Nullable private final Location location;
+
+    private Failure(Location location, String message) {
+      super(message);
+      this.location = location;
+    }
+
+    /** Returns the location of the error, if known. */
+    @Nullable
+    public Location getLocation() {
+      return location;
+    }
+  }
+
   private void visitRule(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
@@ -484,12 +495,16 @@ public abstract class DependencyResolver {
       ConfiguredAttributeMapper attributeMap,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
-      throws EvalException {
+      throws Failure {
     Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
     BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration(), node);
     Rule rule = (Rule) node.getTarget();
 
-    attributeMap.validateAttributes();
+    try {
+      attributeMap.validateAttributes();
+    } catch (ConfiguredAttributeMapper.ValidationException ex) {
+      throw new Failure(rule.getLocation(), ex.getMessage());
+    }
 
     visitTargetVisibility(node, outgoingLabels);
     resolveAttributes(outgoingLabels, rule, attributeMap, aspects, ruleConfig, hostConfig);

@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -109,13 +111,14 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    *     child configuration (split transitions will have multiple elements in this map with keys
    *     provided by the transition impl, patch transitions should have a single element keyed by
    *     {@code PATCH_TRANSITION_KEY}). Each build setting map is a map from build setting to target
-   *     setting value; all other build settings will remain unchanged
-   * @throws EvalException if there is an error evaluating the transition
+   *     setting value; all other build settings will remain unchanged. Returns null if errors were
+   *     reported to the handler.
    * @throws InterruptedException if evaluating the transition is interrupted
    */
+  @Nullable
   public abstract ImmutableMap<String, Map<String, Object>> evaluate(
       Map<String, Object> previousSettings, StructImpl attributeMap, EventHandler eventHandler)
-      throws EvalException, InterruptedException;
+      throws InterruptedException;
 
   public static StarlarkDefinedConfigTransition newRegularTransition(
       StarlarkCallable impl,
@@ -218,18 +221,23 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * @param attributeMapper a map of attributes
      */
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
+    @Nullable
     @Override
     public ImmutableMap<String, Map<String, Object>> evaluate(
-        Map<String, Object> previousSettings, StructImpl attributeMapper, EventHandler eventHandler)
-        throws EvalException, InterruptedException {
+        Map<String, Object> previousSettings, StructImpl attributeMapper, EventHandler handler)
+        throws InterruptedException {
+      // Call the Starlark function.
       Object result;
-      try {
+      try (Mutability mu = Mutability.create("eval_transition_function")) {
+        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
+        starlarkContext.storeInThread(thread);
         result =
-            evalFunction(impl, ImmutableList.of(previousSettings, attributeMapper), eventHandler);
-      } catch (EvalException e) {
-        // TODO(adonovan): this doesn't look right. Consider interposing a call to a delegating
-        // wrapper just to establish a fake frame for impl, then remove the catch.
-        throw new EvalException(impl.getLocation(), e.getMessageWithStack());
+            Starlark.fastcall(
+                thread, impl, new Object[] {previousSettings, attributeMapper}, new Object[0]);
+      } catch (EvalException ex) {
+        handler.handle(Event.error(null, ex.getMessageWithStack()));
+        return null;
       }
 
       if (result instanceof Dict) {
@@ -260,9 +268,12 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           return ImmutableMap.of(
               PATCH_TRANSITION_KEY,
               Dict.cast(result, String.class, Object.class, "dictionary of options"));
-        } catch (EvalException e) {
-          throw new EvalException(impl.getLocation(), e.getMessage());
+        } catch (EvalException ex) {
+          // TODO(adonovan): explain "want dict<string, any> or dict<string, dict<string, any>>".
+          errorf(handler, "invalid result from transition function: %s", ex.getMessage());
+          return null;
         }
+
       } else if (result instanceof Sequence) {
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
         try {
@@ -274,32 +285,30 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
                 Integer.toString(i++),
                 Dict.cast(toOptions, String.class, Object.class, "dictionary of options"));
           }
-        } catch (EvalException e) {
-          throw new EvalException(impl.getLocation(), e.getMessage());
+        } catch (EvalException ex) {
+          // TODO(adonovan): explain "want sequence of dict<string, any>".
+          errorf(handler, "invalid result from transition function: %s", ex.getMessage());
+          return null;
         }
         return builder.build();
+
       } else {
-        throw new EvalException(
-            impl.getLocation(),
-            "Transition function must return a dictionary or list of dictionaries.");
+        errorf(
+            handler,
+            "transition function returned %s, want dict or list of dicts",
+            Starlark.type(result));
+        return null;
       }
+    }
+
+    @FormatMethod
+    private void errorf(EventHandler handler, String format, Object... args) {
+      handler.handle(Event.error(impl.getLocation(), String.format(format, args)));
     }
 
     @Override
     public void repr(Printer printer) {
       printer.append("<transition object>");
-    }
-
-    /** Evaluate the input function with the given argument, and return the return value. */
-    private Object evalFunction(
-        StarlarkCallable function, ImmutableList<Object> args, EventHandler eventHandler)
-        throws InterruptedException, EvalException {
-      try (Mutability mu = Mutability.create("eval_transition_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
-        thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
-        starlarkContext.storeInThread(thread);
-        return Starlark.call(thread, function, args, /*kwargs=*/ ImmutableMap.of());
-      }
     }
 
     @Override
