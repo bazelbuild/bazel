@@ -23,6 +23,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -288,6 +289,13 @@ public interface BazelCcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = String.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -318,6 +326,7 @@ public interface BazelCcModuleApi<
       Object doNotGenerateModuleMap,
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -437,6 +446,13 @@ public interface BazelCcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -455,6 +471,7 @@ public interface BazelCcModuleApi<
       Object linkArtifactNameSuffix,
       Object neverLink,
       Object testOnlyTarget,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
