@@ -105,6 +105,7 @@ public class BazelCcModule extends CcModule
       Object doNotGenerateModuleMap,
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -139,6 +140,7 @@ public class BazelCcModule extends CcModule
         doNotGenerateModuleMap,
         codeCoverageEnabled,
         hdrsCheckingMode,
+        variablesExtension,
         thread);
   }
 
@@ -160,6 +162,7 @@ public class BazelCcModule extends CcModule
       Object linkArtifactNameSuffix,
       Object neverLink,
       Object testOnlyTarget,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -179,6 +182,7 @@ public class BazelCcModule extends CcModule
         linkArtifactNameSuffix,
         neverLink,
         testOnlyTarget,
+        variablesExtension,
         thread);
   }
 
