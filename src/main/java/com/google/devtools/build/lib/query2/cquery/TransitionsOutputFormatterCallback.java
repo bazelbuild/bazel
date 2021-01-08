@@ -54,7 +54,6 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /**
  * Output formatter that prints {@link ConfigurationTransition} information for rule configured
@@ -134,7 +133,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     toolchainContexts,
                     DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
-      } catch (EvalException | InconsistentAspectOrderException e) {
+      } catch (DependencyResolver.Failure | InconsistentAspectOrderException e) {
         // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
