@@ -15,7 +15,7 @@ default_java_toolchain(
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
     ],
-    singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
+    singlejar = ["//src/tools/singlejar:singlejar"],
     source_version = "8",
     tags = ["manual"],
     target_version = "8",
