@@ -359,8 +359,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private Map<String, String> lastRemoteDefaultExecProperties;
   private RemoteOutputsMode lastRemoteOutputsMode;
-  // Stores experimental options to selected SkyFunctions. Details: b/172462551.
-  protected SkyframeExperimentalOptions skyframeExperimentalOptions;
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -455,7 +453,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.packageProgress = packageProgress;
     this.configuredTargetProgress = configuredTargetProgress;
-    this.skyframeExperimentalOptions = SkyframeExperimentalOptions.getInstance();
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(PackageFactory pkgFactory) {
@@ -594,8 +591,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(
-            skyframeActionExecutor, directories, tsgm, skyframeExperimentalOptions);
+        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
     this.actionExecutionFunction = actionExecutionFunction;
     map.put(SkyFunctions.ACTION_SKETCH, new ActionSketchFunction(actionKeyContext));
@@ -617,9 +613,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction());
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
-    map.put(
-        SkyFunctions.ARTIFACT_NESTED_SET,
-        ArtifactNestedSetFunction.createInstance(skyframeExperimentalOptions));
+    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -2659,12 +2653,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         clientEnv,
         tsgm,
         options);
-
-    // Part of the migration from using Maps to Lists in Skyframe's evaluations. Context:
-    // b/172462551.
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    skyframeExperimentalOptions.setSkyframeEvalWithOrderedList(
-        buildRequestOptions != null && buildRequestOptions.skyframeEvalWithOrderedList);
 
     if (lastAnalysisDiscarded) {
       dropConfiguredTargetsNow(eventHandler);

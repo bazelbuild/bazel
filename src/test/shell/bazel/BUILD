@@ -244,6 +244,8 @@ JAVA_VERSIONS = ("11", "14", "15")
             # java_tools zips to test
             "src/java_tools.zip",
             "src/java_tools_prebuilt.zip",
+            # --java_language_version value
+            java_version,
             # --java_runtime_version value
             java_version,
         ],
@@ -269,6 +271,8 @@ JAVA_VERSIONS = ("11", "14", "15")
             # java_tools zips to test
             "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
             "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL)",
+            # --java_language_version value
+            java_version,
             # --java_runtime_version value
             java_version,
         ],

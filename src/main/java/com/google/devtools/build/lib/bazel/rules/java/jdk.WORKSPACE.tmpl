@@ -254,28 +254,10 @@ maybe(
     ],
 )
 
-maybe(
-    http_archive,
-    "rules_java",
-    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-    ],
-)
+{rules_java}
 
 # Needed only because of java_tools.
-maybe(
-    http_archive,
-    "rules_cc",
-    sha256 = "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
-    strip_prefix = "rules_cc-b1c40e1de81913a3c40e5948f78719c28152486d",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-    ],
-)
+{rules_cc}
 
 # Needed only because of java_tools.
 maybe(
