@@ -1,3 +1,4 @@
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("//tools/python:private/defs.bzl", "py_test")
 
 package(default_visibility = ["//visibility:private"])
@@ -6,7 +7,6 @@ exports_files([
     "bin/bazel",
     "bin/bazel_jdk_minimal",
     "bin/bazel_nojdk",
-    "testenv.sh",
     "integration_test_setup.sh",
     "sandboxing_test_utils.sh",
     "unittest.bash",
@@ -22,13 +22,24 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+gen_workspace_stanza(
+    name = "testenv_sh",
+    out = "testenv.sh",
+    repos = [
+        "rules_cc",
+        "rules_java",
+    ],
+    template = "testenv.sh.tmpl",
+    visibility = ["//visibility:public"],
+)
+
 sh_library(
     name = "bashunit",
     srcs = [
         "unittest.bash",
         "unittest_utils.sh",
     ],
-    data = ["testenv.sh"],
+    data = [":testenv.sh"],
     visibility = ["//visibility:public"],
 )
 
@@ -59,7 +70,7 @@ sh_test(
     name = "shell_utils_test",
     srcs = ["shell_utils_test.sh"],
     data = [
-        "testenv.sh",
+        ":testenv.sh",
         ":bashunit",
         ":shell_utils",
         "@bazel_tools//tools/bash/runfiles",
@@ -70,7 +81,7 @@ sh_test(
     name = "shell_utils_symlinks_test",
     srcs = ["shell_utils_symlinks_test.sh"],
     data = [
-        "testenv.sh",
+        ":testenv.sh",
         ":bashunit",
         ":shell_utils",
         "@bazel_tools//tools/bash/runfiles",

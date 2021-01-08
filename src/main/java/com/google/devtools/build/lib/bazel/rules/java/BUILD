@@ -83,4 +83,5 @@ gen_workspace_stanza(
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],
+    use_maybe = True,
 )

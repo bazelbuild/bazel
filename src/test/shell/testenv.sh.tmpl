@@ -540,18 +540,9 @@ EOF
 
 function add_rules_java_to_workspace() {
   cat >> "$1"<<EOF
-#load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-#
-## 
-#http_archive(
-#    name = "xrules_java",
-#    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-#    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
-#    urls = [
-#        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-#        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-#    ],
-#)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_java}
 EOF
 }
 
