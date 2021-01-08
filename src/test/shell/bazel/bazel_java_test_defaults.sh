@@ -222,7 +222,6 @@ load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolcha
 default_java_toolchain(
   name = "jvm8_toolchain",
   configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-  java_runtime = "@local_jdk//:jdk",
 )
 EOF
 
