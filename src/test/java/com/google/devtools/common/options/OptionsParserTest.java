@@ -1874,6 +1874,7 @@ public class OptionsParserTest {
     // Using old option name should cause a warning
     assertThat(parser.getWarnings())
         .contains("Option 'old_name' is deprecated: Use --new_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
 
     // Should also work by its new name.
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
@@ -1882,6 +1883,18 @@ public class OptionsParserTest {
     assertThat(result.flag).isEqualTo("foo");
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_repeatedFlag() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_name=foo", "--old_name=bar");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.flag).isEqualTo("bar");
+    // Using old option name should cause a warning
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_name' is deprecated: Use --new_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
   }
 
   @Test

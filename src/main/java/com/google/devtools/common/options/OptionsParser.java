@@ -755,8 +755,8 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /** Returns a list of warnings about problems encountered by previous parse calls. */
-  public List<String> getWarnings() {
-    return ImmutableList.copyOf(impl.getWarnings());
+  public ImmutableList<String> getWarnings() {
+    return impl.getWarnings();
   }
 
   @Override

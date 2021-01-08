@@ -75,30 +75,28 @@ public final class SkydocTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStarlarkEvaluationException() throws Exception {
+  public void testStarlarkEvaluationError() throws Exception {
     scratch.file(
-        "/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "my_rule = rule(",
-        "    invalid_param = 3,",
-        ")");
-
-    StarlarkEvaluationException expected =
+        "/test/a.bzl", //
+        "def f(): 1//0",
+        "f()");
+    StarlarkEvaluationException ex =
         assertThrows(
             StarlarkEvaluationException.class,
             () ->
                 skydocMain.eval(
                     StarlarkSemantics.DEFAULT,
-                    Label.parseAbsoluteUnchecked("//test:test.bzl"),
+                    Label.parseAbsoluteUnchecked("//test:a.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
                     ImmutableMap.builder()));
-
-    assertThat(expected).hasMessageThat().contains("Starlark evaluation error");
+    String msg = ex.getMessage();
+    assertThat(msg).contains("Traceback");
+    assertThat(msg).contains("line 2, column 2, in <toplevel>");
+    assertThat(msg).contains("line 1, column 11, in f");
+    assertThat(msg).contains("Error: integer division by zero");
   }
 
   @Test
