@@ -938,6 +938,90 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64/cl.exe', ''.join(stderr))
 
+  def testBuildCppBinaryWithMingwGCC(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      ')',
+    ])
+    self.ScratchFile('main.cc', [
+      'int main() {',
+      '  return 0;',
+      '}',
+    ])
+
+    # Test build without debug and optimize modes.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '-s', '--compiler=mingw-gcc', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('mingw64/bin/gcc', ''.join(stderr))
+    self.assertNotIn('-g -Og', ''.join(stderr))
+    self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections', ''.join(stderr))
+    self.assertNotIn('-Wl,--gc-sections', ''.join(stderr))
+
+    # Test build in debug mode.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '-s', '--compiler=mingw-gcc', '-c', 'dbg', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('mingw64/bin/gcc', ''.join(stderr))
+    self.assertIn('-g -Og', ''.join(stderr))
+    self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections', ''.join(stderr))
+    self.assertNotIn('-Wl,--gc-sections', ''.join(stderr))
+
+    # Test build in optimize mode.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '-s', '--compiler=mingw-gcc', '-c', 'opt', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('mingw64/bin/gcc', ''.join(stderr))
+    self.assertNotIn('-g -Og', ''.join(stderr))
+    self.assertIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections', ''.join(stderr))
+    self.assertIn('-Wl,--gc-sections', ''.join(stderr))
+
+  def testBuildCppBinaryWithMsysGCC(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      ')',
+    ])
+    self.ScratchFile('main.cc', [
+      'int main() {',
+      '  return 0;',
+      '}',
+    ])
+
+    bazel_output = self.getBazelInfo('output_path')
+    paramfile = "x64_windows-%s/bin/main.exe-2.params"
+
+    # Test build without debug and optimize modes.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '-s', '--compiler=msys-gcc', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('usr/bin/gcc', ''.join(stderr))
+    self.assertNotIn('-g -Og', ''.join(stderr))
+    self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections', ''.join(stderr))
+    self.AssertFileContentNotContains(os.path.join(bazel_output, paramfile % 'fastbuild'), '-Wl,--gc-sections')
+
+    # Test build in debug mode.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '-s', '--compiler=msys-gcc', '-c', 'dbg', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('usr/bin/gcc', ''.join(stderr))
+    self.assertIn('-g -Og', ''.join(stderr))
+    self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections', ''.join(stderr))
+    self.AssertFileContentNotContains(os.path.join(bazel_output, paramfile % 'dbg'), '-Wl,--gc-sections')
+
+    # Test build in optimize mode.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '-s', '--compiler=msys-gcc', '-c', 'opt', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('usr/bin/gcc', ''.join(stderr))
+    self.assertNotIn('-g -Og', ''.join(stderr))
+    self.assertIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections', ''.join(stderr))
+    self.AssertFileContentContains(os.path.join(bazel_output, paramfile % 'opt'), '-Wl,--gc-sections')
 
 if __name__ == '__main__':
   unittest.main()
