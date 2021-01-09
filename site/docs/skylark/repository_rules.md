@@ -4,6 +4,9 @@ title: Repository rules
 ---
 # Repository rules
 
+This page covers how to create repository rules and provides examples for
+more details.
+
 An [external repository](../external.md) is a rule that can be used only
 in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
 of Bazel. Each external repository rule creates its own workspace, with its
