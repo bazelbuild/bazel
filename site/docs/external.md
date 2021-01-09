@@ -3,7 +3,7 @@ layout: documentation
 title: External dependencies
 ---
 
-# Working with external dependencies
+# Working with External Dependencies
 
 Bazel can depend on targets from other projects.  Dependencies from these other
 projects are called _external dependencies_.
