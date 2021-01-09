@@ -3,7 +3,7 @@ layout: documentation
 title: Optimizing performance
 ---
 
-# Optimizing performance
+# Optimizing Performance
 
 
 When writing rules, the most common performance pitfall is to traverse or copy

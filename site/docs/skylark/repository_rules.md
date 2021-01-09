@@ -2,7 +2,7 @@
 layout: documentation
 title: Repository rules
 ---
-# Repository rules
+# Repository Rules
 
 This page covers how to create repository rules and provides examples for
 more details.

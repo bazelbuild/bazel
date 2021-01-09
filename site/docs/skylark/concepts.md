@@ -3,7 +3,7 @@ layout: documentation
 title: Extension overview
 ---
 
-# Extension overview
+# Extension Overview
 
 <!-- [TOC] -->
 

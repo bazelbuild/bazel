@@ -3,7 +3,7 @@ layout: documentation
 title: Sharing variables
 ---
 
-# Sharing variables
+# Sharing Variables
 
 `BUILD` files are intended to be simple and declarative. They will typically
 consist of a series of a target declarations. As your code base and your `BUILD`

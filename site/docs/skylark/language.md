@@ -3,7 +3,7 @@ layout: documentation
 title: Starlark language
 ---
 
-# Starlark language
+# Starlark Language
 
 <!-- [TOC] -->
 

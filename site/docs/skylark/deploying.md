@@ -3,7 +3,7 @@ layout: documentation
 title: Deploying rules
 ---
 
-# Deploying rules
+# Deploying Rules
 
 This page is for rule writers who are planning to make their rules available
 to others.
