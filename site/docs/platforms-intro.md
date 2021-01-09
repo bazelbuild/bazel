@@ -3,7 +3,7 @@ layout: documentation
 title: Building with platforms
 ---
 
-# Building with platforms
+# Building with Platforms
 
 
 Bazel has sophisticated support for modeling [platforms][Platforms] and

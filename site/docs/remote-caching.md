@@ -3,7 +3,7 @@ layout: documentation
 title: Remote caching
 ---
 
-# Remote caching
+# Remote Caching
 
 This page covers remote caching, setting up a server to host the cache, and
 running builds using the remote cache.
