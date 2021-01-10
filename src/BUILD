@@ -339,6 +339,7 @@ filegroup(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
+        "@com_github_luben_zstd_jni//:zstd-native-lib",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [

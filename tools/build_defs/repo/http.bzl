@@ -265,7 +265,7 @@ match a directory in the archive, Bazel will return an error.""",
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, or `tar.bz2`.""",
+`"tar.xz"`, `"tar.zst"`, `"tzst"`, or `tar.bz2`.""",
     ),
     "patches": attr.label_list(
         default = [],

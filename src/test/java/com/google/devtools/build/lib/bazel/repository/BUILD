@@ -26,6 +26,7 @@ java_library(
     ),
     data = [
         "test_decompress_archive.tar.gz",
+        "test_decompress_archive.tar.zst",
         "test_decompress_archive.zip",
     ],
     deps = [
