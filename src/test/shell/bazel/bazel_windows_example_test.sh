@@ -255,6 +255,20 @@ function test_java_test() {
   assert_test_fails "${java_native_tests}:resource-fail"
 }
 
+function test_java_with_classpath_jar() {
+  local java_pkg=examples/java-native/src/main/java/com/example/myproject
+
+  # Launch java binary with creating classpath jar
+  bazel build ${java_pkg}:hello-special-resources
+  assert_binary_run_from_subdir \
+   "bazel-bin/${java_pkg}/hello-resources --classpath_limit=0" "Bye world"
+
+  # Build java binary depending on jar with special characters in its name
+  bazel build ${java_pkg}:hello-special-resources
+  assert_binary_run_from_subdir \
+   "bazel-bin/${java_pkg}/hello-special-resources --classpath_limit=0" "Bye world"
+}
+
 function test_native_python() {
   # On windows, we build a python executable zip as the python binary
   assert_build //examples/py_native:bin
