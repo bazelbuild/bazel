@@ -143,8 +143,6 @@ distdir_tar(
         "java_tools_windows-v11.0.zip",
         "java_tools_darwin-v11.0.zip",
         "coverage_output_generator-v2.5.zip",
-        # bazelbuid/stardoc
-        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         "android_tools_pkg-0.19.0rc3.tar.gz",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
@@ -160,8 +158,6 @@ distdir_tar(
         "java_tools_windows-v11.0.zip": "8a683275b0f24e011b56e27eb4d7e35919d774ae57ec3353d48606cfc81e4116",
         "java_tools_darwin-v11.0.zip": "39e3bb7e554e817de76a9b2cc9354b0c2363108dfcd56b360d3c35eadc8cddbd",
         "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
-        # bazelbuild/stardoc
-        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
@@ -187,10 +183,6 @@ distdir_tar(
         ],
         "coverage_output_generator-v2.5.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
-        ],
-        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-            "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         ],
         "android_tools_pkg-0.19.0rc3.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
@@ -359,10 +351,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-dist_http_archive(
-    name = "io_bazel_skydoc",
-)
-
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
     name = "rules_cc",
@@ -451,6 +439,10 @@ distdir_tar(
             "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
         ],
     },
+)
+
+dist_http_archive(
+    name = "io_bazel_skydoc",
 )
 
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
