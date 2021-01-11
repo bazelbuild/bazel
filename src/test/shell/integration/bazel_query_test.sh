@@ -711,6 +711,47 @@ EOF
   assert_equals "$(cat foo/expected_ap_output)" "$(cat bazel-bin/foo/allpaths)"
 }
 
+function test_graphless_query_matches_graphless_genquery_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "a")
+genquery(
+    name = "q",
+    expression = "deps(//foo:b)",
+    scope = ["//foo:b"],
+)
+EOF
+
+  cat > foo/expected_lexicographical_result <<EOF
+//foo:a
+//foo:b
+//foo:c
+EOF
+
+  # Genquery uses a graphless blaze environment by default.
+  bazel build --experimental_genquery_use_graphless_query \
+      //foo:q || fail "Expected success"
+
+  # TODO(tanzhengwei): Remove flags from query when this becomes the default.
+  # Query currently requires the --incompatible_prefer_unordered_output flag to
+  # switch to graphless.
+  # In addition, --incompatible_use_lexicographical_unordered_output is used to
+  # switch sort the graphless output in lexicographical order.
+  bazel query --incompatible_prefer_unordered_output \
+      --incompatible_use_lexicographical_unordered_output \
+      "deps(//foo:b)" | grep foo >& foo/query_output || fail "Expected success"
+
+  # The outputs of graphless query and graphless genquery should be the same.
+  assert_equals "$(cat bazel-bin/foo/q)" "$(cat foo/query_output)"
+
+  # The outputs of both graphless query and graphless genquery should be in
+  # lexicographical order (comparing one should be sufficient).
+  assert_equals \
+      "$(cat foo/expected_lexicographical_result)" "$(cat bazel-bin/foo/q)"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
 function test_rbuildfiles_can_handle_non_loading_phase_edges() {
   mkdir -p foo

@@ -3,7 +3,7 @@ layout: documentation
 title: Getting started
 ---
 
-# Getting started with Bazel
+# Getting Started with Bazel
 
 This page contains resources that help you get started with Bazel, including
 installation steps and container information. It also provides links to

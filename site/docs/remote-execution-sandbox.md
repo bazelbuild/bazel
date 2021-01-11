@@ -3,7 +3,7 @@ layout: documentation
 title: Troubleshooting Bazel remote execution with Docker sandbox
 ---
 
-# Troubleshooting Bazel remote execution with Docker sandbox
+# Troubleshooting Bazel Remote Execution with Docker Sandbox
 
 Bazel builds that succeed locally may fail when executed remotely due to
 restrictions and requirements that do not affect local builds. The most common

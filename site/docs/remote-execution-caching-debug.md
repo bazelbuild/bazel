@@ -3,7 +3,7 @@ layout: documentation
 title: Debugging remote cache hits for remote execution
 ---
 
-# Debugging remote cache hits for remote execution
+# Debugging Remote Cache Hits for Remote Execution
 
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.

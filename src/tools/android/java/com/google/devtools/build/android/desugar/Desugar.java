@@ -153,10 +153,12 @@ public class Desugar {
     ImmutableSet.Builder<ReplacementRange> invocationReplacementRangesBuilder =
         ImmutableSet.builder();
 
-    if (!allowCallsToLongUnsigned) {
+    // Exclude the dependency on desugar runtime libs from desugar_jdk_libs.
+    if (!allowCallsToLongUnsigned && !this.options.coreLibrary) {
       invocationReplacementRangesBuilder.add(REPLACE_CALLS_TO_LONG_UNSIGNED);
     }
-    if (!allowCallsToPrimitiveWrappers) {
+    // Exclude the dependency on desugar runtime libs from desugar_jdk_libs.
+    if (!allowCallsToPrimitiveWrappers && !this.options.coreLibrary) {
       invocationReplacementRangesBuilder.add(REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS);
     }
 

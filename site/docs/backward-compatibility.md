@@ -3,7 +3,7 @@ layout: documentation
 title: Backward compatibility
 ---
 
-# Backward compatibility
+# Backward Compatibility
 
 This page provides information on how to handle backward compatibility,
 including migration requirements and how to communicate incompatible changes.

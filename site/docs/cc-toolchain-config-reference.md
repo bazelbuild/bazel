@@ -3,7 +3,7 @@ layout: documentation
 title: C++ toolchain configuration
 ---
 
-# C++ toolchain configuration
+# C++ Toolchain Configuration
 
 ## Overview
 

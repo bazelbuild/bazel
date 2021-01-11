@@ -3,7 +3,7 @@ layout: documentation
 title: Creating persistent workers
 ---
 
-# Creating persistent workers
+# Creating Persistent Workers
 
 [Persistent workers](persistent-workers.html) can make your build faster.
 If you have repeated actions in your build that have a high startup cost or

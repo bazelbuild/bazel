@@ -467,3 +467,10 @@ java_runtime_version_alias(
     ),
     visibility = ["//visibility:public"],
 )
+
+java_runtime_version_alias(
+    name = "jdk_8",
+    runtime_version = "8",
+    selected_java_runtime = ":legacy_current_java_runtime",
+    visibility = ["//visibility:public"],
+)

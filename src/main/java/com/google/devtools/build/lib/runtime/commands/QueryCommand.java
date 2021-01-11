@@ -127,7 +127,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
           hashFunction);
       streamedFormatter.setEventHandler(env.getReporter());
-      callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+      if (queryOptions.useLexicographicalUnorderedOutput) {
+        callback = QueryUtil.newLexicographicallySortedTargetAggregator();
+      } else {
+        callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+      }
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
@@ -166,7 +170,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           out.flush();
         }
       }
-      if (!streamResults) {
+      if (!streamResults || queryOptions.useLexicographicalUnorderedOutput) {
         disableAnsiCharactersFiltering(env);
         try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
           Set<Target> targets =

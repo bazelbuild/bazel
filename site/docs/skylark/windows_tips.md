@@ -3,11 +3,10 @@ layout: documentation
 title: Writing rules on Windows
 ---
 
-# Writing rules on Windows
+# Writing Rules on Windows
 
-Common problems of writing portable rules, and some solutions.
-
-This document focuses on writing Windows-compatible rules.
+This page focuses on writing Windows-compatible rules, common problems of
+writing portable rules, and some solutions.
 
 ## Paths
 
