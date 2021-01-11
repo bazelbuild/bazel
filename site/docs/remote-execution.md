@@ -3,7 +3,7 @@ layout: documentation
 title: Remote execution overview
 ---
 
-# Remote execution overview
+# Remote Execution Overview
 
 This page covers the benefits, requirements, and options for running Bazel
 with remote execution.

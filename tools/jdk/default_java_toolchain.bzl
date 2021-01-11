@@ -15,7 +15,7 @@
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
+    "-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)",
 ]
 
 # JVM options, without patching java.compiler and jdk.compiler modules.
@@ -74,6 +74,7 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
 JVM8_TOOLCHAIN_CONFIGURATION = dict(
     tools = ["@remote_java_tools//:javac_jar"],
     jvm_opts = ["-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)"],
+    java_runtime = "@bazel_tools//tools/jdk:jdk_8",
 )
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = dict(

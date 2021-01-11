@@ -3,7 +3,7 @@ layout: documentation
 title: Compiling Bazel from source
 ---
 
-<h1 id="compiling-from-source">Compiling Bazel from source</h1>
+<h1 id="compiling-from-source">Compiling Bazel from Source</h1>
 
 This page describes how to install Bazel from source and provides
 troubleshooting tips for common issues.

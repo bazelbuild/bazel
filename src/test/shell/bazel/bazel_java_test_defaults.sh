@@ -222,12 +222,11 @@ load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolcha
 default_java_toolchain(
   name = "jvm8_toolchain",
   configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-  java_runtime = "@local_jdk//:jdk",
 )
 EOF
 
   bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
-  bazel cquery 'deps(//:jvm8_toolchain)' >& $TEST_log || fail "failed to query //:jvm8_toolchain"
+  bazel query 'deps(//:jvm8_toolchain)' >& $TEST_log || fail "failed to query //:jvm8_toolchain"
 
   expect_log ":JavaBuilder"
   expect_log ":javac_jar"

@@ -8,7 +8,7 @@ GitHub project has been archived. Instead, please use [`rules_jvm_external`](
 https://github.com/bazelbuild/rules_jvm_external) to fetch and resolve
 Maven artifacts transitively.
 
-# Generate external dependencies from Maven projects
+# Generate External Dependencies from Maven Projects
 
 The tool `generate_workspace` helps automate the process of writing
 the WORKSPACE file for a Java project. This tool is

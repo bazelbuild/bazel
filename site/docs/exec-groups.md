@@ -3,7 +3,7 @@ layout: documentation
 title: Execution groups
 ---
 
-# Execution groups
+# Execution Groups
 
 
 Execution groups allow for multiple execution platforms within a single target.

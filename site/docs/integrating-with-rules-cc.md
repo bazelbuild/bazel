@@ -3,7 +3,7 @@ layout: documentation
 title: Integrating with C++ rules
 ---
 
-# Integrating with C++ rules
+# Integrating with C++ Rules
 
 This page describes how to integrate with C++ rules on various levels.
 
