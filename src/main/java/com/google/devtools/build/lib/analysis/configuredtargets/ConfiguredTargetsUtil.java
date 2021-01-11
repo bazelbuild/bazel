@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import net.starlark.java.eval.DataStructureConverter;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 
 /** Utility methods for configured gargets. */
 public final class ConfiguredTargetsUtil {
@@ -33,7 +35,7 @@ public final class ConfiguredTargetsUtil {
    */
   public static Dict<String, Object> getProvidersDict(
       AbstractConfiguredTarget target, TransitiveInfoProviderMap providers) {
-    Dict.Builder<String, Object> res = Dict.builder();
+    StarlarkDict.Builder<String, Object> res = StarlarkDict.builder();
     for (int i = 0; i < providers.getProviderCount(); i++) {
       // The key may be of many types, but we need a string for the intended use.
       Object key = providers.getProviderKeyAt(i);
@@ -55,7 +57,7 @@ public final class ConfiguredTargetsUtil {
         continue;
       }
       try {
-        res.put(keyAsString, Starlark.fromJava(v, null));
+        res.put(keyAsString, DataStructureConverter.fromJava(v, null));
       } catch (IllegalArgumentException ex) {
         // This is OK. If this is not a valid StarlarkValue, we just leave it out of the map.
       }

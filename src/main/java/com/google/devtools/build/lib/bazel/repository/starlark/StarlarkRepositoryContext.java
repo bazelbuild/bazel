@@ -89,6 +89,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -328,7 +329,7 @@ public class StarlarkRepositoryContext
     StarlarkPath p = getPath("template()", path);
     StarlarkPath t = getPath("template()", template);
     Map<String, String> substitutionMap =
-        Dict.cast(substitutions, String.class, String.class, "substitutions");
+        StarlarkDict.cast(substitutions, String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newTemplateEvent(
             p.toString(),
@@ -430,7 +431,7 @@ public class StarlarkRepositoryContext
 
   private ImmutableMap<String, String> getExecProperties() throws EvalException {
     return ImmutableMap.copyOf(
-        Dict.cast(
+        StarlarkDict.cast(
             getAttr().getValue("exec_properties"), String.class, String.class, "exec_properties"));
   }
 
@@ -547,7 +548,7 @@ public class StarlarkRepositoryContext
     int timeout = Starlark.toInt(timeoutI, "timeout");
 
     Map<String, String> environment =
-        Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
+        StarlarkDict.cast(uncheckedEnvironment, String.class, String.class, "environment");
 
     if (canExecuteRemote()) {
       return executeRemote(arguments, timeout, environment, quiet, workingDirectory);
@@ -703,9 +704,9 @@ public class StarlarkRepositoryContext
 
   private static Map<String, Dict<?, ?>> getAuthContents(Dict<?, ?> x, String what)
       throws EvalException {
-    // Dict.cast returns Dict<String, raw Dict>.
+    // StarlarkDict.cast returns Dict<String, raw Dict>.
     @SuppressWarnings({"unchecked", "rawtypes"})
-    Map<String, Dict<?, ?>> res = (Map) Dict.cast(x, String.class, Dict.class, what);
+    Map<String, Dict<?, ?>> res = (Map) StarlarkDict.cast(x, String.class, Dict.class, what);
     return res;
   }
 

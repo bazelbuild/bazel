@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.DataStructureConverter;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -87,7 +88,8 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
   private static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
     ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
+      builder.put(Attribute.getStarlarkName(e.getKey()), DataStructureConverter
+          .fromJava(e.getValue(), null));
     }
     return builder.build();
   }

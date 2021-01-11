@@ -46,7 +46,7 @@ public final class EvalUtilsTest {
     assertThat(Starlark.type(StarlarkInt.of(3))).isEqualTo("int");
     assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
     assertThat(Starlark.type(StarlarkList.empty())).isEqualTo("list");
-    assertThat(Starlark.type(Dict.empty())).isEqualTo("dict");
+    assertThat(Starlark.type(StarlarkDict.empty())).isEqualTo("dict");
     assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");
     assertThat(Starlark.type(new MockClassA())).isEqualTo("MockClassA");
     assertThat(Starlark.type(new MockClassB())).isEqualTo("MockClassA");
@@ -72,11 +72,11 @@ public final class EvalUtilsTest {
         .isTrue();
 
     assertThat(Starlark.isImmutable(StarlarkList.empty())).isTrue();
-    assertThat(Starlark.isImmutable(Dict.empty())).isTrue();
+    assertThat(Starlark.isImmutable(StarlarkDict.empty())).isTrue();
 
     Mutability mu = Mutability.create("test");
     assertThat(Starlark.isImmutable(StarlarkList.of(mu))).isFalse();
-    assertThat(Starlark.isImmutable(Dict.of(mu))).isFalse();
+    assertThat(Starlark.isImmutable(StarlarkDict.of(mu))).isFalse();
   }
 
   @Test
@@ -101,8 +101,8 @@ public final class EvalUtilsTest {
       Tuple.of("1", "2", "3"),
       StarlarkList.of(mu, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)),
       StarlarkList.of(mu, "1", "2", "3"),
-      Dict.builder().put("key", StarlarkInt.of(123)).build(mu),
-      Dict.builder().put(StarlarkInt.of(123), "value").build(mu),
+      StarlarkDict.builder().put("key", StarlarkInt.of(123)).build(mu),
+      StarlarkDict.builder().put(StarlarkInt.of(123), "value").build(mu),
       myValue,
     };
 
@@ -134,7 +134,7 @@ public final class EvalUtilsTest {
         .isEqualTo(3);
     assertThat(
             Starlark.len(
-                Dict.builder()
+                StarlarkDict.builder()
                     .put("one", StarlarkInt.of(1))
                     .put("two", StarlarkInt.of(2))
                     .buildImmutable()))

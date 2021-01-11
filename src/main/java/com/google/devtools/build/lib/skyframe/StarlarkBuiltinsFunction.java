@@ -32,6 +32,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkSemantics;
 
 // TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
@@ -201,7 +202,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (value == null) {
       throw Starlark.errorf("expected a '%s' dictionary to be defined", dictName);
     }
-    return ImmutableMap.copyOf(Dict.cast(value, String.class, Object.class, dictName + " dict"));
+    return ImmutableMap.copyOf(StarlarkDict.cast(value, String.class, Object.class, dictName + " dict"));
   }
 
   @Override

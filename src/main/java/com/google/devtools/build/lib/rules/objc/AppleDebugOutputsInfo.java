@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDebugOutputsApi
 import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkDict;
 
 /**
  * A provider that holds debug outputs of an Apple binary rule.
@@ -128,7 +129,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo
       ImmutableMap.Builder<String, Dict<String, Artifact>> builder = ImmutableMap.builder();
 
       for (Map.Entry<String, HashMap<String, Artifact>> e : outputsByArch.entrySet()) {
-        builder.put(e.getKey(), Dict.immutableCopyOf(e.getValue()));
+        builder.put(e.getKey(), StarlarkDict.immutableCopyOf(e.getValue()));
       }
 
       return new AppleDebugOutputsInfo(builder.build());

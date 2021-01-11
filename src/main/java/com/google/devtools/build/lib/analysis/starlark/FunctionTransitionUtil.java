@@ -50,6 +50,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -233,7 +234,7 @@ public class FunctionTransitionUtil {
     LinkedHashSet<String> remainingInputs = Sets.newLinkedHashSet(starlarkTransition.getInputs());
 
     try (Mutability mutability = Mutability.create("build_settings")) {
-      Dict<String, Object> dict = Dict.of(mutability);
+      Dict<String, Object> dict = StarlarkDict.of(mutability);
 
       // Add native options
       for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {

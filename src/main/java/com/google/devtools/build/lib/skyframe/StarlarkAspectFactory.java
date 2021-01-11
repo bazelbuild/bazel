@@ -31,6 +31,7 @@ import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A factory for aspects that are defined in Starlark. */
@@ -156,7 +157,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
   private static void addOutputGroups(Object outputGroups, ConfiguredAspect.Builder builder)
       throws EvalException {
     for (Map.Entry<String, StarlarkValue> entry :
-        Dict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
+        StarlarkDict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
       builder.addOutputGroup(
           entry.getKey(),
           StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -109,7 +110,7 @@ public class WorkspaceFactoryHelper {
     Object repoMapping = kwargs.get("repo_mapping");
     if (repoMapping != null) {
       for (Map.Entry<String, String> e :
-          Dict.cast(repoMapping, String.class, String.class, "repo_mapping").entrySet()) {
+          StarlarkDict.cast(repoMapping, String.class, String.class, "repo_mapping").entrySet()) {
         // Create repository names with validation; may throw LabelSyntaxException.
         builder.addRepositoryMappingEntry(
             RepositoryName.create("@" + externalRepoName),

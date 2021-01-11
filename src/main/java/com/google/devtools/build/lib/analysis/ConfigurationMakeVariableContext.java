@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Package;
 import java.util.List;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkDict;
 
 /**
  * Implements make variable expansion for make variables that depend on the configuration and the
@@ -118,7 +119,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
   }
 
   public Dict<String, String> collectMakeVariables() throws ExpansionException {
-    Dict.Builder<String, String> map = Dict.builder();
+    StarlarkDict.Builder<String, String> map = StarlarkDict.builder();
     // Collect variables in the reverse order as in lookupMakeVariable
     // because each update is overwriting.
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers.reverse()) {

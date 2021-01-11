@@ -50,6 +50,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
@@ -91,7 +92,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     builder.add(attr("expect_failure", STRING));
     if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
-          Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+          StarlarkDict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
         String attrName = source.convertToNativeName(attr.getKey());

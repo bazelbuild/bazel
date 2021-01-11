@@ -93,6 +93,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -459,7 +460,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         }
       }
 
-      splitAttrInfos.put(attr.getPublicName(), Dict.immutableCopyOf(splitPrereqsMap));
+      splitAttrInfos.put(attr.getPublicName(), StarlarkDict.immutableCopyOf(splitPrereqsMap));
     }
 
     return StructProvider.STRUCT.create(
@@ -815,7 +816,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       throws EvalException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
-        Dict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
+        StarlarkDict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
     return expandMakeVariables(attributeName, command, additionalSubstitutionsMap);
   }
 
@@ -907,14 +908,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
-          Dict.cast(symlinks, String.class, Artifact.class, "symlinks").entrySet()) {
+          StarlarkDict.cast(symlinks, String.class, Artifact.class, "symlinks").entrySet()) {
         builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
     if (!rootSymlinks.isEmpty()) {
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
-          Dict.cast(rootSymlinks, String.class, Artifact.class, "root_symlinks").entrySet()) {
+          StarlarkDict.cast(rootSymlinks, String.class, Artifact.class, "root_symlinks").entrySet()) {
         builder.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
@@ -963,7 +964,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
-            Dict.noneableCast(
+            StarlarkDict.noneableCast(
                 executionRequirementsUnchecked,
                 String.class,
                 String.class,

@@ -48,6 +48,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -275,7 +276,7 @@ public class AppleStarlarkCommon
         ImmutableMap.of(
             "binary_provider", output.getBinaryInfoProvider(),
             "debug_outputs_provider", output.getDebugOutputsProvider(),
-            "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
+            "output_groups", StarlarkDict.copyOf(thread.mutability(), outputGroups));
     return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 

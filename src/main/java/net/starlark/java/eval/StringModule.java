@@ -113,11 +113,11 @@ final class StringModule implements StarlarkValue {
     int n = str.length();
     int istart = 0;
     if (start != Starlark.NONE) {
-      istart = EvalUtils.toIndex(Starlark.toInt(start, "start"), n);
+      istart = IndexingSlicingUtils.toIndex(Starlark.toInt(start, "start"), n);
     }
     int iend = n;
     if (end != Starlark.NONE) {
-      iend = EvalUtils.toIndex(Starlark.toInt(end, "end"), n);
+      iend = IndexingSlicingUtils.toIndex(Starlark.toInt(end, "end"), n);
     }
     if (iend < istart) {
       iend = istart; // => empty result

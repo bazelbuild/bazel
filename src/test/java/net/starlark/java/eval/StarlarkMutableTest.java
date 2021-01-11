@@ -71,7 +71,7 @@ public final class StarlarkMutableTest {
   public void testDictViewsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
     Dict<Object, Object> dict =
-        Dict.copyOf(
+        StarlarkDict.copyOf(
             mutability,
             ImmutableMap.of(
                 StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4)));
@@ -104,7 +104,7 @@ public final class StarlarkMutableTest {
   public void testDictBuilder() throws Exception {
     // put
     Dict<String, String> dict1 =
-        Dict.<String, String>builder()
+        StarlarkDict.<String, String>builder()
             .put("one", "1")
             .put("two", "2.0")
             .put("two", "2") // overrwrites previous entry
@@ -115,7 +115,7 @@ public final class StarlarkMutableTest {
 
     // putAll
     Dict<String, String> dict2 =
-        Dict.<String, String>builder()
+        StarlarkDict.<String, String>builder()
             .putAll(dict1)
             .putAll(ImmutableMap.of("four", "4", "five", "5"))
             .buildImmutable();
@@ -124,7 +124,7 @@ public final class StarlarkMutableTest {
             "{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"four\": \"4\", \"five\": \"5\"}");
 
     // builder reuse and mutability
-    Dict.Builder<String, String> builder = Dict.<String, String>builder().putAll(dict1);
+    StarlarkDict.Builder<String, String> builder = StarlarkDict.<String, String>builder().putAll(dict1);
     Mutability mu = Mutability.create("test");
     Dict<String, String> dict3 = builder.build(mu);
     dict3.putEntry("four", "4");

@@ -456,7 +456,7 @@ public final class StarlarkList<E> extends AbstractList<E>
       })
   @SuppressWarnings("unchecked")
   public void insert(StarlarkInt index, Object item) throws EvalException {
-    addElementAt(EvalUtils.toIndex(index.toInt("index"), size), (E) item); // unchecked
+    addElementAt(IndexingSlicingUtils.toIndex(index.toInt("index"), size), (E) item); // unchecked
   }
 
   @StarlarkMethod(
@@ -496,8 +496,8 @@ public final class StarlarkList<E> extends AbstractList<E>
             doc = "The end index of the list portion to inspect.")
       })
   public int index(Object x, Object start, Object end) throws EvalException {
-    int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
-    int j = end == Starlark.NONE ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
+    int i = start == Starlark.NONE ? 0 : IndexingSlicingUtils.toIndex(Starlark.toInt(start, "start"), size);
+    int j = end == Starlark.NONE ? size : IndexingSlicingUtils.toIndex(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
       if (elems[i].equals(x)) {
         return i;
@@ -524,7 +524,7 @@ public final class StarlarkList<E> extends AbstractList<E>
       })
   public Object pop(Object i) throws EvalException {
     int arg = i == Starlark.NONE ? -1 : Starlark.toInt(i, "i");
-    int index = EvalUtils.getSequenceIndex(arg, size);
+    int index = IndexingSlicingUtils.getSequenceIndex(arg, size);
     Object result = elems[index];
     removeElementAt(index);
     return result;

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.DataStructureConverter;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -151,7 +152,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);
-        return result != null ? Starlark.fromJava(result, null) : null;
+        return result != null ? DataStructureConverter.fromJava(result, null) : null;
       default:
         return get(name);
     }

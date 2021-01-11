@@ -35,6 +35,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -85,7 +86,7 @@ public class PlatformInfo extends NativeInfo
       }
       if (execPropertiesUnchecked != null) {
         Dict<String, String> execProperties =
-            Dict.noneableCast(
+            StarlarkDict.noneableCast(
                 execPropertiesUnchecked, String.class, String.class, "exec_properties");
         builder.setExecProperties(ImmutableMap.copyOf(execProperties));
       }

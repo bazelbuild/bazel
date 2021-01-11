@@ -56,9 +56,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import net.starlark.java.eval.DataStructureConverter;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
@@ -1469,7 +1471,7 @@ public final class Attribute implements Comparable<Attribute> {
           if (!Starlark.isNullOrNone(value)) {
             // Some attribute values are not valid Starlark values:
             // visibility is an ImmutableList, for example.
-            attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
+            attrValues.put(attr.getName(), DataStructureConverter.fromJava(value, /*mutability=*/ null));
           }
         }
       }
@@ -2406,15 +2408,15 @@ public final class Attribute implements Comparable<Attribute> {
       Map<?, ?> map = (Map) x;
       if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
         // Recursively convert subelements.
-        Dict.Builder<Object, Object> dict = Dict.builder();
+        StarlarkDict.Builder<Object, Object> dict = StarlarkDict.builder();
         for (Map.Entry<?, ?> e : map.entrySet()) {
-          dict.put((String) e.getKey(), Starlark.fromJava(e.getValue(), null));
+          dict.put((String) e.getKey(), DataStructureConverter.fromJava(e.getValue(), null));
         }
         return dict.buildImmutable();
       }
     }
 
     // For all other attribute values, shallow conversion is safe.
-    return Starlark.fromJava(x, null);
+    return DataStructureConverter.fromJava(x, null);
   }
 }

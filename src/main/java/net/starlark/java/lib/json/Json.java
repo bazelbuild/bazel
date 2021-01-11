@@ -23,6 +23,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
@@ -382,7 +383,7 @@ public final class Json implements StarlarkValue {
 
         case '{':
           // object
-          Dict<String, Object> dict = Dict.of(mu);
+          Dict<String, Object> dict = StarlarkDict.of(mu);
 
           i++; // '{'
           c = next();

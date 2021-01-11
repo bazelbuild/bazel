@@ -166,7 +166,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
 
       checkParameters(method, annot);
 
-      // Verify that result type, if final, might satisfy Starlark.fromJava.
+      // Verify that result type, if final, might satisfy DataStructureConverter.fromJava.
       // (If the type is non-final we can't prove that all subclasses are invalid.)
       TypeMirror ret = method.getReturnType();
       if (ret.getKind() == TypeKind.DECLARED) {
@@ -181,7 +181,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
           errorf(
               method,
               "StarlarkMethod-annotated method %s returns %s, which has no legal Starlark values"
-                  + " (see Starlark.fromJava)",
+                  + " (see DataStructureConverter.fromJava)",
               method.getSimpleName(),
               ret);
         }

@@ -83,7 +83,7 @@ public interface StarlarkCallable extends StarlarkValue {
         throw Starlark.errorf("%s got multiple values for parameter '%s'", this, named[i]);
       }
     }
-    return call(thread, Tuple.of(positional), Dict.wrap(thread.mutability(), kwargs));
+    return call(thread, Tuple.of(positional), StarlarkDict.wrap(thread.mutability(), kwargs));
   }
 
   /** Returns the form this callable value should take in a stack trace. */

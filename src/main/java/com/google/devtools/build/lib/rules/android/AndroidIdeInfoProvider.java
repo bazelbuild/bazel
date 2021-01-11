@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkDict;
 
 /** An Android target provider to provide Android-specific info to IDEs. */
 @Immutable
@@ -339,7 +340,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Dict<?, ?> nativeLibs) // <String, Depset>
         throws EvalException {
       Map<String, Depset> nativeLibsMap =
-          Dict.cast(nativeLibs, String.class, Depset.class, "native_libs");
+          StarlarkDict.cast(nativeLibs, String.class, Depset.class, "native_libs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Map.Entry<String, Depset> entry : nativeLibsMap.entrySet()) {

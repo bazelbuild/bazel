@@ -45,6 +45,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -152,7 +153,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     PackageContext context = getContext(thread);
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Mutability mu = thread.mutability();
-    Dict.Builder<String, Dict<String, Object>> rules = Dict.builder();
+    StarlarkDict.Builder<String, Dict<String, Object>> rules = StarlarkDict.builder();
     for (Target t : targets) {
       if (t instanceof Rule) {
         rules.put(t.getName(), getRuleDict((Rule) t, mu));
@@ -275,7 +276,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
-    Dict.Builder<String, Object> values = Dict.builder();
+    StarlarkDict.Builder<String, Object> values = StarlarkDict.builder();
 
     for (Attribute attr : rule.getAttributes()) {
       if (!Character.isAlphabetic(attr.getName().charAt(0))) {
@@ -359,7 +360,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     if (val instanceof Map) {
-      Dict.Builder<Object, Object> m = Dict.builder();
+      StarlarkDict.Builder<Object, Object> m = StarlarkDict.builder();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
         Object key = starlarkifyValue(mu, e.getKey(), pkg);
         Object mapVal = starlarkifyValue(mu, e.getValue(), pkg);

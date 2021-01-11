@@ -83,7 +83,7 @@ public class PrinterTest {
     map.put(StarlarkInt.of(3), StarlarkInt.of(3));
     map.put("foo", StarlarkInt.of(42));
     map.put(StarlarkInt.of(7), "bar");
-    assertThat(Starlark.str(Starlark.fromJava(map, null)))
+    assertThat(Starlark.str(DataStructureConverter.fromJava(map, null)))
         .isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
   }
 

@@ -35,6 +35,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -252,12 +253,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // keys on cpu value - we should be able to key on the keys returned here.
         try {
           Map<String, ?> dictOfDict =
-              Dict.cast(result, String.class, Dict.class, "dictionary of options dictionaries");
+              StarlarkDict
+                  .cast(result, String.class, Dict.class, "dictionary of options dictionaries");
           ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
           for (Map.Entry<String, ?> entry : dictOfDict.entrySet()) {
             builder.put(
                 entry.getKey(),
-                Dict.cast(entry.getValue(), String.class, Object.class, "an option dictionary"));
+                StarlarkDict.cast(entry.getValue(), String.class, Object.class, "an option dictionary"));
           }
           return builder.build();
         } catch (EvalException e) {
@@ -267,7 +269,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           // Try if this is a patch transition.
           return ImmutableMap.of(
               PATCH_TRANSITION_KEY,
-              Dict.cast(result, String.class, Object.class, "dictionary of options"));
+              StarlarkDict.cast(result, String.class, Object.class, "dictionary of options"));
         } catch (EvalException ex) {
           // TODO(adonovan): explain "want dict<string, any> or dict<string, dict<string, any>>".
           errorf(handler, "invalid result from transition function: %s", ex.getMessage());
@@ -283,7 +285,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
             // TODO(b/146347033): Document this behavior.
             builder.put(
                 Integer.toString(i++),
-                Dict.cast(toOptions, String.class, Object.class, "dictionary of options"));
+                StarlarkDict.cast(toOptions, String.class, Object.class, "dictionary of options"));
           }
         } catch (EvalException ex) {
           // TODO(adonovan): explain "want sequence of dict<string, any>".

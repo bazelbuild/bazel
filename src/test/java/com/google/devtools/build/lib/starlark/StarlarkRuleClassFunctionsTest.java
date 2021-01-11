@@ -1417,7 +1417,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static Dict<Object, Object> dictOf(@Nullable Mutability mu, int k, int v) {
-    return Dict.<Object, Object>builder().put(StarlarkInt.of(k), StarlarkInt.of(v)).build(mu);
+    return StarlarkDict.<Object, Object>builder().put(StarlarkInt.of(k), StarlarkInt.of(v)).build(mu);
   }
 
   @Test

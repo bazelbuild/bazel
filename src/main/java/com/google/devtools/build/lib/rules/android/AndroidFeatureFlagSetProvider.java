@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlag
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkDict;
 
 /**
  * Provider for checking the set of feature flags used by an android_binary.
@@ -175,7 +176,7 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
+          Optional.of(StarlarkDict.noneableCast(flags, Label.class, String.class, "flags")));
     }
   }
 }

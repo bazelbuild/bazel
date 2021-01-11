@@ -48,6 +48,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -188,7 +189,7 @@ public abstract class AndroidStarlarkData
         mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding);
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
-    return Dict.<Provider, NativeInfo>builder()
+    return StarlarkDict.<Provider, NativeInfo>builder()
         .put(AndroidResourcesInfo.PROVIDER, validated.toProvider())
         .put(JavaInfo.PROVIDER, javaInfo)
         .buildImmutable();
@@ -331,14 +332,14 @@ public abstract class AndroidStarlarkData
                   /* neverlink = */ false),
               AssetDependencies.fromProviders(
                   getProviders(depsTargets, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
-              Dict.cast(manifestValues, String.class, String.class, "manifest_values"),
+              StarlarkDict.cast(manifestValues, String.class, String.class, "manifest_values"),
               Sequence.cast(noCompressExtensions, String.class, "nocompress_extensions"),
               ResourceFilterFactory.from(
                   Sequence.cast(
                       resourceConfigurationFilters, String.class, "resource_configuration_filters"),
                   Sequence.cast(densities, String.class, "densities")));
 
-      Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
+      StarlarkDict.Builder<Provider, NativeInfo> builder = StarlarkDict.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));
       builder.put(
           AndroidBinaryDataInfo.PROVIDER,
@@ -430,7 +431,7 @@ public abstract class AndroidStarlarkData
     StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ctx.getRuleErrorConsumer());
     List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
     Map<String, String> manifestValueMap =
-        Dict.cast(manifestValues, String.class, String.class, "manifest_values");
+        StarlarkDict.cast(manifestValues, String.class, String.class, "manifest_values");
 
     try {
       BinaryDataSettings settings =
@@ -560,7 +561,7 @@ public abstract class AndroidStarlarkData
 
   public static Dict<Provider, NativeInfo> getNativeInfosFrom(
       ResourceApk resourceApk, Label label) {
-    Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
+    StarlarkDict.Builder<Provider, NativeInfo> builder = StarlarkDict.builder();
 
     builder
         .put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label))

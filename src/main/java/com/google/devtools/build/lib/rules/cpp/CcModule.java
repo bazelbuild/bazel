@@ -84,6 +84,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -245,7 +246,7 @@ public abstract class CcModule
       String actionName,
       CcToolchainVariables variables)
       throws EvalException {
-    return Dict.immutableCopyOf(
+    return StarlarkDict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
             .getEnvironmentVariables(actionName, variables));
@@ -433,7 +434,7 @@ public abstract class CcModule
   }
 
   protected Dict<?, ?> asDict(Object o) {
-    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
+    return o == Starlark.UNBOUND ? StarlarkDict.empty() : (Dict<?, ?>) o;
   }
 
   @Nullable

@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkDict;
 
 /** Action to expand a template and write the expanded content to a file. */
 @AutoCodec
@@ -215,7 +216,7 @@ public final class TemplateExpansionAction extends AbstractAction {
 
   @Override
   public Dict<String, String> getStarlarkSubstitutions() {
-    Dict.Builder<String, String> builder = Dict.builder();
+    StarlarkDict.Builder<String, String> builder = StarlarkDict.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());
     }

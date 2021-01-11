@@ -23,6 +23,7 @@ import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkDict;
 
 /** Class used to build VariablesExtension from a Starlark dictionary. */
 public class UserVariablesExtension implements VariablesExtension {
@@ -34,7 +35,7 @@ public class UserVariablesExtension implements VariablesExtension {
    */
   public UserVariablesExtension(Dict<?, ?> variablesExtension) throws EvalException {
     this.variablesExtension =
-        Dict.cast(variablesExtension, String.class, Object.class, "variables_extension");
+        StarlarkDict.cast(variablesExtension, String.class, Object.class, "variables_extension");
     // Check values are either string, string sequence or string depset
     for (Map.Entry<String, Object> entry : this.variablesExtension.entrySet()) {
       if (entry.getValue() instanceof Sequence) {

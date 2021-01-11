@@ -100,6 +100,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
@@ -271,7 +272,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         fields instanceof Sequence
             ? Sequence.cast(fields, String.class, "fields")
             : fields instanceof Dict
-                ? Dict.cast(fields, String.class, String.class, "fields").keySet()
+                ? StarlarkDict.cast(fields, String.class, String.class, "fields").keySet()
                 : null;
     return StarlarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
   }
@@ -344,7 +345,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         builder.setImplicitOutputsFunction(
             new StarlarkImplicitOutputsFunctionWithMap(
                 ImmutableMap.copyOf(
-                    Dict.cast(
+                    StarlarkDict.cast(
                         implicitOutputs,
                         String.class,
                         String.class,
@@ -382,7 +383,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =
-          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+          StarlarkDict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!ExecGroupCollection.isValidGroupName(group)) {
@@ -457,7 +458,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
-          Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+          StarlarkDict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
         checkAttributeName(attr.getKey());

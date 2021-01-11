@@ -43,6 +43,7 @@ import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.Structure;
 
 /**
@@ -107,7 +108,7 @@ public abstract class ImplicitOutputsFunction {
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry :
-            Dict.cast(
+            StarlarkDict.cast(
                     callback.call(eventHandler, attrs),
                     String.class,
                     String.class,

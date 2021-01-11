@@ -1682,7 +1682,7 @@ public final class StarlarkEvaluationTest {
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
         .testLookup(
             "d",
-            Dict.builder()
+            StarlarkDict.builder()
                 .put("a", StarlarkInt.of(1))
                 .put("b", StarlarkInt.of(2))
                 .buildImmutable());

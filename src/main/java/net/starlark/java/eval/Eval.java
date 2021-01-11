@@ -549,7 +549,7 @@ final class Eval {
 
   private static Object evalDict(StarlarkThread.Frame fr, DictExpression dictexpr)
       throws EvalException, InterruptedException {
-    Dict<Object, Object> dict = Dict.of(fr.thread.mutability());
+    Dict<Object, Object> dict = StarlarkDict.of(fr.thread.mutability());
     for (DictExpression.Entry entry : dictexpr.getEntries()) {
       Object k = eval(fr, entry.getKey());
       Object v = eval(fr, entry.getValue());
@@ -761,7 +761,7 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread.Frame fr, Comprehension comp)
       throws EvalException, InterruptedException {
-    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
+    final Dict<Object, Object> dict = comp.isDict() ? StarlarkDict.of(fr.thread.mutability()) : null;
     final StarlarkList<Object> list =
         comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
 

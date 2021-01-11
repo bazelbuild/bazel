@@ -52,7 +52,7 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
 
   @Override
   public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread) {
-    return Dict.of(thread.mutability());
+    return StarlarkDict.of(thread.mutability());
   }
 
   @Override

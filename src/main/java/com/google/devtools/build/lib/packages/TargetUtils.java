@@ -33,6 +33,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -284,7 +285,7 @@ public final class TargetUtils {
         TargetUtils.filter(
             executionRequirementsUnchecked == null
                 ? ImmutableMap.of()
-                : Dict.noneableCast(
+                : StarlarkDict.noneableCast(
                     executionRequirementsUnchecked,
                     String.class,
                     String.class,

@@ -38,6 +38,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.DataStructureConverter;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -94,7 +95,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
               // Passing arbitrary Java values into the Starlark interpreter
               // is not safe.
               // TODO(cparsons,twigg): fix it: convert value by explicit cases.
-              result.put(optionKey, Starlark.fromJava(optionValue, null));
+              result.put(optionKey, DataStructureConverter.fromJava(optionValue, null));
             } catch (IllegalArgumentException | NullPointerException ex) {
               // optionValue is not a valid Starlark value, so skip this option.
               // (e.g. tristate; a map with null values)

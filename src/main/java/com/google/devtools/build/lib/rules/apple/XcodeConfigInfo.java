@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkDict;
 
 /**
  * The set of Apple versions computed from command line options and the {@code xcode_config} rule.
@@ -71,7 +72,7 @@ public class XcodeConfigInfo extends NativeInfo
     this.xcodeVersion = xcodeVersion;
     this.availability = availability;
 
-    Dict.Builder<String, String> builder = Dict.builder();
+    StarlarkDict.Builder<String, String> builder = StarlarkDict.builder();
     builder.put(ExecutionRequirements.REQUIRES_DARWIN, "");
     switch (availability) {
       case LOCAL:

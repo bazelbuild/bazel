@@ -34,6 +34,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkList;
 
 /** Information about attributes of a rule an aspect is applied to. */
@@ -214,7 +215,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         List<?> allPrereq = context.getRuleContext().getPrerequisites(a.getName());
         attrBuilder.put(skyname, StarlarkList.immutableCopyOf(allPrereq));
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
-        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
+        StarlarkDict.Builder<TransitiveInfoCollection, String> builder = StarlarkDict.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
         List<? extends TransitiveInfoCollection> allPrereq =
             context.getRuleContext().getPrerequisites(a.getName());

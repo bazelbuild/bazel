@@ -197,14 +197,14 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.<String, String>builder().put("supports-worker", "1").buildImmutable(),
+            StarlarkDict.<String, String>builder().put("supports-worker", "1").buildImmutable(),
             noTag, /* allowTagsPropagation */
             true);
     assertThat(execInfo).containsExactly("supports-worker", "1");
 
     execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.<String, String>builder()
+            StarlarkDict.<String, String>builder()
                 .put("some-custom-tag", "1")
                 .put("no-cache", "1")
                 .buildImmutable(),
@@ -222,7 +222,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.<String, String>builder()
+            StarlarkDict.<String, String>builder()
                 .put("supports-workers", "1")
                 .put("worker-key-mnemonic", "MyMnemonic")
                 .buildImmutable(),
@@ -239,7 +239,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Dict<String, String> executionRequirementsUnchecked =
-        Dict.<String, String>builder().put("no-remote", "1").buildImmutable();
+        StarlarkDict.<String, String>builder().put("no-remote", "1").buildImmutable();
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
@@ -255,7 +255,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Dict<String, String> executionRequirementsUnchecked =
-        Dict.<String, String>builder().put("no-cache", "1").buildImmutable();
+        StarlarkDict.<String, String>builder().put("no-cache", "1").buildImmutable();
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
@@ -288,7 +288,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Dict<String, String> executionRequirementsUnchecked =
-        Dict.<String, String>builder().put("no-remote", "1").buildImmutable();
+        StarlarkDict.<String, String>builder().put("no-remote", "1").buildImmutable();
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(

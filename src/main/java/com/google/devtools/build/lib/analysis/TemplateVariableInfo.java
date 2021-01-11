@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.TemplateVariableInfoApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -43,7 +44,8 @@ public final class TemplateVariableInfo extends NativeInfo implements TemplateVa
     @Override
     public TemplateVariableInfo templateVariableInfo(Dict<?, ?> vars, StarlarkThread thread)
         throws EvalException {
-      Map<String, String> varsMap = Dict.noneableCast(vars, String.class, String.class, "vars");
+      Map<String, String> varsMap = StarlarkDict
+          .noneableCast(vars, String.class, String.class, "vars");
       return new TemplateVariableInfo(ImmutableMap.copyOf(varsMap), thread.getCallerLocation());
     }
   }

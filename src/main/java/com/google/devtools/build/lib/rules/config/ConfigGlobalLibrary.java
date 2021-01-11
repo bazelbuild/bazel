@@ -31,6 +31,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -69,7 +70,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException {
     Map<String, Object> changedSettingsMap =
-        Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
+        StarlarkDict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
     validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS, true);
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, thread.getCallerLocation());

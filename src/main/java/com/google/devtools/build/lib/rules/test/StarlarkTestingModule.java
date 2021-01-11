@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkDict;
 
 /** A class that exposes testing infrastructure to Starlark. */
 public class StarlarkTestingModule implements TestingModuleApi {
@@ -25,13 +26,14 @@ public class StarlarkTestingModule implements TestingModuleApi {
   @Override
   public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)
       throws EvalException {
-    return new ExecutionInfo(Dict.cast(requirements, String.class, String.class, "requirements"));
+    return new ExecutionInfo(
+        StarlarkDict.cast(requirements, String.class, String.class, "requirements"));
   }
 
   @Override
   public TestEnvironmentInfo testEnvironment(Dict<?, ?> environment /* <String, String> */)
       throws EvalException {
     return new TestEnvironmentInfo(
-        Dict.cast(environment, String.class, String.class, "environment"));
+        StarlarkDict.cast(environment, String.class, String.class, "environment"));
   }
 }

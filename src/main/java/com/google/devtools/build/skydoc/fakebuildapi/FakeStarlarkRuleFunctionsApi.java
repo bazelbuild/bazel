@@ -95,7 +95,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       }
     } else if (fields instanceof Dict) {
       for (Map.Entry<String, String> e :
-          Dict.cast(fields, String.class, String.class, "fields").entrySet()) {
+          StarlarkDict.cast(fields, String.class, String.class, "fields").entrySet()) {
         providerFieldInfos.add(asProviderFieldInfo(e.getKey(), e.getValue()));
       }
     } else {
@@ -140,7 +140,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
-      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
+      attrsMapBuilder.putAll(StarlarkDict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
@@ -193,7 +193,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     FakeStarlarkAspect fakeAspect = new FakeStarlarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
-      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
+      attrsMapBuilder.putAll(StarlarkDict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);

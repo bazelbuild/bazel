@@ -34,44 +34,6 @@ final class EvalUtils {
     }
   }
 
-  // The following functions for indexing and slicing match the behavior of Python.
-
-  /**
-   * Resolves a positive or negative index to an index in the range [0, length), or throws
-   * EvalException if it is out of range. If the index is negative, it counts backward from length.
-   */
-  static int getSequenceIndex(int index, int length) throws EvalException {
-    int actualIndex = index;
-    if (actualIndex < 0) {
-      actualIndex += length;
-    }
-    if (actualIndex < 0 || actualIndex >= length) {
-      throw Starlark.errorf(
-          "index out of range (index is %d, but sequence has %d elements)", index, length);
-    }
-    return actualIndex;
-  }
-
-  /**
-   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
-   * negative, the length of the sequence is added to it, so an index of -1 represents the last
-   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
-   * length].
-   */
-  static int toIndex(int index, int length) {
-    if (index < 0) {
-      index += length;
-    }
-
-    if (index < 0) {
-      return 0;
-    } else if (index > length) {
-      return length;
-    } else {
-      return index;
-    }
-  }
-
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
   static Object binaryOp(
       TokenKind op, Object x, Object y, StarlarkSemantics semantics, Mutability mu)
@@ -438,11 +400,11 @@ final class EvalUtils {
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
       // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark
       // values.
-      return result == null ? null : Starlark.fromJava(result, mu);
+      return result == null ? null : DataStructureConverter.fromJava(result, mu);
     } else if (object instanceof String) {
       String string = (String) object;
       int index = Starlark.toInt(key, "string index");
-      index = getSequenceIndex(index, string.length());
+      index = IndexingSlicingUtils.getSequenceIndex(index, string.length());
       return StringModule.memoizedCharToString(string.charAt(index));
     } else {
       throw Starlark.errorf(
@@ -465,7 +427,7 @@ final class EvalUtils {
       @SuppressWarnings("unchecked")
       StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = Starlark.toInt(key, "list index");
-      index = EvalUtils.getSequenceIndex(index, list.size());
+      index = IndexingSlicingUtils.getSequenceIndex(index, list.size());
       list.setElementAt(index, value);
 
     } else {

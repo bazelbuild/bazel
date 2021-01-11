@@ -328,7 +328,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       vector[i++] = varargs;
     }
     if (desc.acceptsExtraKwargs()) {
-      vector[i++] = Dict.wrap(thread.mutability(), kwargs);
+      vector[i++] = StarlarkDict.wrap(thread.mutability(), kwargs);
     }
     if (desc.isUseStarlarkThread()) {
       vector[i++] = thread;

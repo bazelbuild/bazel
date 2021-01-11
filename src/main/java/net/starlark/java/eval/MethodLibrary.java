@@ -497,8 +497,8 @@ class MethodLibrary {
     if (pairs instanceof StarlarkList && ((StarlarkList) pairs).isEmpty()) {
       return kwargs;
     }
-    Dict<Object, Object> dict = Dict.of(thread.mutability());
-    Dict.update("dict", dict, pairs, kwargs);
+    Dict<Object, Object> dict = StarlarkDict.of(thread.mutability());
+    StarlarkDict.update("dict", dict, pairs, kwargs);
     return dict;
   }
 

@@ -59,6 +59,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -392,7 +393,7 @@ public final class StarlarkRepositoryContextTest {
             "$remotable",
             true,
             "exec_properties",
-            Dict.builder().put("OSFamily", "Linux").buildImmutable());
+            StarlarkDict.builder().put("OSFamily", "Linux").buildImmutable());
 
     RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
     ExecutionResult executionResult =
@@ -418,7 +419,7 @@ public final class StarlarkRepositoryContextTest {
         context.execute(
             StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
             /* timeoutI= */ StarlarkInt.of(10),
-            /*uncheckedEnvironment=*/ Dict.empty(),
+            /*uncheckedEnvironment=*/ StarlarkDict.empty(),
             /*quiet=*/ true,
             /*workingDirectory=*/ "",
             thread);

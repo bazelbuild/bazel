@@ -51,7 +51,7 @@ final class MethodDescriptor {
     NULL_TO_NONE, // any Starlark value; null -> None
     ERROR_ON_NULL, // any Starlark value; null -> error
     STARLARK_INT_OF_INT, // Java int -> StarlarkInt
-    FROM_JAVA, // Starlark.fromJava conversion (List, Map, various Numbers, null perhaps)
+    FROM_JAVA, // DataStructureConverter.fromJava conversion (List, Map, various Numbers, null perhaps)
   }
 
   private final HowToHandleReturn howToHandleReturn;
@@ -213,7 +213,7 @@ final class MethodDescriptor {
         if (result == null && !allowReturnNones) {
           throw methodInvocationReturnedNull(args);
         }
-        return Starlark.fromJava(result, mu);
+        return DataStructureConverter.fromJava(result, mu);
     }
     throw new IllegalStateException("unreachable: " + howToHandleReturn);
   }

@@ -47,6 +47,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkDict;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -588,12 +589,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     if (executionInfo == null) {
       return null;
     }
-    return Dict.immutableCopyOf(executionInfo);
+    return StarlarkDict.immutableCopyOf(executionInfo);
   }
 
   @Override
   public Dict<String, String> getEnv() {
-    return Dict.immutableCopyOf(env.getFixedEnv().toMap());
+    return StarlarkDict.immutableCopyOf(env.getFixedEnv().toMap());
   }
 
   @Override

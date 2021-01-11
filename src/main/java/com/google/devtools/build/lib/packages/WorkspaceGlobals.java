@@ -43,6 +43,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
@@ -105,7 +106,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     builder.addRepositoryMappingEntry(
         RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
     parseManagedDirectories(
-        Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
+        StarlarkDict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
   }
 
   @Override

@@ -23,7 +23,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +33,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Mutability.Freezable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
@@ -157,41 +157,6 @@ public final class Starlark {
   }
 
   /**
-   * Converts a Java value {@code x} to a Starlark one, if x is not already a valid Starlark value.
-   * An Integer, Long, or BigInteger is converted to a Starlark int, a double is converted to a
-   * Starlark float, a Java List or Map is converted to a Starlark list or dict, respectively, and
-   * null becomes {@link #NONE}. Any other non-Starlark value causes the function to throw
-   * IllegalArgumentException.
-   *
-   * <p>Elements of Lists and Maps must be valid Starlark values; they are not recursively
-   * converted. (This avoids excessive unintended deep copying.)
-   *
-   * <p>This function is applied to the results of StarlarkMethod-annotated Java methods.
-   */
-  public static Object fromJava(Object x, @Nullable Mutability mutability) {
-    if (x == null) {
-      return NONE;
-    } else if (valid(x)) {
-      return x;
-    } else if (x instanceof Number) {
-      if (x instanceof Integer) {
-        return StarlarkInt.of((Integer) x);
-      } else if (x instanceof Long) {
-        return StarlarkInt.of((Long) x);
-      } else if (x instanceof BigInteger) {
-        return StarlarkInt.of((BigInteger) x);
-      } else if (x instanceof Double) {
-        return StarlarkFloat.of((double) x);
-      }
-    } else if (x instanceof List) {
-      return StarlarkList.copyOf(mutability, (List<?>) x);
-    } else if (x instanceof Map) {
-      return Dict.copyOf(mutability, (Map<?, ?>) x);
-    }
-    throw new IllegalArgumentException("cannot expose internal type to Starlark: " + x.getClass());
-  }
-
-  /**
    * Returns the truth value of a valid Starlark value, as if by the Starlark expression {@code
    * bool(x)}.
    */
@@ -307,8 +272,6 @@ public final class Starlark {
       return "list";
     } else if (c.equals(Tuple.class)) {
       return "tuple";
-    } else if (c.equals(Dict.class)) {
-      return "dict";
     } else if (c.equals(NoneType.class)) {
       return "NoneType";
     } else if (c.equals(StarlarkFunction.class)) {
@@ -326,6 +289,8 @@ public final class Starlark {
       return "iterable";
     } else if (c == Sequence.class) {
       return "sequence";
+    } else if (c == Dict.class) {
+      return "dict";
     } else if (c == StarlarkCallable.class) {
       return "callable";
     } else if (c == Structure.class) {
@@ -496,13 +461,13 @@ public final class Starlark {
       if (startObj == NONE) {
         start = 0;
       } else {
-        start = EvalUtils.toIndex(toInt(startObj, "start index"), n);
+        start = IndexingSlicingUtils.toIndex(toInt(startObj, "start index"), n);
       }
 
       if (stopObj == NONE) {
         stop = n;
       } else {
-        stop = EvalUtils.toIndex(toInt(stopObj, "stop index"), n);
+        stop = IndexingSlicingUtils.toIndex(toInt(stopObj, "stop index"), n);
       }
 
       if (stop < start) {

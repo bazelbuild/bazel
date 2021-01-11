@@ -30,6 +30,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -108,7 +109,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   public Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Dict.immutableCopyOf(getSharedNonLtoBackends());
+    return StarlarkDict.immutableCopyOf(getSharedNonLtoBackends());
   }
 
   @Nullable
@@ -147,7 +148,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   public Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Dict.immutableCopyOf(getPicSharedNonLtoBackends());
+    return StarlarkDict.immutableCopyOf(getPicSharedNonLtoBackends());
   }
 
   @Nullable

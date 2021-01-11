@@ -50,7 +50,7 @@ public interface Sequence<E>
   @Override
   default E getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     int index = Starlark.toInt(key, "sequence index");
-    return get(EvalUtils.getSequenceIndex(index, size()));
+    return get(IndexingSlicingUtils.getSequenceIndex(index, size()));
   }
 
   @Override

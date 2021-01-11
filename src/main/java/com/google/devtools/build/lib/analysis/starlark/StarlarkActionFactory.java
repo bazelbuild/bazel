@@ -65,6 +65,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -598,7 +599,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
     if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
-          ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
+          ImmutableMap.copyOf(StarlarkDict.cast(envUnchecked, String.class, String.class, "env")));
     }
     if (progressMessage != Starlark.NONE) {
       builder.setProgressMessageNonLazy((String) progressMessage);
@@ -655,7 +656,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     context.checkMutable("actions.expand_template");
     ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
     for (Map.Entry<String, String> substitution :
-        Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
+        StarlarkDict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
       // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.

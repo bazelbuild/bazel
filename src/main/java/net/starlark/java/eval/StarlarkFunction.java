@@ -279,7 +279,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     // named arguments
     Dict<String, Object> kwargs = null;
     if (rfn.hasKwargs()) {
-      kwargs = Dict.of(mu);
+      kwargs = StarlarkDict.of(mu);
       arguments[rfn.getParameters().size() - 1] = kwargs;
     }
     for (int i = 0; i < named.length; i += 2) {

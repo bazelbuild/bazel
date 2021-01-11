@@ -58,6 +58,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkDict;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -219,7 +220,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
   private static void addOutputGroups(Object outputGroups, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     for (Map.Entry<String, StarlarkValue> entry :
-        Dict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
+        StarlarkDict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
       String outputGroup = entry.getKey();
       NestedSet<Artifact> artifacts = convertToOutputGroupValue(outputGroup, entry.getValue());
       builder.addOutputGroup(outputGroup, artifacts);
