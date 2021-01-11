@@ -563,6 +563,33 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  @SuppressWarnings("EmptyCatchBlock")
+  public void aspectReturnsNonExportedProvider() throws Exception {
+    scratch.file(
+        "test/inc.bzl",
+        "a = aspect(implementation = lambda target, ctx: [provider()()])",
+        "r = rule(",
+        "  implementation = lambda ctx: [],",
+        "  attrs = {'a': attr.label_list(aspects = [a])})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:inc.bzl', 'r')",
+        "java_library(name = 'j')",
+        "r(name = 'test', a = [':j'])");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//test");
+      /* reached if --keep_going=true */
+    } catch (ViewCreationFailedException unused) {
+      /* reached if --keep_going=false */
+    }
+    assertContainsEvent(
+        "aspect function returned an instance of a provider "
+            + "(defined at /workspace/test/inc.bzl:1:58) that is not a global");
+  }
+
+  @Test
   public void providerNonExported() throws Exception {
     scratch.file(
         "test/rule.bzl",

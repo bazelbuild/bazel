@@ -479,20 +479,17 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
-   * providers defined in Skyark.
+   * providers defined in Starlark. The provider symbol must be exported.
    *
    * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Starlark
    * directly, instead its output groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider)
-      throws EvalException {
+  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
-    if (!constructor.isExported()) {
-      throw new EvalException(constructor.getLocation(),
-          "All providers must be top level values");
-    }
+    // Starlark providers are already exported (enforced by SRCTU.getProviderKey).
+    Preconditions.checkArgument(constructor.isExported());
     if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
       OutputGroupInfo outputGroupInfo = (OutputGroupInfo) provider;
       for (String outputGroup : outputGroupInfo) {

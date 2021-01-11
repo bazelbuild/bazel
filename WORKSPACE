@@ -143,11 +143,7 @@ distdir_tar(
         "java_tools_windows-v11.0.zip",
         "java_tools_darwin-v11.0.zip",
         "coverage_output_generator-v2.5.zip",
-        # bazelbuid/stardoc
-        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         "android_tools_pkg-0.19.0rc3.tar.gz",
-        # bazelbuild/bazel-skylib
-        "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/upb
@@ -162,11 +158,7 @@ distdir_tar(
         "java_tools_windows-v11.0.zip": "8a683275b0f24e011b56e27eb4d7e35919d774ae57ec3353d48606cfc81e4116",
         "java_tools_darwin-v11.0.zip": "39e3bb7e554e817de76a9b2cc9354b0c2363108dfcd56b360d3c35eadc8cddbd",
         "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
-        # bazelbuild/stardoc
-        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
-        # bazelbuild/bazel-skylib
-        "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/upb
@@ -192,17 +184,8 @@ distdir_tar(
         "coverage_output_generator-v2.5.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
         ],
-        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-            "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-        ],
         "android_tools_pkg-0.19.0rc3.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
-        ],
-        # bazelbuild/bazel-skylib
-        "bazel-skylib-1.0.3.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
@@ -362,29 +345,10 @@ http_archive(
     ],
 )
 
-http_archive(
+dist_http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-    ],
-)
-
-# Note that stardoc depends on being called io_bazel_skydoc
-# to work without being patched, as it hard-codes this name in its sources.
-# TODO(wyv): Is the above still true? Try a different name and see if it works.
-#   If it does, can we rename the workspace in bazelbuild/stardoc?
-http_archive(
-    name = "io_bazel_skydoc",
-    sha256 = "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
-    strip_prefix = "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-        "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
-    ],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -428,8 +392,6 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
         "android_tools_pkg-0.19.0rc3.tar.gz",
-        # bazelbuild/bazel-skylib
-        "bazel-skylib-1.0.3.tar.gz",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         # protocolbuffers/upb
@@ -448,8 +410,6 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
         "android_tools_pkg-0.19.0rc3.tar.gz": "ea5c0589a01e2a9f43c20e5c145d3530e3b3bdbe7322789bc5da38d0ca49b837",
-        # bazelbuild/bazel-skylib
-        "bazel-skylib-1.0.3.tar.gz": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
         # protocolbuffers/upb
@@ -468,11 +428,6 @@ distdir_tar(
         "android_tools_pkg-0.19.0rc3.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.19.0rc3.tar.gz",
         ],
-        # bazelbuild/bazel-skylib
-        "bazel-skylib-1.0.3.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-        ],
         # bazelbuild/rules_proto
         "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
@@ -484,6 +439,10 @@ distdir_tar(
             "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
         ],
     },
+)
+
+dist_http_archive(
+    name = "io_bazel_skydoc",
 )
 
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")

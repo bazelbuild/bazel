@@ -1171,6 +1171,36 @@ def _impl(ctx):
             enabled = True,
         )
 
+        dbg_feature = feature(
+            name = "dbg",
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                    flag_groups = [flag_group(flags = ["-g", "-Og"])],
+                ),
+            ],
+        )
+
+        opt_feature = feature(
+            name = "opt",
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                    flag_groups = [flag_group(flags = [
+                        "-g0",
+                        "-O3",
+                        "-DNDEBUG",
+                        "-ffunction-sections",
+                        "-fdata-sections",
+                    ])],
+                ),
+                flag_set(
+                    actions = all_link_actions,
+                    flag_groups = [flag_group(flags = ["-Wl,--gc-sections"])],
+                ),
+            ],
+        )
+
         if ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "mingw-gcc":
             compiler_param_file_feature = feature(
                 name = "compiler_param_file",
@@ -1184,6 +1214,8 @@ def _impl(ctx):
                 compiler_param_file_feature,
                 default_link_flags_feature,
                 supports_dynamic_linker_feature,
+                dbg_feature,
+                opt_feature,
             ]
         else:
             supports_pic_feature = feature(
@@ -1194,10 +1226,6 @@ def _impl(ctx):
                 name = "supports_start_end_lib",
                 enabled = True,
             )
-
-            dbg_feature = feature(name = "dbg")
-
-            opt_feature = feature(name = "opt")
 
             sysroot_feature = feature(
                 name = "sysroot",
