@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -204,6 +206,19 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(javaInfo)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs);
+
+    Artifact validation =
+        AndroidLintActionBuilder.create(
+            ruleContext,
+            javaConfig,
+            attributes,
+            helper.getBootclasspathOrDefault(),
+            common,
+            outputs);
+    if (validation != null) {
+      builder.addOutputGroup(
+          OutputGroupInfo.VALIDATION, NestedSetBuilder.create(STABLE_ORDER, validation));
+    }
 
     if (ruleContext.hasErrors()) {
       return null;

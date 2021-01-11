@@ -3,7 +3,7 @@ layout: documentation
 title: Configurable build attributes
 ---
 
-# Configurable build attributes
+# Configurable Build Attributes
 
 **_Configurable attributes_**, commonly known as [`select()`](
 be/functions.html#select), is a Bazel feature that lets users toggle the values
@@ -673,7 +673,7 @@ config_setting(
 )
 ```
 
-`query` overapproximtes `:my_lib`'s dependencies:
+`query` overapproximates `:my_lib`'s dependencies:
 
 ```sh
 $ bazel query 'deps(//myapp:my_lib)'

@@ -5,6 +5,8 @@ title: Installing Bazel on Fedora and CentOS
 
 # Installing Bazel on Fedora and CentOS
 
+This page describes how to install Bazel on Fedora and CentOS.
+
 The Bazel team does not provide official packages for Fedora and CentOS.
 Vincent Batts ([@vbatts](https://github.com/vbatts)) generously maintains
 unofficial packages on

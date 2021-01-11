@@ -470,6 +470,8 @@ message Filesystem {
     SERVER_FILE_WRITE_FAILURE = 5 [(metadata) = { exit_code: 1 }];
     DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE = 6
         [(metadata) = { exit_code: 2 }];
+
+    reserved 7; // For internal use
   }
 
   Code code = 1;

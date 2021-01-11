@@ -186,12 +186,11 @@ public class TestCommand implements BlazeCommand {
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
 
-    boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess =
+    DetailedExitCode testResults =
         analyzeTestResults(
             testTargets, buildResult.getSkippedTargets(), testListener, options, env, printer);
 
-    if (testSuccess && !buildSuccess) {
+    if (testResults.isSuccess() && !buildResult.getSuccess()) {
       // If all tests run successfully, test summary should include warning if
       // there were build errors not associated with the test targets.
       printer.printLn(AnsiTerminalPrinter.Mode.ERROR
@@ -200,16 +199,8 @@ public class TestCommand implements BlazeCommand {
     }
 
     DetailedExitCode detailedExitCode =
-        buildSuccess
-            ? (testSuccess
-                ? DetailedExitCode.success()
-                : DetailedExitCode.of(
-                    FailureDetail.newBuilder()
-                        .setMessage("tests failed")
-                        .setTestCommand(
-                            FailureDetails.TestCommand.newBuilder().setCode(Code.TESTS_FAILED))
-                        .build()))
-            : buildResult.getDetailedExitCode();
+        DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+            buildResult.getDetailedExitCode(), testResults);
     env.getEventBus()
         .post(
             new TestingCompleteEvent(
@@ -220,10 +211,10 @@ public class TestCommand implements BlazeCommand {
   }
 
   /**
-   * Analyzes test results and prints summary information. Returns true if and only if all tests
-   * were successful.
+   * Analyzes test results and prints summary information. Returns a {@link DetailedExitCode}
+   * summarizing those test results.
    */
-  private boolean analyzeTestResults(
+  private static DetailedExitCode analyzeTestResults(
       Collection<ConfiguredTarget> testTargets,
       Collection<ConfiguredTarget> skippedTargets,
       AggregatingTestListener listener,

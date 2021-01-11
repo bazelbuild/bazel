@@ -3,9 +3,13 @@ layout: documentation
 title: Backward compatibility
 ---
 
-# Backward compatibility
+# Backward Compatibility
 
-Bazel is evolving, and we will make changes to Bazel that at times will be
+This page provides information on how to handle backward compatibility,
+including migration requirements and how to communicate incompatible changes.
+It also covers policy information and guidelines to follow these policies.
+
+Bazel is evolving, and changes will be made to Bazel that at times will be
 incompatible and require some changes from Bazel users.
 
 ## GitHub labels

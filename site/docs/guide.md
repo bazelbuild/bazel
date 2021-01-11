@@ -3,7 +3,7 @@ layout: documentation
 title: User's guide
 ---
 
-# A user's guide to Bazel
+# A User's Guide to Bazel
 
 To run Bazel, go to your base [workspace](build-ref.html#workspace) directory
 or any of its subdirectories and type `bazel`.
@@ -263,7 +263,7 @@ them.
 
 By default, Bazel will download and symlink external dependencies during the
 build. However, this can be undesirable, either because you'd like to know
-when new external dependendencies are added or because you'd like to
+when new external dependencies are added or because you'd like to
 "prefetch" dependencies (say, before a flight where you'll be offline). If you
 would like to prevent new dependencies from being added during builds, you
 can specify the `--fetch=false` flag. Note that this flag only

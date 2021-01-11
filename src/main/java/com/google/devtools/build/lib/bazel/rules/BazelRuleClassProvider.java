@@ -240,7 +240,9 @@ public class BazelRuleClassProvider {
   /** Adds this class's definitions to a builder. */
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder.setToolsRepository(TOOLS_REPOSITORY);
-    builder.setBuiltinsPackagePathInSource("src/main/starlark/builtins_bzl");
+    builder.setBuiltinsBzlZipResource(
+        ResourceFileLoader.resolveResource(BazelRuleClassProvider.class, "builtins_bzl.zip"));
+    builder.setBuiltinsBzlPackagePathInSource("src/main/starlark/builtins_bzl");
     builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
 
     for (RuleSet ruleSet : RULE_SETS) {

@@ -170,6 +170,11 @@ public class NodeVisitor {
     visit(node.getKey());
   }
 
+  public void visit(LambdaExpression node) {
+    visitAll(node.getParameters());
+    visit(node.getBody());
+  }
+
   public void visit(SliceExpression node) {
     visit(node.getObject());
     if (node.getStart() != null) {

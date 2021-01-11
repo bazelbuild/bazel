@@ -20,10 +20,12 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction.AndroidRevision;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryTest.WithPlatforms;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -31,10 +33,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidSdkRepositoryFunction}. */
-@RunWith(JUnit4.class)
-public class AndroidSdkRepositoryTest extends BuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidSdkRepositoryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidSdkRepositoryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   @Before
   public void setup() throws Exception {
     scratch.file(

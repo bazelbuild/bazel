@@ -23,6 +23,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -37,15 +38,17 @@ import net.starlark.java.eval.Tuple;
 public interface BazelCcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
+        FdoContextT extends FdoContextApi<?>,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, FdoContextT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
-        LinkingOutputsT extends CcLinkingOutputsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT>,
+        LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>,
+        LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
+        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
+        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         LinkingContextT extends CcLinkingContextApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
@@ -54,9 +57,11 @@ public interface BazelCcModuleApi<
     extends CcModuleApi<
         StarlarkActionFactoryT,
         FileT,
+        FdoContextT,
         CcToolchainProviderT,
         FeatureConfigurationT,
         CompilationContextT,
+        LtoBackendArtifactsT,
         LinkerInputT,
         LinkingContextT,
         LibraryToLinkT,
@@ -284,6 +289,13 @@ public interface BazelCcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = String.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -314,6 +326,7 @@ public interface BazelCcModuleApi<
       Object doNotGenerateModuleMap,
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -433,6 +446,13 @@ public interface BazelCcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -451,6 +471,7 @@ public interface BazelCcModuleApi<
       Object linkArtifactNameSuffix,
       Object neverLink,
       Object testOnlyTarget,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

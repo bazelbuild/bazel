@@ -5,11 +5,8 @@ title: Challenges of Writing Rules
 
 # Challenges of Writing Rules
 
-We have heard feedback from various people that they have
-difficulty to write efficient Bazel rules. There is no single root cause, but
-it's due to a combination of historical circumstances and intrinsic complexity
-in the problem domain. This document attempts to give a high level overview of
-the specific issues that we believe to be the main contributors.
+This page gives a high-level overview of the specific issues and challenges
+of writing efficient Bazel rules.
 
 * Assumption: Aim for Correctness, Throughput, Ease of Use & Latency
 * Assumption: Large Scale Repositories

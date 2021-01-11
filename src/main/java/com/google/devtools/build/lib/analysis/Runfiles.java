@@ -401,7 +401,7 @@ public final class Runfiles implements RunfilesApi {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getArtifacts().toList()) {
-      checker.put(manifest, artifact.getOutputDirRelativePath(false), artifact);
+      checker.put(manifest, artifact.getRunfilesPath(), artifact);
     }
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
@@ -460,7 +460,7 @@ public final class Runfiles implements RunfilesApi {
           checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
         } else {
           if (legacyExternalRunfiles) {
-            checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
+            checker.put(manifest, getLegacyExternalPath(path), entry.getValue());
           }
           // Always add the non-legacy .runfiles/repo/whatever path.
           checker.put(manifest, getExternalPath(path), entry.getValue());
@@ -495,6 +495,12 @@ public final class Runfiles implements RunfilesApi {
       return checkForWorkspace(path.subFragment(1));
     }
 
+    private PathFragment getLegacyExternalPath(PathFragment path) {
+      return workspaceName
+          .getRelative(LabelConstants.EXTERNAL_PATH_PREFIX)
+          .getRelative(checkForWorkspace(path.subFragment(1)));
+    }
+
     private PathFragment checkForWorkspace(PathFragment path) {
       sawWorkspaceName = sawWorkspaceName
           || path.getSegment(0).equals(workspaceName.getPathString());
@@ -502,8 +508,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     private static boolean isUnderWorkspace(PathFragment path) {
-      return !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)
-          && !path.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
+      return !path.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
     }
   }
 

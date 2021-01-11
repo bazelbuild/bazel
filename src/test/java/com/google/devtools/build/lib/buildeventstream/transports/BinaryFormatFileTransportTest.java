@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
+import io.netty.util.AbstractReferenceCounted;
+import io.netty.util.ReferenceCounted;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -137,7 +139,7 @@ public class BinaryFormatFileTransportTest {
 
     BuildEventArtifactUploader uploader =
         Mockito.spy(
-            new BuildEventArtifactUploader() {
+            new BuildEventArtifactUploaderWithRefCounting() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
                 return Futures.immediateCancelledFuture();
@@ -147,9 +149,6 @@ public class BinaryFormatFileTransportTest {
               public boolean mayBeSlow() {
                 return false;
               }
-
-              @Override
-              public void shutdown() {}
             });
 
     File output = tmp.newFile();
@@ -248,7 +247,7 @@ public class BinaryFormatFileTransportTest {
 
     BuildEventArtifactUploader uploader =
         Mockito.spy(
-            new BuildEventArtifactUploader() {
+            new BuildEventArtifactUploaderWithRefCounting() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
                 if (files.containsKey(file1)) {
@@ -260,11 +259,6 @@ public class BinaryFormatFileTransportTest {
               @Override
               public boolean mayBeSlow() {
                 return true;
-              }
-
-              @Override
-              public void shutdown() {
-                // Intentionally left empty.
               }
             });
     File output = tmp.newFile();
@@ -284,7 +278,7 @@ public class BinaryFormatFileTransportTest {
       assertThat(in.available()).isEqualTo(0);
     }
 
-    verify(uploader).shutdown();
+    verify(uploader).release();
   }
 
   /** Regression test for b/207287675 */
@@ -296,7 +290,7 @@ public class BinaryFormatFileTransportTest {
 
     BuildEventArtifactUploader uploader =
         Mockito.spy(
-            new BuildEventArtifactUploader() {
+            new BuildEventArtifactUploaderWithRefCounting() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
                 return Futures.immediateFuture(new FileUriPathConverter());
@@ -305,11 +299,6 @@ public class BinaryFormatFileTransportTest {
               @Override
               public boolean mayBeSlow() {
                 return false;
-              }
-
-              @Override
-              public void shutdown() {
-                // Intentionally left empty.
               }
             });
     File output = tmp.newFile();
@@ -338,7 +327,7 @@ public class BinaryFormatFileTransportTest {
     SettableFuture<PathConverter> upload = SettableFuture.create();
     BuildEventArtifactUploader uploader =
         Mockito.spy(
-            new BuildEventArtifactUploader() {
+            new BuildEventArtifactUploaderWithRefCounting() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
                 return upload;
@@ -347,11 +336,6 @@ public class BinaryFormatFileTransportTest {
               @Override
               public boolean mayBeSlow() {
                 return false;
-              }
-
-              @Override
-              public void shutdown() {
-                // Intentionally left empty.
               }
             });
 
@@ -373,7 +357,7 @@ public class BinaryFormatFileTransportTest {
       assertThat(in.available()).isEqualTo(0);
     }
 
-    verify(uploader).shutdown();
+    verify(uploader).release();
   }
 
   private static class WithLocalFilesEvent implements BuildEvent {
@@ -416,6 +400,18 @@ public class BinaryFormatFileTransportTest {
     @Override
     public Collection<BuildEventId> getChildrenEvents() {
       return ImmutableList.of(BuildEventIdUtil.progressId(id + 1));
+    }
+  }
+
+  private abstract static class BuildEventArtifactUploaderWithRefCounting
+      extends AbstractReferenceCounted implements BuildEventArtifactUploader {
+
+    @Override
+    protected void deallocate() {}
+
+    @Override
+    public ReferenceCounted touch(Object o) {
+      return this;
     }
   }
 }

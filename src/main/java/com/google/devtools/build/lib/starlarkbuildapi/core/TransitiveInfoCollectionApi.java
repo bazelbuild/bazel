@@ -23,17 +23,39 @@ import net.starlark.java.eval.StarlarkValue;
     name = "Target",
     category = DocCategory.BUILTIN,
     doc =
-        "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
-            + "<ul><li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\""
-            + " href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the "
-            + "target.</li><li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\""
-            + " href=\"depset.html\">depset</a> Target.files </code><br>The set of <a"
-            + " class=\"anchor\" href=\"File.html\">File</a>s produced directly by this "
-            + "target.</li><li><h3 id=\"modules.Target.aspect_ids\">aspect_ids</h3><code><a"
-            + " class=\"anchor\"href=\"list.html\">list</a> Target.aspect_ids </code><br>The list"
-            + " of <a class=\"anchor\" href=\"ctx.html#aspect_id\">aspect_id</a>s applied to this "
-            + "target.</li><li><h3 id=\"modules.Target.extraproviders\">Extra providers</h3>For"
-            + " rule targets all additional providers provided by this target are accessible as"
-            + " <code>struct</code> fields. These extra providers are defined in the"
-            + " <code>struct</code> returned by the rule implementation function.</li></ul>")
+        "The BUILD target for a dependency. Appears in the fields of <code><a "
+            + "href='ctx.html#attr'>ctx.attr</a></code> corresponding to <a "
+            + "href='../rules.html#dependency-attributes'>dependency attributes</a> "
+            + "(<code><a href='attr.html#label'>label</a></code> or <code>"
+            + "<a href='attr.html#label_list'>label_list</a></code>). Has the following fields:\n"
+            //
+            + "<ul>\n" //
+            + "<li><h3 id='modules.Target.label'>label</h3>\n" //
+            + "<code><a href='Label.html'>Label</a> Target.label</code><br/>\n" //
+            + "The identifier of the target.</li>\n" //
+            //
+            + "<li><h3 id='modules.Target.files'>files</h3>\n" //
+            + "<code><a href='depset.html'>depset</a> Target.files </code><br/>\n" //
+            + "The set of <code><a href='File.html'>File</a></code>s in the default outputs for "
+            + "this target. Equivalent to <code><a href='DefaultInfo.html#files'>"
+            + "target[DefaultInfo].files</a></code>.</li>\n" //
+            //
+            + "<li><h3 id='modules.Target.aspect_ids'>aspect_ids</h3>\n" //
+            + "<code><a href='list.html'>list</a> Target.aspect_ids </code><br/>\n" //
+            + "The list of <code><a href='ctx.html#aspect_ids'>aspect_ids</a></code> "
+            + "applied to this target.</li>\n" //
+            //
+            + "<li><h3 id='modules.Target.providers'>Providers</h3>\n" //
+            + "The <a href='../rules.html#providers'>providers</a> of a rule target can be "
+            + "accessed by type using index notation (<code>target[DefaultInfo]"
+            + "</code>). The presence of providers can be checked using the <code>in</code> "
+            + "operator (<code>SomeInfo in target</code>).<br/>\n" //
+            + "<br/>\n" //
+            + "If the rule's implementation function returns a <code><a href='struct.html'>"
+            + "struct</a></code> instead of a list of <code><a href='Provider.html'>Provider"
+            + "</a></code> instances, the struct's fields can be accessed via the corresponding "
+            + "fields of the <code>Target</code> (<code>target.some_legacy_info</code>). "
+            + "This behavior <a href='../rules.html#migrating-from-legacy-providers'>is deprecated"
+            + "</a>.</li>\n" //
+            + "</ul>")
 public interface TransitiveInfoCollectionApi extends StarlarkValue {}

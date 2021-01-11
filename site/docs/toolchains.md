@@ -5,7 +5,8 @@ title: Toolchains
 
 # Toolchains
 
-This page describes the toolchain framework -- a way for rule authors to
+
+This page describes the toolchain framework, which is a way for rule authors to
 decouple their rule logic from platform-based selection of tools. It is
 recommended to read the
 [rules](skylark/rules.html)

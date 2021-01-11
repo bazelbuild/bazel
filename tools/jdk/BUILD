@@ -23,7 +23,7 @@ filegroup(
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.pgcfg",
-        "toolchain_utils.bzl",
+        "remote_java_repository.bzl",
     ],
 )
 

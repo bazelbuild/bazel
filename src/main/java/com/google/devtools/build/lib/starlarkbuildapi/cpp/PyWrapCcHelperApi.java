@@ -44,7 +44,7 @@ public interface PyWrapCcHelperApi<
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>

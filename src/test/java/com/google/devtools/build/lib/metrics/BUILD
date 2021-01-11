@@ -18,6 +18,7 @@ java_test(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/metrics:memory-use-recorder",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",

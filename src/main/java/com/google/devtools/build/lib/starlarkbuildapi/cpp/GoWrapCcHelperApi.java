@@ -49,7 +49,7 @@ public interface GoWrapCcHelperApi<
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
         CcLinkingContextT extends CcLinkingContextApi<FileT>,
         GoConfigurationT extends GoConfigurationApi,
         GoContextInfoT extends GoContextInfoApi,

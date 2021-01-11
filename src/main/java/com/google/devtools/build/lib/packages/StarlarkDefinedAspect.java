@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Arrays;
@@ -149,7 +150,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
   }
 
   @Override
-  public void export(Label extensionLabel, String name) {
+  public void export(EventHandler handler, Label extensionLabel, String name) {
     Preconditions.checkArgument(!isExported());
     this.aspectClass = new StarlarkAspectClass(extensionLabel, name);
   }

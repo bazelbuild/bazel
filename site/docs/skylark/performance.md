@@ -3,7 +3,8 @@ layout: documentation
 title: Optimizing performance
 ---
 
-# Optimizing performance
+# Optimizing Performance
+
 
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole

@@ -47,6 +47,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -796,6 +798,22 @@ public final class Profiler {
     private static final long SLIM_PROFILE_EVENT_THRESHOLD = 10_000;
     private static final long SLIM_PROFILE_MAXIMAL_PAUSE_NS = Duration.ofMillis(100).toNanos();
     private static final long SLIM_PROFILE_MAXIMAL_DURATION_NS = Duration.ofMillis(250).toNanos();
+    private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
+
+    /**
+     * These constants describe ranges of threads. We suppose that there are no more than 10_000
+     * threads of each kind, otherwise the profile becomes unreadable anyway. So the sort index of
+     * skyframe threads is in range [10_000..20_000) for example.
+     */
+    private static final long SKYFRAME_EVALUATOR_SHIFT = 10_000;
+
+    private static final long DYNAMIC_EXECUTION_SHIFT = 20_000;
+    private static final long INCLUDE_SCANNER_SHIFT = 30_000;
+
+    private static final long CRITICAL_PATH_SORT_INDEX = 0;
+    private static final long MAIN_THREAD_SORT_INDEX = 1;
+    private static final long GC_THREAD_SORT_INDEX = 2;
+    private static final long MAX_SORT_INDEX = 1_000_000;
 
     JsonTraceFileWriter(
         OutputStream outStream,
@@ -825,6 +843,12 @@ public final class Profiler {
                 /* startTimeNanos= */ -1,
                 ProfilerTask.THREAD_NAME,
                 Thread.currentThread().getName()));
+        queue.add(
+            new TaskData(
+                /* id= */ 0,
+                /* startTimeNanos= */ -1,
+                ProfilerTask.THREAD_SORT_INDEX,
+                String.valueOf(getSortIndex(Thread.currentThread().getName()))));
       }
       queue.add(data);
     }
@@ -930,6 +954,57 @@ public final class Profiler {
       writer.endObject();
     }
 
+    private static String getReadableName(String threadName) {
+      if (isMainThread(threadName)) {
+        return "Main Thread";
+      }
+
+      if (isGCThread(threadName)) {
+        return "Garbage Collector";
+      }
+
+      return threadName;
+    }
+
+    private static long getSortIndex(String threadName) {
+      if (isMainThread(threadName)) {
+        return MAIN_THREAD_SORT_INDEX;
+      }
+
+      if (isGCThread(threadName)) {
+        return GC_THREAD_SORT_INDEX;
+      }
+
+      Matcher numberMatcher = NUMBER_PATTERN.matcher(threadName);
+      if (!numberMatcher.find()) {
+        return MAX_SORT_INDEX;
+      }
+
+      long extractedNumber = Long.parseLong(numberMatcher.group());
+
+      if (threadName.startsWith("skyframe-evaluator")) {
+        return SKYFRAME_EVALUATOR_SHIFT + extractedNumber;
+      }
+
+      if (threadName.startsWith("dynamic-execution")) {
+        return DYNAMIC_EXECUTION_SHIFT + extractedNumber;
+      }
+
+      if (threadName.startsWith("Include scanner")) {
+        return INCLUDE_SCANNER_SHIFT + extractedNumber;
+      }
+
+      return MAX_SORT_INDEX;
+    }
+
+    private static boolean isMainThread(String threadName) {
+      return threadName.startsWith("grpc-command");
+    }
+
+    private static boolean isGCThread(String threadName) {
+      return threadName.equals("Service Thread");
+    }
+
     /**
      * Saves all gathered information from taskQueue queue to the file.
      * Method is invoked internally by the Timer-based thread and at the end of
@@ -969,6 +1044,19 @@ public final class Profiler {
           writer.endObject();
           writer.endObject();
 
+          writer.setIndent("  ");
+          writer.beginObject();
+          writer.setIndent("");
+          writer.name("name").value("thread_sort_index");
+          writer.name("ph").value("M");
+          writer.name("pid").value(1);
+          writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
+          writer.name("args");
+          writer.beginObject();
+          writer.name("sort_index").value(CRITICAL_PATH_SORT_INDEX);
+          writer.endObject();
+          writer.endObject();
+
           HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
           int eventCount = 0;
           while ((data = queue.take()) != POISON_PILL) {
@@ -985,7 +1073,25 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              writer.name("name").value(data.description);
+              writer.name("name").value(getReadableName(data.description));
+              writer.endObject();
+
+              writer.endObject();
+              continue;
+            }
+
+            if (data.type == ProfilerTask.THREAD_SORT_INDEX) {
+              writer.setIndent("  ");
+              writer.beginObject();
+              writer.setIndent("");
+              writer.name("name").value("thread_sort_index");
+              writer.name("ph").value("M");
+              writer.name("pid").value(1);
+              writer.name("tid").value(data.threadId);
+              writer.name("args");
+
+              writer.beginObject();
+              writer.name("sort_index").value(data.description);
               writer.endObject();
 
               writer.endObject();
@@ -1012,7 +1118,12 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              writer.name("cpu").value(data.description);
+              if (data.type == ProfilerTask.LOCAL_CPU_USAGE) {
+                writer.name("cpu").value(data.description);
+              } else {
+                writer.name("action").value(data.description);
+              }
+
               writer.endObject();
 
               writer.endObject();

@@ -1016,7 +1016,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArgs =
           CustomCommandLine.builder()
               .addPath(javaExecutable)
-              .add("-Xverify:none")
               .addAll(ImmutableList.copyOf(jvmArgs))
               .addAll(ImmutableList.copyOf(launchArgs));
       toolsBuilder.add(deployJar);
@@ -1085,7 +1084,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     /** Returns a {@link CustomCommandLine.Builder} for executable arguments. */
     public CustomCommandLine.Builder executableArguments() {
-      Preconditions.checkState(executableArgs != null);
+      if (executableArgs == null) {
+        executableArgs = CustomCommandLine.builder();
+      }
       return this.executableArgs;
     }
 

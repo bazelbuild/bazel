@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.android.AndroidResourcesTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidResourcesTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -34,10 +36,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests {@link AndroidResources} */
-@RunWith(JUnit4.class)
-public class AndroidResourcesTest extends ResourceTestBase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidResourcesTest extends ResourceTestBase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidResourcesTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidResourcesTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   private static final PathFragment DEFAULT_RESOURCE_ROOT = PathFragment.create(RESOURCE_ROOT);
   private static final ImmutableList<PathFragment> RESOURCES_ROOTS =
       ImmutableList.of(DEFAULT_RESOURCE_ROOT);

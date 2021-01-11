@@ -21,10 +21,15 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A Skyframe value representing the Starlark symbols defined by the {@code @_builtins}
  * pseudo-repository.
+ *
+ * <p>To avoid unnecessary Skyframe edges, the {@code StarlarkSemantics} are included in this value,
+ * so that a caller who obtains a StarlarkBuiltinsValue can also access the StarlarkSemantics
+ * without an additional dependency.
  *
  * <p>These are parsed from {@code @_builtins//:exports.bzl}.
  */
@@ -72,13 +77,42 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   /** Transitive digest of all .bzl files in {@code @_builtins}. */
   public final byte[] transitiveDigest;
 
-  public StarlarkBuiltinsValue(
+  /** The StarlarkSemantics used for {@code @_builtins} evaluation. */
+  public final StarlarkSemantics starlarkSemantics;
+
+  private StarlarkBuiltinsValue(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
       ImmutableMap<String, Object> exportedToJava,
-      byte[] transitiveDigest) {
+      byte[] transitiveDigest,
+      StarlarkSemantics starlarkSemantics) {
     this.predeclaredForBuildBzl = predeclaredForBuildBzl;
     this.exportedToJava = exportedToJava;
     this.transitiveDigest = transitiveDigest;
+    this.starlarkSemantics = starlarkSemantics;
+  }
+
+  public static StarlarkBuiltinsValue create(
+      ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> exportedToJava,
+      byte[] transitiveDigest,
+      StarlarkSemantics starlarkSemantics) {
+    return new StarlarkBuiltinsValue(
+        predeclaredForBuildBzl, exportedToJava, transitiveDigest, starlarkSemantics);
+  }
+
+  /**
+   * Constructs a placeholder builtins value to be used when builtins injection is disabled, or for
+   * use within builtins evaluation itself.
+   *
+   * <p>The placeholder simply wraps the StarlarkSemantics object. This lets code paths that don't
+   * use injection still access the semantics without incurring a separate Skyframe edge.
+   */
+  public static StarlarkBuiltinsValue createEmpty(StarlarkSemantics starlarkSemantics) {
+    return new StarlarkBuiltinsValue(
+        /*predeclaredForBuildBzl=*/ ImmutableMap.of(),
+        /*exportedToJava=*/ ImmutableMap.of(),
+        /*transitiveDigest=*/ new byte[] {},
+        starlarkSemantics);
   }
 
   /** Returns the singleton SkyKey for this type of value. */

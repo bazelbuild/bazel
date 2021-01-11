@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 
 /**
@@ -109,16 +107,12 @@ public class StarlarkAttributeTransitionProvider
       // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
       // we just use the original BuildOptions and trust the transition's enforcement logic.
       BuildOptions buildOptions = buildOptionsView.underlying();
-      try {
-        return applyAndValidate(
-            buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
-      } catch (EvalException e) {
-        eventHandler.handle(
-            Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                e.getMessageWithStack()));
+      Map<String, BuildOptions> res =
+          applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
+      if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }
+      return res;
     }
   }
 }

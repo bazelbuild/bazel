@@ -98,10 +98,24 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         The list of arguments for the JVM when invoking JavaBuilder.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javabuilder_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder_data) -->
+        Labels of data available for label-expansion in javabuilder_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("javabuilder_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_jvm_opts) -->
         The list of arguments for the JVM when invoking turbine.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("turbine_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_data) -->
+        Labels of data available for label-expansion in turbine_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("turbine_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -277,12 +291,42 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         .add(
             attr("java_runtime", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
-                // TODO(b/171140578): remove default value and set to mandatory after it is set on
-                // all toolchains
-                .value(JavaSemantics.hostJdkAttribute(env))
+                .mandatory()
                 .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .useOutputLicenses())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_runner) -->
+        Label of the Android Lint runner, if any.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_runner", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_opts) -->
+        The list of Android Lint arguments.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("android_lint_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_data) -->
+        Labels of tools available for label-expansion in android_lint_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_jvm_opts) -->
+        The list of arguments for the JVM when invoking Android Lint.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("android_lint_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_package_configuration) -->
+        Android Lint Configuration that should be applied to the specified package groups.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_package_configuration", LABEL_LIST)
+                .allowedFileTypes()
+                .cfg(ExecutionTransitionFactory.create())
+                .mandatoryBuiltinProviders(
+                    ImmutableList.of(JavaPackageConfigurationProvider.class)))
         .build();
   }
 

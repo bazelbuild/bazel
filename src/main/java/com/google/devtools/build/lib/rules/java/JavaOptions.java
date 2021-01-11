@@ -74,11 +74,12 @@ public class JavaOptions extends FragmentOptions {
 
   private static final String DEFAULT_JAVABASE = "@bazel_tools//tools/jdk:jdk";
 
+  @Deprecated
   @Option(
       name = "javabase",
       defaultValue = DEFAULT_JAVABASE,
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "JAVABASE used for the JDK invoked by Blaze. This is the "
@@ -88,29 +89,32 @@ public class JavaOptions extends FragmentOptions {
 
   private static final String DEFAULT_JAVA_TOOLCHAIN = "@bazel_tools//tools/jdk:remote_toolchain";
 
+  @Deprecated
   @Option(
       name = "java_toolchain",
       defaultValue = DEFAULT_JAVA_TOOLCHAIN,
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The name of the toolchain rule for Java.")
   public Label javaToolchain;
 
+  @Deprecated
   @Option(
       name = "host_java_toolchain",
       defaultValue = DEFAULT_JAVA_TOOLCHAIN,
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java toolchain used to build tools that are executed during a build.")
   public Label hostJavaToolchain;
 
+  @Deprecated
   @Option(
       name = "host_javabase",
       defaultValue = "null",
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "JAVABASE used for the host JDK. This is the java_runtime which is used to execute "
@@ -534,6 +538,22 @@ public class JavaOptions extends FragmentOptions {
   public boolean addTestSupportToCompileTimeDeps;
 
   @Option(
+      name = "experimental_run_android_lint_on_java_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to validate java_* sources.")
+  public boolean runAndroidLint;
+
+  @Option(
+      name = "experimental_limit_android_lint_to_android_constrained_java",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Limit --experimental_run_android_lint_on_java_rules to Android-compatible libraries.")
+  public boolean limitAndroidLintToAndroidCompatible;
+
+  @Option(
       name = "jplPropagateCcLinkParamsStore",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -612,34 +632,34 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_runtime_version",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "local_jdk",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version")
   public String javaRuntimeVersion;
 
   @Option(
       name = "tool_java_runtime_version",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "remotejdk_11",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version used to execute tools during the build")
   public String hostJavaRuntimeVersion;
 
   @Option(
       name = "java_language_version",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "8",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
   public String javaLanguageVersion;
 
   @Option(
       name = "tool_java_language_version",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "8",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The Java language version used to build tools that are executed during a build")
+      help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
   Label defaultJavaBase() {
@@ -663,6 +683,8 @@ public class JavaOptions extends FragmentOptions {
 
   @Override
   public FragmentOptions getHost() {
+    // Note validation actions don't run in host config, so no need copying flags related to that.
+    // TODO(b/171078539): revisit if relevant validations are run in host config
     JavaOptions host = (JavaOptions) getDefault();
 
     host.javaBase = getHostJavaBase();

@@ -14,17 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -33,9 +30,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A factory for aspects that are defined in Starlark. */
@@ -58,11 +53,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
     try {
       AspectDescriptor aspectDescriptor =
           new AspectDescriptor(starlarkAspect.getAspectClass(), parameters);
-      AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       try {
-        starlarkRuleContext =
-            new StarlarkRuleContext(
-                ruleContext, aspectDescriptor, analysisEnv.getStarlarkSemantics());
+        starlarkRuleContext = new StarlarkRuleContext(ruleContext, aspectDescriptor);
       } catch (EvalException e) {
         ruleContext.ruleError(e.getMessageWithStack());
         return null;
@@ -70,22 +62,10 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
-      try (Mutability mu = Mutability.create("aspect")) {
-        StarlarkThread thread = new StarlarkThread(mu, analysisEnv.getStarlarkSemantics());
-        thread.setPrintHandler(Event.makeDebugPrintHandler(analysisEnv.getEventHandler()));
-
-        new BazelStarlarkContext(
-                BazelStarlarkContext.Phase.ANALYSIS,
-                toolsRepository,
-                /*fragmentNameToClass=*/ null,
-                ruleContext.getRule().getPackage().getRepositoryMapping(),
-                ruleContext.getSymbolGenerator(),
-                ruleContext.getLabel())
-            .storeInThread(thread);
-
+      try {
         Object aspectStarlarkObject =
             Starlark.fastcall(
-                thread,
+                ruleContext.getStarlarkThread(),
                 starlarkAspect.getImplementation(),
                 /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), starlarkRuleContext},
                 /*named=*/ new Object[0]);

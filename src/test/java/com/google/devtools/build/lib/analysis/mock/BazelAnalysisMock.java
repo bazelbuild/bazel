@@ -130,6 +130,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  singlejar = ['SingleJar_deploy.jar'],",
         "  genclass = ['GenClass_deploy.jar'],",
         "  ijar = ['ijar'],",
+        "  java_runtime = 'host_jdk',",
         ")",
         "java_toolchain(",
         "  name = 'remote_toolchain',",
@@ -143,6 +144,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  singlejar = ['SingleJar_deploy.jar'],",
         "  genclass = ['GenClass_deploy.jar'],",
         "  ijar = ['ijar'],",
+        "  java_runtime = 'host_jdk',",
         ")",
         "java_import(",
         "  name = 'JacocoCoverageRunner',",
@@ -433,6 +435,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
         "def local_java_repository(**kwargs):",
+        "  pass");
+    config.create(
+        "bazel_tools_workspace/tools/jdk/remote_java_repository.bzl",
+        "def remote_java_repository(**kwargs):",
         "  pass");
   }
 

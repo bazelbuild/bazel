@@ -104,7 +104,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /**
  * SkyFunction for {@link ConfiguredTargetValue}s.
@@ -378,7 +377,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContexts,
               transitivePackagesForPackageRootResolution);
-      if (configuredTargetProgress != null) {
+      if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
       }
       return ans;
@@ -656,13 +655,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               useToolchainTransition,
               transitiveRootCauses,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
-    } catch (EvalException e) {
-      // EvalException can only be thrown by computed Starlark attributes in the current rule.
-      String msgWithStack = e.getMessageWithStack();
-      env.getListener().handle(Event.error(null, msgWithStack));
-      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, msgWithStack));
+    } catch (DependencyResolver.Failure e) {
+      env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(msgWithStack, label, configuration));
+          new ConfiguredValueCreationException(e.getMessage(), label, configuration));
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
@@ -999,12 +996,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {
-    StoredEventHandler events = new StoredEventHandler();
-    CachingAnalysisEnvironment analysisEnvironment =
-        view.createAnalysisEnvironment(configuredTargetKey, false, events, env, configuration);
-    if (env.valuesMissing()) {
+    // Should be successfully evaluated and cached from the loading phase.
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        (StarlarkBuiltinsValue) env.getValue(StarlarkBuiltinsValue.key());
+    if (starlarkBuiltinsValue == null) {
       return null;
     }
+
+    StoredEventHandler events = new StoredEventHandler();
+    CachingAnalysisEnvironment analysisEnvironment =
+        view.createAnalysisEnvironment(
+            configuredTargetKey, false, events, env, configuration, starlarkBuiltinsValue);
 
     Preconditions.checkNotNull(depValueMap);
     ConfiguredTarget configuredTarget;

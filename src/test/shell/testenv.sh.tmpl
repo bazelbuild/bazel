@@ -272,6 +272,8 @@ build --sandbox_tmpfs_path=/tmp
 
 build --incompatible_skip_genfiles_symlink=false
 
+build --incompatible_use_toolchain_resolution_for_java_rules
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -294,7 +296,7 @@ EOF
         "openjdk15_windows_archive"
         "openjdk_linux_aarch64_minimal"
         "openjdk_linux_minimal"
-        "openjdk_macos_minimal"
+        "openjdk_macos_x86_64_minimal"
         "openjdk_win_minimal"
         "remote_coverage_tools_for_testing"
         "remote_java_tools_for_testing"
@@ -357,6 +359,35 @@ android_sdk_repository(
     path = "$ANDROID_SDK",
 )
 register_toolchains("//tools/android:all")
+EOF
+
+  setup_android_platforms
+}
+
+# Sets up sufficient platform definitions to support Android shell tests using
+# platform-based toolchain resolution.
+#
+# See resolve_android_toolchains_with_platforms in
+# src/test/shell/bazel/android/android_helper.sh for how to platform-based
+# toolchain resolution.
+function setup_android_platforms() {
+  mkdir -p test_android_platforms
+
+  cat > test_android_platforms/BUILD <<EOF
+platform(
+    name = "simple",
+    constraint_values = [
+        "@bazel_tools//platforms:android",
+        "@bazel_tools//platforms:arm",
+    ],
+)
+EOF
+
+  cat > test_android_platforms/mappings <<EOF
+platforms:
+flags:
+  --cpu=armeabi-v7a
+    //test_android_platforms:simple
 EOF
 }
 
@@ -495,15 +526,7 @@ function add_rules_cc_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-http_archive(
-    name = "rules_cc",
-    sha256 = "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
-    strip_prefix = "rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
-    ],
-)
+{rules_cc}
 EOF
 }
 
@@ -511,15 +534,7 @@ function add_rules_java_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-http_archive(
-    name = "rules_java",
-    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-    ],
-)
+{rules_java}
 EOF
 }
 

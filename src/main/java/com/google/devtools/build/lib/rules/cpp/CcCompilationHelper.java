@@ -1421,18 +1421,21 @@ public final class CcCompilationHelper {
                     builder,
                     ImmutableList.of(
                         ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
-                    false);
+                    // If we generate pic actions, we prefer the header actions to use the pic mode.
+                    generatePicAction);
             result.addHeaderTokenFile(headerTokenFile);
             break;
           case SOURCE:
-            Artifact objectFile =
-                createCompileActionTemplate(
-                    source,
-                    outputName,
-                    builder,
-                    ImmutableList.of(ArtifactCategory.OBJECT_FILE),
-                    false);
-            result.addObjectFile(objectFile);
+            if (generateNoPicAction) {
+              Artifact objectFile =
+                  createCompileActionTemplate(
+                      source,
+                      outputName,
+                      builder,
+                      ImmutableList.of(ArtifactCategory.OBJECT_FILE),
+                      /*usePic=*/ false);
+              result.addObjectFile(objectFile);
+            }
 
             if (generatePicAction) {
               Artifact picObjectFile =
@@ -1441,7 +1444,7 @@ public final class CcCompilationHelper {
                       outputName,
                       builder,
                       ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
-                      true);
+                      /*usePic=*/ true);
               result.addPicObjectFile(picObjectFile);
             }
             break;
@@ -1461,6 +1464,9 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder,
       Iterable<ArtifactCategory> outputCategories,
       boolean usePic) {
+    if (usePic) {
+      builder = new CppCompileActionBuilder(builder).setPicMode(true);
+    }
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(

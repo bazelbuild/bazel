@@ -71,6 +71,7 @@ StartupOptions::StartupOptions(const string &product_name,
       ignore_all_rc_files(false),
       block_for_lock(true),
       host_jvm_debug(false),
+      autodetect_server_javabase(true),
       batch(false),
       batch_cpu_scheduling(false),
       io_nice_level(-1),
@@ -85,6 +86,7 @@ StartupOptions::StartupOptions(const string &product_name,
       local_startup_timeout_secs(120),
       have_invocation_policy_(false),
       client_debug(false),
+      preemptible(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
       expand_configs_in_place(true),
@@ -130,11 +132,14 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
+  RegisterNullaryStartupFlag("preemptible", &preemptible);
   RegisterNullaryStartupFlag("expand_configs_in_place",
                              &expand_configs_in_place);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
                              &fatal_event_bus_exceptions);
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
+  RegisterNullaryStartupFlag("autodetect_server_javabase",
+                             &autodetect_server_javabase);
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("incompatible_enable_execution_transition",
                              &incompatible_enable_execution_transition);
@@ -481,6 +486,10 @@ StartupOptions::GetServerJavabaseAndType() const {
       // 2) Use a bundled JVM if we have one.
       default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           bundled_jre_path, JavabaseType::EMBEDDED);
+    } else if (!autodetect_server_javabase) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Could not find embedded or explicit server javabase, and "
+             "--noautodetect_server_javabase is set.";
     } else {
       // 3) Otherwise fall back to using the default system JVM.
       blaze_util::Path system_javabase = GetSystemJavabase();

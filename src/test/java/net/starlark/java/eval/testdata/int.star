@@ -16,11 +16,13 @@ assert_eq(+1 << 128, +0x100000000000000000000000000000000)
 assert_eq(-1 << 128, -0x100000000000000000000000000000000)
 assert_eq((1 << 128) // (1 << 127), 2)
 
+# Not using << to define constants because we are testing <<
+maxint = 0x7fffffff # (1<<31) - 1
+maxlong = 0x7fffffffffffffff # (1<<63) - 1
+minint = -0x80000000 # -1 << 31
+minlong = -0x8000000000000000 # -1 << 63
+
 # size boundaries
-maxint = (1<<31) - 1
-maxlong = (1<<63) - 1
-minint = -1 << 31
-minlong = -1 << 63
 assert_eq(maxint + 1, 0x80000000)
 assert_eq(maxlong + 1, 0x8000000000000000)
 assert_eq(minint - 1, -0x80000001)
@@ -83,6 +85,22 @@ assert_eq(111111111 * 111111111, 12345678987654321)
 assert_eq(-(111111111 * 111111111), -12345678987654321)
 assert_eq((111111111 * 111111111) // 111111111, 111111111)
 
+# 7 * 1317624576693539401 = maxlong
+special_ints = [
+  0, 1, 2, 7, maxint - 1, maxint, maxint + 1, maxint + 2, 0xffffffff, 0x1ffffffff,
+  1317624576693539401, maxlong - 1, maxlong, maxlong + 1, maxlong + 2,
+]
+def test_mul():
+  for i_abs in special_ints:
+    for j_abs in special_ints:
+      for i_sign in [1, -1]:
+        for j_sign in [1, -1]:
+          i = i_abs if i_sign > 0 else -i_abs
+          j = j_abs if j_sign > 0 else -j_abs
+          assert_eq(i * j, int_mul_slow(i, j))
+
+test_mul()
+
 # floored division
 assert_eq(100 // 7, 14)
 assert_eq(100 // -7, -15)
@@ -92,12 +110,19 @@ assert_eq(98 // 7, 14)
 assert_eq(98 // -7, -14)
 assert_eq(-98 // 7, -14)
 assert_eq(-98 // -7, 14)
+assert_eq(1 // 7, 0)
+assert_eq(1 // -7, -1)
+assert_eq(-1 // 7, -1)
+assert_eq(-1 // -7, 0)
+assert_eq(0 // 3, 0)
+assert_eq(0 // -3, 0)
 assert_eq( product //  1234567,  1169282890553)
 assert_eq( product // -1234567, -1169282890553-1)
 assert_eq(-product //  1234567, -1169282890553-1)
 assert_eq(-product // -1234567,  1169282890553)
 assert_eq(((-1) << 31) // -1, 1 << 31) # sole case of int // int that causes int overflow
 assert_eq(((-1) << 63) // -1, 1 << 63) # ditto, long overflow
+assert_fails(lambda: 1 // 0 , "integer division by zero")
 
 # floating-point division of int operands
 assert_eq(str(100 / 7), "14.285714285714286")
@@ -130,6 +155,7 @@ assert_eq( product %  1234567,  1013598)
 assert_eq( product % -1234567, -220969) # ditto
 assert_eq(-product % 1234567,   220969) # ditto
 assert_eq(-product % -1234567, -1013598)
+assert_fails(lambda: 1 % 0 , "integer modulo by zero")
 
 # precedence
 assert_eq(5 - 7 * 2 + 3, -6)
@@ -210,56 +236,71 @@ assert_eq(~minint, maxint)
 assert_eq(~maxint, minint)
 assert_eq(~minlong, maxlong)
 assert_eq(~maxlong, minlong)
+assert_eq(~(1 << 100), -(1 << 100) - 1)
+assert_eq(~-(1 << 100), (1 << 100) - 1)
 
----
-1 // 0  ### integer division by zero
----
-1 % 0  ### integer modulo by zero
-
----
+# |
 assert_eq(1 | 2, 3)
 assert_eq(3 | 6, 7)
 assert_eq(7 | 0, 7)
+# &
 assert_eq(7 & 0, 0)
 assert_eq(7 & 7, 7)
 assert_eq(7 & 2, 2)
 assert_eq((1|2) & (2|4), 2)
+assert_fails(lambda: 1 & False, "unsupported binary operation: int & bool")
+# ^
 assert_eq(1 ^ 2, 3)
 assert_eq(2 ^ 2, 0)
 assert_eq(-6 ^ 0, -6)
 assert_eq(1 | 0 ^ 1, 1) # check | and ^ operators precedence
+assert_fails(lambda: "a" ^ 5, "unsupported binary operation: string \\^ int")
+# ~
 assert_eq(~1, -2)
 assert_eq(~-2, 1)
 assert_eq(~0, -1)
 assert_eq(~6, -7)
 assert_eq(~0, -1)
 assert_eq(~2147483647, -2147483647 - 1);
+assert_fails(lambda: ~False, "unsupported unary operation: ~bool")
+# <<
 assert_eq(1 << 2, 4)
 assert_eq(7 << 0, 7)
 assert_eq(-1 << 31, -2147483647 - 1)
+assert_eq(1 << 31, maxint + 1)
+assert_eq(1 << 32, (maxint + 1) * 2)
+assert_eq(1 << 63, maxlong + 1)
+assert_eq(1 << 64, (maxlong + 1) * 2)
+assert_eq(-1 << 31, minint)
+assert_eq(-1 << 32, minint * 2)
+assert_eq(-1 << 63, minlong)
+assert_eq(-1 << 64, minlong * 2)
+assert_fails(lambda: 1 << 520, "shift count too large: 520")
+assert_fails(lambda: 1 << -4, "negative shift count: -4")
+# >>
 assert_eq(2 >> 1, 1)
 assert_eq(7 >> 0, 7)
 assert_eq(0 >> 0, 0)
+assert_eq(minint >> 9999, -1)
+assert_eq(minlong >> 9999, -1)
+assert_eq(maxint >> 9999, 0)
+assert_eq(maxlong >> 9999, 0)
+assert_eq(minint >> 31, -1)
+assert_eq(minint >> 30, -2)
+assert_eq(minlong >> 63, -1)
+assert_eq(minlong >> 62, -2)
+assert_eq(maxint >> 31, 0)
+assert_eq(maxint >> 30, 1)
+assert_eq(maxlong >> 63, 0)
+assert_eq(maxlong >> 62, 1)
 assert_eq(1000 >> 100, 0)
 assert_eq(-10 >> 1000, -1)
+assert_fails(lambda: 2 >> -1, "negative shift count: -1")
+# << and >>
 assert_eq(1 << 500 >> 499, 2)
 assert_eq(1 << 32, 0x10000 * 0x10000)
 assert_eq(1 << 64, 0x10000 * 0x10000 * 0x10000 * 0x10000)
-
 assert_eq(((0x1010 << 100) | (0x1100 << 100)) >> 100, 0x1110)
 assert_eq(((0x1010 << 100) ^ (0x1100 << 100)) >> 100, 0x0110)
 assert_eq(((0x1010 << 100) & (0x1100 << 100)) >> 100, 0x1000)
 assert_eq(~((~(0x1010 << 100)) >> 100), 0x1010)
-
----
-1 & False ### unsupported binary operation: int & bool
----
-"a" ^ 5 ### unsupported binary operation: string \^ int
----
-~False ### unsupported unary operation: ~bool
----
-1 << 520 ### shift count too large: 520
----
-1 << -4 ### negative shift count: -4
----
-2 >> -1 ### negative shift count: -1

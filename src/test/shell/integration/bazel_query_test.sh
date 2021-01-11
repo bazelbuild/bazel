@@ -551,6 +551,55 @@ EOF
   expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
+function test_proto_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=proto \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+
+  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+
+  bazel query --output=proto \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  expect_not_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+}
+
+function test_xml_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=xml \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+
+  bazel query --output=xml \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
+}
+
 function test_subdirectory_named_external() {
   mkdir -p foo/external foo/bar
   cat > foo/external/BUILD <<EOF
@@ -660,6 +709,47 @@ EOF
   bazel build --experimental_genquery_use_graphless_query \
       //foo:allpaths >& $TEST_log || fail "Expected success"
   assert_equals "$(cat foo/expected_ap_output)" "$(cat bazel-bin/foo/allpaths)"
+}
+
+function test_graphless_query_matches_graphless_genquery_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "a")
+genquery(
+    name = "q",
+    expression = "deps(//foo:b)",
+    scope = ["//foo:b"],
+)
+EOF
+
+  cat > foo/expected_lexicographical_result <<EOF
+//foo:a
+//foo:b
+//foo:c
+EOF
+
+  # Genquery uses a graphless blaze environment by default.
+  bazel build --experimental_genquery_use_graphless_query \
+      //foo:q || fail "Expected success"
+
+  # TODO(tanzhengwei): Remove flags from query when this becomes the default.
+  # Query currently requires the --incompatible_prefer_unordered_output flag to
+  # switch to graphless.
+  # In addition, --incompatible_use_lexicographical_unordered_output is used to
+  # switch sort the graphless output in lexicographical order.
+  bazel query --incompatible_prefer_unordered_output \
+      --incompatible_use_lexicographical_unordered_output \
+      "deps(//foo:b)" | grep foo >& foo/query_output || fail "Expected success"
+
+  # The outputs of graphless query and graphless genquery should be the same.
+  assert_equals "$(cat bazel-bin/foo/q)" "$(cat foo/query_output)"
+
+  # The outputs of both graphless query and graphless genquery should be in
+  # lexicographical order (comparing one should be sufficient).
+  assert_equals \
+      "$(cat foo/expected_lexicographical_result)" "$(cat bazel-bin/foo/q)"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
@@ -851,6 +941,22 @@ function test_query_failure_exit_code_behavior() {
       //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   assert_equals 7 "$exit_code"
+}
+
+function test_unnecessary_external_workspaces_not_loaded() {
+  cat > WORKSPACE <<'EOF'
+local_repository(
+    name = "notthere",
+    path = "/nope",
+)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(
+    name = "something",
+    srcs = ["@notthere"],
+)
+EOF
+  bazel query '//:*' || fail "Expected success"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

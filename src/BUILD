@@ -3,6 +3,7 @@
 load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
+load("//src:release_archive.bzl", "release_archive")
 
 exports_files(["jdeps_modules.golden"])
 
@@ -12,7 +13,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
     name = "install_base_key-file" + suffix,
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         # TODO(brandjon): ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
@@ -174,8 +174,8 @@ rule_size_test(
 filegroup(
     name = "embedded_jdk_allmodules_cached",
     srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos//file",
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_x86_64//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win//file",
@@ -193,8 +193,8 @@ filegroup(
 filegroup(
     name = "embedded_jdk_minimal_cached",
     srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos_minimal//file",
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_x86_64_minimal//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win_minimal//file",
@@ -212,8 +212,8 @@ filegroup(
 filegroup(
     name = "embedded_jdk_vanilla",
     srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos_vanilla//file",
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_x86_64_vanilla//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win_vanilla//file",
@@ -323,13 +323,15 @@ filegroup(
 
 [genrule(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order: 1) embedded tools zip (if it
-    # exists), 2) the deploy jar, 3) the install base key, 4) the builtins bzl
-    # zip, 5) the platforms archive, 6) everything else to be bundled.
+    # This script assumes the following arg order:
+    #   1) embedded tools zip (if it exists)
+    #   2) the deploy jar
+    #   3) the install base key
+    #   4) the platforms archive
+    #   5) everything else to be bundled
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
-        "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
         ":platforms_archive",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
@@ -583,8 +585,6 @@ genrule(
 )
 
 # Following targets build java_tools.zip - platform independent part of java_tools
-# It is painstainkingly built by renaming single files, zipping them and merging zips together
-# TODO(bazel-team): Replace this with a single target, for example "release_archive" in rules_kotlin
 JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
     "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
@@ -595,88 +595,43 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar",
 ]
 
-genrule(
+release_archive(
     name = "jars_java_tools_zip",
     srcs = JAVA_TOOLS_DEPLOY_JARS + [
         "@java_tools_langtools_javac11//:jdk_compiler_jar",
         "@java_tools_langtools_javac11//:java_compiler_jar",
         "@java_tools_langtools_javac11//:javac_jar",
     ],
-    outs = ["jars_java_tools.zip"],
-    cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
+    package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )
 
-genrule(
-    name = "java_tools_build_zip",
-    srcs = ["//tools/jdk:BUILD.java_tools"],
-    outs = ["java_tools_build.zip"],
-    cmd = "cat $(SRCS) > BUILD; zip -qjX $@ BUILD",
-)
-
-genrule(
-    name = "java_tools_no_build_zip",
-    srcs = [
-        ":jars_java_tools.zip",
+release_archive(
+    name = "java_tools_zip",
+    src_map = {
+        "//tools/jdk:BUILD.java_tools": "BUILD",
+    },
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+    deps = [
+        ":jars_java_tools_zip",
         "//src/tools/singlejar:singlejar_transitive_zip",
         "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
-    outs = ["java_tools_no_build.zip"],
-    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
+)
+
+# Following target builds java_tools_prebuilt.zip part of java_tools
+release_archive(
+    name = "java_tools_prebuilt_zip",
+    src_map = {
+        "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
+    },
     visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-genrule(
-    name = "java_tools_zip",
-    srcs = [
-        "java_tools_no_build.zip",
-        "java_tools_build.zip",
-    ],
-    outs = ["java_tools.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-# Following targets build java_tools_prebuilt.zip part of java_tools
-# It is painstainkingly built by renaming single files, zipping them and merging zips together
-# TODO(bazel-team): Replace this with a single target, for example "release_archive" in rules_kotlin
-genrule(
-    name = "java_tools_prebuilt_build_zip",
-    srcs = ["//tools/jdk:BUILD.java_tools_prebuilt"],
-    outs = ["java_tools_prebuilt_build.zip"],
-    cmd = "cat $(SRCS) > BUILD; zip -qjX $@ BUILD",
-)
-
-genrule(
-    name = "java_tools_prebuilt_no_build_zip",
-    srcs = [
+    deps = [
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
-    outs = ["java_tools_prebuilt_no_build.zip"],
-    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
-    output_to_bindir = True,
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-genrule(
-    name = "java_tools_prebuilt_zip",
-    srcs = [
-        "java_tools_prebuilt_no_build.zip",
-        "java_tools_prebuilt_build.zip",
-    ],
-    outs = ["java_tools_prebuilt.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -727,12 +682,10 @@ sh_binary(
 )
 
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
-genrule(
+release_archive(
     name = "zlib_zip",
     srcs = ["//third_party/zlib:embedded_tools"],
-    outs = ["zlib.zip"],
-    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
-    tools = ["//src:zip_files"],
+    package_dir = "zlib",
     visibility = [
         "//src/tools/singlejar:__pkg__",
         "//third_party/ijar:__pkg__",
@@ -757,7 +710,7 @@ filegroup(
         "@openjdk15_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
-        "@openjdk_macos_minimal//file",
+        "@openjdk_macos_x86_64_minimal//file",
         "@openjdk_win_minimal//file",
         "@remote_coverage_tools_for_testing//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",

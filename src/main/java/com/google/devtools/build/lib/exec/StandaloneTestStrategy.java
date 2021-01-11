@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -99,9 +100,14 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     if (action.getExecutionSettings().getInputManifest() == null) {
+      String errorMessage = "cannot run local tests with --nobuild_runfile_manifests";
       throw new TestExecException(
-          "cannot run local tests with --nobuild_runfile_manifests",
-          TestAction.Code.LOCAL_TEST_PREREQ_UNMET);
+          errorMessage,
+          FailureDetail.newBuilder()
+              .setTestAction(
+                  TestAction.newBuilder().setCode(TestAction.Code.LOCAL_TEST_PREREQ_UNMET))
+              .setMessage(errorMessage)
+              .build());
     }
     Map<String, String> testEnvironment =
         createEnvironment(
@@ -228,7 +234,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       dataBuilder.setStatus(BlazeTestStatus.FLAKY);
     }
     TestResultData data = dataBuilder.build();
-    TestResult result = new TestResult(action, data, false);
+    TestResult result =
+        new TestResult(action, data, false, standaloneTestResult.primarySystemFailure());
     postTestResult(actionExecutionContext, result);
   }
 
@@ -391,7 +398,8 @@ public class StandaloneTestStrategy extends TestStrategy {
    * A spawn to generate a test.xml file from the test log. This is only used if the test does not
    * generate a test.xml file itself.
    */
-  private static Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
+  private static Spawn createXmlGeneratingSpawn(
+      TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
     ImmutableList<String> args =
         ImmutableList.of(
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
@@ -399,18 +407,21 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getXmlOutputPath().getPathString(),
             Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
             Integer.toString(result.exitCode()));
-
-    String testBinaryName =
-        action.getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString();
+    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+    // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
+    Preconditions.checkArgument(testEnv.containsKey("PATH"));
+    Preconditions.checkArgument(testEnv.containsKey("TEST_BINARY"));
+    envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
+    // testEnv only contains TEST_SHARD_INDEX and TEST_TOTAL_SHARDS if the test action is sharded,
+    // we need to set the default value when the action isn't sharded.
+    if (!action.isSharded()) {
+      envBuilder.put("TEST_SHARD_INDEX", "0");
+      envBuilder.put("TEST_TOTAL_SHARDS", "0");
+    }
     return new SimpleSpawn(
         action,
         args,
-        ImmutableMap.of(
-            "PATH", "/usr/bin:/bin",
-            "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),
-            "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()),
-            "TEST_NAME", action.getTestName(),
-            "TEST_BINARY", testBinaryName),
+        envBuilder.build(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         ImmutableMap.copyOf(action.getExecutionInfo()),
@@ -485,7 +496,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   @Override
   public TestResult newCachedTestResult(
       Path execRoot, TestRunnerAction action, TestResultData data) {
-    return new TestResult(action, data, /*cached*/ true, execRoot);
+    return new TestResult(action, data, /*cached*/ true, execRoot, /*systemFailure=*/ null);
   }
 
   @VisibleForTesting
@@ -558,7 +569,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     @Override
     public void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException {
       TestResultData.Builder builder =
-          TestResultData.newBuilder().setTestPassed(false).setStatus(BlazeTestStatus.INCOMPLETE);
+          TestResultData.newBuilder()
+              .setCachable(false)
+              .setTestPassed(false)
+              .setStatus(BlazeTestStatus.INCOMPLETE);
       StandaloneTestResult standaloneTestResult =
           StandaloneTestResult.builder()
               .setSpawnResults(ImmutableList.of())
@@ -624,8 +638,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         //    the Build Event Protocol, but never saves it to disk.
         //
         // The TestResult proto is always constructed from a TestResultData instance, either one
-        // that
-        // is created right here, or one that is read back from disk.
+        // that is created right here, or one that is read back from disk.
         TestResultData.Builder builder = null;
         ImmutableList<SpawnResult> spawnResults;
         try {
@@ -645,7 +658,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           }
           spawnResults = nextContinuation.get();
           builder = TestResultData.newBuilder();
-          builder.setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
+          builder.setCachable(true).setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
         } catch (SpawnExecException e) {
           if (e.isCatastrophic()) {
             closeSuppressed(e, streamed);
@@ -661,6 +674,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           spawnResults = ImmutableList.of(e.getSpawnResult());
           builder = TestResultData.newBuilder();
           builder
+              .setCachable(e.getSpawnResult().status().isConsideredUserError())
               .setTestPassed(false)
               .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
         } catch (InterruptedException e) {
@@ -766,7 +780,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       if (executionOptions.splitXmlGeneration
           && fileOutErr.getOutputPath().exists()
           && !xmlOutputPath.exists()) {
-        Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, spawnResults.get(0));
+        Spawn xmlGeneratingSpawn =
+            createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
         SpawnStrategyResolver spawnStrategyResolver =
             actionExecutionContext.getContext(SpawnStrategyResolver.class);
         // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
@@ -942,6 +957,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           throw e;
         }
         testResultDataBuilder
+            .setCachable(e.getSpawnResult().status().isConsideredUserError())
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
       } catch (ExecException | InterruptedException e) {

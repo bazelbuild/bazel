@@ -1667,6 +1667,24 @@ function test_download_toplevel_no_remote_execution() {
       || fail "Failed to run bazel build --remote_download_toplevel"
 }
 
+function test_download_toplevel_can_delete_directory_outputs() {
+  cat > BUILD <<'EOF'
+genrule(
+    name = 'g',
+    outs = ['out'],
+    cmd = "touch $@",
+)
+EOF
+  bazel build
+  mkdir $(bazel info bazel-genfiles)/out
+  touch $(bazel info bazel-genfiles)/out/f
+  bazel build \
+        --remote_download_toplevel \
+        --remote_executor=grpc://localhost:${worker_port} \
+        //:g \
+        || fail "should have worked"
+}
+
 function test_tag_no_remote_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -2271,12 +2289,9 @@ EOF
 function test_rbe_coverage_produces_report() {
   mkdir -p java/factorial
 
-  JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
-  add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-  add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
   if is_darwin; then
-      add_to_bazelrc "build --javabase=@openjdk14_darwin_archive//:runtime"
-      add_to_bazelrc "build --host_javabase=@openjdk14_darwin_archive//:runtime"
+      add_to_bazelrc "build --java_runtime_version=14"
+      add_to_bazelrc "build --tool_java_runtime_version=14"
   fi
   JAVA_TOOLS_ZIP="released"
   COVERAGE_GENERATOR_DIR="released"
@@ -2356,63 +2371,6 @@ LF:2
 end_of_record"
 
   assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
-}
-
-function test_runfiles_input_mismatch() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
-    return 0
-    ;;
-  esac
-
-  mkdir -p foo
-  cat > foo/runfiles.bzl <<'EOF'
-def _tool_impl(ctx):
-    file = ctx.files._data[0]
-    data_file_path = '$0.runfiles/' + ctx.workspace_name + '/' + file.path
-    my_runfiles = ctx.runfiles(files = [file])
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = '#!/bin/bash\ncat %s > $1' % data_file_path,
-        is_executable = True,
-    )
-    return [DefaultInfo(runfiles = my_runfiles)]
-
-tool = rule(
-    implementation = _tool_impl,
-    executable = True,
-    attrs = {'_data': attr.label(allow_files = True, default = ':foo.txt')},
-)
-
-def _tool_user_impl(ctx):
-    my_out = ctx.actions.declare_file(ctx.attr.name + '_out')
-    tool = ctx.executable.tool
-    ins, _, manifests = ctx.resolve_command(tools = [ctx.attr.tool])
-    ctx.actions.run_shell(
-        outputs = [my_out],
-        # No inputs mentioned, but runfiles present.
-        input_manifests = manifests,
-        command = '%s %s' % (tool.path, my_out.path),
-    )
-    return [DefaultInfo(files = depset([my_out]))]
-
-tool_user = rule(
-    implementation = _tool_user_impl,
-    attrs = {
-        'tool': attr.label(mandatory = True, executable = True, cfg = 'exec'),
-    },
-)
-EOF
-  cat >foo/BUILD <<'EOF'
-load(':runfiles.bzl', 'tool_user', 'tool')
-tool_user(name = 'user', tool = ':tool')
-tool(name = 'tool')
-EOF
-  touch foo/foo.txt
-  bazel build --remote_executor=grpc://localhost:${worker_port} //foo:user \
-      &> "$TEST_log" || fail "Expected success"
 }
 
 run_suite "Remote execution and remote cache tests"

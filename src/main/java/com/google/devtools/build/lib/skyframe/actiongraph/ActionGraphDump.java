@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -65,19 +64,6 @@ public class ActionGraphDump {
   private final boolean includeParamFiles;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
-
-  public ActionGraphDump(
-      boolean includeActionCmdLine,
-      boolean includeArtifacts,
-      AqueryActionFilter actionFilters,
-      boolean includeParamFiles) {
-    this(
-        /* actionGraphTargets= */ ImmutableList.of("..."),
-        includeActionCmdLine,
-        includeArtifacts,
-        actionFilters,
-        includeParamFiles);
-  }
 
   public ActionGraphDump(
       List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts) {

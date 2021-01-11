@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
@@ -62,11 +63,13 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
@@ -111,7 +114,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -125,12 +130,10 @@ import net.starlark.java.syntax.Location;
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public final class RuleContext extends TargetContext
-    implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
+    implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
-  public boolean isAllowTagsPropagation() throws InterruptedException {
-    return this.getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+  public boolean isAllowTagsPropagation() {
+    return starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
   }
 
   /** Custom dependency validation logic. */
@@ -219,6 +222,20 @@ public final class RuleContext extends TargetContext
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
 
+  /**
+   * The StarlarkSemantics to use for rule analysis. Should be the same as what's reported by the
+   * AnalysisEnvironment, but saving it here is more convenient since {@link
+   * AnalysisEnvironment#getStarlarkSemantics()} can throw InterruptedException.
+   */
+  private final StarlarkSemantics starlarkSemantics;
+
+  /**
+   * Thread used for any Starlark evaluation during analysis, e.g. rule implementation function for
+   * a Starlark-defined rule, or Starlarkified helper logic for native rules that have been
+   * partially migrated to {@code @_builtins}.
+   */
+  private final StarlarkThread starlarkThread;
+
   private RuleContext(
       Builder builder,
       AttributeMap attributes,
@@ -231,7 +248,10 @@ public final class RuleContext extends TargetContext
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments)
+      ImmutableSet<String> requiredConfigFragments,
+      String toolsRepository,
+      StarlarkSemantics starlarkSemantics,
+      Mutability mutability)
       throws InvalidExecGroupException {
     super(
         builder.env,
@@ -266,6 +286,8 @@ public final class RuleContext extends TargetContext
     this.execProperties = parseExecProperties(builder.rawExecProperties);
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
+    this.starlarkSemantics = starlarkSemantics;
+    this.starlarkThread = createStarlarkThread(toolsRepository, mutability); // uses above state
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -1198,6 +1220,40 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
+  public StarlarkSemantics getStarlarkSemantics() {
+    return starlarkSemantics;
+  }
+
+  private StarlarkThread createStarlarkThread(String toolsRepository, Mutability mutability) {
+    AnalysisEnvironment env = getAnalysisEnvironment();
+    StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+    thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
+    new BazelStarlarkContext(
+            BazelStarlarkContext.Phase.ANALYSIS,
+            toolsRepository,
+            /*fragmentNameToClass=*/ null,
+            getTarget().getPackage().getRepositoryMapping(),
+            /*convertedLabelsInPackage=*/ new HashMap<>(),
+            getSymbolGenerator(),
+            getLabel())
+        .storeInThread(thread);
+    return thread;
+  }
+
+  public StarlarkThread getStarlarkThread() {
+    return starlarkThread;
+  }
+
+  /**
+   * Prepares Starlark objects created during this target's analysis for use by others. Freezes
+   * mutability, clears expensive references.
+   */
+  @Override
+  public void close() {
+    starlarkThread.mutability().freeze();
+    // TODO(#11437): Once we own the StarlarkRuleContext in this class, nullify() it here as well.
+  }
+
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
@@ -1697,10 +1753,10 @@ public final class RuleContext extends TargetContext
     return "RuleContext(" + getLabel() + ", " + getConfiguration() + ")";
   }
 
-  /**
-   * Builder class for a RuleContext.
-   */
-  public static final class Builder implements RuleErrorConsumer  {
+  /** Builder class for a RuleContext. */
+  // TODO(bazel-team): I get the feeling we could delete much of the boilerplate by replacing some
+  // of these fields with a RuleClassProvider -- both in the builder and in the RuleContext itself.
+  public static final class Builder implements RuleErrorConsumer {
     private final AnalysisEnvironment env;
     private final Target target;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
@@ -1712,6 +1768,9 @@ public final class RuleContext extends TargetContext
     private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions = ImmutableMap.of();
+    private String toolsRepository;
+    private StarlarkSemantics starlarkSemantics;
+    private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
@@ -1751,6 +1810,9 @@ public final class RuleContext extends TargetContext
     public RuleContext build() throws InvalidExecGroupException {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
+      Preconditions.checkNotNull(toolsRepository);
+      Preconditions.checkNotNull(starlarkSemantics);
+      Preconditions.checkNotNull(mutability);
       Preconditions.checkNotNull(visibility);
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
@@ -1779,7 +1841,10 @@ public final class RuleContext extends TargetContext
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
           toolchainContexts,
           constraintSemantics,
-          requiredConfigFragments);
+          requiredConfigFragments,
+          toolsRepository,
+          starlarkSemantics,
+          mutability);
     }
 
     private void checkAttributesNonEmpty(AttributeMap attributes) {
@@ -1801,6 +1866,23 @@ public final class RuleContext extends TargetContext
           reporter.attributeError(attr.getName(), "attribute must be non empty");
         }
       }
+    }
+
+    // TODO(bazel-team): This field is only used by BazelStarlarkContext. Investigate whether that's
+    // even needed in the analysis phase, and delete it if not.
+    public Builder setToolsRepository(String toolsRepository) {
+      this.toolsRepository = toolsRepository;
+      return this;
+    }
+
+    public Builder setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
+      this.starlarkSemantics = starlarkSemantics;
+      return this;
+    }
+
+    public Builder setMutability(Mutability mutability) {
+      this.mutability = mutability;
+      return this;
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
@@ -2306,6 +2388,14 @@ public final class RuleContext extends TargetContext
 
     private void validateDirectPrerequisite(
         Attribute attribute, ConfiguredTargetAndData prerequisite) {
+      if (RuleContextConstraintSemantics.checkForIncompatibility(prerequisite.getConfiguredTarget())
+          .isIncompatible()) {
+        // If the prerequisite is incompatible (e.g. has an incompatible provider), we pretend that
+        // there is no further validation needed. Otherwise, it would be difficult to make the
+        // incompatible target satisfy things like required providers and file extensions.
+        return;
+      }
+
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

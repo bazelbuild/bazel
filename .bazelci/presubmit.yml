@@ -245,8 +245,9 @@ tasks:
       - "//src:all_windows_tests"
   rbe_ubuntu1604:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - sed -i.bak
+        -e 's/^# android_sdk_repository/android_sdk_repository/'
+        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
     build_flags:
       - "--config=ubuntu1604_java8"
@@ -285,3 +286,15 @@ tasks:
       # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+      # See https://github.com/bazelbuild/bazel/issues/12685
+      - "-//src/test/shell/bazel:jdeps_test"
+  kythe_ubuntu2004:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
+      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    index_flags:
+    - "--define=kythe_corpus=github.com/bazelbuild/bazel"
+    index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
+    index_upload_policy: Always
+    index_upload_gcs: False

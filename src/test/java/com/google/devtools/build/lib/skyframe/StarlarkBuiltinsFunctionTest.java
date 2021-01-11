@@ -163,7 +163,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   @Test
   public void parseErrorInExportsHandledGracefully() throws Exception {
     assertBuiltinsFailure(
-        "Failed to load builtins sources: Extension 'exports.bzl' (internal) has errors",
+        "Failed to load builtins sources: compilation of module 'exports.bzl' (internal) failed",
         //
         "exported_toplevels = {}",
         "exported_rules = {}",
@@ -174,7 +174,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   @Test
   public void evalErrorInExportsHandledGracefully() throws Exception {
     assertBuiltinsFailure(
-        "Failed to load builtins sources: Extension file 'exports.bzl' (internal) has errors",
+        "Failed to load builtins sources: initialization of module 'exports.bzl' (internal) failed",
         //
         "exported_toplevels = {}",
         "exported_rules = {}",
@@ -185,7 +185,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   @Test
   public void builtinsBzlCannotAccessNative() throws Exception {
     assertBuiltinsFailure(
-        "Extension 'exports.bzl' (internal) has errors",
+        "compilation of module 'exports.bzl' (internal) failed",
         //
         "native.overridable_rule",
         "exported_toplevels = {}",
@@ -197,7 +197,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   @Test
   public void builtinsBzlCannotAccessRuleSpecificSymbol() throws Exception {
     assertBuiltinsFailure(
-        "Extension 'exports.bzl' (internal) has errors",
+        "compilation of module 'exports.bzl' (internal) failed",
         //
         "overridable_symbol",
         "exported_toplevels = {}",

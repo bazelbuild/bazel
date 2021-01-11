@@ -50,9 +50,9 @@ class Main {
   private static final StarlarkThread thread;
   private static final Module module = Module.create();
 
-  // TODO(adonovan): set load-binds-globally option when we support load,
-  // so that loads bound in one REPL chunk are visible in the next.
-  private static final FileOptions OPTIONS = FileOptions.DEFAULT;
+  // Variables bound by load in one REPL chunk are visible in the next.
+  private static final FileOptions OPTIONS =
+      FileOptions.DEFAULT.toBuilder().allowToplevelRebinding(true).loadBindsGlobally(true).build();
 
   static {
     Mutability mu = Mutability.create("interpreter");

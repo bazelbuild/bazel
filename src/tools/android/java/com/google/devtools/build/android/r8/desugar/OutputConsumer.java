@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.r8.desugar;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.objectweb.asm.Opcodes.ACC_BRIDGE;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.ASM7;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
@@ -193,7 +194,12 @@ public class OutputConsumer implements ClassFileConsumer {
       @Override
       public MethodVisitor visitMethod(
           int access, String name, String descriptor, String signature, String[] exceptions) {
-        methodCount++;
+        // To be consistent with the old Desugar dependencies we don't count bridge methods which
+        // are placed on the companion class. Not putting these in the companion class is tracked
+        // in: b/174818187
+        if ((access & ACC_BRIDGE) != ACC_BRIDGE) {
+          methodCount++;
+        }
         return new DependencyCollectorMethodVisitor(api);
       }
 

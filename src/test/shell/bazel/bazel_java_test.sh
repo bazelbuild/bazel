@@ -55,9 +55,7 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-JAVA_TOOLCHAIN="$1"; shift
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
+JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
@@ -84,9 +82,16 @@ fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
 if [[ $# -gt 0 ]]; then
-  JAVABASE_VALUE="$1"; shift
-  add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-  add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
+  JAVA_LANGUAGE_VERSION="$1"; shift
+  add_to_bazelrc "build --java_language_version=${JAVA_LANGUAGE_VERSION}"
+  add_to_bazelrc "build --tool_java_language_version=${JAVA_LANGUAGE_VERSION}"
+fi
+
+
+if [[ $# -gt 0 ]]; then
+  JAVA_RUNTIME_VERSION="$1"; shift
+  add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
+  add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
 
 export TESTENV_DONT_BAZEL_CLEAN=1

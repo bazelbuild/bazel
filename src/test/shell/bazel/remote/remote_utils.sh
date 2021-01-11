@@ -19,9 +19,11 @@
 REMOTE_WORKER="$(rlocation io_bazel/src/tools/remote/worker)"
 
 function start_worker() {
-  work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
+  work_path="${TEST_TMPDIR}/remote.work_path"
+  cas_path="${TEST_TMPDIR}/remote.cas_path"
+  pid_file="${TEST_TMPDIR}/remote.pid_file"
+  mkdir -p "${work_path}"
+  mkdir -p "${cas_path}"
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
   native_lib="${BAZEL_RUNFILES}/src/main/native/"
   "${REMOTE_WORKER}" \
@@ -43,10 +45,13 @@ function start_worker() {
 }
 
 function stop_worker() {
+  work_path="${TEST_TMPDIR}/remote.work_path"
+  cas_path="${TEST_TMPDIR}/remote.cas_path"
+  pid_file="${TEST_TMPDIR}/remote.pid_file"
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
     kill -9 "${pid}"
-  rm -rf "${pid_file}"
+    rm -rf "${pid_file}"
   fi
   if [ -d "${work_path}" ]; then
     rm -rf "${work_path}"

@@ -3,7 +3,7 @@ layout: documentation
 title: Configuring C++ toolchains
 ---
 
-# Bazel Tutorial: Configure C++ toolchains
+# Bazel Tutorial: Configure C++ Toolchains
 
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project. It's based on an

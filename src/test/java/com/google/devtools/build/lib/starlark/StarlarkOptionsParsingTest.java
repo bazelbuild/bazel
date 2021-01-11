@@ -18,12 +18,21 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import net.starlark.java.eval.StarlarkInt;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,6 +40,30 @@ import org.junit.runners.JUnit4;
 /** Unit test for the {@code StarlarkOptionsParser}. */
 @RunWith(JUnit4.class)
 public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
+
+  private List<Postable> postedEvents;
+
+  @Before
+  public void addPostableEventHandler() {
+    postedEvents = new ArrayList<>();
+    reporter.addHandler(
+        new ExtendedEventHandler() {
+          @Override
+          public void post(Postable obj) {
+            postedEvents.add(obj);
+          }
+
+          @Override
+          public void handle(Event event) {}
+        });
+  }
+
+  /** Returns only the posted events of the given class. */
+  private List<Postable> eventsOfType(Class<? extends Postable> clazz) {
+    return postedEvents.stream()
+        .filter(event -> event.getClass().equals(clazz))
+        .collect(Collectors.toList());
+  }
 
   // test --flag=value
   @Test
@@ -45,18 +78,40 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getResidue()).isEmpty();
   }
 
-  // test --@workspace//flag=value
+  // test --@main_workspace//flag=value parses out to //flag=value
+  // test --@other_workspace//flag=value parses out to @other_workspace//flag=value
   @Test
   public void testFlagNameWithWorkspace() throws Exception {
     writeBasicIntFlag();
-    rewriteWorkspace("workspace(name = 'starlark_options_test')");
+    scratch.file("test/repo2/WORKSPACE");
+    scratch.file(
+        "test/repo2/defs.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "my_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.int(flag = True),",
+        ")");
+    scratch.file(
+        "test/repo2/BUILD",
+        "load(':defs.bzl', 'my_flag')",
+        "my_flag(name = 'flag2', build_setting_default=2)");
+
+    rewriteWorkspace(
+        "workspace(name = 'starlark_options_test')",
+        "local_repository(",
+        "  name = 'repo2',",
+        "  path = 'test/repo2',",
+        ")");
 
     OptionsParsingResult result =
-        parseStarlarkOptions("--@starlark_options_test//test:my_int_setting=666");
+        parseStarlarkOptions(
+            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222");
 
-    assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("@starlark_options_test//test:my_int_setting"))
+    assertThat(result.getStarlarkOptions()).hasSize(2);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
         .isEqualTo(StarlarkInt.of(666));
+    assertThat(result.getStarlarkOptions().get("@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -78,6 +133,19 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --fake_flag
   @Test
   public void testBadFlag_boolForm() throws Exception {
+    scratch.file("test/BUILD");
+    reporter.removeHandler(failFastHandler);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//fake_flag"));
+
+    assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
+    assertThat(e.getInvalidArgument()).isEqualTo("//fake_flag");
+  }
+
+  @Test
+  public void testBadFlag_keepGoing() throws Exception {
+    optionsParser.parse("--keep_going");
     scratch.file("test/BUILD");
     reporter.removeHandler(failFastHandler);
 
@@ -306,16 +374,96 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         StarlarkOptionsParser.removeStarlarkOptions(
             ImmutableList.of(
                 "--//local/starlark/option",
+                "--//local/starlark/option=with_value",
                 "--@some_repo//external/starlark/option",
+                "--@some_repo//external/starlark/option=with_value",
                 "--@//main/repo/option",
+                "--@//main/repo/option=with_value",
                 "some-random-residue",
-                "--mangled//external/starlark/option"));
+                "--mangled//external/starlark/option",
+                "--mangled//external/starlark/option=with_value"));
     assertThat(residueAndStarlarkOptions.getFirst())
         .containsExactly(
             "--//local/starlark/option",
+            "--//local/starlark/option=with_value",
             "--@some_repo//external/starlark/option",
-            "--@//main/repo/option");
+            "--@some_repo//external/starlark/option=with_value",
+            "--@//main/repo/option",
+            "--@//main/repo/option=with_value");
     assertThat(residueAndStarlarkOptions.getSecond())
-        .containsExactly("some-random-residue", "--mangled//external/starlark/option");
+        .containsExactly(
+            "some-random-residue",
+            "--mangled//external/starlark/option",
+            "--mangled//external/starlark/option=with_value");
+  }
+
+  /**
+   * When Starlark flags are only set as flags, they shouldn't produce {@link
+   * TargetParsingCompleteEvent}s. That's intended to communicate (to the build event protocol)
+   * which of the targets in {@code blaze build //foo:all //bar:all} were built.
+   */
+  @Test
+  public void testExpectedBuildEventOutput_asFlag() throws Exception {
+    writeBasicIntFlag();
+    scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
+    useConfiguration(ImmutableMap.of("//test:my_int_setting", "15"));
+    update(
+        ImmutableList.of("//blah:mylib"),
+        /*keepGoing=*/ false,
+        /*loadingPhaseThreads=*/ LOADING_PHASE_THREADS,
+        /*doAnalysis*/ true,
+        eventBus);
+    List<Postable> targetParsingCompleteEvents = eventsOfType(TargetParsingCompleteEvent.class);
+    assertThat(targetParsingCompleteEvents).hasSize(1);
+    assertThat(
+            ((TargetParsingCompleteEvent) targetParsingCompleteEvents.get(0))
+                .getOriginalTargetPattern())
+        .containsExactly("//blah:mylib");
+  }
+
+  /**
+   * But Starlark are also targets. When they're requested as normal build targets they should
+   * produce {@link TargetParsingCompleteEvent} just like any other target.
+   */
+  @Test
+  public void testExpectedBuildEventOutput_asTarget() throws Exception {
+    writeBasicIntFlag();
+    scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
+    useConfiguration(ImmutableMap.of("//test:my_int_setting", "15"));
+    update(
+        ImmutableList.of("//blah:mylib", "//test:my_int_setting"),
+        /*keepGoing=*/ false,
+        /*loadingPhaseThreads=*/ LOADING_PHASE_THREADS,
+        /*doAnalysis*/ true,
+        eventBus);
+    List<Postable> targetParsingCompleteEvents = eventsOfType(TargetParsingCompleteEvent.class);
+    assertThat(targetParsingCompleteEvents).hasSize(1);
+    assertThat(
+            ((TargetParsingCompleteEvent) targetParsingCompleteEvents.get(0))
+                .getOriginalTargetPattern())
+        .containsExactly("//blah:mylib", "//test:my_int_setting");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testAllowMultipleStringFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "allow_multiple_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.string(flag=True, allow_multiple=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'allow_multiple_flag')",
+        "allow_multiple_flag(name = 'cats', build_setting_default = 'tabby')");
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
+
+    assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
+    assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
+        .containsExactly("calico", "bengal");
   }
 }

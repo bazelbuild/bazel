@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -127,6 +128,7 @@ public final class BazelEvaluationTestCase {
             TestConstants.TOOLS_REPOSITORY,
             /*fragmentNameToClass=*/ null,
             /*repoMapping=*/ ImmutableMap.of(),
+            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
             /*analysisRuleLabel=*/ null) // dummy value for tests
         .storeInThread(thread);

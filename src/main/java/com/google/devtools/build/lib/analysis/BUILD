@@ -414,8 +414,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_value",
@@ -434,6 +434,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -1766,7 +1767,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -2094,7 +2097,9 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

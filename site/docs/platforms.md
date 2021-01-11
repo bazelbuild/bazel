@@ -5,6 +5,7 @@ title: Platforms
 
 # Platforms
 
+
 Bazel can build and test code on a variety of hardware, operating systems, and
 system configurations, using many different versions of build tools such as
 linkers and compilers. To help manage this complexity, Bazel has a concept of
@@ -168,25 +169,16 @@ FAILED: Build did NOT complete successfully
 
 ### More expressive constraints
 
-For more flexibility in expressing constraints, create a user-defined
+For more flexibility in expressing constraints, use the
+`@platforms//:incompatible`
 [`constraint_value`](platform.html#constraint_value) that no platform
-satisfies. For example, Put the following somewhere in your project and change
-`//:not_compatible` in the subsequent examples to match your location.
+satisfies.
 
-```python
-constraint_setting(name = "not_compatible_setting")
-
-constraint_value(
-    name = "not_compatible",
-    constraint_setting = ":not_compatible_setting",
-)
-```
-
-Use [`select()`](functions.html#select) in combination with `:not_compatible`
-to express more complicated restrictions. For example, use it to implement
-basic OR logic. The following marks a library compatible with macOS and Linux,
-but no other platforms. Note that an empty constraints list is equivalent to
-"compatible with everything".
+Use [`select()`](functions.html#select) in combination with
+`@platforms//:incompatible` to express more complicated restrictions. For
+example, use it to implement basic OR logic. The following marks a library
+compatible with macOS and Linux, but no other platforms. Note that an empty
+constraints list is equivalent to "compatible with everything".
 
 ```python
 cc_library(
@@ -195,18 +187,18 @@ cc_library(
     target_compatible_with = select({
         "@platforms//os:osx": [],
         "@platforms//os:linux": [],
-        "//conditions:default": ["//:not_compatible"],
+        "//conditions:default": ["@platforms//:incompatible"],
     ],
 )
 ```
 
 The above can be interpreted as follows:
 
-1. If we are targeting macOS, then this target has no constraints.
-2. If we are targeting Linux, then this target has no constraints.
-3. Otherwise the target has the `:not_compatible` constraint. Because
-   `:not_compatible` is not part of any platforms, the target is deemed
-   incompatible.
+1. When targeting macOS, the target has no constraints.
+2. When targeting Linux, the target has no constraints.
+3. Otherwise, the target has the `@platforms//:incompatible` constraint. Because
+   `@platforms//:incompatible` is not part of any platform, the target is
+   deemed incompatible.
 
 To make your constraints more readable, use
 [skylib](https://github.com/bazelbuild/bazel-skylib)'s
@@ -220,7 +212,7 @@ cc_library(
     name = "non_arm_lib",
     srcs = "non_arm_lib.cc",
     target_compatible_with = select({
-        "@platforms//cpu:arm": ["//:not_compatible"],
+        "@platforms//cpu:arm": ["@platforms//:incompatible"],
         "//conditions:default": [],
     ],
 )

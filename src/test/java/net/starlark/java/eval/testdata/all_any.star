@@ -13,8 +13,8 @@ assert_eq(all([[], True]), False)
 assert_eq(all([True, 't', 1]), True)
 
 # All with dict
-assert_eq(all({1 : None}), True)
-assert_eq(all({None : 1}), False)
+assert_eq(all({1: None}), True)
+assert_eq(all({None: 1}), False)
 
 # Any with empty value
 assert_eq(any([]), False)
@@ -33,11 +33,7 @@ assert_eq(any([False, '', 42]), True)
 assert_eq(any({1 : None, '' : None}), True)
 assert_eq(any({None : 1, '' : 2}), False)
 
----
-all(None) ### type 'NoneType' is not iterable
----
-any(None) ### type 'NoneType' is not iterable
----
-any(1) ### type 'int' is not iterable
----
-all(1) ### type 'int' is not iterable
+assert_fails(lambda: all(None), "type 'NoneType' is not iterable")
+assert_fails(lambda: any(None), "type 'NoneType' is not iterable")
+assert_fails(lambda: all(1), "type 'int' is not iterable")
+assert_fails(lambda: any(1), "type 'int' is not iterable")

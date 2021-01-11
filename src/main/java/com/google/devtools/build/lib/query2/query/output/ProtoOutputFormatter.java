@@ -104,6 +104,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
   private boolean relativeLocations;
+  private boolean displaySourceFileLocation;
   private boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
@@ -128,6 +129,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;
+    this.displaySourceFileLocation = options.displaySourceFileLocation;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
@@ -302,7 +304,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           .setName(label.toString());
 
       if (includeLocations) {
-        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
+        input.setLocation(
+            FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation));
       }
 
       if (inputFile.getName().equals("BUILD")) {

@@ -140,6 +140,7 @@ public class WorkspaceFactory {
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
               /*repoMapping=*/ ImmutableMap.of(),
+              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
               /*analysisRuleLabel=*/ null)
           .storeInThread(thread);

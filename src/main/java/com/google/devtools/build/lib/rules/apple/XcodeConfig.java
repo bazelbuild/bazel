@@ -358,13 +358,13 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
               String.format(
                   "Xcode version %1$s was selected, either because --xcode_version was passed, or"
                       + " because xcode-select points to this version locally. This corresponds to"
-                      + " local Xcode version %2$s. That build of version %1$s is not"
-                      + " available remotely, but there is a different build of version %1$s,"
-                      + " which has version %3$s and aliases %4$s. You probably meant to use this"
-                      + " version. Please download it to continue using dynamic execution. If you"
-                      + " really did intend to use local version %2$s, please either specify it"
-                      + " fully with --xcode_version=%2$s or disable dynamic (and thus remote)"
-                      + " execution.",
+                      + " local Xcode version %2$s. That build of version %1$s is not available"
+                      + " remotely, but there is a different build of version %1$s, which has"
+                      + " version %3$s and aliases %4$s. You probably meant to use this version."
+                      + " Please download it *and delete version %2$s*, then run `blaze shutdown`"
+                      + " to continue using dynamic execution. If you really did intend to use"
+                      + " local version %2$s, please either specify it fully with"
+                      + " --xcode_version=%2$s or disable dynamic (and thus remote) execution.",
                   versionOverrideFlag,
                   specifiedVersionFromLocal.getVersion(),
                   specifiedVersionFromRemote.getVersion(),

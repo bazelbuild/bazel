@@ -1154,7 +1154,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testDefInBuild() throws Exception {
     checkBuildDialectError(
         "def func(): pass", //
-        "function definitions are not allowed in BUILD files");
+        "functions may not be defined in BUILD files");
+  }
+
+  @Test
+  public void testLambdaInBuild() throws Exception {
+    checkBuildDialectError(
+        "lambda: None", //
+        "functions may not be defined in BUILD files");
   }
 
   @Test

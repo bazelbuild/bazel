@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
-import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoV2OutputFormatterCallback;
+import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -75,52 +74,25 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
               ? null
               : new PrintStream(queryRuntimeHelper.getOutputStreamForQueryOutput());
 
-      if (aqueryOptions.protoV2) {
-        try (AqueryOutputHandler aqueryOutputHandler =
-            ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
-                OutputType.fromString(aqueryOptions.outputFormat),
-                queryRuntimeHelper.getOutputStreamForQueryOutput(),
-                printStream)) {
-          ActionGraphDump actionGraphDump =
-              new ActionGraphDump(
-                  aqueryOptions.includeCommandline,
-                  aqueryOptions.includeArtifacts,
-                  actionFilters,
-                  aqueryOptions.includeParamFiles,
-                  aqueryOutputHandler);
-          ((SequencedSkyframeExecutor) env.getSkyframeExecutor())
-              .dumpSkyframeState(actionGraphDump);
-        } catch (InvalidAqueryOutputFormatException e) {
-          String message =
-              "--skyframe_state must be used with --output=proto|textproto|jsonproto. "
-                  + e.getMessage();
-          env.getReporter().handle(Event.error(message));
-          return getFailureResult(message, Code.SKYFRAME_STATE_PREREQ_UNMET);
-        }
-      } else {
-        // TODO(b/154500246) Remove this code path.
-        ActionGraphContainer actionGraphContainer =
-            ((SequencedSkyframeExecutor) env.getSkyframeExecutor())
-                .getActionGraphContainer(
-                    aqueryOptions.includeCommandline,
-                    actionFilters,
-                    aqueryOptions.includeParamFiles,
-                    aqueryOptions.includeArtifacts);
-
-        // Write the data.
-        if (OutputType.BINARY.formatName().equals(aqueryOptions.outputFormat)) {
-          actionGraphContainer.writeTo(printStream);
-        } else if (OutputType.TEXT.formatName().equals(aqueryOptions.outputFormat)) {
-          TextFormat.printer().print(actionGraphContainer, printStream);
-        } else {
-          String message =
-              String.format(
-                  "Unsupported output format %s: --skyframe_state must be used with --output=proto"
-                      + " or --output=textproto.",
-                  aqueryOptions.outputFormat);
-          env.getReporter().handle(Event.error(message));
-          return getFailureResult(message, Code.SKYFRAME_STATE_PREREQ_UNMET);
-        }
+      try (AqueryOutputHandler aqueryOutputHandler =
+          ActionGraphProtoOutputFormatterCallback.constructAqueryOutputHandler(
+              OutputType.fromString(aqueryOptions.outputFormat),
+              queryRuntimeHelper.getOutputStreamForQueryOutput(),
+              printStream)) {
+        ActionGraphDump actionGraphDump =
+            new ActionGraphDump(
+                aqueryOptions.includeCommandline,
+                aqueryOptions.includeArtifacts,
+                actionFilters,
+                aqueryOptions.includeParamFiles,
+                aqueryOutputHandler);
+        ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
+      } catch (InvalidAqueryOutputFormatException e) {
+        String message =
+            "--skyframe_state must be used with --output=proto|textproto|jsonproto. "
+                + e.getMessage();
+        env.getReporter().handle(Event.error(message));
+        return getFailureResult(message, Code.SKYFRAME_STATE_PREREQ_UNMET);
       }
       return BlazeCommandResult.success();
     } catch (CommandLineExpansionException e) {

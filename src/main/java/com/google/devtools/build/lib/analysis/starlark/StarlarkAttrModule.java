@@ -136,11 +136,13 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
+        BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
                 BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-                BazelStarlarkContext.from(thread).getRepoMapping()),
+                bazelStarlarkContext.getRepoMapping(),
+                bazelStarlarkContext.getConvertedLabelsInPackage()),
             DEFAULT_ARG);
       }
     }

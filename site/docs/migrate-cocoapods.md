@@ -3,7 +3,7 @@ layout: documentation
 title: Converting CocoaPods dependencies
 ---
 
-# Converting CocoaPods dependencies
+# Converting CocoaPods Dependencies
 
 CocoaPods is a third-party dependency management system for Apple application
 development.

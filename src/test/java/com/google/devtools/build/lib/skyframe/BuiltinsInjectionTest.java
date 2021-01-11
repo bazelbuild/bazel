@@ -18,17 +18,29 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.FlagGuardedValue;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,13 +55,74 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BuiltinsInjectionTest extends BuildViewTestCase {
 
+  /** A simple dummy rule that doesn't do anything. */
   private static final MockRule OVERRIDABLE_RULE = () -> MockRule.define("overridable_rule");
+
+  /**
+   * A dummy native rule that reads from exported_to_java the symbol "builtins_defined_symbol", and
+   * prints its value to the event handler.
+   */
+  private static final MockRule SANDWICH_RULE =
+      () -> MockRule.factory(SandwichFactory.class).define("sandwich_rule");
+
+  // Must be public due to reflective construction of rule factories.
+  /** Factory for SANDWICH_RULE. (Javadoc'd to pacify linter.) */
+  public static class SandwichFactory extends MockRuleDefaults.DefaultConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
+      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
+
+      Object value = env.getStarlarkDefinedBuiltins().get("builtins_defined_symbol");
+
+      env.getEventHandler().handle(Event.info("builtins_defined_symbol :: " + value.toString()));
+      return super.create(ruleContext);
+    }
+  }
+
+  /**
+   * A dummy rule that dispatches to {@code @_builtins}-defined code. It looks up the function
+   * listed as "builtins_defined_logic" in exported_to_java, and calls it twice on an initially
+   * empty list. It prints both return values and the final value of the list.
+   */
+  private static final MockRule SANDWICH_LOGIC_RULE =
+      () -> MockRule.factory(SandwichLogicFactory.class).define("sandwich_logic_rule");
+
+  // Must be public due to reflective construction of rule factories.
+  /** Factory for SANDWICH_LOGIC_RULE. (Javadoc'd to pacify linter.) */
+  public static class SandwichLogicFactory extends MockRuleDefaults.DefaultConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
+      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
+      StarlarkThread thread = ruleContext.getStarlarkThread();
+      Mutability mu = thread.mutability();
+
+      Object func = env.getStarlarkDefinedBuiltins().get("builtins_defined_logic");
+      Object arg = StarlarkList.newList(mu);
+      Object return1;
+      Object return2;
+      try {
+        return1 = Starlark.call(thread, func, ImmutableList.of(arg), ImmutableMap.of());
+        return2 = Starlark.call(thread, func, ImmutableList.of(arg), ImmutableMap.of());
+      } catch (EvalException e) {
+        throw new AssertionError("Failure during Starlark evaluation", e);
+      }
+
+      EventHandler handler = env.getEventHandler();
+      handler.handle(Event.info("builtins_defined_logic call 1 :: " + return1.toString()));
+      handler.handle(Event.info("builtins_defined_logic call 2 :: " + return2.toString()));
+      handler.handle(Event.info("final list value :: " + arg.toString()));
+      return super.create(ruleContext);
+    }
+  }
 
   @Override
   protected Iterable<String> getDefaultsForConfiguration() {
     // Override BuildViewTestCase's behavior of setting all sorts of extra options that don't exist
     // on our minimal rule class provider.
-    return ImmutableList.of();
+    // We do need the host platform. Set it to something trivial.
+    return ImmutableList.of("--host_platform=//minimal_buildenv/platforms:default_host");
   }
 
   @Override
@@ -57,6 +130,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Don't let the AnalysisMock sneak in any WORKSPACE file content, which may depend on
     // repository rules that our minimal rule class provider doesn't have.
     analysisMock.setupMockClient(mockToolsConfig, ImmutableList.of());
+    // Provide a trivial platform definition.
+    mockToolsConfig.create(
+        "minimal_buildenv/platforms/BUILD", //
+        "platform(name = 'default_host')");
   }
 
   @Override
@@ -69,6 +146,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Add some mock symbols to override.
     builder
         .addRuleDefinition(OVERRIDABLE_RULE)
+        .addRuleDefinition(SANDWICH_RULE)
+        .addRuleDefinition(SANDWICH_LOGIC_RULE)
         .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
         .addStarlarkAccessibleTopLevels(
             "flag_guarded_symbol",
@@ -254,8 +333,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertThat(ev.getMessage())
         .contains(
             "Failed to load builtins sources: "
-                + "in /workspace/tools/builtins_staging/exports.bzl: "
-                + "Extension file 'helper.bzl' (internal) has errors");
+                + "at /workspace/tools/builtins_staging/exports.bzl:1:6: "
+                + "initialization of module 'helper.bzl' (internal) failed");
   }
 
   @Test
@@ -362,6 +441,45 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   // TODO(#11437): Once we allow access to native symbols via _internal, verify that flag guarding
   // works correctly within builtins.
+
+  @Test
+  public void nativeRulesCanUseSymbolsFromBuiltins() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {'builtins_defined_symbol': 'value_from_builtins'}");
+    scratch.file(
+        "pkg/BUILD", //
+        "sandwich_rule(name = 'sandwich')");
+
+    getConfiguredTarget("//pkg:sandwich");
+    assertContainsEvent("builtins_defined_symbol :: value_from_builtins");
+  }
+
+  // TODO(#11437): Verify whether this works for native-defined aspects as well.
+
+  @Test
+  public void nativeRulesCanCallFunctionsDefinedInBuiltins() throws Exception {
+    writeExportsBzl(
+        // The driver rule calls this helper twice with a list.
+        "def func(arg):",
+        "  print('got arg %s' % arg)",
+        "  arg.append('blah')",
+        "  return len(arg)",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {'builtins_defined_logic': func}");
+    scratch.file(
+        "pkg/BUILD", //
+        "sandwich_logic_rule(name = 'sandwich_logic')");
+
+    getConfiguredTarget("//pkg:sandwich_logic");
+    assertContainsEvent("got arg []");
+    assertContainsEvent("builtins_defined_logic call 1 :: 1");
+    assertContainsEvent("got arg [\"blah\"]");
+    assertContainsEvent("builtins_defined_logic call 2 :: 2");
+    assertContainsEvent("final list value :: [\"blah\", \"blah\"]");
+  }
 
   /**
    * Tests for injection, under inlining of {@link BzlLoadFunction}.

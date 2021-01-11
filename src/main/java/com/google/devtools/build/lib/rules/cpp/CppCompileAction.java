@@ -18,7 +18,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -105,7 +103,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -407,39 +404,19 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         shouldScanIncludes, "findUsedHeaders() called although include scanning is disabled");
     try {
       try {
-        ListenableFuture<List<Artifact>> future =
+        List<Artifact> includes =
             actionExecutionContext
                 .getContext(CppIncludeScanningContext.class)
                 .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData);
-        return NestedSetBuilder.wrap(Order.STABLE_ORDER, future.get());
-      } catch (ExecutionException e) {
-        Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
-        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-        IOException ioException = getIoExceptionIfAny(e);
-        if (ioException != null) {
-          throw new EnvironmentalExecException(
-              ioException,
-              createFailureDetail(
-                  "Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
-        }
-        Throwables.throwIfUnchecked(e.getCause());
-        throw new IllegalStateException(e.getCause());
+        return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
+      } catch (IORuntimeException e) {
+        throw new EnvironmentalExecException(
+            e.getCauseIOException(),
+            createFailureDetail("Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
       }
     } catch (ExecException e) {
       throw e.toActionExecutionException("include scanning", this);
     }
-  }
-
-  @Nullable
-  private static IOException getIoExceptionIfAny(ExecutionException e) {
-    IOException ioException = null;
-    if (e.getCause() instanceof IORuntimeException) {
-      ioException = ((IORuntimeException) e.getCause()).getCauseIOException();
-    }
-    if (e.getCause() instanceof IOException) {
-      ioException = (IOException) e.getCause();
-    }
-    return ioException;
   }
 
   /**
@@ -549,6 +526,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // because a NestedSet may contain a future.
       Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
       Artifact dep = entry.getKey();
+      if (!topLevel.contains(dep)) {
+        // If this module was removed from topLevel because it is a dependency of another module,
+        // we can safely ignore it now as all of its dependants have also been removed.
+        continue;
+      }
       NestedSet<? extends Artifact> transitive = entry.getValue();
 
       List<? extends Artifact> modules;
@@ -566,7 +548,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           // If rewinding is enabled, this error is recoverable.
           throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
         }
-        BugReport.sendBugReport(e);
+        actionExecutionContext.getBugReporter().sendBugReport(e);
         throw new ActionExecutionException(
             code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
       }
@@ -583,10 +565,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     topLevelModules = topLevelModulesBuilder.build();
     discoveredModulesBuilder.addTransitive(topLevelModules);
-    discoveredModules = discoveredModulesBuilder.buildInterruptibly();
+    NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.buildInterruptibly();
 
     additionalInputs =
         NestedSetBuilder.fromNestedSet(additionalInputs).addTransitive(discoveredModules).build();
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      this.discoveredModules = discoveredModules;
+    }
     usedModules = null;
     return additionalInputs;
   }
@@ -1378,10 +1363,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     if (shouldScanIncludes) {
-      updateActionInputs(discoveredModules);
-    }
-    if (!outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
-      this.discoveredModules = null;
+      updateActionInputs(additionalInputs);
     }
 
     ActionExecutionContext spawnContext;

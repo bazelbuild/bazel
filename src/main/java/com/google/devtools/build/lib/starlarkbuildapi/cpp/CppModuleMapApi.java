@@ -24,14 +24,14 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * Interface for C++ debug related objects, specifically when fission is used.
+ * Interface for C++ module maps.
  *
  * <p>It is not expected for this to be used externally at this time. This API is experimental and
  * subject to change, and its usage should be restricted to internal packages.
  *
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
-@StarlarkBuiltin(name = "CcModuleMap", category = DocCategory.PROVIDER, documented = false)
+@StarlarkBuiltin(name = "CcModuleMap", category = DocCategory.TOP_LEVEL_TYPE, documented = false)
 public interface CppModuleMapApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(name = "file", documented = false, useStarlarkThread = true)

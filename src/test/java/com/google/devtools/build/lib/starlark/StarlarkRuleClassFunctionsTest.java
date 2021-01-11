@@ -81,8 +81,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   @Override
@@ -265,8 +264,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(ev.getEventCollector()).hasSize(1);
     Event event = ev.getEventCollector().iterator().next();
     assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
+    assertThat(event.getLocation().toString()).isEqualTo(":2:9");
     assertThat(event.getMessage())
-        .matches(":2:9: Attribute r\\.x{150}'s name is too long \\(150 > 128\\)");
+        .matches("Attribute r\\.x{150}'s name is too long \\(150 > 128\\)");
   }
 
   @Test

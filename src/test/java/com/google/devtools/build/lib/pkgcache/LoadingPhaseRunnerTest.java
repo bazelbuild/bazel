@@ -1156,7 +1156,10 @@ public class LoadingPhaseRunnerTest {
       TargetParsingException exn =
           assertThrows(TargetParsingException.class, () -> tester.load(patterns));
       assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
-      assertThat(exn).hasCauseThat().hasMessageThat().contains("Extension 'bad/f1.bzl' has errors");
+      assertThat(exn)
+          .hasCauseThat()
+          .hasMessageThat()
+          .contains("compilation of module 'bad/f1.bzl' failed");
       DetailedExitCode detailedExitCode = exn.getDetailedExitCode();
       assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
       assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())

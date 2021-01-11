@@ -57,10 +57,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     boolean javacSupportsMultiplexWorkers =
         ruleContext.attributes().get("javac_supports_multiplex_workers", Type.BOOLEAN);
-    FilesToRunProvider javabuilder = ruleContext.getExecutablePrerequisite("javabuilder");
-    FilesToRunProvider headerCompiler = ruleContext.getExecutablePrerequisite("header_compiler");
-    FilesToRunProvider headerCompilerDirect =
-        ruleContext.getExecutablePrerequisite("header_compiler_direct");
     ImmutableSet<String> headerCompilerBuiltinProcessors =
         ImmutableSet.copyOf(
             ruleContext.attributes().get("header_compiler_builtin_processors", Type.STRING_LIST));
@@ -85,17 +81,20 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools");
 
-    ImmutableList<String> jvmOpts = getJvmOpts(ruleContext, "jvm_opts");
-    ImmutableList<String> javabuilderJvmOpts =
-        ImmutableList.<String>builder()
-            .addAll(jvmOpts)
-            .addAll(getJvmOpts(ruleContext, "javabuilder_jvm_opts"))
-            .build();
-    ImmutableList<String> turbineJvmOpts =
-        ImmutableList.<String>builder()
-            .addAll(jvmOpts)
-            .addAll(getJvmOpts(ruleContext, "turbine_jvm_opts"))
-            .build();
+    ImmutableList<String> jvmOpts =
+        ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts");
+
+    JavaToolchainTool javabuilder =
+        JavaToolchainTool.fromRuleContext(
+            ruleContext, "javabuilder", "javabuilder_data", "javabuilder_jvm_opts");
+    JavaToolchainTool headerCompiler =
+        JavaToolchainTool.fromRuleContext(
+            ruleContext, "header_compiler", "turbine_data", "turbine_jvm_opts");
+    JavaToolchainTool headerCompilerDirect =
+        JavaToolchainTool.fromFilesToRunProvider(
+            ruleContext.getExecutablePrerequisite("header_compiler_direct"));
+
+    AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
@@ -113,8 +112,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             javacopts,
             jvmOpts,
-            javabuilderJvmOpts,
-            turbineJvmOpts,
             javacSupportsWorkers,
             javacSupportsMultiplexWorkers,
             bootclasspath,
@@ -122,6 +119,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javabuilder,
             headerCompiler,
             headerCompilerDirect,
+            androidLint,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,
@@ -175,12 +173,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
       result.putAll(entry.getKey(), JavaHelper.tokenizeJavaOptions(entry.getValue()));
     }
     return result.build();
-  }
-
-  private static ImmutableList<String> getJvmOpts(
-      RuleContext ruleContext,
-      String attribute) {
-    return ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list(attribute);
   }
 
   private static BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext) {
