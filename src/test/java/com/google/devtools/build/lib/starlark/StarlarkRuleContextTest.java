@@ -2445,7 +2445,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "aspect_ids",
           "var",
           "tokenize('foo')",
-          "expand('foo', [], Label('//test:main'))",
           "new_file('foo.txt')",
           "new_file(file, 'foo.txt')",
           "actions.declare_file('foo.txt')",
