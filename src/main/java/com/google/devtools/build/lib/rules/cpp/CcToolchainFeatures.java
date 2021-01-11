@@ -498,14 +498,8 @@ public class CcToolchainFeatures {
       return true;
     }
     for (WithFeatureSet featureSet : withFeatureSets) {
-      boolean negativeMatch =
-          featureSet
-              .getNotFeatures()
-              .stream()
-              .anyMatch(notFeature -> enabledFeatureNames.contains(notFeature));
-      boolean positiveMatch = enabledFeatureNames.containsAll(featureSet.getFeatures());
-
-      if (!negativeMatch && positiveMatch) {
+      if (enabledFeatureNames.containsAll(featureSet.getFeatures())
+          && featureSet.getNotFeatures().stream().noneMatch(enabledFeatureNames::contains)) {
         return true;
       }
     }

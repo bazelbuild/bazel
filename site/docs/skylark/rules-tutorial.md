@@ -7,6 +7,19 @@ title: Rules Tutorial
 
 <!-- [TOC] -->
 
+[Starlark](https://github.com/bazelbuild/starlark) is a Python-like
+configuration language originally developed for use in Bazel and since adopted
+by other tools. Bazel's BUILD and .bzl files are written in a dialect of
+Starlark properly known as the "Build Language", though it is often simply
+referred to as "Starlark", especially when emphasizing that a feature is
+expressed in the Build Language as opposed to being a built-in or "native" part
+of Bazel. Bazel augments the core language with numerous build-related functions
+such as `glob`, `genrule`, `java_binary`, and so on.
+
+See the
+[Bazel](../getting-started.html) and [Starlark](concepts.html) documentation for
+more details.
+
 ## The empty rule
 
 To create your first rule, create the file `foo.bzl`:
@@ -90,12 +103,12 @@ DEBUG: /usr/home/laurentlb/bazel-codelab/BUILD:2:1: BUILD file
 
 We can make a few observations:
 
-*   "bzl file evaluation" is printed first. Before evaluating the BUILD file,
-    Bazel evaluates all the files it loads. If multiple BUILD files are loading
-    foo.bzl, we would see only one occurrence of "bzl file evaluation" because Bazel
-    caches the result of the evaluation.
-*   The callback function `_foo_binary_impl` is not called. Bazel query loads
-    BUILD files, but doesn't analyze targets.
+* "bzl file evaluation" is printed first. Before evaluating the BUILD file,
+  Bazel evaluates all the files it loads. If multiple BUILD files are loading
+  foo.bzl, we would see only one occurrence of "bzl file evaluation" because
+  Bazel caches the result of the evaluation.
+* The callback function `_foo_binary_impl` is not called. Bazel query loads
+  BUILD files, but doesn't analyze targets.
 
 To analyze the targets, we can use the [`cquery`](../cquery.html) ("configured
 query") or the `build` command:
