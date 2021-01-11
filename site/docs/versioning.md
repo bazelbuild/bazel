@@ -3,7 +3,7 @@ layout: documentation
 title: Release versioning
 ---
 
-# Release versioning
+# Release Versioning
 
 Bazel 4.0 and higher provides support for two release tracks: long term support
 (LTS) releases and rolling releases. This page covers versioning in Bazel, the

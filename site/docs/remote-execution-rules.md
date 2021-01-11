@@ -3,7 +3,7 @@ layout: documentation
 title: Adapting Bazel rules for remote execution
 ---
 
-# Adapting Bazel rules for remote execution
+# Adapting Bazel Rules for Remote Execution
 
 This page is intended for Bazel users writing custom build and test rules
 who want to understand the requirements for Bazel rules in the context of

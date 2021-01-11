@@ -26,7 +26,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -47,6 +49,8 @@ public abstract class CompressedTarFunction implements Decompressor {
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
+    // Store link, target info of symlinks, we create them after regular files are extracted.
+    Map<Path, PathFragment> symlinks = new HashMap<>();
 
     try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
       TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
@@ -76,10 +80,7 @@ public abstract class CompressedTarFunction implements Decompressor {
             PathFragment targetName = PathFragment.create(entry.getLinkName());
             targetName = maybeDeprefixSymlink(targetName, prefix, descriptor.repositoryPath());
             if (entry.isSymbolicLink()) {
-              if (filePath.exists()) {
-                filePath.delete();
-              }
-              FileSystemUtils.ensureSymbolicLink(filePath, targetName);
+              symlinks.put(filePath, targetName);
             } else {
               Path targetPath = descriptor.repositoryPath().getRelative(targetName);
               if (filePath.equals(targetPath)) {
@@ -114,6 +115,14 @@ public abstract class CompressedTarFunction implements Decompressor {
         if (Thread.interrupted()) {
           throw new InterruptedException();
         }
+      }
+
+      for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
+        Path linkPath = symlink.getKey();
+        if (linkPath.exists()) {
+          linkPath.delete();
+        }
+        FileSystemUtils.ensureSymbolicLink(linkPath, symlink.getValue());
       }
 
       if (prefix.isPresent() && !foundPrefix) {

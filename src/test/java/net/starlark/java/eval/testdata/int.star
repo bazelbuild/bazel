@@ -85,6 +85,22 @@ assert_eq(111111111 * 111111111, 12345678987654321)
 assert_eq(-(111111111 * 111111111), -12345678987654321)
 assert_eq((111111111 * 111111111) // 111111111, 111111111)
 
+# 7 * 1317624576693539401 = maxlong
+special_ints = [
+  0, 1, 2, 7, maxint - 1, maxint, maxint + 1, maxint + 2, 0xffffffff, 0x1ffffffff,
+  1317624576693539401, maxlong - 1, maxlong, maxlong + 1, maxlong + 2,
+]
+def test_mul():
+  for i_abs in special_ints:
+    for j_abs in special_ints:
+      for i_sign in [1, -1]:
+        for j_sign in [1, -1]:
+          i = i_abs if i_sign > 0 else -i_abs
+          j = j_abs if j_sign > 0 else -j_abs
+          assert_eq(i * j, int_mul_slow(i, j))
+
+test_mul()
+
 # floored division
 assert_eq(100 // 7, 14)
 assert_eq(100 // -7, -15)

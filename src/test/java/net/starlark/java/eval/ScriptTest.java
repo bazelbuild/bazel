@@ -163,6 +163,14 @@ public final class ScriptTest {
     }
   }
 
+  @StarlarkMethod(
+      name = "int_mul_slow",
+      doc = "Slow but reliable integer multiplication with round-trip to BigInteger",
+      parameters = {@Param(name = "x"), @Param(name = "y")})
+  public StarlarkInt intMulSlow(StarlarkInt x, StarlarkInt y) {
+    return StarlarkInt.of(x.toBigInteger().multiply(y.toBigInteger()));
+  }
+
   private static boolean ok = true;
 
   public static void main(String[] args) throws Exception {

@@ -3,7 +3,7 @@ layout: documentation
 title: Multiplex workers
 ---
 
-# Multiplex workers (experimental feature)
+# Multiplex Workers (Experimental Feature)
 
 This page describes multiplex workers, how to write multiplex-compatible
 rules, and workarounds for certain limitations.

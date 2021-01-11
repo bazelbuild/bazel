@@ -3,10 +3,10 @@ layout: documentation
 title: Deploying rules
 ---
 
-# Deploying rules
+# Deploying Rules
 
-This documentation is for rule writers who are planning to make their
-rules available to others.
+This page is for rule writers who are planning to make their rules available
+to others.
 
 ## Hosting and naming rules
 

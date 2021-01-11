@@ -3,11 +3,11 @@ layout: documentation
 title: Starlark language
 ---
 
-# Starlark language
+# Starlark Language
 
 <!-- [TOC] -->
 
-The page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
+This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
 formerly known as Skylark, the language used in Bazel. For a complete list of
 functions and types, check [Starlark's API reference](lib/skylark-overview.html).
 

@@ -3,7 +3,7 @@ layout: documentation
 title: Memory-saving Mode
 ---
 
-# Running Bazel with limited RAM
+# Running Bazel with Limited RAM
 
 This page describes how to use flags to run Bazel with limited RAM.
 

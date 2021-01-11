@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -140,7 +141,7 @@ public class RemoteActionInputFetcherTest {
 
     // act
     actionInputFetcher.prefetchFiles(
-        ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider);
+        ImmutableList.of(SpawnInputExpander.EMPTY_FILE), metadataProvider);
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
