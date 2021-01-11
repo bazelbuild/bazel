@@ -99,6 +99,8 @@ function get_coverage_file_path_from_test_log() {
 
 function test_java_test_coverage() {
   cat <<EOF > BUILD
+load("//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -109,6 +111,10 @@ java_test(
 java_library(
     name = "collatz-lib",
     srcs = glob(["src/main/**/*.java"]),
+)
+
+default_java_toolchain(
+    name = "custom_toolchain"
 )
 EOF
 
@@ -179,7 +185,10 @@ LH:5
 LF:6
 end_of_record"
 
-assert_coverage_result "$expected_result" "$coverage_file_path"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all --java_toolchain=//:custom_toolchain //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_java_test_coverage_combined_report() {
