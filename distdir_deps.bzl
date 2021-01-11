@@ -151,6 +151,30 @@ DIST_DEPS = {
     # Build time dependencies for testing and packaging
     #
     ###################################################
+    "bazel_skylib": {
+        "archive": "bazel-skylib-1.0.3.tar.gz",
+        "sha256": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "io_bazel_skydoc": {
+        "archive": "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        "sha256": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+            "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+        ],
+        "strip_prefix": "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
+    },
     "rules_pkg": {
         "archive": "rules_pkg-0.2.4.tar.gz",
         "sha256": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
