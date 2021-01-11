@@ -36,7 +36,8 @@ import java.util.List;
 import java.util.TreeMap;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests the uninstrumented class processing logic in {@link JacocoLCOVFormatter}.
@@ -79,19 +80,15 @@ public class JacocoLCOVFormatterUninstrumentedTest {
   }
 
   @Test
-  public void testVisitBundleWithSimpleUnixPath() {
+  public void testVisitBundleWithSimpleUnixPath() throws IOException {
     // Paths
     ImmutableSet<String> execPaths = ImmutableSet.of(
       "/parent/dir/com/example/Foo.java"
     );
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor = formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
-    try {
-      visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
-      visitor.visitEnd();
-    } catch (IOException e) {
-      Assert.fail(Throwables.getStackTraceAsString(e));
-    }
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
     String coverageOutput = writer.toString();
     for (String sourcePath : execPaths) {
       assertThat(coverageOutput).contains(sourcePath);
@@ -99,19 +96,15 @@ public class JacocoLCOVFormatterUninstrumentedTest {
   }
 
   @Test
-  public void testVisitBundleWithSimpleWindowsPath() {
+  public void testVisitBundleWithSimpleWindowsPath() throws IOException {
     // Paths
     ImmutableSet<String> execPaths = ImmutableSet.of(
       "C:/parent/dir/com/example/Foo.java"
     );
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor = formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
-    try {
-      visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
-      visitor.visitEnd();
-    } catch (IOException e) {
-      Assert.fail(Throwables.getStackTraceAsString(e));
-    }
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
     String coverageOutput = writer.toString();
     for (String sourcePath : execPaths) {
       assertThat(coverageOutput).contains(sourcePath);
@@ -119,7 +112,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
   }
 
   @Test
-  public void testVisitBundleWithMappedUnixPath() {
+  public void testVisitBundleWithMappedUnixPath() throws IOException {
     // Paths
     String srcPath = "/some/other/dir/Foo.java";
     ImmutableSet<String> execPaths = ImmutableSet.of(
@@ -127,18 +120,14 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     );
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor = formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
-    try {
-      visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
-      visitor.visitEnd();
-    } catch (IOException e) {
-      Assert.fail(Throwables.getStackTraceAsString(e));
-    }
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
     String coverageOutput = writer.toString();
     assertThat(coverageOutput).contains(srcPath);
   }
 
   @Test
-  public void testVisitBundleWithMappedWindowsPath() {
+  public void testVisitBundleWithMappedWindowsPath() throws IOException {
     // Paths
     String srcPath = "C:/some/other/dir/Foo.java";
     ImmutableSet<String> execPaths = ImmutableSet.of(
@@ -146,30 +135,22 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     );
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor = formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
-    try {
-      visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
-      visitor.visitEnd();
-    } catch (IOException e) {
-      Assert.fail(Throwables.getStackTraceAsString(e));
-    }
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
     String coverageOutput = writer.toString();
     assertThat(coverageOutput).contains(srcPath);
   }
 
   @Test
-  public void testVisitBundleWithNoMatchHasEmptyOutput() {
+  public void testVisitBundleWithNoMatchHasEmptyOutput() throws IOException {
     // Paths
     ImmutableSet<String> execPaths = ImmutableSet.of(
       "/path/does/not/match/anything.txt"
     );
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor = formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
-    try {
-      visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
-      visitor.visitEnd();
-    } catch (IOException e) {
-      Assert.fail(Throwables.getStackTraceAsString(e));
-    }
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
     String coverageOutput = writer.toString();
     assertThat(coverageOutput).isEmpty();
   }
