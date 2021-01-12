@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -34,9 +35,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.FormatMethod;
 import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -96,7 +95,6 @@ public class FunctionTransitionUtil {
       if (transitions == null) {
         return null; // errors reported to handler
       }
-      validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
 
       for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
         Map<String, Object> newValues = handleImplicitPlatformChange(entry.getValue());
@@ -110,17 +108,6 @@ public class FunctionTransitionUtil {
       handler.handle(
           Event.error(starlarkTransition.getLocationForErrorReporting(), ex.getMessage()));
       return null;
-    }
-  }
-
-  private static final class ValidationException extends Exception {
-    ValidationException(String message) {
-      super(message);
-    }
-
-    @FormatMethod
-    static ValidationException format(String format, Object... args) {
-      return new ValidationException(String.format(format, args));
     }
   }
 
@@ -166,33 +153,6 @@ public class FunctionTransitionUtil {
     }
   }
 
-  /**
-   * Validates that function outputs exactly the set of outputs it declares. More thorough checking
-   * (like type checking of output values) is done elsewhere because it requires loading. see {@link
-   * StarlarkTransition#validate}
-   */
-  private static void validateFunctionOutputsMatchesDeclaredOutputs(
-      Collection<Map<String, Object>> transitions,
-      StarlarkDefinedConfigTransition starlarkTransition)
-      throws ValidationException {
-    for (Map<String, Object> transition : transitions) {
-      LinkedHashSet<String> remainingOutputs =
-          Sets.newLinkedHashSet(starlarkTransition.getOutputs());
-      for (String outputKey : transition.keySet()) {
-        if (!remainingOutputs.remove(outputKey)) {
-          throw ValidationException.format(
-              "transition function returned undeclared output '%s'", outputKey);
-        }
-      }
-
-      if (!remainingOutputs.isEmpty()) {
-        throw ValidationException.format(
-            "transition outputs [%s] were not defined by transition function",
-            Joiner.on(", ").join(remainingOutputs));
-      }
-    }
-  }
-
   /** For all the options in the BuildOptions, build a map from option name to its information. */
   static ImmutableMap<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
     ImmutableMap.Builder<String, OptionInfo> builder = new ImmutableMap.Builder<>();
@@ -230,7 +190,10 @@ public class FunctionTransitionUtil {
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws ValidationException {
-    LinkedHashSet<String> remainingInputs = Sets.newLinkedHashSet(starlarkTransition.getInputs());
+    Map<String, String> inputsCanonicalizedToGiven =
+        starlarkTransition.getInputsCanonicalizedToGiven();
+    LinkedHashSet<String> remainingInputs =
+        Sets.newLinkedHashSet(inputsCanonicalizedToGiven.keySet());
 
     try (Mutability mutability = Mutability.create("build_settings")) {
       Dict<String, Object> dict = Dict.of(mutability);
@@ -261,11 +224,15 @@ public class FunctionTransitionUtil {
 
       // Add Starlark options
       for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
-        if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
+        String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
+        if (!remainingInputs.remove(canonicalLabelForm)) {
           continue;
         }
+        // Convert the canonical form to the user requested form that they expect to see in this
+        // dict.
+        String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
         try {
-          dict.putEntry(starlarkOption.getKey().toString(), starlarkOption.getValue());
+          dict.putEntry(userRequestedLabelForm, starlarkOption.getValue());
         } catch (EvalException ex) {
           throw new IllegalStateException(ex); // can't happen
         }

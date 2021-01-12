@@ -73,7 +73,7 @@ public class FakeCcModule
 
   @Override
   public ProviderApi getCcToolchainProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("CcToolchainInfo");
   }
 
   @Override

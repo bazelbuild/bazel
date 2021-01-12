@@ -60,9 +60,12 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
         .hasMessageThat()
-        .contains(""
-            + "//foo:bar does not support:\n"
-            + "  //buildenv:one");
+        .contains(
+            ""
+                + "//foo:bar declares compatibility with:\n"
+                + "  []\n"
+                + "but does not support:\n"
+                + "  //buildenv:one");
   }
 
   @Test
@@ -85,9 +88,12 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     addOptions("--target_environment=//buildenv:one", "--target_environment=//buildenv:two");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
         .hasMessageThat()
-        .contains(""
-            + "//foo:bar does not support:\n"
-            + "  //buildenv:two");
+        .contains(
+            ""
+                + "//foo:bar declares compatibility with:\n"
+                + "  [//buildenv:one]\n"
+                + "but does not support:\n"
+                + "  //buildenv:two");
   }
 
   @Test
@@ -120,9 +126,12 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:all")))
         .hasMessageThat()
-        .contains(""
-            + "//foo:bad_bar does not support:\n"
-            + "  //buildenv:one");
+        .contains(
+            ""
+                + "//foo:bad_bar declares compatibility with:\n"
+                + "  [//buildenv:two]\n"
+                + "but does not support:\n"
+                + "  //buildenv:one");
   }
 
   @Test
@@ -199,10 +208,13 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     addOptions("--target_environment=//buildenv:one", "--define", "mode=two");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:toplevel")))
         .hasMessageThat()
-        .contains(""
-            + "//foo:toplevel does not support:\n"
-            + "  environment: //buildenv:one\n"
-            + "    removed by: //foo:toplevel");
+        .contains(
+            ""
+                + "//foo:toplevel declares compatibility with:\n"
+                + "  [//buildenv:one, //buildenv:two]\n"
+                + "but does not support:\n"
+                + "  environment: //buildenv:one\n"
+                + "    removed by: //foo:toplevel");
   }
 
   @Test
@@ -250,7 +262,12 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:badalias")))
         .hasMessageThat()
-        .contains("" + "//foo:badgen.out does not support:\n" + "  //buildenv:one");
+        .contains(
+            ""
+                + "//foo:badgen.out declares compatibility with:\n"
+                + "  []\n"
+                + "but does not support:\n"
+                + "  //buildenv:one");
   }
 
   @Test
@@ -473,9 +490,12 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
         "--target_environment=//buildenv/b:b1");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
         .hasMessageThat()
-        .contains(""
-            + "//foo:bar does not support:\n"
-            + "  //buildenv/b:b1");
+        .contains(
+            ""
+                + "//foo:bar declares compatibility with:\n"
+                + "  [//buildenv/b:b2]\n"
+                + "but does not support:\n"
+                + "  //buildenv/b:b1");
   }
 
   @Test

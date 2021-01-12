@@ -33,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Encapsulates the 2-step behavior of creating workspace and build files for the new_*_repository
@@ -106,14 +107,11 @@ public class NewRepositoryFileHandler {
       boolean hasFileContent = mapper.isAttributeValueExplicitlySpecified(getFileContentAttrName());
 
       if (hasFile && hasFileContent) {
-
-        String error =
-            String.format(
-                "Rule %s cannot have both a '%s' and '%s' attribute",
-                rule, getFileAttrName(), getFileContentAttrName());
         throw new RepositoryFunctionException(
-            new EvalException(rule.getLocation(), error), Transience.PERSISTENT);
-
+            Starlark.errorf(
+                "Rule cannot have both a '%s' and '%s' attribute",
+                getFileAttrName(), getFileContentAttrName()),
+            Transience.PERSISTENT);
       } else if (hasFile) {
 
         fileValue = getFileValue(rule, env);
@@ -187,11 +185,9 @@ public class NewRepositoryFileHandler {
         label = Label.parseAbsolute(getFileAttributeValue(rule), ImmutableMap.of());
       } catch (LabelSyntaxException ex) {
         throw new RepositoryFunctionException(
-            new EvalException(
-                rule.getLocation(),
-                String.format(
-                    "In %s the '%s' attribute does not specify a valid label: %s",
-                    rule, getFileAttrName(), ex.getMessage())),
+            Starlark.errorf(
+                "the '%s' attribute does not specify a valid label: %s",
+                getFileAttrName(), ex.getMessage()),
             Transience.PERSISTENT);
       }
       return label;
@@ -211,9 +207,7 @@ public class NewRepositoryFileHandler {
         }
         if (!pkgLookupValue.packageExists()) {
           throw new RepositoryFunctionException(
-              new EvalException(
-                  rule.getLocation(),
-                  "Unable to load package for " + fileAttribute + ": not found."),
+              Starlark.errorf("Unable to load package for %s: not found.", fileAttribute),
               Transience.PERSISTENT);
         }
 
@@ -226,12 +220,9 @@ public class NewRepositoryFileHandler {
         Path fileTarget = workspacePath.getRelative(file);
         if (!fileTarget.exists()) {
           throw new RepositoryFunctionException(
-              new EvalException(
-                  rule.getLocation(),
-                  String.format(
-                      "In %s the '%s' attribute does not specify an existing file "
-                          + "(%s does not exist)",
-                      rule, getFileAttrName(), fileTarget)),
+              Starlark.errorf(
+                  "the '%s' attribute does not specify an existing file (%s does not exist)",
+                  getFileAttrName(), fileTarget),
               Transience.PERSISTENT);
         }
 
@@ -265,8 +256,7 @@ public class NewRepositoryFileHandler {
 
       if (!fileValue.isFile() || fileValue.isSpecialFile()) {
         throw new RepositoryFunctionException(
-            new EvalException(
-                rule.getLocation(), String.format("%s is not a regular file", rootedFile.asPath())),
+            Starlark.errorf("%s is not a regular file", rootedFile.asPath()),
             Transience.PERSISTENT);
       }
 
@@ -334,10 +324,9 @@ public class NewRepositoryFileHandler {
 
     @Override
     protected String getDefaultContent(Rule rule) throws RepositoryFunctionException {
-      String error =
-          String.format("Rule %s requires a 'build_file' or 'build_file_content' attribute", rule);
       throw new RepositoryFunctionException(
-          new EvalException(rule.getLocation(), error), Transience.PERSISTENT);
+          Starlark.errorf("Rule requires a 'build_file' or 'build_file_content' attribute"),
+          Transience.PERSISTENT);
     }
   }
 }

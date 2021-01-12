@@ -113,7 +113,6 @@ import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -201,7 +200,12 @@ public final class SkyframeActionExecutor {
 
   // Directories which are known to be created as regular directories within this invocation. This
   // implies parent directories are also regular directories.
-  private Set<PathFragment> knownRegularDirectories;
+  private Map<PathFragment, DirectoryState> knownDirectories;
+
+  private enum DirectoryState {
+    FOUND,
+    CREATED
+  }
 
   private OptionsProvider options;
   private boolean useAsyncExecution;
@@ -275,11 +279,11 @@ public final class SkyframeActionExecutor {
     this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
 
-    Cache<PathFragment, Boolean> cache =
+    Cache<PathFragment, DirectoryState> cache =
         CacheBuilder.from(options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec)
             .concurrencyLevel(Runtime.getRuntime().availableProcessors())
             .build();
-    this.knownRegularDirectories = Collections.newSetFromMap(cache.asMap());
+    this.knownDirectories = cache.asMap();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -353,7 +357,7 @@ public final class SkyframeActionExecutor {
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.topDownActionCache = null;
-    this.knownRegularDirectories = null;
+    this.knownDirectories = null;
   }
 
   /**
@@ -1269,38 +1273,54 @@ public final class SkyframeActionExecutor {
   private void createAndCheckForSymlinks(
       final Path dir, final Artifact outputFile, ActionExecutionContext context)
       throws IOException {
-    PathFragment root = outputFile.getRoot().getRoot().asPath().asFragment();
+    Path rootPath = outputFile.getRoot().getRoot().asPath();
+    PathFragment root = rootPath.asFragment();
     Path curDir = context.getPathResolver().convertPath(dir);
-    Set<PathFragment> checkDirs = new HashSet<>();
-    List<Path> dirsToCreate = new ArrayList<>();
 
     // If the output root has not been created yet, do so now.
-    if (!knownRegularDirectories.contains(root)) {
-      outputFile.getRoot().getRoot().asPath().createDirectoryAndParents();
-      knownRegularDirectories.add(root);
+    if (!knownDirectories.containsKey(root)) {
+      FileStatus stat = rootPath.statNullable(Symlinks.NOFOLLOW);
+      if (stat == null) {
+        outputFile.getRoot().getRoot().asPath().createDirectoryAndParents();
+        knownDirectories.put(root, DirectoryState.CREATED);
+      } else {
+        knownDirectories.put(root, DirectoryState.FOUND);
+      }
     }
 
-    while (!curDir.asFragment().equals(root)) {
-      // Fast path: Somebody already checked that this is a regular directory this invocation.
-      if (knownRegularDirectories.contains(curDir.asFragment())) {
-        break;
+    // Walk up until the first known directory is found (must be root or below).
+    List<Path> checkDirs = new ArrayList<>();
+    while (!knownDirectories.containsKey(curDir.asFragment())) {
+      checkDirs.add(curDir);
+      curDir = curDir.getParentDirectory();
+    }
+
+    // Check in reverse order (parent directory first):
+    // - If symlink -> Exception.
+    // - If non-existent -> Create directory and all children.
+    boolean parentCreated = knownDirectories.get(curDir.asFragment()) == DirectoryState.CREATED;
+    for (Path path : Lists.reverse(checkDirs)) {
+      if (parentCreated) {
+        // If we have created this directory's parent, we know that it doesn't exist or else we
+        // would know about it already. Even if a parallel thread has created it in the meantime,
+        // createDirectory() will return normally and we can assume that a regular directory exists
+        // afterwards.
+        path.createDirectory();
+        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
+        continue;
       }
-      FileStatus stat = curDir.statNullable(Symlinks.NOFOLLOW);
+      FileStatus stat = path.statNullable(Symlinks.NOFOLLOW);
       if (stat != null && !stat.isDirectory()) {
         throw new IOException(curDir + " is not a regular directory");
       }
       if (stat == null) {
-        dirsToCreate.add(curDir);
+        parentCreated = true;
+        path.createDirectory();
+        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
+      } else {
+        knownDirectories.put(path.asFragment(), DirectoryState.FOUND);
       }
-      checkDirs.add(curDir.asFragment());
-      curDir = curDir.getParentDirectory();
     }
-    for (Path path : Lists.reverse(dirsToCreate)) {
-      path.createDirectory();
-    }
-
-    // Defer adding to known regular directories until we've checked all parent directories.
-    knownRegularDirectories.addAll(checkDirs);
   }
 
   private void createOutputDirectories(Action action, ActionExecutionContext context)
@@ -1368,7 +1388,7 @@ public final class SkyframeActionExecutor {
                 if (stat.isDirectory()) {
                   // If this directory used to be a tree artifact it won't be writable.
                   p.setWritable(true);
-                  knownRegularDirectories.add(p.asFragment());
+                  knownDirectories.put(p.asFragment(), DirectoryState.FOUND);
                 } else {
                   // p may be a file or symlink (possibly from a Fileset in a previous build).
                   p.delete(); // throws IOException

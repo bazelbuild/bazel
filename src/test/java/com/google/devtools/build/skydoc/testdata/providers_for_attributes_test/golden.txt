@@ -44,7 +44,7 @@ This rule does things.
           this is the first attribute.
         </p>
         <p>
-          The dependencies of this attribute must provide: MyProviderInfo, PyInfo, Unknown Provider
+          The dependencies of this attribute must provide: MyProviderInfo, PyInfo, CcToolchainInfo
         </p>
       </td>
     </tr>
@@ -62,7 +62,7 @@ This rule does things.
       <td>
         <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
         <p>
-          The dependencies of this attribute must provide: CcInfo; or OtherProviderInfo, Unknown Provider
+          The dependencies of this attribute must provide: CcInfo; or OtherProviderInfo, DepProviderInfo
         </p>
       </td>
     </tr>

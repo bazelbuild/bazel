@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
@@ -41,13 +43,13 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -59,6 +61,7 @@ import javax.annotation.Nullable;
  * <p>For all other targets see {@link ConstraintSemantics}.
  */
 public class TopLevelConstraintSemantics {
+  private final RuleContextConstraintSemantics constraintSemantics;
   private final PackageManager packageManager;
   private final Function<Key, BuildConfiguration> configurationProvider;
   private final ExtendedEventHandler eventHandler;
@@ -68,13 +71,17 @@ public class TopLevelConstraintSemantics {
   /**
    * Constructor with helper classes for loading targets.
    *
+   * @param constraintSemantics core constraints implementation logic
    * @param packageManager object for retrieving loaded targets
+   * @param configurationProvider gets configurations from {@link ConfiguredTarget}s
    * @param eventHandler the build's event handler
    */
   public TopLevelConstraintSemantics(
+      RuleContextConstraintSemantics constraintSemantics,
       PackageManager packageManager,
       Function<Key, BuildConfiguration> configurationProvider,
       ExtendedEventHandler eventHandler) {
+    this.constraintSemantics = constraintSemantics;
     this.packageManager = packageManager;
     this.configurationProvider = configurationProvider;
     this.eventHandler = eventHandler;
@@ -290,7 +297,8 @@ public class TopLevelConstraintSemantics {
     }
 
     if (!exceptionInducingTargets.isEmpty()) {
-      String badTargetsUserMessage = getBadTargetsUserMessage(exceptionInducingTargets);
+      String badTargetsUserMessage =
+          getBadTargetsUserMessage(constraintSemantics, exceptionInducingTargets);
       throw new ViewCreationFailedException(
           badTargetsUserMessage,
           FailureDetail.newBuilder()
@@ -368,33 +376,59 @@ public class TopLevelConstraintSemantics {
     }
     SupportedEnvironmentsProvider provider =
         Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-    return RuleContextConstraintSemantics.getUnsupportedEnvironments(
-            provider.getRefinedEnvironments(), expectedEnvironments)
-        .stream()
-        // We apply this filter because the target might also not support default environments in
-        // other environment groups. We don't care about those. We only care about the environments
-        // explicitly referenced.
-        .filter(Predicates.in(expectedEnvironmentLabels))
-        .map(
-            environment ->
-                new MissingEnvironment(
-                    environment, provider.getRemovedEnvironmentCulprit(environment)))
-        .collect(Collectors.toSet());
+    ImmutableSet.Builder<MissingEnvironment> ans = ImmutableSet.builder();
+    for (Label unsupportedEnv :
+        RuleContextConstraintSemantics.getUnsupportedEnvironments(
+            provider.getRefinedEnvironments(), expectedEnvironments)) {
+      // We apply this filter because the target might also not support default environments in
+      // other environment groups. We don't care about those. We only care about the environments
+      // explicitly referenced.
+      if (!expectedEnvironmentLabels.contains(unsupportedEnv)) {
+        continue;
+      }
+
+      List<Label> envAndFulfillers = new ArrayList<>();
+      envAndFulfillers.add(unsupportedEnv);
+      for (EnvironmentLabels envGroup : provider.getStaticEnvironments().getGroups()) {
+        envAndFulfillers.addAll(envGroup.getFulfillers(unsupportedEnv).toList());
+      }
+      RemovedEnvironmentCulprit culprit = null;
+      for (int i = 0; i < envAndFulfillers.size() && culprit == null; i++) {
+        culprit = provider.getRemovedEnvironmentCulprit(envAndFulfillers.get(i));
+      }
+      // culprit could still be null here. See MissingEnvironment class comments for implications.
+      ans.add(new MissingEnvironment(unsupportedEnv, culprit));
+    }
+    return ans.build();
   }
 
   /**
    * Prepares a user-friendly error message for a list of targets missing support for required
    * environments.
    */
-  private static String getBadTargetsUserMessage(Multimap<ConfiguredTarget,
-      MissingEnvironment> badTargets) {
+  private static String getBadTargetsUserMessage(
+      RuleContextConstraintSemantics constraintSemantics,
+      Multimap<ConfiguredTarget, MissingEnvironment> badTargets) {
     StringJoiner msg = new StringJoiner("\n");
     msg.add("This is a restricted-environment build.");
     for (Map.Entry<ConfiguredTarget, Collection<MissingEnvironment>> entry :
         badTargets.asMap().entrySet()) {
-      msg
-          .add(" ")
-          .add(entry.getKey().getLabel() + " does not support:");
+      ConfiguredTarget curTarget = entry.getKey();
+      ConfiguredTarget targetWithProvider = curTarget.getActual();
+      if (targetWithProvider instanceof OutputFileConfiguredTarget) {
+        targetWithProvider = ((OutputFileConfiguredTarget) targetWithProvider).getGeneratingRule();
+      }
+      SupportedEnvironmentsProvider supportedEnvironments =
+          targetWithProvider.getProvider(SupportedEnvironmentsProvider.class);
+      String declaredEnvs =
+          supportedEnvironments.getStaticEnvironments().getEnvironments().stream()
+              .map(Label::toString)
+              .collect(joining(", "));
+      ;
+      msg.add(" ")
+          .add(curTarget.getLabel() + " declares compatibility with:")
+          .add("  [" + declaredEnvs + "]")
+          .add("but does not support:");
       boolean isFirst = true;
       boolean lastEntryWasMultiline = false;
       for (MissingEnvironment missingEnvironment : entry.getValue()) {
@@ -415,8 +449,10 @@ public class TopLevelConstraintSemantics {
             msg.add(" "); // Pretty-format for clarity.
           }
           msg.add(
-              RuleContextConstraintSemantics.getMissingEnvironmentCulpritMessage(
-                  missingEnvironment.environment, missingEnvironment.culprit));
+              constraintSemantics.getMissingEnvironmentCulpritMessage(
+                  curTarget.getLabel(),
+                  missingEnvironment.environment,
+                  missingEnvironment.culprit));
           lastEntryWasMultiline = true;
         }
         isFirst = false;
