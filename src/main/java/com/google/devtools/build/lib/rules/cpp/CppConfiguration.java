@@ -445,6 +445,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.parseHeadersVerifiesModules;
   }
 
+  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
+    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
+  }
+
   public boolean getUseInterfaceSharedLibraries() {
     return cppOptions.useInterfaceSharedObjects;
   }

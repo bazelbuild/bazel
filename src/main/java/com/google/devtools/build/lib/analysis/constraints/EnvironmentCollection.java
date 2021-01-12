@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** Contains a set of {@link Environment} labels and their associated groups. */
 @AutoCodec
@@ -103,18 +105,26 @@ public class EnvironmentCollection {
    * Builder for {@link EnvironmentCollection}.
    */
   public static class Builder {
+    // ImmutableMultiMap.Builder appears to allow duplicate values, which we don't want.
+    private final Set<Label> addedLabels = new HashSet<>();
     private final ImmutableMultimap.Builder<EnvironmentLabels, Label> mapBuilder =
         ImmutableMultimap.builder();
 
     /** Inserts the given environment / owning group pair. */
     public Builder put(EnvironmentLabels group, Label environment) {
-      mapBuilder.put(group, environment);
+      if (addedLabels.add(environment)) {
+        mapBuilder.put(group, environment);
+      }
       return this;
     }
 
     /** Inserts the given set of environments, all belonging to the specified group. */
     public Builder putAll(EnvironmentLabels group, Iterable<Label> environments) {
-      mapBuilder.putAll(group, environments);
+      for (Label env : environments) {
+        if (addedLabels.add(env)) {
+          mapBuilder.put(group, env);
+        }
+      }
       return this;
     }
 
@@ -122,7 +132,11 @@ public class EnvironmentCollection {
      * Inserts the contents of another {@link EnvironmentCollection} into this one.
      */
     public Builder putAll(EnvironmentCollection other) {
-      mapBuilder.putAll(other.map);
+      for (Map.Entry<EnvironmentLabels, Label> entry : other.map.entries()) {
+        if (addedLabels.add(entry.getValue())) {
+          mapBuilder.put(entry);
+        }
+      }
       return this;
     }
 

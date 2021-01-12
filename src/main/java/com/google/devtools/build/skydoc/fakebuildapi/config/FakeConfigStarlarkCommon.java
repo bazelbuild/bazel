@@ -25,6 +25,6 @@ public class FakeConfigStarlarkCommon implements ConfigStarlarkCommonApi {
 
   @Override
   public ProviderApi getConfigFeatureFlagProviderConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("FeatureFlagInfo");
   }
 }

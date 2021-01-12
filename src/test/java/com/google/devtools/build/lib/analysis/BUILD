@@ -246,6 +246,26 @@ java_test(
 )
 
 java_test(
+    name = "ConstraintsTest",
+    srcs = [
+        "constraints/AbstractConstraintsTest.java",
+        "constraints/ConstraintsTest.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SourceManifestActionTest",
     srcs = ["SourceManifestActionTest.java"],
     deps = [
@@ -304,6 +324,7 @@ java_test(
 test_suite(
     name = "AllAnalysisTests",
     tests = [
+        "ConstraintsTest",
         ":AbstractConfiguredTargetTest",
         ":AnalysisTests",
         ":AnalysisUtilsTest",

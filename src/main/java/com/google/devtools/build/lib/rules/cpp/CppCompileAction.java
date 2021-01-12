@@ -462,14 +462,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         }
         return additionalInputs;
       }
-      List<CcCompilationContext.HeaderInfo> headerInfo =
-          ccCompilationContext.getTransitiveHeaderInfos();
       IncludeScanningHeaderData.Builder includeScanningHeaderDataBuilder =
           ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
-              useHeaderModules,
-              headerInfo);
+              useHeaderModules);
       if (includeScanningHeaderDataBuilder == null) {
         return null;
       }
@@ -487,8 +484,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
 
       if (useHeaderModules) {
-        usedModules =
-            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), headerInfo);
+        usedModules = ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet());
       }
     }
 
@@ -1596,8 +1592,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
-              useHeaderModules,
-              ccCompilationContext.getTransitiveHeaderInfos());
+              useHeaderModules);
       if (includeScanningHeaderData == null) {
         return null;
       }

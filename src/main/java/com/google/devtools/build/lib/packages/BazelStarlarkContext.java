@@ -48,7 +48,9 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   }
 
   private final Phase phase;
-  private final String toolsRepository;
+  // Only necessary for loading phase threads.
+  @Nullable private final String toolsRepository;
+  // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
   private final HashMap<String, Label> convertedLabelsInPackage;
@@ -57,9 +59,11 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
 
   /**
    * @param phase the phase to which this Starlark thread belongs
-   * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
+   * @param toolsRepository the name of the tools repository, such as "@bazel_tools" for loading
+   *     phase threads, null for other threads.
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
-   *     class, such as "apple" to AppleConfiguration.class
+   *     class, such as "apple" to AppleConfiguration.class for loading phase threads, null for
+   *     other threads.
    * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
    * @param convertedLabelsInPackage a mutable map from String to Label, used during package loading
    *     of a single package.
@@ -78,7 +82,7 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   // analysis threads?
   public BazelStarlarkContext(
       Phase phase,
-      String toolsRepository,
+      @Nullable String toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       HashMap<String, Label> convertedLabelsInPackage,
@@ -99,6 +103,7 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
+  @Nullable
   @Override
   public String getToolsRepository() {
     return toolsRepository;

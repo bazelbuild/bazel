@@ -81,8 +81,9 @@ public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
           selectedDepForCulprit);
     }
 
-    abstract LabelAndLocation culprit();
-    abstract Label selectedDepForCulprit();
+    public abstract LabelAndLocation culprit();
+
+    public abstract Label selectedDepForCulprit();
   }
 
   /**
