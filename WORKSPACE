@@ -121,23 +121,14 @@ local_repository(
     path = "./third_party/remoteapis/",
 )
 
-http_archive(
+dist_http_archive(
     name = "desugar_jdk_libs",
-    # Commit e0b0291b2c51fbe5a7cfa14473a1ae850f94f021 of 2018-12-4
-    # Computed using "shasum -a 256 <zip>"
-    sha256 = "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
-    strip_prefix = "desugar_jdk_libs-e0b0291b2c51fbe5a7cfa14473a1ae850f94f021",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-    ],
 )
 
 distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "java_tools-v11.0.zip",
         "java_tools_linux-v11.0.zip",
         "java_tools_windows-v11.0.zip",
@@ -152,7 +143,6 @@ distdir_tar(
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "java_tools-v11.0.zip": "09ecd438f1a10aa36bf0a6a2f24ead884ef7e8e8a46d086f8af6db33556b76a8",
         "java_tools_linux-v11.0.zip": "b66d5b97b90cb20787cfa61565672b0538912d230f120a03f38020052f25c4bc",
         "java_tools_windows-v11.0.zip": "8a683275b0f24e011b56e27eb4d7e35919d774ae57ec3353d48606cfc81e4116",
@@ -165,10 +155,6 @@ distdir_tar(
         "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
     },
     urls = {
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
-            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-            "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        ],
         "java_tools-v11.0.zip": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools-v11.0.zip",
         ],
