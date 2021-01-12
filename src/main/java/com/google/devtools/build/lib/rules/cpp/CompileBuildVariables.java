@@ -439,8 +439,6 @@ public enum CompileBuildVariables {
     Preconditions.checkNotNull(localDefines);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
-      // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
-      // in any case, but don't crash.
       buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
       buildVariables.addStringVariable(
           MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact().getExecPathString());
