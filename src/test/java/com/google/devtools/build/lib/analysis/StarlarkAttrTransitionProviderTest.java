@@ -765,7 +765,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "transition inputs [//command_line_option:foop, //command_line_option:barp] "
+        "transition inputs [//command_line_option:barp, //command_line_option:foop] "
             + "do not correspond to valid settings");
   }
 
