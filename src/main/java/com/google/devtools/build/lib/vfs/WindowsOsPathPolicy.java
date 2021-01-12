@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.WindowsShortPath;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import java.io.IOException;
 
 @VisibleForTesting
@@ -224,13 +224,13 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public char getSeparator() {
-    return '/';
+  public boolean isSeparator(char c) {
+    return c == '/' || c == '\\';
   }
 
   @Override
-  public boolean isSeparator(char c) {
-    return c == '/' || c == '\\';
+  public char additionalSeparator() {
+    return '\\';
   }
 
   @Override

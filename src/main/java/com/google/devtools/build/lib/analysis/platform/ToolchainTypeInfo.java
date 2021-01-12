@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainTypeInfoApi;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.syntax.Location;
 
 /** A provider that supplies information about a specific toolchain type. */
 @Immutable
@@ -38,18 +37,18 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   private final Label typeLabel;
 
-  public static ToolchainTypeInfo create(Label typeLabel, Location location) {
-    return new ToolchainTypeInfo(typeLabel, location);
-  }
-
   public static ToolchainTypeInfo create(Label typeLabel) {
-    return create(typeLabel, Location.BUILTIN);
+    return new ToolchainTypeInfo(typeLabel);
   }
 
   @VisibleForSerialization
-  ToolchainTypeInfo(Label typeLabel, Location location) {
-    super(PROVIDER, location);
+  ToolchainTypeInfo(Label typeLabel) {
     this.typeLabel = typeLabel;
+  }
+
+  @Override
+  public BuiltinProvider<ToolchainTypeInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override

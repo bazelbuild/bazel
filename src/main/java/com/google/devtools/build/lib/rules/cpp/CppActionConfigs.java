@@ -382,6 +382,29 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
+      if (!existingFeatureNames.contains(CppRuleClasses.PROPELLER_OPTIMIZE)) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'propeller_optimize'",
+                        "  flag_set {",
+                        "    action: 'c-compile'",
+                        "    action: 'c++-compile'",
+                        "    action: 'lto-backend'",
+                        "    flag_group {",
+                        "      expand_if_all_available: 'propeller_optimize_cc_path'",
+                        "      flag: '-fbasic-block-sections=list=%{propeller_optimize_cc_path}'",
+                        "    }",
+                        "  }",
+                        "  flag_set {",
+                        "    action: 'c++-link-executable'",
+                        "    flag_group {",
+                        "      expand_if_true: 'propeller_optimize_ld_path'",
+                        "      flag: '-Wl,--symbol-ordering-file=%{propeller_optimize_ld_path}'",
+                        "    }",
+                        "  }")));
+      }
 
       if (!existingFeatureNames.contains(CppRuleClasses.BUILD_INTERFACE_LIBRARIES)) {
         featureBuilder.add(
@@ -649,12 +672,17 @@ public class CppActionConfigs {
                         "          variable: 'libraries_to_link.type'",
                         "          value: 'object_file_group'",
                         "        }",
+                        "        expand_if_false: 'libraries_to_link.is_whole_archive'",
                         "        flag: '-Wl,--start-lib'",
                         "      }",
                         ifLinux(
                             platform,
                             "  flag_group {",
                             "    expand_if_true: 'libraries_to_link.is_whole_archive'",
+                            "    expand_if_equal: {",
+                            "        variable: 'libraries_to_link.type'",
+                            "        value: 'static_library'",
+                            "    }",
                             "    flag: '-Wl,-whole-archive'",
                             "  }",
                             "  flag_group {",
@@ -702,6 +730,10 @@ public class CppActionConfigs {
                             "  }",
                             "  flag_group {",
                             "    expand_if_true: 'libraries_to_link.is_whole_archive'",
+                            "    expand_if_equal: {",
+                            "        variable: 'libraries_to_link.type'",
+                            "        value: 'static_library'",
+                            "    }",
                             "    flag: '-Wl,-no-whole-archive'",
                             "  }"),
                         ifMac(
@@ -782,6 +814,7 @@ public class CppActionConfigs {
                         "          variable: 'libraries_to_link.type'",
                         "          value: 'object_file_group'",
                         "        }",
+                        "        expand_if_false: 'libraries_to_link.is_whole_archive'",
                         "        flag: '-Wl,--end-lib'",
                         "      }",
                         "    }",

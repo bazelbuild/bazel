@@ -5,9 +5,9 @@ title: Macros
 
 # Macros
 
-<!-- [TOC] -->
 
-## Introduction
+This page covers the basics of using macros and includes typical use cases,
+debugging, and conventions.
 
 A macro is a function called from the BUILD file that can instantiate rules.
 Macros are mainly used for encapsulation and code reuse of existing rules

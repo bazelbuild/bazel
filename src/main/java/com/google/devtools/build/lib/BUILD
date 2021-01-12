@@ -55,6 +55,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
+        "//src/main/java/com/google/devtools/build/lib/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
@@ -100,7 +101,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
@@ -210,6 +210,7 @@ java_library(
         "runtime/BlazeCommandResult.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -239,6 +240,7 @@ java_library(
         ":runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
     ],
 )
@@ -267,6 +269,7 @@ java_library(
         ":runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -320,6 +323,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -390,6 +394,7 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
@@ -502,7 +507,7 @@ genrule(
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
-        "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
+        "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>/dev/null && " +

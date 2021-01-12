@@ -277,45 +277,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
   }
 
-  @Test
-  public void testLegacyWholeArchive() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "  name = 'libfoo.so',",
-        "  srcs = ['foo.cc'],",
-        "  linkshared = 1,",
-        ")");
-    // --incompatible_remove_legacy_whole_archive not flipped, --legacy_whole_archive wins.
-    useConfiguration("--legacy_whole_archive", "--noincompatible_remove_legacy_whole_archive");
-    assertThat(getLibfooArguments()).contains("-Wl,-whole-archive");
-    useConfiguration("--nolegacy_whole_archive", "--noincompatible_remove_legacy_whole_archive");
-    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
-
-    // --incompatible_remove_legacy_whole_archive flipped, --legacy_whole_archive ignored.
-    useConfiguration("--legacy_whole_archive", "--incompatible_remove_legacy_whole_archive");
-    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
-    useConfiguration("--nolegacy_whole_archive", "--incompatible_remove_legacy_whole_archive");
-    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
-
-    // Even when --nolegacy_whole_archive, features can still add the behavior back.
-    useConfiguration(
-        "--nolegacy_whole_archive",
-        "--noincompatible_remove_legacy_whole_archive",
-        "--features=legacy_whole_archive");
-    assertThat(getLibfooArguments()).contains("-Wl,-whole-archive");
-    // Even when --nolegacy_whole_archive, features can still add the behavior, but not when
-    // --incompatible_remove_legacy_whole_archive is flipped.
-    useConfiguration(
-        "--incompatible_remove_legacy_whole_archive", "--features=legacy_whole_archive");
-    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
-  }
-
   private List<String> getLibfooArguments() throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:libfoo.so");
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
@@ -604,6 +565,18 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
+    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
@@ -720,7 +693,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public Artifact getOutputArtifact(String relpath) {
     return ActionsTestUtil.createArtifactWithExecPath(
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-        getTargetConfiguration().getBinFragment().getRelative(relpath));
+        getTargetConfiguration().getBinFragment(RepositoryName.MAIN).getRelative(relpath));
   }
 
   private Artifact scratchArtifact(String s) {

@@ -356,9 +356,30 @@ final class NodePrinter {
           break;
         }
 
-      case INTEGER_LITERAL:
+      case INT_LITERAL:
         {
-          buf.append(((IntegerLiteral) expr).getValue());
+          buf.append(((IntLiteral) expr).getValue());
+          break;
+        }
+
+      case FLOAT_LITERAL:
+        {
+          buf.append(((FloatLiteral) expr).getValue());
+          break;
+        }
+
+      case LAMBDA:
+        {
+          LambdaExpression lambda = (LambdaExpression) expr;
+          buf.append("lambda");
+          String sep = " ";
+          for (Parameter param : lambda.getParameters()) {
+            buf.append(sep);
+            sep = ", ";
+            printParameter(param);
+          }
+          buf.append(": ");
+          printExpr(lambda.getBody());
           break;
         }
 

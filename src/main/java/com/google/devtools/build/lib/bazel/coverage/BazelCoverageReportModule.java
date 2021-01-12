@@ -88,7 +88,8 @@ public class BazelCoverageReportModule extends BlazeModule {
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
           ActionLookupKey actionLookupKey,
-          String workspaceName) {
+          String workspaceName)
+          throws InterruptedException {
         if (options == null || options.combinedReport == ReportType.NONE) {
           return null;
         }

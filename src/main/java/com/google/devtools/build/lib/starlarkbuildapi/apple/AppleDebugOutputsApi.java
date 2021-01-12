@@ -15,16 +15,17 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 
 /** A provider that holds debug outputs of an apple_binary target. */
 @StarlarkBuiltin(
     name = "AppleDebugOutputs",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "A provider that holds debug outputs of an apple_binary target.")
 public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
 
@@ -36,5 +37,5 @@ public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
               + " is any Apple architecture such as 'arm64' or 'armv7', 'output_type' is a string"
               + " descriptor such as 'bitcode_symbols' or 'dsym_binary', and the file is the file"
               + " matching that descriptor for that architecture.")
-  ImmutableMap<String, ImmutableMap<String, FileT>> getOutputsMap();
+  ImmutableMap<String, Dict<String, FileT>> getOutputsMap();
 }

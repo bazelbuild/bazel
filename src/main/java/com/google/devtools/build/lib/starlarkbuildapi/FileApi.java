@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
@@ -24,7 +25,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** The interface for files in Starlark. */
 @StarlarkBuiltin(
     name = "File",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "This object is created during the analysis phase to represent a file or directory that "
             + "will be read or written during the execution phase. It is not an open file"
@@ -62,6 +63,7 @@ public interface FileApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true,
       doc = "A label of a target that produces this File.")
+  @Nullable
   Label getOwnerLabel();
 
   @StarlarkMethod(

@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -25,7 +24,7 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     name = "apple",
     doc = "A configuration fragment for Apple platforms.",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+    category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StarlarkValue {
 
@@ -34,7 +33,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       doc =
           "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
               + "The value of ios_cpu for this configuration.")
-  @StarlarkDeprecated
   String getIosCpu();
 
   @StarlarkMethod(
@@ -67,7 +65,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);

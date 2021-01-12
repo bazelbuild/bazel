@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -45,9 +47,6 @@ import net.starlark.java.syntax.Location;
  */
 public final class StarlarkProvider implements StarlarkCallable, StarlarkExportable, Provider {
 
-  /** Default value for {@link #errorMessageFormatForUnknownField}. */
-  private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
-
   private final Location location;
 
   // For schemaful providers, the sorted list of allowed field names.
@@ -57,9 +56,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   /** Null iff this provider has not yet been exported. */
   @Nullable private Key key;
-
-  /** Error message format. Reassigned upon exporting. */
-  private String errorMessageFormatForUnknownField;
 
   /**
    * Creates an unexported {@link StarlarkProvider} with no schema.
@@ -126,9 +122,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     this.schema = schema;
     this.location = location;
     this.key = key;  // possibly null
-    this.errorMessageFormatForUnknownField =
-        key == null ? DEFAULT_ERROR_MESSAGE_FORMAT
-            : makeErrorMessageFormatForUnknownField(key.getExportedName());
   }
 
   @Override
@@ -174,19 +167,16 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   }
 
   @Override
-  public String getErrorMessageFormatForUnknownField() {
-    return errorMessageFormatForUnknownField;
+  public String getErrorMessageForUnknownField(String name) {
+    return String.format(
+        "'%s' value has no field or method '%s'",
+        isExported() ? key.getExportedName() : "struct", name);
   }
 
   @Override
-  public void export(Label extensionLabel, String exportedName) {
+  public void export(EventHandler handler, Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.key = new Key(extensionLabel, exportedName);
-    this.errorMessageFormatForUnknownField = makeErrorMessageFormatForUnknownField(exportedName);
-  }
-
-  private static String makeErrorMessageFormatForUnknownField(String exportedName) {
-    return String.format("'%s' value has no field or method '%%s'", exportedName);
   }
 
   @Override
@@ -252,6 +242,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     @Override
     public String toString() {
       return exportedName;
+    }
+
+    @Override
+    void fingerprint(Fingerprint fp) {
+      // False => Not native.
+      fp.addBoolean(false);
+      fp.addString(extensionLabel.getCanonicalForm());
+      fp.addString(exportedName);
     }
 
     @Override

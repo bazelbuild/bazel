@@ -22,15 +22,11 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/**
- * A Starlark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
- * (regardless of the {@link StarlarkThread} they are created in).
- */
+/** A Tuple is an immutable finite sequence of values. */
 @StarlarkBuiltin(
     name = "tuple",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "The built-in tuple type. Example tuple expressions:<br>"
             + "<pre class=language-python>x = (1, 2, 3)</pre>"
@@ -45,7 +41,8 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
             + "('a', 'b', 'c', 'd')[::2]  # ('a', 'c')\n"
             + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
-public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
+public final class Tuple extends AbstractList<Object>
+    implements Sequence<Object>, Comparable<Tuple> {
 
   private final Object[] elems;
 
@@ -54,55 +51,55 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   // The shared (sole) empty tuple.
-  private static final Tuple<?> EMPTY = new Tuple<>(new Object[0]);
+  private static final Tuple EMPTY = new Tuple(new Object[0]);
 
-  /** Returns the empty tuple, cast to have an arbitrary content type. */
-  @SuppressWarnings("unchecked")
-  public static <T> Tuple<T> empty() {
-    return (Tuple<T>) EMPTY; // unchecked
+  /** Returns the empty tuple. */
+  public static Tuple empty() {
+    return EMPTY;
   }
 
-  /**
-   * Returns a Tuple that wraps the specified array, which must not be subsequently modified. The
-   * caller is additionally trusted to choose an appropriate type T.
-   */
-  static <T> Tuple<T> wrap(Object[] array) {
-    return array.length == 0 ? empty() : new Tuple<T>(array);
+  /** Returns a Tuple that wraps the specified array, which must not be subsequently modified. */
+  static Tuple wrap(Object[] array) {
+    return array.length == 0 ? empty() : new Tuple(array);
   }
 
   /** Returns a tuple containing the given elements. */
-  @SuppressWarnings("unchecked")
-  public static <T> Tuple<T> copyOf(Iterable<? extends T> seq) {
+  public static Tuple copyOf(Iterable<?> seq) {
     if (seq instanceof Tuple) {
-      return (Tuple<T>) seq; // unchecked
+      return (Tuple) seq;
     }
     return wrap(Iterables.toArray(seq, Object.class));
   }
 
   /** Returns a tuple containing the given elements. */
-  public static <T> Tuple<T> of(T... elems) {
+  public static Tuple of(Object... elems) {
     if (elems.length == 0) {
       return empty();
     }
-    return new Tuple<T>(Arrays.copyOf(elems, elems.length));
+    return new Tuple(Arrays.copyOf(elems, elems.length));
   }
 
   /** Returns a two-element tuple. */
-  public static <T> Tuple<T> pair(T a, T b) {
+  public static Tuple pair(Object a, Object b) {
     // Equivalent to of(a, b) but avoids variadic array allocation.
     return wrap(new Object[] {a, b});
   }
 
   /** Returns a three-element tuple. */
-  public static <T> Tuple<T> triple(T a, T b, T c) {
+  public static Tuple triple(Object a, Object b, Object c) {
     // Equivalent to of(a, b, c) but avoids variadic array allocation.
     return wrap(new Object[] {a, b, c});
   }
 
   /** Returns a tuple that is the concatenation of two tuples. */
-  public static <T> Tuple<T> concat(Tuple<? extends T> x, Tuple<? extends T> y) {
-    // TODO(adonovan): opt: exploit x + () == x; y + () == y.
-    return wrap(ObjectArrays.concat(x.elems, y.elems, Object.class));
+  public static Tuple concat(Tuple x, Tuple y) {
+    if (x.isEmpty()) {
+      return y;
+    } else if (y.isEmpty()) {
+      return x;
+    } else {
+      return wrap(ObjectArrays.concat(x.elems, y.elems, Object.class));
+    }
   }
 
   @Override
@@ -116,13 +113,10 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  public boolean isHashable() {
+  public void checkHashable() throws EvalException {
     for (Object x : elems) {
-      if (!EvalUtils.isHashable(x)) {
-        return false;
-      }
+      Starlark.checkHashable(x);
     }
-    return true;
   }
 
   @Override
@@ -139,9 +133,13 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public E get(int i) {
-    return (E) elems[i]; // unchecked
+  public int compareTo(Tuple that) {
+    return Sequence.compare(this, that);
+  }
+
+  @Override
+  public Object get(int i) {
+    return elems[i];
   }
 
   @Override
@@ -150,13 +148,26 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  public Tuple<E> subList(int from, int to) {
+  public Tuple subList(int from, int to) {
     return wrap(Arrays.copyOfRange(elems, from, to));
   }
 
+  /** Returns a new array of class Object[] containing the tuple elements. */
   @Override
   public Object[] toArray() {
-    return elems.length != 0 ? elems.clone() : elems;
+    return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : elems;
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T> T[] toArray(T[] a) {
+    if (a.length < elems.length) {
+      return (T[]) Arrays.copyOf(elems, elems.length, a.getClass());
+    } else {
+      System.arraycopy(elems, 0, a, 0, elems.length);
+      Arrays.fill(a, elems.length, a.length, null);
+      return a;
+    }
   }
 
   @Override
@@ -181,7 +192,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  public ImmutableList<E> getImmutableList() {
+  public ImmutableList<Object> getImmutableList() {
     // Share the array with this (immutable) Tuple.
     return wrapImmutable(elems);
   }
@@ -215,7 +226,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  public Tuple<E> getSlice(Mutability mu, int start, int stop, int step) {
+  public Tuple getSlice(Mutability mu, int start, int stop, int step) {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
     if (step == 1) { // common case
@@ -229,13 +240,15 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   /** Returns a Tuple containing n consecutive repeats of this tuple. */
-  Tuple<E> repeat(int n) {
-    if (n <= 0 || isEmpty()) {
+  Tuple repeat(StarlarkInt n) throws EvalException {
+    if (n.signum() <= 0 || isEmpty()) {
       return empty();
     }
+
     // TODO(adonovan): reject unreasonably large n.
-    Object[] res = new Object[n * elems.length];
-    for (int i = 0; i < n; i++) {
+    int ni = n.toInt("repeat");
+    Object[] res = new Object[ni * elems.length];
+    for (int i = 0; i < ni; i++) {
       System.arraycopy(elems, 0, res, i * elems.length, elems.length);
     }
     return wrap(res);

@@ -20,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
@@ -41,6 +42,22 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
+    ],
+)
+
+java_library(
+    name = "work_request_handlers",
+    srcs = [
+        "JsonWorkerMessageProcessor.java",
+        "ProtoWorkerMessageProcessor.java",
+        "WorkRequestHandler.java",
+    ],
+    deps = [
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:gson",
+        "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
     ],

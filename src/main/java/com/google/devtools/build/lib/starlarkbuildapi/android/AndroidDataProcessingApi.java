@@ -19,11 +19,14 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -56,15 +59,15 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "deps",
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = AndroidAssetsInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidAssetsInfoApi.class)
+            },
             positional = false,
             named = true,
             doc = "Dependencies to inherit assets from."),
         @Param(
             name = "neverlink",
             defaultValue = "False",
-            type = Boolean.class,
             positional = false,
             named = true,
             doc =
@@ -90,28 +93,28 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "deps",
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = AndroidResourcesInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidResourcesInfoApi.class)
+            },
             positional = false,
             named = true,
             doc = "Dependencies to inherit resources from."),
         @Param(
             name = "assets",
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = AndroidAssetsInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidAssetsInfoApi.class),
+            },
             positional = false,
             named = true,
             doc = "Dependencies to inherit assets from."),
         @Param(
             name = "neverlink",
             defaultValue = "False",
-            type = Boolean.class,
             positional = false,
             named = true,
             doc =
@@ -120,8 +123,6 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "custom_package",
             positional = false,
-            type = String.class,
-            noneable = false,
             named = true,
             doc = "The Android application package to stamp the manifest with."),
       },
@@ -147,22 +148,25 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "manifest",
             positional = false,
             defaultValue = "None",
-            type = FileApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc = "The manifest to stamp. If not passed, a dummy manifest will be generated."),
         @Param(
             name = "custom_package",
             positional = false,
             defaultValue = "None",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "The Android application package to stamp the manifest with. If not provided, the"
@@ -173,7 +177,6 @@ public interface AndroidDataProcessingApi<
             name = "exports_manifest",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If passed as True, this manifest will be exported to and"
@@ -193,15 +196,15 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "assets",
             positional = false,
             defaultValue = "None",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
@@ -210,8 +213,10 @@ public interface AndroidDataProcessingApi<
             name = "assets_dir",
             positional = false,
             defaultValue = "None",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Directory the assets are contained in. Must be passed if and only if 'assets' is"
@@ -220,8 +225,9 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = AndroidAssetsInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidAssetsInfoApi.class)
+            },
             named = true,
             doc =
                 "Providers containing assets from dependencies. These assets will be merged"
@@ -230,7 +236,6 @@ public interface AndroidDataProcessingApi<
             name = "neverlink",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If passed as True, these assets will not be inherited by"
@@ -257,13 +262,11 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "manifest",
             positional = true,
             named = false,
-            type = AndroidManifestInfoApi.class,
             doc =
                 "The provider of this target's manifest. This provider is produced by, "
                     + "for example, stamp_android_manifest."),
@@ -271,16 +274,16 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = FileProviderApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileProviderApi.class)},
             named = true,
             doc = "Providers of this target's resources."),
         @Param(
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = AndroidResourcesInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidResourcesInfoApi.class),
+            },
             named = true,
             doc =
                 "Targets containing raw resources from dependencies. These resources will be merged"
@@ -289,7 +292,6 @@ public interface AndroidDataProcessingApi<
             name = "neverlink",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If passed as True, these resources will not be inherited by"
@@ -298,7 +300,6 @@ public interface AndroidDataProcessingApi<
             name = "enable_data_binding",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If True, processes data binding expressions in layout"
@@ -331,13 +332,11 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "manifest",
             positional = true,
             named = false,
-            type = AndroidManifestInfoApi.class,
             doc =
                 "The provider of this target's manifest. This provider is produced by, "
                     + "for example, stamp_android_manifest."),
@@ -345,16 +344,16 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = FileProviderApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileProviderApi.class)},
             named = true,
             doc = "Providers of this target's resources."),
         @Param(
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = AndroidResourcesInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidResourcesInfoApi.class)
+            },
             named = true,
             doc =
                 "Targets containing raw resources from dependencies. These resources will be merged"
@@ -363,7 +362,6 @@ public interface AndroidDataProcessingApi<
             name = "neverlink",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If passed as True, these resources will not be inherited by"
@@ -372,7 +370,6 @@ public interface AndroidDataProcessingApi<
             name = "enable_data_binding",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If True, processes data binding expressions in layout"
@@ -404,13 +401,11 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "resource_info",
             positional = true,
             named = false,
-            type = AndroidResourcesInfoApi.class,
             doc =
                 "The provider containing processed resources for this target, produced, "
                     + "for example, by merge_resources."),
@@ -418,7 +413,6 @@ public interface AndroidDataProcessingApi<
             name = "asset_info",
             positional = true,
             named = false,
-            type = AndroidAssetsInfoApi.class,
             doc =
                 "The provider containing processed assets for this target, produced, "
                     + "for example, by merge_assets."),
@@ -426,12 +420,10 @@ public interface AndroidDataProcessingApi<
             name = "library_class_jar",
             positional = true,
             named = false,
-            type = FileApi.class,
             doc = "The library class jar."),
         @Param(
             name = "local_proguard_specs",
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             positional = false,
             named = true,
@@ -440,15 +432,15 @@ public interface AndroidDataProcessingApi<
                     + " inherited in the top-level target."),
         @Param(
             name = "deps",
-            type = Sequence.class,
-            generic1 = AndroidLibraryAarInfoApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = AndroidLibraryAarInfoApi.class)
+            },
             defaultValue = "[]",
             positional = false,
             named = true,
             doc = "Dependant AAR providers used to build this AAR."),
         @Param(
             name = "neverlink",
-            type = Boolean.class,
             defaultValue = "False",
             positional = false,
             named = true,
@@ -478,30 +470,15 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
-        @Param(
-            name = "resource",
-            positional = true,
-            named = false,
-            type = FileApi.class,
-            doc = "The resouce file."),
-        @Param(
-            name = "assets",
-            positional = true,
-            named = false,
-            type = FileApi.class,
-            doc = "The assets file."),
-        @Param(
-            name = "manifest",
-            positional = true,
-            named = false,
-            type = FileApi.class,
-            doc = "The manifest file."),
+        @Param(name = "resource", positional = true, named = false, doc = "The resource file."),
+        @Param(name = "assets", positional = true, named = false, doc = "The assets file."),
+        @Param(name = "manifest", positional = true, named = false, doc = "The manifest file."),
         @Param(
             name = "deps",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             named = true,
             positional = false,
             defaultValue = "[]",
@@ -524,15 +501,16 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "manifest",
             positional = false,
-            type = FileApi.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             named = true,
-            noneable = true,
             doc =
                 "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
                     + " be generated."),
@@ -540,17 +518,17 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = FileProviderApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileProviderApi.class)},
             named = true,
             doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
             defaultValue = "None",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
@@ -559,8 +537,10 @@ public interface AndroidDataProcessingApi<
             name = "assets_dir",
             positional = false,
             defaultValue = "None",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Directory the assets are contained in. Must be passed if and only if 'assets' is"
@@ -569,8 +549,10 @@ public interface AndroidDataProcessingApi<
             name = "custom_package",
             positional = false,
             defaultValue = "None",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "The Android application package to stamp the manifest with. If not provided, the"
@@ -581,7 +563,6 @@ public interface AndroidDataProcessingApi<
             name = "aapt_version",
             positional = false,
             defaultValue = "'auto'",
-            type = String.class,
             named = true,
             doc =
                 "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
@@ -590,8 +571,7 @@ public interface AndroidDataProcessingApi<
             name = "manifest_values",
             positional = false,
             defaultValue = "{}",
-            type = Dict.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Dict.class, generic1 = String.class)},
             named = true,
             doc =
                 "A dictionary of values to be overridden in the manifest. You must expand any"
@@ -600,8 +580,9 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             named = true,
             doc =
                 "Dependency targets. Providers will be extracted from these dependencies for each"
@@ -610,16 +591,14 @@ public interface AndroidDataProcessingApi<
             name = "nocompress_extensions",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc = "A list of file extensions to leave uncompressed in the resource apk."),
         @Param(
             name = "resource_configuration_filters",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc =
                 "A list of resource configuration filters, such as 'en' that will limit the"
@@ -628,8 +607,7 @@ public interface AndroidDataProcessingApi<
             name = "densities",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc =
                 "Densities to filter for when building the apk. A corresponding compatible-screens"
@@ -662,14 +640,15 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "shrink_resources",
             positional = false,
-            noneable = true,
             defaultValue = "None",
-            type = Boolean.class,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Whether to shrink resources. Defaults to the value used in Android"
@@ -678,8 +657,7 @@ public interface AndroidDataProcessingApi<
             name = "resource_configuration_filters",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc =
                 "A list of resource configuration filters, such as 'en' that will limit the"
@@ -688,8 +666,7 @@ public interface AndroidDataProcessingApi<
             name = "densities",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc =
                 "Densities to filter for when building the apk. A corresponding compatible-screens"
@@ -699,8 +676,7 @@ public interface AndroidDataProcessingApi<
             name = "nocompress_extensions",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             doc =
                 "A list of file extension to leave uncompressed in apk. Templates must be"
@@ -725,23 +701,22 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = FileProviderApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileProviderApi.class)},
             named = true,
             doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
             defaultValue = "None",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
@@ -750,8 +725,10 @@ public interface AndroidDataProcessingApi<
             name = "assets_dir",
             positional = false,
             defaultValue = "None",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "Directory the assets are contained in. Must be passed if and only if 'assets' is"
@@ -759,10 +736,12 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "manifest",
             positional = false,
-            type = FileApi.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             named = true,
-            noneable = true,
             doc =
                 "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
                     + " be generated."),
@@ -770,8 +749,10 @@ public interface AndroidDataProcessingApi<
             name = "custom_package",
             positional = false,
             defaultValue = "None",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             doc =
                 "The Android application package to stamp the manifest with. If not provided, the"
@@ -782,8 +763,7 @@ public interface AndroidDataProcessingApi<
             name = "manifest_values",
             positional = false,
             defaultValue = "{}",
-            type = Dict.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Dict.class, generic1 = String.class)},
             named = true,
             doc =
                 "A dictionary of values to be overridden in the manifest. You must expand any"
@@ -792,15 +772,15 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             named = true,
             doc =
                 "Dependency targets. Providers will be extracted from these dependencies for each"
                     + " type of data."),
         @Param(
             name = "manifest_merger",
-            type = String.class,
             defaultValue = "'auto'",
             positional = false,
             named = true,
@@ -809,8 +789,10 @@ public interface AndroidDataProcessingApi<
                     + " also supported."),
         @Param(
             name = "binary_settings",
-            type = AndroidBinaryDataSettingsApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = AndroidBinaryDataSettingsApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             positional = false,
             named = true,
@@ -821,14 +803,12 @@ public interface AndroidDataProcessingApi<
             name = "crunch_png",
             positional = false,
             defaultValue = "True",
-            type = Boolean.class,
             named = true,
             doc = "Whether PNG crunching should be done. Defaults to True."),
         @Param(
             name = "enable_data_binding",
             positional = false,
             defaultValue = "False",
-            type = Boolean.class,
             named = true,
             doc =
                 "Defaults to False. If True, processes data binding expressions in layout"
@@ -860,30 +840,24 @@ public interface AndroidDataProcessingApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = AndroidDataContextApi.class,
             doc = "The Android data context object for this target."),
         @Param(
             name = "binary_data_info",
             positional = true,
             named = false,
-            type = AndroidBinaryDataInfoApi.class,
             doc = "The Info about the binary to shrink, as produced by process_binary_data."),
         @Param(
             name = "proguard_output_jar",
             positional = true,
             named = false,
-            type = FileApi.class,
             doc = "The proguard jar output file."),
         @Param(
             name = "proguard_mapping",
             positional = true,
             named = false,
-            type = FileApi.class,
             doc = "The proguard mapping output file."),
         @Param(
             name = "binary_settings",
-            type = AndroidBinaryDataSettingsApi.class,
-            noneable = true,
             defaultValue = "None",
             positional = false,
             named = true,
@@ -894,16 +868,18 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             named = true,
             doc =
                 "Dependency targets. Providers will be extracted from these dependencies for each"
                     + " type of data."),
         @Param(
             name = "proguard_specs",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             defaultValue = "[]",
             positional = false,
             named = true,
@@ -912,8 +888,9 @@ public interface AndroidDataProcessingApi<
                     + " inherited in the top-level target."),
         @Param(
             name = "extra_proguard_specs,",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             defaultValue = "[]",
             positional = false,
             named = true,
@@ -946,8 +923,8 @@ public interface AndroidDataProcessingApi<
             name = "validated_res",
             doc = "The validated Android resources.",
             positional = true,
-            named = false,
-            type = ValidatedAndroidDataApi.class)
+            named = false)
       })
+  @Nullable
   FileT resourcesFromValidatedRes(ValidatedAndroidDataT resources);
 }

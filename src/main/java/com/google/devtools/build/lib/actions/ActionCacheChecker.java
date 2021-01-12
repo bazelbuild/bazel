@@ -54,9 +54,6 @@ import javax.annotation.Nullable;
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
  */
 public class ActionCacheChecker {
-  private static final byte[] EMPTY_DIGEST = new byte[0];
-  private static final FileArtifactValue CONSTANT_METADATA = new ConstantMetadataValue();
-
   private final ActionCache actionCache;
   private final ActionKeyContext actionKeyContext;
   private final Predicate<? super Action> executionFilter;
@@ -251,7 +248,8 @@ public class ActionCacheChecker {
       EventHandler handler,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
-      Map<String, String> remoteDefaultPlatformProperties) {
+      Map<String, String> remoteDefaultPlatformProperties)
+      throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
     // that inputs and outputs are still exist (and new inputs have not appeared). All other checks
@@ -318,7 +316,8 @@ public class ActionCacheChecker {
       ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
-      Map<String, String> remoteDefaultPlatformProperties) {
+      Map<String, String> remoteDefaultPlatformProperties)
+      throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
@@ -361,11 +360,10 @@ public class ActionCacheChecker {
 
   private static FileArtifactValue getMetadataOrConstant(
       MetadataHandler metadataHandler, Artifact artifact) throws IOException {
-    if (artifact.isConstantMetadata()) {
-      return CONSTANT_METADATA;
-    } else {
-      return metadataHandler.getMetadata(artifact);
-    }
+    FileArtifactValue metadata = metadataHandler.getMetadata(artifact);
+    return (metadata != null && artifact.isConstantMetadata())
+        ? ConstantMetadataValue.INSTANCE
+        : metadata;
   }
 
   // TODO(ulfjack): It's unclear to me why we're ignoring all IOExceptions. In some cases, we want
@@ -388,7 +386,7 @@ public class ActionCacheChecker {
       ArtifactExpander artifactExpander,
       Map<String, String> clientEnv,
       Map<String, String> remoteDefaultPlatformProperties)
-      throws IOException {
+      throws IOException, InterruptedException {
     Preconditions.checkState(
         cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
@@ -611,6 +609,13 @@ public class ActionCacheChecker {
 
   private static final class ConstantMetadataValue extends FileArtifactValue
       implements FileArtifactValue.Singleton {
+    static final ConstantMetadataValue INSTANCE = new ConstantMetadataValue();
+    // This needs to not be of length 0, so it is distinguishable from a missing digest when written
+    // into a Fingerprint.
+    private static final byte[] DIGEST = new byte[1];
+
+    private ConstantMetadataValue() {}
+
     @Override
     public FileStateType getType() {
       return FileStateType.REGULAR_FILE;
@@ -618,7 +623,7 @@ public class ActionCacheChecker {
 
     @Override
     public byte[] getDigest() {
-      return EMPTY_DIGEST;
+      return DIGEST;
     }
 
     @Override

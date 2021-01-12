@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-import com.android.repository.Revision;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -46,16 +46,120 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Implementation of the {@code android_sdk_repository} rule. */
 public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
+
+  static final class AndroidRevision implements Comparable<AndroidRevision> {
+
+    private final String original;
+    private final int major;
+    private final int minor;
+    private final int micro;
+    private final int previewType;
+    private final int preview;
+
+    private AndroidRevision(
+        String original, int major, int minor, int micro, int previewType, int preview) {
+      this.original = original;
+      this.major = major;
+      this.minor = minor;
+      this.micro = micro;
+      this.previewType = previewType;
+      this.preview = preview;
+    }
+
+    static AndroidRevision parse(String revisionString) {
+      revisionString = revisionString.trim();
+      String[] revisionAndPreview = revisionString.split("-|([ ]+)", 2);
+      if (revisionAndPreview.length < 1) {
+        throw new NumberFormatException("Invalid revision: " + revisionString);
+      }
+
+      Iterator<String> revision = Splitter.on('.').split(revisionAndPreview[0]).iterator();
+
+      if (!revision.hasNext()) {
+        throw new NumberFormatException("Invalid revision: " + revisionString);
+      }
+
+      int major = Integer.parseInt(revision.next());
+      int minor = 0;
+      int micro = 0;
+      // Revisions without preview are larger than those with, so set these to MAX_VALUE and
+      // if there's a preview value, these will get set below.
+      int previewType = Integer.MAX_VALUE;
+      int preview = Integer.MAX_VALUE;
+
+      if (revision.hasNext()) {
+        minor = Integer.parseInt(revision.next());
+      }
+
+      if (revision.hasNext()) {
+        micro = Integer.parseInt(revision.next());
+      }
+
+      if (revisionAndPreview.length == 2) {
+        String p = revisionAndPreview[1];
+        if (p.contains("rc")) {
+          previewType = 3;
+        } else if (p.contains("beta")) {
+          previewType = 2;
+        } else if (p.contains("alpha")) {
+          previewType = 1;
+        } else {
+          throw new NumberFormatException("Invalid revision: " + revisionString);
+        }
+        p = p.replace("rc", "").replace("alpha", "").replace("beta", "");
+        preview = Integer.parseInt(p);
+      }
+      return new AndroidRevision(revisionString, major, minor, micro, previewType, preview);
+    }
+
+    @Override
+    public int compareTo(AndroidRevision other) {
+      int major = this.major - other.major;
+      if (major != 0) {
+        return major;
+      }
+
+      int minor = this.minor - other.minor;
+      if (minor != 0) {
+        return minor;
+      }
+
+      int micro = this.micro - other.micro;
+      if (micro != 0) {
+        return micro;
+      }
+
+      int previewType = this.previewType - other.previewType;
+      if (previewType != 0) {
+        return previewType;
+      }
+
+      int preview = this.preview - other.preview;
+      if (preview != 0) {
+        return preview;
+      }
+
+      return 0;
+    }
+
+    @Override
+    public String toString() {
+      return original;
+    }
+  }
+
   private static final PathFragment BUILD_TOOLS_DIR = PathFragment.create("build-tools");
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
   private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
-  private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(26, 0, 1);
+  private static final AndroidRevision MIN_BUILD_TOOLS_REVISION = AndroidRevision.parse("26.0.1");
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
@@ -125,33 +229,27 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     ImmutableSortedSet<Integer> apiLevels = getApiLevels(platformsDirectoryValue.getDirents());
     if (apiLevels.isEmpty()) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "android_sdk_repository requires that at least one Android SDK Platform is installed "
-                  + "in the Android SDK. Please install an Android SDK Platform through the "
-                  + "Android SDK manager."),
+          Starlark.errorf(
+              "android_sdk_repository requires that at least one Android SDK Platform is"
+                  + " installed in the Android SDK. Please install an Android SDK Platform through"
+                  + " the Android SDK manager."),
           Transience.PERSISTENT);
     }
 
     Integer defaultApiLevel;
     if (attributes.isAttributeValueExplicitlySpecified("api_level")) {
       try {
-        defaultApiLevel = attributes.get("api_level", Type.INTEGER);
+        defaultApiLevel = attributes.get("api_level", Type.INTEGER).toIntUnchecked();
       } catch (EvalException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
       if (!apiLevels.contains(defaultApiLevel)) {
         throw new RepositoryFunctionException(
-            new EvalException(
-                rule.getLocation(),
-                String.format(
-                    "Android SDK api level %s was requested but it is not installed in the Android "
-                        + "SDK at %s. The api levels found were %s. Please choose an available api "
-                        + "level or install api level %s from the Android SDK Manager.",
-                    defaultApiLevel,
-                    androidSdkPath,
-                    apiLevels.toString(),
-                    defaultApiLevel)),
+            Starlark.errorf(
+                "Android SDK api level %s was requested but it is not installed in the"
+                    + " Android SDK at %s. The api levels found were %s. Please choose an"
+                    + " available api level or install api level %s from the Android SDK Manager.",
+                defaultApiLevel, androidSdkPath, apiLevels, defaultApiLevel),
             Transience.PERSISTENT);
       }
     } else {
@@ -175,7 +273,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       if (directoryValue == null) {
         return null;
       }
-      buildToolsDirectory = getNewestBuildToolsDirectory(rule, directoryValue.getDirents());
+      buildToolsDirectory = getNewestBuildToolsDirectory(directoryValue.getDirents());
     }
 
     // android_sdk_repository.build_tools_version is technically actually the name of the
@@ -199,7 +297,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     try {
-      assertValidBuildToolsVersion(rule, buildToolsVersion);
+      assertValidBuildToolsVersion(buildToolsVersion);
     } catch (EvalException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
@@ -268,16 +366,16 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
    * @throws RepositoryFunctionException if none of the buildToolsDirectories are directories and
    *     have names that are parsable as build tools version.
    */
-  private static String getNewestBuildToolsDirectory(Rule rule, Dirents buildToolsDirectories)
+  private static String getNewestBuildToolsDirectory(Dirents buildToolsDirectories)
       throws RepositoryFunctionException {
     String newestBuildToolsDirectory = null;
-    Revision newestBuildToolsRevision = null;
+    AndroidRevision newestBuildToolsRevision = null;
     for (Dirent buildToolsDirectory : buildToolsDirectories) {
       if (buildToolsDirectory.getType() != Dirent.Type.DIRECTORY) {
         continue;
       }
       try {
-        Revision buildToolsRevision = Revision.parseRevision(buildToolsDirectory.getName());
+        AndroidRevision buildToolsRevision = AndroidRevision.parse(buildToolsDirectory.getName());
         if (newestBuildToolsRevision == null
             || buildToolsRevision.compareTo(newestBuildToolsRevision) > 0) {
           newestBuildToolsDirectory = buildToolsDirectory.getName();
@@ -289,12 +387,10 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
     if (newestBuildToolsDirectory == null) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              String.format(
-                  "Bazel requires Android build tools version %s or newer but none are installed. "
-                      + "Please install a recent version through the Android SDK manager.",
-                  MIN_BUILD_TOOLS_REVISION)),
+          Starlark.errorf(
+              "Bazel requires Android build tools version %s or newer but none are"
+                  + " installed. Please install a recent version through the Android SDK manager.",
+              MIN_BUILD_TOOLS_REVISION),
           Transience.PERSISTENT);
     }
     return newestBuildToolsDirectory;
@@ -325,23 +421,18 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
   }
 
-  private static void assertValidBuildToolsVersion(Rule rule, String buildToolsVersion)
-      throws EvalException {
+  private static void assertValidBuildToolsVersion(String buildToolsVersion) throws EvalException {
     try {
-      Revision buildToolsRevision = Revision.parseRevision(buildToolsVersion);
+      AndroidRevision buildToolsRevision = AndroidRevision.parse(buildToolsVersion);
       if (buildToolsRevision.compareTo(MIN_BUILD_TOOLS_REVISION) < 0) {
-        throw new EvalException(
-            rule.getLocation(),
-            String.format(
-                "Bazel requires Android build tools version %s or newer, %s was provided",
-                MIN_BUILD_TOOLS_REVISION, buildToolsRevision));
+        throw Starlark.errorf(
+            "Bazel requires Android build tools version %s or newer, %s was provided",
+            MIN_BUILD_TOOLS_REVISION, buildToolsRevision);
       }
     } catch (NumberFormatException e) {
-      throw new EvalException(
-          rule.getLocation(),
-          String.format(
-              "Bazel does not recognize Android build tools version %s", buildToolsVersion),
-          e);
+      throw Starlark.errorf(
+          "Bazel does not recognize Android build tools version %s: %s",
+          buildToolsVersion, e.getMessage());
     }
   }
 

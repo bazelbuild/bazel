@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /**
  * {@link AttributeMap} implementation that binds a rule's attribute as follows:
@@ -75,15 +74,22 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Checks that all attributes can be mapped to their configured values. This is
-   * useful for checking that the configuration space in a configured attribute doesn't
-   * contain unresolvable contradictions.
+   * Checks that all attributes can be mapped to their configured values. This is useful for
+   * checking that the configuration space in a configured attribute doesn't contain unresolvable
+   * contradictions.
    *
-   * @throws EvalException if any attribute's value can't be resolved under this mapper
+   * @throws ValidationException if any attribute's value can't be resolved under this mapper
    */
-  public void validateAttributes() throws EvalException {
+  public void validateAttributes() throws ValidationException {
     for (String attrName : getAttributeNames()) {
       getAndValidate(attrName, getAttributeType(attrName));
+    }
+  }
+
+  /** ValidationException indicates an error during attribute validation. */
+  public static final class ValidationException extends Exception {
+    private ValidationException(String message) {
+      super(message);
     }
   }
 
@@ -91,8 +97,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * Variation of {@link #get} that throws an informative exception if the attribute can't be
    * resolved due to intrinsic contradictions in the configuration.
    */
-  @SuppressWarnings("unchecked")
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException {
+  private <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
@@ -109,15 +114,16 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         // do that anyway, so that isn't a loss.
         Attribute attr = getAttributeDefinition(attributeName);
         if (attr.isMandatory()) {
-          throw new EvalException(
-              rule.getLocation(),
+          throw new ValidationException(
               String.format(
                   "Mandatory attribute '%s' resolved to 'None' after evaluating 'select'"
                       + " expression",
                   attributeName));
         }
         Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
-        resolvedList.add((T) attr.getDefaultValue(null)); // unchecked cast
+        @SuppressWarnings("unchecked")
+        T defaultValue = (T) attr.getDefaultValue(null);
+        resolvedList.add(defaultValue);
       } else {
         resolvedList.add(resolvedPath.value);
       }
@@ -139,7 +145,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   }
 
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
-      throws EvalException {
+      throws ValidationException {
     Map<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
     Set<Label> conditionLabels = new LinkedHashSet<>();
     ConfigKeyAndValue<T> matchingResult = null;
@@ -184,8 +190,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     }
 
     if (matchingConditions.size() > 1) {
-      throw new EvalException(
-          rule.getLocation(),
+      throw new ValidationException(
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
               + "\" in "
@@ -208,7 +213,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           noMatchMessage += " (would a default condition help?).\nConditions checked:\n "
               + Joiner.on("\n ").join(conditionLabels);
         }
-        throw new EvalException(rule.getLocation(), noMatchMessage);
+        throw new ValidationException(noMatchMessage);
       }
       matchingResult =
           selector.hasDefault()
@@ -224,7 +229,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   public <T> T get(String attributeName, Type<T> type) {
     try {
       return getAndValidate(attributeName, type);
-    } catch (EvalException e) {
+    } catch (ValidationException e) {
       // Callers that reach this branch should explicitly validate the attribute through an
       // appropriate call and handle the exception directly. This method assumes
       // pre-validated attributes.
@@ -246,7 +251,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         if (selector.isValueSet(resolvedPath.configKey)) {
           return true;
         }
-      } catch (EvalException e) {
+      } catch (ValidationException unused) {
         // This will trigger an error via any other call, so the actual return doesn't matter much.
         return true;
       }

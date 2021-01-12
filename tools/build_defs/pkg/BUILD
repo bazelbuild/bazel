@@ -2,7 +2,6 @@
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_deb", "pkg_tar")
 load("//tools/config:common_settings.bzl", "bool_flag")
 load("//tools/python:private/defs.bzl", "py_binary", "py_library", "py_test")
-load("//tools/python:private/version.bzl", "PY_BINARY_VERSION")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -43,7 +42,7 @@ py_test(
         "testenv.py",
     ],
     data = [":archive_testdata"],
-    python_version = PY_BINARY_VERSION,
+    python_version = "PY3",
     srcs_version = "PY2AND3",
     tags = [
         # archive.py requires xzcat, which is not available by default on Mac
@@ -64,7 +63,7 @@ py_test(
 py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
-    python_version = PY_BINARY_VERSION,
+    python_version = "PY3",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
@@ -79,51 +78,12 @@ py_binary(
     deprecation = "The internal version of make_deb is deprecated. Please " +
                   "use the replacement for pkg_deb from " +
                   "https://github.com/bazelbuild/rules_pkg/blob/master/pkg.",
-    python_version = PY_BINARY_VERSION,
+    python_version = "PY3",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
         "//third_party/py/abseil",
-    ],
-)
-
-# Used by pkg_rpm in rpm.bzl.
-py_binary(
-    name = "make_rpm",
-    srcs = ["make_rpm.py"],
-    deprecation = "The internal version of make_rpm is deprecated. Please " +
-                  "use the replacement for pkg_rpm from " +
-                  "https://github.com/bazelbuild/rules_pkg/blob/master/pkg.",
-    python_version = PY_BINARY_VERSION,
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":make_rpm_lib",
-    ],
-)
-
-py_library(
-    name = "make_rpm_lib",
-    srcs = ["make_rpm.py"],
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "make_rpm_test",
-    srcs = ["make_rpm_test.py"],
-    python_version = PY_BINARY_VERSION,
-    srcs_version = "PY2AND3",
-    # rpmbuild is not available in windows
-    tags = [
-        "no_windows",
-    ],
-    deps = [
-        ":make_rpm_lib",
     ],
 )
 

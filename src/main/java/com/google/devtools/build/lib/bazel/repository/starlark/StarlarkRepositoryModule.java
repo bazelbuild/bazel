@@ -20,10 +20,12 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -40,6 +42,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -110,6 +113,12 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   // RepositoryRuleFunction is the result of repository_rule(...).
   // It is a callable value; calling it yields a Rule instance.
+  @StarlarkBuiltin(
+      name = "repository_rule",
+      category = DocCategory.BUILTIN,
+      doc =
+          "A callable value that may be invoked during evaluation of the WORKSPACE file to"
+              + " instantiate and return a repository rule.")
   private static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable {
     private final RuleClass.Builder builder;
@@ -133,7 +142,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public void export(Label extensionLabel, String exportedName) {
+    public void export(EventHandler handler, Label extensionLabel, String exportedName) {
       this.extensionLabel = extensionLabel;
       this.exportedName = exportedName;
     }
@@ -153,7 +162,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
       if (!args.isEmpty()) {

@@ -21,17 +21,17 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -48,7 +48,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
@@ -68,18 +68,8 @@ public class AppleStarlarkCommon
       "Key '%s' no longer supported in ObjcProvider (use CcInfo instead).";
 
   @VisibleForTesting
-  public static final String BAD_DIRECT_DEP_PROVIDERS_ERROR =
-      "Argument 'direct_dep_providers' no longer supported.  Please use 'strict_include' field "
-          + "in ObjcProvider.";
-
-  @VisibleForTesting
   public static final String BAD_KEY_ERROR =
-      "Argument %s not a recognized key,"
-          + " 'strict_include', 'providers', or 'direct_dep_providers'.";
-
-  @VisibleForTesting
-  public static final String BAD_FRAMEWORK_PATH_ERROR =
-      "Value for key framework_search_paths must end in .framework; instead found %s.";
+      "Argument %s not a recognized key, 'strict_include', or 'providers'.";
 
   @VisibleForTesting
   public static final String BAD_PROVIDERS_ITER_ERROR =
@@ -91,14 +81,7 @@ public class AppleStarlarkCommon
           + "iterable with %s.";
 
   @VisibleForTesting
-  public static final String BAD_DIRECT_DEPENDENCY_KEY_ERROR =
-      "Key %s not allowed to be in direct_dep_provider.";
-
-  @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
-
-  @VisibleForTesting
-  public static final String MISSING_KEY_ERROR = "No value for required key %s was present.";
 
   @Nullable private StructImpl platformType;
   @Nullable private StructImpl platform;
@@ -198,8 +181,8 @@ public class AppleStarlarkCommon
   // This method is registered statically for Starlark, and never called directly.
   public ObjcProvider newObjcProvider(
       Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException {
-    StarlarkSemantics semantics = thread.getSemantics();
-    ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder(semantics);
+    ObjcProvider.StarlarkBuilder resultBuilder =
+        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
@@ -211,12 +194,6 @@ public class AppleStarlarkCommon
         resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromStarlark(entry.getValue());
-      } else if (entry.getKey().equals("direct_dep_providers")) {
-        if (semantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)) {
-          throw new EvalException(BAD_DIRECT_DEP_PROVIDERS_ERROR);
-        }
-        resultBuilder.addDirectDepProvidersFromStarlark(entry.getValue());
       } else {
         throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
       }
@@ -246,15 +223,19 @@ public class AppleStarlarkCommon
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
+      StarlarkInt stamp,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
       RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+      boolean isStampingEnabled =
+          isStampingEnabled(stamp.toInt("stamp"), ruleContext.getConfiguration());
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
-              Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"));
+              Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
+              isStampingEnabled);
       return createAppleBinaryOutputStarlarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(exception);
@@ -282,7 +263,7 @@ public class AppleStarlarkCommon
   private StructImpl createAppleBinaryOutputStarlarkStruct(
       AppleBinaryOutput output, StarlarkThread thread) {
     Provider constructor =
-        new NativeProvider<StructImpl>(StructImpl.class, "apple_binary_output") {};
+        new BuiltinProvider<StructImpl>("apple_binary_output", StructImpl.class) {};
     // We have to transform the output group dictionary into one that contains StarlarkValues
     // instead
     // of plain NestedSets because the Starlark caller may want to return this directly from their
@@ -296,5 +277,21 @@ public class AppleStarlarkCommon
             "debug_outputs_provider", output.getDebugOutputsProvider(),
             "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
     return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
+  }
+
+  private static boolean isStampingEnabled(int stamp, BuildConfiguration config)
+      throws EvalException {
+    if (stamp == 0) {
+      return false;
+    }
+    if (stamp == 1) {
+      return true;
+    }
+    if (stamp == -1) {
+      return config.stampBinaries();
+    }
+    throw Starlark.errorf(
+        "stamp value %d is not supported; must be 0 (disabled), 1 (enabled), or -1 (default)",
+        stamp);
   }
 }

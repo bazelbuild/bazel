@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -87,14 +86,12 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract void setupMockClient(
       MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
 
-  /**
-   * Returns the contents of WORKSPACE.
-   */
+  /** Returns the contents of WORKSPACE. */
   public abstract List<String> getWorkspaceContents(MockToolsConfig config);
 
   /**
-   * This is called from test setup to create any necessary mock workspace files in the
-   * <code>_embedded_binaries</code> directory.
+   * This is called from test setup to create any necessary mock workspace files in the <code>
+   * _embedded_binaries</code> directory.
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
@@ -102,9 +99,6 @@ public abstract class AnalysisMock extends LoadingMock {
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
     // Do nothing by default.
   }
-
-  /** Returns the default factories for configuration fragments used in tests. */
-  public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
 
   @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
@@ -176,11 +170,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
       delegate.setupMockToolsRepository(config);
-    }
-
-    @Override
-    public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
-      return delegate.getDefaultConfigurationFragmentFactories();
     }
 
     @Override

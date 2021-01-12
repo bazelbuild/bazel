@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_visibility = ["//src:__subpackages__"],
@@ -18,12 +19,13 @@ java_library(
         ["*.java"],
         exclude = ["BazelCppSemantics.java"],
     ),
-    resources = glob(["*.WORKSPACE"]),
+    resources = [":cc_configure.WORKSPACE"],
     deps = [
         ":bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -50,4 +52,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
+)
+
+gen_workspace_stanza(
+    name = "workspace_with_rules_cc",
+    out = "cc_configure.WORKSPACE",
+    postamble = """
+        cc_configure()
+    """,
+    preamble = """
+        load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+        load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+        load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
+    """,
+    repos = ["rules_cc"],
+    visibility = ["//:__pkg__"],
 )

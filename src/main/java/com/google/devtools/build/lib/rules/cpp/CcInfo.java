@@ -26,6 +26,7 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Provider for C++ compilation and linking information. */
 @Immutable
@@ -41,10 +42,14 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
       CcCompilationContext ccCompilationContext,
       CcLinkingContext ccLinkingContext,
       CcDebugInfoContext ccDebugInfoContext) {
-    super(PROVIDER);
     this.ccCompilationContext = ccCompilationContext;
     this.ccLinkingContext = ccLinkingContext;
     this.ccDebugInfoContext = ccDebugInfoContext;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -55,6 +60,13 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   @Override
   public CcLinkingContext getCcLinkingContext() {
     return ccLinkingContext;
+  }
+
+  @Override
+  public CcDebugInfoContext getCcDebugInfoContextFromStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCcDebugInfoContext();
   }
 
   public CcDebugInfoContext getCcDebugInfoContext() {
@@ -172,18 +184,24 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
     @Override
     public CcInfoApi<Artifact> createInfo(
-        Object starlarkCcCompilationContext, Object starlarkCcLinkingInfo) throws EvalException {
+        Object starlarkCcCompilationContext,
+        Object starlarkCcLinkingInfo,
+        Object starlarkCcDebugInfo)
+        throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(starlarkCcCompilationContext, CcCompilationContext.class);
-      // TODO(b/118663806): Eventually only CcLinkingContext will be allowed, this is for
-      // backwards compatibility.
       CcLinkingContext ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, CcLinkingContext.class);
+      CcDebugInfoContext ccDebugInfoContext =
+          nullIfNone(starlarkCcDebugInfo, CcDebugInfoContext.class);
       CcInfo.Builder ccInfoBuilder = CcInfo.builder();
       if (ccCompilationContext != null) {
         ccInfoBuilder.setCcCompilationContext(ccCompilationContext);
       }
       if (ccLinkingContext != null) {
         ccInfoBuilder.setCcLinkingContext(ccLinkingContext);
+      }
+      if (ccDebugInfoContext != null) {
+        ccInfoBuilder.setCcDebugInfoContext(ccDebugInfoContext);
       }
       return ccInfoBuilder.build();
     }

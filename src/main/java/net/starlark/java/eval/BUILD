@@ -14,9 +14,8 @@ filegroup(
 java_library(
     name = "eval",
     srcs = [
-        "BuiltinCallable.java",
+        "BuiltinFunction.java",
         "CallUtils.java",
-        "ClassObject.java",
         "CpuProfiler.java",
         "Debug.java",
         "Dict.java",
@@ -38,14 +37,17 @@ java_library(
         "Sequence.java",
         "Starlark.java",
         "StarlarkCallable.java",
+        "StarlarkFloat.java",
         "StarlarkFunction.java",
         "StarlarkIndexable.java",
+        "StarlarkInt.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
         "StarlarkSemantics.java",
         "StarlarkThread.java",
         "StarlarkValue.java",
         "StringModule.java",
+        "Structure.java",
         "Tuple.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
@@ -93,13 +95,7 @@ cc_binary(
     name = "libcpu_profiler.so",
     srcs = select({
         "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
-        # There is no config_setting for Linux.
-        # See https://github.com/bazelbuild/bazel/issues/11107
-        "//src/conditions:linux_aarch64": ["cpu_profiler_posix.cc"],
-        "//src/conditions:linux_arm": ["cpu_profiler_posix.cc"],
-        "//src/conditions:linux_ppc": ["cpu_profiler_posix.cc"],
-        "//src/conditions:linux_s390x": ["cpu_profiler_posix.cc"],
-        "//src/conditions:linux_x86_64": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux": ["cpu_profiler_posix.cc"],
         "//conditions:default": ["cpu_profiler_unimpl.cc"],
     }),
     linkshared = 1,

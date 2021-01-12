@@ -42,6 +42,7 @@ public final class BazelAndroidInstrumentationTestRule implements RuleDefinition
         .ancestors(
             AndroidInstrumentationTestBaseRule.class,
             AndroidRuleClasses.AndroidBaseRule.class,
+            BazelSdkToolchainRule.class,
             BaseRuleClasses.TestBaseRule.class)
         .factoryClass(BazelAndroidInstrumentationTest.class)
         .build();

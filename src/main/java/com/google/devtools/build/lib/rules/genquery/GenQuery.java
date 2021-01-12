@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
+import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -246,7 +247,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
     for (SkyValue value : transitiveTargetValues.values()) {
       TransitiveTargetValue transNode = (TransitiveTargetValue) value;
-      if (transNode.getTransitiveRootCauses() != null) {
+      if (transNode.encounteredLoadingError()) {
         // This should only happen if the unsuccessful package was loaded in a non-selected
         // path, as otherwise this configured target would have failed earlier. See b/34132681.
         throw new BrokenQueryScopeException(
@@ -383,7 +384,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
-          graphlessQuery && queryOptions.forceSortForGraphlessGenquery
+          graphlessQuery && !hasTopLevelSomePathFunction(expr)
               ? QueryUtil.newLexicographicallySortedTargetAggregator()
               : QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
       queryResult = queryEnvironment.evaluateQuery(expr, targets);
@@ -424,6 +425,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     return outputStream.getResult();
+  }
+
+  /** Checks if the {@code expr} has a SomePathFunction at its top level */
+  private static boolean hasTopLevelSomePathFunction(QueryExpression expr) {
+    return expr instanceof FunctionExpression
+        && "somepath".equals(((FunctionExpression) expr).getFunction().getName());
   }
 
   @Immutable // assuming no other reference to result

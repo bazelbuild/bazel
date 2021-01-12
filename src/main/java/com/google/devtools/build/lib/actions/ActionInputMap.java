@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.util.stream.Collectors.toList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import java.util.Arrays;
@@ -179,5 +182,15 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
         table[index] = i;
       }
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("size", size())
+        .add("first-fifty-keys", Arrays.stream(keys).limit(50).collect(toList()))
+        .add("first-fifty-values", Arrays.stream(values).limit(50).collect(toList()))
+        .add("first-fifty-paths", Arrays.stream(paths).limit(50).collect(toList()))
+        .toString();
   }
 }

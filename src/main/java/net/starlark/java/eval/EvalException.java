@@ -30,28 +30,15 @@ import net.starlark.java.syntax.Location;
 /** An EvalException indicates an Starlark evaluation error. */
 public class EvalException extends Exception {
 
-  // The location optionally specified at construction.
-  // TODO(adonovan): doesn't belong; essentially ignored.
-  // Replace by making each caller incorporate
-  // the file name into the error message if necessary.
-  // In the vast majority of cases, it isn't.
-  @Nullable private final Location location;
-
   // The call stack associated with this error.
   // It is initially null, but is set by the interpreter to a non-empty
   // stack when popping a frame. Thus an exception newly created by a
   // built-in function has no stack until it is thrown out of a function call.
-  //
-  // EvalExceptions are often used to indicate the failure of an operator
-  // such as getattr, or some piece of bazel rule validation machinery,
-  // without reference to Starlark code. Such exceptions have no stack
-  // until they are thrown in the context of a Starlark thread (e.g.
-  // by a built-in function, or by the interpreter itself).
   @Nullable private ImmutableList<StarlarkThread.CallStackEntry> callstack;
 
   /** Constructs an EvalException. Use {@link Starlak#errorf} if you want string formatting. */
   public EvalException(String message) {
-    this((Location) null, message);
+    this(message, /*cause=*/ null);
   }
 
   /**
@@ -61,52 +48,12 @@ public class EvalException extends Exception {
    * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
    */
   public EvalException(String message, @Nullable Throwable cause) {
-    this((Location) null, message, cause);
+    super(Preconditions.checkNotNull(message), cause);
   }
 
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
-    this((Location) null, cause);
-  }
-
-  // TODO(adonovan): delete all constructors below. Stop using Location.
-
-  /**
-   * Constructs an EvalException with a message and optional location (deprecated).
-   *
-   * <p>Few clients need this constructor, as the Starlark interpreter automatically fill in the
-   * locations from the call stack. Use {@link Starlark#errorf} instead, unless the exception needs
-   * to appear to originate from a different location.
-   */
-  // TODO(adonovan): eliminate.
-  public EvalException(@Nullable Location location, String message) {
-    super(Preconditions.checkNotNull(message));
-    this.location = location;
-  }
-
-  /**
-   * Constructs an EvalException with a message, optional location (deprecated), and optional cause.
-   *
-   * <p>See notes at {@link #EvalException(Location, String)}. The cause does not affect the error
-   * message, so callers should incorporate {@code cause.getMessage()} into {@code message} if
-   * desired.
-   */
-  // TODO(adonovan): eliminate.
-  public EvalException(@Nullable Location location, String message, @Nullable Throwable cause) {
-    super(Preconditions.checkNotNull(message), cause);
-    this.location = location;
-  }
-
-  /**
-   * Constructs an EvalException with an optional location (deprecated) using the same message as
-   * the cause exception.
-   *
-   * <p>See notes at {@link #EvalException(Location, String)}.
-   */
-  // TODO(adonovan): eliminate.
-  public EvalException(@Nullable Location location, Throwable cause) {
     super(getCauseMessage(cause), cause);
-    this.location = location;
   }
 
   private static String getCauseMessage(Throwable cause) {
@@ -114,7 +61,7 @@ public class EvalException extends Exception {
     return msg != null ? msg : cause.toString();
   }
 
-  /** Returns the error message. Does not include location (deprecated), call stack, or cause. */
+  /** Returns the error message. Does not include call stack or cause. */
   @Override
   public final String getMessage() {
     return super.getMessage();
@@ -123,7 +70,18 @@ public class EvalException extends Exception {
   /**
    * Returns the call stack associated with this error, outermost call first. A newly constructed
    * exception has an empty stack, but an exception that has been thrown out of a Starlark function
-   * call has its stack populated automatically.
+   * call has its stack populated automatically. The identity of the thrown exception does not
+   * change.
+   *
+   * <p>EvalException is widely used to indicate the failure of basic operations on Starlark values,
+   * such as those corresponding to the Starlark expressions {@code x.f}, {@code x[i]}, {@code x+y},
+   * and so on, even when these failing operations occur outside the context of a StarlarkThread or
+   * the interpreter. EvalExceptions from such failures do not have an associated stack.
+   *
+   * <p>For best results, when handling an EvalException, print the stack, using {@link
+   * #getMessageWithStack} to display multiple complete lines of output, only if the exception
+   * resulted from Starlark evaluation. For an EvalException with no stack, use {@link #getMessage}
+   * to obtain a message suitable for incorporating into a larger error.
    */
   public final ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
     return callstack != null ? callstack : ImmutableList.of();
@@ -136,33 +94,26 @@ public class EvalException extends Exception {
   }
 
   /**
-   * Returns the error message along with its call stack or location (deprecated), if any.
-   * Equivalent to {@code getMessageWithStack(newSourceReader())}.
+   * Returns the error message along with its call stack, if any. Equivalent to {@code
+   * getMessageWithStack(newSourceReader())}.
    */
   public final String getMessageWithStack() {
     return getMessageWithStack(newSourceReader());
   }
 
   /**
-   * Returns the error message along with its call stack or location (deprecated), if any. The
+   * Returns the error message along with its call stack, if any (see {@link #getCallStack}). The
    * source line for each stack frame is obtained from the provided SourceReader.
    */
   public final String getMessageWithStack(SourceReader src) {
     if (callstack != null) {
       return formatCallStack(callstack, getMessage(), src);
     }
-
-    // An exception that has not been thrown out of a Starlark call
-    // has no stack. It may have a location (for now). If so, print it.
-    if (location != null && !location.equals(Location.BUILTIN)) {
-      return location + ": " + getMessage();
-    }
-
     return getMessage();
   }
 
   /**
-   * A SourceReader reads the line of source denoted by a Location to be displayed in a formatted a
+   * A SourceReader reads the line of source denoted by a Location to be displayed in a formatted
    * stack trace.
    */
   public interface SourceReader {
@@ -239,19 +190,6 @@ public class EvalException extends Exception {
     }
     buf.append(prefix).append(message);
     return buf.toString();
-  }
-
-  /**
-   * Returns the optional location passed to the constructor.
-   *
-   * @deprecated Do not use this feature. Instead, record auxiliary (non-stack) locations in the
-   *     error message itself, or call a dummy wrapper function to introduce a fake frame into the
-   *     call stack.
-   */
-  @Nullable
-  @Deprecated
-  public final Location getDeprecatedLocation() {
-    return location;
   }
 
   // Ensures that this exception holds a call stack, taking the current

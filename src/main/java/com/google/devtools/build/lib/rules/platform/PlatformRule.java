@@ -132,7 +132,7 @@ public class PlatformRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = platform, TYPE = OTHER, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = platform, FAMILY = Platform)[GENERIC_RULE] -->
 
 <p>This rule defines a new platform -- a named collection of constraint choices (such as cpu
 architecture or compiler version) describing an environment in which part of the build may run.

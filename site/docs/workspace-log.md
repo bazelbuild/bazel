@@ -3,7 +3,7 @@ layout: documentation
 title: Finding non-hermetic behavior in WORKSPACE rules
 ---
 
-# Finding non-hermetic behavior in WORKSPACE rules
+# Finding Non-Hermetic Behavior in WORKSPACE Rules
 
 In the following, we say that a host machine is the machine where Bazel runs.
 

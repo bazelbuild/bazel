@@ -16,11 +16,15 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.DebugPackageInfoApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Provides the binary artifact and its associated .dwp files, if fission is enabled. If Fission
@@ -28,7 +32,10 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class DebugPackageProvider implements TransitiveInfoProvider {
+public final class DebugPackageProvider extends NativeInfo
+    implements DebugPackageInfoApi<Artifact> {
+  public static final Provider PROVIDER = new Provider();
+
   private final Label targetLabel;
   private final Artifact strippedArtifact;
   private final Artifact unstrippedArtifact;
@@ -47,31 +54,60 @@ public final class DebugPackageProvider implements TransitiveInfoProvider {
     this.dwpArtifact = dwpArtifact;
   }
 
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
   /** Returns the label for the *_binary target. */
+  @Override
   public final Label getTargetLabel() {
     return targetLabel;
   }
 
-  /**
-   * Returns the stripped file (the explicit ".stripped" target).
-   */
+  /** Returns the stripped file (the explicit ".stripped" target). */
+  @Override
   public final Artifact getStrippedArtifact() {
     return strippedArtifact;
   }
 
-  /**
-   * Returns the unstripped file (the default executable target).
-   */
+  /** Returns the unstripped file (the default executable target). */
+  @Override
   public final Artifact getUnstrippedArtifact() {
     return unstrippedArtifact;
   }
 
-  /**
-   * Returns the .dwp file (for fission builds) or null if --fission=no.
-   */
+  /** Returns the .dwp file (for fission builds) or null if --fission=no. */
   @Nullable
+  @Override
   public final Artifact getDwpArtifact() {
     return dwpArtifact;
   }
 
+  /** Provider class for {@link DebugPackageProvider} objects. */
+  public static class Provider extends BuiltinProvider<DebugPackageProvider>
+      implements DebugPackageInfoApi.Provider<Artifact> {
+    private Provider() {
+      super(DebugPackageInfoApi.NAME, DebugPackageProvider.class);
+    }
+
+    @Override
+    public DebugPackageProvider createDebugPackageInfo(
+        Label starlarkTargetLabel,
+        Artifact starlarkStrippedArtifact,
+        Artifact starlarkUnstrippedArtifact,
+        Object starlarkDwpArtifact)
+        throws EvalException {
+      return new DebugPackageProvider(
+          starlarkTargetLabel,
+          starlarkStrippedArtifact,
+          starlarkUnstrippedArtifact,
+          nullIfNone(starlarkDwpArtifact, Artifact.class));
+    }
+
+    @Nullable
+    private static <T> T nullIfNone(Object object, Class<T> type) {
+      return object != Starlark.NONE ? type.cast(object) : null;
+    }
+  }
 }

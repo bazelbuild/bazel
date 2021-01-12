@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Reporter;
@@ -35,11 +38,11 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public final class BlazeExecutor implements Executor {
 
-  private final boolean verboseFailures;
   private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final Clock clock;
+  private final BugReporter bugReporter;
   private final OptionsProvider options;
   private final ActionContext.ActionContextRegistry actionContextRegistry;
 
@@ -59,15 +62,16 @@ public final class BlazeExecutor implements Executor {
       Path execRoot,
       Reporter reporter,
       Clock clock,
+      BugReporter bugReporter,
       OptionsProvider options,
       ModuleActionContextRegistry actionContextRegistry,
       SpawnStrategyRegistry spawnStrategyRegistry) {
-    ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-    this.verboseFailures = executionOptions.verboseFailures;
+    ExecutionOptions executionOptions = checkNotNull(options.getOptions(ExecutionOptions.class));
     this.showSubcommands = executionOptions.showSubcommands;
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     this.clock = clock;
+    this.bugReporter = bugReporter;
     this.options = options;
     this.actionContextRegistry = actionContextRegistry;
 
@@ -96,6 +100,11 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
+  public BugReporter getBugReporter() {
+    return bugReporter;
+  }
+
+  @Override
   public ShowSubcommands reportsSubcommands() {
     return showSubcommands;
   }
@@ -104,12 +113,6 @@ public final class BlazeExecutor implements Executor {
   @Nullable
   public <T extends ActionContext> T getContext(Class<T> type) {
     return actionContextRegistry.getContext(type);
-  }
-
-  /** Returns true iff the --verbose_failures option was enabled. */
-  @Override
-  public boolean getVerboseFailures() {
-    return verboseFailures;
   }
 
   /** Returns the options associated with the execution. */

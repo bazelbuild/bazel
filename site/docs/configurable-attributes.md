@@ -3,7 +3,7 @@ layout: documentation
 title: Configurable build attributes
 ---
 
-# Configurable build attributes
+# Configurable Build Attributes
 
 **_Configurable attributes_**, commonly known as [`select()`](
 be/functions.html#select), is a Bazel feature that lets users toggle the values
@@ -192,9 +192,8 @@ documented. In practice, most flags that "make sense" work.
 
 You can model your own project-specific flags with
 [Starlark build
-settings](skylark/config.html#user-defined-build-settings). Unlike built-in
-flags, these are defined as build targets, so Bazel references them with target
-labels.
+settings][BuildSettings]. Unlike built-in flags, these are defined as build
+targets, so Bazel references them with target labels.
 
 These are triggered with [`config_setting`](be/general.html#config_setting)'s
 [`flag_values`](be/general.html#config_setting.flag_values)
@@ -522,7 +521,6 @@ It's an error for multiple conditions to match unless one is an unambiguous
 If you need a `select` branch to match when multiple conditions match, use the
 [Skylib](https://github.com/bazelbuild/bazel-skylib) macro
 [config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group):
-```
 
 ```python
 config_setting(
@@ -543,7 +541,7 @@ sh_binary(
     deps = select({
         ":config1_and_2": [":standard_lib"],
         "//conditions:default": [":other_lib"],
-        }),
+    }),
 )
 ```
 
@@ -675,7 +673,7 @@ config_setting(
 )
 ```
 
-`query` overapproximtes `:my_lib`'s dependencies:
+`query` overapproximates `:my_lib`'s dependencies:
 
 ```sh
 $ bazel query 'deps(//myapp:my_lib)'
@@ -992,3 +990,9 @@ Then compare this output against the settings expected by each `config_setting`.
 `//myapp:foo` may exist in different configurations in the same build. See the
 [cquery docs](cquery.html) for guidance on using `somepath` to get the right
 one.
+
+Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
+same command line flags as the `bazel cquery`. The `config` command relies on
+the configuration nodes from the still-running server of the previous command.
+
+[BuildSettings]: skylark/config.html#user-defined-build-settings

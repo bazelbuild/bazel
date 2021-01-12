@@ -498,4 +498,28 @@ public final class SimpleLogHandlerTest {
 
     assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
+
+  @Test
+  public void publish_handlesInterrupt() throws Exception {
+    SimpleLogHandler handler =
+        SimpleLogHandler.builder()
+            .setPrefix(tmp.getRoot() + File.separator + "hello")
+            .setFormatter(new TrivialFormatter())
+            .build();
+    Thread t =
+        new Thread(
+            () -> {
+              Thread.currentThread().interrupt();
+              handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // To open the log file.
+              assertThat(Thread.currentThread().isInterrupted()).isTrue();
+              handler.flush();
+              assertThat(Thread.currentThread().isInterrupted()).isTrue();
+              handler.close();
+              assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            });
+    t.start();
+    t.join();
+    // For b/176321271
+    assertThat(Thread.currentThread().isInterrupted()).isFalse();
+  }
 }

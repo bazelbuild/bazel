@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -96,7 +98,9 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -262,6 +266,45 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * Creates a {@link VirtualActionInput} with given string as contents and provided relative path.
+   */
+  public static VirtualActionInput createVirtualActionInput(String relativePath, String contents) {
+    return createVirtualActionInput(PathFragment.create(relativePath), contents);
+  }
+
+  /** Creates a {@link VirtualActionInput} with given string as contents and provided path. */
+  public static VirtualActionInput createVirtualActionInput(PathFragment path, String contents) {
+    return new VirtualActionInput() {
+      @Override
+      public ByteString getBytes() throws IOException {
+        ByteString.Output out = ByteString.newOutput();
+        writeTo(out);
+        return out.toByteString();
+      }
+
+      @Override
+      public String getExecPathString() {
+        return path.getPathString();
+      }
+
+      @Override
+      public PathFragment getExecPath() {
+        return path;
+      }
+
+      @Override
+      public boolean isSymlink() {
+        return false;
+      }
+
+      @Override
+      public void writeTo(OutputStream out) throws IOException {
+        out.write(contents.getBytes(UTF_8));
+      }
+    };
+  }
+
+  /**
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
    * requested keys, blocking until the values are ready.
    */
@@ -309,6 +352,12 @@ public final class ActionsTestUtil {
         result.put(key, ValueOrUntypedException.ofExn(errorInfo.getException()));
       }
       return result;
+    }
+
+    @Override
+    protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
+        Iterable<? extends SkyKey> depKeys) {
+      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -714,23 +763,26 @@ public final class ActionsTestUtil {
     }
   }
 
-  /**
-   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
-   * suffix and returns the Artifact.
-   */
+  /** Returns the first artifact found in the given set whose path ends with the given suffix. */
   public static Artifact getFirstArtifactEndingWith(
       NestedSet<? extends Artifact> artifacts, String suffix) {
     return getFirstArtifactEndingWith(artifacts.toList(), suffix);
   }
 
   /**
-   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
-   * suffix and returns the Artifact.
+   * Returns the first artifact found in the given Iterable whose path ends with the given suffix.
    */
   public static Artifact getFirstArtifactEndingWith(
       Iterable<? extends Artifact> artifacts, String suffix) {
+    return getFirstArtifactMatching(
+        artifacts, artifact -> artifact.getExecPath().getPathString().endsWith(suffix));
+  }
+
+  /** Returns the first Artifact in the provided Iterable that matches the specified predicate. */
+  public static Artifact getFirstArtifactMatching(
+      Iterable<? extends Artifact> artifacts, Predicate<Artifact> predicate) {
     for (Artifact a : artifacts) {
-      if (a.getExecPath().getPathString().endsWith(suffix)) {
+      if (predicate.test(a)) {
         return a;
       }
     }

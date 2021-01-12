@@ -30,34 +30,37 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class TransitiveTargetValue implements SkyValue {
   private final NestedSet<Label> transitiveTargets;
-  @Nullable private NestedSet<Label> transitiveRootCauses;
+  private final boolean encounteredLoadingError;
   @Nullable private NoSuchTargetException errorLoadingTarget;
   private NestedSet<Class<? extends Fragment>> transitiveConfigFragments;
 
   private TransitiveTargetValue(
       NestedSet<Label> transitiveTargets,
-      @Nullable NestedSet<Label> transitiveRootCauses,
+      boolean encounteredLoadingError,
       @Nullable NoSuchTargetException errorLoadingTarget,
       NestedSet<Class<? extends Fragment>> transitiveConfigFragments) {
     this.transitiveTargets = transitiveTargets;
-    this.transitiveRootCauses = transitiveRootCauses;
+    this.encounteredLoadingError = encounteredLoadingError;
     this.errorLoadingTarget = errorLoadingTarget;
     this.transitiveConfigFragments = transitiveConfigFragments;
   }
 
   static TransitiveTargetValue unsuccessfulTransitiveLoading(
       NestedSet<Label> transitiveTargets,
-      NestedSet<Label> rootCauses,
       @Nullable NoSuchTargetException errorLoadingTarget,
       NestedSet<Class<? extends Fragment>> transitiveConfigFragments) {
     return new TransitiveTargetValue(
-        transitiveTargets, rootCauses, errorLoadingTarget, transitiveConfigFragments);
+        transitiveTargets,
+        /*encounteredLoadingError=*/ true,
+        errorLoadingTarget,
+        transitiveConfigFragments);
   }
 
   static TransitiveTargetValue successfulTransitiveLoading(
       NestedSet<Label> transitiveTargets,
       NestedSet<Class<? extends Fragment>> transitiveConfigFragments) {
-    return new TransitiveTargetValue(transitiveTargets, null, null, transitiveConfigFragments);
+    return new TransitiveTargetValue(
+        transitiveTargets, /*encounteredLoadingError=*/ false, null, transitiveConfigFragments);
   }
 
   /** Returns the error, if any, from loading the target. */
@@ -71,10 +74,8 @@ public class TransitiveTargetValue implements SkyValue {
     return transitiveTargets;
   }
 
-  /** Returns the root causes, if any, of why targets weren't loaded. */
-  @Nullable
-  public NestedSet<Label> getTransitiveRootCauses() {
-    return transitiveRootCauses;
+  public boolean encounteredLoadingError() {
+    return encounteredLoadingError;
   }
 
   /**

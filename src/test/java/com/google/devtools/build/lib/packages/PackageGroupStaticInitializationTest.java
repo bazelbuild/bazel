@@ -17,15 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import java.util.concurrent.SynchronousQueue;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,20 +26,11 @@ import org.junit.runners.JUnit4;
 /**
  * Checks against a class initialization deadlock. "query sometimes hangs".
  *
- * <p>This requires static initialization of PackageGroup and PackageSpecification
- * to occur in a multithreaded context, and therefore must be in its own class.
+ * <p>This requires static initialization of PackageGroup and PackageSpecification to occur in a
+ * multithreaded context, and therefore must be in its own class.
  */
 @RunWith(JUnit4.class)
-public class PackageGroupStaticInitializationTest {
-  private Scratch scratch = new Scratch("/workspace");
-  private EventCollectionApparatus events = new EventCollectionApparatus();
-  private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
-  private Root root;
-
-  @Before
-  public void setUp() throws Exception {
-    root = Root.fromPath(scratch.dir(""));
-  }
+public class PackageGroupStaticInitializationTest extends PackageLoadingTestCase {
 
   @Test
   public void testNoDeadlockOnPackageGroupCreation() throws Exception {
@@ -61,7 +45,6 @@ public class PackageGroupStaticInitializationTest {
                 try {
                   RepositoryName defaultRepoName =
                       Label.parseAbsoluteUnchecked("//context")
-                          .getPackageIdentifier()
                           .getRepository();
                   groupQueue.put(PackageSpecification.fromString(defaultRepoName, "//fruits/..."));
                 } catch (Exception e) {
@@ -78,7 +61,7 @@ public class PackageGroupStaticInitializationTest {
               @Override
               public void run() {
                 try {
-                  getPackageGroup("fruits", "mango");
+                  getTarget("//fruits:mango");
                   groupQueue.take();
                 } catch (Exception e) {
                   // Can't throw from Runnable, but this will cause the test to timeout
@@ -94,15 +77,5 @@ public class PackageGroupStaticInitializationTest {
     consumingThread.join(3000);
     assertThat(producingThread.isAlive()).isFalse();
     assertThat(consumingThread.isAlive()).isFalse();
-  }
-
-  private Package getPackage(String packageName) throws Exception {
-    PathFragment buildFileFragment = PathFragment.create(packageName).getRelative("BUILD");
-    Path buildFile = scratch.resolve(buildFileFragment.getPathString());
-    return packages.createPackage(packageName, RootedPath.toRootedPath(root, buildFile));
-  }
-
-  private PackageGroup getPackageGroup(String pkg, String name) throws Exception {
-    return (PackageGroup) getPackage(pkg).getTarget(name);
   }
 }

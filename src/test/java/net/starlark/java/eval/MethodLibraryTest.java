@@ -214,7 +214,7 @@ public final class MethodLibraryTest {
   }
 
   @StarlarkBuiltin(name = "AStruct", documented = false, doc = "")
-  static final class AStruct implements ClassObject, StarlarkValue {
+  static final class AStruct implements Structure, StarlarkValue {
     @Override
     public Object getValue(String name) {
       switch (name) {
@@ -286,7 +286,9 @@ public final class MethodLibraryTest {
         .testEval("sorted([3, 2, 1, 0], reverse=True)", "[3, 2, 1, 0]")
         .testEval("sorted([[1], [], [1, 2]], key=len, reverse=True)", "[[1, 2], [1], []]")
         .testEval("sorted([[0, 5], [4, 1], [1, 7]], key=max)", "[[4, 1], [0, 5], [1, 7]]")
-        .testIfExactError("Cannot compare function with function", "sorted([sorted, sorted])");
+        .testIfExactError(
+            "unsupported comparison: builtin_function_or_method <=> builtin_function_or_method",
+            "sorted([sorted, sorted])");
   }
 
   @Test
@@ -312,13 +314,13 @@ public final class MethodLibraryTest {
   public void testDictionaryAccess() throws Exception {
     ev.new Scenario()
         .testEval("{1: ['foo']}[1]", "['foo']")
-        .testExpression("{'4': 8}['4']", 8)
+        .testExpression("{'4': 8}['4']", StarlarkInt.of(8))
         .testExpression("{'a': 'aa', 'b': 'bb', 'c': 'cc'}['b']", "bb");
   }
 
   @Test
   public void testDictionaryVariableAccess() throws Exception {
-    ev.new Scenario().setUp("d = {'a' : 1}", "a = d['a']").testLookup("a", 1);
+    ev.new Scenario().setUp("d = {'a' : 1}", "a = d['a']").testLookup("a", StarlarkInt.of(1));
   }
 
   @Test
@@ -446,7 +448,7 @@ public final class MethodLibraryTest {
   public void testDictionaryPopItem() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "popitem(): dictionary is empty",
+            "popitem: empty dictionary",
             "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
                 + "len(d) == 3 or fail('popitem 0')\n"
                 + "d.popitem() == (2, 'bar') or fail('popitem 2')\n"
@@ -482,12 +484,12 @@ public final class MethodLibraryTest {
   @Test
   public void testListIndexMethod() throws Exception {
     ev.new Scenario()
-        .testExpression("['a', 'b', 'c'].index('a')", 0)
-        .testExpression("['a', 'b', 'c'].index('b')", 1)
-        .testExpression("['a', 'b', 'c'].index('c')", 2)
-        .testExpression("[2, 4, 6].index(4)", 1)
-        .testExpression("[2, 4, 6].index(4)", 1)
-        .testExpression("[0, 1, [1]].index([1])", 2)
+        .testExpression("['a', 'b', 'c'].index('a')", StarlarkInt.of(0))
+        .testExpression("['a', 'b', 'c'].index('b')", StarlarkInt.of(1))
+        .testExpression("['a', 'b', 'c'].index('c')", StarlarkInt.of(2))
+        .testExpression("[2, 4, 6].index(4)", StarlarkInt.of(1))
+        .testExpression("[2, 4, 6].index(4)", StarlarkInt.of(1))
+        .testExpression("[0, 1, [1]].index([1])", StarlarkInt.of(2))
         .testIfErrorContains("item \"a\" not found in list", "[1, 2].index('a')")
         .testIfErrorContains("item 0 not found in list", "[].index(0)");
   }
@@ -496,8 +498,8 @@ public final class MethodLibraryTest {
   public void testHash() throws Exception {
     // We specify the same string hashing algorithm as String.hashCode().
     ev.new Scenario()
-        .testExpression("hash('starlark')", "starlark".hashCode())
-        .testExpression("hash('google')", "google".hashCode())
+        .testExpression("hash('starlark')", StarlarkInt.of("starlark".hashCode()))
+        .testExpression("hash('google')", StarlarkInt.of("google".hashCode()))
         .testIfErrorContains(
             "in call to hash(), parameter 'value' got value of type 'NoneType', want 'string'",
             "hash(None)");
@@ -507,7 +509,7 @@ public final class MethodLibraryTest {
   public void testRangeType() throws Exception {
     ev.new Scenario()
         .setUp("a = range(3)")
-        .testExpression("len(a)", 3)
+        .testExpression("len(a)", StarlarkInt.of(3))
         .testExpression("str(a)", "range(0, 3)")
         .testExpression("str(range(1,2,3))", "range(1, 2, 3)")
         .testExpression("repr(a)", "range(0, 3)")
@@ -529,11 +531,11 @@ public final class MethodLibraryTest {
         .testExpression("str(list(range(5, 0, -1)))", "[5, 4, 3, 2, 1]")
         .testExpression("str(list(range(5, 0, -10)))", "[5]")
         .testExpression("str(list(range(0, -3, -2)))", "[0, -2]")
-        .testExpression("range(3)[-1]", 2)
+        .testExpression("range(3)[-1]", StarlarkInt.of(2))
         .testIfErrorContains(
             "index out of range (index is 3, but sequence has 3 elements)", "range(3)[3]")
         .testExpression("str(range(5)[1:])", "range(1, 5)")
-        .testExpression("len(range(5)[1:])", 4)
+        .testExpression("len(range(5)[1:])", StarlarkInt.of(4))
         .testExpression("str(range(5)[:2])", "range(0, 2)")
         .testExpression("str(range(10)[1:9:2])", "range(1, 9, 2)")
         .testExpression("str(list(range(10)[1:9:2]))", "[1, 3, 5, 7]")
@@ -544,8 +546,8 @@ public final class MethodLibraryTest {
         .testExpression("str(range(5)[1::-1])", "range(1, -1, -1)")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
         .testIfErrorContains("unsupported binary operation: range * int", "range(3) * 3")
-        .testIfErrorContains("Cannot compare range objects", "range(3) < range(5)")
-        .testIfErrorContains("Cannot compare range objects", "range(4) > [1]")
+        .testIfErrorContains("unsupported comparison: range <=> range", "range(3) < range(5)")
+        .testIfErrorContains("unsupported comparison: range <=> list", "range(4) > [1]")
         .testExpression("4 in range(1, 10)", true)
         .testExpression("4 in range(1, 3)", false)
         .testExpression("4 in range(0, 8, 2)", true)
@@ -600,17 +602,17 @@ public final class MethodLibraryTest {
 
   @Test
   public void testLenOnString() throws Exception {
-    ev.new Scenario().testExpression("len('abc')", 3);
+    ev.new Scenario().testExpression("len('abc')", StarlarkInt.of(3));
   }
 
   @Test
   public void testLenOnList() throws Exception {
-    ev.new Scenario().testExpression("len([1,2,3])", 3);
+    ev.new Scenario().testExpression("len([1,2,3])", StarlarkInt.of(3));
   }
 
   @Test
   public void testLenOnDict() throws Exception {
-    ev.new Scenario().testExpression("len({'a' : 1, 'b' : 2})", 2);
+    ev.new Scenario().testExpression("len({'a' : 1, 'b' : 2})", StarlarkInt.of(2));
   }
 
   @Test
@@ -621,8 +623,8 @@ public final class MethodLibraryTest {
   @Test
   public void testIndexOnFunction() throws Exception {
     ev.new Scenario()
-        .testIfErrorContains("type 'function' has no operator [](int)", "len[1]")
-        .testIfErrorContains("invalid slice operand: function", "len[1:4]");
+        .testIfErrorContains("type 'builtin_function_or_method' has no operator [](int)", "len[1]")
+        .testIfErrorContains("invalid slice operand: builtin_function_or_method", "len[1:4]");
   }
 
   @Test
@@ -655,13 +657,15 @@ public final class MethodLibraryTest {
   @Test
   public void testType() throws Exception {
     ev.new Scenario()
+        .setUp("def f(): pass")
         .testExpression("type(1)", "int")
         .testExpression("type('a')", "string")
         .testExpression("type([1, 2])", "list")
         .testExpression("type((1, 2))", "tuple")
         .testExpression("type(True)", "bool")
         .testExpression("type(None)", "NoneType")
-        .testExpression("type(str)", "function");
+        .testExpression("type(f)", "function")
+        .testExpression("type(str)", "builtin_function_or_method");
   }
 
   @Test
@@ -730,14 +734,16 @@ public final class MethodLibraryTest {
   public void testFail() throws Exception {
     ev.new Scenario()
         .testIfErrorContains("abc", "fail('abc')")
-        .testIfErrorContains("18", "fail(18)");
+        .testIfErrorContains("18", "fail(18)")
+        .testIfErrorContains("1 2 3", "fail(1, 2, 3)")
+        .testIfErrorContains("attribute foo: 1 2 3", "fail(1, 2, 3, attr='foo')") // deprecated
+        .testIfErrorContains("0 1 2 3", "fail(1, 2, 3, msg=0)"); // deprecated
   }
 
   @Test
   public void testTupleCoercion() throws Exception {
     ev.new Scenario()
         .testExpression("tuple([1, 2]) == (1, 2)", true)
-        // Depends on current implementation of dict
         .testExpression("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
   }
 

@@ -16,10 +16,12 @@
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+    "action_config",
     "feature",
     "feature_set",
     "flag_group",
     "flag_set",
+    "tool",
     "tool_path",
     "variable_with_value",
     "with_feature_set",
@@ -146,6 +148,17 @@ def _impl(ctx):
         for name, path in ctx.attr.tool_paths.items()
     ]
     action_configs = []
+
+    llvm_cov_action = action_config(
+        action_name = ACTION_NAMES.llvm_cov,
+        tools = [
+            tool(
+                path = ctx.attr.tool_paths["llvm-cov"],
+            ),
+        ],
+    )
+
+    action_configs.append(llvm_cov_action)
 
     supports_pic_feature = feature(
         name = "supports_pic",
@@ -1226,6 +1239,7 @@ def _impl(ctx):
         abi_version = ctx.attr.abi_version,
         abi_libc_version = ctx.attr.abi_libc_version,
         tool_paths = tool_paths,
+        builtin_sysroot = ctx.attr.builtin_sysroot,
     )
 
 cc_toolchain_config = rule(
@@ -1252,6 +1266,7 @@ cc_toolchain_config = rule(
         "coverage_compile_flags": attr.string_list(),
         "coverage_link_flags": attr.string_list(),
         "supports_start_end_lib": attr.bool(),
+        "builtin_sysroot": attr.string(),
     },
     provides = [CcToolchainConfigInfo],
 )

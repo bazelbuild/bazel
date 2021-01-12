@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /** Provides support for reading target patterns from a file or the command-line. */
@@ -54,8 +54,7 @@ final class TargetPatternsHelper {
       Path residuePath =
           env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
       try {
-        targets =
-            Lists.newArrayList(FileSystemUtils.readLines(residuePath, StandardCharsets.UTF_8));
+        targets = FileSystemUtils.readLines(residuePath, UTF_8);
       } catch (IOException e) {
         throw new TargetPatternsHelperException(
             "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage(),

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -28,20 +29,20 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 
 /** Interface for a context object given to rule implementation functions. */
 @StarlarkBuiltin(
     name = "ctx",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A context object that is passed to the implementation function for a rule or aspect. It"
             + " provides access to the information and methods needed to analyze the current"
@@ -252,9 +253,11 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       parameters = {
         @Param(
             name = "target",
-            type = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
-            noneable = true,
             named = true,
             doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
       })
@@ -288,7 +291,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   FileRootApi getGenfilesDirectory() throws EvalException;
 
   @StarlarkMethod(name = "outputs", structField = true, doc = OUTPUTS_DOC)
-  ClassObject outputs() throws EvalException;
+  Structure outputs() throws EvalException;
 
   @StarlarkMethod(
       name = "rule",
@@ -326,7 +329,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             name = "constraintValue",
             positional = true,
             named = false,
-            type = ConstraintValueInfoApi.class,
             doc = "The constraint value to check the target platform against.")
       })
   boolean targetPlatformHasConstraint(ConstraintValueT constraintValue);
@@ -351,44 +353,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             name = "option",
             positional = true,
             named = false,
-            type = String.class,
             doc = "The string to split."),
       })
   Sequence<String> tokenize(String optionString) throws EvalException;
-
-  @StarlarkMethod(
-      name = "expand",
-      doc =
-          "Expands all references to labels embedded within a string for all files using a mapping "
-              + "from definition labels (i.e. the label in the output type attribute) to files. "
-              + "Deprecated.",
-      // TODO(cparsons): Look into flipping this to true.
-      documented = false,
-      parameters = {
-        @Param(
-            name = "expression",
-            positional = true,
-            named = false,
-            type = String.class,
-            doc = "The string expression to expand."),
-        @Param(
-            name = "files",
-            positional = true,
-            named = false,
-            type = Sequence.class,
-            doc = "The list of files."),
-        @Param(
-            name = "label_resolver",
-            positional = true,
-            named = false,
-            type = Label.class,
-            doc = "The label resolver."),
-      })
-  String expand(
-      @Nullable String expression,
-      Sequence<?> artifacts, // <FileT>
-      Label labelResolver)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "new_file",
@@ -440,17 +407,14 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "check_placeholders",
       documented = false,
       parameters = {
-        @Param(
-            name = "template",
-            positional = true,
-            named = false,
-            type = String.class,
-            doc = "The template."),
+        @Param(name = "template", positional = true, named = false, doc = "The template."),
         @Param(
             name = "allowed_placeholders",
             positional = true,
             named = false,
-            type = Sequence.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+            },
             doc = "The allowed placeholders."),
       })
   boolean checkPlaceholders(String template, Sequence<?> allowedPlaceholders) // <String>
@@ -477,20 +441,17 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             name = "attribute_name",
             positional = true,
             named = false,
-            type = String.class,
             doc = "The attribute name. Used for error reporting."),
         @Param(
             name = "command",
             positional = true,
             named = false,
-            type = String.class,
             doc =
                 "The expression to expand. It can contain references to " + "\"Make variables\"."),
         @Param(
             name = "additional_substitutions",
             positional = true,
             named = false,
-            type = Dict.class,
             doc = "Additional substitutions to make beyond the default make variables."),
       })
   String expandMakeVariables(
@@ -543,17 +504,19 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
               + " for <code>genrule</code>). In other cases, it is often better to manipulate"
               + " labels directly.",
       parameters = {
-        @Param(name = "input", type = String.class, doc = "String to be expanded."),
+        @Param(name = "input", doc = "String to be expanded."),
         @Param(
             name = "targets",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             defaultValue = "[]",
             named = true,
             doc = "List of targets for additional lookup information."),
       },
       allowReturnNones = true,
       useStarlarkThread = true)
+  @Nullable
   String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
       throws EvalException;
 
@@ -563,8 +526,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       parameters = {
         @Param(
             name = "files",
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             named = true,
             defaultValue = "[]",
             doc = "The list of files to be added to the runfiles."),
@@ -573,9 +535,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         // Also, allow empty set for init
         @Param(
             name = "transitive_files",
-            type = Depset.class,
-            generic1 = FileApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class, generic1 = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             named = true,
             doc =
@@ -584,7 +547,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "default)."),
         @Param(
             name = "collect_data",
-            type = Boolean.class,
             defaultValue = "False",
             named = true,
             doc =
@@ -594,7 +556,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "collect_default",
-            type = Boolean.class,
             defaultValue = "False",
             named = true,
             doc =
@@ -604,7 +565,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "symlinks",
-            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc =
@@ -613,7 +573,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "the rules guide."),
         @Param(
             name = "root_symlinks",
-            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc =
@@ -644,22 +603,22 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       parameters = {
         @Param(
             name = "command",
-            type = String.class, // string
             defaultValue = "''",
             named = true,
             positional = false,
             doc = "Command to resolve."),
         @Param(
             name = "attribute",
-            type = String.class, // string
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
-            noneable = true,
             named = true,
             positional = false,
             doc = "Name of the associated attribute for which to issue an error, or None."),
         @Param(
             name = "expand_locations",
-            type = Boolean.class,
             defaultValue = "False",
             named = true,
             positional = false,
@@ -668,8 +627,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + " href=\"#expand_location\">ctx.expand_location()</a> for more details."),
         @Param(
             name = "make_variables",
-            type = Dict.class, // dict(string, string)
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Dict.class), // <String, String>
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             named = true,
             positional = false,
@@ -677,14 +638,14 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         @Param(
             name = "tools",
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class),
+            },
             named = true,
             positional = false,
             doc = "List of tools (list of targets)."),
         @Param(
             name = "label_dict",
-            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -693,7 +654,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "(a dict of Label : list of Files)."),
         @Param(
             name = "execution_requirements",
-            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -703,7 +663,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "for useful keys."),
       },
       useStarlarkThread = true)
-  Tuple<Object> resolveCommand(
+  Tuple resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
@@ -727,11 +687,12 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         @Param(
             name = "tools",
             defaultValue = "[]",
-            type = Sequence.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
+            },
             named = true,
             positional = false,
             doc = "List of tools (list of targets)."),
       })
-  Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException;
+  Tuple resolveTools(Sequence<?> tools) throws EvalException;
 }

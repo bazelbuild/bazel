@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import java.util.List;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -141,8 +140,8 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         (Sequence<Dict<String, String>>) fooProvider.getValue("envs");
     assertThat(envs)
         .containsExactly(
-            Dict.of((Mutability) null, "foo", "bar", "pet", "puppy"),
-            Dict.of((Mutability) null, "pet", "bunny"));
+            Dict.builder().put("foo", "bar").put("pet", "puppy").buildImmutable(),
+            Dict.builder().put("pet", "bunny").buildImmutable());
 
     Sequence<Dict<String, String>> executionInfo =
         (Sequence<Dict<String, String>>) fooProvider.getValue("execution_info");

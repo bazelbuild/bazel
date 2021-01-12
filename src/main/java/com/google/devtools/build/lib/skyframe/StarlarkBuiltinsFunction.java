@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.InjectionException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -31,31 +32,27 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
-// TODO(#11437): Teach BzlCompile about builtins keys, then have them modify their env the same
-// way as BzlLoadFunction. This will   allow us to define the _internal symbol for @builtins.
-
-// TODO(#11437): Determine places where we need to teach Skyframe about this Skyfunction. Look for
-// special treatment of BzlLoadFunction or BzlCompileFunction in existing code.
+// TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
 
 // TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
-// @builtins. Blocked on us actually loading files from @builtins.
+// @_builtins. Blocked on us actually loading files from @_builtins.
 
 // TODO(#11437): Add tombstone feature: If a native symbol is a tombstone object, this signals to
-// StarlarkBuiltinsFunction that the corresponding symbol *must* be defined by @builtins.
+// StarlarkBuiltinsFunction that the corresponding symbol *must* be defined by @_builtins.
 // Furthermore, if exports.bzl also says the symbol is a tombstone, any attempt to use it results
 // in failure, as if the symbol doesn't exist at all (or with a user-friendly error message saying
 // to migrate by adding a load()). Combine tombstones with reading the current incompatible flags
-// within @builtins for awesomeness.
+// within @_builtins for awesomeness.
 
 // TODO(#11437, #11954, #11983): To the extent that BUILD-loaded .bzls and WORKSPACE-loaded .bzls
 // have the same environment, builtins injection should apply to both of them, not just to
-// BUILD-loaded .bzls. The same can be said for BUILD and WORKSPACE files themselves if we end up
-// unifying those environments as well.
+// BUILD-loaded .bzls.
 
 /**
- * A Skyframe function that evaluates the {@code @builtins} pseudo-repository and reports the values
- * exported by {@link #EXPORTS_ENTRYPOINT}.
+ * A Skyframe function that evaluates the {@code @_builtins} pseudo-repository and reports the
+ * values exported by {@link #EXPORTS_ENTRYPOINT}.
  *
  * <p>The process of "builtins injection" refers to evaluating this Skyfunction and applying its
  * result to {@link BzlLoadFunction}'s computation. See also the <a
@@ -68,23 +65,22 @@ import net.starlark.java.eval.Starlark;
 public class StarlarkBuiltinsFunction implements SkyFunction {
 
   /**
-   * The label where {@code @builtins} symbols are exported from. (This is never conflated with any
-   * actual repository named "{@code @builtins}" because it is only accessed through a special
-   * SkyKey.
+   * The label where {@code @_builtins} symbols are exported from. (Note that this is never
+   * conflated with an actual repository named "{@code @_builtins}" because 1) it is only ever
+   * accessed through a special SkyKey, and 2) we disallow the user from defining a repo named
+   * {@code @_builtins} to avoid confusion.)
    */
-  private static final Label EXPORTS_ENTRYPOINT =
-      Label.parseAbsoluteUnchecked("@builtins//:exports.bzl"); // unused
+  static final Label EXPORTS_ENTRYPOINT =
+      Label.parseAbsoluteUnchecked("@_builtins//:exports.bzl"); // unused
 
   /**
-   * Key for loading exports.bzl. {@code keyForBuiltins} (as opposed to {@code keyForBuild} ensures
-   * that 1) we can resolve the {@code @builtins} name appropriately, and 2) loading it does not
-   * trigger a cyclic call back into {@code StarlarkBuiltinsFunction}.
+   * Key for loading exports.bzl. Note that {@code keyForBuiltins} (as opposed to {@code
+   * keyForBuild}) ensures we can resolve {@code @_builtins}, which is otherwise inaccessible. It
+   * also prevents us from cyclically requesting StarlarkBuiltinsFunction again to evaluate
+   * exports.bzl.
    */
-  private static final BzlLoadValue.Key EXPORTS_ENTRYPOINT_KEY =
-      BzlLoadValue.keyForBuiltins(
-          // TODO(#11437): Replace by EXPORTS_ENTRYPOINT once BzlLoadFunction can resolve the
-          // @builtins namespace.
-          Label.parseAbsoluteUnchecked("//tools/builtins_staging:exports.bzl"));
+  static final BzlLoadValue.Key EXPORTS_ENTRYPOINT_KEY =
+      BzlLoadValue.keyForBuiltins(EXPORTS_ENTRYPOINT);
 
   // Used to obtain the injected environment.
   private final PackageFactory packageFactory;
@@ -126,10 +122,9 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     Preconditions.checkState(
         env instanceof RecordingSkyFunctionEnvironment,
         "Expected to be recording dep requests when inlining StarlarkBuiltinsFunction");
-    // We don't need any direct Skyframe calls because we only depend on the exports.bzl file. If we
-    // did make Skyframe calls, they'd use the original recording environment (env), so that they're
-    // properly registered in the CachedBzlLoadData object of the .bzl that is requesting the
-    // builtins.
+    // Any direct Skyframe calls we make, outside of evaluating exports.bzl, will use the original
+    // recording environment (env), so that they're properly registered in the CachedBzlLoadData
+    // object of the .bzl that is requesting the builtins.
     //
     // We unwrap the environment before calling computeInternal() (and indirectly,
     // BzlLoadFunction#computeInternal). Any Skyframe deps needed to evaluate exports.bzl and its
@@ -142,12 +137,21 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   }
 
   // bzlLoadFunction and inliningState are non-null iff using inlining code path.
+  @Nullable
   private static StarlarkBuiltinsValue computeInternal(
       Environment env,
       PackageFactory packageFactory,
       @Nullable BzlLoadFunction.InliningState inliningState,
       @Nullable BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    // Return the empty value if builtins injection is disabled.
+    if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
+      return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
+    }
 
     // Load exports.bzl. If we were requested using inlining, make sure to inline the call back into
     // BzlLoadFunction.
@@ -176,7 +180,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
       ImmutableMap<String, Object> predeclared =
           packageFactory.createBuildBzlEnvUsingInjection(exportedToplevels, exportedRules);
-      return new StarlarkBuiltinsValue(predeclared, exportedToJava, transitiveDigest);
+      return StarlarkBuiltinsValue.create(
+          predeclared, exportedToJava, transitiveDigest, starlarkSemantics);
     } catch (EvalException | InjectionException ex) {
       throw BuiltinsFailedException.errorApplyingExports(ex);
     }
@@ -192,7 +197,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   @Nullable
   private static ImmutableMap<String, Object> getDict(Module module, String dictName)
       throws EvalException {
-    Object value = module.get(dictName);
+    Object value = module.getGlobal(dictName);
     if (value == null) {
       throw Starlark.errorf("expected a '%s' dictionary to be defined", dictName);
     }

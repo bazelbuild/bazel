@@ -66,8 +66,9 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.GrpcRemoteExecutor.ExecuteOperationUpdateReceiver;
+import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -76,6 +77,7 @@ import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -83,19 +85,13 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
-import com.google.rpc.PreconditionFailure;
-import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Context;
 import io.grpc.Status.Code;
-import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,38 +109,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
 
-  private static final String VIOLATION_TYPE_MISSING = "MISSING";
-
-  private static boolean retriableExecErrors(Exception e) {
-    if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
-      return true;
-    }
-    if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
-      return false;
-    }
-    com.google.rpc.Status status = StatusProto.fromThrowable(e);
-    if (status == null || status.getDetailsCount() == 0) {
-      return false;
-    }
-    for (Any details : status.getDetailsList()) {
-      PreconditionFailure f;
-      try {
-        f = details.unpack(PreconditionFailure.class);
-      } catch (InvalidProtocolBufferException protoEx) {
-        return false;
-      }
-      if (f.getViolationsCount() == 0) {
-        return false; // Generally shouldn't happen
-      }
-      for (Violation v : f.getViolationsList()) {
-        if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
-          return false;
-        }
-      }
-    }
-    return true; // if *all* > 0 violations have type MISSING
-  }
-
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
   private final ExecutionOptions executionOptions;
@@ -152,7 +116,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Nullable private final Reporter cmdlineReporter;
   private final RemoteExecutionCache remoteCache;
-  @Nullable private final GrpcRemoteExecutor remoteExecutor;
+  private final RemoteExecutionClient remoteExecutor;
   private final RemoteRetrier retrier;
   private final String buildRequestId;
   private final String commandId;
@@ -177,7 +141,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       String buildRequestId,
       String commandId,
       RemoteExecutionCache remoteCache,
-      GrpcRemoteExecutor remoteExecutor,
+      RemoteExecutionClient remoteExecutor,
       ListeningScheduledExecutorService retryService,
       DigestUtil digestUtil,
       Path logDir,
@@ -202,7 +166,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return "remote";
   }
 
-  class ExecutingStatusReporter implements ExecuteOperationUpdateReceiver {
+  class ExecutingStatusReporter implements OperationObserver {
     private boolean reportedExecuting = false;
     private final SpawnExecutionContext context;
 
@@ -211,7 +175,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     @Override
-    public void onNextOperation(Operation o) throws IOException {
+    public void onNext(Operation o) throws IOException {
       if (!reportedExecuting) {
         if (o.getMetadata().is(ExecuteOperationMetadata.class)) {
           ExecuteOperationMetadata metadata =
@@ -516,7 +480,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
             .setTotalTime(totalTime.elapsed())
             .setNetworkTime(networkTimeEnd)
-            .build());
+            .build(),
+        spawn.getMnemonic());
   }
 
   @Override
@@ -537,13 +502,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       if (actionInput instanceof ParamFileActionInput) {
         ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
         Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());
-        if (outputPath.exists()) {
-          outputPath.delete();
-        }
-        outputPath.getParentDirectory().createDirectoryAndParents();
-        try (OutputStream out = outputPath.getOutputStream()) {
-          paramFileActionInput.writeTo(out);
-        }
+        SandboxHelpers.atomicallyWriteVirtualInput(paramFileActionInput, outputPath, ".remote");
       }
     }
   }
@@ -660,12 +619,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
       catastrophe = false;
     }
 
-    final String errorMessage;
-    if (!verboseFailures) {
-      errorMessage = Utils.grpcAwareErrorMessage(exception);
-    } else {
+    String errorMessage = Utils.grpcAwareErrorMessage(exception);
+    if (verboseFailures) {
       // On --verbose_failures print the whole stack trace
-      errorMessage = Throwables.getStackTraceAsString(exception);
+      errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
     }
 
     return new SpawnResult.Builder()
@@ -821,12 +778,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   private static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
-    return new RemoteRetrier(
-        options.remoteMaxRetryAttempts > 0
-            ? () -> new Retrier.ZeroBackoff(options.remoteMaxRetryAttempts)
-            : () -> Retrier.RETRIES_DISABLED,
-        RemoteSpawnRunner::retriableExecErrors,
-        retryService,
-        Retrier.ALLOW_ALL_CALLS);
+    return new ExecuteRetrier(
+        options.remoteMaxRetryAttempts, retryService, Retrier.ALLOW_ALL_CALLS);
   }
 }

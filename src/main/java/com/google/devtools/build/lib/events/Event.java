@@ -20,6 +20,7 @@ import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -45,7 +46,6 @@ import net.starlark.java.syntax.SyntaxError;
  */
 @Immutable
 public final class Event implements Serializable {
-  private int hashCode;
 
   private final EventKind kind;
 
@@ -64,6 +64,8 @@ public final class Event implements Serializable {
    * are equal is not deterministic.
    */
   private final ImmutableClassToInstanceMap<Object> properties;
+
+  private int hashCode;
 
   private Event(EventKind kind, Object message, ImmutableClassToInstanceMap<Object> properties) {
     this.kind = checkNotNull(kind);
@@ -190,6 +192,16 @@ public final class Event implements Serializable {
     return getProperty(FileOutErr.class) != null;
   }
 
+  /**
+   * Gets the path to the stdout associated with this event (which the caller must not access), or
+   * null if there is no such path.
+   */
+  @Nullable
+  public PathFragment getStdOutPathFragment() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? null : outErr.getOutputPathFragment();
+  }
+
   /** Gets the size of the stdout associated with this event without reading it. */
   public long getStdOutSize() throws IOException {
     FileOutErr outErr = getProperty(FileOutErr.class);
@@ -204,6 +216,16 @@ public final class Event implements Serializable {
       return null;
     }
     return outErr.outAsBytes();
+  }
+
+  /**
+   * Gets the path to the stderr associated with this event (which the caller must not access), or
+   * null if there is no such path.
+   */
+  @Nullable
+  public PathFragment getStdErrPathFragment() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? null : outErr.getErrorPathFragment();
   }
 
   /** Gets the size of the stderr associated with this event without reading it. */
@@ -333,6 +355,11 @@ public final class Event implements Serializable {
     return location == null
         ? of(kind, messageBytes)
         : of(kind, messageBytes, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#FATAL}. */
+  public static Event fatal(String message) {
+    return of(EventKind.FATAL, message);
   }
 
   /** Constructs an event with kind {@link EventKind#ERROR}, with an optional {@link Location}. */

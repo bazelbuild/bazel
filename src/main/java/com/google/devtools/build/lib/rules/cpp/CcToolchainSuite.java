@@ -34,8 +34,8 @@ import java.util.Map;
  * Implementation of the {@code cc_toolchain_suite} rule.
  *
  * <p>This is currently a no-op because the logic that transforms this rule into something that can
- * be understood by the {@code cc_*} rules is in
- * {@link com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader}.
+ * be understood by the {@code cc_*} rules is in {@link
+ * com.google.devtools.build.lib.rules.cpp.CppConfiguration}.
  */
 public class CcToolchainSuite implements RuleConfiguredTargetFactory {
 
@@ -45,7 +45,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
-    String transformedCpu = cppConfiguration.getTransformedCpuFromOptions();
+    String transformedCpu = ruleContext.getConfiguration().getCpu();
     String compiler = cppConfiguration.getCompilerFromOptions();
     String key = transformedCpu + (compiler == null ? "" : ("|" + compiler));
     Map<String, Label> toolchains =

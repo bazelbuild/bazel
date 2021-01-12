@@ -2,7 +2,10 @@
 layout: documentation
 title: Repository rules
 ---
-# Repository rules
+# Repository Rules
+
+This page covers how to create repository rules and provides examples for
+more details.
 
 An [external repository](../external.md) is a rule that can be used only
 in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
@@ -79,7 +82,7 @@ in the dependency graph (including the WORKSPACE file itself) will
 cause an execution of the implementation function.
 
 The implementation function can be _restarted_ if a dependency it
-request is _missing_. The beginning of the implementation function
+requests is _missing_. The beginning of the implementation function
 will be re-executed after the dependency has been resolved. To avoid
 unnecessary restarts (which are expensive, as network access might
 have to be repeated), label arguments are prefetched, provided all

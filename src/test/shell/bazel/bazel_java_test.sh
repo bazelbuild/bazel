@@ -55,9 +55,7 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-JAVA_TOOLCHAIN="$1"; shift
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
+JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
@@ -71,10 +69,29 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
+JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
+  if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == file* ]]; then
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="${JAVA_TOOLS_PREBUILT_ZIP}"
+  elif "$is_windows"; then
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
+  else
+    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
+  fi
+fi
+JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
+
 if [[ $# -gt 0 ]]; then
-  JAVABASE_VALUE="$1"; shift
-  add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-  add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
+  JAVA_LANGUAGE_VERSION="$1"; shift
+  add_to_bazelrc "build --java_language_version=${JAVA_LANGUAGE_VERSION}"
+  add_to_bazelrc "build --tool_java_language_version=${JAVA_LANGUAGE_VERSION}"
+fi
+
+
+if [[ $# -gt 0 ]]; then
+  JAVA_RUNTIME_VERSION="$1"; shift
+  add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
+  add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
 
 export TESTENV_DONT_BAZEL_CLEAN=1
@@ -88,8 +105,20 @@ EOF
   if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
-    name = "local_java_tools",
+    name = "remote_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_linux",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
   fi
@@ -1447,6 +1476,7 @@ load(":my_rule.bzl", "my_rule")
 my_rule(
   name = 'my_starlark_rule',
   output_jar = 'my_starlark_rule_lib.jar',
+  output_source_jar = 'my_starlark_rule_lib-src.jar',
   source_jars = ['my_starlark_rule_src.jar'],
 )
 EOF
@@ -1462,10 +1492,9 @@ def _impl(ctx):
   )
   source_jar = java_common.pack_sources(
     ctx.actions,
-    output_jar = ctx.file.output_jar,
+    output_source_jar = ctx.actions.declare_file(ctx.attr.output_source_jar),
     source_jars = ctx.files.source_jars,
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,
@@ -1478,9 +1507,9 @@ my_rule = rule(
   implementation = _impl,
   attrs = {
     'output_jar' : attr.label(allow_single_file=True),
+    'output_source_jar' : attr.string(),
     'source_jars' : attr.label_list(allow_files=['.jar']),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
-    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   }
 )
 EOF

@@ -15,25 +15,20 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.base.Joiner;
 import com.google.common.collect.Ordering;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
-@StarlarkGlobalLibrary
 class MethodLibrary {
 
   @StarlarkMethod(
@@ -41,16 +36,13 @@ class MethodLibrary {
       doc =
           "Returns the smallest one of all given arguments. "
               + "If only one argument is provided, it must be a non-empty iterable. "
-              + "It is an error if elements are not comparable (for example int with string). "
+              + "It is an error if elements are not comparable (for example int with string), "
+              + "or if no arguments are given. "
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object min(Sequence<?> args) throws EvalException {
-    try {
-      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
-    } catch (EvalUtils.ComparisonException e) {
-      throw new EvalException(e);
-    }
+    return findExtreme(args, Starlark.ORDERING.reverse());
   }
 
   @StarlarkMethod(
@@ -58,16 +50,13 @@ class MethodLibrary {
       doc =
           "Returns the largest one of all given arguments. "
               + "If only one argument is provided, it must be a non-empty iterable."
-              + "It is an error if elements are not comparable (for example int with string). "
+              + "It is an error if elements are not comparable (for example int with string), "
+              + "or if no arguments are given. "
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object max(Sequence<?> args) throws EvalException {
-    try {
-      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
-    } catch (EvalUtils.ComparisonException e) {
-      throw new EvalException(e);
-    }
+    return findExtreme(args, Starlark.ORDERING);
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
@@ -75,9 +64,11 @@ class MethodLibrary {
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
+    Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
-      Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
+    } catch (ClassCastException ex) {
+      throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
     }
@@ -90,14 +81,8 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
-      parameters = {
-        @Param(
-            name = "elements",
-            type = Object.class,
-            noneable = true,
-            doc = "A string or a collection of elements.")
-      })
-  public Boolean all(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
+  public boolean all(Object collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
@@ -108,14 +93,8 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
-      parameters = {
-        @Param(
-            name = "elements",
-            type = Object.class,
-            noneable = true,
-            doc = "A string or a collection of elements.")
-      })
-  public Boolean any(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
+  public boolean any(Object collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
 
@@ -132,22 +111,23 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "sorted",
       doc =
-          "Sort a collection. Elements should all belong to the same orderable type, they are "
-              + "sorted by their value (in ascending order). "
-              + "It is an error if elements are not comparable (for example int with string)."
+          "Returns a new sorted list containing all the elements of the supplied iterable"
+              + " sequence. An error may occur if any pair of elements x, y may not be compared"
+              + " using x < y. The elements are sorted into ascending order, unless the reverse"
+              + " argument is True, in which case the order is descending.\n"
+              + " Sorting is stable: elements that compare equal retain their original relative"
+              + " order.\n"
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
       parameters = {
-        @Param(name = "iterable", type = Object.class, doc = "The iterable sequence to sort."),
+        @Param(name = "iterable", doc = "The iterable sequence to sort."),
         @Param(
             name = "key",
             doc = "An optional function applied to each element before comparison.",
             named = true,
             defaultValue = "None",
-            positional = false,
-            noneable = true),
+            positional = false),
         @Param(
             name = "reverse",
-            type = Boolean.class,
             doc = "Return results in descending order.",
             named = true,
             defaultValue = "False",
@@ -155,58 +135,79 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public StarlarkList<?> sorted(
-      Object iterable, final Object key, Boolean reverse, final StarlarkThread thread)
+      StarlarkIterable<?> iterable, Object key, boolean reverse, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Object[] array = Starlark.toArray(iterable);
+    Comparator<Object> order = reverse ? Starlark.ORDERING.reversed() : Starlark.ORDERING;
+
+    // no key?
     if (key == Starlark.NONE) {
       try {
-        Arrays.sort(array, EvalUtils.STARLARK_COMPARATOR);
-      } catch (EvalUtils.ComparisonException e) {
-        throw Starlark.errorf("%s", e.getMessage());
+        Arrays.sort(array, order);
+      } catch (ClassCastException ex) {
+        throw Starlark.errorf("%s", ex.getMessage());
       }
-    } else if (key instanceof StarlarkCallable) {
-      final StarlarkCallable keyfn = (StarlarkCallable) key;
+      return StarlarkList.wrap(thread.mutability(), array);
+    }
 
-      class KeyComparator implements Comparator<Object> {
-        Exception e;
+    // The user provided a key function.
+    // We must call it exactly once per element, in order,
+    // so use the decorate/sort/undecorate pattern.
+    if (!(key instanceof StarlarkCallable)) {
+      throw Starlark.errorf("for key, got %s, want callable", Starlark.type(key));
+    }
+    StarlarkCallable keyfn = (StarlarkCallable) key;
 
-        @Override
-        public int compare(Object x, Object y) {
-          try {
-            return EvalUtils.STARLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
-          } catch (InterruptedException | EvalException e) {
-            if (this.e == null) {
-              this.e = e;
-            }
-            return 0;
+    // decorate
+    Object[] empty = {};
+    for (int i = 0; i < array.length; i++) {
+      Object v = array[i];
+      Object k = Starlark.fastcall(thread, keyfn, new Object[] {v}, empty);
+      array[i] = new Object[] {k, v};
+    }
+
+    class KeyComparator implements Comparator<Object> {
+      EvalException e;
+
+      @Override
+      public int compare(Object x, Object y) {
+        Object xkey = ((Object[]) x)[0];
+        Object ykey = ((Object[]) y)[0];
+        try {
+          return order.compare(xkey, ykey);
+        } catch (ClassCastException e) {
+          if (this.e == null) {
+            this.e = new EvalException(e.getMessage());
           }
-        }
-
-        Object callKeyFunc(Object x) throws EvalException, InterruptedException {
-          return Starlark.call(thread, keyfn, Collections.singletonList(x), ImmutableMap.of());
+          return 0; // may cause Arrays.sort to fail; see below
         }
       }
-
-      KeyComparator comp = new KeyComparator();
-      try {
-        Arrays.sort(array, comp);
-      } catch (EvalUtils.ComparisonException e) {
-        throw Starlark.errorf("%s", e.getMessage());
-      }
-
-      if (comp.e != null) {
-        if (comp.e instanceof InterruptedException) {
-          throw (InterruptedException) comp.e;
-        }
-        throw (EvalException) comp.e;
-      }
-    } else {
-      throw Starlark.errorf("%s object is not callable", Starlark.repr(Starlark.type(key)));
     }
 
-    if (reverse) {
-      reverse(array);
+    // sort
+    KeyComparator comp = new KeyComparator();
+    try {
+      Arrays.sort(array, comp);
+    } catch (IllegalArgumentException unused) {
+      // Arrays.sort failed because comp violated the Comparator contract.
+      if (comp.e == null) {
+        // There was no exception from order.compare.
+        // Likely the application defined a Comparable type whose
+        // compareTo is not a strict weak order.
+        throw new IllegalStateException("sort: element ordering is not self-consistent");
+      }
     }
+
+    // Sort completed, possibly with deferred errors.
+    if (comp.e != null) {
+      throw comp.e;
+    }
+
+    // undecorate
+    for (int i = 0; i < array.length; i++) {
+      array[i] = ((Object[]) array[i])[1];
+    }
+
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
@@ -221,16 +222,14 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "reversed",
       doc =
-          "Returns a list that contains the elements of the original sequence in reversed order."
-              + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
+          "Returns a new, unfrozen list that contains the elements of the original iterable"
+              + " sequence in reversed order.<pre class=\"language-python\">reversed([3, 5, 4]) =="
+              + " [4, 5, 3]</pre>",
       parameters = {
-        @Param(
-            name = "sequence",
-            type = Sequence.class,
-            doc = "The sequence (list or tuple) to be reversed."),
+        @Param(name = "sequence", doc = "The iterable sequence (e.g. list) to be reversed."),
       },
       useStarlarkThread = true)
-  public StarlarkList<?> reversed(Sequence<?> sequence, StarlarkThread thread)
+  public StarlarkList<?> reversed(StarlarkIterable<?> sequence, StarlarkThread thread)
       throws EvalException {
     Object[] array = Starlark.toArray(sequence);
     reverse(array);
@@ -245,9 +244,9 @@ class MethodLibrary {
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
       parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
-  public Tuple<?> tuple(Object x) throws EvalException {
+  public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
-      return (Tuple<?>) x;
+      return (Tuple) x;
     }
     return Tuple.wrap(Starlark.toArray(x));
   }
@@ -261,7 +260,7 @@ class MethodLibrary {
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
       parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
       useStarlarkThread = true)
-  public StarlarkList<?> list(Object x, StarlarkThread thread) throws EvalException {
+  public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
 
@@ -272,7 +271,7 @@ class MethodLibrary {
               + " iterable.",
       parameters = {@Param(name = "x", doc = "The value whose length to report.")},
       useStarlarkThread = true)
-  public Integer len(Object x, StarlarkThread thread) throws EvalException {
+  public int len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
     if (len < 0) {
       throw Starlark.errorf("%s is not iterable", Starlark.type(x));
@@ -286,7 +285,7 @@ class MethodLibrary {
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
+      parameters = {@Param(name = "x", doc = "The object to convert.")})
   public String str(Object x) throws EvalException {
     return Starlark.str(x);
   }
@@ -296,7 +295,7 @@ class MethodLibrary {
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
+      parameters = {@Param(name = "x", doc = "The object to convert.")})
   public String repr(Object x) {
     return Starlark.repr(x);
   }
@@ -309,28 +308,100 @@ class MethodLibrary {
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {
-        @Param(
-            name = "x",
-            defaultValue = "False",
-            doc = "The variable to convert.",
-            noneable = true)
-      })
-  public Boolean bool(Object x) throws EvalException {
+      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
+  public boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
 
-  private final ImmutableMap<String, Integer> intPrefixes =
-      ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
+  @StarlarkMethod(
+      name = "float",
+      doc =
+          "Returns x as a float value. " //
+              + "<ul><li>If <code>x</code> is already a float, <code>float</code> returns it"
+              + " unchanged. " //
+              + "<li>If <code>x</code> is a bool, <code>float</code> returns 1.0 for True and 0.0"
+              + " for False. " //
+              + "<li>If <code>x</code> is an int, <code>float</code> returns the nearest"
+              + " finite floating-point value to x, or an error if the magnitude is too large. " //
+              + "<li>If <code>x</code> is a string, it must be a valid floating-point literal, or"
+              + " be equal (ignoring case) to <code>NaN</code>, <code>Inf</code>, or"
+              + " <code>Infinity</code>, optionally preceded by a <code>+</code> or <code>-</code>"
+              + " sign. " //
+              + "</ul>" //
+              + "Any other value causes an error. With no argument, <code>float()</code> returns"
+              + " 0.0.",
+      parameters = {
+        @Param(name = "x", doc = "The value to convert.", defaultValue = "unbound"),
+      })
+  public StarlarkFloat floatForStarlark(Object x) throws EvalException {
+    if (x instanceof String) {
+      String s = (String) x;
+      if (s.isEmpty()) {
+        throw Starlark.errorf("empty string");
+      }
+
+      double d;
+      switch (Ascii.toLowerCase(s.charAt(s.length() - 1))) {
+        case 'n':
+        case 'f':
+        case 'y': // {,+,-}{NaN,Inf,Infinity}
+          // non-finite
+          if (Ascii.equalsIgnoreCase(s, "nan")
+              || Ascii.equalsIgnoreCase(s, "+nan")
+              || Ascii.equalsIgnoreCase(s, "-nan")) {
+            d = Double.NaN;
+          } else if (Ascii.equalsIgnoreCase(s, "inf")
+              || Ascii.equalsIgnoreCase(s, "+inf")
+              || Ascii.equalsIgnoreCase(s, "+infinity")) {
+            d = Double.POSITIVE_INFINITY;
+          } else if (Ascii.equalsIgnoreCase(s, "-inf") || Ascii.equalsIgnoreCase(s, "-infinity")) {
+            d = Double.NEGATIVE_INFINITY;
+          } else {
+            throw Starlark.errorf("invalid float literal: %s", s);
+          }
+          break;
+        default:
+          // finite
+          try {
+            d = Double.parseDouble(s);
+            if (!Double.isFinite(d)) {
+              // parseDouble accepts signed "NaN" and "Infinity" (case sensitive)
+              // but we already handled those cases, so this indicates
+              // a large number rounded to infinity.
+              throw Starlark.errorf("floating-point number too large");
+            }
+          } catch (NumberFormatException unused) {
+            throw Starlark.errorf("invalid float literal: %s", s);
+          }
+          break;
+      } // switch
+      return StarlarkFloat.of(d);
+
+    } else if (x instanceof Boolean) {
+      return StarlarkFloat.of(((Boolean) x).booleanValue() ? 1 : 0);
+
+    } else if (x instanceof StarlarkInt) {
+      return StarlarkFloat.of(((StarlarkInt) x).toFiniteDouble());
+
+    } else if (x instanceof StarlarkFloat) {
+      return (StarlarkFloat) x;
+
+    } else if (x == Starlark.UNBOUND) {
+      return StarlarkFloat.of(0.0);
+
+    } else {
+      throw Starlark.errorf("got %s, want string, int, float, or bool", Starlark.type(x));
+    }
+  }
 
   @StarlarkMethod(
       name = "int",
       doc =
           "Returns x as an int value."
               + "<ul>"
-              + "<li>If <code>x</code> is already an int, it is returned as-is."
-              + "<li>If <code>x</code> is a boolean, a true value returns 1 and a false value "
-              + "    returns 0."
+              + "<li>If <code>x</code> is already an int, <code>int</code> returns it unchanged." //
+              + "<li>If <code>x</code> is a bool, <code>int</code> returns 1 for True and 0 for"
+              + " False." //
               + "<li>If <code>x</code> is a string, it must have the format "
               + "    <code>&lt;sign&gt;&lt;prefix&gt;&lt;digits&gt;</code>. "
               + "    <code>&lt;sign&gt;</code> is either <code>\"+\"</code>, <code>\"-\"</code>, "
@@ -346,27 +417,29 @@ class MethodLibrary {
               + "    <code>base</code> is 0, no prefix is used, and there is more than one digit, "
               + "    the leading digit cannot be 0; this is to avoid confusion between octal and "
               + "    decimal. The magnitude of the number represented by the string must be within "
-              + "    the allowed range for the int type."
-              + "</ul>"
+              + "    the allowed range for the int type." //
+              + "<li>If <code>x</code> is a float, <code>int</code> returns the integer value of"
+              + "    the float, rounding towards zero. It is an error if x is non-finite (NaN or"
+              + "    infinity)."
+              + "</ul>" //
               + "This function fails if <code>x</code> is any other type, or if the value is a "
-              + "string not satisfying the above format. Unlike Python's <code>int()</code> "
-              + "function, this function does not allow zero arguments, and does not allow "
-              + "extraneous whitespace for string arguments."
-              + "<p>Examples:"
-              + "<pre class=\"language-python\">"
-              + "int(\"123\") == 123\n"
+              + "string not satisfying the above format. Unlike Python's <code>int</code> "
+              + "function, this function does not allow zero arguments, and does "
+              + "not allow extraneous whitespace for string arguments.<p>" //
+              + "Examples:<pre class=\"language-python\">int(\"123\") == 123\n"
               + "int(\"-123\") == -123\n"
               + "int(\"+123\") == 123\n"
               + "int(\"FF\", 16) == 255\n"
               + "int(\"0xFF\", 16) == 255\n"
               + "int(\"10\", 0) == 10\n"
-              + "int(\"-0x10\", 0) == -16"
+              + "int(\"-0x10\", 0) == -16\n"
+              + "int(\"-0x10\", 0) == -16\n"
+              + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
-        @Param(name = "x", type = Object.class, doc = "The string to convert."),
+        @Param(name = "x", doc = "The string to convert."),
         @Param(
             name = "base",
-            type = Object.class,
             defaultValue = "unbound",
             doc =
                 "The base used to interpret a string value; defaults to 10. Must be between 2 "
@@ -375,93 +448,31 @@ class MethodLibrary {
                     + "string.",
             named = true)
       })
-  public Integer convertToInt(Object x, Object base) throws EvalException {
+  public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
-      if (base == Starlark.UNBOUND) {
-        base = 10;
-      } else if (!(base instanceof Integer)) {
-        throw Starlark.errorf("base must be an integer (got '%s')", Starlark.type(base));
-      }
-      return fromString((String) x, (Integer) base);
-    } else {
-      if (base != Starlark.UNBOUND) {
-        throw Starlark.errorf("int() can't convert non-string with explicit base");
-      }
-      if (x instanceof Boolean) {
-        return ((Boolean) x).booleanValue() ? 1 : 0;
-      } else if (x instanceof Integer) {
-        return (Integer) x;
-      }
-      throw Starlark.errorf("%s is not of type string or int or bool", Starlark.repr(x));
-    }
-  }
-
-  private int fromString(String string, int base) throws EvalException {
-    String stringForErrors = string;
-
-    boolean isNegative = false;
-    if (string.isEmpty()) {
-      throw Starlark.errorf("string argument to int() cannot be empty");
-    }
-    char c = string.charAt(0);
-    if (c == '+') {
-      string = string.substring(1);
-    } else if (c == '-') {
-      string = string.substring(1);
-      isNegative = true;
-    }
-
-    String prefix = getIntegerPrefix(string);
-    String digits;
-    if (prefix == null) {
-      // Nothing to strip. Infer base 10 if autodetection was requested (base == 0).
-      digits = string;
-      if (base == 0) {
-        if (string.length() > 1 && string.startsWith("0")) {
-          // We don't infer the base when input starts with '0' (due
-          // to confusion between octal and decimal).
-          throw Starlark.errorf(
-              "cannot infer base for int() when value begins with a 0: %s",
-              Starlark.repr(stringForErrors));
-        }
-        base = 10;
-      }
-    } else {
-      // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
-      // consistency.
-      digits = string.substring(prefix.length());
-      int expectedBase = intPrefixes.get(prefix);
-      if (base == 0) {
-        base = expectedBase;
-      } else if (base != expectedBase) {
-        throw Starlark.errorf(
-            "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
+      int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
+      try {
+        return StarlarkInt.parse((String) x, base);
+      } catch (NumberFormatException ex) {
+        throw Starlark.errorf("%s", ex.getMessage());
       }
     }
 
-    if (base < 2 || base > 36) {
-      throw Starlark.errorf("int() base must be >= 2 and <= 36");
+    if (baseO != Starlark.UNBOUND) {
+      throw Starlark.errorf("can't convert non-string with explicit base");
     }
-    try {
-      // Negate by prepending a negative symbol, rather than by using arithmetic on the
-      // result, to handle the edge case of -2^31 correctly.
-      String parseable = isNegative ? "-" + digits : digits;
-      return Integer.parseInt(parseable, base);
-    } catch (NumberFormatException | ArithmeticException e) {
-      throw Starlark.errorf(
-          "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
-    }
-  }
-
-  @Nullable
-  private String getIntegerPrefix(String value) {
-    value = Ascii.toLowerCase(value);
-    for (String prefix : intPrefixes.keySet()) {
-      if (value.startsWith(prefix)) {
-        return prefix;
+    if (x instanceof Boolean) {
+      return StarlarkInt.of(((Boolean) x).booleanValue() ? 1 : 0);
+    } else if (x instanceof StarlarkInt) {
+      return (StarlarkInt) x;
+    } else if (x instanceof StarlarkFloat) {
+      try {
+        return StarlarkInt.ofFiniteDouble(((StarlarkFloat) x).toDouble());
+      } catch (IllegalArgumentException unused) {
+        throw Starlark.errorf("can't convert float %s to int", x);
       }
     }
-    return null;
+    throw Starlark.errorf("got %s, want string, int, float, or bool", Starlark.type(x));
   }
 
   @StarlarkMethod(
@@ -474,22 +485,21 @@ class MethodLibrary {
               + "positional argument.",
       parameters = {
         @Param(
-            name = "args",
-            type = Object.class,
+            name = "pairs",
             defaultValue = "[]",
-            doc =
-                "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-                    + "exactly two elements: key, value."),
+            doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  public Dict<?, ?> dict(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
+  public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    Dict<?, ?> dict =
-        args instanceof Dict
-            ? (Dict) args
-            : Dict.getDictFromArgs("dict", args, thread.mutability());
-    return Dict.plus(dict, kwargs, thread.mutability());
+    // common case: dict(k=v, ...)
+    if (pairs instanceof StarlarkList && ((StarlarkList) pairs).isEmpty()) {
+      return kwargs;
+    }
+    Dict<Object, Object> dict = Dict.of(thread.mutability());
+    Dict.update("dict", dict, pairs, kwargs);
+    return dict;
   }
 
   @StarlarkMethod(
@@ -501,20 +511,16 @@ class MethodLibrary {
       parameters = {
         // Note Python uses 'sequence' keyword instead of 'list'. We may want to change tihs
         // some day.
-        @Param(name = "list", type = Object.class, doc = "input sequence.", named = true),
-        @Param(
-            name = "start",
-            type = Integer.class,
-            doc = "start index.",
-            defaultValue = "0",
-            named = true)
+        @Param(name = "list", doc = "input sequence.", named = true),
+        @Param(name = "start", doc = "start index.", defaultValue = "0", named = true),
       },
       useStarlarkThread = true)
-  public StarlarkList<?> enumerate(Object input, Integer start, StarlarkThread thread)
+  public StarlarkList<?> enumerate(Object input, StarlarkInt startI, StarlarkThread thread)
       throws EvalException {
+    int start = Starlark.toInt(startI, "start");
     Object[] array = Starlark.toArray(input);
     for (int i = 0; i < array.length; i++) {
-      array[i] = Tuple.pair(i + start, array[i]); // update in place
+      array[i] = Tuple.pair(StarlarkInt.of(i + start), array[i]); // update in place
     }
     return StarlarkList.wrap(thread.mutability(), array);
   }
@@ -529,8 +535,8 @@ class MethodLibrary {
       // Deterministic hashing is important for the consistency of builds, hence why we
       // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
       // Python, which promise stable hashing only within a given execution of the program.
-      parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")})
-  public Integer hash(String value) throws EvalException {
+      parameters = {@Param(name = "value", doc = "String value to hash.")})
+  public int hash(String value) throws EvalException {
     return value.hashCode();
   }
 
@@ -546,42 +552,42 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "start_or_stop",
-            type = Integer.class,
             doc =
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
             name = "stop_or_none",
-            type = Integer.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached."),
         @Param(
             name = "step",
-            type = Integer.class,
             defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")
       },
       useStarlarkThread = true)
-  public Sequence<Integer> range(
-      Integer startOrStop, Object stopOrNone, Integer step, StarlarkThread thread)
+  public Sequence<StarlarkInt> range(
+      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
     if (stopOrNone == Starlark.NONE) {
       start = 0;
-      stop = startOrStop;
-    } else if (stopOrNone instanceof Integer) {
-      start = startOrStop;
-      stop = (Integer) stopOrNone;
+      stop = startOrStop.toInt("stop");
     } else {
-      throw Starlark.errorf("want int, got %s", Starlark.type(stopOrNone));
+      start = startOrStop.toInt("start");
+      stop = Starlark.toInt(stopOrNone, "stop");
     }
+    int step = stepI.toInt("step");
     if (step == 0) {
       throw Starlark.errorf("step cannot be 0");
     }
+    // TODO(adonovan): support arbitrary integers.
     return new RangeList(start, stop, step);
   }
 
@@ -593,11 +599,11 @@ class MethodLibrary {
               + "<code>name</code>, otherwise False. Example:<br>"
               + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The object to check.", noneable = true),
-        @Param(name = "name", type = String.class, doc = "The name of the attribute.")
+        @Param(name = "x", doc = "The object to check."),
+        @Param(name = "name", doc = "The name of the attribute.")
       },
       useStarlarkThread = true)
-  public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
+  public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
     return Starlark.hasattr(thread.getSemantics(), obj, name);
   }
 
@@ -610,15 +616,14 @@ class MethodLibrary {
               + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
               + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The struct whose attribute is accessed.", noneable = true),
+        @Param(name = "x", doc = "The struct whose attribute is accessed."),
         @Param(name = "name", doc = "The name of the struct attribute."),
         @Param(
             name = "default",
             defaultValue = "unbound",
             doc =
                 "The default value to return in case the struct "
-                    + "doesn't have an attribute of the given name.",
-            noneable = true)
+                    + "doesn't have an attribute of the given name.")
       },
       useStarlarkThread = true)
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
@@ -636,7 +641,7 @@ class MethodLibrary {
       doc =
           "Returns a list of strings: the names of the attributes and "
               + "methods of the parameter object.",
-      parameters = {@Param(name = "x", doc = "The object to check.", noneable = true)},
+      parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
     return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
@@ -644,31 +649,49 @@ class MethodLibrary {
 
   @StarlarkMethod(
       name = "fail",
-      doc =
-          "Raises an error that cannot be intercepted. It can be used anywhere, "
-              + "both in the loading phase and in the analysis phase.",
+      doc = "Causes execution to fail with an error.",
       parameters = {
+        // TODO(adonovan): remove. See https://github.com/bazelbuild/starlark/issues/47.
         @Param(
             name = "msg",
-            type = Object.class,
-            doc = "Error to display for the user. The object is converted to a string.",
+            doc =
+                "Deprecated: use positional arguments instead. "
+                    + "This argument acts like an implicit leading positional argument.",
             defaultValue = "None",
-            named = true,
-            noneable = true),
+            positional = false,
+            named = true),
+        // TODO(adonovan): remove. See https://github.com/bazelbuild/starlark/issues/47.
         @Param(
             name = "attr",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
-                "The name of the attribute that caused the error. This is used only for "
-                    + "error reporting.",
+                "Deprecated. Causes an optional prefix containing this string to be added to the"
+                    + " error message.",
+            positional = false,
             named = true)
-      })
-  public NoneType fail(Object msg, Object attr) throws EvalException {
-    String str = Starlark.str(msg);
+      },
+      extraPositionals =
+          @Param(
+              name = "args",
+              doc =
+                  "A list of values, formatted with str and joined with spaces, that appear in the"
+                      + " error message."))
+  public void fail(Object msg, Object attr, Tuple args) throws EvalException {
+    List<String> elems = new ArrayList<>();
+    // msg acts like a leading element of args.
+    if (msg != Starlark.NONE) {
+      elems.add(Starlark.str(msg));
+    }
+    for (Object arg : args) {
+      elems.add(Starlark.str(arg));
+    }
+    String str = Joiner.on(" ").join(elems);
     if (attr != Starlark.NONE) {
-      str = Starlark.format("attribute %s: %s", attr, str);
+      str = String.format("attribute %s: %s", attr, str);
     }
     throw Starlark.errorf("%s", str);
   }
@@ -688,7 +711,6 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "sep",
-            type = String.class,
             defaultValue = "\" \"",
             named = true,
             positional = false,
@@ -697,7 +719,7 @@ class MethodLibrary {
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
-  public NoneType print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
+  public void print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
     Printer p = new Printer();
     String separator = "";
     for (Object x : args) {
@@ -712,7 +734,6 @@ class MethodLibrary {
     }
 
     thread.getPrintHandler().print(thread, p.toString());
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(
@@ -730,7 +751,7 @@ class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "if type(x) == type([]):  # if x is a list"
               + "</pre>",
-      parameters = {@Param(name = "x", doc = "The object to check type of.", noneable = true)})
+      parameters = {@Param(name = "x", doc = "The object to check type of.")})
   public String type(Object object) {
     // There is no 'type' type in Starlark, so we return a string with the type name.
     return Starlark.type(object);
@@ -751,52 +772,33 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
       useStarlarkThread = true)
   public StarlarkList<?> zip(Sequence<?> args, StarlarkThread thread) throws EvalException {
-    Iterator<?>[] iterators = new Iterator<?>[args.size()];
-    for (int i = 0; i < args.size(); i++) {
-      iterators[i] = Starlark.toIterable(args.get(i)).iterator();
-    }
-    ArrayList<Tuple<?>> result = new ArrayList<>();
-    boolean allHasNext;
-    do {
-      allHasNext = !args.isEmpty();
-      List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
-      for (Iterator<?> iterator : iterators) {
-        if (iterator.hasNext()) {
-          elem.add(iterator.next());
-        } else {
-          allHasNext = false;
+    StarlarkList<Tuple> result = StarlarkList.newList(thread.mutability());
+    int ncols = args.size();
+    if (ncols > 0) {
+      Iterator<?>[] iterators = new Iterator<?>[ncols];
+      for (int i = 0; i < ncols; i++) {
+        iterators[i] = Starlark.toIterable(args.get(i)).iterator();
+      }
+      rows:
+      for (; ; ) {
+        Object[] elem = new Object[ncols];
+        for (int i = 0; i < ncols; i++) {
+          Iterator<?> it = iterators[i];
+          if (!it.hasNext()) {
+            break rows;
+          }
+          elem[i] = it.next();
         }
+        result.addElement(Tuple.wrap(elem));
       }
-      if (allHasNext) {
-        result.add(Tuple.copyOf(elem));
-      }
-    } while (allHasNext);
-    return StarlarkList.copyOf(thread.mutability(), result);
+    }
+    return result;
   }
-
-  /** Starlark int type. */
-  @StarlarkBuiltin(
-      name = "int",
-      category = StarlarkDocumentationCategory.BUILTIN,
-      doc =
-          "A type to represent integers. It can represent any number between -2147483648 and "
-              + "2147483647 (included). "
-              + "Examples of int values:<br>"
-              + "<pre class=\"language-python\">"
-              + "153\n"
-              + "0x2A  # hexadecimal literal\n"
-              + "0o54  # octal literal\n"
-              + "23 * 2 + 5\n"
-              + "100 / -7\n"
-              + "100 % -7  # -5 (unlike in some other languages)\n"
-              + "int(\"18\")\n"
-              + "</pre>")
-  static final class IntModule implements StarlarkValue {} // (documentation only)
 
   /** Starlark bool type. */
   @StarlarkBuiltin(
       name = "bool",
-      category = StarlarkDocumentationCategory.BUILTIN,
+      category = "core",
       doc =
           "A type to represent booleans. There are only two possible values: "
               + "<a href=\"globals.html#True\">True</a> and "

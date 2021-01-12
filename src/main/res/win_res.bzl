@@ -45,9 +45,13 @@ def _windows_resources_impl(ctx):
         for rc_file in ctx.files.rc_files
     ]
     link_flags = [res.path for res in compiled_resources]
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        additional_inputs = depset(compiled_resources),
+        user_link_flags = depset(link_flags),
+    )
     linking_context = cc_common.create_linking_context(
-        additional_inputs = compiled_resources,
-        user_link_flags = link_flags,
+        linker_inputs = depset([linker_input]),
     )
     return [
         DefaultInfo(files = depset(compiled_resources)),

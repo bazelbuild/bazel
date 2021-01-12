@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
-import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +30,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -66,6 +67,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -128,6 +130,13 @@ public class BlazeCommandDispatcherTest {
             productName);
     runtime.initWorkspace(directories, /*binTools=*/null);
     errorOnAfterCommand = null;
+  }
+
+  @After
+  public void stopProfilers() throws Exception {
+    // Needs to be done because we are simulating crashes but keeping the jvm alive.
+    Profiler.instance().stop();
+    MemoryProfiler.instance().stop();
   }
 
   /** Options for {@link FooCommand}. */
@@ -248,8 +257,8 @@ public class BlazeCommandDispatcherTest {
               throw new OutOfMemoryError("oom message");
             });
     runtime.overrideCommands(ImmutableList.of(crashCommand));
-    // Mocked bug reporter to avoid hard crash.
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, mock(BugReporter.class));
+    BlazeCommandDispatcher dispatch =
+        new BlazeCommandDispatcher(runtime, BugReporter.defaultInstance());
 
     BlazeCommandResult directResult =
         dispatch.exec(ImmutableList.of("testcommand"), "clientdesc", outErr);
@@ -383,7 +392,8 @@ public class BlazeCommandDispatcherTest {
                     LockingMode.WAIT,
                     "test client",
                     runtime.getClock().currentTimeMillis(),
-                    /*startupOptionsTaggedWithBazelRc=*/ Optional.empty()));
+                    /*startupOptionsTaggedWithBazelRc=*/ Optional.empty(),
+                    /*commandExtensions=*/ ImmutableList.of()));
 
     try {
       blockCommandThread.start();

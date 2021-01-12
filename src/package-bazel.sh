@@ -20,12 +20,11 @@ set -euo pipefail
 # starts the server from.
 
 WORKDIR=$(pwd)
-OUT=$1
-EMBEDDED_TOOLS=$2
-DEPLOY_JAR=$3
-INSTALL_BASE_KEY=$4
-PLATFORMS_ARCHIVE=$5
-shift 5
+OUT=$1; shift
+EMBEDDED_TOOLS=$1; shift
+DEPLOY_JAR=$1; shift
+INSTALL_BASE_KEY=$1; shift
+PLATFORMS_ARCHIVE=$1; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1

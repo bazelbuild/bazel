@@ -5,7 +5,14 @@ title: Installing Bazel on Windows
 
 # Installing Bazel on Windows
 
+This page describes the requirements and steps to install Bazel on Windows.
+It also includes troubleshooting and other ways to install Bazel, such as
+using Chocolatey or Scoop.
+
 ## Installing Bazel
+
+This section covers the prerequisites, environment setup, and detailed
+steps during installation on Windows.
 
 ### Step 1: Check your system
 

@@ -113,6 +113,10 @@ public enum CompileBuildVariables {
   CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path"),
   /** Path to the cache prefetch profile artifact */
   FDO_PREFETCH_HINTS_PATH("fdo_prefetch_hints_path"),
+  /** Path to the Propeller Optimize compiler profile artifact */
+  PROPELLER_OPTIMIZE_CC_PATH("propeller_optimize_cc_path"),
+  /** Path to the Propeller Optimize linker profile artifact */
+  PROPELLER_OPTIMIZE_LD_PATH("propeller_optimize_ld_path"),
   /** Variable for includes that compiler needs to include into sources. */
   INCLUDES("includes");
 
@@ -435,8 +439,6 @@ public enum CompileBuildVariables {
     Preconditions.checkNotNull(localDefines);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
-      // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
-      // in any case, but don't crash.
       buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
       buildVariables.addStringVariable(
           MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact().getExecPathString());

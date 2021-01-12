@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
 
@@ -28,7 +28,7 @@ import net.starlark.java.eval.Sequence;
  */
 @StarlarkBuiltin(
     name = "JavaToolchainInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "Provides access to information about the Java toolchain rule. "
             + "Accessible as a 'java_toolchain' field on a Target struct.")
@@ -41,13 +41,6 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
 
   @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
-
-  @StarlarkMethod(
-      name = "javac_jar",
-      doc = "The javac jar.",
-      structField = true,
-      allowReturnNones = true)
-  FileApi getJavacJar();
 
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();

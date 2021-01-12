@@ -3,10 +3,10 @@ layout: documentation
 title: Deploying rules
 ---
 
-# Deploying rules
+# Deploying Rules
 
-This documentation is for rule writers who are planning to make their
-rules available to others.
+This page is for rule writers who are planning to make their rules available
+to others.
 
 ## Hosting and naming rules
 
@@ -261,7 +261,7 @@ it to [ci.bazel.build](http://ci.bazel.build).
 
 ## Documentation
 
-See the [Skydoc documentation](https://github.com/bazelbuild/skydoc) for
+See the [Stardoc documentation](https://github.com/bazelbuild/stardoc) for
 instructions on how to comment your rules so that documentation can be generated
 automatically.
 

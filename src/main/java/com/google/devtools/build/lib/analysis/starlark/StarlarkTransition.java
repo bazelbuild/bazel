@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -24,6 +25,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.OptionInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -32,12 +34,14 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,16 +59,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   // Use the plain strings rather than reaching into the Alias class and adding a dependency edge.
   public static final String ALIAS_RULE_NAME = "alias";
   public static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
-
-  /** The two groups of build settings that are relevant for a {@link StarlarkTransition} */
-  public enum Settings {
-    /** Build settings that are read by a {@link StarlarkTransition} */
-    INPUTS,
-    /** Build settings that are written by a {@link StarlarkTransition} */
-    OUTPUTS,
-    /** Build settings that are read and/or written by a {@link StarlarkTransition } */
-    INPUTS_AND_OUTPUTS
-  }
 
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
@@ -323,21 +317,51 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
             changedSettingToRule.keySet(),
             actualSetting,
             options.getStarlarkOptions().keySet());
-        Object convertedValue;
-        try {
-          convertedValue =
-              rule.getRuleClassObject()
-                  .getBuildSetting()
-                  .getType()
-                  .convert(newValue, maybeAliasSetting);
-        } catch (ConversionException e) {
-          throw new TransitionException(e);
-        }
-        if (convertedValue.equals(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
-          if (cleanedOptions == null) {
-            cleanedOptions = options.toBuilder();
+        boolean allowsMultiple = rule.getRuleClassObject().getBuildSetting().allowsMultiple();
+        if (allowsMultiple) {
+          // if this setting allows multiple settings
+          if (!(newValue instanceof List)) {
+            throw new TransitionException(
+                String.format(
+                    "'%s' allows multiple values and must be set"
+                        + " in transition using a starlark list instead of single value '%s'",
+                    actualSetting, newValue));
           }
-          cleanedOptions.removeStarlarkOption(rule.getLabel());
+          List<?> rawNewValueAsList = (List<?>) newValue;
+          List<Object> convertedValue = new ArrayList<>();
+          Type<?> type = rule.getRuleClassObject().getBuildSetting().getType();
+          for (Object value : rawNewValueAsList) {
+            try {
+              convertedValue.add(type.convert(value, maybeAliasSetting));
+            } catch (ConversionException e) {
+              throw new TransitionException(e);
+            }
+          }
+          if (convertedValue.equals(
+              ImmutableList.of(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)))) {
+            if (cleanedOptions == null) {
+              cleanedOptions = options.toBuilder();
+            }
+            cleanedOptions.removeStarlarkOption(rule.getLabel());
+          }
+        } else {
+          // if this setting does not allow multiple settings
+          Object convertedValue;
+          try {
+            convertedValue =
+                rule.getRuleClassObject()
+                    .getBuildSetting()
+                    .getType()
+                    .convert(newValue, maybeAliasSetting);
+          } catch (ConversionException e) {
+            throw new TransitionException(e);
+          }
+          if (convertedValue.equals(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+            if (cleanedOptions == null) {
+              cleanedOptions = options.toBuilder();
+            }
+            cleanedOptions.removeStarlarkOption(rule.getLabel());
+          }
         }
       }
       // Keep the same instance if we didn't do anything to maintain reference equality later on.

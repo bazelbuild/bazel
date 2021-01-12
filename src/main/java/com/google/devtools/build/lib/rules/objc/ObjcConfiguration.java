@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -30,6 +32,7 @@ import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
+@RequiresOptions(options = {CppOptions.class, ObjcCommandLineOptions.class})
 public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
@@ -65,10 +68,14 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
-  private final boolean compileInfoMigration;
+  private final boolean avoidHardcodedCompilationFlags;
+  private final boolean disableNativeAppleBinaryRule;
 
-  ObjcConfiguration(
-      CppOptions cppOptions, ObjcCommandLineOptions objcOptions, CoreOptions options) {
+  public ObjcConfiguration(BuildOptions buildOptions) {
+    CoreOptions options = buildOptions.get(CoreOptions.class);
+    CppOptions cppOptions = buildOptions.get(CppOptions.class);
+    ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
+
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
@@ -94,7 +101,9 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.shouldScanIncludes = objcOptions.scanIncludes;
-    this.compileInfoMigration = objcOptions.incompatibleObjcCompileInfoMigration;
+    this.avoidHardcodedCompilationFlags =
+        objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
+    this.disableNativeAppleBinaryRule = objcOptions.incompatibleDisableNativeAppleBinaryRule;
   }
 
   /**
@@ -177,18 +186,18 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
-        if (this.debugWithGlibcxx) {
-          return ImmutableList.<String>builder()
-              .addAll(DBG_COPTS)
-              .addAll(GLIBCXX_DBG_COPTS)
-              .build();
-        } else {
-          return DBG_COPTS;
+        ImmutableList.Builder<String> opts = ImmutableList.builder();
+        if (!this.avoidHardcodedCompilationFlags) {
+          opts.addAll(DBG_COPTS);
         }
+        if (this.debugWithGlibcxx) {
+          opts.addAll(GLIBCXX_DBG_COPTS);
+        }
+        return opts.build();
       case FASTBUILD:
         return fastbuildOptions;
       case OPT:
-        return OPT_COPTS;
+        return this.avoidHardcodedCompilationFlags ? ImmutableList.of() : OPT_COPTS;
       default:
         throw new AssertionError();
     }
@@ -254,8 +263,8 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     return shouldScanIncludes;
   }
 
-  /** Whether native rules can assume compile info has been migrated to CcInfo. */
-  public boolean compileInfoMigration() {
-    return compileInfoMigration;
+  /** Returns true iff the native {@code apple_binary} rule should be disabled. */
+  public boolean disableNativeAppleBinaryRule() {
+    return disableNativeAppleBinaryRule;
   }
 }

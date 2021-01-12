@@ -23,6 +23,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.EnumSet;
 import java.util.List;
@@ -48,6 +49,23 @@ public class CommonQueryOptions extends OptionsBase {
               + " build to break if targets parsed from the query expression are not buildable"
               + " with top-level options.")
   public List<String> universeScope;
+
+  @Option(
+      name = "line_terminator_null",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
+  public boolean lineTerminatorNull;
+
+  /** Ugly workaround since line terminator option default has to be constant expression. */
+  public String getLineTerminator() {
+    if (lineTerminatorNull) {
+      return "\0";
+    }
+
+    return System.lineSeparator();
+  }
 
   @Option(
       name = "infer_universe_scope",
@@ -110,7 +128,7 @@ public class CommonQueryOptions extends OptionsBase {
 
   @Option(
       name = "include_aspects",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
@@ -135,6 +153,26 @@ public class CommonQueryOptions extends OptionsBase {
     }
     return settings;
   }
+
+  ///////////////////////////////////////////////////////////
+  // LOCATION OUTPUT FORMATTER OPTIONS                     //
+  ///////////////////////////////////////////////////////////
+
+  // TODO(tanzhengwei): Clean up in next major release
+  @Option(
+      name = "incompatible_display_source_file_location",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "False by default, displays the target of the source file. "
+              + "If true, displays the location of line 1 of source files in location outputs. "
+              + "This flag only exists for migration purposes.")
+  public boolean displaySourceFileLocation;
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
@@ -253,4 +291,30 @@ public class CommonQueryOptions extends OptionsBase {
               + "precise mode is not completely precise: the decision whether to compute an aspect "
               + "is decided in the analysis phase, which is not run during 'bazel query'.")
   public AspectResolver.Mode aspectDeps;
+
+  ///////////////////////////////////////////////////////////
+  // GRAPH OUTPUT FORMATTER OPTIONS                        //
+  ///////////////////////////////////////////////////////////
+
+  @Option(
+      name = "graph:node_limit",
+      defaultValue = "512",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The maximum length of the label string for a graph node in the output.  Longer labels"
+              + " will be truncated; -1 means no truncation.  This option is only applicable to"
+              + " --output=graph.")
+  public int graphNodeStringLimit;
+
+  @Option(
+      name = "graph:factored",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
+              + "will be merged together and their labels concatenated. This option is only "
+              + "applicable to --output=graph.")
+  public boolean graphFactored;
 }

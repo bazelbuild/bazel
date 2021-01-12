@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -23,7 +23,7 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     name = "linking_info",
     documented = false,
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc = "Helper class containing CC linking providers.")
 public interface LinkingInfoApi extends StarlarkValue {
 
@@ -31,5 +31,5 @@ public interface LinkingInfoApi extends StarlarkValue {
   CcLinkingContextApi<?> getCcLinkingContext();
 
   @StarlarkMethod(name = "cc_linking_outputs", structField = true, documented = false)
-  CcLinkingOutputsApi<?> getCcLinkingOutputs();
+  CcLinkingOutputsApi<?, ?> getCcLinkingOutputs();
 }

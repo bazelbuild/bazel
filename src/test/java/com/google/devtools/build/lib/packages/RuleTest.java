@@ -16,92 +16,66 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
-import org.junit.Before;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link Rule}.
- */
+/** Tests for {@link Rule}. */
 @RunWith(JUnit4.class)
-public class RuleTest {
-  private Scratch scratch = new Scratch("/workspace");
-  private EventCollectionApparatus events = new EventCollectionApparatus();
-  private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
-  private Root root;
-
-  @Before
-  public void setUp() throws Exception {
-    root = Root.fromPath(scratch.dir(""));
-  }
+public class RuleTest extends PackageLoadingTestCase {
 
   @Test
   public void testOutputNameError() throws Exception {
-    events.setFailFast(false);
-    Path buildFile = scratch.file("namecollide/BUILD",
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "namecollide/BUILD",
         "genrule(name = 'hello_world',",
-                "srcs = ['ignore_me.txt'],",
-                "outs = ['message.txt', 'hello_world'],",
-                "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
-
-    Package pkg = packages.createPackage("namecollide", RootedPath.toRootedPath(root, buildFile));
-    Rule genRule = pkg.getRule("hello_world");
+        "srcs = ['ignore_me.txt'],",
+        "outs = ['message.txt', 'hello_world'],",
+        "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+    Rule genRule = (Rule) getTarget("//namecollide:hello_world");
     assertThat(genRule.containsErrors()).isFalse(); // TODO: assertTrue
-    events.assertContainsWarning("target 'hello_world' is both a rule and a file; please choose "
-                               + "another name for the rule");
+    assertContainsEvent(
+        "target 'hello_world' is both a rule and a file; please choose another name for the rule",
+        ImmutableSet.of(EventKind.WARNING));
   }
 
   @Test
   public void testIsLocalTestRuleForLocalEquals1() throws Exception {
-    Path buildFile = scratch.file("x/BUILD",
+    scratch.file(
+        "x/BUILD",
         "cc_test(name = 'y',",
         "          srcs = ['a'],",
         "          local = 0)",
         "cc_test(name = 'z',",
         "          srcs = ['a'],",
         "          local = 1)");
-    Package pkg = packages.createPackage("x", RootedPath.toRootedPath(root, buildFile));
-    Rule y = pkg.getRule("y");
+    Rule y = (Rule) getTarget("//x:y");
     assertThat(TargetUtils.isLocalTestRule(y)).isFalse();
-    Rule z = pkg.getRule("z");
+    Rule z = (Rule) getTarget("//x:z");
     assertThat(TargetUtils.isLocalTestRule(z)).isTrue();
   }
 
   @Test
   public void testDeprecation() throws Exception {
-    Path buildFile = scratch.file("x/BUILD",
-        "cc_test(name = 'y')",
-        "cc_test(name = 'z', deprecation = 'Foo')");
-    Package pkg = packages.createPackage("x", RootedPath.toRootedPath(root, buildFile));
-    Rule y = pkg.getRule("y");
+    scratch.file("x/BUILD", "cc_test(name = 'y')", "cc_test(name = 'z', deprecation = 'Foo')");
+    Rule y = (Rule) getTarget("//x:y");
     assertThat(TargetUtils.getDeprecation(y)).isNull();
-    Rule z = pkg.getRule("z");
+    Rule z = (Rule) getTarget("//x:z");
     assertThat(TargetUtils.getDeprecation(z)).isEqualTo("Foo");
   }
 
   @Test
   public void testVisibilityValid() throws Exception {
-    Package pkg =
-        packages.createPackage(
-            "x",
-            RootedPath.toRootedPath(
-                root,
-                scratch.file(
-                    "x/BUILD",
-                    "cc_binary(name = 'pr',",
-                    "          visibility = ['//visibility:private'])",
-                    "cc_binary(name = 'pu',",
-                    "          visibility = ['//visibility:public'])",
-                    "cc_binary(name = 'cu',",
-                    "          visibility = ['//a:b'])")));
-
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(name = 'pr', visibility = ['//visibility:private'])",
+        "cc_binary(name = 'pu', visibility = ['//visibility:public'])",
+        "cc_binary(name = 'cu', visibility = ['//a:b'])");
+    Package pkg = getTarget("//x:BUILD").getPackage();
     assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(ConstantRuleVisibility.PUBLIC);
     assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(ConstantRuleVisibility.PRIVATE);
   }

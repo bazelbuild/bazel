@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.common.options.OptionsProvider;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -118,7 +118,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   static {
     boolean loadJniWorked = false;
     try {
-      UnixJniLoader.loadJni();
+      JniLoader.loadJni();
       loadJniWorked = true;
     } catch (UnsatisfiedLinkError ignored) {
       // Unfortunately, we compile this class into the Bazel bootstrap binary, which doesn't have

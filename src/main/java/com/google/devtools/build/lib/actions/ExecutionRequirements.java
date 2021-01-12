@@ -195,6 +195,9 @@ public class ExecutionRequirements {
   /** Disables remote execution of a spawn. Note: does not disable remote caching */
   public static final String NO_REMOTE_EXEC = "no-remote-exec";
 
+  /** Tag for Google internal use. Requires local execution with correct permissions. */
+  public static final String NO_TESTLOASD = "no-testloasd";
+
   /**
    * Disables both remote execution and remote caching of a spawn. This is the equivalent of using
    * no-remote-cache and no-remote-exec together.

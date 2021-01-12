@@ -85,8 +85,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   AbstractExceptionalParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-      final ExtendedEventHandler reporter,
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
+      ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
@@ -124,10 +124,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           valueVersion,
           evaluatorContext.getGraphVersion());
 
-      if (value != null) {
-        ValueWithMetadata valueWithMetadata =
-            ValueWithMetadata.wrapWithMetadata(entry.getValueMaybeWithMetadata());
-        replay(valueWithMetadata);
+      SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
+      if (valueMaybeWithMetadata != null) {
+        replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
       }
 
       // For most nodes we do not inform the progress receiver if they were already done when we
@@ -171,7 +170,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         informProgressReceiverThatValueIsDone(skyKey, batch.get(skyKey));
       }
       // Note that the 'catastrophe' parameter doesn't really matter here (it's only used for
-      // sanity checking).
+      // checking).
       return constructResultExceptionally(skyKeySet, null, /*catastrophe=*/ false);
     }
 
@@ -191,7 +190,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // Errors, even cached ones, should halt evaluations not in keepGoing mode.
       if (!cachedErrorKeys.isEmpty()) {
         // Note that the 'catastrophe' parameter doesn't really matter here (it's only used for
-        // sanity checking).
+        // checking).
         return constructResultExceptionally(cachedErrorKeys, null, /*catastrophe=*/ false);
       }
     }
@@ -402,6 +401,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             "Current key %s has to be a top-level key: %s",
             errorKey,
             rootValues);
+        SkyValue valueMaybeWithMetadata = errorEntry.getValueMaybeWithMetadata();
+        if (valueMaybeWithMetadata != null) {
+          replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
+        }
         break;
       }
       SkyKey parent = Preconditions.checkNotNull(Iterables.getFirst(reverseDeps, null));
@@ -482,7 +485,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               parent,
               parentEntry.getTemporaryDirectDeps(),
               bubbleErrorInfo,
-              ImmutableSet.<SkyKey>of(),
+              ImmutableSet.of(),
               evaluatorContext);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
       boolean completedRun = false;
@@ -492,6 +495,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         factory.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
+        logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
         // Do nothing.
         // This throw happens if the builder requested the failed node, and then checked the
         // interrupted state later -- getValueOrThrow sets the interrupted bit after the failed
@@ -500,20 +504,19 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();
         ReifiedSkyFunctionException reifiedBuilderException =
-            new ReifiedSkyFunctionException(builderException, parent);
-        if (reifiedBuilderException.getRootCauseSkyKey().equals(parent)) {
-          error =
-              ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
-          Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
-              env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
-          bubbleErrorInfo.put(
-              errorKey,
-              ValueWithMetadata.error(
-                  ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  eventsAndPostables.first,
-                  eventsAndPostables.second));
-          continue;
-        }
+            new ReifiedSkyFunctionException(builderException);
+        error =
+            ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
+        Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
+            env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
+        ValueWithMetadata valueWithMetadata =
+            ValueWithMetadata.error(
+                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
+                eventsAndPostables.first,
+                eventsAndPostables.second);
+        replay(valueWithMetadata);
+        bubbleErrorInfo.put(errorKey, valueWithMetadata);
+        continue;
       } finally {
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();
@@ -530,12 +533,13 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
           env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
-      bubbleErrorInfo.put(
-          errorKey,
+      ValueWithMetadata valueWithMetadata =
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
               eventsAndPostables.first,
-              eventsAndPostables.second));
+              eventsAndPostables.second);
+      replay(valueWithMetadata);
+      bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
@@ -589,8 +593,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         }
         continue;
       }
-      // Replaying here is necessary for error bubbling and other cases.
-      replay(valueWithMetadata);
       SkyValue value = valueWithMetadata.getValue();
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);

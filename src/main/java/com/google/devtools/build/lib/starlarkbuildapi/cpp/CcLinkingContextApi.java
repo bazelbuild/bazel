@@ -14,20 +14,23 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Wrapper for every C++ linking provider. */
 @StarlarkBuiltin(
     name = "LinkingContext",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
@@ -61,4 +64,15 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       doc = "Returns the depset of linker inputs.",
       structField = true)
   Depset getStarlarkLinkerInputs();
+
+  @StarlarkMethod(name = "linkstamps", documented = false, useStarlarkThread = true)
+  Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "go_link_c_archive",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Rule class definitions used by (almost) every rule.
@@ -185,13 +187,15 @@ public class BaseRuleClasses {
                   .value(false)
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("shard_count", INTEGER).value(-1))
+          .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
           .add(
               attr("local", BOOLEAN)
                   .value(false)
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("args", STRING_LIST))
+          .add(attr("env", STRING_DICT))
+          .add(attr("env_inherit", STRING_LIST))
           // Input files for every test action
           .add(
               attr("$test_wrapper", LABEL)
@@ -446,6 +450,11 @@ public class BaseRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
                   .value(ImmutableList.of()))
+          .add(
+              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                  // This should be configurable to allow for complex types of restrictions.
+                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 
@@ -468,6 +477,7 @@ public class BaseRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("args", STRING_LIST))
+          .add(attr("env", STRING_DICT))
           .add(attr("output_licenses", LICENSE))
           .add(
               attr("$is_executable", BOOLEAN)

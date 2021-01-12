@@ -86,7 +86,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   @Override
   public ProviderApi provider(String doc, Object fields, StarlarkThread thread)
       throws EvalException {
-    FakeProviderApi fakeProvider = new FakeProviderApi();
+    FakeProviderApi fakeProvider = new FakeProviderApi(null);
     // Field documentation will be output preserving the order in which the fields are listed.
     ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();
     if (fields instanceof Sequence) {
@@ -226,7 +226,10 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
   @Override
   public ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread) {
+      Sequence<?> execCompatibleWith,
+      Sequence<?> toolchains,
+      Boolean copyFromRule,
+      StarlarkThread thread) {
     return new FakeExecGroup();
   }
 

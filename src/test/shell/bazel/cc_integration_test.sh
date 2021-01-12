@@ -76,8 +76,8 @@ cc_binary(
 )
 
 cc_binary(
-  name = "bad",
-  srcs = ["bad.cc"],
+  name = "still_ok",
+  srcs = ["still_ok.cc"],
   deps = ["@foo//foo"],
 )
 EOF
@@ -90,7 +90,7 @@ int main() {
 }
 EOF
 
-  cat > bad.cc <<EOF
+  cat > still_ok.cc <<EOF
 #include <stdio.h>
 #include "foo/v1/foo.h"
 int main() {
@@ -98,8 +98,34 @@ int main() {
 }
 EOF
 
-  bazel build :bad && fail "Should not have found include at repository-relative path"
   bazel build :ok || fail "Should have found include at synthetic path"
+  bazel build :still_ok \
+    || fail "Should have found include at repository-relative path"
+}
+
+
+function test_include_validation_sandbox_disabled() {
+  local workspace="${FUNCNAME[0]}"
+  mkdir -p "${workspace}"/lib
+
+  create_workspace_with_default_repos "${workspace}/WORKSPACE"
+  cat >> "${workspace}/BUILD" << EOF
+cc_library(
+    name = "foo",
+    srcs = ["lib/foo.cc"],
+    hdrs = ["lib/foo.h"],
+    strip_include_prefix = "lib",
+)
+EOF
+  cat >> "${workspace}/lib/foo.cc" << EOF
+#include "foo.h"
+EOF
+
+  touch "${workspace}/lib/foo.h"
+
+  cd "${workspace}"
+  bazel build --spawn_strategy=standalone //:foo  &>"$TEST_log" \
+    || fail "Build failed but should have succeeded"
 }
 
 function test_tree_artifact_headers_are_invalidated() {
@@ -923,6 +949,10 @@ cc_binary(
   srcs = ["ok.cc"],
 )
 EOF
+  # As long as the default workspace suffix runs cc_configure the local_config_cc toolchain suite will be evaluated.
+  # Ensure the fake cc_toolchain_suite target doesn't have any errors.
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
+    fail "Fake toolchain target causes analysis errors"
 
   # This only shows reliably for query due to ordering issues in how Bazel shows
   # errors.
@@ -1069,7 +1099,7 @@ EOF
 
   expect_log "$object_file$stdcpp$lm"
 
-  bazel build //foo \
+  bazel build --noincompatible_linkopts_to_linklibs //foo \
     || fail "Build failed but should have succeeded"
   tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
 

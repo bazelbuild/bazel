@@ -17,48 +17,26 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
-import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * A test for {@link InputFile}.
- */
+/** A test for {@link InputFile}. */
 @RunWith(JUnit4.class)
-public class InputFileTest {
+public class InputFileTest extends PackageLoadingTestCase {
 
   private Path pathX;
   private Path pathY;
   private Package pkg;
 
-  private EventCollectionApparatus events = new EventCollectionApparatus();
-  private Scratch scratch = new Scratch("/workspace");
-  private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
-  private Root root;
-
-  @Before
-  public void setUp() throws Exception {
-    root = Root.fromPath(scratch.dir(""));
-  }
-
   @Before
   public final void writeFiles() throws Exception  {
-    Path buildfile =
-        scratch.file(
-            "pkg/BUILD",
-            "genrule(name = 'dummy', ",
-            "        cmd = '', ",
-            "        outs = [], ",
-            "        srcs = ['x', 'subdir/y'])");
-    pkg = packages.createPackage("pkg", RootedPath.toRootedPath(root, buildfile));
-    events.assertNoWarningsOrErrors();
+    scratch.file("pkg/BUILD", "genrule(name='dummy', cmd='', outs=[], srcs=['x', 'subdir/y'])");
+    pkg = getTarget("//pkg:BUILD").getPackage();
+    assertNoEvents();
 
     this.pathX = scratch.file("pkg/x", "blah");
     this.pathY = scratch.file("pkg/subdir/y", "blah blah");

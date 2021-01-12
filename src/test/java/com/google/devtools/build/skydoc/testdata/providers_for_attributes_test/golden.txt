@@ -44,7 +44,7 @@ This rule does things.
           this is the first attribute.
         </p>
         <p>
-          The dependencies of this attribute must provide: MyProviderInfo, PyInfo, Unknown Provider
+          The dependencies of this attribute must provide: MyProviderInfo, PyInfo, CcToolchainInfo
         </p>
       </td>
     </tr>

@@ -37,7 +37,9 @@ WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 # Ensure 0 timestamping for hermetic results.
 export ZERO_AR_DATE=1
 
-if "${MY_LOCATION}"/libtool_check_unique "$@"; then
+if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
+    echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
+elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
   # If there are no duplicate .o basenames,
   # libtool can be invoked with the original arguments.
   "${WRAPPER}" libtool "$@"
@@ -62,6 +64,11 @@ function hash_objfile() {
   echo "$SYMLINK_NAME"
 }
 
+python_executable=/usr/bin/python2.7
+if [[ ! -x "$python_executable" ]]; then
+  python_executable=python
+fi
+
 ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -82,7 +89,7 @@ while [[ $# -gt 0 ]]; do
       HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
       rm -f "${HASHED_FILELIST}"
       # Use python helper script for fast md5 calculation of many strings.
-      python "${MY_LOCATION}/make_hashed_objlist.py" \
+      "$python_executable" "${MY_LOCATION}/make_hashed_objlist.py" \
         "${ARG}" "${HASHED_FILELIST}" "${TEMPDIR}"
       ARGS+=("${HASHED_FILELIST}")
       ;;

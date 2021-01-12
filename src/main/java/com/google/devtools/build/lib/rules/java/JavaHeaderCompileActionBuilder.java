@@ -29,13 +29,12 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -100,7 +99,7 @@ public class JavaHeaderCompileActionBuilder {
   private final ImmutableList.Builder<String> javacOptsBuilder = ImmutableList.builder();
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
 
-  private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
   private boolean enableHeaderCompilerDirect = true;
@@ -226,8 +225,9 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
-  /** Sets the javabase inputs. */
-  public JavaHeaderCompileActionBuilder setAdditionalInputs(NestedSet<Artifact> additionalInputs) {
+  /** Sets additional inputs, e.g. for databinding support. */
+  public JavaHeaderCompileActionBuilder setAdditionalInputs(
+      ImmutableList<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
     this.additionalInputs = additionalInputs;
     return this;
@@ -247,8 +247,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Builds and registers the action for a header compilation. */
-  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase)
-      throws InterruptedException {
+  public void build(JavaToolchainProvider javaToolchain) throws InterruptedException {
     checkNotNull(outputDepsProto, "outputDepsProto must not be null");
     checkNotNull(sourceFiles, "sourceFiles must not be null");
     checkNotNull(sourceJars, "sourceJars must not be null");
@@ -312,38 +311,19 @@ public class JavaHeaderCompileActionBuilder {
 
     NestedSetBuilder<Artifact> mandatoryInputs =
         NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(additionalInputs)
+            .addAll(additionalInputs)
             .addTransitive(bootclasspathEntries)
             .addAll(sourceJars)
             .addAll(sourceFiles)
             .addTransitive(toolsJars);
 
-    ImmutableList<RunfilesSupplier> runfilesSuppliers = ImmutableList.of();
-    FilesToRunProvider headerCompiler =
+    JavaToolchainTool headerCompiler =
         useHeaderCompilerDirect
             ? javaToolchain.getHeaderCompilerDirect()
             : javaToolchain.getHeaderCompiler();
     // The header compiler is either a jar file that needs to be executed using
     // `java -jar <path>`, or an executable that can be run directly.
-    CustomCommandLine executableLine;
-    if (!headerCompiler.getExecutable().getExtension().equals("jar")) {
-      runfilesSuppliers = ImmutableList.of(headerCompiler.getRunfilesSupplier());
-      mandatoryInputs.addTransitive(headerCompiler.getFilesToRun());
-      executableLine =
-          CustomCommandLine.builder().addExecPath(headerCompiler.getExecutable()).build();
-    } else {
-      mandatoryInputs
-          .addTransitive(hostJavabase.javaBaseInputsMiddleman())
-          .add(headerCompiler.getExecutable());
-      executableLine =
-          CustomCommandLine.builder()
-              .addPath(hostJavabase.javaBinaryExecPathFragment())
-              .add("-Xverify:none")
-              .addAll(javaToolchain.getTurbineJvmOptions())
-              .add("-jar")
-              .addExecPath(headerCompiler.getExecutable())
-              .build();
-    }
+    CommandLine executableLine = headerCompiler.buildCommandLine(javaToolchain, mandatoryInputs);
 
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
@@ -365,8 +345,7 @@ public class JavaHeaderCompileActionBuilder {
 
     if (targetLabel != null) {
       commandLine.add("--target_label");
-      if (targetLabel.getPackageIdentifier().getRepository().isDefault()
-          || targetLabel.getPackageIdentifier().getRepository().isMain()) {
+      if (targetLabel.getRepository().isDefault() || targetLabel.getRepository().isMain()) {
         commandLine.addLabel(targetLabel);
       } else {
         // @-prefixed strings will be assumed to be params filenames and expanded,
@@ -419,7 +398,7 @@ public class JavaHeaderCompileActionBuilder {
                   .getConfiguration()
                   .modifiedExecutionInfo(executionInfo, "Turbine"),
               /* progressMessage= */ progressMessage,
-              /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
+              /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
               /* mnemonic= */ "Turbine",
               /* executeUnconditionally= */ false,
               /* extraActionInfoSupplier= */ null,
@@ -456,7 +435,7 @@ public class JavaHeaderCompileActionBuilder {
             /* owner= */ ruleContext.getActionOwner(),
             /* env= */ actionEnvironment,
             /* tools= */ toolsJars,
-            /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
+            /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* progressMessage= */ progressMessage,
             /* mandatoryInputs= */ mandatoryInputs.build(),
             /* transitiveInputs= */ classpathEntries,

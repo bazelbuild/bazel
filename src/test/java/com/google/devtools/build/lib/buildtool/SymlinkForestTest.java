@@ -113,6 +113,14 @@ public class SymlinkForestTest {
     return longest != null ? longest.getPackageFragment() : null;
   }
 
+  private static Root externalSourceRoot(Root outputBase, String repoName) {
+    return Root.fromPath(
+        outputBase
+            .asPath()
+            .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
+            .getRelative(repoName));
+  }
+
   @Test
   public void testLongestPathPrefix() {
     PathFragment a = PathFragment.create("A");
@@ -154,7 +162,8 @@ public class SymlinkForestTest {
   private static PackageIdentifier createExternalPkg(Root root, String repo, String pkg)
       throws IOException, LabelSyntaxException {
     if (root != null) {
-      Path repoRoot = root.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).getRelative(repo);
+      Path repoRoot =
+          root.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).getRelative(repo);
       repoRoot.getRelative(pkg).createDirectoryAndParents();
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
@@ -173,6 +182,13 @@ public class SymlinkForestTest {
 
   private static void assertLinksTo(Path fromRoot, Root toRoot, String relpart) throws IOException {
     assertLinksTo(fromRoot.getRelative(relpart), toRoot.getRelative(relpart));
+  }
+
+  private static void assertLinksToExternalRepo(Path fromRoot, Root toRoot, String repoName)
+      throws IOException {
+    assertLinksTo(
+        fromRoot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(repoName)),
+        toRoot.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).getRelative(repoName));
   }
 
   private static void assertLinksTo(Path fromRoot, Path toRoot) throws IOException {
@@ -267,8 +283,6 @@ public class SymlinkForestTest {
   public void testPlantSymlinkForest() throws Exception {
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     mainRepo.asPath().createDirectoryAndParents();
@@ -280,12 +294,16 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir_lib/pkg"), mainRepo)
             .put(createMainPkg(mainRepo, ""), mainRepo)
             // Remote repo without top-level package.
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             // Remote repo with and without top-level package.
-            .put(createExternalPkg(outputBase, "Y", ""), externalSourceRoot)
-            .put(createExternalPkg(outputBase, "Y", "dir_y/pkg"), externalSourceRoot)
+            .put(createExternalPkg(outputBase, "Y", ""), externalSourceRoot(outputBase, "Y"))
+            .put(
+                createExternalPkg(outputBase, "Y", "dir_y/pkg"),
+                externalSourceRoot(outputBase, "Y"))
             // Only top-level pkg.
-            .put(createExternalPkg(outputBase, "Z", ""), externalSourceRoot)
+            .put(createExternalPkg(outputBase, "Z", ""), externalSourceRoot(outputBase, "Z"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -300,18 +318,18 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "dir_main");
     assertLinksTo(linkRoot, mainRepo, "dir_lib");
     assertLinksTo(linkRoot, mainRepo, "file");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/Y");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/Z");
+    assertLinksToExternalRepo(linkRoot, outputBase, "X");
+    assertLinksToExternalRepo(linkRoot, outputBase, "Y");
+    assertLinksToExternalRepo(linkRoot, outputBase, "Z");
     assertThat(
             linkRoot
-                .getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME)
+                .getRelative(LabelConstants.EXTERNAL_PATH_PREFIX)
                 .getRelative("Y/file")
                 .exists())
         .isTrue();
     assertThat(
             linkRoot
-                .getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME)
+                .getRelative(LabelConstants.EXTERNAL_PATH_PREFIX)
                 .getRelative("Z/file")
                 .exists())
         .isTrue();
@@ -329,8 +347,6 @@ public class SymlinkForestTest {
   public void test_withSiblingRepoLayout_plantSymlinkForest() throws Exception {
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     mainRepo.asPath().createDirectoryAndParents();
@@ -342,12 +358,16 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir_lib/pkg"), mainRepo)
             .put(createMainPkg(mainRepo, ""), mainRepo)
             // Remote repo without top-level package.
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             // Remote repo with and without top-level package.
-            .put(createExternalPkg(outputBase, "Y", ""), externalSourceRoot)
-            .put(createExternalPkg(outputBase, "Y", "dir_y/pkg"), externalSourceRoot)
+            .put(createExternalPkg(outputBase, "Y", ""), externalSourceRoot(outputBase, "Y"))
+            .put(
+                createExternalPkg(outputBase, "Y", "dir_y/pkg"),
+                externalSourceRoot(outputBase, "Y"))
             // Only top-level pkg.
-            .put(createExternalPkg(outputBase, "Z", ""), externalSourceRoot)
+            .put(createExternalPkg(outputBase, "Z", ""), externalSourceRoot(outputBase, "Z"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -373,13 +393,13 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "file");
     assertLinksTo(
         linkRoot.getParentDirectory().getRelative("X"),
-        outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX + "/X"));
+        outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION + "/X"));
     assertLinksTo(
         linkRoot.getParentDirectory().getRelative("Y"),
-        outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX + "/Y"));
+        outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION + "/Y"));
     assertLinksTo(
         linkRoot.getParentDirectory().getRelative("Z"),
-        outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX + "/Z"));
+        outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION + "/Z"));
     assertThat(linkRoot.getParentDirectory().getRelative("Y/file").exists()).isTrue();
     assertThat(linkRoot.getParentDirectory().getRelative("Z/file").exists()).isTrue();
     assertThat(plantedSymlinks)
@@ -398,8 +418,6 @@ public class SymlinkForestTest {
     // main repo root that're presented in packageRootMap.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -412,7 +430,9 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir1/pkg/foo"), mainRepo)
             .put(createMainPkg(mainRepo, "dir2/pkg"), mainRepo)
             .put(createMainPkg(mainRepo, "dir3"), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -431,7 +451,7 @@ public class SymlinkForestTest {
     // because they are not presented in packageRootMap.
     assertThat(linkRoot.getChild("dir4").exists()).isFalse();
     assertThat(linkRoot.getChild("file").exists()).isFalse();
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
+    assertLinksToExternalRepo(linkRoot, outputBase, "X");
     assertThat(plantedSymlinks)
         .containsExactly(
             linkRoot.getRelative("dir1"),
@@ -445,8 +465,6 @@ public class SymlinkForestTest {
     // Test external/ is ignored even when packages like "//external/foo" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -459,7 +477,9 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir3"), mainRepo)
             // external/ should not be linked even we have "//external/foo" package
             .put(createMainPkg(mainRepo, "external/foo"), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -474,7 +494,7 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "dir1");
     assertLinksTo(linkRoot, mainRepo, "dir2");
     assertLinksTo(linkRoot, mainRepo, "dir3");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
+    assertLinksToExternalRepo(linkRoot, outputBase, "X");
     assertThat(outputBase.getRelative("external/foo").exists()).isFalse();
     assertThat(plantedSymlinks)
         .containsExactly(
@@ -489,8 +509,6 @@ public class SymlinkForestTest {
     // Test external/ is ignored when root package "//:" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -504,7 +522,9 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir2/pkg"), mainRepo)
             // Empty package will cause every top-level files to be linked, except external/
             .put(createMainPkg(mainRepo, ""), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -519,7 +539,7 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "dir1");
     assertLinksTo(linkRoot, mainRepo, "dir2");
     assertLinksTo(linkRoot, mainRepo, "dir3");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
+    assertLinksToExternalRepo(linkRoot, outputBase, "X");
     assertThat(outputBase.getRelative("external/foo").exists()).isFalse();
     assertThat(plantedSymlinks)
         .containsExactly(
@@ -535,8 +555,6 @@ public class SymlinkForestTest {
     // Test external/ is ignored even when packages like "//external/foo" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -549,7 +567,9 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir3"), mainRepo)
             // external/ should not be linked even we have "//external/foo" package
             .put(createMainPkg(mainRepo, "external/foo"), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -579,12 +599,15 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "dir3");
 
     assertThat(
-            outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).getRelative("X").exists())
+            outputBase
+                .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
+                .getRelative("X")
+                .exists())
         .isTrue();
     assertThat(outputBase.getRelative("execroot/X").exists()).isTrue();
     assertLinksTo(
         linkRoot.getParentDirectory().getRelative("X"), // Sibling of the main repo.
-        outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).getRelative("X"));
+        outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).getRelative("X"));
 
     assertThat(linkRoot.getRelative("external/foo").exists()).isTrue();
 
@@ -603,8 +626,6 @@ public class SymlinkForestTest {
     // Test external/ is ignored when root package "//:" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -615,7 +636,9 @@ public class SymlinkForestTest {
     ImmutableMap<PackageIdentifier, Root> packageRootMap =
         ImmutableMap.<PackageIdentifier, Root>builder()
             .put(createMainPkg(mainRepo, ""), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -635,12 +658,15 @@ public class SymlinkForestTest {
     //     └── X
 
     assertThat(
-            outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).getRelative("X").exists())
+            outputBase
+                .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
+                .getRelative("X")
+                .exists())
         .isTrue();
     assertThat(outputBase.getRelative("execroot/X").exists()).isTrue();
     assertLinksTo(
         linkRoot.getParentDirectory().getRelative("X"), // Sibling of the main repo.
-        outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).getRelative("X"));
+        outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).getRelative("X"));
 
     assertThat(linkRoot.getRelative("external/foo").exists()).isTrue();
 
@@ -680,8 +706,6 @@ public class SymlinkForestTest {
   public void testNotSymlinkedDirectoriesInExecRootAllInMainRepo() throws Exception {
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -695,7 +719,9 @@ public class SymlinkForestTest {
             .put(createMainPkg(mainRepo, "dir2/pkg"), mainRepo)
             // Empty package will cause every top-level files to be linked, except external/
             .put(createMainPkg(mainRepo, ""), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -710,7 +736,7 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "dir1");
     assertLinksTo(linkRoot, mainRepo, "dir2");
     assertLinksTo(linkRoot, mainRepo, "dir3");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
+    assertLinksToExternalRepo(linkRoot, outputBase, "X");
     assertThat(linkRoot.getChild("build").exists()).isFalse();
     assertThat(plantedSymlinks)
         .containsExactly(
@@ -774,8 +800,6 @@ public class SymlinkForestTest {
   public void testNotSymlinkedDirectoriesInExecRootPartialMainRepo1() throws Exception {
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
-    Root externalSourceRoot =
-        Root.fromPath(outputBase.asPath().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME));
     Path linkRoot = outputBase.getRelative("execroot/ws_name");
 
     linkRoot.createDirectoryAndParents();
@@ -787,7 +811,9 @@ public class SymlinkForestTest {
         ImmutableMap.<PackageIdentifier, Root>builder()
             .put(createMainPkg(mainRepo, "dir1/pkg/foo"), mainRepo)
             .put(createMainPkg(mainRepo, "dir2/pkg"), mainRepo)
-            .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), externalSourceRoot)
+            .put(
+                createExternalPkg(outputBase, "X", "dir_x/pkg"),
+                externalSourceRoot(outputBase, "X"))
             .build();
 
     ImmutableList<Path> plantedSymlinks =
@@ -801,7 +827,7 @@ public class SymlinkForestTest {
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
     assertLinksTo(linkRoot, mainRepo, "dir2");
-    assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
+    assertLinksToExternalRepo(linkRoot, outputBase, "X");
     assertThat(linkRoot.getChild("build").exists()).isFalse();
     // Not part of the package roots.
     assertThat(linkRoot.getChild("dir3").exists()).isFalse();

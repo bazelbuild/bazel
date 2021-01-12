@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -508,24 +509,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsPreMigration() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_objc_compile_info_migration=false");
-    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
-    addBinWithTransitiveDepOnFrameworkImport(false);
-    CommandAction compileAction = compileAction("//lib:lib", "a.o");
-
-    assertThat(compileAction.getArguments()).doesNotContain("-framework");
-    assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
-  }
-
-  @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsPostMigration() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_objc_compile_info_migration=true");
-    addBinWithTransitiveDepOnFrameworkImport(true);
+  public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
+    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
     assertThat(compileAction.getArguments()).doesNotContain("-framework");
@@ -1126,12 +1112,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("srcs", "a.m")
         .write();
     CppCompileAction compileAction = (CppCompileAction) compileAction("//lib:lib", "a.o");
-    assertThat(
-            compileAction
-                .discoverInputsFromDotdFiles(
-                    new ActionExecutionContextBuilder().build(), null, null, null, false)
-                .toList())
-        .isEmpty();
+    assertThat(compileAction.getDotdFile()).isNull();
   }
 
   @Test
@@ -1260,8 +1241,46 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testClangCoptsForDebugModeWithoutHardcoding() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--compilation_mode=dbg",
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+    scratch.file("x/a.m");
+    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
+
+    assertThat(compileAction("//x:x", "a.o").getArguments()).doesNotContain("-DDEBUG=1");
+  }
+
+  @Test
+  public void testClangCoptsForDebugModeWithoutGlibOrHardcoding() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--compilation_mode=dbg",
+        "--objc_debug_with_GLIBCXX=false",
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+    scratch.file("x/a.m");
+    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
+
+    assertThat(compileAction("//x:x", "a.o").getArguments())
+        .containsNoneOf("-D_GLIBCXX_DEBUG", "-DDEBUG=1");
+  }
+
+  @Test
   public void testCompilationActionsForOptimized() throws Exception {
     checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, CodeCoverageMode.NONE);
+  }
+
+  @Test
+  public void testClangCoptsForOptimizedWithoutHardcoding() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--compilation_mode=opt",
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+    scratch.file("x/a.m");
+    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
+
+    assertThat(compileAction("//x:x", "a.o").getArguments()).doesNotContain("-DNDEBUG=1");
   }
 
   @Test
@@ -1463,7 +1482,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-iquote", ".")
                 .add(
                     "-iquote",
-                    getAppleCrosstoolConfiguration().getGenfilesFragment().getSafePathString())
+                    getAppleCrosstoolConfiguration()
+                        .getGenfilesFragment(RepositoryName.MAIN)
+                        .getSafePathString())
                 .add("-include", "objc/some.pch")
                 .add("-fobjc-arc")
                 .add("-c", "objc/a.m")
@@ -1691,8 +1712,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
     BuildConfiguration config = getAppleCrosstoolConfiguration();
-    assertContainsSublist(compileAction.getArguments(), ImmutableList.of(
-        "-iquote", config.getGenfilesFragment().getSafePathString()));
+    assertContainsSublist(
+        compileAction.getArguments(),
+        ImmutableList.of(
+            "-iquote", config.getGenfilesFragment(RepositoryName.MAIN).getSafePathString()));
   }
 
   @Test
@@ -2131,18 +2154,34 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testArtifactsToAlwaysBuild() throws Exception {
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "objc_library(name = 'x', srcs = ['x.m'], non_arc_srcs = ['x2.m'], deps = [':y'])",
+            "objc_library(name = 'y', srcs = ['y.m'], non_arc_srcs = ['y2.m'], )");
+    assertThat(
+            ActionsTestUtil.sortedBaseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
+        .isEqualTo("x.o x2.o y.o y2.o");
+  }
+
+  @Test
   public void testLangObjcFeature() throws Exception {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
     ConfiguredTarget x =
         scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
-    Artifact header =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS), "x.h.processed");
 
-    CommandAction compileAction = (CommandAction) getGeneratingAction(header);
-    assertThat(compileAction.getArguments()).contains("-DDUMMY_LANG_OBJC");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/x.h.processed", x).getArguments())
+        .contains("-DDUMMY_LANG_OBJC");
+  }
+
+  private CppCompileAction getGeneratingCompileAction(
+      String packageRelativePath, ConfiguredTarget owner) {
+    return (CppCompileAction) getGeneratingAction(getBinArtifact(packageRelativePath, owner));
   }
 
   @Test
@@ -2173,6 +2212,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             ActionsTestUtil.baseNamesOf(
                 getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS)))
         .isEqualTo("y.h.processed");
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
+        .isEqualTo("y.h.processed");
   }
 
   @Test
@@ -2190,5 +2231,55 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
     assertThat(validation).contains("y.h.processed");
     assertThat(validation).contains("z.h.processed");
+  }
+
+  @Test
+  public void testSrcCompileActionMnemonic() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/a.o", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+  }
+
+  @Test
+  public void testHeaderCompileActionMnemonic() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "objc_library(name = 'x', srcs = ['y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/y.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+  }
+
+  @Test
+  public void testIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "objc_library(name = 'x', srcs = ['a.m', 'y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/a.o", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/y.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompileHeader");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompileHeader");
   }
 }

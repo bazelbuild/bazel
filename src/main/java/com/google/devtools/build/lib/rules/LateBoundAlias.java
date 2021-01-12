@@ -48,7 +48,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite(ATTRIBUTE_NAME);
     if (actual == null) {
       return createEmptyConfiguredTarget(ruleContext);
@@ -76,7 +76,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
   }
 
   private ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();

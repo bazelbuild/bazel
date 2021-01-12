@@ -62,7 +62,7 @@ public abstract class PathAbstractTest {
     String normal1 = "/a/b/hello.txt";
     assertThat(create(normal1).getPathString()).isSameInstanceAs(normal1);
 
-    // Sanity check our testing strategy
+    // Check our testing strategy
     String notNormal = "/a/../b";
     assertThat(create(notNormal).getPathString()).isNotSameInstanceAs(notNormal);
   }

@@ -16,10 +16,12 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcDebugInfoContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Fake implementation of {@link CcInfoApi}. */
 public class FakeCcInfo implements CcInfoApi<FileApi> {
@@ -31,6 +33,11 @@ public class FakeCcInfo implements CcInfoApi<FileApi> {
 
   @Override
   public CcLinkingContextApi<?> getCcLinkingContext() {
+    return null;
+  }
+
+  @Override
+  public CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread) {
     return null;
   }
 
@@ -51,7 +58,8 @@ public class FakeCcInfo implements CcInfoApi<FileApi> {
   public static class Provider implements CcInfoApi.Provider<FileApi> {
 
     @Override
-    public CcInfoApi<FileApi> createInfo(Object ccCompilationContext, Object ccLinkingInfo)
+    public CcInfoApi<FileApi> createInfo(
+        Object ccCompilationContext, Object ccLinkingInfo, Object ccDebugInfoContext)
         throws EvalException {
       return new FakeCcInfo();
     }

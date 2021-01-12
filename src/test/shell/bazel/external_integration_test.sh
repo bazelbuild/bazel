@@ -2250,7 +2250,7 @@ def foo_repos():
     )
 EOF
 
-  bazel build --record_rule_instantiation_callstack @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
+  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
   inplace-sed -e "s?$WRKDIR/?WRKDIR/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
 
   expect_log 'error.*repository.*foo'
@@ -2326,7 +2326,7 @@ load("@a//:notabuildfile.bzl", "x")
 EOF
   touch BUILD
 
-  bazel build --record_rule_instantiation_callstack //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
   inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
 
   expect_not_log '[iI]nternal [eE]rror'
@@ -2378,15 +2378,14 @@ data_repo(
 load("@data//:value.bzl", "value")
 EOF
 
-  # TODO(adonovan): add a test that the error message contains a hint to set the flag if unset.
-  bazel build --record_rule_instantiation_callstack //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
   inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
 
   expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
   # Also verify that the repository class and its definition is reported, to
   # help finding out where the implict dependency comes from.
   expect_log "Repository data instantiated at:"
-  expect_log ".../WORKSPACE:47"
+  expect_log ".../WORKSPACE:[0-9]*"
   expect_log "Repository rule data_repo defined at:"
   expect_log ".../withimplicit.bzl:6"
 }
@@ -2463,6 +2462,100 @@ EOF
       cd ..
     done
   done
+}
+
+function test_external_java_target_depends_on_external_resources() {
+  local test_repo1=$TEST_TMPDIR/repo1
+  local test_repo2=$TEST_TMPDIR/repo2
+
+  mkdir -p $test_repo1/a
+  mkdir -p $test_repo2
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+local_repository(name = 'repo1', path='$test_repo1')
+local_repository(name = 'repo2', path='$test_repo2')
+EOF
+  cat > BUILD <<'EOF'
+java_binary(
+    name = "a_bin",
+    runtime_deps = ["@repo1//a:a"],
+    main_class = "a.A",
+)
+EOF
+
+  touch $test_repo1/WORKSPACE
+  cat > $test_repo1/a/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "a",
+    srcs = ["A.java"],
+    resources = ["@repo2//:resource_files"],
+)
+EOF
+  cat > $test_repo1/a/A.java <<EOF
+package a;
+
+public class A {
+    public static void main(String args[]) {
+    }
+}
+EOF
+
+  touch $test_repo2/WORKSPACE
+  cat > $test_repo2/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "resource_files",
+    srcs = ["resource.txt"]
+)
+EOF
+
+  cat > $test_repo2/resource.txt <<EOF
+RESOURCE
+EOF
+
+  bazel build a_bin >& $TEST_log  || fail "Expected build/run to succeed"
+}
+
+function test_query_external_packages() {
+  setup_skylib_support
+
+  mkdir -p external/nested
+  mkdir -p not-external
+
+  cat > external/BUILD <<EOF
+filegroup(
+    name = "a1",
+    srcs = [],
+)
+EOF
+  cat > external/nested/BUILD <<EOF
+filegroup(
+    name = "a2",
+    srcs = [],
+)
+EOF
+
+  cat > not-external/BUILD <<EOF
+filegroup(
+    name = "b",
+    srcs = [],
+)
+EOF
+
+  bazel query //... >& $TEST_log || fail "Expected build/run to succeed"
+  expect_log "//not-external:b"
+  expect_not_log "//external:a1"
+  expect_not_log "//external/nested:a2"
+
+  bazel query --experimental_sibling_repository_layout //... >& $TEST_log \ ||
+    fail "Expected build/run to succeed"
+  expect_log "//not-external:b"
+  # Targets in //external aren't supported yet.
+  expect_not_log "//external:a1"
+  expect_log "//external/nested:a2"
 }
 
 run_suite "external tests"

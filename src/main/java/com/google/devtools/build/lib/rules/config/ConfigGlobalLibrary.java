@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Settings;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
@@ -103,7 +103,11 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         }
       } else {
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        if (optionName.startsWith("experimental_") || optionName.startsWith("incompatible_")) {
+        // If any other flags need to be excepted, then this fix should be amended to instead be
+        // a commandline-specified set of allowed exceptions.
+        if (optionName.startsWith("experimental_")
+            || (optionName.startsWith("incompatible_")
+                && !optionName.equals("incompatible_enable_cc_toolchain_resolution"))) {
           throw Starlark.errorf(
               "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
                   + "--incompatible_* options",

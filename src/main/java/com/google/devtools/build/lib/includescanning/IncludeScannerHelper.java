@@ -99,7 +99,7 @@ class IncludeScannerHelper {
         contextKind = kind;
       } else {
         // If the source was not found, #include_next behaves exactly like #include.
-        inclusion = new Inclusion(inclusion.pathFragment, kind);
+        inclusion = Inclusion.create(inclusion.pathFragment, kind);
       }
     }
     return new InclusionWithContext(inclusion, contextPathPos, contextKind);

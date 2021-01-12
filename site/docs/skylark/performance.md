@@ -3,7 +3,8 @@ layout: documentation
 title: Optimizing performance
 ---
 
-# Optimizing performance
+# Optimizing Performance
+
 
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
@@ -192,10 +193,21 @@ ctx.actions.run(
 )
 ```
 
+## Hanging
+
+If Bazel appears to be hung, you can hit <kbd>Ctrl-&#92;</kbd> or send
+Bazel a `SIGQUIT` signal (`kill -3 $(bazel info server_pid)`) to get a thread
+dump in the file `$(bazel info output_base)/server/jvm.out`.
+
+Since you may not be able to run `bazel info` if bazel is hung, the
+`output_base` directory is usually the parent of the `bazel-<workspace>`
+symlink in your workspace directory.
+
 ## Performance profiling
 
 Bazel writes a JSON profile to `command.profile.gz` in the output base by
-default. You can configure the location with the `--profile` flag, for example
+default. You can configure the location with the
+[`--profile`](user-manual.html#flag--profile) flag, for example
 `--profile=/tmp/profile.gz`. Location ending with `.gz` are compressed with
 GZIP.
 
@@ -312,7 +324,7 @@ $ bazel analyze-profile /tmp/prof
 ```
 
 By default, it prints summary analysis information for the specified profile
-datafile. This includes cummaltive statistics for different task types for each
+datafile. This includes cumulative statistics for different task types for each
 build phase and an analysis of the critical path.
 
 The first section of the default output is an overview of the time spent

@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that belong in the global namespace. */
-@StarlarkGlobalLibrary
+@DocumentMethods
 public interface StarlarkBuildApiGlobals {
 
   @StarlarkMethod(
@@ -43,12 +43,10 @@ public interface StarlarkBuildApiGlobals {
       parameters = {
         @Param(
             name = "fragment",
-            type = String.class,
             named = true,
             doc = "The name of a configuration fragment which contains the late-bound value."),
         @Param(
             name = "name",
-            type = String.class,
             named = true,
             doc = "The name of the value to obtain from the configuration fragment."),
       },

@@ -393,6 +393,6 @@ public class PlatformMappingFunctionParserTest {
 
   private static PlatformMappingFunction.Mappings parse(String... lines)
       throws PlatformMappingFunction.PlatformMappingException {
-    return new PlatformMappingFunction.Parser(ImmutableList.copyOf(lines).iterator()).parse();
+    return PlatformMappingFunction.parse(ImmutableList.copyOf(lines));
   }
 }

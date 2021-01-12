@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.dynamic;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -69,40 +71,53 @@ public class DynamicExecutionModule extends BlazeModule {
     env.getEventBus().register(this);
   }
 
-  private List<Map.Entry<String, List<String>>> getLocalStrategies(
-      DynamicExecutionOptions options) {
+  @VisibleForTesting
+  ImmutableMap<String, List<String>> getLocalStrategies(DynamicExecutionOptions options)
+      throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
     // functionality here. Additionally, since we are still supporting --dynamic_worker_strategy,
     // but will deprecate it soon, we add its functionality to --dynamic_local_strategy. This allows
     // users to set --dynamic_local_strategy and not --dynamic_worker_strategy to stop defaulting to
-    // worker strategy.
+    // worker strategy. For simplicity, we add the default strategy first, it may be overridden
+    // later.
+    // ImmutableMap.Builder fails on duplicates, so we use a regular map first to remove dups.
+    Map<String, List<String>> localAndWorkerStrategies = new HashMap<>();
     // TODO(steinman): Deprecate --dynamic_worker_strategy and clean this up.
-    if (options.dynamicLocalStrategy == null || options.dynamicLocalStrategy.isEmpty()) {
-      String workerStrategy =
-          options.dynamicWorkerStrategy.isEmpty() ? "worker" : options.dynamicWorkerStrategy;
-      return ImmutableList.of(
-          Maps.immutableEntry("", ImmutableList.of(workerStrategy, "sandboxed")));
-    }
+    List<String> defaultValue = Lists.newArrayList();
+    String workerStrategy =
+        options.dynamicWorkerStrategy.isEmpty() ? "worker" : options.dynamicWorkerStrategy;
+    defaultValue.addAll(ImmutableList.of(workerStrategy, "sandboxed"));
+    throwIfContainsDynamic(defaultValue, "--dynamic_local_strategy");
+    localAndWorkerStrategies.put("", defaultValue);
 
-    ImmutableList.Builder<Map.Entry<String, List<String>>> localAndWorkerStrategies =
-        ImmutableList.builder();
-    for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
-      if ("".equals(entry.getKey())) {
-        List<String> newValue = Lists.newArrayList(options.dynamicWorkerStrategy);
-        newValue.addAll(entry.getValue());
-        localAndWorkerStrategies.add(Maps.immutableEntry("", newValue));
-      } else {
-        localAndWorkerStrategies.add(entry);
+    if (!options.dynamicLocalStrategy.isEmpty()) {
+      for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
+        if ("".equals(entry.getKey())) {
+          List<String> newValue = Lists.newArrayList();
+          if (!options.dynamicWorkerStrategy.isEmpty()) {
+            newValue.add(options.dynamicWorkerStrategy);
+          }
+          newValue.addAll(entry.getValue());
+          localAndWorkerStrategies.put("", newValue);
+        } else {
+          localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
+        }
+        throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
       }
     }
-    return localAndWorkerStrategies.build();
+    return ImmutableMap.copyOf(localAndWorkerStrategies);
   }
 
-  private List<Map.Entry<String, List<String>>> getRemoteStrategies(
-      DynamicExecutionOptions options) {
-    return (options.dynamicRemoteStrategy == null || options.dynamicRemoteStrategy.isEmpty())
-        ? ImmutableList.of(Maps.immutableEntry("", ImmutableList.of("remote")))
-        : options.dynamicRemoteStrategy;
+  private ImmutableMap<String, List<String>> getRemoteStrategies(DynamicExecutionOptions options)
+      throws AbruptExitException {
+    Map<String, List<String>> strategies = new HashMap<>(); // Needed to dedup
+    for (Map.Entry<String, List<String>> e : options.dynamicRemoteStrategy) {
+      throwIfContainsDynamic(e.getValue(), "--dynamic_remote_strategy");
+      strategies.put(e.getKey(), e.getValue());
+    }
+    return options.dynamicRemoteStrategy.isEmpty()
+        ? ImmutableMap.of("", ImmutableList.of("remote"))
+        : ImmutableMap.copyOf(strategies);
   }
 
   @Override
@@ -126,20 +141,17 @@ public class DynamicExecutionModule extends BlazeModule {
     if (options.legacySpawnScheduler) {
       strategy = new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
     } else {
-      strategy = new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
+      strategy =
+          new DynamicSpawnStrategy(
+              executorService,
+              options,
+              this::getExecutionPolicy,
+              this::getPostProcessingSpawnForLocalExecution);
     }
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
 
-    for (Map.Entry<String, List<String>> mnemonicToStrategies : getLocalStrategies(options)) {
-      throwIfContainsDynamic(mnemonicToStrategies.getValue(), "--dynamic_local_strategy");
-      registryBuilder.addDynamicLocalStrategiesByMnemonic(
-          mnemonicToStrategies.getKey(), mnemonicToStrategies.getValue());
-    }
-    for (Map.Entry<String, List<String>> mnemonicToStrategies : getRemoteStrategies(options)) {
-      throwIfContainsDynamic(mnemonicToStrategies.getValue(), "--dynamic_remote_strategy");
-      registryBuilder.addDynamicRemoteStrategiesByMnemonic(
-          mnemonicToStrategies.getKey(), mnemonicToStrategies.getValue());
-    }
+    registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
+    registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
   }
 
   private void throwIfContainsDynamic(List<String> strategies, String flagName)
@@ -175,6 +187,18 @@ public class DynamicExecutionModule extends BlazeModule {
     }
 
     return ExecutionPolicy.ANYWHERE;
+  }
+
+  /**
+   * Returns a post processing {@link Spawn} if one needs to be executed after given {@link Spawn}
+   * when running locally.
+   *
+   * <p>The intention of this is to allow post-processing of the original {@linkplain Spawn spawn}
+   * when executing it locally. In particular, such spawn should never create outputs which are not
+   * included in the generating action of the original one.
+   */
+  protected Optional<Spawn> getPostProcessingSpawnForLocalExecution(Spawn spawn) {
+    return Optional.empty();
   }
 
   @Override

@@ -29,13 +29,12 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaHostRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
@@ -63,7 +62,7 @@ public class JavaRules implements RuleSet {
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationOptions(JavaOptions.class);
-    builder.addConfigurationFragment(new JavaConfigurationLoader());
+    builder.addConfigurationFragment(JavaConfiguration.class);
 
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
 
@@ -71,7 +70,6 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new IjarBaseRule());
     builder.addRuleDefinition(new JavaToolchainBaseRule());
     builder.addRuleDefinition(new JavaRuntimeBaseRule());
-    builder.addRuleDefinition(new JavaHostRuntimeBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
     builder.addRuleDefinition(new ProguardLibraryRule());
     builder.addRuleDefinition(new JavaImportBaseRule());

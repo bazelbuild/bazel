@@ -19,9 +19,9 @@ import com.google.common.collect.UnmodifiableIterator;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A sequence returned by the {@code range} function invocation.
@@ -36,7 +36,7 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
  */
 @StarlarkBuiltin(
     name = "range",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "A language built-in type to support ranges. Example of range literal:<br>"
             + "<pre class=language-python>x = range(1, 10, 3)</pre>"
@@ -49,13 +49,14 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
             + "range(10)[3:0:-1]  # range(3, 0, -1)</pre>"
             + "Ranges are immutable, as in Python 3.")
 @Immutable
-final class RangeList extends AbstractList<Integer> implements Sequence<Integer> {
+final class RangeList extends AbstractList<StarlarkInt> implements Sequence<StarlarkInt> {
 
   private final int start;
   private final int stop;
   private final int step;
   private final int size; // (derived)
 
+  // TODO(adonovan): use StarlarkInt computation, to avoid overflow.
   RangeList(int start, int stop, int step) {
     Preconditions.checkArgument(step != 0);
 
@@ -86,24 +87,29 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
 
   @Override
   public boolean contains(Object x) {
-    if (!(x instanceof Integer)) {
+    if (!(x instanceof StarlarkInt)) {
       return false;
     }
-    int i = (Integer) x;
-    // constant-time implementation
-    if (step > 0) {
-      return start <= i && i < stop && (i - start) % step == 0;
-    } else {
-      return stop < i && i <= start && (i - start) % step == 0;
+    try {
+      int i = ((StarlarkInt) x).toIntUnchecked();
+
+      // constant-time implementation
+      if (step > 0) {
+        return start <= i && i < stop && (i - start) % step == 0;
+      } else {
+        return stop < i && i <= start && (i - start) % step == 0;
+      }
+    } catch (IllegalArgumentException ex) {
+      return false; // x is not a signed 32-bit int
     }
   }
 
   @Override
-  public Integer get(int index) {
+  public StarlarkInt get(int index) {
     if (index < 0 || index >= size()) {
       throw new ArrayIndexOutOfBoundsException(index + ":" + this);
     }
-    return at(index);
+    return StarlarkInt.of(at(index));
   }
 
   @Override
@@ -113,7 +119,13 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
 
   @Override
   public int hashCode() {
-    return 7873 ^ (5557 * start) ^ (3251 * step) ^ (1091 * size);
+    if (size == 0) {
+      return 234982346;
+    } else if (size == 1) {
+      return Integer.hashCode(start);
+    } else {
+      return Objects.hash(start, size, step);
+    }
   }
 
   @Override
@@ -137,8 +149,8 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
   }
 
   @Override
-  public Iterator<Integer> iterator() {
-    return new UnmodifiableIterator<Integer>() {
+  public Iterator<StarlarkInt> iterator() {
+    return new UnmodifiableIterator<StarlarkInt>() {
       int cursor = start;
 
       @Override
@@ -147,19 +159,19 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
       }
 
       @Override
-      public Integer next() {
+      public StarlarkInt next() {
         if (!hasNext()) {
           throw new NoSuchElementException();
         }
         int current = cursor;
         cursor += step;
-        return current;
+        return StarlarkInt.of(current);
       }
     };
   }
 
   @Override
-  public Sequence<Integer> getSlice(Mutability mu, int start, int stop, int step) {
+  public Sequence<StarlarkInt> getSlice(Mutability mu, int start, int stop, int step) {
     return new RangeList(at(start), at(stop), step * this.step);
   }
 

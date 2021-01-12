@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.util.Fingerprint;
 import net.starlark.java.syntax.Location;
 
 /**
  * Declared Provider (a constructor for {@link Info}).
  *
- * <p>Declared providers can be declared either natively ({@link NativeProvider} or in Starlark
+ * <p>Declared providers can be declared either natively ({@link BuiltinProvider} or in Starlark
  * {@link StarlarkProvider}.
  *
  * <p>{@link Provider} serves both as "type identifier" for declared provider instances and as a
@@ -35,7 +36,7 @@ import net.starlark.java.syntax.Location;
 public interface Provider extends ProviderApi {
 
   /**
-   * Has this {@link Provider} been exported? All native providers are always exported. Starlark
+   * Has this {@link Provider} been exported? All built-in providers are always exported. Starlark
    * providers are exported if they are assigned to top-level name in a Starlark module.
    */
   boolean isExported();
@@ -47,13 +48,11 @@ public interface Provider extends ProviderApi {
   String getPrintableName();
 
   /**
-   * Returns an error message format string for instances to use for their {@link
-   * net.starlark.java.eval.ClassObject#getErrorMessageForUnknownField(String)}.
-   *
-   * <p>The format string must contain one {@code '%s'} placeholder for the field name.
+   * Returns an error message for instances to use for their {@link
+   * net.starlark.java.eval.Structure#getErrorMessageForUnknownField(String)}.
    */
-  default String getErrorMessageFormatForUnknownField() {
-    return String.format("'%s' value has no field or method '%%s'", getPrintableName());
+  default String getErrorMessageForUnknownField(String name) {
+    return String.format("'%s' value has no field or method '%s'", getPrintableName(), name);
   }
 
   /**
@@ -61,6 +60,8 @@ public interface Provider extends ProviderApi {
    */
   Location getLocation();
 
-  /** A serializable representation of {@link Provider}. */
-  public abstract static class Key {}
+  /** A serializable and fingerprintable representation of {@link Provider}. */
+  public abstract static class Key {
+    abstract void fingerprint(Fingerprint fp);
+  }
 }

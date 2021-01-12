@@ -20,9 +20,6 @@ ${module.documentation}
     #if ($method.documented())
     <li>
       <a href="#${method.name}">${method.name}</a>
-      #if (${method.deprecated})
-      (Deprecated)
-      #end
     </li>
     #end
   #end
@@ -61,9 +58,14 @@ ${module.documentation}
             </td>
             <td>
             #if (!$param.type.isEmpty())
-              <p><code>${param.type}</code></p>
+              <code>${param.type}</code>;
             #end
-              <p>${param.documentation}</p>
+            #if (!$param.defaultValue.isEmpty())
+             default = ${param.defaultValue}<br/>
+            #else
+             required<br/>
+            #end
+              ${param.documentation}
             </td>
           </tr>
         #end

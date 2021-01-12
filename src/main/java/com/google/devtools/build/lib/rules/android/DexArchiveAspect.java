@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -147,7 +147,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .exec()
                     .value(
                         Label.parseAbsoluteUnchecked(
@@ -163,12 +163,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
                 ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
-            .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
+            .requireAspectsWithBuiltinProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
-              .cfg(HostTransition.createFactory())
+              .cfg(ExecutionTransitionFactory.create())
               .exec()
               .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import net.starlark.java.syntax.Location;
@@ -31,7 +31,7 @@ import net.starlark.java.syntax.Location;
  * Typically these are re-raised ExecException throwables.
  */
 @ThreadSafe
-public class ActionExecutionException extends Exception {
+public class ActionExecutionException extends Exception implements DetailedException {
 
   private final ActionAnalysisMetadata action;
   private final NestedSet<Cause> rootCauses;
@@ -150,10 +150,7 @@ public class ActionExecutionException extends Exception {
     return detailedExitCode.getExitCode();
   }
 
-  /**
-   * Returns the pair of {@link ExitCode} and optional {@link FailureDetail} to return from this
-   * Bazel invocation because of this action execution failure.
-   */
+  @Override
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }

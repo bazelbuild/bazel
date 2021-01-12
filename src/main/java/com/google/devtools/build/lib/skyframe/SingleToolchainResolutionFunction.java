@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -132,55 +133,79 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     ImmutableMap.Builder<ConfiguredTargetKey, Label> builder = ImmutableMap.builder();
     ToolchainTypeInfo toolchainType = null;
 
-    debugMessage(eventHandler, "Looking for toolchain of type %s...", toolchainTypeLabel);
     for (DeclaredToolchainInfo toolchain : toolchains) {
       // Make sure the type matches.
       if (!toolchain.toolchainType().typeLabel().equals(toolchainTypeLabel)) {
         continue;
       }
-      debugMessage(eventHandler, "  Considering toolchain %s...", toolchain.toolchainLabel());
+
+      // Make sure the target setting matches.
+      if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
+        String mismatchValues =
+            toolchain.targetSettings().stream()
+                .filter(configProvider -> !configProvider.matches())
+                .map(configProvider -> configProvider.label().getName())
+                .collect(joining(", "));
+        debugMessage(
+            eventHandler,
+            "    Type %s: %s platform %s: Rejected toolchain %s; mismatching config settings: %s",
+            toolchainTypeLabel,
+            "target",
+            targetPlatform.label(),
+            toolchain.toolchainLabel(),
+            mismatchValues);
+        continue;
+      }
 
       // Make sure the target platform matches.
       if (!checkConstraints(
-          eventHandler, toolchain.targetConstraints(), "target", targetPlatform)) {
-        debugMessage(
-            eventHandler,
-            "  Rejected toolchain %s, because of target platform mismatch",
-            toolchain.toolchainLabel());
+          eventHandler,
+          toolchain.targetConstraints(),
+          "target",
+          targetPlatform,
+          toolchainTypeLabel,
+          toolchain.toolchainLabel())) {
         continue;
       }
 
       // Find the matching execution platforms.
       for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
-        PlatformInfo executionPlatform = platforms.get(executionPlatformKey);
-        if (!checkConstraints(
-            eventHandler, toolchain.execConstraints(), "execution", executionPlatform)) {
+        // Only check the toolchains if this is a new platform.
+        if (platformKeysSeen.contains(executionPlatformKey)) {
           continue;
         }
 
-        // Only add the toolchains if this is a new platform.
-        if (!platformKeysSeen.contains(executionPlatformKey)) {
-          toolchainType = toolchain.toolchainType();
-          builder.put(executionPlatformKey, toolchain.toolchainLabel());
-          platformKeysSeen.add(executionPlatformKey);
+        PlatformInfo executionPlatform = platforms.get(executionPlatformKey);
+        if (!checkConstraints(
+            eventHandler,
+            toolchain.execConstraints(),
+            "execution",
+            executionPlatform,
+            toolchainTypeLabel,
+            toolchain.toolchainLabel())) {
+          continue;
         }
+
+        debugMessage(
+            eventHandler,
+            "  Type %s: target platform %s: execution %s: Selected toolchain %s",
+            toolchainTypeLabel,
+            targetPlatform.label(),
+            executionPlatformKey.getLabel(),
+            toolchain.toolchainLabel());
+        toolchainType = toolchain.toolchainType();
+        builder.put(executionPlatformKey, toolchain.toolchainLabel());
+        platformKeysSeen.add(executionPlatformKey);
       }
     }
 
     ImmutableMap<ConfiguredTargetKey, Label> resolvedToolchainLabels = builder.build();
-    if (resolvedToolchainLabels.isEmpty()) {
-      debugMessage(eventHandler, "  No toolchains found");
-    } else {
+    if (toolchainType == null || resolvedToolchainLabels.isEmpty()) {
       debugMessage(
           eventHandler,
-          "  For toolchain type %s, possible execution platforms and toolchains: {%s}",
+          "  Type %s: target platform %s: No toolchains found.",
           toolchainTypeLabel,
-          resolvedToolchainLabels.entrySet().stream()
-              .map(e -> String.format("%s -> %s", e.getKey().getLabel(), e.getValue()))
-              .collect(joining(", ")));
-    }
-
-    if (toolchainType == null || resolvedToolchainLabels.isEmpty()) {
+          targetPlatform.label());
       throw new ToolchainResolutionFunctionException(
           new NoToolchainFoundException(toolchainTypeLabel));
     }
@@ -210,41 +235,57 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       @Nullable EventHandler eventHandler,
       ConstraintCollection toolchainConstraints,
       String platformType,
-      PlatformInfo platform) {
+      PlatformInfo platform,
+      Label toolchainTypeLabel,
+      Label toolchainLabel) {
 
     // Check every constraint_setting in either the toolchain or the platform.
     ImmutableSet<ConstraintSettingInfo> mismatchSettings =
         toolchainConstraints.diff(platform.constraints());
-    boolean matches = true;
-    for (ConstraintSettingInfo mismatchSetting : mismatchSettings) {
-      // If a constraint_setting has a default_constraint_value, and the platform
-      // sets a non-default constraint value for the same constraint_setting, then
-      // even toolchains with no reference to that constraint_setting will detect
-      // a mismatch here. This manifests as a toolchain resolution failure (#8778).
-      //
-      // To allow combining rulesets with their own toolchains in a single top-level
-      // workspace, toolchains that do not reference a constraint_setting should not
-      // be forced to match with it.
-      if (!toolchainConstraints.hasWithoutDefault(mismatchSetting)) {
-        continue;
-      }
-      matches = false;
 
+    // If a constraint_setting has a default_constraint_value, and the platform
+    // sets a non-default constraint value for the same constraint_setting, then
+    // even toolchains with no reference to that constraint_setting will detect
+    // a mismatch here. This manifests as a toolchain resolution failure (#8778).
+    //
+    // To allow combining rulesets with their own toolchains in a single top-level
+    // workspace, toolchains that do not reference a constraint_setting should not
+    // be forced to match with it.
+    ImmutableSet<ConstraintSettingInfo> mismatchSettingsWithDefault =
+        mismatchSettings.stream()
+            .filter(toolchainConstraints::hasWithoutDefault)
+            .collect(ImmutableSet.toImmutableSet());
+
+    if (!mismatchSettingsWithDefault.isEmpty()) {
+      String mismatchValues =
+          mismatchSettingsWithDefault.stream()
+              .filter(toolchainConstraints::has)
+              .map(s -> toolchainConstraints.get(s).label().getName())
+              .collect(joining(", "));
+      if (!mismatchValues.isEmpty()) {
+        mismatchValues = "; mismatching values: " + mismatchValues;
+      }
+
+      String missingSettings =
+          mismatchSettingsWithDefault.stream()
+              .filter(s -> !toolchainConstraints.has(s))
+              .map(s -> s.label().getName())
+              .collect(joining(", "));
+      if (!missingSettings.isEmpty()) {
+        missingSettings = "; missing: " + missingSettings;
+      }
       debugMessage(
           eventHandler,
-          "    Toolchain constraint %s has value %s, "
-              + "which does not match value %s from the %s platform %s",
-          mismatchSetting.label(),
-          toolchainConstraints.has(mismatchSetting)
-              ? toolchainConstraints.get(mismatchSetting).label()
-              : "<missing>",
-          platform.constraints().has(mismatchSetting)
-              ? platform.constraints().get(mismatchSetting).label()
-              : "<missing>",
+          "    Type %s: %s platform %s: Rejected toolchain %s%s%s",
+          toolchainTypeLabel,
           platformType,
-          platform.label());
+          platform.label(),
+          toolchainLabel,
+          mismatchValues,
+          missingSettings);
     }
-    return matches;
+
+    return mismatchSettingsWithDefault.isEmpty();
   }
 
   @Nullable

@@ -1,3 +1,5 @@
+@charset "utf-8";
+
 // Build Encyclopedia and Starlark Library
 
 pre.rule-signature {
@@ -54,6 +56,25 @@ $table-implicit-body-bg-color: #f0f0f0;
   }
 }
 
+ul.hlist {
+  margin: 0;
+  padding: 0;
+}
+
+ul.hlist li {
+  margin: 0;
+  display: inline;
+}
+
+ul.hlist li:after {
+  content: ' · ';
+  margin: 0 1ex;
+  font-weight: bold;
+}
+
+ul.hlist li:last-child:after {
+  content: none;
+}
 
 $toc-border-color: #c8e6c9;
 $toc-color: #757575;
@@ -85,7 +106,7 @@ $toc-color: #757575;
 
 // Command-line Reference
 dt {
-  margin-top: .5em;
+  margin-top: 0.5em;
 }
 
 dd {

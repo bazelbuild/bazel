@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
@@ -65,26 +66,28 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
       // Aliases are in toolchainTypeToResolved by the original alias label, not via the final
       // target's label.
       Label discoveredLabel = target.getConfiguredTarget().getOriginalLabel();
-      ToolchainTypeInfo toolchainType =
-          unloadedToolchainContext.toolchainTypeToResolved().inverse().get(discoveredLabel);
-      ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
 
-      // If the toolchainType hadn't been resolved to an actual target, resolution would have
-      // failed with an error much earlier. However, the target might still not be an actual
-      // toolchain.
-      if (toolchainType != null) {
-        if (toolchainInfo != null) {
-          toolchains.put(toolchainType, toolchainInfo);
-        } else {
-          throw new TargetNotToolchainException(toolchainType, discoveredLabel);
+      for (ToolchainTypeInfo toolchainType :
+          unloadedToolchainContext.toolchainTypeToResolved().inverse().get(discoveredLabel)) {
+        ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
+
+        // If the toolchainType hadn't been resolved to an actual target, resolution would have
+        // failed with an error much earlier. However, the target might still not be an actual
+        // toolchain.
+        if (toolchainType != null) {
+          if (toolchainInfo != null) {
+            toolchains.put(toolchainType, toolchainInfo);
+          } else {
+            throw new TargetNotToolchainException(toolchainType, discoveredLabel);
+          }
         }
-      }
 
-      // Find any template variables present for this toolchain.
-      TemplateVariableInfo templateVariableInfo =
-          target.getConfiguredTarget().get(TemplateVariableInfo.PROVIDER);
-      if (templateVariableInfo != null) {
-        templateVariableProviders.add(templateVariableInfo);
+        // Find any template variables present for this toolchain.
+        TemplateVariableInfo templateVariableInfo =
+            target.getConfiguredTarget().get(TemplateVariableInfo.PROVIDER);
+        if (templateVariableInfo != null) {
+          templateVariableProviders.add(templateVariableInfo);
+        }
       }
     }
 
@@ -208,6 +211,11 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
                   + ToolchainInfo.STARLARK_NAME,
               toolchainType.typeLabel(),
               resolvedTargetLabel));
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.MISSING_PROVIDER;
     }
   }
 }

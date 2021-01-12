@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
@@ -82,7 +81,7 @@ public class AndroidCommon {
 
   public static final InstrumentationSpec ANDROID_COLLECTION_SPEC =
       JavaCommon.JAVA_COLLECTION_SPEC.withDependencyAttributes(
-          "deps", "data", "exports", "runtime_deps", "binary_under_test");
+          "deps", "data", "exports", "instruments", "runtime_deps", "binary_under_test");
 
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("deps", "exports");
@@ -685,7 +684,7 @@ public class AndroidCommon {
             .setNeverlink(isNeverlink)
             .build();
 
-    // Do not convert the ResourceApk into native providers when it is created from
+    // Do not convert the ResourceApk into builtin providers when it is created from
     // Starlark via AndroidApplicationResourceInfo, because native dependency providers are not
     // created in the Starlark pipeline.
     if (resourceApk.isFromAndroidApplicationResourceInfo()
@@ -704,8 +703,6 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addNativeDeclaredProvider(

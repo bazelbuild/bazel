@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -24,7 +25,6 @@ import java.util.Locale;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -33,26 +33,20 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final StarlarkBuiltin module;
+  private final String title;
   private final Class<?> classObject;
   private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
   private TreeMap<String, StarlarkMethodDoc> methodMap;
-  private final String title;
-  private final boolean deprecated;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
-  public StarlarkBuiltinDoc(StarlarkBuiltin module, Class<?> classObject) {
+  public StarlarkBuiltinDoc(StarlarkBuiltin module, String title, Class<?> classObject) {
     this.module =
         Preconditions.checkNotNull(
             module, "Class has to be annotated with StarlarkBuiltin: %s", classObject);
+    this.title = title;
     this.classObject = classObject;
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, StarlarkJavaMethodDoc>create();
-    this.deprecated = classObject.isAnnotationPresent(StarlarkDeprecated.class);
-    if (module.title().isEmpty()) {
-      this.title = module.name();
-    } else {
-      this.title = module.title();
-    }
   }
 
   @Override
@@ -67,11 +61,6 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
 
   public String getTitle() {
     return title;
-  }
-
-  @Override
-  public boolean isDeprecated() {
-    return deprecated;
   }
 
   public StarlarkBuiltin getAnnotation() {
@@ -103,14 +92,16 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
       }
     }
     javaMethods.put(shortName, method);
-    // If the method is overloaded, getName() now returns a longer, unique name including
-    // the names of the parameters.
-    String uniqueName = method.getName();
-    Preconditions.checkState(
-        !methodMap.containsKey(uniqueName),
-        "There are multiple overloads of %s with the same signature!",
-        uniqueName);
-    methodMap.put(uniqueName, method);
+
+    // If the method is overloaded, getName() now returns a longer,
+    // unique name including the names of the parameters.
+    StarlarkMethodDoc prev = methodMap.put(method.getName(), method);
+    if (prev != null && !prev.getMethod().equals(method.getMethod())) {
+      throw new IllegalStateException(
+          String.format(
+              "Starlark type '%s' (%s) has distinct overloads of %s: %s, %s",
+              module.name(), classObject, method.getName(), method.getMethod(), prev.getMethod()));
+    }
   }
 
   public boolean javaMethodsNotCollected() {
@@ -125,7 +116,7 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
     return returnedMethods.addAll(javaMethods.values()).build();
   }
 
-  public Collection<StarlarkMethodDoc> getMethods() {
+  public ImmutableCollection<? extends StarlarkMethodDoc> getMethods() {
     ImmutableList.Builder<StarlarkMethodDoc> methods = ImmutableList.builder();
     if (javaConstructor != null) {
       methods.add(javaConstructor);

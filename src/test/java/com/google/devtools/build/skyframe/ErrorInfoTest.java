@@ -18,8 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.io.IOException;
 import org.junit.Test;
@@ -49,17 +47,14 @@ public class ErrorInfoTest {
   private static void runTestFromException(
       boolean isDirectlyTransient, boolean isTransitivelyTransient) {
     Exception exception = new IOException("ehhhhh");
-    SkyKey causeOfException = GraphTester.toSkyKey("CAUSE, 1234");
     DummySkyFunctionException dummyException =
         new DummySkyFunctionException(exception, isDirectlyTransient, /*isCatastrophic=*/ false);
 
-    ErrorInfo errorInfo = ErrorInfo.fromException(
-        new ReifiedSkyFunctionException(dummyException, causeOfException),
-        isTransitivelyTransient);
+    ErrorInfo errorInfo =
+        ErrorInfo.fromException(
+            new ReifiedSkyFunctionException(dummyException), isTransitivelyTransient);
 
-    assertThat(errorInfo.getRootCauses().toList()).containsExactly(causeOfException);
     assertThat(errorInfo.getException()).isSameInstanceAs(exception);
-    assertThat(errorInfo.getRootCauseOfException()).isSameInstanceAs(causeOfException);
     assertThat(errorInfo.getCycleInfo()).isEmpty();
     assertThat(errorInfo.isDirectlyTransient()).isEqualTo(isDirectlyTransient);
     assertThat(errorInfo.isTransitivelyTransient()).isEqualTo(
@@ -96,9 +91,7 @@ public class ErrorInfoTest {
 
     ErrorInfo errorInfo = ErrorInfo.fromCycle(cycle);
 
-    assertThat(errorInfo.getRootCauses().toList()).isEmpty();
     assertThat(errorInfo.getException()).isNull();
-    assertThat(errorInfo.getRootCauseOfException()).isNull();
     assertThat(errorInfo.isTransitivelyTransient()).isFalse();
     assertThat(errorInfo.isCatastrophic()).isFalse();
   }
@@ -112,35 +105,29 @@ public class ErrorInfoTest {
     ErrorInfo cycleErrorInfo = ErrorInfo.fromCycle(cycle);
 
     Exception exception1 = new IOException("ehhhhh");
-    SkyKey causeOfException1 = GraphTester.toSkyKey("CAUSE1, 1234");
     DummySkyFunctionException dummyException1 =
         new DummySkyFunctionException(exception1, /*isTransient=*/ true, /*isCatastrophic=*/ false);
-    ErrorInfo exceptionErrorInfo1 = ErrorInfo.fromException(
-        new ReifiedSkyFunctionException(dummyException1, causeOfException1),
-        /*isTransitivelyTransient=*/ false);
+    ErrorInfo exceptionErrorInfo1 =
+        ErrorInfo.fromException(
+            new ReifiedSkyFunctionException(dummyException1), /*isTransitivelyTransient=*/ false);
 
     // N.B this ErrorInfo will be catastrophic.
     Exception exception2 = new IOException("blahhhhh");
-    SkyKey causeOfException2 = GraphTester.toSkyKey("CAUSE2, 5678");
     DummySkyFunctionException dummyException2 =
         new DummySkyFunctionException(exception2, /*isTransient=*/ false, /*isCatastrophic=*/ true);
-    ErrorInfo exceptionErrorInfo2 = ErrorInfo.fromException(
-        new ReifiedSkyFunctionException(dummyException2, causeOfException2),
-        /*isTransitivelyTransient=*/ false);
+    ErrorInfo exceptionErrorInfo2 =
+        ErrorInfo.fromException(
+            new ReifiedSkyFunctionException(dummyException2), /*isTransitivelyTransient=*/ false);
 
     SkyKey currentKey = GraphTester.toSkyKey("CURRENT, 9876");
 
     ErrorInfo errorInfo = ErrorInfo.fromChildErrors(
         currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));
 
-    assertThat(errorInfo.getRootCauses().toList())
-        .containsExactly(causeOfException1, causeOfException2);
-
     // For simplicity we test the current implementation detail that we choose the first non-null
-    // (exception, cause) pair that we encounter. This isn't necessarily a requirement of the
-    // interface, but it makes the test convenient and is a way to document the current behavior.
+    // exception that we encounter. This isn't necessarily a requirement of the interface, but it
+    // makes the test convenient and is a way to document the current behavior.
     assertThat(errorInfo.getException()).isSameInstanceAs(exception1);
-    assertThat(errorInfo.getRootCauseOfException()).isSameInstanceAs(causeOfException1);
 
     assertThat(errorInfo.getCycleInfo()).containsExactly(
         new CycleInfo(
@@ -156,37 +143,9 @@ public class ErrorInfoTest {
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
-            () ->
-                new ErrorInfo(
-                    NestedSetBuilder.<SkyKey>emptySet(Order.COMPILE_ORDER),
-                    /*exception=*/ null,
-                    /*rootCauseOfException=*/ null,
-                    ImmutableList.<CycleInfo>of(),
-                    false,
-                    false,
-                    false));
+            () -> new ErrorInfo(/*exception=*/ null, ImmutableList.of(), false, false, false));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("At least one of exception and cycles must be non-null/empty, respectively");
-  }
-
-  @Test
-  public void testCannotCreateErrorInfoWithExceptionButNoRootCause() {
-    // Brittle, but confirms we failed for the right reason.
-    IllegalStateException e =
-        assertThrows(
-            IllegalStateException.class,
-            () ->
-                new ErrorInfo(
-                    NestedSetBuilder.<SkyKey>emptySet(Order.COMPILE_ORDER),
-                    new IOException("foo"),
-                    /*rootCauseOfException=*/ null,
-                    ImmutableList.<CycleInfo>of(),
-                    false,
-                    false,
-                    false));
-    assertThat(e)
-        .hasMessageThat()
-        .startsWith("exception and rootCauseOfException must both be null or non-null");
   }
 }

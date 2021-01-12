@@ -3,11 +3,12 @@ layout: documentation
 title: Extension overview
 ---
 
-# Extension overview
+# Extension Overview
 
 <!-- [TOC] -->
 
-## Getting started
+This page describes how to extend the BUILD language using macros
+and rules.
 
 Bazel extensions are files ending in `.bzl`. Use a [load statement](
 ../build-ref.html#load) to import a symbol from an extension.

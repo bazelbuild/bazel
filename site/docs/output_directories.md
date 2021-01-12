@@ -3,7 +3,9 @@ layout: documentation
 title: Output directory layout
 ---
 
-# Output directory layout
+# Output Directory Layout
+
+This page covers requirements and layout for output directories.
 
 ## Requirements
 

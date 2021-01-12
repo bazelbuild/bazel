@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
@@ -88,9 +87,6 @@ import java.util.List;
 /** J2ObjC transpilation aspect for Java and proto rules. */
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "J2ObjcAspect";
-
-  private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
-      "-fno-strict-overflow");
 
   private static LabelLateBoundDefault<ProtoConfiguration> getProtoToolchainLabel(
       String defaultValue) {
@@ -148,6 +144,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             ObjcConfiguration.class,
             ProtoConfiguration.class)
         .addRequiredToolchains(ccToolchainType)
+        .useToolchainTransition(true)
         .add(
             attr("$grep_includes", LABEL)
                 .cfg(HostTransition.createFactory())
@@ -272,10 +269,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()
                 .build();
+        ExtraCompileArgs extraCompileArgs =
+            j2objcCompileWithARC(ruleContext)
+                ? new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-arc-exceptions")
+                : new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-weak");
 
         compilationSupport
             .registerCompileAndArchiveActions(
-                common, EXTRA_COMPILE_ARGS, ImmutableList.<PathFragment>of())
+                common, extraCompileArgs, ImmutableList.<PathFragment>of())
             .registerFullyLinkAction(
                 compilationSupport.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
@@ -612,8 +613,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource)
-      throws InterruptedException {
+      J2ObjcSource j2ObjcSource) {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
@@ -713,6 +713,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
+  private static boolean j2objcCompileWithARC(RuleContext ruleContext) {
+    return ruleContext.getFragment(J2ObjcConfiguration.class).compileWithARC();
+  }
+
   private static J2ObjcSource javaJ2ObjcSource(
       RuleContext ruleContext,
       ImmutableList<Artifact> javaInputSourceFiles,
@@ -720,7 +724,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     PathFragment objcFileRootRelativePath =
         ruleContext.getUniqueDirectory(j2objcHeaderBase(ruleContext));
     PathFragment objcFileRootExecPath = ruleContext
-        .getConfiguration()
         .getBinFragment()
         .getRelative(objcFileRootRelativePath);
 
@@ -745,11 +748,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         objcHdrs,
         objcFileRootExecPath,
         SourceType.JAVA,
-        headerSearchPaths);
+        headerSearchPaths,
+        j2objcCompileWithARC(ruleContext));
   }
 
   private static J2ObjcSource protoJ2ObjcSource(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources) throws InterruptedException {
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
     PathFragment objcFileRootExecPath = getProtoOutputRoot(ruleContext);
 
     List<PathFragment> headerSearchPaths =
@@ -761,24 +765,18 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.h"),
         objcFileRootExecPath,
         SourceType.PROTO,
-        headerSearchPaths);
+        headerSearchPaths,
+        /*compileWithARC=*/ false); // generated protos do not support ARC.
   }
 
-  private static PathFragment getProtoOutputRoot(RuleContext ruleContext)
-      throws InterruptedException {
+  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
     return ruleContext
-        .getConfiguration()
         .getGenfilesFragment()
         .getRelative(
             ruleContext
                 .getLabel()
-                .getPackageIdentifier()
                 .getRepository()
-                .getExecPath(
-                    ruleContext
-                        .getAnalysisEnvironment()
-                        .getStarlarkSemantics()
-                        .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
+                .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout()));
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {
@@ -811,7 +809,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       RuleContext ruleContext,
       PathFragment objcFileRootExecPath,
       Collection<Artifact> sourcesToTranslate) {
-    PathFragment genRoot = ruleContext.getConfiguration().getGenfilesFragment();
+    PathFragment genRoot = ruleContext.getGenfilesFragment();
     List<PathFragment> headerSearchPaths = new ArrayList<>();
     headerSearchPaths.add(objcFileRootExecPath);
     // We add another header search path with gen root if we have generated sources to translate.
@@ -840,12 +838,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
 
     if (!transpiledSources.isEmpty() || !transpiledHeaders.isEmpty()) {
-      CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
-          .addNonArcSrcs(transpiledSources)
-          .setIntermediateArtifacts(intermediateArtifacts)
-          .addAdditionalHdrs(transpiledHeaders)
-          .build();
-      builder.setCompilationArtifacts(compilationArtifacts);
+      CompilationArtifacts.Builder compilationArtifactsBuilder =
+          new CompilationArtifacts.Builder()
+              .setIntermediateArtifacts(intermediateArtifacts)
+              .addAdditionalHdrs(transpiledHeaders);
+      if (j2objcCompileWithARC(ruleContext)) {
+        compilationArtifactsBuilder.addSrcs(transpiledSources);
+      } else {
+        compilationArtifactsBuilder.addNonArcSrcs(transpiledSources);
+      }
+      builder.setCompilationArtifacts(compilationArtifactsBuilder.build());
       builder.setHasModuleMap();
     }
 

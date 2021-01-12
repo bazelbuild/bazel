@@ -50,7 +50,7 @@ public class WorkerPoolTest {
   private FileSystem fileSystem;
   private int workerIds = 1;
 
-  private static class TestWorker extends Worker {
+  private static class TestWorker extends SingleplexWorker {
     TestWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
       super(workerKey, workerId, workDir, logFile);
     }

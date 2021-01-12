@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -47,8 +47,6 @@ import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
 /** Parser for WORKSPACE files. Fills in an ExternalPackage.Builder */
-// TODO(adonovan): make a simpler API around a single static function of this form:
-//  nextState = Workspace.executeChunk(environment, previousState).
 public class WorkspaceFactory {
 
   private final Package.Builder builder;
@@ -142,17 +140,27 @@ public class WorkspaceFactory {
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
               /*repoMapping=*/ ImmutableMap.of(),
+              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
               /*analysisRuleLabel=*/ null)
           .storeInThread(thread);
 
       List<String> globs = new ArrayList<>(); // unused
-      if (PackageFactory.checkBuildSyntax(file, globs, globs, new HashMap<>(), localReporter)) {
+      if (PackageFactory.checkBuildSyntax(
+          file,
+          globs,
+          globs,
+          new HashMap<>(),
+          error ->
+              localReporter.handle(
+                  Package.error(
+                      error.location(), error.message(), PackageLoading.Code.SYNTAX_ERROR)))) {
         try {
           Starlark.execFileProgram(prog, module, thread);
         } catch (EvalException ex) {
           localReporter.handle(
-              Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+              Package.error(
+                  null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
         }
       }
 
@@ -248,7 +256,7 @@ public class WorkspaceFactory {
       }
 
       @Override
-      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
         if (!args.isEmpty()) {
           throw new EvalException("unexpected positional arguments");

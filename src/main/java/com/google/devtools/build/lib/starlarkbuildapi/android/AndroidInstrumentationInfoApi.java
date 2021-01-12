@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 
@@ -32,7 +33,7 @@ import net.starlark.java.eval.EvalException;
             + "you will be broken when it is removed."
             + "Android instrumentation and target APKs to run in a test",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> extends StructApi {
 
   /** Name of this info object. */
@@ -44,6 +45,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   ApkT getTarget();
 
   /** Provider for {@link AndroidInstrumentationInfoApi}. */
@@ -62,14 +64,11 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
         parameters = {
           @Param(
               name = "target",
-              type = ApkInfoApi.class,
               named = true,
               doc = "The target ApkInfo of the instrumentation test.")
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = AndroidInstrumentationInfoApi.class,
-        receiverNameForDoc = NAME)
+    @StarlarkConstructor
     AndroidInstrumentationInfoApi<ApkT> createInfo(ApkT target) throws EvalException;
   }
 }

@@ -85,6 +85,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,7 +113,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      BuildLanguageOptions starlarkSemanticsOptions, Path... roots) {
+      BuildLanguageOptions buildLanguageOptions, Path... roots) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -124,7 +125,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            starlarkSemanticsOptions,
+            buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -606,12 +607,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testNonExistingStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:bad_extension.bzl', 'some_symbol')",
-        "genrule(name = gr,",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:bad_extension.bzl', 'some_symbol')");
     invalidatePackages();
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/starlark"));
@@ -635,12 +631,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "test/starlark/extension.bzl",
         "load('//test/starlark:bad_extension.bzl', 'some_symbol')",
         "a = 'a'");
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'a')",
-        "genrule(name = gr,",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:extension.bzl', 'a')");
     invalidatePackages();
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/starlark"));
@@ -653,7 +644,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             "error loading package 'test/starlark': "
-                + "in /workspace/test/starlark/extension.bzl: "
+                + "at /workspace/test/starlark/extension.bzl:1:6: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
     assertDetailedExitCode(
         errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
@@ -664,12 +655,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     Path extensionFilePath = scratch.resolve("/workspace/test/starlark/extension.bzl");
     FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'a')",
-        "genrule(name = gr,",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:extension.bzl', 'a')");
     invalidatePackages();
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/starlark"));
@@ -678,7 +664,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
-    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
     assertThat(errorInfo.getException())
         .hasMessageThat()
         .isEqualTo(
@@ -717,7 +702,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//p")));
   }
 
-  // See WorkspaceASTFunctionTest for tests that exercise load('@repo...').
+  // See WorkspaceFileFunctionTest for tests that exercise load('@repo...').
 
   @Test
   public void testLoadBadLabel() throws Exception {
@@ -1254,18 +1239,20 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Module cViaB = bLoads.get(":c.bzl");
     assertThat(cViaB).isSameInstanceAs(cViaA);
 
-    assertThat(cViaA.getGlobal("c")).isEqualTo(0);
+    assertThat(cViaA.getGlobal("c")).isEqualTo(StarlarkInt.of(0));
   }
 
   @Test
   public void veryBrokenPackagePostsDoneToProgressReceiver() throws Exception {
     reporter.removeHandler(failFastHandler);
 
+    // Note: syntax error (recovered), non-existent .bzl file.
     scratch.file("pkg/BUILD", "load('//does_not:exist.bzl', 'broken'");
     SkyKey key = PackageValue.key(PackageIdentifier.parse("@//pkg"));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), key, false, reporter);
-    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key);
+    assertContainsEvent("syntax error at 'newline': expected ,");
     assertThat(getSkyframeExecutor().getPackageProgressReceiver().progressState())
         .isEqualTo(new Pair<String, String>("1 packages loaded", ""));
   }
@@ -1306,9 +1293,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .contains("Symlink cycle: /workspace/foo/cycle");
     // And appropriate Skyframe root cause (N.B. since we want PackageFunction to rethrow in
     // situations like this, we want the PackageValue node to be its own root cause).
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(pkgKey)
-        .rootCauseOfExceptionIs(pkgKey);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey);
 
     // Then, when we modify the BUILD file so as to force package loading,
     scratch.overwriteFile(
@@ -1346,9 +1331,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains("Symlink cycle: /workspace/foo/cycle");
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(pkgKey)
-        .rootCauseOfExceptionIs(pkgKey);
     // Thus showing that clean and incremental package loading have the same semantics in the
     // presence of a symlink cycle encountered during glob evaluation.
   }
@@ -1478,7 +1460,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
       getConfiguredTarget("//pkg:BUILD");
       // Prelude can access native.glob (though only a BUILD thread can call it).
-      assertContainsEvent("<built-in function glob>");
+      assertContainsEvent("<built-in method glob of native value>");
     }
 
     @Test

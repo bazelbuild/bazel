@@ -14,13 +14,12 @@
 
 """Bazel rules for creating Java toolchains."""
 
-load("@rules_java//java:defs.bzl", "java_toolchain")
-
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
+    "-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)",
 ]
 
-JDK9_JVM_OPTS = [
+# JVM options, without patching java.compiler and jdk.compiler modules.
+BASE_JDK9_JVM_OPTS = [
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -31,10 +30,6 @@ JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
-    # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:jdk_compiler_jar)",
-
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
     # and: https://github.com/bazelbuild/bazel/issues/5599
@@ -42,45 +37,146 @@ JDK9_JVM_OPTS = [
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
+JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS + [
+    # override the javac in the JDK.
+    "--patch-module=java.compiler=$(location @remote_java_tools//:java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location @remote_java_tools//:jdk_compiler_jar)",
+]
+
 DEFAULT_JAVACOPTS = [
     "-XDskipDuplicateBridges=true",
+    "-XDcompilePolicy=simple",
     "-g",
     "-parameters",
 ]
 
-DEFAULT_TOOLCHAIN_CONFIGURATION = {
-    "forcibly_disable_header_compilation": 0,
-    "genclass": ["@bazel_tools//tools/jdk:genclass"],
-    "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
-    "header_compiler_direct": ["@bazel_tools//tools/jdk:turbine_direct"],
-    "ijar": ["@bazel_tools//tools/jdk:ijar"],
-    "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
-    "javac": ["@bazel_tools//tools/jdk:javac_jar"],
-    "tools": [
-        "@bazel_tools//tools/jdk:java_compiler_jar",
-        "@bazel_tools//tools/jdk:jdk_compiler_jar",
-    ],
-    "javac_supports_workers": 1,
-    "jvm_opts": select({
-        "@bazel_tools//src/conditions:openbsd": JDK8_JVM_OPTS,
-        "//conditions:default": JDK9_JVM_OPTS,
-    }),
-    "misc": DEFAULT_JAVACOPTS,
-    "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
-    "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
-    "source_version": "8",
-    "target_version": "8",
-}
+# java_toolchain parameters without specifying javac, java.compiler,
+# jdk.compiler module, and jvm_opts
+_BASE_TOOLCHAIN_CONFIGURATION = dict(
+    forcibly_disable_header_compilation = False,
+    genclass = ["@remote_java_tools//:GenClass"],
+    header_compiler = ["@remote_java_tools//:TurbineDirect"],
+    header_compiler_direct = ["@remote_java_tools//:TurbineDirect"],
+    ijar = ["@bazel_tools//tools/jdk:ijar"],
+    javabuilder = ["@remote_java_tools//:JavaBuilder"],
+    javac_supports_workers = True,
+    jacocorunner = "@remote_java_tools//:jacoco_coverage_runner_filegroup",
+    jvm_opts = BASE_JDK9_JVM_OPTS,
+    misc = DEFAULT_JAVACOPTS,
+    singlejar = ["@bazel_tools//tools/jdk:singlejar"],
+    # Code to enumerate target JVM boot classpath uses host JVM. Because
+    # java_runtime-s are involved, its implementation is in @bazel_tools.
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    source_version = "8",
+    target_version = "8",
+)
 
-def default_java_toolchain(name, **kwargs):
+JVM8_TOOLCHAIN_CONFIGURATION = dict(
+    tools = ["@remote_java_tools//:javac_jar"],
+    jvm_opts = ["-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)"],
+    java_runtime = "@bazel_tools//tools/jdk:jdk_8",
+)
+
+DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
+    jvm_opts = [
+        # Compact strings make JavaBuilder slightly slower.
+        "-XX:-CompactStrings",
+    ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
+    tools = [
+        "@remote_java_tools//:java_compiler_jar",
+        "@remote_java_tools//:jdk_compiler_jar",
+    ],
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
+)
+
+# The 'vanilla' toolchain is an unsupported alternative to the default.
+#
+# It does not provide any of the following features:
+#   * Error Prone
+#   * Strict Java Deps
+#   * Header Compilation
+#   * Reduced Classpath Optimization
+#
+# It uses the version of internal javac from the `--host_javabase` JDK instead
+# of providing a javac. Internal javac may not be source- or bug-compatible with
+# the javac that is provided with other toolchains.
+#
+# However it does allow using a wider range of `--host_javabase`s, including
+# versions newer than the current JDK.
+VANILLA_TOOLCHAIN_CONFIGURATION = dict(
+    forcibly_disable_header_compilation = True,
+    javabuilder = ["@remote_java_tools//:VanillaJavaBuilder"],
+    jvm_opts = [],
+)
+
+# The new toolchain is using all the pre-built tools, including
+# singlejar and ijar, even on remote execution. This toolchain
+# should be used only when host and execution platform are the
+# same, otherwise the binaries will not work on the execution
+# platform.
+PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
+    jvm_opts = [
+        # Compact strings make JavaBuilder slightly slower.
+        "-XX:-CompactStrings",
+    ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
+    tools = [
+        "@remote_java_tools//:java_compiler_jar",
+        "@remote_java_tools//:jdk_compiler_jar",
+    ],
+    ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
+    singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
+)
+
+# The new toolchain is using all the tools from sources.
+NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
+    jvm_opts = [
+        # Compact strings make JavaBuilder slightly slower.
+        "-XX:-CompactStrings",
+    ] + JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelOldGC",
+    ],
+    tools = [
+        "@remote_java_tools//:java_compiler_jar",
+        "@remote_java_tools//:jdk_compiler_jar",
+    ],
+    ijar = ["@remote_java_tools//:ijar_cc_binary"],
+    singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
+    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
+)
+
+def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel."""
 
-    toolchain_args = dict(DEFAULT_TOOLCHAIN_CONFIGURATION)
+    toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
+    toolchain_args.update(configuration)
     toolchain_args.update(kwargs)
-    java_toolchain(
+    native.java_toolchain(
         name = name,
         **toolchain_args
     )
+    if toolchain_definition:
+        native.config_setting(
+            name = name + "_version_setting",
+            values = {"java_language_version": toolchain_args["source_version"]},
+            visibility = ["//visibility:private"],
+        )
+        native.toolchain(
+            name = name + "_definition",
+            toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
+            target_settings = [name + "_version_setting"],
+            toolchain = name,
+        )
 
 def java_runtime_files(name, srcs):
     """Copies the given sources out of the current Java runtime."""

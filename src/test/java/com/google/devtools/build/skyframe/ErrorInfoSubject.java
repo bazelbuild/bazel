@@ -40,10 +40,6 @@ public class ErrorInfoSubject extends Subject {
     return check("getCycleInfo()").that(actual.getCycleInfo());
   }
 
-  public void rootCauseOfExceptionIs(SkyKey key) {
-    check("getRootCauseOfException()").that(actual.getRootCauseOfException()).isEqualTo(key);
-  }
-
   public void isTransient() {
     if (!actual.isTransitivelyTransient()) {
       failWithActual(simpleFact("expected to be transient"));

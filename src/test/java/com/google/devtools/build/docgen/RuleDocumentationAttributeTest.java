@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -116,7 +117,7 @@ public class RuleDocumentationAttributeTest {
 
   @Test
   public void testSynopsisForIntegerAttribute() {
-    final int defaultValue = 384;
+    StarlarkInt defaultValue = StarlarkInt.of(384);
     Attribute attribute = Attribute.attr("bar_limit", Type.INTEGER)
         .value(defaultValue).build();
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(

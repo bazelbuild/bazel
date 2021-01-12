@@ -21,7 +21,7 @@ public final class GenericFunctionException extends SkyFunctionException {
     super(e, transience);
   }
 
-  public GenericFunctionException(SomeErrorException e, SkyKey childKey) {
-    super(e, childKey);
+  public GenericFunctionException(SomeErrorException e) {
+    this(e, Transience.PERSISTENT);
   }
 }

@@ -15,7 +15,7 @@ package net.starlark.java.syntax;
 
 import com.google.common.collect.ImmutableList;
 
-/** Syntax node for an import statement. */
+/** Syntax node for a load statement. */
 public final class LoadStatement extends Statement {
 
   /**

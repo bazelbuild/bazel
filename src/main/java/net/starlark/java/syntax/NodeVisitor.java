@@ -110,7 +110,9 @@ public class NodeVisitor {
     visitAll(node.getElements());
   }
 
-  public void visit(@SuppressWarnings("unused") IntegerLiteral node) {}
+  public void visit(@SuppressWarnings("unused") IntLiteral node) {}
+
+  public void visit(@SuppressWarnings("unused") FloatLiteral node) {}
 
   public void visit(@SuppressWarnings("unused") StringLiteral node) {}
 
@@ -166,6 +168,11 @@ public class NodeVisitor {
   public void visit(IndexExpression node) {
     visit(node.getObject());
     visit(node.getKey());
+  }
+
+  public void visit(LambdaExpression node) {
+    visitAll(node.getParameters());
+    visit(node.getBody());
   }
 
   public void visit(SliceExpression node) {

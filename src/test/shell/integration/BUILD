@@ -26,6 +26,16 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "test-deps-nojdk",
+    testonly = 1,
+    srcs = [
+        "//src:bazel-bin_nojdk",
+        "//src/test/shell:bin/bazel_nojdk",
+        "//src/test/shell/bazel:test-deps-wo-bazel",
+    ],
+)
+
 sh_test(
     name = "progress_reporting_test",
     size = "large",
@@ -183,6 +193,18 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+sh_test(
+    name = "nojdk_startup_options_test",
+    size = "medium",
+    srcs = ["nojdk_startup_options_test.sh"],
+    data = [
+        ":test-deps-nojdk",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    # Windows doesn't support sandboxing, which BAZEL_SUFFIX needs.
+    tags = ["no_windows"],
 )
 
 sh_test(
@@ -361,6 +383,16 @@ sh_test(
     name = "starlark_flag_test",
     size = "medium",
     srcs = ["starlark_flag_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "builtins_injection_test",
+    size = "medium",
+    srcs = ["builtins_injection_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -721,6 +753,22 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+sh_test(
+    name = "target_compatible_with_test",
+    timeout = "long",
+    srcs = ["target_compatible_with_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "target_compatible_with_external_repo_test",
+    timeout = "long",
+    srcs = ["target_compatible_with_test_external_repo.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(

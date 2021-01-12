@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -49,7 +50,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -192,7 +192,7 @@ public final class CompletionFunction<
             Artifact.keys(allArtifacts), ActionExecutionException.class, IOException.class);
 
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
-    Map<Artifact, Collection<Artifact>> expandedArtifacts = new HashMap<>();
+    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
@@ -244,7 +244,7 @@ public final class CompletionFunction<
         missingCount++;
         handleMissingFile(
             input,
-            ArtifactFunction.makeMissingSourceInputFileValue(input, e),
+            ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
             rootCausesBuilder,
             env,
             value,
@@ -324,7 +324,7 @@ public final class CompletionFunction<
       KeyT key)
       throws InterruptedException {
     LabelCause cause =
-        ActionExecutionFunction.handleMissingFile(
+        ActionExecutionFunction.createLabelCause(
             input, artifactValue, key.actionLookupKey().getLabel());
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));

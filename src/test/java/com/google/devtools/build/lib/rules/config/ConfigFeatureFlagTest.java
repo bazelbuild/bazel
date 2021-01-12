@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,11 +37,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigFeatureFlagTest extends BuildViewTestCase {
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   @Before
@@ -187,8 +185,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    StarlarkRuleContext ctx =
-        new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
+    StarlarkRuleContext ctx = new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null);
     ev.update("ruleContext", ctx);
     ev.update("config_common", new ConfigStarlarkCommon());
     String value = (String) ev.eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.rules.cpp.DeniedImplicitOutputMarkerProvider;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -80,6 +82,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Mutability;
 
 /**
  * This class creates {@link ConfiguredTarget} instances using a given {@link
@@ -305,6 +308,9 @@ public final class ConfiguredTargetFactory {
                 ruleClassProvider.getPrerequisiteValidator(),
                 configurationFragmentPolicy,
                 configuredTargetKey)
+            .setToolsRepository(ruleClassProvider.getToolsRepository())
+            .setStarlarkSemantics(env.getStarlarkSemantics())
+            .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap, rule))
             .setConfigConditions(configConditions)
@@ -321,6 +327,12 @@ public final class ConfiguredTargetFactory {
                     prerequisiteMap.values()))
             .build();
 
+    ConfiguredTarget incompatibleTarget =
+        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
+    if (incompatibleTarget != null) {
+      return incompatibleTarget;
+    }
+
     List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
@@ -330,7 +342,7 @@ public final class ConfiguredTargetFactory {
     }
 
     try {
-      boolean creatingFailActions = false;
+      Class<?> missingFragmentClass = null;
       for (Class<?> fragmentClass :
           configurationFragmentPolicy.getRequiredConfigurationFragments()) {
         if (!configuration.hasFragment(fragmentClass.asSubclass(Fragment.class))) {
@@ -344,33 +356,35 @@ public final class ConfiguredTargetFactory {
               return null;
             }
             // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
-            creatingFailActions = true;
+            missingFragmentClass = fragmentClass;
           }
         }
       }
-      if (creatingFailActions) {
-        return createFailConfiguredTarget(ruleContext);
+      if (missingFragmentClass != null) {
+        return createFailConfiguredTargetForMissingFragmentClass(ruleContext, missingFragmentClass);
       }
-      if (rule.getRuleClassObject().isStarlark()) {
-        // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-        ConfiguredTarget target =
-            StarlarkRuleConfiguredTargetUtil.buildRule(
-                ruleContext,
-                rule.getRuleClassObject().getAdvertisedProviders(),
-                rule.getRuleClassObject().getConfiguredTargetFunction(),
-                rule.getLocation(),
-                env.getStarlarkSemantics(),
-                ruleClassProvider.getToolsRepository());
 
-        return target != null ? target : erroredConfiguredTarget(ruleContext);
-      } else {
-        RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
-            factory =
-                rule.getRuleClassObject()
-                    .<ConfiguredTarget, RuleContext, ActionConflictException>
-                        getConfiguredTargetFactory();
-        Preconditions.checkNotNull(factory, rule.getRuleClassObject());
-        return factory.create(ruleContext);
+      try {
+        if (rule.getRuleClassObject().isStarlark()) {
+          // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
+          ConfiguredTarget target =
+              StarlarkRuleConfiguredTargetUtil.buildRule(
+                  ruleContext,
+                  rule.getRuleClassObject().getAdvertisedProviders(),
+                  ruleClassProvider.getToolsRepository());
+
+          return target != null ? target : erroredConfiguredTarget(ruleContext);
+        } else {
+          RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
+              factory =
+                  rule.getRuleClassObject()
+                      .<ConfiguredTarget, RuleContext, ActionConflictException>
+                          getConfiguredTargetFactory();
+          Preconditions.checkNotNull(factory, rule.getRuleClassObject());
+          return factory.create(ruleContext);
+        }
+      } finally {
+        ruleContext.close();
       }
     } catch (RuleErrorException ruleErrorException) {
       // Returning null in this method is an indication a rule error occurred. Exceptions are not
@@ -402,7 +416,7 @@ public final class ConfiguredTargetFactory {
 
   private ConfiguredTarget erroredConfiguredTargetWithFailures(
       RuleContext ruleContext, List<NestedSet<AnalysisFailure>> analysisFailures)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
     builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
@@ -411,14 +425,14 @@ public final class ConfiguredTargetFactory {
 
   /**
    * Returns a {@link ConfiguredTarget} which indicates that an analysis error occurred in
-   * processing the target. In most cases, this returns null, which signals to callers that
-   * the target failed to build and thus the build should fail. However, if analysis failures
-   * are allowed in this build, this returns a stub {@link ConfiguredTarget} which contains
-   * information about the failure.
+   * processing the target. In most cases, this returns null, which signals to callers that the
+   * target failed to build and thus the build should fail. However, if analysis failures are
+   * allowed in this build, this returns a stub {@link ConfiguredTarget} which contains information
+   * about the failure.
    */
   @Nullable
   private ConfiguredTarget erroredConfiguredTarget(RuleContext ruleContext)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
 
@@ -508,6 +522,9 @@ public final class ConfiguredTargetFactory {
 
     RuleContext ruleContext =
         builder
+            .setToolsRepository(ruleClassProvider.getToolsRepository())
+            .setStarlarkSemantics(env.getStarlarkSemantics())
+            .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
@@ -540,12 +557,17 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect =
-        aspectFactory.create(
-            associatedTarget,
-            ruleContext,
-            aspect.getParameters(),
-            ruleClassProvider.getToolsRepository());
+    ConfiguredAspect configuredAspect;
+    try { // freezes starlark state when done
+      configuredAspect =
+          aspectFactory.create(
+              associatedTarget,
+              ruleContext,
+              aspect.getParameters(),
+              ruleClassProvider.getToolsRepository());
+    } finally {
+      ruleContext.close();
+    }
     if (configuredAspect != null) {
       validateAdvertisedProviders(
           configuredAspect,
@@ -587,7 +609,7 @@ public final class ConfiguredTargetFactory {
     if (advertisedProviders.canHaveAnyProvider()) {
       return;
     }
-    for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
+    for (Class<?> aClass : advertisedProviders.getBuiltinProviders()) {
       if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
         eventHandler.handle(
             Event.error(
@@ -614,16 +636,25 @@ public final class ConfiguredTargetFactory {
 
   /**
    * A pseudo-implementation for configured targets that creates fail actions for all declared
-   * outputs, both implicit and explicit.
+   * outputs, both implicit and explicit, due to a missing fragment class.
    */
-  private static ConfiguredTarget createFailConfiguredTarget(RuleContext ruleContext)
-      throws RuleErrorException, ActionConflictException {
+  private static ConfiguredTarget createFailConfiguredTargetForMissingFragmentClass(
+      RuleContext ruleContext, Class<?> missingFragmentClass) throws InterruptedException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     if (!ruleContext.getOutputArtifacts().isEmpty()) {
-      ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
-          ruleContext.getOutputArtifacts(), "Can't build this"));
+      ruleContext.registerAction(
+          new FailAction(
+              ruleContext.getActionOwner(),
+              ruleContext.getOutputArtifacts(),
+              "Missing fragment class: " + missingFragmentClass.getName(),
+              Code.FRAGMENT_CLASS_MISSING));
     }
     builder.add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
-    return builder.build();
+    try {
+      return builder.build();
+    } catch (ActionConflictException e) {
+      throw new IllegalStateException(
+          "Can't have an action conflict with one action: " + ruleContext.getLabel(), e);
+    }
   }
 }

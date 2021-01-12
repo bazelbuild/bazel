@@ -21,9 +21,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-JAVA_TOOLCHAIN="$1"; shift
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
@@ -35,6 +32,16 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
+JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
+    if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == file* ]]; then
+        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="${JAVA_TOOLS_PREBUILT_ZIP}"
+    else
+        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
+    fi
+fi
+JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
+
 COVERAGE_GENERATOR_DIR="$1"; shift
 if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
@@ -42,9 +49,9 @@ if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
 fi
 
 if [[ $# -gt 0 ]]; then
-    JAVABASE_VALUE="$1"; shift
-    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
+    JAVA_RUNTIME_VERSION="$1"; shift
+    add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
+    add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
 
 function set_up() {
@@ -56,8 +63,20 @@ EOF
     if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
-    name = "local_java_tools",
+    name = "remote_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_linux",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_windows",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
     fi
@@ -99,6 +118,8 @@ function get_coverage_file_path_from_test_log() {
 
 function test_java_test_coverage() {
   cat <<EOF > BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -109,6 +130,10 @@ java_test(
 java_library(
     name = "collatz-lib",
     srcs = glob(["src/main/**/*.java"]),
+)
+
+default_java_toolchain(
+    name = "custom_toolchain"
 )
 EOF
 
@@ -179,7 +204,10 @@ LH:5
 LF:6
 end_of_record"
 
-assert_coverage_result "$expected_result" "$coverage_file_path"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all --java_toolchain=//:custom_toolchain //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_java_test_coverage_combined_report() {

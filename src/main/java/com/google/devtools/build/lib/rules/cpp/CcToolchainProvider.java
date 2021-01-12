@@ -34,19 +34,23 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
-    implements CcToolchainProviderApi<FeatureConfigurationForStarlark>, HasCcToolchainLabel {
+    implements CcToolchainProviderApi<
+            FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
+        HasCcToolchainLabel {
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
@@ -419,6 +423,15 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolPathFragment == null ? null : toolPathFragment.getPathString();
   }
 
+  @Override
+  public String getToolPathStringOrNoneForStarlark(String toolString, StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    Tool tool = Tool.valueOf(toolString);
+    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
+    return toolPathFragment == null ? null : toolPathFragment.getPathString();
+  }
+
   /**
    * Returns the path fragment that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
@@ -504,12 +517,24 @@ public final class CcToolchainProvider extends ToolchainInfo
     return objcopyFiles;
   }
 
+  @Override
+  public Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getObjcopyFiles());
+  }
+
   /**
    * Returns the files necessary for an 'as' invocation. May be empty if the CROSSTOOL file does not
    * define as_files.
    */
   public NestedSet<Artifact> getAsFiles() {
     return asFiles;
+  }
+
+  @Override
+  public Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getAsFiles());
   }
 
   /**
@@ -520,9 +545,21 @@ public final class CcToolchainProvider extends ToolchainInfo
     return arFiles;
   }
 
+  @Override
+  public Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getArFiles());
+  }
+
   /** Returns the files necessary for linking, including the files needed for libc. */
   public NestedSet<Artifact> getLinkerFiles() {
     return linkerFiles;
+  }
+
+  @Override
+  public Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getLinkerFiles());
   }
 
   public NestedSet<Artifact> getDwpFiles() {
@@ -532,6 +569,12 @@ public final class CcToolchainProvider extends ToolchainInfo
   /** Returns the files necessary for capturing code coverage. */
   public NestedSet<Artifact> getCoverageFiles() {
     return coverageFiles;
+  }
+
+  @Override
+  public Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getCoverageFiles());
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
@@ -624,6 +667,12 @@ public final class CcToolchainProvider extends ToolchainInfo
     return dynamicRuntimeSolibDir;
   }
 
+  @Override
+  public String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getDynamicRuntimeSolibDir().getPathString();
+  }
+
   /** Returns the {@code CcCompilationContext} for the toolchain. */
   public CcCompilationContext getCcCompilationContext() {
     return ccInfo.getCcCompilationContext();
@@ -669,6 +718,12 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   public String getSolibDirectory() {
     return solibDirectory;
+  }
+
+  @Override
+  public String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getSolibDirectory();
   }
 
   /** Returns whether the toolchain supports dynamic linking. */
@@ -835,6 +890,12 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public FdoContext getFdoContext() {
+    return fdoContext;
+  }
+
+  @Override
+  public FdoContext getFdoContextForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return fdoContext;
   }
 

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.io.File;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,8 +29,8 @@ public class ShardingEnvironmentTest {
 
   @SuppressWarnings({"ResultOfMethodCallIgnored"})
   @Test
-  public void testTouchShardingFile() {
-    File shardFile = new File(TestUtils.tmpDirFile(), "shard_file_123");
+  public void testTouchShardingFile() throws IOException {
+    File shardFile = TestUtils.createUniqueTmpDir(null).getChild("shard_file_123").getPathFile();
     assertThat(shardFile.exists()).isFalse();
     try {
       ShardingEnvironment.touchShardFile(shardFile);

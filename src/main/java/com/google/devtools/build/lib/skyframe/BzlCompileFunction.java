@@ -35,8 +35,9 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
-import net.starlark.java.syntax.Resolver;
+import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A Skyframe function that compiles the .bzl file denoted by a Label.
@@ -159,16 +160,28 @@ public class BzlCompileFunction implements SkyFunction {
     ParserInput input = ParserInput.fromLatin1(bytes, inputName);
     FileOptions options =
         FileOptions.builder()
-            // TODO(adonovan): add this, so that loads can normally be truly local.
-            // .loadBindsGlobally(key.isPrelude())
+            // By default, Starlark load statements create file-local bindings.
+            // However, the BUILD prelude typically contains nothing but load
+            // statements whose bindings are intended to be visible in all BUILD
+            // files. The loadBindsGlobally flag allows us to retrieve them.
+            .loadBindsGlobally(key.isBuildPrelude())
             .restrictStringEscapes(
                 semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
+
+    // compile
     Module module = Module.withPredeclared(semantics, predeclared);
-    Resolver.resolveFile(file, module);
-    Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
-    return BzlCompileValue.withFile(file, digest);
+    try {
+      Program prog = Program.compileFile(file, module);
+      return BzlCompileValue.withProgram(prog, digest);
+    } catch (SyntaxError.Exception ex) {
+      Event.replayEventsOn(env.getListener(), ex.errors());
+      return BzlCompileValue.noFile(
+          "compilation of module '%s'%s failed",
+          key.label.toPathFragment(),
+          StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+    }
   }
 
   @Nullable

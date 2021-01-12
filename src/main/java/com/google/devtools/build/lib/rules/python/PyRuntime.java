@@ -31,7 +31,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public final class PyRuntime implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws ActionConflictException, InterruptedException {
     PythonConfiguration pyConfig = ruleContext.getFragment(PythonConfiguration.class);
 
     NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(ruleContext, "files");

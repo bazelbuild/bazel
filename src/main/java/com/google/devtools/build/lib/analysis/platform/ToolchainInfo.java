@@ -65,8 +65,17 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
   protected ToolchainInfo(Map<String, Object> values, Location location) {
-    super(PROVIDER, location);
+    super(location);
     this.values = copyValues(values);
+  }
+
+  public ToolchainInfo(Map<String, Object> values) {
+    this.values = copyValues(values);
+  }
+
+  @Override
+  public BuiltinProvider<ToolchainInfo> getProvider() {
+    return PROVIDER;
   }
 
   /**

@@ -81,7 +81,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   }
 
   @Override
-  public Location getCreationLoc() {
+  public Location getCreationLocation() {
     return location;
   }
 

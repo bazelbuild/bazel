@@ -14,6 +14,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/actions:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis:srcs",
+        "//src/test/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",
         "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
@@ -44,7 +45,6 @@ filegroup(
         "//src/test/java/net/starlark/java/syntax:srcs",
         "//src/test/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/supplier:srcs",
-        "//src/test/java/com/google/devtools/build/lib/syntax/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
@@ -82,6 +82,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
+        "//third_party:mockito",
     ],
 )
 
@@ -111,7 +112,7 @@ java_test(
 
 java_test(
     name = "concurrent_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["concurrent/*.java"]),
     flaky = True,
     tags = [
@@ -144,6 +145,7 @@ java_test(
         ":AllTests",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
@@ -167,7 +169,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
@@ -175,7 +176,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/syntax/util",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
@@ -270,6 +271,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:QueryTransitivePackagePreloader",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:pattern_expanding_error",
@@ -299,6 +301,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -406,6 +409,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
@@ -601,6 +605,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:gson",

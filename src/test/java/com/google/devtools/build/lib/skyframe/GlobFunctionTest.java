@@ -190,7 +190,6 @@ public abstract class GlobFunctionTest {
 
     AnalysisMock analysisMock = AnalysisMock.get();
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -685,6 +684,8 @@ public abstract class GlobFunctionTest {
     FileValue pkgDirValue =
         FileValue.value(
             ImmutableList.of(pkgRootedPath),
+            null,
+            null,
             pkgRootedPath,
             pkgDirFileStateValue,
             pkgRootedPath,

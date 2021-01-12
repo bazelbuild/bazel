@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueIn
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Fake implementation of {@link JavaCommonApi}. */
@@ -35,14 +36,13 @@ public class FakeJavaCommon
         FileApi,
         FakeJavaInfo,
         FakeJavaToolchainStarlarkApiProviderApi,
-        FakeJavaRuntimeInfoApi,
         ConstraintValueInfoApi,
         StarlarkRuleContextApi<ConstraintValueInfoApi>,
         StarlarkActionFactoryApi> {
 
   @Override
   public ProviderApi getJavaProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaInfo");
   }
 
   @Override
@@ -62,7 +62,7 @@ public class FakeJavaCommon
       Sequence<?> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       FakeJavaToolchainStarlarkApiProviderApi javaToolchain,
-      FakeJavaRuntimeInfoApi hostJavabase,
+      Object hostJavabase,
       Sequence<?> sourcepathEntries,
       Sequence<?> resources,
       Boolean neverlink,
@@ -96,7 +96,7 @@ public class FakeJavaCommon
       Sequence<?> sourceFiles,
       Sequence<?> sourceJars,
       FakeJavaToolchainStarlarkApiProviderApi javaToolchain,
-      FakeJavaRuntimeInfoApi hostJavabase) {
+      Object hostJavabase) {
     return null;
   }
 
@@ -118,12 +118,12 @@ public class FakeJavaCommon
 
   @Override
   public ProviderApi getJavaToolchainProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaToolchain");
   }
 
   @Override
   public ProviderApi getJavaRuntimeProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaRuntime");
   }
 
   @Override
@@ -134,12 +134,17 @@ public class FakeJavaCommon
 
   @Override
   public ProviderApi getMessageBundleInfo() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaMessageBundle");
   }
 
   @Override
   public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, Sequence<?> constraints) {
     return new FakeJavaInfo();
+  }
+
+  @Override
+  public Sequence<String> getConstraints(FakeJavaInfo javaInfo) {
+    return StarlarkList.empty();
   }
 
   @Override

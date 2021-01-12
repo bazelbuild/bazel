@@ -236,7 +236,7 @@ public class TestAspects {
         RuleContext ruleContext,
         AspectParameters parameters,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
@@ -286,7 +286,7 @@ public class TestAspects {
         RuleContext ruleContext,
         AspectParameters parameters,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
   }
@@ -307,7 +307,7 @@ public class TestAspects {
         RuleContext ruleContext,
         AspectParameters parameters,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new BarProvider()).build();
     }
   }
@@ -351,7 +351,7 @@ public class TestAspects {
           .add(
               attr("$dep", LABEL)
                   .value(Label.parseAbsoluteUnchecked("//extra:extra"))
-                  .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
@@ -487,7 +487,7 @@ public class TestAspects {
         RuleContext ruleContext,
         AspectParameters parameters,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
       if (!parameters.isEmpty()) {
         information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
@@ -537,7 +537,7 @@ public class TestAspects {
         RuleContext ruleContext,
         AspectParameters parameters,
         String toolsRepository)
-        throws ActionConflictException {
+        throws ActionConflictException, InterruptedException {
       ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
       return new ConfiguredAspect.Builder(ruleContext).build();
     }

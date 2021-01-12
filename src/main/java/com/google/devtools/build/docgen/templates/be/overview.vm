@@ -22,7 +22,7 @@ title: Build Encyclopedia
   <li>
     <a href="$expander.expandRef("make-variables")">"Make" variables</a>
     <ul class="be-toc">
-      <li><a href="$expander.expandRef("make-variables#make-var-substitution")">"Make" variable substitution</a></li>
+      <li><a href="$expander.expandRef("make-variables#use")">Use</a></li>
 
     </ul>
   </li>
@@ -52,21 +52,30 @@ For non-native Starlark rules that ship separately from Bazel, see the list of
 
 <h3>Language-specific native rules</h3>
 
-#macro(summaryLink $page $heading)
-  #if ($singlePage)#${heading}#else${page}.html#${heading}#end
+#macro(ruleLink $ruleFamily $rule)
+  <a href="#if($singlePage)#${rule.ruleName}#else${ruleFamily.id}.html#${rule.ruleName}#end"#if($rule.isDeprecated()) class="deprecated"#end>${rule.ruleName}</a>
 #end
 
-#macro(summaryTable $ruleFamilies)
+<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Binary rules</th>
+      <th>Library rules</th>
+      <th>Test rules</th>
+      <th>Other rules</th>
+    </tr>
+  </thead>
   <tbody>
-  #foreach($ruleFamily in $ruleFamilies)
+  #foreach($ruleFamily in $langSpecificRuleFamilies)
     #if($ruleFamily.size() > 0)
       <tr>
         <td class="lang">${ruleFamily.name}</td>
-      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules1, $ruleFamily.otherRules2] )
+      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules] )
       #foreach($ruleType in $ruleTypes)
         <td>
-        #foreach($ruleDoc in $ruleType)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>${ruleDoc.ruleName}</a>
+        #foreach($rule in $ruleType)
+          #ruleLink($ruleFamily, $rule)
           <br />
         #end
         </td>
@@ -75,25 +84,32 @@ For non-native Starlark rules that ship separately from Bazel, see the list of
     #end
   #end
   </tbody>
-#end
-
-<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
-  <colgroup span="6" width="20%"></colgroup>
-  <thead>
-    <tr>
-      <th>Language</th>
-      <th>Binary rules</th>
-      <th>Library rules</th>
-      <th>Test rules</th>
-      <th>Other rules</th>
-      <th></th>
-    </tr>
-  </thead>
-#summaryTable($langSpecificRuleFamilies)
 
 </table>
+<h3>Language-agnostic native rules</h3>
+
 <table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
-  <colgroup span="6" width="20%"></colgroup>
-#summaryTable($genericRuleFamilies)
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+  #foreach($ruleFamily in $genericRuleFamilies)
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+        <td>
+          <ul class="hlist">
+          #foreach($rule in $ruleFamily.rules)
+            <li>#ruleLink($ruleFamily, $rule)
+          #end
+          </ul>
+        </td>
+      </tr>
+    #end
+  #end
+  </tbody>
 
 </table>

@@ -269,7 +269,7 @@ public final class AspectDefinition {
     public Builder requireProviderSets(
         Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
       for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
-        requiredProviders.addNativeSet(providerSet);
+        requiredProviders.addBuiltinSet(providerSet);
       }
       return this;
     }
@@ -279,7 +279,7 @@ public final class AspectDefinition {
      * providers.
      */
     public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
-      requiredProviders.addNativeSet(ImmutableSet.copyOf(providers));
+      requiredProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
       return this;
     }
 
@@ -302,9 +302,9 @@ public final class AspectDefinition {
       return this;
     }
 
-    public Builder requireAspectsWithNativeProviders(
+    public Builder requireAspectsWithBuiltinProviders(
         Class<? extends TransitiveInfoProvider>... providers) {
-      requiredAspectProviders.addNativeSet(ImmutableSet.copyOf(providers));
+      requiredAspectProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
       return this;
     }
 
@@ -313,7 +313,7 @@ public final class AspectDefinition {
      */
     public Builder advertiseProvider(Class<?>... providers) {
       for (Class<?> provider : providers) {
-        advertisedProviders.addNative(provider);
+        advertisedProviders.addBuiltin(provider);
       }
       return this;
     }

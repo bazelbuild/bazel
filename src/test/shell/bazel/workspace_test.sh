@@ -187,7 +187,7 @@ EOF
 
   MARKER="<== Starlark flag test ==>"
 
-  # Sanity check.
+  # Initial check.
   bazel build //:x &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: " "Did not find workspace print output"

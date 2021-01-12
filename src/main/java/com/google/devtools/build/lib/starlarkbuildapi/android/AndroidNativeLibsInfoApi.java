@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 
@@ -61,13 +62,12 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
         parameters = {
           @Param(
               name = "native_libs",
-              type = Depset.class,
-              generic1 = FileApi.class,
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)},
               named = true,
               doc = "The native libraries produced by the rule."),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
+    @StarlarkConstructor
     AndroidNativeLibsInfoApi<?> createInfo(Depset nativeLibs) throws EvalException;
   }
 }

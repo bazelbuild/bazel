@@ -91,7 +91,6 @@ function test_java_test() {
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:legacy_toolchain' | grep source_version | cut -d '"' -f 2)"
   assert_test_ok "${java_native_tests}:hello"
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"
@@ -106,11 +105,12 @@ function test_java_test_with_junitrunner() {
 }
 
 function test_genrule_and_genquery() {
-  # The --javabase flag is to force the tools/jdk:jdk label to be used
-  # so it appears in the dependency list.
-  assert_build_output ./bazel-bin/examples/gen/genquery examples/gen:genquery --javabase=//tools/jdk
+  # With toolchain resolution java runtime only appears in cquery results.
+  # //tools/jdk:jdk label appears in the dependency list while --javabase
+  # is still available, because of migration rules.
+  assert_build_output ./bazel-bin/examples/gen/genquery examples/gen:genquery
   local want=./bazel-genfiles/examples/gen/genrule.txt
-  assert_build_output $want examples/gen:genrule --javabase=//tools/jdk
+  assert_build_output $want examples/gen:genrule
 
   diff $want ./bazel-bin/examples/gen/genquery \
     || fail "genrule and genquery output differs"

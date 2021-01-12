@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_visibility = ["//src:__subpackages__"],
@@ -21,14 +22,15 @@ java_library(
     resources = glob(
         [
             "*.txt",
-            "*.WORKSPACE",
         ],
-    ),
+    ) + [
+        ":jdk.WORKSPACE",
+    ],
     deps = [
         ":bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -70,4 +72,16 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+gen_workspace_stanza(
+    name = "workspace_with_rules_java",
+    out = "jdk.WORKSPACE",
+    repos = [
+        "rules_cc",
+        "rules_java",
+    ],
+    template = "jdk.WORKSPACE.tmpl",
+    use_maybe = True,
+    visibility = ["//:__pkg__"],
 )

@@ -509,4 +509,24 @@ EOF
   expect_not_log "remote cache hit"
 }
 
+function test_remote_http_cache_with_bad_netrc_content() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+  cat > a/.netrc <<EOF
+this is bad netrc content
+EOF
+
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      --action_env=NETRC="${PWD}/a/.netrc" \
+      //a:foo \
+      || fail "Failed to build //a:foo with bad netrc content"
+}
+
 run_suite "Remote execution and remote cache tests"

@@ -27,15 +27,11 @@ import java.util.Set;
  */
 @Immutable
 public abstract class FileTarget implements Target, FileType.HasFileType {
-  protected final Package pkg;
   protected final Label label;
 
-  /**
-   * Constructs a file with the given label, which must be in the given package.
-   */
-  protected FileTarget(Package pkg, Label label) {
+  /** Constructs a file with the given label, which must be in the given package. */
+  FileTarget(Package pkg, Label label) {
     Preconditions.checkArgument(label.getPackageFragment().equals(pkg.getNameFragment()));
-    this.pkg = pkg;
     this.label = label;
   }
 
@@ -56,11 +52,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   @Override
   public String getName() {
     return label.getName();
-  }
-
-  @Override
-  public Package getPackage() {
-    return pkg;
   }
 
   @Override

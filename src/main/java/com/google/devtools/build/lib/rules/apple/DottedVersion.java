@@ -30,6 +30,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Represents Xcode versions and allows parsing them.
@@ -78,18 +79,23 @@ import net.starlark.java.eval.Printer;
 @Immutable
 @AutoCodec
 public final class DottedVersion implements DottedVersionApi<DottedVersion> {
-  /** Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
+  /**
+   * Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
    * equality.
    *
-   * <p>This is necessary because Bazel assumes that
-   * {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} that are equal yield
-   * fragments that are the same. However, this does not hold if the options hold a
-   * {@link DottedVersion} because trailing zeroes are not considered significant when comparing
-   * them, but they do matter in configuration fragments (for example, they end up in output
-   * directory names)</p>
-   * */
+   * <p>This is necessary because Bazel assumes that {@link
+   * com.google.devtools.build.lib.analysis.config.FragmentOptions} that are equal yield fragments
+   * that are the same. However, this does not hold if the options hold a {@link DottedVersion}
+   * because trailing zeroes are not considered significant when comparing them, but they do matter
+   * in configuration fragments (for example, they end up in output directory names).
+   *
+   * <p>When read from the {@code settings} dictionary in a Starlark transition function, these
+   * values are effectively opaque and need to be converted to strings for further use, such as
+   * comparing them by passing the string to {@code apple_common.dotted_version} to construct an
+   * instance of the actual version object.
+   */
   @Immutable
-  public static final class Option {
+  public static final class Option implements StarlarkValue {
     private final DottedVersion version;
 
     private Option(DottedVersion version) {
@@ -98,6 +104,21 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
 
     public DottedVersion get() {
       return version;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(version.toString());
+    }
+
+    @Override
+    public String toString() {
+      return version.toString();
     }
 
     @Override
@@ -129,8 +150,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN =
       Pattern.compile("(\\d+)([a-z0-9]*?)?(\\d+)?", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DESCRIPTIVE_COMPONENT_PATTERN =
+      Pattern.compile("([a-z]\\w*)", Pattern.CASE_INSENSITIVE);
   private static final String ILLEGAL_VERSION =
-      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got '%s'";
+      "Dotted version components must all start with the form \\d+([a-z0-9]*?)?(\\d+)? "
+          + "but got '%s'";
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
@@ -168,7 +192,14 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
+      if (isDescriptiveComponent(component)) {
+        break;
+      }
       components.add(toComponent(component, version));
+    }
+
+    if (components.isEmpty()) {
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
     int numOriginalComponents = components.size();
@@ -184,6 +215,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
+  }
+
+  // Some of special build versions contains descriptive components like "experimental" or
+  // "internal". These components are usually by the end of version number, and can be ignored.
+  private static boolean isDescriptiveComponent(String component) {
+    return DESCRIPTIVE_COMPONENT_PATTERN.matcher(component).matches();
   }
 
   private static Component toComponent(String component, String version)

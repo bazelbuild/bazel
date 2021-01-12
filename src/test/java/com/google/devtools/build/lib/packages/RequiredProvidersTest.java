@@ -38,14 +38,14 @@ public class RequiredProvidersTest {
   private static final class P3 implements TransitiveInfoProvider {}
 
   private static final Provider P_NATIVE =
-      new NativeProvider<StructImpl>(StructImpl.class, "p_native") {};
+      new BuiltinProvider<StructImpl>("p_native", StructImpl.class) {};
 
   private static final StarlarkProvider P_STARLARK =
       StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
 
   static {
     try {
-      P_STARLARK.export(Label.create("foo/bar", "x.bzl"), "p_starlark");
+      P_STARLARK.export(ev -> {}, Label.create("foo/bar", "x.bzl"), "p_starlark");
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -64,7 +64,7 @@ public class RequiredProvidersTest {
 
     assertThat(
             requiredProviders.isSatisfiedBy(
-                providers.getNativeProviders()::contains,
+                providers.getBuiltinProviders()::contains,
                 providers.getStarlarkProviders()::contains))
         .isEqualTo(result);
     return result;
@@ -77,10 +77,10 @@ public class RequiredProvidersTest {
     assertThat(satisfies(AdvertisedProviderSet.ANY,
         RequiredProviders.acceptAnyBuilder().build())).isTrue();
     assertThat(
-        satisfies(
-            AdvertisedProviderSet.builder().addNative(P1.class).build(),
-            RequiredProviders.acceptAnyBuilder().build()
-        )).isTrue();
+            satisfies(
+                AdvertisedProviderSet.builder().addBuiltin(P1.class).build(),
+                RequiredProviders.acceptAnyBuilder().build()))
+        .isTrue();
     assertThat(
             satisfies(
                 AdvertisedProviderSet.builder().addStarlark("p1").build(),
@@ -95,10 +95,10 @@ public class RequiredProvidersTest {
     assertThat(satisfies(AdvertisedProviderSet.ANY,
         RequiredProviders.acceptNoneBuilder().build())).isFalse();
     assertThat(
-        satisfies(
-            AdvertisedProviderSet.builder().addNative(P1.class).build(),
-            RequiredProviders.acceptNoneBuilder().build()
-        )).isFalse();
+            satisfies(
+                AdvertisedProviderSet.builder().addBuiltin(P1.class).build(),
+                RequiredProviders.acceptNoneBuilder().build()))
+        .isFalse();
     assertThat(
             satisfies(
                 AdvertisedProviderSet.builder().addStarlark("p1").build(),
@@ -107,21 +107,19 @@ public class RequiredProvidersTest {
   }
 
   @Test
-  public void nativeProvidersAllMatch() {
-    AdvertisedProviderSet providerSet = AdvertisedProviderSet.builder()
-        .addNative(P1.class)
-        .addNative(P2.class)
-        .build();
+  public void builtinProvidersAllMatch() {
+    AdvertisedProviderSet providerSet =
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).addBuiltin(P2.class).build();
     assertThat(
             validateNative(providerSet, NO_PROVIDERS_REQUIRED, ImmutableSet.of(P1.class, P2.class)))
         .isTrue();
   }
 
   @Test
-  public void nativeProvidersBranchMatch() {
+  public void builtinProvidersBranchMatch() {
     assertThat(
             validateNative(
-                AdvertisedProviderSet.builder().addNative(P1.class).build(),
+                AdvertisedProviderSet.builder().addBuiltin(P1.class).build(),
                 NO_PROVIDERS_REQUIRED,
                 ImmutableSet.of(P1.class),
                 ImmutableSet.of(P2.class)))
@@ -129,10 +127,10 @@ public class RequiredProvidersTest {
   }
 
   @Test
-  public void nativeProvidersNoMatch() {
+  public void builtinsProvidersNoMatch() {
     assertThat(
             validateNative(
-                AdvertisedProviderSet.builder().addNative(P3.class).build(),
+                AdvertisedProviderSet.builder().addBuiltin(P3.class).build(),
                 "P1 or P2",
                 ImmutableSet.of(P1.class),
                 ImmutableSet.of(P2.class)))
@@ -187,7 +185,7 @@ public class RequiredProvidersTest {
             RequiredProviders.acceptAnyBuilder()
                 .addStarlarkSet(ImmutableSet.of(ID_LEGACY, ID_STARLARK))
                 .addStarlarkSet(ImmutableSet.of(ID_STARLARK))
-                .addNativeSet(ImmutableSet.of(P1.class, P2.class))
+                .addBuiltinSet(ImmutableSet.of(P1.class, P2.class))
                 .build()
                 .getDescription())
         .isEqualTo("[P1, P2] or ['p_legacy', 'p_starlark'] or 'p_starlark'");
@@ -201,8 +199,8 @@ public class RequiredProvidersTest {
     RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
     RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
     for (ImmutableSet<Class<? extends TransitiveInfoProvider>> set : sets) {
-      anyBuilder.addNativeSet(set);
-      noneBuilder.addNativeSet(set);
+      anyBuilder.addBuiltinSet(set);
+      noneBuilder.addBuiltinSet(set);
     }
     RequiredProviders rpStartingFromAny = anyBuilder.build();
     boolean result = satisfies(providerSet, rpStartingFromAny);

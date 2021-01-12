@@ -36,7 +36,7 @@ EOF
   cat << 'EOF' >> test/starlark.bzl
 def _test_impl(ctx):
   ctx.actions.run_shell(outputs = [ctx.outputs.out],
-                        command = ["touch", ctx.outputs.out.path])
+                        command = "touch " + ctx.outputs.out.path)
   files_to_build = depset([ctx.outputs.out])
   return DefaultInfo(
       files = files_to_build,
@@ -69,7 +69,7 @@ EOF
   cat << 'EOF' >> test/starlark.bzl
 def _test_impl(ctx):
   ctx.actions.run_shell(outputs = [ctx.outputs.out],
-                        command = ["not_a_command", ctx.outputs.out.path])
+                        command = "not_a_command")
   files_to_build = depset([ctx.outputs.out])
   return DefaultInfo(
       files = files_to_build,
@@ -86,7 +86,7 @@ EOF
   ! bazel build //test:test &> $TEST_log \
       || fail "Should have resulted in an execution error"
 
-  expect_log "error executing shell command"
+  expect_log "error executing command.*not_a_command"
 }
 
 run_suite "Starlark rule definition tests"

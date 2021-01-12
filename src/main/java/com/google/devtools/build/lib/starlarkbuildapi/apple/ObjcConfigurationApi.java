@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment for Objective C. */
 @StarlarkBuiltin(
     name = "objc",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT,
+    category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
 public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StarlarkValue {
@@ -35,6 +35,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       allowReturnNones = true,
       doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
+  @Nullable
   String getIosSimulatorDevice();
 
   @StarlarkMethod(
@@ -42,6 +43,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       allowReturnNones = true,
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
+  @Nullable
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
@@ -53,9 +55,9 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
+  @Nullable
   String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
 
   @StarlarkMethod(
@@ -67,9 +69,9 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
+  @Nullable
   DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
 
   @StarlarkMethod(

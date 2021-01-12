@@ -49,7 +49,7 @@ public class WorkerMultiplexerManager {
   public static WorkerMultiplexer getInstance(WorkerKey key, Path logFile)
       throws InterruptedException {
     semMultiplexer.acquire();
-    multiplexerInstance.putIfAbsent(key, new InstanceInfo(logFile));
+    multiplexerInstance.putIfAbsent(key, new InstanceInfo(logFile, key));
     multiplexerInstance.get(key).increaseRefCount();
     WorkerMultiplexer workerMultiplexer = multiplexerInstance.get(key).getWorkerMultiplexer();
     semMultiplexer.release();
@@ -74,6 +74,19 @@ public class WorkerMultiplexerManager {
       throw createUserExecException(e, message, Code.MULTIPLEXER_INSTANCE_REMOVAL_FAILURE);
     } finally {
       semMultiplexer.release();
+    }
+  }
+
+  /** Is called when a build is done, to do per-build cleanup. */
+  static void afterCommandCleanup() {
+    try {
+      semMultiplexer.acquire();
+      for (InstanceInfo i : multiplexerInstance.values()) {
+        i.getWorkerMultiplexer().setReporter(null);
+      }
+      semMultiplexer.release();
+    } catch (InterruptedException e) {
+      // Interrupted during cleanup, not much we can do.
     }
   }
 
@@ -116,8 +129,8 @@ public class WorkerMultiplexerManager {
     private WorkerMultiplexer workerMultiplexer;
     private Integer refCount;
 
-    public InstanceInfo(Path logFile) {
-      this.workerMultiplexer = new WorkerMultiplexer(logFile);
+    public InstanceInfo(Path logFile, WorkerKey workerKey) {
+      this.workerMultiplexer = new WorkerMultiplexer(logFile, workerKey);
       this.refCount = 0;
     }
 

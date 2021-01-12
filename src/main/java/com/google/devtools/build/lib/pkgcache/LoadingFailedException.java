@@ -13,17 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-/**
- * An exception indicating that there was a problem during the loading phase for one or more
- * targets in such a way that the build cannot proceed (for example because keep_going is disabled).
- */
-public class LoadingFailedException extends Exception {
+import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
-  public LoadingFailedException(String message) {
+/**
+ * An exception indicating that there was a problem during the loading phase for one or more targets
+ * in such a way that the build cannot proceed (for example because keep_going is disabled).
+ */
+public class LoadingFailedException extends Exception implements DetailedException {
+
+  private final DetailedExitCode detailedExitCode;
+
+  public LoadingFailedException(String message, DetailedExitCode detailedExitCode) {
     super(message);
+    this.detailedExitCode = detailedExitCode;
   }
 
-  public LoadingFailedException(String message, Throwable cause) {
-    super(message + ": " + cause.getMessage(), cause);
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 }

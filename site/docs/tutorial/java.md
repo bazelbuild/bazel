@@ -3,9 +3,9 @@ layout: documentation
 title: Build Tutorial - Java
 ---
 
-# Introduction to Bazel: Building a Java Project
+# Bazel Tutorial: Build a Java Project
 
-In this tutorial, you'll learn the basics of building Java applications with
+This tutorial covers the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
 illustrates key Bazel concepts, such as targets and `BUILD` files.
 
@@ -13,7 +13,7 @@ Estimated completion time: 30 minutes.
 
 ## What you'll learn
 
-In this tutorial you'll learn how to:
+In this tutorial you learn how to:
 
 *  Build a target
 *  Visualize the project's dependencies
@@ -21,13 +21,6 @@ In this tutorial you'll learn how to:
 *  Control target visibility across packages
 *  Reference targets through labels
 *  Deploy a target
-
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
-
 
 ## Before you begin
 
@@ -38,7 +31,7 @@ you don't have it installed already.
 
 ### Install the JDK
 
-1.  Install Java 8 JDK.
+1.  Install Java JDK (preferred version is 11, however versions between 8 and 15 are supported).
 
 2.  Set the JAVA\_HOME environment variable to point to the JDK.
     *   On Linux/macOS:
@@ -405,6 +398,8 @@ your development environment since it contains the required runtime
 dependencies.
 
 ## Further reading
+
+For more details, see:
 
 *  [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) for
    rules to manage transitive Maven dependencies.

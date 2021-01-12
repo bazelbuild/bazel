@@ -55,6 +55,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -135,11 +136,13 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
+        BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
                 BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-                BazelStarlarkContext.from(thread).getRepoMapping()),
+                bazelStarlarkContext.getRepoMapping(),
+                bazelStarlarkContext.getConvertedLabelsInPackage()),
             DEFAULT_ARG);
       }
     }
@@ -250,8 +253,12 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         }
         builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));
       } else if (!trans.equals("target")) {
-        // TODO(b/121134880): update error message when starlark build configurations is ready.
-        throw Starlark.errorf("cfg must be either 'host' or 'target'.");
+        // We don't actively advertise the hard-coded but exposed transitions like
+        // android_split_transition because users of those transitions should already know about
+        // them.
+        throw Starlark.errorf(
+            "cfg must be either 'host', 'target', 'exec' or a starlark defined transition defined"
+                + " by the exec() or transition() functions.");
       }
     }
 
@@ -396,7 +403,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor intAttribute(
-      Integer defaultValue,
+      StarlarkInt defaultValue,
       String doc,
       Boolean mandatory,
       Sequence<?> values,

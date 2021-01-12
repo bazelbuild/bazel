@@ -20,17 +20,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildtool.AqueryBuildTool.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
+import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
-import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
-import com.google.devtools.common.options.OptionsParser;
-import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +39,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   private ImmutableMap<String, QueryFunction> functions;
 
   @Before
-  public final void setFunctions() throws Exception {
+  public final void setFunctions() {
     ImmutableMap.Builder<String, QueryFunction> builder = ImmutableMap.builder();
 
     for (QueryFunction queryFunction : ActionGraphQueryEnvironment.FUNCTIONS) {
@@ -54,16 +51,14 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     }
 
     functions = builder.build();
+    runtimeWrapper.addOptionsClass(AqueryOptions.class);
   }
 
   @Test
   public void testAqueryBuildToolConstructor_wrongAqueryFilterFormat_throwsError()
       throws Exception {
     QueryExpression expr = QueryParser.parse("deps(inputs('abc', //abc))", functions);
-    OptionsParser optionsParser = runtimeWrapper.createOptionsParser();
-    Command command = QueryCommand.class.getAnnotation(Command.class);
-    CommandEnvironment env =
-        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>(), 0L, 0L);
+    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
 
     assertThrows(AqueryActionFilterException.class, () -> new AqueryBuildTool(env, expr));
   }
@@ -71,10 +66,8 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   @Test
   public void testAqueryBuildToolConstructor_wrongPatternSyntax_throwsError() throws Exception {
     QueryExpression expr = QueryParser.parse("inputs('*abc', //abc)", functions);
-    OptionsParser optionsParser = runtimeWrapper.createOptionsParser();
-    Command command = QueryCommand.class.getAnnotation(Command.class);
-    CommandEnvironment env =
-        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>(), 0L, 0L);
+    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
+
     AqueryActionFilterException thrown =
         assertThrows(AqueryActionFilterException.class, () -> new AqueryBuildTool(env, expr));
     assertThat(thrown).hasMessageThat().contains("Wrong query syntax:");

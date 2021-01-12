@@ -59,7 +59,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       name = "legacy_spawn_scheduler",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "true",
+      defaultValue = "false",
       help =
           "Enables the old but tested implementation of the spawn scheduler. This differs from the "
               + "new version in that this version cannot stop a local spawn once it has started "

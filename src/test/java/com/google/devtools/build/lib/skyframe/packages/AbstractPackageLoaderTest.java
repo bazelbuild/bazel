@@ -60,11 +60,11 @@ public abstract class AbstractPackageLoaderTest {
 
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
 
-  protected abstract ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader);
-
   protected AbstractPackageLoader.Builder newPackageLoaderBuilder() {
     return newPackageLoaderBuilder(root).useDefaultStarlarkSemantics().setCommonReporter(reporter);
   }
+
+  protected abstract ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader);
 
   protected PackageLoader newPackageLoader() {
     return newPackageLoaderBuilder().build();
@@ -226,7 +226,7 @@ public abstract class AbstractPackageLoaderTest {
   @Test
   public void testNonPackageEventsReported() throws Exception {
     path("foo").createDirectoryAndParents();
-    symlink("foo/infinitesymlinkpkg", path("foo"));
+    symlink("foo/infinitesymlinkpkg", path("foo/infinitesymlinkpkg/subdir"));
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo("foo/infinitesymlinkpkg");
     PackageLoader.Result result;
     try (PackageLoader pkgLoader = newPackageLoader()) {

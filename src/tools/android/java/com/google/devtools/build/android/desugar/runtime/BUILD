@@ -23,6 +23,7 @@ java_library(
     name = "primitives",
     srcs = [
         "PrimitiveHashcode.java",
+        "UnsignedInts.java",
         "UnsignedLongs.java",
     ],
     # This library must be compiled with java7, as we directly copy it to the desugared jar.

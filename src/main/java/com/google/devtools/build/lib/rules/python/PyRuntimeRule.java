@@ -95,7 +95,7 @@ to have an interpreter located at a specific path. An in-build runtime may or ma
 depending on whether it points to a checked-in interpreter or a wrapper script that accesses the
 system interpreter.
 
-<h4 id="py_runtime">Example:</h4>
+<h4 id="py_runtime_example">Example:</h4>
 
 <pre class="code">
 py_runtime(

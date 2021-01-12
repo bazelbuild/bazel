@@ -198,7 +198,10 @@ public class AndroidIdlHelper {
   /** Generates an artifact by replacing the extension of the input with the suffix. */
   private Artifact createIdlJar(Artifact baseArtifact, String suffix) {
     return ruleContext.getDerivedArtifact(
-        FileSystemUtils.replaceExtension(baseArtifact.getRootRelativePath(), suffix),
+        FileSystemUtils.replaceExtension(
+            baseArtifact.getOutputDirRelativePath(
+                ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+            suffix),
         baseArtifact.getRoot());
   }
 

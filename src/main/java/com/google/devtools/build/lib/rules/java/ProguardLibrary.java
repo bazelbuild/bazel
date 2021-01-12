@@ -66,9 +66,14 @@ public final class ProguardLibrary {
     if (!localSpecs.isEmpty()) {
       // Pass our local proguard configs through the validator, which checks an allowlist.
       FilesToRunProvider proguardAllowlister =
-          ruleContext.getExecutablePrerequisite("$proguard_whitelister");
+          JavaToolchainProvider.from(ruleContext).getProguardAllowlister();
+      if (proguardAllowlister == null) {
+        ruleContext.ruleError(
+            "java_toolchain.proguard_allowlister is required to use proguard_specs");
+        return specsBuilder.build();
+      }
       for (Artifact specToValidate : localSpecs) {
-        specsBuilder.add(validateProguardSpec(proguardAllowlister, specToValidate));
+        specsBuilder.add(validateProguardSpec(ruleContext, proguardAllowlister, specToValidate));
       }
     }
 
@@ -104,7 +109,7 @@ public final class ProguardLibrary {
    * validated Proguard spec, ready to be exported.
    */
   private Artifact validateProguardSpec(
-      FilesToRunProvider proguardAllowlister, Artifact specToValidate) {
+      RuleContext ruleContext, FilesToRunProvider proguardAllowlister, Artifact specToValidate) {
     // If we're validating j/a/b/testapp/proguard.cfg, the output will be:
     // j/a/b/testapp/proguard.cfg_valid
     Artifact output =
@@ -114,19 +119,29 @@ public final class ProguardLibrary {
                 .getRootRelativePath()
                 .replaceName(specToValidate.getFilename() + "_valid"),
             ruleContext.getBinOrGenfilesDirectory());
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .addInput(specToValidate)
-            .addOutput(output)
-            .setExecutable(proguardAllowlister)
-            .setProgressMessage("Validating proguard configuration")
-            .setMnemonic("ValidateProguard")
-            .addCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath("--path", specToValidate)
-                    .addExecPath("--output", output)
-                    .build())
-            .build(ruleContext));
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder().addInput(specToValidate).addOutput(output);
+    if (proguardAllowlister.getExecutable().getExtension().equals("jar")) {
+      builder
+          .setJarExecutable(
+              JavaCommon.getHostJavaExecutable(ruleContext),
+              proguardAllowlister.getExecutable(),
+              JavaToolchainProvider.from(ruleContext).getJvmOptions())
+          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
+    } else {
+      // TODO(b/170769708): remove this branch and require java_toolchain.proguard_allowlister to
+      // always be a _deploy.jar
+      builder.setExecutable(proguardAllowlister);
+    }
+    builder
+        .setProgressMessage("Validating proguard configuration")
+        .setMnemonic("ValidateProguard")
+        .addCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("--path", specToValidate)
+                .addExecPath("--output", output)
+                .build());
+    ruleContext.registerAction(builder.build(ruleContext));
     return output;
   }
 }

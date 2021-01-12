@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_toolchain")
+load("@rules_java//java:defs.bzl", "java_binary")
 
 # Description:
 # JavaBuilder and java tools used by Bazel
@@ -51,27 +51,5 @@ filegroup(
     name = "bootstrap_genclass_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:bootstrap_genclass_deploy.jar"],
     tags = ["manual"],
-    visibility = ["//visibility:public"],
-)
-
-# This toolchain is used to bootstrap Bazel.
-java_toolchain(
-    name = "bootstrap_toolchain",
-    bootclasspath = ["//tools/jdk:platformclasspath.jar"],
-    genclass = ["bootstrap_genclass_deploy.jar"],
-    ijar = ["//third_party/ijar"],
-    javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
-    jvm_opts = [
-        # Prevent "Could not reserve enough space for object heap" errors on Windows.
-        "-Xmx512m",
-        # Using tiered compilation improves performance of Javac when not using the worker mode.
-        "-XX:+TieredCompilation",
-        "-XX:TieredStopAtLevel=1",
-    ],
-    singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
-    source_version = "8",
-    tags = ["manual"],
-    target_version = "8",
     visibility = ["//visibility:public"],
 )

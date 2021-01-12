@@ -4,6 +4,7 @@ This is an internal rule used by cc_grpc_library, and shouldn't be used
 directly.
 """
 
+load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 load(
     ":protobuf.bzl",
     "get_include_directory",
@@ -123,6 +124,7 @@ def generate_cc_impl(ctx):
         outputs = out_files,
         executable = ctx.executable.protoc,
         arguments = arguments,
+        use_default_shell_env = True,
     )
 
     return struct(files = depset(out_files))

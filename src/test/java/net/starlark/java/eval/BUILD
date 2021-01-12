@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_test")
 
 package(default_testonly = 1)
 
@@ -22,15 +22,15 @@ java_test(
         "MethodLibraryTest.java",
         "MutabilityTest.java",
         "PrinterTest.java",
+        "StarlarkAnnotationsTest.java",
         "StarlarkEvaluationTest.java",
         "StarlarkFlagGuardingTest.java",
-        "StarlarkInterfaceUtilsTest.java",
         "StarlarkListTest.java",
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
-        "StringModuleTest.java",
     ],
+    jvm_flags = ["-Dfile.encoding=UTF8"],
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
@@ -46,37 +46,29 @@ java_test(
 java_test(
     name = "ScriptTest",
     srcs = ["ScriptTest.java"],
-    data = [
-        "testdata/all_any.sky",
-        "testdata/and_or_not.sky",
-        "testdata/comprehension.sky",
-        "testdata/cycles.sky",
-        "testdata/dict.sky",
-        "testdata/equality.sky",
-        "testdata/function.sky",
-        "testdata/int.sky",
-        "testdata/int_constructor.sky",
-        "testdata/int_function.sky",
-        "testdata/list_mutation.sky",
-        "testdata/list_slices.sky",
-        "testdata/min_max.sky",
-        "testdata/range.sky",
-        "testdata/reversed.sky",
-        "testdata/sorted.sky",
-        "testdata/string_elems.sky",
-        "testdata/string_find.sky",
-        "testdata/string_format.sky",
-        "testdata/string_misc.sky",
-        "testdata/string_partition.sky",
-        "testdata/string_slice_index.sky",
-        "testdata/string_split.sky",
-        "testdata/string_splitlines.sky",
-        "testdata/string_test_characters.sky",
-    ],
+    data = glob(["testdata/*.star"]),
+    jvm_flags = ["-Dfile.encoding=UTF8"],
     use_testrunner = False,
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
+
+# Script-based benchmarks of the Starlark interpreter.
+java_binary(
+    name = "Benchmarks",
+    srcs = ["Benchmarks.java"],
+    data = glob(["testdata/bench_*.star"]),
+    jvm_flags = ["-Dfile.encoding=UTF8"],
+    deps = [
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],

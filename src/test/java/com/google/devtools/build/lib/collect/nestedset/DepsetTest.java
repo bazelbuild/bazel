@@ -17,14 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
-import com.google.devtools.build.lib.packages.StarlarkLibrary;
-import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
@@ -37,15 +35,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class DepsetTest {
 
-  private final EvaluationTestCase ev =
-      new EvaluationTestCase() {
-        @Override
-        protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-          predeclared.put("depset", StarlarkLibrary.COMMON.get("depset"));
-          predeclared.put("struct", StructProvider.STRUCT);
-          return null; // no client data
-        }
-      };
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   @Test
   public void testConstructor() throws Exception {
@@ -79,7 +69,10 @@ public final class DepsetTest {
             Tuple.of("1", "3", "5"), Tuple.of("1", "2"), Tuple.of("3", "4"), Tuple.of("5", "6"));
     assertThat(get("s_eight").getSet(Tuple.class).toList())
         .containsExactly(
-            Tuple.of(1, 3), Tuple.of("1", "2"), Tuple.of("3", "4"), Tuple.of("5", "6"));
+            Tuple.of(StarlarkInt.of(1), StarlarkInt.of(3)),
+            Tuple.of("1", "2"),
+            Tuple.of("3", "4"),
+            Tuple.of("5", "6"));
   }
 
   @Test
@@ -87,12 +80,14 @@ public final class DepsetTest {
     ev.exec("s = depset(['a', 'b'])");
     assertThat(get("s").getSet(String.class).toList()).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class).toList()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").getSet(Integer.class));
+    assertThrows(Depset.TypeException.class, () -> get("s").getSet(StarlarkInt.class));
 
     // getSet argument must be a legal Starlark value class, or Object,
     // but not some superclass that doesn't implement StarlarkValue.
-    Depset ints = Depset.legacyOf(Order.STABLE_ORDER, Tuple.of(1, 2, 3));
-    assertThat(ints.getSet(Integer.class).toString()).isEqualTo("[1, 2, 3]");
+    Depset ints =
+        Depset.legacyOf(
+            Order.STABLE_ORDER, Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
+    assertThat(ints.getSet(StarlarkInt.class).toString()).isEqualTo("[1, 2, 3]");
     IllegalArgumentException ex =
         assertThrows(IllegalArgumentException.class, () -> ints.getSet(Number.class));
     assertThat(ex.getMessage()).contains("Number is not a subclass of StarlarkValue");
@@ -103,7 +98,7 @@ public final class DepsetTest {
     ev.exec("s = depset(direct = ['a', 'b'])");
     assertThat(get("s").getSet(String.class).toList()).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class).toList()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").getSet(Integer.class));
+    assertThrows(Depset.TypeException.class, () -> get("s").getSet(StarlarkInt.class));
   }
 
   @Test
@@ -111,7 +106,7 @@ public final class DepsetTest {
     ev.exec("s = depset(items = ['a', 'b'])");
     assertThat(get("s").getSet(String.class).toList()).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class).toList()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").getSet(Integer.class));
+    assertThrows(Depset.TypeException.class, () -> get("s").getSet(StarlarkInt.class));
   }
 
   @Test
@@ -120,7 +115,7 @@ public final class DepsetTest {
     assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").toList(Integer.class));
+    assertThrows(Depset.TypeException.class, () -> get("s").toList(StarlarkInt.class));
   }
 
   @Test
@@ -129,7 +124,7 @@ public final class DepsetTest {
     assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").toList(Integer.class));
+    assertThrows(Depset.TypeException.class, () -> get("s").toList(StarlarkInt.class));
   }
 
   @Test
@@ -138,7 +133,7 @@ public final class DepsetTest {
     assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").toList(Integer.class));
+    assertThrows(Depset.TypeException.class, () -> get("s").toList(StarlarkInt.class));
   }
 
   @Test
@@ -333,21 +328,22 @@ public final class DepsetTest {
 
   @Test
   public void testToListForStarlark() throws Exception {
-    ev.exec("s = depset([3, 4, 5], transitive = [depset([2, 4, 6])])", "x = s.to_list()");
-    Object value = ev.lookup("x");
-    assertThat(value).isInstanceOf(StarlarkList.class);
-    assertThat((Iterable<?>) value).containsExactly(2, 4, 6, 3, 5).inOrder();
+    ev.exec(
+        "s = depset([3, 4, 5], transitive = [depset([2, 4, 6])])",
+        "x = s.to_list()",
+        "y = [2, 4, 6, 3, 5]");
+    assertThat(ev.lookup("x")).isEqualTo(ev.lookup("y"));
   }
 
   @Test
   public void testDepsetIsNotIterable() throws Exception {
     ev.new Scenario()
-        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
+        .testIfErrorContains("want 'iterable'", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains(
             "unsupported binary operation: int in depset", "1 in depset([1, 2, 3])")
-        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("want 'iterable'", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("want 'iterable'", "tuple(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "[x for x in depset()]")
         .testIfErrorContains("not iterable", "len(depset(['a']))");
   }
@@ -480,7 +476,7 @@ public final class DepsetTest {
   public void testElementTypeOf() {
     // legal values
     assertThat(ElementType.of(String.class).toString()).isEqualTo("string");
-    assertThat(ElementType.of(Integer.class).toString()).isEqualTo("int");
+    assertThat(ElementType.of(StarlarkInt.class).toString()).isEqualTo("int");
     assertThat(ElementType.of(Boolean.class).toString()).isEqualTo("bool");
 
     // concrete non-values
@@ -495,8 +491,8 @@ public final class DepsetTest {
 
     // abstract classes that implement StarlarkValue
     assertThat(ElementType.of(Sequence.class).toString()).isEqualTo("sequence");
-    assertThat(ElementType.of(StarlarkCallable.class).toString()).isEqualTo("function");
-    assertThat(ElementType.of(StarlarkIterable.class).toString()).isEqualTo("StarlarkIterable");
+    assertThat(ElementType.of(StarlarkCallable.class).toString()).isEqualTo("callable");
+    assertThat(ElementType.of(StarlarkIterable.class).toString()).isEqualTo("iterable");
 
     // superclasses of legal values that aren't values themselves
     assertThrows(IllegalArgumentException.class, () -> ElementType.of(Number.class));
@@ -507,7 +503,8 @@ public final class DepsetTest {
   @Test
   public void testSetComparison() throws Exception {
     ev.new Scenario()
-        .testIfExactError("Cannot compare depset with depset", "depset([1, 2]) < depset([3, 4])");
+        .testIfExactError(
+            "unsupported comparison: depset <=> depset", "depset([1, 2]) < depset([3, 4])");
   }
 
   @Test

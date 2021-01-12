@@ -60,6 +60,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -303,7 +304,7 @@ public final class StarlarkRepositoryContextTest {
     StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
-    context.patch(patchFile, 0, thread);
+    context.patch(patchFile, StarlarkInt.of(0), thread);
     testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
   }
 
@@ -314,7 +315,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, 0, thread);
+      context.patch(patchFile, StarlarkInt.of(0), thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -337,7 +338,7 @@ public final class StarlarkRepositoryContextTest {
         true,
         thread);
     try {
-      context.patch(patchFile, 0, thread);
+      context.patch(patchFile, StarlarkInt.of(0), thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -358,7 +359,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, 0, thread);
+      context.patch(patchFile, StarlarkInt.of(0), thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -391,7 +392,7 @@ public final class StarlarkRepositoryContextTest {
             "$remotable",
             true,
             "exec_properties",
-            Dict.of((Mutability) null, "OSFamily", "Linux"));
+            Dict.builder().put("OSFamily", "Linux").buildImmutable());
 
     RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
     ExecutionResult executionResult =
@@ -416,7 +417,7 @@ public final class StarlarkRepositoryContextTest {
     StarlarkExecutionResult starlarkExecutionResult =
         context.execute(
             StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
-            /*timeout=*/ 10,
+            /* timeoutI= */ StarlarkInt.of(10),
             /*uncheckedEnvironment=*/ Dict.empty(),
             /*quiet=*/ true,
             /*workingDirectory=*/ "",

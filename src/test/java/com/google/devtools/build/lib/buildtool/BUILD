@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 package(
     default_testonly = 1,
@@ -311,6 +312,21 @@ java_test(
 )
 
 java_test(
+    name = "InstrumentationFilterSupportTest",
+    srcs = [
+        "InstrumentationFilterSupportTest.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "LabelCrossesPackageBoundaryTest",
     srcs = ["LabelCrossesPackageBoundaryTest.java"],
     tags = [
@@ -361,6 +377,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/bazel:modules",
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -467,23 +484,23 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
-        "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
-        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -573,7 +590,6 @@ java_library(
     name = "IoHookTestCase",
     srcs = ["IoHookTestCase.java"],
     deps = [
-        "//java/com/google/devtools/build/lib/google/vfs:google-hash-functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -613,5 +629,51 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+    ],
+)
+
+# TODO(b/19011399): Remove any manual tags used to disable the tests on bazel,
+#  and enable manual tests inside Google if appropriate.
+# Keep in sync with Copybara transformation that makes these tests manual.
+
+build_test(
+    name = "all_manual_tests",
+    targets = [
+        ":ActionListenerIntegrationTest",
+        ":AqueryBuildToolTest",
+        ":BogusExecutionTimeTest",
+        ":BuildResultTestCase",
+        ":CompileAfterOptionChangeTest",
+        ":CompileOneDependencyIntegrationTest",
+        ":ContextProviderInitializationTest",
+        ":CorruptedActionCacheTest",
+        ":CustomRealFilesystemBuildIntegrationTest",
+        ":DanglingSymlinkTest",
+        ":DirectoryArtifactWarningTest",
+        ":EditDuringBuildTest",
+        ":EnvironmentRestrictedBuildTest",
+        ":ExecutionPhaseContainingPackageLookupTest",
+        ":GenQueryIntegrationTest",
+        ":IncludeValidationTest",
+        ":InconsistentFilesystemTest",
+        ":LabelCrossesPackageBoundaryTest",
+        ":MiscAnalysisTest",
+        ":MissingInputActionTest",
+        ":ModifyBuildFileTest",
+        ":NoOutputActionTest",
+        ":OutputArtifactConflictTest",
+        ":PackageGroupIntegrationTest",
+        ":ProgressReportingTest",
+        ":QueryIntegrationTest",
+        ":SymlinkDependencyAnalysisTest",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:BazelAndroidTests",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:ShTests",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/packages:BazelDocumentationTests",
+        "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidDataBindingV2Test",
     ],
 )

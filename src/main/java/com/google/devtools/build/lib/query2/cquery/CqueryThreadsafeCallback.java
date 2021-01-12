@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.query2.cquery;
 
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -28,6 +28,8 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -39,13 +41,17 @@ import javax.annotation.Nullable;
  * on completeness, should output full configuration checksums.
  */
 public abstract class CqueryThreadsafeCallback
-    extends NamedThreadSafeOutputFormatterCallback<ConfiguredTarget> {
+    extends NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTarget> {
 
   protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
   protected OutputStream outputStream;
   protected Writer printStream;
-  protected final SkyframeExecutor skyframeExecutor;
+  // Skyframe calls incur a performance cost, even on cache hits. Consider this before exposing
+  // direct executor access to child classes.
+  private final SkyframeExecutor skyframeExecutor;
+  private final Map<BuildConfigurationValue.Key, BuildConfiguration> configCache =
+      new ConcurrentHashMap<>();
   protected final ConfiguredTargetAccessor accessor;
 
   private final List<String> result = new ArrayList<>();
@@ -56,7 +62,7 @@ public abstract class CqueryThreadsafeCallback
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor) {
+      TargetAccessor<KeyedConfiguredTarget> accessor) {
     this.eventHandler = eventHandler;
     this.options = options;
     if (out != null) {
@@ -88,6 +94,17 @@ public abstract class CqueryThreadsafeCallback
     }
   }
 
+  protected BuildConfiguration getConfiguration(BuildConfigurationValue.Key configKey) {
+    // Experiments querying:
+    //     cquery --output=graph "deps(//src:main/java/com/google/devtools/build/lib:runtime)"
+    // 10 times on a warm Blaze instance show 7% less total query time when using this cache vs.
+    // calling Skyframe directly (and relying on Skyframe's cache).
+    if (configKey == null) {
+      return null;
+    }
+    return configCache.computeIfAbsent(
+        configKey, key -> skyframeExecutor.getConfiguration(eventHandler, key));
+  }
   /**
    * Returns a user-friendly configuration identifier as a prefix of <code>fullId</code>.
    *

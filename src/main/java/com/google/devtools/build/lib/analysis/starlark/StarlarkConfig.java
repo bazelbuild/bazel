@@ -31,22 +31,22 @@ public class StarlarkConfig implements StarlarkConfigApi {
 
   @Override
   public BuildSetting intSetting(Boolean flag) {
-    return new BuildSetting(flag, INTEGER);
+    return BuildSetting.create(flag, INTEGER);
   }
 
   @Override
   public BuildSetting boolSetting(Boolean flag) {
-    return new BuildSetting(flag, BOOLEAN);
+    return BuildSetting.create(flag, BOOLEAN);
   }
 
   @Override
-  public BuildSetting stringSetting(Boolean flag) {
-    return new BuildSetting(flag, STRING);
+  public BuildSetting stringSetting(Boolean flag, Boolean allowMultiple) {
+    return BuildSetting.create(flag, STRING, allowMultiple);
   }
 
   @Override
   public BuildSetting stringListSetting(Boolean flag) {
-    return new BuildSetting(flag, STRING_LIST);
+    return BuildSetting.create(flag, STRING_LIST);
   }
 
   @Override

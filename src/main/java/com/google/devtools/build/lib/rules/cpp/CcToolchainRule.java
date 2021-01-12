@@ -123,6 +123,12 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoPrefetchHintsLabel());
 
+  private static final LabelLateBoundDefault<?> PROPELLER_OPTIMIZE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getPropellerOptimizeLabel());
+
   /**
    * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
    * enabled through --fdo_optimize or --fdo_profile
@@ -288,7 +294,11 @@ public final class CcToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(module_map) -->
         Module map artifact to be used for modular builds.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("module_map", LABEL).legacyAllowAnyFileType())
+        .add(
+            attr("module_map", LABEL)
+                .legacyAllowAnyFileType()
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(supports_param_files) -->
         Set to True when cc_toolchain supports using param files for linking actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -371,6 +381,12 @@ public final class CcToolchainRule implements RuleDefinition {
                 .allowedRuleClasses("fdo_prefetch_hints")
                 .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
                 .value(FDO_PREFETCH_HINTS)
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(":propeller_optimize", LABEL)
+                .allowedRuleClasses("propeller_optimize")
+                .mandatoryProviders(ImmutableList.of(PropellerOptimizeProvider.PROVIDER.id()))
+                .value(PROPELLER_OPTIMIZE)
                 // Should be in the target configuration
                 .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_identifier) -->

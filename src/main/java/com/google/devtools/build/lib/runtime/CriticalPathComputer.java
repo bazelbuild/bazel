@@ -168,7 +168,10 @@ public class CriticalPathComputer {
 
     SpawnResult spawnResult = event.getSpawnResult();
     stats.addSpawnResult(
-        spawnResult.getMetrics(), spawnResult.getRunnerName(), spawnResult.wasRemote());
+        spawnResult.getMetrics(),
+        spawnResult.getRunnerName(),
+        spawnResult.getRunnerSubtype(),
+        spawnResult.wasRemote());
   }
 
   /** Returns the list of components using the most memory. */
@@ -210,10 +213,10 @@ public class CriticalPathComputer {
   /** Creates a CriticalPathComponent and adds the duration of input discovery and changes phase. */
   @Subscribe
   @AllowConcurrentEvents
-  public void discoverInputs(DiscoveredInputsEvent event) {
+  public void discoverInputs(DiscoveredInputsEvent event) throws InterruptedException {
     CriticalPathComponent stats =
         tryAddComponent(createComponent(event.getAction(), event.getStartTimeNanos()));
-    stats.addSpawnResult(event.getMetrics(), null, /* wasRemote=*/ false);
+    stats.addSpawnResult(event.getMetrics(), null, "", /* wasRemote=*/ false);
     stats.changePhase();
   }
 
@@ -225,7 +228,7 @@ public class CriticalPathComputer {
    */
   @Subscribe
   @AllowConcurrentEvents
-  public void actionStarted(ActionStartedEvent event) {
+  public void actionStarted(ActionStartedEvent event) throws InterruptedException {
     Action action = event.getAction();
     tryAddComponent(createComponent(action, event.getNanoTimeStart())).startRunning();
   }
@@ -239,7 +242,7 @@ public class CriticalPathComputer {
    */
   @Subscribe
   @AllowConcurrentEvents
-  public void middlemanAction(ActionMiddlemanEvent event) {
+  public void middlemanAction(ActionMiddlemanEvent event) throws InterruptedException {
     Action action = event.getAction();
     CriticalPathComponent component =
         tryAddComponent(createComponent(action, event.getNanoTimeStart()));
@@ -253,7 +256,8 @@ public class CriticalPathComputer {
    * @return The component to be used for updating the time stats.
    */
   @SuppressWarnings("ReferenceEquality")
-  private CriticalPathComponent tryAddComponent(CriticalPathComponent newComponent) {
+  private CriticalPathComponent tryAddComponent(CriticalPathComponent newComponent)
+      throws InterruptedException {
     Action newAction = newComponent.getAction();
     Artifact primaryOutput = newAction.getPrimaryOutput();
     CriticalPathComponent storedComponent =
@@ -299,7 +303,7 @@ public class CriticalPathComputer {
    */
   @Subscribe
   @AllowConcurrentEvents
-  public void actionCached(CachedActionEvent event) {
+  public void actionCached(CachedActionEvent event) throws InterruptedException {
     Action action = event.getAction();
     CriticalPathComponent component =
         tryAddComponent(createComponent(action, event.getNanoTimeStart()));

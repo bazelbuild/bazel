@@ -26,9 +26,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -40,16 +42,14 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String STARLARK_NAME = "BootClassPathInfo";
-
   /** Provider singleton constant. */
-  public static final BuiltinProvider<BootClassPathInfo> PROVIDER = new Provider();
+  public static final Provider PROVIDER = new Provider();
 
   /** Provider class for {@link BootClassPathInfo} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
     private Provider() {
-      super(STARLARK_NAME, BootClassPathInfo.class);
+      super("BootClassPathInfo", BootClassPathInfo.class);
     }
 
     @StarlarkMethod(
@@ -57,24 +57,16 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
         doc = "The <code>BootClassPathInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "bootclasspath",
-              positional = false,
-              named = true,
-              type = Sequence.class,
-              defaultValue = "[]"),
-          @Param(
-              name = "auxiliary",
-              positional = false,
-              named = true,
-              type = Sequence.class,
-              defaultValue = "[]"),
+          @Param(name = "bootclasspath", positional = false, named = true, defaultValue = "[]"),
+          @Param(name = "auxiliary", positional = false, named = true, defaultValue = "[]"),
           @Param(
               name = "system",
               positional = false,
               named = true,
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               defaultValue = "None"),
         },
         selfCall = true,
@@ -125,11 +117,16 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> auxiliary,
       Artifact system,
-      Location location) {
-    super(PROVIDER, location);
+      Location creationLocation) {
+    super(creationLocation);
     this.bootclasspath = bootclasspath;
     this.auxiliary = auxiliary;
     this.system = system;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static BootClassPathInfo create(NestedSet<Artifact> bootclasspath) {

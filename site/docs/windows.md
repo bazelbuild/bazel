@@ -5,11 +5,8 @@ title: Windows
 
 # Using Bazel on Windows
 
-<a name="install"></a>
-## Installation
-
-See [Install Bazel on Windows](install-windows.html) for installation
-instructions.
+This page covers Best Practices for using Bazel on Windows. For installation
+instructions, see [Install Bazel on Windows](install-windows.html).
 
 ## Known issues
 

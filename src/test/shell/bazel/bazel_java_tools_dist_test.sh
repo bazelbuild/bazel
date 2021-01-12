@@ -19,8 +19,6 @@
 
 set -euo pipefail
 
-JAVA_TOOLS_JAVA_VERSION="$1"; shift
-
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
@@ -71,8 +69,8 @@ fi
 function expect_path_in_java_tools() {
   path="$1"; shift
 
-  (zipinfo -1 $(rlocation io_bazel/src/java_tools_dist_${JAVA_TOOLS_JAVA_VERSION}.zip) \
-    | grep -c "$path") >& ${TEST_log} || fail "Path $path not found in java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip"
+  (zipinfo -1 $(rlocation io_bazel/src/java_tools_dist.zip) \
+    | grep -c "$path") >& ${TEST_log} || fail "Path $path not found in java_tools_dist.zip"
 }
 
 function test_java_tools_has_ijar() {
@@ -114,7 +112,6 @@ function test_java_tools_has_buildjar() {
 
 function test_java_tools_has_turbine() {
   expect_path_in_java_tools "src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/BUILD"
-  expect_path_in_java_tools "src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac"
 }
 
 function test_java_tools_has_junitrunner() {
@@ -141,19 +138,13 @@ function test_java_tools_has_javac() {
   expect_path_in_java_tools "javac-9+181-r4173-1.srcjar"
 }
 
-function test_java_tools_has_jarjar() {
-  expect_path_in_java_tools "third_party/jarjar"
-  expect_path_in_java_tools "third_party/jarjar/java/com/tonicsystems/jarjar"
-}
-
-# TOODO(iirina): Re-enable this and update jacoco version after #8376 is merged.
-function DISABLED_test_java_tools_has_jacocoagent() {
-  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946-src.jar"
-  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946-src.jar"
-  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946-src.jar"
-  expect_path_in_java_tools "third_party/asm/asm-analysis-7.0-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-commons-7.0-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-7.0-sources.jar"
+function test_java_tools_has_jacocoagent() {
+  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-0.8.3-sources.jar"
+  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-0.8.3-sources.jar"
+  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.report-0.8.3-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-analysis-8.0-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-commons-8.0-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-8.0-sources.jar"
 }
 
 function test_java_tools_has_proguard() {

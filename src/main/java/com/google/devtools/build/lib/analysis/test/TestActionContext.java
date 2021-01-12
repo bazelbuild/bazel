@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.IOException;
@@ -66,14 +68,9 @@ public interface TestActionContext extends ActionContext {
   @Nullable
   ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum);
 
-  /**
-   * An object representing an individual test attempt result. Note that {@link TestRunnerSpawn} is
-   * generic in a subtype of this type; this interface only provide a tiny amount of generic
-   * top-level functionality necessary to share code between the different {@link TestActionContext}
-   * implementations.
-   */
+  /** An individual test attempt result. */
   interface TestAttemptResult {
-    /** Test attempt result, splitting failures into permanent vs retriable. */
+    /** Test attempt result classification, splitting failures into permanent vs retriable. */
     enum Result {
       /** Test attempt successful. */
       PASSED,
@@ -92,6 +89,24 @@ public interface TestActionContext extends ActionContext {
 
     /** Returns a list of spawn results for this test attempt. */
     ImmutableList<SpawnResult> spawnResults();
+
+    /**
+     * Returns a description of the system failure associated with the primary spawn result, if any.
+     */
+    @Nullable
+    default DetailedExitCode primarySystemFailure() {
+      if (spawnResults().isEmpty()) {
+        return null;
+      }
+      SpawnResult primarySpawnResult = spawnResults().get(0);
+      if (primarySpawnResult.status() == Status.SUCCESS) {
+        return null;
+      }
+      if (primarySpawnResult.status().isConsideredUserError()) {
+        return null;
+      }
+      return DetailedExitCode.of(primarySpawnResult.failureDetail());
+    }
   }
 
   /**
@@ -191,7 +206,7 @@ public interface TestActionContext extends ActionContext {
      * attempts are exhausted and then run with another strategy for another set of attempts. This
      * is rarely used, and should ideally be removed.
      */
-    default TestRunnerSpawn getFallbackRunner() throws ExecException {
+    default TestRunnerSpawn getFallbackRunner() throws ExecException, InterruptedException {
       return null;
     }
 
@@ -200,7 +215,7 @@ public interface TestActionContext extends ActionContext {
      * allows a test to run with a different strategy on flaky retries (for example, enabling test
      * fail-fast mode to save up resources).
      */
-    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException {
+    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException, InterruptedException {
       return this;
     }
   }

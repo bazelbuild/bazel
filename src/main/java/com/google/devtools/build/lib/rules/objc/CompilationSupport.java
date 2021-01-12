@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -176,16 +175,6 @@ public class CompilationSupport {
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
-  /**
-   * Enabled if this target's rule is not a test rule. Binary stripping should not be applied in the
-   * link step. TODO(b/36562173): Replace this behavior with a condition on bundle creation.
-   *
-   * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which is
-   * the mechanism used to condition linker arguments here. Therefore, we expose
-   * "is_not_test_target" instead of the more intuitive "is_test_target".
-   */
-  private static final String IS_NOT_TEST_TARGET_FEATURE_NAME = "is_not_test_target";
-
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
 
   private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
@@ -270,7 +259,7 @@ public class CompilationSupport {
                 ruleContext.getLabel(),
                 CppHelper.getGrepIncludes(ruleContext),
                 semantics,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration),
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics),
                 CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoContext,
@@ -315,7 +304,7 @@ public class CompilationSupport {
       result.doNotGenerateModuleMap();
     }
 
-    return result.compile(ruleContext::ruleError);
+    return result.compile(ruleContext);
   }
 
   private static class CompilationResult {
@@ -412,7 +401,7 @@ public class CompilationSupport {
             /* shouldProcessHeaders= */ false);
 
     FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration);
+        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics);
     CcLinkingHelper resultLink =
         new CcLinkingHelper(
                 ruleContext,
@@ -486,7 +475,8 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ true);
+            /* addSelfHeaderTokens= */ true,
+            /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> nonArcOutputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -497,7 +487,8 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ false);
+            /* addSelfHeaderTokens= */ false,
+            /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));
@@ -519,7 +510,10 @@ public class CompilationSupport {
   }
 
   private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext, CcToolchainProvider ccToolchain, BuildConfiguration configuration) {
+      RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfiguration configuration,
+      ObjcCppSemantics semantics) {
     boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
@@ -554,9 +548,6 @@ public class CompilationSupport {
     if (getPchFile().isPresent()) {
       activatedCrosstoolSelectables.add("pch");
     }
-    if (!isTestRule) {
-      activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
-    }
     if (objcConfiguration.generateDsym()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
@@ -584,23 +575,20 @@ public class CompilationSupport {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
-    try {
-      ImmutableSet<String> activatedCrosstoolSelectablesSet;
-      if (!ccToolchain.supportsHeaderParsing()) {
-        // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
-        // cc_toolchain rule.
-        activatedCrosstoolSelectablesSet =
-            activatedCrosstoolSelectables.build().stream()
-                .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
-                .collect(toImmutableSet());
-      } else {
-        activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
-      }
-      return ccToolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectablesSet);
-    } catch (CollidingProvidesException e) {
-      ruleContext.ruleError(e.getMessage());
-      return FeatureConfiguration.EMPTY;
+    ImmutableSet<String> activatedCrosstoolSelectablesSet;
+    if (!ccToolchain.supportsHeaderParsing()) {
+      // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
+      // cc_toolchain rule.
+      activatedCrosstoolSelectablesSet =
+          activatedCrosstoolSelectables.build().stream()
+              .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
+              .collect(toImmutableSet());
+    } else {
+      activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
     }
+
+    return CcCommon.configureFeaturesOrReportRuleError(
+        ruleContext, activatedCrosstoolSelectablesSet, ImmutableSet.of(), ccToolchain, semantics);
   }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
@@ -686,7 +674,6 @@ public class CompilationSupport {
   private final Map<String, NestedSet<Artifact>> outputGroupCollector;
   private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
-  private final boolean isTestRule;
   private final boolean usePch;
   private final IncludeProcessingType includeProcessingType;
   private Optional<ObjcProvider> objcProvider;
@@ -722,7 +709,6 @@ public class CompilationSupport {
       Map<String, NestedSet<Artifact>> outputGroupCollector,
       ImmutableList.Builder<Artifact> objectFilesCollector,
       CcToolchainProvider toolchain,
-      boolean isTestRule,
       boolean usePch)
       throws InterruptedException {
     this.ruleContext = ruleContext;
@@ -731,7 +717,6 @@ public class CompilationSupport {
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
-    this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
     this.objcProvider = Optional.absent();
@@ -761,7 +746,6 @@ public class CompilationSupport {
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
     private ImmutableList.Builder<Artifact> objectFilesCollector;
     private CcToolchainProvider toolchain;
-    private boolean isTestRule = false;
     private boolean usePch = true;
 
     /** Sets the {@link RuleContext} for the calling target. */
@@ -794,12 +778,6 @@ public class CompilationSupport {
      */
     public Builder doNotUsePch() {
       this.usePch = false;
-      return this;
-    }
-
-    /** Indicates that this CompilationSupport is for use in a test rule. */
-    public Builder setIsTestRule() {
-      this.isTestRule = true;
       return this;
     }
 
@@ -871,7 +849,6 @@ public class CompilationSupport {
           outputGroupCollector,
           objectFilesCollector,
           toolchain,
-          isTestRule,
           usePch);
     }
   }
@@ -892,7 +869,7 @@ public class CompilationSupport {
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        !isTestRule,
+        /* withBaselineCoverage= */ true,
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
@@ -1111,7 +1088,7 @@ public class CompilationSupport {
    * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
    * are specified, additional optimizations will be performed on the linked binary: all-symbol
    * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags: {@code
-   * -dead_strip} and {@code -no_dead_strip_inits_and_terms}).
+   * -dead_strip}).
    *
    * @param objcProvider common information about this rule's attributes and its dependencies
    * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation
@@ -1125,7 +1102,8 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs)
+      Iterable<Artifact> extraLinkInputs,
+      boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
@@ -1180,13 +1158,14 @@ public class CompilationSupport {
                 ruleContext,
                 ruleContext.getLabel(),
                 binaryToLink,
-                ruleContext.getConfiguration(),
+                buildConfiguration,
                 toolchain,
                 toolchain.getFdoContext(),
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
+                getFeatureConfiguration(
+                    ruleContext, toolchain, buildConfiguration, createObjcCppSemantics()),
                 createObjcCppSemantics())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
-            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
@@ -1283,7 +1262,9 @@ public class CompilationSupport {
       // Unfortunately, this cache contains non-hermetic information, thus we avoid declaring it as
       // an implicit output (as outputs must be hermetic).
       String cachePath =
-          buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME;
+          buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
+              + "/"
+              + OBJC_MODULE_CACHE_DIR_NAME;
       copts.add("-fmodules-cache-path=" + cachePath);
     }
     return copts;
@@ -1353,10 +1334,11 @@ public class CompilationSupport {
                 ruleContext,
                 ruleContext.getLabel(),
                 outputArchive,
-                ruleContext.getConfiguration(),
+                buildConfiguration,
                 toolchain,
                 toolchain.getFdoContext(),
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
+                getFeatureConfiguration(
+                    ruleContext, toolchain, buildConfiguration, createObjcCppSemantics()),
                 createObjcCppSemantics())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
@@ -1572,23 +1554,17 @@ public class CompilationSupport {
    */
   private void registerBinaryStripAction(Artifact binaryToLink, StrippingType strippingType) {
     final ImmutableList<String> stripArgs;
-    if (isTestRule) {
-      // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
-      // to strip off all symbols in XCTest bundle.
-      stripArgs = ImmutableList.of("-S");
-    } else {
-      switch (strippingType) {
-        case DYNAMIC_LIB:
-        case KERNEL_EXTENSION:
-          // For dylibs and kexts, must strip only local symbols.
-          stripArgs = ImmutableList.of("-x");
-          break;
-        case DEFAULT:
-          stripArgs = ImmutableList.<String>of();
-          break;
-        default:
-          throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
-      }
+    switch (strippingType) {
+      case DYNAMIC_LIB:
+      case KERNEL_EXTENSION:
+        // For dylibs and kexts, must strip only local symbols.
+        stripArgs = ImmutableList.of("-x");
+        break;
+      case DEFAULT:
+        stripArgs = ImmutableList.<String>of();
+        break;
+      default:
+        throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
     }
 
     Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();

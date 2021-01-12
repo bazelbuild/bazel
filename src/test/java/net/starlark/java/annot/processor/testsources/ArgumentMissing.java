@@ -28,7 +28,7 @@ public class ArgumentMissing implements StarlarkValue {
       name = "method_with_params",
       documented = false,
       parameters = {
-        @Param(name = "a_parameter", type = String.class, named = true),
+        @Param(name = "a_parameter", named = true),
       })
   public String methodWithParams() {
     return "bunny";

@@ -164,6 +164,8 @@ bool IsArg(const string& arg) {
 std::string AbsolutePathFromFlag(const std::string& value) {
   if (value.empty()) {
     return blaze_util::GetCwd();
+  } else if (!value.empty() && value[0] == '~') {
+    return blaze_util::JoinPath(GetHomeDir(), value.substr(1));
   } else {
     return blaze_util::MakeAbsolute(value);
   }

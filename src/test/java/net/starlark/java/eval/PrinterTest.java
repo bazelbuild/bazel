@@ -45,22 +45,25 @@ public class PrinterTest {
     assertThat(Starlark.repr("'")).isEqualTo("\"'\"");
     assertThat(Starlark.str("\"")).isEqualTo("\"");
     assertThat(Starlark.repr("\"")).isEqualTo("\"\\\"\"");
-    assertThat(Starlark.str(3)).isEqualTo("3");
-    assertThat(Starlark.repr(3)).isEqualTo("3");
+    assertThat(Starlark.str(StarlarkInt.of(3))).isEqualTo("3");
+    assertThat(Starlark.repr(StarlarkInt.of(3))).isEqualTo("3");
     assertThat(Starlark.repr(Starlark.NONE)).isEqualTo("None");
 
     List<?> list = StarlarkList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
 
-    assertThat(Starlark.str(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
-    assertThat(Starlark.repr(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
-    assertThat(Starlark.str(StarlarkList.of(null, 1, tuple, 3)))
+    assertThat(Starlark.str(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3))))
+        .isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Starlark.repr(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3))))
+        .isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Starlark.str(StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3))))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
-    assertThat(Starlark.repr(StarlarkList.of(null, 1, tuple, 3)))
+    assertThat(Starlark.repr(StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3))))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
 
     Map<Object, Object> dict =
-        ImmutableMap.<Object, Object>of(1, tuple, 2, list, "foo", StarlarkList.of(null));
+        ImmutableMap.<Object, Object>of(
+            StarlarkInt.of(1), tuple, StarlarkInt.of(2), list, "foo", StarlarkList.of(null));
     assertThat(Starlark.str(dict))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
     assertThat(Starlark.repr(dict))
@@ -76,19 +79,25 @@ public class PrinterTest {
   @Test
   public void testOutputOrderOfMap() throws Exception {
     Map<Object, Object> map = new LinkedHashMap<>();
-    map.put(5, 5);
-    map.put(3, 3);
-    map.put("foo", 42);
-    map.put(7, "bar");
-    assertThat(Starlark.str(map)).isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
+    map.put(StarlarkInt.of(5), StarlarkInt.of(5));
+    map.put(StarlarkInt.of(3), StarlarkInt.of(3));
+    map.put("foo", StarlarkInt.of(42));
+    map.put(StarlarkInt.of(7), "bar");
+    assertThat(Starlark.str(Starlark.fromJava(map, null)))
+        .isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
   }
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertThat(Starlark.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
-    assertThat(Starlark.format("%s %d", "foo", 3)).isEqualTo("foo 3");
+    assertThat(Starlark.formatWithList("%s %d", Tuple.of("foo", StarlarkInt.of(3))))
+        .isEqualTo("foo 3");
+    assertThat(Starlark.format("%s %d", "foo", StarlarkInt.of(3))).isEqualTo("foo 3");
 
-    assertThat(Starlark.format("%s %s %s", 1, null, 3)).isEqualTo("1 null 3");
+    // %d allows Integer or StarlarkInt
+    assertThat(Starlark.format("%d %d", StarlarkInt.of(123), 456)).isEqualTo("123 456");
+
+    assertThat(Starlark.format("%s %s %s", StarlarkInt.of(1), null, StarlarkInt.of(3)))
+        .isEqualTo("1 null 3");
 
     // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
@@ -102,11 +111,19 @@ public class PrinterTest {
         "%%s", "foo");
     checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
         "% %s", "foo");
-    assertThat(Starlark.format("%s", StarlarkList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
-    assertThat(Starlark.format("%s", Tuple.of(1, 2, 3))).isEqualTo("(1, 2, 3)");
+    assertThat(
+            Starlark.format(
+                "%s",
+                StarlarkList.of(null, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo("[1, 2, 3]");
+    assertThat(
+            Starlark.format(
+                "%s", Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo("(1, 2, 3)");
     assertThat(Starlark.format("%s", StarlarkList.of(null))).isEqualTo("[]");
     assertThat(Starlark.format("%s", Tuple.of())).isEqualTo("()");
-    assertThat(Starlark.format("%% %d %r %s", 1, "2", "3")).isEqualTo("% 1 \"2\" 3");
+    assertThat(Starlark.format("%% %d %r %s", StarlarkInt.of(1), "2", "3"))
+        .isEqualTo("% 1 \"2\" 3");
 
     checkFormatPositionalFails(
         "invalid argument \"1\" for format pattern %d",

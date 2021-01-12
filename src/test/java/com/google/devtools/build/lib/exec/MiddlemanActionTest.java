@@ -60,7 +60,7 @@ public class MiddlemanActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testActionIsAMiddleman() {
+  public void testActionIsAMiddleman() throws Exception {
     Artifact middle =
         middlemanFactory.createRunfilesMiddleman(
             NULL_ACTION_OWNER,

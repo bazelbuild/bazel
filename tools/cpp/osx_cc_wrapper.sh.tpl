@@ -33,19 +33,32 @@ LIBS=
 LIB_DIRS=
 RPATHS=
 OUTPUT=
-# let parse the option list
-for i in "$@"; do
+
+function parse_option() {
+    local -r opt="$1"
     if [[ "${OUTPUT}" = "1" ]]; then
-        OUTPUT=$i
-    elif [[ "$i" =~ ^-l(.*)$ ]]; then
+        OUTPUT=$opt
+    elif [[ "$opt" =~ ^-l(.*)$ ]]; then
         LIBS="${BASH_REMATCH[1]} $LIBS"
-    elif [[ "$i" =~ ^-L(.*)$ ]]; then
+    elif [[ "$opt" =~ ^-L(.*)$ ]]; then
         LIB_DIRS="${BASH_REMATCH[1]} $LIB_DIRS"
-    elif [[ "$i" =~ ^-Wl,-rpath,\@loader_path/(.*)$ ]]; then
+    elif [[ "$opt" =~ ^-Wl,-rpath,\@loader_path/(.*)$ ]]; then
         RPATHS="${BASH_REMATCH[1]} ${RPATHS}"
-    elif [[ "$i" = "-o" ]]; then
+    elif [[ "$opt" = "-o" ]]; then
         # output is coming
         OUTPUT=1
+    fi
+}
+
+# let parse the option list
+for i in "$@"; do
+    if [[ "$i" = @* ]]; then
+        while IFS= read -r opt
+        do
+            parse_option "$opt"
+        done < "${i:1}" || exit 1
+    else
+        parse_option "$i"
     fi
 done
 

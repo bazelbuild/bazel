@@ -44,6 +44,7 @@ public class DownloadManager {
 
   private final RepositoryCache repositoryCache;
   private List<Path> distdir = ImmutableList.of();
+  private UrlRewriter rewriter;
   private final Downloader downloader;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
@@ -53,6 +54,10 @@ public class DownloadManager {
 
   public void setDistdir(List<Path> distdir) {
     this.distdir = ImmutableList.copyOf(distdir);
+  }
+
+  public void setUrlRewriter(UrlRewriter rewriter) {
+    this.rewriter = rewriter;
   }
 
   /**
@@ -87,6 +92,10 @@ public class DownloadManager {
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
+    }
+
+    if (rewriter != null) {
+      urls = rewriter.amend(urls);
     }
 
     URL mainUrl; // The "main" URL for this request
@@ -187,7 +196,7 @@ public class DownloadManager {
 
     try {
       downloader.download(
-          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv);
+          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     } catch (InterruptedIOException e) {
       throw new InterruptedException(e.getMessage());
     }

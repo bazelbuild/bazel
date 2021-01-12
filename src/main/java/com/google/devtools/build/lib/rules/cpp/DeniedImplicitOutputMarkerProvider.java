@@ -15,17 +15,18 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 
 /** TODO(plf): Remove once implicit outputs are removed from cc_library */
 @Immutable
 public class DeniedImplicitOutputMarkerProvider extends NativeInfo {
-  public static final NativeProvider<DeniedImplicitOutputMarkerProvider> PROVIDER =
-      new NativeProvider<DeniedImplicitOutputMarkerProvider>(
-          DeniedImplicitOutputMarkerProvider.class, "DeniedImplicitOutputMarkerProvider") {};
+  public static final BuiltinProvider<DeniedImplicitOutputMarkerProvider> PROVIDER =
+      new BuiltinProvider<DeniedImplicitOutputMarkerProvider>(
+          "DeniedImplicitOutputMarkerProvider", DeniedImplicitOutputMarkerProvider.class) {};
 
-  public DeniedImplicitOutputMarkerProvider() {
-    super(PROVIDER);
+  @Override
+  public BuiltinProvider<DeniedImplicitOutputMarkerProvider> getProvider() {
+    return PROVIDER;
   }
 }

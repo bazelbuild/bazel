@@ -23,6 +23,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -103,6 +105,11 @@ import net.starlark.java.eval.Starlark;
  *       affect the result of a build, such as timestamp files.
  *   <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used by
  *       new rule implementations.
+ *   <li>A 'symlink' special Artifact. While a symlink can also be represented by a regular
+ *       Artifact, using a symlink special Artifact would result in deriving the Artifact's SkyValue
+ *       from the symlinks themselves (lstat, not stat), and not following the symlinks like in
+ *       regular Artifacts. The underlying symlink can be unresolved, otherwise known as a dangling
+ *       symlink.
  * </ul>
  *
  * <p>While Artifact implements {@link SkyKey} for memory-saving purposes, Skyframe requests
@@ -192,8 +199,9 @@ public abstract class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Iterable<SkyKey> keys(Iterable<Artifact> artifacts) {
-    return Iterables.transform(artifacts, Artifact::key);
+  public static Iterable<SkyKey> keys(Collection<Artifact> artifacts) {
+    // Use Collections2 instead of Iterables#transform to ensure O(1) size().
+    return Collections2.transform(artifacts, Artifact::key);
   }
 
   @Override
@@ -250,12 +258,12 @@ public abstract class Artifact
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableCollection<Artifact>> expandedInputs;
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
-        Map<Artifact, Collection<Artifact>> expandedInputs,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedInputs,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
@@ -267,7 +275,7 @@ public abstract class Artifact
     public void expand(Artifact artifact, Collection<? super Artifact> output) {
       Preconditions.checkState(
           artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
-      Collection<Artifact> result = expandedInputs.get(artifact);
+      ImmutableCollection<Artifact> result = expandedInputs.get(artifact);
       if (result != null) {
         output.addAll(result);
       }
@@ -616,7 +624,7 @@ public abstract class Artifact
    * assumptions should be made in terms of where the root portion of the path ends, and the
    * returned value almost always needs to be used in conjunction with its root.
    *
-   * <p>{#link Artifact#getPackagePath()} is more versatile for general use cases.
+   * <p>{#link Artifact#getOutputDirRelativePath()} is more versatile for general use cases.
    */
   public abstract PathFragment getRootRelativePath();
 
@@ -624,9 +632,43 @@ public abstract class Artifact
    * Returns the fully-qualified package path to this artifact. By "fully-qualified", it means the
    * returned path is prefixed with "external/<repository name>" if this artifact is in an external
    * repository.
+   *
+   * <p>Do not call this method just because you need a path prefixed with the "external/<repository
+   * name>" fragment for external repository artifacts. {@link * Artifact#getOutputDirRelativePath}
+   * is the right one to use in almost all cases.
+   *
+   * @deprecated This method is only to be used for $(location) and getOutputDirRelativePath
+   *     implementations.
    */
-  public PathFragment getPackagePath() {
+  @Deprecated
+  public PathFragment getPathForLocationExpansion() {
     return getRootRelativePath();
+  }
+
+  /**
+   * Returns the path to this artifact relative to an output directory, e.g. the bin directory. Note
+   * that this is available on every Artifact type, including source artifacts. As a matter of fact,
+   * one of its most common use cases is to construct a derived artifact's output path out of a
+   * sibling source artifact's by replacing the basename in its output-dir-relative path.
+   *
+   * <p>This is just a wrapper over {@link Artifact#getPathForLocationExpansion} at the moment.
+   * However, since it will be kept in sync with the output directory layout, which is planned for
+   * an overhaul, it must be preferred over {@link Artifact#getPathForLocationExpansion} whenever
+   * possible.
+   */
+  public PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
+    return getRootRelativePath();
+  }
+
+  /**
+   * Returns the path to this artifact relative to its repository root. As a result, the returned
+   * path always starts with a corresponding package name, if exists.
+   */
+  public PathFragment getRepositoryRelativePath() {
+    PathFragment fullPath = getPathForLocationExpansion();
+    return fullPath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)
+        ? fullPath.subFragment(2)
+        : fullPath;
   }
 
   /** Returns this.getExecPath().getPathString(). */
@@ -639,8 +681,8 @@ public abstract class Artifact
     return getRootRelativePath().getPathString();
   }
 
-  public final String getPackagePathString() {
-    return getPackagePath().getPathString();
+  public final String getRepositoryRelativePathString() {
+    return getRepositoryRelativePath().getPathString();
   }
 
   @Override
@@ -752,12 +794,12 @@ public abstract class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getPackagePath();
+    PathFragment relativePath = getOutputDirRelativePath(false);
     // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
-      relativePath = PathFragment.create("..").getRelative(relativePath);
+      relativePath = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(relativePath);
     }
     return relativePath;
   }
@@ -854,12 +896,22 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return root.isExternalSourceRoot() ? getExecPath().subFragment(1) : getExecPath();
+      return root.isExternalSourceRoot() ? getExecPath().subFragment(2) : getExecPath();
     }
 
     @Override
-    public PathFragment getPackagePath() {
+    public PathFragment getPathForLocationExpansion() {
       return getExecPath();
+    }
+
+    @Override
+    public PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
+      return siblingRepositoryLayout ? getRepositoryRelativePath() : getExecPath();
+    }
+
+    @Override
+    public PathFragment getRepositoryRelativePath() {
+      return getRootRelativePath();
     }
 
     @Override
@@ -1069,15 +1121,37 @@ public abstract class Artifact
         ArtifactRoot treeArtifactRoot,
         PathFragment derivedPathPrefix,
         PathFragment customDerivedTreeRoot) {
-      Path execRoot = getExecRoot(treeArtifactRoot);
+      return ArtifactRoot.asDerivedRoot(
+          getExecRoot(treeArtifactRoot),
+          // e.g. bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
+          getExecPathWithinCustomDerivedRoot(
+              derivedPathPrefix, customDerivedTreeRoot, treeArtifactRoot.getExecPath()));
+    }
 
-      // bazel-out/k8-fastbuild/bin -> bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
-      PathFragment rootExecPath =
-          derivedPathPrefix
-              .getRelative(customDerivedTreeRoot)
-              .getRelative(treeArtifactRoot.getExecPath().relativeTo(derivedPathPrefix));
+    /**
+     * Returns an exec path within the archived artifacts directory tree corresponding to the
+     * provided one.
+     *
+     * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    public static PathFragment getExecPathWithinArchivedArtifactsTree(
+        PathFragment derivedPathPrefix, PathFragment execPath) {
+      return getExecPathWithinCustomDerivedRoot(
+          derivedPathPrefix, ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT, execPath);
+    }
 
-      return ArtifactRoot.asDerivedRoot(execRoot, rootExecPath);
+    /**
+     * Translates provided output {@code execPath} to one under provided derived tree root.
+     *
+     * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    private static PathFragment getExecPathWithinCustomDerivedRoot(
+        PathFragment derivedPathPrefix, PathFragment customDerivedTreeRoot, PathFragment execPath) {
+      return derivedPathPrefix
+          .getRelative(customDerivedTreeRoot)
+          .getRelative(execPath.relativeTo(derivedPathPrefix));
     }
 
     private static Path getExecRoot(ArtifactRoot artifactRoot) {
@@ -1089,6 +1163,15 @@ public abstract class Artifact
           rootPathFragment.subFragment(
               0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
       return rootPath.getFileSystem().getPath(execRootPath);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ArchivedTreeArtifact createForDeserialization(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      ArchivedTreeArtifact result = new ArchivedTreeArtifact(treeArtifact, root, execPath);
+      result.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return result;
     }
   }
 
@@ -1279,8 +1362,8 @@ public abstract class Artifact
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       artifact -> artifact.getRootRelativePath().getPathString();
 
-  public static final Function<Artifact, String> PACKAGE_PATH_STRING =
-      artifact -> artifact.getPackagePath().getPathString();
+  public static final Function<Artifact, String> RUNFILES_PATH_STRING =
+      artifact -> artifact.getRunfilesPath().getPathString();
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and
@@ -1330,24 +1413,6 @@ public abstract class Artifact
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER), ActionInput::getExecPathString);
-  }
-
-  /**
-   * Lazily converts artifacts into package path strings. Middleman artifacts are ignored by this
-   * method.
-   */
-  public static Iterable<String> toPackagePaths(NestedSet<Artifact> artifacts) {
-    return toPackagePaths(artifacts.toList());
-  }
-
-  /**
-   * Lazily converts artifacts into package path strings. Middleman artifacts are ignored by this
-   * method.
-   */
-  public static Iterable<String> toPackagePaths(Iterable<Artifact> artifacts) {
-    return Iterables.transform(
-        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
-        artifact -> artifact.getPackagePath().getPathString());
   }
 
   /**

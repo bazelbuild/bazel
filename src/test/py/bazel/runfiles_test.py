@@ -14,7 +14,10 @@
 # limitations under the License.
 
 import os
+import shutil
+import stat
 import unittest
+
 import six
 from src.test.py.bazel import test_base
 
@@ -228,7 +231,7 @@ class RunfilesTest(test_base.TestBase):
         # runfiles tree, Bazel actually creates empty __init__.py files (again
         # on every platform). However to keep these manifest entries correct,
         # they need to have a space character.
-        # We could probably strip thses lines completely, but this test doesn't
+        # We could probably strip these lines completely, but this test doesn't
         # aim to exercise what would happen in that case.
         mock_manifest_data = [
             mock_manifest_line
@@ -238,6 +241,18 @@ class RunfilesTest(test_base.TestBase):
 
       substitute_manifest = self.ScratchFile(
           "mock-%s.runfiles/MANIFEST" % lang[0], mock_manifest_data)
+
+      # remove the original manifest file and directory so the launcher picks
+      # the one in the environment variable RUNFILES_MANIFEST_FILE
+      manifest_dir = bin_path + ".runfiles"
+      manifest_dir_file = os.path.join(manifest_dir, "MANIFEST")
+      os.chmod(manifest_dir_file, stat.S_IRWXU)
+      shutil.rmtree(manifest_dir)
+      self.assertFalse(os.path.exists(manifest_dir))
+
+      os.chmod(manifest_path, stat.S_IRWXU)
+      os.remove(manifest_path)
+      self.assertFalse(os.path.exists(manifest_path))
 
       exit_code, stdout, stderr = self.RunProgram(
           [bin_path],
@@ -312,6 +327,68 @@ class RunfilesTest(test_base.TestBase):
       manifest_path = os.path.join(bazel_output,
                                    "host/bin/bin.runfiles_manifest")
     self.AssertFileContentNotContains(manifest_path, "__main__/external/A")
+
+  def testRunUnderWithRunfiles(self):
+    for s, t, exe in [
+        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("bar/BUILD.mock", "bar/BUILD", False),
+        ("bar/bar.py", "bar/bar.py", True),
+        ("bar/bar-py-data.txt", "bar/bar-py-data.txt", False),
+        ("bar/Bar.java", "bar/Bar.java", False),
+        ("bar/bar-java-data.txt", "bar/bar-java-data.txt", False),
+        ("bar/bar.sh", "bar/bar.sh", True),
+        ("bar/bar-sh-data.txt", "bar/bar-sh-data.txt", False),
+        ("bar/bar-run-under.sh", "bar/bar-run-under.sh", True),
+        ("bar/bar.cc", "bar/bar.cc", False),
+        ("bar/bar-cc-data.txt", "bar/bar-cc-data.txt", False),
+    ]:
+      self.CopyFile(
+          self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
+                         s), t, exe)
+
+    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    # build bar-sh-run-under target to run targets under it
+    exit_code, _, stderr = self.RunBazel(
+        ["build", "--verbose_failures", "//bar:bar-sh-run-under"])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    if test_base.TestBase.IsWindows():
+      run_under_bin_path = os.path.join(bazel_bin, "bar/bar-sh-run-under.exe")
+    else:
+      run_under_bin_path = os.path.join(bazel_bin, "bar/bar-sh-run-under")
+
+    self.assertTrue(os.path.exists(run_under_bin_path))
+
+    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
+                 ("sh", "Bash", "bar.sh"), ("cc", "C++", "bar.cc")]:
+      exit_code, stdout, stderr = self.RunBazel([
+          "run", "--verbose_failures", "--run_under=//bar:bar-sh-run-under",
+          "//bar:bar-" + lang[0]
+      ])
+      self.AssertExitCode(exit_code, 0, stderr)
+
+      if test_base.TestBase.IsWindows():
+        bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
+      else:
+        bin_path = os.path.join(bazel_bin, "bar/bar-" + lang[0])
+
+      self.assertTrue(os.path.exists(bin_path))
+
+      if len(stdout) < 3:
+        self.fail("stdout(%s): %s" % (lang[0], stdout))
+
+      self.assertEqual(stdout[0], "Hello Bash Bar Run under!")
+      self.assertEqual(stdout[1], "Hello %s Bar!" % lang[1])
+      six.assertRegex(self, stdout[2], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+
+      with open(stdout[2].split("=", 1)[1], "r") as f:
+        lines = [l.strip() for l in f.readlines()]
+      if len(lines) != 1:
+        self.fail("lines(%s): %s" % (lang[0], lines))
+      self.assertEqual(lines[0], "data for " + lang[2])
 
 
 if __name__ == "__main__":

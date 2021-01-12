@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import java.io.IOException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A structure representing a file to be used inside a repository. */
 @StarlarkBuiltin(
     name = "path",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc = "A structure representing a file to be used inside a repository.")
 public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<?>>
     extends StarlarkValue {
@@ -56,7 +56,6 @@ public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<
             name = "child_path",
             positional = true,
             named = false,
-            type = String.class,
             doc = "The path to append to this path."),
       })
   RepositoryPathApi<?> getChild(String childPath);

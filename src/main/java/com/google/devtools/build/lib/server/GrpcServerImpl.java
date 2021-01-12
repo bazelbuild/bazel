@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -401,7 +400,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       } catch (IOException ipv4Exception) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.BUILD_FAILURE,
                 createFailureDetail(
                     String.format(
                         "gRPC server failed to bind to IPv4 and IPv6 localhosts on port %d: [IPv4] "
@@ -458,7 +456,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       shutdownHooks.deleteAtExit(serverInfoFile);
     } catch (IOException e) {
       throw createFilesystemFailureException(
-          "Failed to write server info file: " + e.getMessage(), Code.SERVER_FILE_WRITE_FAILURE, e);
+          "Failed to write server info file: " + e.getMessage(), e);
     }
   }
 
@@ -469,7 +467,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     } catch (IOException e) {
       throw createFilesystemFailureException(
           "Server file (" + file + ") write failed: " + e.getMessage(),
-          Code.SERVER_FILE_WRITE_FAILURE,
           e);
     }
     shutdownHooks.deleteAtExit(file);
@@ -515,7 +512,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
           option.getOption().toString(StandardCharsets.ISO_8859_1)));
     }
 
-    try (RunningCommand command = commandManager.create()) {
+    commandManager.preemptEligibleCommands();
+
+    try (RunningCommand command =
+        request.getPreemptible()
+            ? commandManager.createPreemptibleCommand()
+            : commandManager.createCommand()) {
       commandId = command.getId();
 
       try {
@@ -550,13 +552,13 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
-                Optional.of(startupOptions.build()));
+                Optional.of(startupOptions.build()),
+                request.getCommandExtensionsList());
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
             BlazeCommandResult.detailedExitCode(
                 DetailedExitCode.of(
-                    ExitCode.COMMAND_LINE_ERROR,
                     FailureDetail.newBuilder()
                         .setMessage("Invocation policy parsing failed: " + e.getMessage())
                         .setCommand(
@@ -567,8 +569,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(
-              InterruptedFailureDetails.detailedExitCode(
-                  "Command dispatch interrupted", Interrupted.Code.COMMAND_DISPATCH));
+              InterruptedFailureDetails.detailedExitCode("Command dispatch interrupted"));
       commandId = ""; // The default value, the client will ignore it
     }
     RunResponse.Builder response = RunResponse.newBuilder()
@@ -613,7 +614,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
   @Override
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
-    try (RunningCommand command = commandManager.create()) {
+    try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
       if (pingRequest.getCookie().equals(requestCookie)) {
         response.setCookie(responseCookie);
@@ -651,13 +652,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   }
 
   private static AbruptExitException createFilesystemFailureException(
-      String message, Code detailedCode, IOException e) {
+      String message, IOException e) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            ExitCode.BUILD_FAILURE,
             FailureDetail.newBuilder()
                 .setMessage(message)
-                .setFilesystem(Filesystem.newBuilder().setCode(detailedCode))
+                .setFilesystem(Filesystem.newBuilder().setCode(Code.SERVER_FILE_WRITE_FAILURE))
                 .build()),
         e);
   }

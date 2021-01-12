@@ -111,8 +111,18 @@ public class RemoteRetrier extends Retrier {
    */
   @Override
   public <T> T execute(Callable<T> call) throws IOException, InterruptedException {
+    return execute(call, newBackoff());
+  }
+
+  /**
+   * Execute a callable with retries and given {@link Backoff}. {@link IOException} and {@link
+   * InterruptedException} are propagated directly to the caller. All other exceptions are wrapped
+   * in {@link RuntimeException}.
+   */
+  @Override
+  public <T> T execute(Callable<T> call, Backoff backoff) throws IOException, InterruptedException {
     try {
-      return super.execute(call);
+      return super.execute(call, backoff);
     } catch (Exception e) {
       Throwables.throwIfInstanceOf(e, IOException.class);
       Throwables.throwIfInstanceOf(e, InterruptedException.class);
@@ -164,7 +174,7 @@ public class RemoteRetrier extends Retrier {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (attempts == maxAttempts) {
         return -1;
       }
@@ -211,13 +221,13 @@ public class RemoteRetrier extends Retrier {
     }
 
     @Override
-    public long nextDelayMillis() {
+    public long nextDelayMillis(Exception e) {
       if (currentBackoff == null) {
         currentBackoff = backoffSupplier.get();
         retries++;
         return 0;
       }
-      return currentBackoff.nextDelayMillis();
+      return currentBackoff.nextDelayMillis(e);
     }
 
     @Override

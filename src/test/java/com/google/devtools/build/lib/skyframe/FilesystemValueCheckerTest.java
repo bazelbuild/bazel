@@ -150,8 +150,6 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST,
-        new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -602,7 +600,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     /* **** Tests for files and directory contents ****/
 
     // Test that file contents matter. This is covered by existing tests already,
-    // so it's just a sanity check.
+    // so it's just a simple check.
     FileSystemUtils.writeContentAsLatin1(file11.getPath(), "goodbye");
     assertThat(
             new FilesystemValueChecker(

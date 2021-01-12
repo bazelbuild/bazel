@@ -97,11 +97,13 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
     cpu_value = get_cpu_value(repository_ctx)
     if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
         paths = resolve_labels(repository_ctx, [
-            "@bazel_tools//tools/cpp:BUILD.empty",
+            "@bazel_tools//tools/cpp:BUILD.empty.tpl",
             "@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl",
         ])
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.empty"], "BUILD")
+        repository_ctx.template("BUILD", paths["@bazel_tools//tools/cpp:BUILD.empty.tpl"], {
+            "%{cpu}": get_cpu_value(repository_ctx),
+        })
     elif cpu_value == "freebsd" or cpu_value == "openbsd":
         paths = resolve_labels(repository_ctx, [
             "@bazel_tools//tools/cpp:BUILD.static.bsd",
@@ -149,6 +151,7 @@ cc_autoconf = repository_rule(
         "BAZEL_CXXOPTS",
         "BAZEL_LINKOPTS",
         "BAZEL_LINKLIBS",
+        "BAZEL_LLVM_COV",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",
@@ -165,9 +168,11 @@ cc_autoconf = repository_rule(
         "CC_CONFIGURE_DEBUG",
         "CC_TOOLCHAIN_NAME",
         "CPLUS_INCLUDE_PATH",
+        "DEVELOPER_DIR",
         "GCOV",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
+        "USER",
     ] + MSVC_ENVVARS,
     implementation = cc_autoconf_impl,
     configure = True,

@@ -76,7 +76,7 @@ public class OptionPriority implements Comparable<OptionPriority> {
   public static OptionPriority getChildPriority(OptionPriority parentPriority)
       throws OptionsParsingException {
     if (parentPriority.alreadyExpanded) {
-      // TODO(bazel-team): Either tighten sanity check or prevent multiple
+      // TODO(bazel-team): Either tighten check or prevent multiple
       // expansions when implicit requirements are set.
       logger.atWarning().log("Tried to expand option too many times.");
     }

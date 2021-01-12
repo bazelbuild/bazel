@@ -93,16 +93,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -182,14 +181,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
               .build());
 
-  private TransitivePackageLoader visitor;
+  private QueryTransitivePackagePreloader visitor;
   private OptionsParser options;
 
   @Before
   public final void createSkyframeExecutorAndVisitor() throws Exception {
     skyframeExecutor = getSkyframeExecutor();
-    skyframeExecutor.setRemoteOutputsMode(RemoteOutputsMode.ALL);
-    visitor = skyframeExecutor.pkgLoader();
+    visitor = skyframeExecutor.getPackageManager().transitiveLoader();
     options =
         OptionsParser.builder()
             .optionsClasses(
@@ -486,7 +484,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     for (String labelString : labelStrings) {
       labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
     }
-    visitor.sync(reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200);
+    visitor.preloadTransitiveTargets(
+        reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200);
   }
 
   @Test
@@ -527,8 +526,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThat(conflict).isNotNull();
     ArtifactRoot root =
         getTargetConfiguration()
-            .getBinDirectory(
-                conflict.getConfiguredTarget().getLabel().getPackageIdentifier().getRepository());
+            .getBinDirectory(conflict.getConfiguredTarget().getLabel().getRepository());
 
     Action oldAction =
         getGeneratingAction(
@@ -1196,6 +1194,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public String prettyPrint() {
+      return describe();
+    }
+
+    @Override
+    public String describe() {
       return "DummyTemplate";
     }
 
@@ -2633,7 +2636,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public <T extends Info> T get(NativeProvider<T> provider) {
+    public <T extends Info> T get(BuiltinProvider<T> provider) {
       return provider.getValueClass().cast(get(provider.getKey()));
     }
 

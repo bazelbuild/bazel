@@ -74,7 +74,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
-  private static final char SEPARATOR = OS.getSeparator();
+  private static final char SEPARATOR = '/';
 
   private String path;
   private int driveStrLength; // 1 on Unix, 3 on Windows

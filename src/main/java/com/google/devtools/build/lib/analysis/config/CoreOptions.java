@@ -342,13 +342,29 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions. "
-              + "Variables can be either specified by name, in which case the value will be "
-              + "taken from the invocation environment, or by the name=value pair which sets "
-              + "the value independent of the invocation environment. This option can be used "
-              + "multiple times; for options given for the same variable, the latest wins, options "
-              + "for different variables accumulate.")
+          "Specifies the set of environment variables available to actions with target"
+              + " configuration. Variables can be either specified by name, in which case the"
+              + " value will be taken from the invocation environment, or by the name=value pair"
+              + " which sets the value independent of the invocation environment. This option can"
+              + " be used multiple times; for options given for the same variable, the latest"
+              + " wins, options for different variables accumulate.")
   public List<Map.Entry<String, String>> actionEnvironment;
+
+  @Option(
+      name = "host_action_env",
+      converter = Converters.OptionalAssignmentConverter.class,
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Specifies the set of environment variables available to actions with host or execution"
+              + " configurations. Variables can be either specified by name, in which case the"
+              + " value will be taken from the invocation environment, or by the name=value pair"
+              + " which sets the value independent of the invocation environment. This option can"
+              + " be used multiple times; for options given for the same variable, the latest"
+              + " wins, options for different variables accumulate.")
+  public List<Map.Entry<String, String>> hostActionEnvironment;
 
   @Option(
       name = "repo_env",
@@ -703,7 +719,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "enable_runfiles",
-      oldName = "experimental_enable_runfiles",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -817,28 +832,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
-  // TODO(b/132346407): Remove when all usages are gone.
-  @Option(
-      name = "experimental_enable_flag_alias",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "When enabled, alternate names can be assigned to Starlark-defined flags.")
-  public boolean enableFlagAlias;
-
-  // TODO(b/132346407): Update docs when the feature is fully implemented
   @Option(
       name = "flag_alias",
-      converter = Converters.AssignmentConverter.class,
+      converter = Converters.FlagAliasConverter.class,
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form"
-              + " \"<key>=<value>\" as an argument. This is an experimental feature and will be"
-              + " ignored unless --experimental_enable_flag_alias is set to true.")
+              + " \"<key>=<value>\" as an argument.")
   public List<Map.Entry<String, String>> commandLineFlagAliases;
 
   @Option(
@@ -913,6 +916,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     host.outputDirectoryName = "host";
     host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
+    host.affectedByStarlarkTransition = affectedByStarlarkTransition;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
@@ -956,6 +960,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Save host options in case of a further exec->host transition.
     host.hostCpu = hostCpu;
     host.hostCompilationMode = hostCompilationMode;
+
+    // Pass host action environment variables
+    host.actionEnvironment = hostActionEnvironment;
+    host.hostActionEnvironment = hostActionEnvironment;
 
     return host;
   }

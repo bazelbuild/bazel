@@ -307,8 +307,9 @@ exports_files(["golden.txt"])
 
 <p>
 Glob is a helper function that finds all files that match certain path patterns,
-and returns a list of their paths. Glob only searches files in its own package,
-and looks only for source files (not generated files nor other targets).
+and returns a new, mutable, sorted list of their paths. Glob only searches files
+in its own package, and looks only for source files (not generated files nor
+other targets).
 </p>
 
 <p>

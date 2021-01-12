@@ -28,8 +28,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
-// TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
-// and BUILD and .bzl features.
 @RunWith(JUnit4.class)
 public final class EvaluationTest {
 
@@ -139,7 +137,9 @@ public final class EvaluationTest {
 
     class C {
       long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
-        Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", n));
+        Module module =
+            Module.withPredeclared(
+                StarlarkSemantics.DEFAULT, ImmutableMap.of("n", StarlarkInt.of(n)));
         long steps0 = thread.getExecutedSteps();
         Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
         return thread.getExecutedSteps() - steps0;
@@ -170,17 +170,19 @@ public final class EvaluationTest {
         .testExpression("'%sx' % 'foo' + 'bar1'", "fooxbar1")
         .testExpression("('%sx' % 'foo') + 'bar2'", "fooxbar2")
         .testExpression("'%sx' % ('foo' + 'bar3')", "foobar3x")
-        .testExpression("123 + 456", 579)
-        .testExpression("456 - 123", 333)
-        .testExpression("8 % 3", 2)
+        .testExpression("123 + 456", StarlarkInt.of(579))
+        .testExpression("456 - 123", StarlarkInt.of(333))
+        .testExpression("8 % 3", StarlarkInt.of(2))
         .testIfErrorContains("unsupported binary operation: int % string", "3 % 'foo'")
-        .testExpression("-5", -5)
+        .testExpression("-5", StarlarkInt.of(-5))
         .testIfErrorContains("unsupported unary operation: -string", "-'foo'");
   }
 
   @Test
   public void testListExprs() throws Exception {
-    ev.new Scenario().testExactOrder("[1, 2, 3]", 1, 2, 3).testExactOrder("(1, 2, 3)", 1, 2, 3);
+    ev.new Scenario()
+        .testExactOrder("[1, 2, 3]", StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))
+        .testExactOrder("(1, 2, 3)", StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3));
   }
 
   @Test
@@ -191,9 +193,9 @@ public final class EvaluationTest {
   @Test
   public void testConditionalExpressions() throws Exception {
     ev.new Scenario()
-        .testExpression("1 if True else 2", 1)
-        .testExpression("1 if False else 2", 2)
-        .testExpression("1 + 2 if 3 + 4 else 5 + 6", 3);
+        .testExpression("1 if True else 2", StarlarkInt.of(1))
+        .testExpression("1 if False else 2", StarlarkInt.of(2))
+        .testExpression("1 + 2 if 3 + 4 else 5 + 6", StarlarkInt.of(3));
   }
 
   @Test
@@ -226,10 +228,11 @@ public final class EvaluationTest {
           }
 
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
-            int sum = 0;
+          public StarlarkInt fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+              throws EvalException {
+            StarlarkInt sum = StarlarkInt.of(0);
             for (Object arg : positional) {
-              sum += (Integer) arg;
+              sum = StarlarkInt.add(sum, (StarlarkInt) arg);
             }
             return sum;
           }
@@ -237,18 +240,18 @@ public final class EvaluationTest {
 
     ev.new Scenario()
         .update(sum.getName(), sum)
-        .testExpression("sum(1, 2, 3, 4, 5, 6)", 21)
+        .testExpression("sum(1, 2, 3, 4, 5, 6)", StarlarkInt.of(21))
         .testExpression("sum", sum)
-        .testExpression("sum(a=1, b=2)", 0);
+        .testExpression("sum(a=1, b=2)", StarlarkInt.of(0));
   }
 
   @Test
   public void testNotCallInt() throws Exception {
     ev.new Scenario()
         .setUp("sum = 123456")
-        .testLookup("sum", 123456)
+        .testLookup("sum", StarlarkInt.of(123456))
         .testIfExactError("'int' object is not callable", "sum(1, 2, 3, 4, 5, 6)")
-        .testExpression("sum", 123456);
+        .testExpression("sum", StarlarkInt.of(123456));
   }
 
   @Test
@@ -269,10 +272,7 @@ public final class EvaluationTest {
           }
 
           @Override
-          public Object call(
-              StarlarkThread thread,
-              Tuple<Object> args,
-              Dict<String, Object> kwargs) {
+          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
             return kwargs;
           }
         };
@@ -290,19 +290,19 @@ public final class EvaluationTest {
   @Test
   public void testModulo() throws Exception {
     ev.new Scenario()
-        .testExpression("6 % 2", 0)
-        .testExpression("6 % 4", 2)
-        .testExpression("3 % 6", 3)
-        .testExpression("7 % -4", -1)
-        .testExpression("-7 % 4", 1)
-        .testExpression("-7 % -4", -3)
+        .testExpression("6 % 2", StarlarkInt.of(0))
+        .testExpression("6 % 4", StarlarkInt.of(2))
+        .testExpression("3 % 6", StarlarkInt.of(3))
+        .testExpression("7 % -4", StarlarkInt.of(-1))
+        .testExpression("-7 % 4", StarlarkInt.of(1))
+        .testExpression("-7 % -4", StarlarkInt.of(-3))
         .testIfExactError("integer modulo by zero", "5 % 0");
   }
 
   @Test
   public void testMult() throws Exception {
     ev.new Scenario()
-        .testExpression("6 * 7", 42)
+        .testExpression("6 * 7", StarlarkInt.of(42))
         .testExpression("3 * 'ab'", "ababab")
         .testExpression("0 * 'ab'", "")
         .testExpression("'1' + '0' * 5", "100000")
@@ -311,42 +311,40 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testSlashOperatorIsForbidden() throws Exception {
-    ev.new Scenario().testIfErrorContains("The `/` operator is not allowed.", "5 / 2");
-  }
-
-  @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
-        .testExpression("6 // 2", 3)
-        .testExpression("6 // 4", 1)
-        .testExpression("3 // 6", 0)
-        .testExpression("7 // -2", -4)
-        .testExpression("-7 // 2", -4)
-        .testExpression("-7 // -2", 3)
-        .testExpression("2147483647 // 2", 1073741823)
+        .testExpression("6 // 2", StarlarkInt.of(3))
+        .testExpression("6 // 4", StarlarkInt.of(1))
+        .testExpression("3 // 6", StarlarkInt.of(0))
+        .testExpression("7 // -2", StarlarkInt.of(-4))
+        .testExpression("-7 // 2", StarlarkInt.of(-4))
+        .testExpression("-7 // -2", StarlarkInt.of(3))
+        .testExpression("2147483647 // 2", StarlarkInt.of(1073741823))
         .testIfErrorContains("unsupported binary operation: string // int", "'str' // 2")
         .testIfExactError("integer division by zero", "5 // 0");
   }
 
   @Test
-  public void testCheckedArithmetic() throws Exception {
+  public void testArithmeticDoesNotOverflow() throws Exception {
     ev.new Scenario()
-        .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
-        .testIfErrorContains("integer overflow", "1234567890 * 987654321")
-        .testIfErrorContains("integer overflow", "- 2000000000 - 2000000000")
+        .testEval("2000000000 + 2000000000", "1000000000 + 1000000000 + 1000000000 + 1000000000")
+        .testExpression("1234567890 * 987654321", StarlarkInt.of(1219326311126352690L))
+        .testExpression(
+            "1234567890 * 987654321 * 987654321",
+            StarlarkInt.multiply(StarlarkInt.of(1219326311126352690L), StarlarkInt.of(987654321)))
+        .testEval("- 2000000000 - 2000000000", "-1000000000 - 1000000000 - 1000000000 - 1000000000")
 
         // literal 2147483648 is not allowed, so we compute it
         .setUp("minint = - 2147483647 - 1")
-        .testIfErrorContains("integer overflow", "-minint");
+        .testEval("-minint", "2147483647+1");
   }
 
   @Test
   public void testOperatorPrecedence() throws Exception {
     ev.new Scenario()
-        .testExpression("2 + 3 * 4", 14)
-        .testExpression("2 + 3 // 4", 2)
-        .testExpression("2 * 3 + 4 // -2", 4);
+        .testExpression("2 + 3 * 4", StarlarkInt.of(14))
+        .testExpression("2 + 3 // 4", StarlarkInt.of(2))
+        .testExpression("2 * 3 + 4 // -2", StarlarkInt.of(4));
   }
 
   @Test
@@ -357,217 +355,57 @@ public final class EvaluationTest {
   @Test
   public void testConcatLists() throws Exception {
     ev.new Scenario()
-        .testExactOrder("[1,2] + [3,4]", 1, 2, 3, 4)
-        .testExactOrder("(1,2)", 1, 2)
-        .testExactOrder("(1,2) + (3,4)", 1, 2, 3, 4);
+        .testExactOrder(
+            "[1,2] + [3,4]",
+            StarlarkInt.of(1),
+            StarlarkInt.of(2),
+            StarlarkInt.of(3),
+            StarlarkInt.of(4))
+        .testExactOrder("(1,2)", StarlarkInt.of(1), StarlarkInt.of(2))
+        .testExactOrder(
+            "(1,2) + (3,4)",
+            StarlarkInt.of(1),
+            StarlarkInt.of(2),
+            StarlarkInt.of(3),
+            StarlarkInt.of(4));
 
     // TODO(fwe): cannot be handled by current testing suite
     // list
     Object x = ev.eval("[1,2] + [3,4]");
-    assertThat((Iterable<?>) x).containsExactly(1, 2, 3, 4).inOrder();
+    assertThat((Iterable<?>) x)
+        .containsExactly(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4))
+        .inOrder();
     assertThat(x).isInstanceOf(StarlarkList.class);
     assertThat(Starlark.isImmutable(x)).isFalse();
 
     // tuple
     x = ev.eval("(1,2) + (3,4)");
-    assertThat((Iterable<?>) x).containsExactly(1, 2, 3, 4).inOrder();
+    assertThat((Iterable<?>) x)
+        .containsExactly(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4))
+        .inOrder();
     assertThat(x).isInstanceOf(Tuple.class);
-    assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
+    assertThat(x)
+        .isEqualTo(
+            Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4)));
     assertThat(Starlark.isImmutable(x)).isTrue();
 
     ev.checkEvalError("unsupported binary operation: tuple + list", "(1,2) + [3,4]");
   }
 
   @Test
-  public void testListComprehensions() throws Exception {
-    ev.new Scenario()
-        .testExactOrder("['foo/%s.java' % x for x in []]")
-        .testExactOrder(
-            "['foo/%s.java' % y for y in ['bar', 'wiz', 'quux']]",
-            "foo/bar.java", "foo/wiz.java", "foo/quux.java")
-        .testExactOrder(
-            "['%s/%s.java' % (z, t) for z in ['foo', 'bar'] " + "for t in ['baz', 'wiz', 'quux']]",
-            "foo/baz.java",
-            "foo/wiz.java",
-            "foo/quux.java",
-            "bar/baz.java",
-            "bar/wiz.java",
-            "bar/quux.java")
-        .testExactOrder(
-            "['%s/%s.java' % (b, b) for a in ['foo', 'bar'] " + "for b in ['baz', 'wiz', 'quux']]",
-            "baz/baz.java",
-            "wiz/wiz.java",
-            "quux/quux.java",
-            "baz/baz.java",
-            "wiz/wiz.java",
-            "quux/quux.java")
-        .testExactOrder(
-            "['%s/%s.%s' % (c, d, e) for c in ['foo', 'bar'] "
-                + "for d in ['baz', 'wiz', 'quux'] for e in ['java', 'cc']]",
-            "foo/baz.java",
-            "foo/baz.cc",
-            "foo/wiz.java",
-            "foo/wiz.cc",
-            "foo/quux.java",
-            "foo/quux.cc",
-            "bar/baz.java",
-            "bar/baz.cc",
-            "bar/wiz.java",
-            "bar/wiz.cc",
-            "bar/quux.java",
-            "bar/quux.cc")
-        .testExactOrder("[i for i in (1, 2)]", 1, 2)
-        .testExactOrder("[i for i in [2, 3] or [1, 2]]", 2, 3);
-  }
-
-  @Test
-  public void testNestedListComprehensions() throws Exception {
-    ev.new Scenario()
-        .setUp("li = [[1, 2], [3, 4]]")
-        .testExactOrder("[j for i in li for j in i]", 1, 2, 3, 4);
-    ev.new Scenario()
-        .setUp("input = [['abc'], ['def', 'ghi']]\n")
-        .testExactOrder(
-            "['%s %s' % (b, c) for a in input for b in a for c in b.elems()]",
-            "abc a", "abc b", "abc c", "def d", "def e", "def f", "ghi g", "ghi h", "ghi i");
-  }
-
-  @Test
-  public void testListComprehensionsMultipleVariables() throws Exception {
-    ev.new Scenario()
-        .testEval("[x + y for x, y in [(1, 2), (3, 4)]]", "[3, 7]")
-        .testEval("[z + t for (z, t) in [[1, 2], [3, 4]]]", "[3, 7]");
-  }
-
-  @Test
-  public void testSequenceAssignment() throws Exception {
-    // Assignment to empty list/tuple is permitted.
-    // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
-    ev.exec("() = ()");
-    ev.exec("[] = ()");
-
-    // RHS not iterable
-    ev.checkEvalError(
-        "got 'int' in sequence assignment", //
-        "x, y = 1");
-    ev.checkEvalError(
-        "got 'int' in sequence assignment", //
-        "(x,) = 1");
-    ev.checkEvalError(
-        "got 'int' in sequence assignment", //
-        "[x] = 1");
-
-    // too few
-    ev.checkEvalError(
-        "too few values to unpack (got 0, want 2)", //
-        "x, y = ()");
-    ev.checkEvalError(
-        "too few values to unpack (got 0, want 2)", //
-        "[x, y] = ()");
-
-    // just right
-    ev.exec("x, y = 1, 2");
-    ev.exec("[x, y] = 1, 2");
-    ev.exec("(x,) = [1]");
-
-    // too many
-    ev.checkEvalError(
-        "got 'int' in sequence assignment", //
-        "() = 1");
-    ev.checkEvalError(
-        "too many values to unpack (got 1, want 0)", //
-        "() = (1,)");
-    ev.checkEvalError(
-        "too many values to unpack (got 3, want 2)", //
-        "x, y = 1, 2, 3");
-    ev.checkEvalError(
-        "too many values to unpack (got 3, want 2)", //
-        "[x, y] = 1, 2, 3");
-  }
-
-  @Test
-  public void testListComprehensionsMultipleVariablesFail() throws Exception {
-    ev.new Scenario()
-        .testIfErrorContains(
-            "too few values to unpack (got 2, want 3)", //
-            "[x + y for x, y, z in [(1, 2), (3, 4)]]")
-        .testIfExactError(
-            "got 'int' in sequence assignment", //
-            "[x + y for x, y in (1, 2)]");
-
-    ev.new Scenario()
-        .testIfErrorContains(
-            "too few values to unpack (got 2, want 3)", //
-            "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
-            "foo()");
-
-    ev.new Scenario()
-        .testIfErrorContains(
-            "got 'int' in sequence assignment", //
-            "def bar (): return [x + y for x, y in (1, 2)]",
-            "bar()");
-
-    ev.new Scenario()
-        .testIfErrorContains(
-            "too few values to unpack (got 2, want 3)", //
-            "[x + y for x, y, z in [(1, 2), (3, 4)]]");
-
-    ev.new Scenario()
-        .testIfErrorContains(
-            "got 'int' in sequence assignment", //
-            "[x2 + y2 for x2, y2 in (1, 2)]");
-
-    // Assignment to empty tuple is permitted.
-    // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
-    ev.new Scenario().testEval("[1 for [] in [(), []]]", "[1, 1]");
-  }
-
-  @Test
-  public void testListComprehensionsWithFiltering() throws Exception {
-    ev.new Scenario()
-        .setUp("range3 = [0, 1, 2]")
-        .testEval("[a for a in (4, None, 2, None, 1) if a != None]", "[4, 2, 1]")
-        .testEval("[b+c for b in [0, 1, 2] for c in [0, 1, 2] if b + c > 2]", "[3, 3, 4]")
-        .testEval("[d+e for d in range3 if d % 2 == 1 for e in range3]", "[1, 2, 3]")
-        .testEval(
-            "[[f,g] for f in [0, 1, 2, 3, 4] if f for g in [5, 6, 7, 8] if f * g % 12 == 0 ]",
-            "[[2, 6], [3, 8], [4, 6]]")
-        .testEval("[h for h in [4, 2, 0, 1] if h]", "[4, 2, 1]");
-  }
-
-  @Test
   public void testListComprehensionDefinitionOrder() throws Exception {
-    // This exercises the .bzl file behavior. This is a dynamic error.
-    // (The error message for BUILD files is slightly different (no "local")
-    // because it doesn't record the scope in the syntax tree.)
     ev.new Scenario()
         .testIfErrorContains(
-            "local variable 'y' is referenced before assignment", //
+            "local variable 'y' is referenced before assignment",
             "[x for x in (1, 2) if y for y in (3, 4)]");
-
-    // This is the corresponding test for BUILD files.
-    EvalException ex =
-        assertThrows(
-            EvalException.class, () -> execBUILD("[x for x in (1, 2) if y for y in (3, 4)]"));
-    assertThat(ex).hasMessageThat().isEqualTo("variable 'y' is referenced before assignment");
-  }
-
-  private static void execBUILD(String... lines)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    ParserInput input = ParserInput.fromLines(lines);
-    FileOptions options = FileOptions.builder().recordScope(false).build();
-    try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      Starlark.execFile(input, options, Module.create(), thread);
-    }
   }
 
   @Test
   public void testTupleDestructuring() throws Exception {
     ev.new Scenario()
         .setUp("a, b = 1, 2")
-        .testLookup("a", 1)
-        .testLookup("b", 2)
+        .testLookup("a", StarlarkInt.of(1))
+        .testLookup("b", StarlarkInt.of(2))
         .setUp("c, d = {'key1':2, 'key2':3}")
         .testLookup("c", "key1")
         .testLookup("d", "key2");
@@ -575,53 +413,56 @@ public final class EvaluationTest {
 
   @Test
   public void testSingleTuple() throws Exception {
-    ev.new Scenario().setUp("(a,) = [1]").testLookup("a", 1);
+    ev.new Scenario().setUp("(a,) = [1]").testLookup("a", StarlarkInt.of(1));
   }
 
   @Test
   public void testHeterogeneousDict() throws Exception {
     ev.new Scenario()
         .setUp("d = {'str': 1, 2: 3}", "a = d['str']", "b = d[2]")
-        .testLookup("a", 1)
-        .testLookup("b", 3);
+        .testLookup("a", StarlarkInt.of(1))
+        .testLookup("b", StarlarkInt.of(3));
   }
 
   @Test
   public void testAccessDictWithATupleKey() throws Exception {
-    ev.new Scenario().setUp("x = {(1, 2): 3}[1, 2]").testLookup("x", 3);
+    ev.new Scenario().setUp("x = {(1, 2): 3}[1, 2]").testLookup("x", StarlarkInt.of(3));
   }
 
   @Test
   public void testDictWithDuplicatedKey() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+            "dictionary expression has duplicate key: \"str\"", "{'str': 1, 'x': 2, 'str': 3}");
   }
 
   @Test
   public void testRecursiveTupleDestructuring() throws Exception {
     ev.new Scenario()
         .setUp("((a, b), (c, d)) = [(1, 2), (3, 4)]")
-        .testLookup("a", 1)
-        .testLookup("b", 2)
-        .testLookup("c", 3)
-        .testLookup("d", 4);
+        .testLookup("a", StarlarkInt.of(1))
+        .testLookup("b", StarlarkInt.of(2))
+        .testLookup("c", StarlarkInt.of(3))
+        .testLookup("d", StarlarkInt.of(4));
   }
 
   @Test
   public void testListComprehensionAtTopLevel() throws Exception {
     // It is allowed to have a loop variable with the same name as a global variable.
     ev.new Scenario()
-        .update("x", 42)
+        .update("x", StarlarkInt.of(42))
         .setUp("y = [x + 1 for x in [1,2,3]]")
-        .testExactOrder("y", 2, 3, 4);
+        .testExactOrder("y", StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4));
   }
 
   @Test
   public void testDictComprehensions() throws Exception {
     ev.new Scenario()
         .testExpression("{a : a for a in []}", Collections.emptyMap())
-        .testExpression("{b : b for b in [1, 2]}", ImmutableMap.of(1, 1, 2, 2))
+        .testExpression(
+            "{b : b for b in [1, 2]}",
+            ImmutableMap.of(
+                StarlarkInt.of(1), StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(2)))
         .testExpression(
             "{c : 'v_' + c for c in ['a', 'b']}", ImmutableMap.of("a", "v_a", "b", "v_b"))
         .testExpression(
@@ -629,7 +470,9 @@ public final class EvaluationTest {
         .testExpression(
             "{'k_' + e : 'v_' + e for e in ['a', 'b']}",
             ImmutableMap.of("k_a", "v_a", "k_b", "v_b"))
-        .testExpression("{x+y : x*y for x, y in [[2, 3]]}", ImmutableMap.of(5, 6));
+        .testExpression(
+            "{x+y : x*y for x, y in [[2, 3]]}",
+            ImmutableMap.of(StarlarkInt.of(5), StarlarkInt.of(6)));
   }
 
   @Test
@@ -642,13 +485,24 @@ public final class EvaluationTest {
     ev.new Scenario()
         .testExpression(
             "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
-            ImmutableMap.of(2, 4, 4, 16, 6, 36, 8, 64));
+            ImmutableMap.of(
+                StarlarkInt.of(2),
+                StarlarkInt.of(4),
+                StarlarkInt.of(4),
+                StarlarkInt.of(16),
+                StarlarkInt.of(6),
+                StarlarkInt.of(36),
+                StarlarkInt.of(8),
+                StarlarkInt.of(64)));
   }
 
   @Test
   public void testDictComprehensions_multipleKey() throws Exception {
     ev.new Scenario()
-        .testExpression("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
+        .testExpression(
+            "{x : x for x in [1, 2, 1]}",
+            ImmutableMap.of(
+                StarlarkInt.of(1), StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(2)))
         .testExpression(
             "{y : y for y in ['ab', 'c', 'a' + 'b']}", ImmutableMap.of("ab", "ab", "c", "c"));
   }
@@ -656,45 +510,44 @@ public final class EvaluationTest {
   @Test
   public void testListConcatenation() throws Exception {
     ev.new Scenario()
-        .testExpression("[1, 2] + [3, 4]", StarlarkList.of(null, 1, 2, 3, 4))
-        .testExpression("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
+        .testEval("[1, 2] + [3, 4]", "[1, 2, 3, 4]")
+        .testEval("(1, 2) + (3, 4)", "(1, 2, 3, 4)")
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
         .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
   }
 
   @Test
   public void testListMultiply() throws Exception {
-    Mutability mu = Mutability.create("test");
     ev.new Scenario()
-        .testExpression("[1, 2, 3] * 1", StarlarkList.of(mu, 1, 2, 3))
-        .testExpression("[1, 2] * 2", StarlarkList.of(mu, 1, 2, 1, 2))
-        .testExpression("[1, 2] * 3", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2))
-        .testExpression("[1, 2] * 4", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2, 1, 2))
-        .testExpression("[8] * 5", StarlarkList.of(mu, 8, 8, 8, 8, 8))
-        .testExpression("[    ] * 10", StarlarkList.empty())
-        .testExpression("[1, 2] * 0", StarlarkList.empty())
-        .testExpression("[1, 2] * -4", StarlarkList.empty())
-        .testExpression("2 * [1, 2]", StarlarkList.of(mu, 1, 2, 1, 2))
-        .testExpression("10 * []", StarlarkList.empty())
-        .testExpression("0 * [1, 2]", StarlarkList.empty())
-        .testExpression("-4 * [1, 2]", StarlarkList.empty());
+        .testEval("[1, 2, 3] * 1", "[1, 2, 3]")
+        .testEval("[1, 2] * 2", "[1, 2, 1, 2]")
+        .testEval("[1, 2] * 3", "[1, 2, 1, 2, 1, 2]")
+        .testEval("[1, 2] * 4", "[1, 2, 1, 2, 1, 2, 1, 2]")
+        .testEval("[8] * 5", "[8, 8, 8, 8, 8]")
+        .testEval("[    ] * 10", "[]")
+        .testEval("[1, 2] * 0", "[]")
+        .testEval("[1, 2] * -4", "[]")
+        .testEval("2 * [1, 2]", "[1, 2, 1, 2]")
+        .testEval("10 * []", "[]")
+        .testEval("0 * [1, 2]", "[]")
+        .testEval("-4 * [1, 2]", "[]");
   }
 
   @Test
   public void testTupleMultiply() throws Exception {
     ev.new Scenario()
-        .testExpression("(1, 2, 3) * 1", Tuple.of(1, 2, 3))
-        .testExpression("(1, 2) * 2", Tuple.of(1, 2, 1, 2))
-        .testExpression("(1, 2) * 3", Tuple.of(1, 2, 1, 2, 1, 2))
-        .testExpression("(1, 2) * 4", Tuple.of(1, 2, 1, 2, 1, 2, 1, 2))
-        .testExpression("(8,) * 5", Tuple.of(8, 8, 8, 8, 8))
-        .testExpression("(    ) * 10", Tuple.empty())
-        .testExpression("(1, 2) * 0", Tuple.empty())
-        .testExpression("(1, 2) * -4", Tuple.empty())
-        .testExpression("2 * (1, 2)", Tuple.of(1, 2, 1, 2))
-        .testExpression("10 * ()", Tuple.empty())
-        .testExpression("0 * (1, 2)", Tuple.empty())
-        .testExpression("-4 * (1, 2)", Tuple.empty());
+        .testEval("(1, 2, 3) * 1", "(1, 2, 3)")
+        .testEval("(1, 2) * 2", "(1, 2, 1, 2)")
+        .testEval("(1, 2) * 3", "(1, 2, 1, 2, 1, 2)")
+        .testEval("(1, 2) * 4", "(1, 2, 1, 2, 1, 2, 1, 2)")
+        .testEval("(8,) * 5", "(8, 8, 8, 8, 8)")
+        .testEval("(    ) * 10", "()")
+        .testEval("(1, 2) * 0", "()")
+        .testEval("(1, 2) * -4", "()")
+        .testEval("2 * (1, 2)", "(1, 2, 1, 2)")
+        .testEval("10 * ()", "()")
+        .testEval("0 * (1, 2)", "()")
+        .testEval("-4 * (1, 2)", "()");
   }
 
   @Test
@@ -809,7 +662,7 @@ public final class EvaluationTest {
 
   @Test
   public void testInCompositeForPrecedence() throws Exception {
-    ev.new Scenario().testExpression("not 'a' in ['a'] or 0", 0);
+    ev.new Scenario().testExpression("not 'a' in ['a'] or 0", StarlarkInt.of(0));
   }
 
   private static StarlarkValue createObjWithStr() {
@@ -896,11 +749,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testStaticNameResolution() throws Exception {
-    ev.new Scenario().testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
-  }
-
-  @Test
   public void testExec() throws Exception {
     ParserInput input =
         ParserInput.fromLines(
@@ -913,6 +761,38 @@ public final class EvaluationTest {
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("x"))
-        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
+        .isEqualTo(
+            StarlarkList.of(
+                /*mutability=*/ null,
+                StarlarkInt.of(1),
+                StarlarkInt.of(2),
+                "foo",
+                StarlarkInt.of(4),
+                StarlarkInt.of(1),
+                StarlarkInt.of(2),
+                "foo1"));
+  }
+
+  // TODO(adonovan): add more tests of load.
+
+  @Test
+  public void testTopLevelRebinding() throws Exception {
+    FileOptions options =
+        FileOptions.DEFAULT.toBuilder()
+            .allowToplevelRebinding(true)
+            .loadBindsGlobally(true)
+            .build();
+
+    Module m1 = Module.create();
+    m1.setGlobal("x", "one");
+
+    ParserInput input = ParserInput.fromLines("load('m1', 'x'); x = 'two'");
+    Module m2 = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      thread.setLoader((name) -> m1);
+      Starlark.execFile(input, options, m2, thread);
+    }
+    assertThat(m2.getGlobal("x")).isEqualTo("two");
   }
 }

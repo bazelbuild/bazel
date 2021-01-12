@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
-import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -114,7 +113,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.syntax.StarlarkFile;
 
 /**
  * Abstract base class of a {@link PackageLoader} implementation that has no incrementality or
@@ -411,11 +409,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return (NoSuchPackageException) e;
     }
     throw new IllegalStateException(
-        "Unexpected Exception type from PackageValue for '"
-            + pkgId
-            + "'' with root causes: "
-            + error.getRootCauses().toList().toString(),
-        e);
+        "Unexpected Exception type from PackageValue for '" + pkgId + "'' with error: " + error, e);
   }
 
   private BuildDriver makeFreshDriver() {
@@ -446,7 +440,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new AtomicReference<>(new TimestampGranularityMonitor(BlazeClock.instance()));
     Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
         CacheBuilder.newBuilder().build();
-    Cache<PackageIdentifier, StarlarkFile> astCache = CacheBuilder.newBuilder().build();
     AtomicReference<FilesystemCalls> syscallCacheRef =
         new AtomicReference<>(
             PerBuildSyscallCache.newBuilder().setConcurrencyLevel(legacyGlobbingThreads).build());
@@ -489,9 +482,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
         .put(
             SkyFunctions.BZL_LOAD,
-            BzlLoadFunction.create(pkgFactory, hashFunction, CacheBuilder.newBuilder().build()))
+            BzlLoadFunction.create(
+                pkgFactory, directories, hashFunction, CacheBuilder.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
-        .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
@@ -505,7 +498,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 cachingPackageLocator,
                 /*showLoadingProgress=*/ new AtomicBoolean(false),
                 packageFunctionCache,
-                astCache,
+                /*compiledBuildFileCache=*/ CacheBuilder.newBuilder().build(),
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
                 /*bzlLoadFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,

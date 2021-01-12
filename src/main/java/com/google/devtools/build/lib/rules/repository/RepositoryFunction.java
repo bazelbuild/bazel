@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -98,9 +100,6 @@ public abstract class RepositoryFunction {
    */
   public static class RepositoryFunctionException extends SkyFunctionException {
 
-    public RepositoryFunctionException(NoSuchPackageException cause, Transience transience) {
-      super(cause, transience);
-    }
     /**
      * Error reading or writing to the filesystem.
      */
@@ -114,18 +113,30 @@ public abstract class RepositoryFunction {
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
-  }
-  /**
-   * Exception thrown when something a repository rule cannot be found.
-   */
-  public static final class RepositoryNotFoundException extends RepositoryFunctionException {
 
-    public RepositoryNotFoundException(String repositoryName) {
-      super(
-          new BuildFileContainsErrorsException(
-              LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-              "The repository named '" + repositoryName + "' could not be resolved"),
-          Transience.PERSISTENT);
+    public RepositoryFunctionException(
+        AlreadyReportedRepositoryAccessException cause, Transience transience) {
+      super(cause, transience);
+    }
+
+    public RepositoryFunctionException(ExternalPackageException e) {
+      super(e.getCause(), e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+    }
+  }
+
+  /**
+   * Encapsulates the exceptions that arise when accessing a repository. Error reporting should ONLY
+   * be handled in {@link RepositoryDelegatorFunction#fetchRepository}.
+   */
+  public static class AlreadyReportedRepositoryAccessException extends AlreadyReportedException {
+    public AlreadyReportedRepositoryAccessException(Exception e) {
+      super(e.getMessage(), e.getCause());
+      checkState(
+          e instanceof NoSuchPackageException
+              || e instanceof IOException
+              || e instanceof EvalException
+              || e instanceof ExternalPackageException,
+          e);
     }
   }
 
@@ -180,7 +191,7 @@ public abstract class RepositoryFunction {
       Environment env,
       Map<String, String> markerData,
       SkyKey key)
-      throws SkyFunctionException, InterruptedException;
+      throws InterruptedException, RepositoryFunctionException;
 
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {
@@ -273,7 +284,7 @@ public abstract class RepositoryFunction {
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
       throws InterruptedException, EvalException {
     // Look for package.
-    if (label.getPackageIdentifier().getRepository().isDefault()) {
+    if (label.getRepository().isDefault()) {
       try {
         label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
       } catch (LabelSyntaxException e) {

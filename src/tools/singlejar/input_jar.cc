@@ -73,7 +73,7 @@ bool InputJar::Open(const std::string &path) {
    * until we find ECD64.  We assume that the custom data is missing.
    */
 
-  // First, sanity checks.
+  // First, consistency check the directory.
   uint32_t cen_position = ecd->cen_offset32();
   if (!ziph::zfield_has_ext64(cen_position)) {
     if (!mapped_file_.mapped(mapped_file_.address(cen_position))) {

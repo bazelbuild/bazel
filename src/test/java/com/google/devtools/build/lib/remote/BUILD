@@ -26,8 +26,7 @@ NATIVE_SSL_TEST = ["NativeSslTest.java"]
 NATIVE_SSL_TEST_MAYBE = select({
     "//src/conditions:windows": NATIVE_SSL_TEST,
     "//src/conditions:darwin": NATIVE_SSL_TEST,
-    "//src/conditions:darwin_x86_64": NATIVE_SSL_TEST,
-    "//src/conditions:linux_x86_64": NATIVE_SSL_TEST,
+    "//src/conditions:linux": NATIVE_SSL_TEST,
     "//conditions:default": [],
 })
 
@@ -82,6 +81,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -92,6 +92,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:api_client",
+        "//third_party:auth",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",

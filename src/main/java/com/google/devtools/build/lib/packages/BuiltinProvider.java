@@ -14,18 +14,22 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeProvider.NativeKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.syntax.Location;
 
 /**
- * Base class for declared providers {@see Provider} defined in native code.
+ * Base class for declared providers {@see Provider} built into Blaze.
  *
- * <p>Every subclass of {@link BuiltinProvider} corresponds to a single declared provider. This is
- * enforced by final {@link #equals(Object)} and {@link #hashCode()}.
+ * <p>Every subclass of {@link BuiltinProvider} should have exactly one instance. If multiple
+ * instances of the same subclass are instantiated, they are considered equivalent. This design is
+ * motivated by the need for serialization. Starlark providers are readily identified by the pair
+ * (.bzl file name, sequence number during execution). BuiltinProviders need an analogous
+ * serializable identifier, yet JVM classes (notoriously) don't have a predictable initialization
+ * order, so we can't use a sequence number. A distinct subclass for each built-in provider acts as
+ * that identifier.
  *
  * <p>Implementations of native declared providers should subclass this class, and define a method
  * in the subclass definition to create instances of its corresponding Info object. The method
@@ -34,33 +38,29 @@ import net.starlark.java.syntax.Location;
  */
 @Immutable
 public abstract class BuiltinProvider<T extends Info> implements Provider {
-  private final NativeKey key;
+  private final Key key;
   private final String name;
   private final Class<T> valueClass;
+
+  public BuiltinProvider(String name, Class<T> valueClass) {
+    this.key = new Key(name, getClass());
+    this.name = name;
+    this.valueClass = valueClass;
+  }
 
   public Class<T> getValueClass() {
     return valueClass;
   }
 
-  public BuiltinProvider(String name, Class<T> valueClass) {
-    @SuppressWarnings("unchecked")
-    Class<? extends BuiltinProvider<?>> clazz = (Class<? extends BuiltinProvider<?>>) getClass();
-    key = new NativeKey(name, clazz);
-    this.name = name;
-    this.valueClass = valueClass;
-  }
-
   /**
-   * equals() implements singleton class semantics.
+   * Defines the equivalence relation: all BuiltinProviders of the same Java class are equal,
+   * regardless of {@code name} or {@code valueClass}.
    */
   @Override
   public final boolean equals(@Nullable Object other) {
     return other != null && this.getClass().equals(other.getClass());
   }
 
-  /**
-   * hashCode() implements singleton class semantics.
-   */
   @Override
   public final int hashCode() {
     return getClass().hashCode();
@@ -72,7 +72,7 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   }
 
   @Override
-  public NativeKey getKey() {
+  public Key getKey() {
     return key;
   }
 
@@ -88,19 +88,67 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
 
   @Override
   public void repr(Printer printer) {
+    // TODO(adonovan): change to '<provider name>'.
     printer.append("<function " + getPrintableName() + ">");
-  }
-
-  /**
-   * Convenience method for subclasses of this class to throw a consistent error when a provider is
-   * unable to be constructed from Starlark.
-   */
-  protected final T throwUnsupportedConstructorException() throws EvalException {
-    throw Starlark.errorf("'%s' cannot be constructed from Starlark", getPrintableName());
   }
 
   /** Returns the identifier of this provider. */
   public StarlarkProviderIdentifier id() {
     return StarlarkProviderIdentifier.forKey(getKey());
+  }
+
+  /**
+   * Implement this to mark that a built-in provider should be exported with certain name to
+   * Starlark. Broken: only works for rules, not for aspects. DO NOT USE FOR NEW CODE!
+   *
+   * @deprecated Use declared providers mechanism exclusively to expose providers to both native and
+   *     Starlark code.
+   */
+  @Deprecated
+  public interface WithLegacyStarlarkName {
+    String getStarlarkName();
+  }
+
+  /** A serializable reference to a {@link BuiltinProvider}. */
+  @AutoCodec
+  @Immutable
+  public static final class Key extends Provider.Key {
+    private final String name;
+    private final Class<? extends Provider> providerClass;
+
+    public Key(String name, Class<? extends Provider> providerClass) {
+      this.name = name;
+      this.providerClass = providerClass;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Class<? extends Provider> getProviderClass() {
+      return providerClass;
+    }
+
+    @Override
+    void fingerprint(Fingerprint fp) {
+      // True => native
+      fp.addBoolean(true);
+      fp.addString(name);
+    }
+
+    @Override
+    public int hashCode() {
+      return providerClass.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Key && providerClass.equals(((Key) obj).providerClass);
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 }

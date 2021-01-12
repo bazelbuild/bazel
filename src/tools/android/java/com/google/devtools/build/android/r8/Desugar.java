@@ -16,6 +16,7 @@ package com.google.devtools.build.android.r8;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
+import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
@@ -429,11 +430,11 @@ public class Desugar {
       throws CompilationFailedException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
-    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector);
+    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector, input);
     D8Command.Builder builder =
         D8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addClasspathResourceProvider(classpath)
-            .addProgramFiles(input)
+            .addProgramResourceProvider(ArchiveProgramResourceProvider.fromArchive(input))
             .setIntermediate(true)
             .setMinApiLevel(options.minSdkVersion)
             .setProgramConsumer(consumer);
@@ -476,7 +477,7 @@ public class Desugar {
           classpathProvider,
           options.inputJars.get(i),
           options.outputJars.get(i),
-          options.desugaredLibConfig);
+          options.desugarCoreLibs ? options.desugaredLibConfig : null);
     }
   }
 
@@ -506,9 +507,6 @@ public class Desugar {
     }
     if (options.alwaysRewriteLongCompare) {
       throw new AssertionError("--rewrite_calls_to_long_compare has no effect");
-    }
-    if (!options.tolerateMissingDependencies) {
-      throw new AssertionError("--best_effort_tolerate_missing_deps must be enabled");
     }
     if (options.desugarCoreLibs) {
       if (options.desugaredLibConfig == null) {

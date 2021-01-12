@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -33,7 +34,7 @@ import net.starlark.java.eval.Sequence;
             + "you will be broken when it is removed."
             + "Android AARs provided by a library rule and its dependencies",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructApi {
 
   /** The name of the provider for this info object. */
@@ -45,6 +46,7 @@ public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructA
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileT getAarArtifact();
 
   @StarlarkMethod(
@@ -68,33 +70,21 @@ public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructA
         doc = "The <code>AndroidLibraryAarInfoApi</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "aar",
-              doc = "resource_apk",
-              positional = false,
-              named = true,
-              type = FileApi.class),
-          @Param(
-              name = "manifest",
-              doc = "manifest",
-              positional = false,
-              named = true,
-              type = FileApi.class),
+          @Param(name = "aar", doc = "resource_apk", positional = false, named = true),
+          @Param(name = "manifest", doc = "manifest", positional = false, named = true),
           @Param(
               name = "aars_from_deps",
               doc = "List of AndroidLibraryAarInfo",
               positional = false,
-              named = true,
-              type = Sequence.class),
+              named = true),
           @Param(
               name = "defines_local_resources",
               doc = "defines_local_resources",
               positional = false,
-              named = true,
-              type = Boolean.class),
+              named = true),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidLibraryAarInfoApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor
     AndroidLibraryAarInfoApi<FileT> create(
         FileT aar,
         FileT manifest,

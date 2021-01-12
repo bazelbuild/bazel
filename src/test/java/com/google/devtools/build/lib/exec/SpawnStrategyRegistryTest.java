@@ -179,28 +179,6 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
-  public void testMultipleDescriptionFilterLegacy() throws Exception {
-    NoopStrategy strategy1 = new NoopStrategy("1");
-    NoopStrategy strategy2 = new NoopStrategy("2");
-    SpawnStrategyRegistry strategyRegistry =
-        SpawnStrategyRegistry.builder()
-            .registerStrategy(strategy1, "foo")
-            .registerStrategy(strategy2, "bar")
-            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
-            .addDescriptionFilter(
-                new RegexFilter(ImmutableList.of("ll"), ImmutableList.of()),
-                ImmutableList.of("bar"))
-            .useLegacyDescriptionFilterPrecedence()
-            .build();
-
-    assertThat(
-            strategyRegistry.getStrategies(
-                createSpawnWithMnemonicAndDescription("", "hello"),
-                SpawnStrategyRegistryTest::noopEventHandler))
-        .containsExactly(strategy1);
-  }
-
-  @Test
   public void testMultipleDefaultStrategies() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
     NoopStrategy strategy2 = new NoopStrategy("2");
@@ -336,8 +314,8 @@ public class SpawnStrategyRegistryTest {
         SpawnStrategyRegistry.builder()
             .registerStrategy(strategy1, "foo")
             .registerStrategy(strategy2, "bar")
-            .addDynamicLocalStrategiesByMnemonic("mnem", ImmutableList.of("bar"))
-            .addDynamicRemoteStrategiesByMnemonic("mnem", ImmutableList.of("foo"))
+            .addDynamicLocalStrategies(ImmutableMap.of("mnem", ImmutableList.of("bar")))
+            .addDynamicRemoteStrategies(ImmutableMap.of("mnem", ImmutableList.of("foo")))
             .build();
 
     assertThat(
@@ -359,7 +337,7 @@ public class SpawnStrategyRegistryTest {
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
-                    .addDynamicLocalStrategiesByMnemonic("mnem", ImmutableList.of("bar"))
+                    .addDynamicLocalStrategies(ImmutableMap.of("mnem", ImmutableList.of("bar")))
                     .build());
 
     assertThat(exception).hasMessageThat().containsMatch("bar.*Valid.*foo");
@@ -374,7 +352,7 @@ public class SpawnStrategyRegistryTest {
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
-                    .addDynamicLocalStrategiesByMnemonic("mnem", ImmutableList.of("foo"))
+                    .addDynamicLocalStrategies(ImmutableMap.of("mnem", ImmutableList.of("foo")))
                     .build());
 
     assertThat(exception).hasMessageThat().containsMatch("sandboxed strategy");
@@ -445,8 +423,8 @@ public class SpawnStrategyRegistryTest {
             .setDefaultStrategies(ImmutableList.of("9"))
             .setDefaultStrategies(ImmutableList.of("3"))
             .setRemoteLocalFallbackStrategyIdentifier("4")
-            .addDynamicLocalStrategiesByMnemonic("oy", ImmutableList.of("5"))
-            .addDynamicRemoteStrategiesByMnemonic("oy", ImmutableList.of("6"))
+            .addDynamicLocalStrategies(ImmutableMap.of("oy", ImmutableList.of("5")))
+            .addDynamicRemoteStrategies(ImmutableMap.of("oy", ImmutableList.of("6")))
             .build();
 
     strategyRegistry.notifyUsed(null);
@@ -485,9 +463,9 @@ public class SpawnStrategyRegistryTest {
             .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("2"))
             .setDefaultStrategies(ImmutableList.of("3"))
             .setRemoteLocalFallbackStrategyIdentifier("4")
-            .addDynamicLocalStrategiesByMnemonic("oy", ImmutableList.of("7"))
-            .addDynamicLocalStrategiesByMnemonic("oy", ImmutableList.of("5"))
-            .addDynamicRemoteStrategiesByMnemonic("oy", ImmutableList.of("6"))
+            .addDynamicLocalStrategies(ImmutableMap.of("oy", ImmutableList.of("7")))
+            .addDynamicLocalStrategies(ImmutableMap.of("oy", ImmutableList.of("5")))
+            .addDynamicRemoteStrategies(ImmutableMap.of("oy", ImmutableList.of("6")))
             .build();
 
     strategyRegistry.notifyUsedDynamic(null);
@@ -567,7 +545,7 @@ public class SpawnStrategyRegistryTest {
     private int usedCalled = 0;
 
     public NoopAbstractStrategy(String name) {
-      super(null, null);
+      super(null, null, /*verboseFailures=*/ true);
       this.name = name;
     }
 

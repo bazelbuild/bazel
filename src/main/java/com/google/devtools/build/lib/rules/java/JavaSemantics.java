@@ -139,6 +139,11 @@ public interface JavaSemantics {
                 return null;
               }
 
+              // use_launcher=False disables the launcher
+              if (attributes.has("use_launcher") && !attributes.get("use_launcher", Type.BOOLEAN)) {
+                return null;
+              }
+
               // don't read --java_launcher if this target overrides via a launcher attribute
               if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
                 return attributes.get("launcher", LABEL);
@@ -320,9 +325,19 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
+  /**
+   * Returns true if target is a test target, has TestConfiguration, and persistent test runner set.
+   *
+   * <p>Note that no TestConfiguration implies the TestConfiguration was pruned in some parent of
+   * the rule. Therefore, TestTarget not currently being analyzed as part of top-level and thus
+   * persistent test runner is not especially relevant.
+   */
   static boolean isTestTargetAndPersistentTestRunner(RuleContext ruleContext) {
-    return ruleContext.isTestTarget()
-        && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
+    if (!ruleContext.isTestTarget()) {
+      return false;
+    }
+    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    return testConfiguration != null && testConfiguration.isPersistentTestRunner();
   }
 
   static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {

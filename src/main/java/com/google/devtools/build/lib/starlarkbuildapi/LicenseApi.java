@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** The interface for a license in Starlark. */
 @StarlarkBuiltin(
     name = "License",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     documented = true,
     doc =
         "This API is deprecated and will be removed. Please do not depend on it. "

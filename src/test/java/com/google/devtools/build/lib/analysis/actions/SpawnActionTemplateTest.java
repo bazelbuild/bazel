@@ -134,7 +134,7 @@ public class SpawnActionTemplateTest {
   }
 
   @Test
-  public void getKey_same() {
+  public void getKey_same() throws Exception {
     ActionKeyContext keyContext = new ActionKeyContext();
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
@@ -163,7 +163,7 @@ public class SpawnActionTemplateTest {
   }
 
   @Test
-  public void getKey_differs() {
+  public void getKey_differs() throws Exception {
     ActionKeyContext keyContext = new ActionKeyContext();
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();

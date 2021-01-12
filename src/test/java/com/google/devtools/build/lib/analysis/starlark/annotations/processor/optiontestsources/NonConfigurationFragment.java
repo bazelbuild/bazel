@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.analysis.starlark.annotations.processor.optiontestsources;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** A test case of StarlarkConfigurationFieldProcessorTest. */
 @StarlarkBuiltin(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = StarlarkDocumentationCategory.BUILTIN // Not a configuration fragment!
+    category = DocCategory.BUILTIN // Not a configuration fragment!
     )
 public class NonConfigurationFragment {
 

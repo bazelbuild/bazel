@@ -35,10 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.BuiltinCallable;
+import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -112,13 +112,13 @@ public class ApiExporter {
       if (obj instanceof StarlarkCallable) {
         value = valueFromCallable((StarlarkCallable) obj);
       } else {
-        StarlarkBuiltin typeModule = StarlarkInterfaceUtils.getStarlarkBuiltin(obj.getClass());
+        StarlarkBuiltin typeModule = StarlarkAnnotations.getStarlarkBuiltin(obj.getClass());
         if (typeModule != null) {
           Method selfCallMethod =
               Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, obj.getClass());
           if (selfCallMethod != null) {
             // selfCallMethod may be from a subclass of the annotated method.
-            StarlarkMethod annotation = StarlarkInterfaceUtils.getStarlarkMethod(selfCallMethod);
+            StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(selfCallMethod);
             value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
@@ -161,8 +161,8 @@ public class ApiExporter {
     }
 
     // annotated Java method?
-    if (x instanceof BuiltinCallable) {
-      return valueFromAnnotation(((BuiltinCallable) x).getAnnotation());
+    if (x instanceof BuiltinFunction) {
+      return valueFromAnnotation(((BuiltinFunction) x).getAnnotation());
     }
 
     // application-defined callable?  Treat as def f(**kwargs).
@@ -279,7 +279,7 @@ public class ApiExporter {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
         "Usage: api_exporter_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
-            + "   -f outputFile [-b blacklist] [-h]\n\n"
+            + "   -f outputFile [-b denylist] [-h]\n\n"
             + "Exports all Starlark builtins to a file including the embedded native rules.\n"
             + "The product name (-n), rule class provider (-p), output file (-f) and at least \n"
             + " one input_dir (-i) must be specified.\n");
@@ -310,7 +310,7 @@ public class ApiExporter {
     try {
       SymbolFamilies symbols =
           new SymbolFamilies(
-              options.productName, options.provider, options.inputDirs, options.blacklist);
+              options.productName, options.provider, options.inputDirs, options.denylist);
       Builtins.Builder builtins = Builtins.newBuilder();
 
       appendTypes(builtins, symbols.getTypes(), symbols.getNativeRules());
@@ -335,6 +335,10 @@ public class ApiExporter {
     ArrayList<String> defaults = new ArrayList<>();
 
     for (net.starlark.java.annot.Param param : annot.parameters()) {
+      // Ignore undocumented parameters
+      if (!param.documented()) {
+        continue;
+      }
       // Implicit * or *args parameter separates transition from positional to named.
       // f (..., *, ... )  or  f(..., *args, ...)
       // TODO(adonovan): this logic looks fishy. Clean it up.

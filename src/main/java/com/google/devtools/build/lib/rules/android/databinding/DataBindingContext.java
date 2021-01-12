@@ -109,4 +109,7 @@ public interface DataBindingContext {
       AndroidDataContext dataContext,
       AndroidResources resources,
       String appId);
+
+  /** Returns whether this context supports generating AndroidX dependencies. */
+  boolean usesAndroidX();
 }

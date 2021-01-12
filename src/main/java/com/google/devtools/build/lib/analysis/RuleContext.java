@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
@@ -62,11 +63,13 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
@@ -76,7 +79,6 @@ import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -89,8 +91,12 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -108,7 +114,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -122,12 +130,10 @@ import net.starlark.java.syntax.Location;
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public final class RuleContext extends TargetContext
-    implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
+    implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
-  public boolean isAllowTagsPropagation() throws InterruptedException {
-    return this.getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+  public boolean isAllowTagsPropagation() {
+    return starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
   }
 
   /** Custom dependency validation logic. */
@@ -216,6 +222,20 @@ public final class RuleContext extends TargetContext
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
 
+  /**
+   * The StarlarkSemantics to use for rule analysis. Should be the same as what's reported by the
+   * AnalysisEnvironment, but saving it here is more convenient since {@link
+   * AnalysisEnvironment#getStarlarkSemantics()} can throw InterruptedException.
+   */
+  private final StarlarkSemantics starlarkSemantics;
+
+  /**
+   * Thread used for any Starlark evaluation during analysis, e.g. rule implementation function for
+   * a Starlark-defined rule, or Starlarkified helper logic for native rules that have been
+   * partially migrated to {@code @_builtins}.
+   */
+  private final StarlarkThread starlarkThread;
+
   private RuleContext(
       Builder builder,
       AttributeMap attributes,
@@ -228,7 +248,10 @@ public final class RuleContext extends TargetContext
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments)
+      ImmutableSet<String> requiredConfigFragments,
+      String toolsRepository,
+      StarlarkSemantics starlarkSemantics,
+      Mutability mutability)
       throws InvalidExecGroupException {
     super(
         builder.env,
@@ -263,6 +286,8 @@ public final class RuleContext extends TargetContext
     this.execProperties = parseExecProperties(builder.rawExecProperties);
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
+    this.starlarkSemantics = starlarkSemantics;
+    this.starlarkThread = createStarlarkThread(toolsRepository, mutability); // uses above state
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -312,12 +337,36 @@ public final class RuleContext extends TargetContext
 
   @Override
   public ArtifactRoot getBinDirectory() {
-    return getConfiguration().getBinDirectory(rule.getRepository());
+    return getConfiguration().getBinDirectory(getLabel().getRepository());
+  }
+
+  public ArtifactRoot getIncludeDirectory() {
+    return getConfiguration().getIncludeDirectory(getLabel().getRepository());
+  }
+
+  public ArtifactRoot getGenfilesDirectory() {
+    return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+  }
+
+  public ArtifactRoot getCoverageMetadataDirectory() {
+    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
+  }
+
+  public ArtifactRoot getTestLogsDirectory() {
+    return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
+  }
+
+  public PathFragment getBinFragment() {
+    return getConfiguration().getBinFragment(getLabel().getRepository());
+  }
+
+  public PathFragment getGenfilesFragment() {
+    return getConfiguration().getGenfilesFragment(getLabel().getRepository());
   }
 
   @Override
   public ArtifactRoot getMiddlemanDirectory() {
-    return getConfiguration().getMiddlemanDirectory(rule.getRepository());
+    return getConfiguration().getMiddlemanDirectory(getLabel().getRepository());
   }
 
   public Rule getRule() {
@@ -720,8 +769,8 @@ public final class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.hasBinaryOutput()
-        ? getConfiguration().getBinDirectory(rule.getRepository())
-        : getConfiguration().getGenfilesDirectory(rule.getRepository());
+        ? getConfiguration().getBinDirectory(getLabel().getRepository())
+        : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
 
   /**
@@ -734,7 +783,7 @@ public final class RuleContext extends TargetContext
 
   public Artifact getBinArtifact(PathFragment relative) {
     return getPackageRelativeArtifact(
-        relative, getConfiguration().getBinDirectory(rule.getRepository()));
+        relative, getConfiguration().getBinDirectory(getLabel().getRepository()));
   }
 
   /**
@@ -747,7 +796,7 @@ public final class RuleContext extends TargetContext
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
     return getPackageRelativeArtifact(
-        relative, getConfiguration().getGenfilesDirectory(rule.getRepository()));
+        relative, getConfiguration().getGenfilesDirectory(getLabel().getRepository()));
   }
 
   @Override
@@ -791,7 +840,9 @@ public final class RuleContext extends TargetContext
 
   @Override
   public PathFragment getPackageDirectory() {
-    return getLabel().getPackageIdentifier().getPackagePath();
+    return getLabel()
+        .getPackageIdentifier()
+        .getPackagePath(getConfiguration().isSiblingRepositoryLayout());
   }
 
   /**
@@ -916,7 +967,7 @@ public final class RuleContext extends TargetContext
       ImmutableList<String> transitionKeys = t.getTransitionKeys();
       if (transitionKeys.isEmpty()) {
         // The split transition is not active, i.e. does not change build configurations.
-        // TODO(jungjw): Investigate if we need to do a sanity check here.
+        // TODO(jungjw): Investigate if we need to do a check here.
         return ImmutableMap.of(Optional.absent(), deps);
       }
       for (String key : transitionKeys) {
@@ -1061,28 +1112,8 @@ public final class RuleContext extends TargetContext
    * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, NativeProvider<T> starlarkKey) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
-  }
-
-  /**
-   * Returns all the declared providers (native and Starlark) for the specified constructor under
-   * the specified attribute of this target in the BUILD file.
-   */
-  public <T extends Info> List<T> getPrerequisites(
       String attributeName, BuiltinProvider<T> starlarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
-  }
-
-  /**
-   * Returns the declared provider (native and Starlark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file. May return null if there is no
-   * TransitiveInfoCollection under the specified attribute.
-   */
-  @Nullable
-  public <T extends Info> T getPrerequisite(String attributeName, NativeProvider<T> starlarkKey) {
-    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
-    return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
 
   /**
@@ -1095,7 +1126,6 @@ public final class RuleContext extends TargetContext
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
     return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
-
   /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file, and that contain the specified provider.
@@ -1104,15 +1134,6 @@ public final class RuleContext extends TargetContext
       Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
           String attributeName, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
-    return AnalysisUtils.filterByProvider(getPrerequisites(attributeName), classType);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, NativeProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName), classType);
   }
 
@@ -1199,6 +1220,40 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
+  public StarlarkSemantics getStarlarkSemantics() {
+    return starlarkSemantics;
+  }
+
+  private StarlarkThread createStarlarkThread(String toolsRepository, Mutability mutability) {
+    AnalysisEnvironment env = getAnalysisEnvironment();
+    StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+    thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
+    new BazelStarlarkContext(
+            BazelStarlarkContext.Phase.ANALYSIS,
+            toolsRepository,
+            /*fragmentNameToClass=*/ null,
+            getTarget().getPackage().getRepositoryMapping(),
+            /*convertedLabelsInPackage=*/ new HashMap<>(),
+            getSymbolGenerator(),
+            getLabel())
+        .storeInThread(thread);
+    return thread;
+  }
+
+  public StarlarkThread getStarlarkThread() {
+    return starlarkThread;
+  }
+
+  /**
+   * Prepares Starlark objects created during this target's analysis for use by others. Freezes
+   * mutability, clears expensive references.
+   */
+  @Override
+  public void close() {
+    starlarkThread.mutability().freeze();
+    // TODO(#11437): Once we own the StarlarkRuleContext in this class, nullify() it here as well.
+  }
+
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
@@ -1219,16 +1274,11 @@ public final class RuleContext extends TargetContext
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
-    if (toolchainContexts == null
-        || toolchainContexts.getDefaultToolchainContext().targetPlatform() == null) {
+    if (toolchainContexts == null || toolchainContexts.getTargetPlatform() == null) {
       return false;
     }
     // All toolchain contexts should have the same target platform so we access via the default.
-    return toolchainContexts
-        .getDefaultToolchainContext()
-        .targetPlatform()
-        .constraints()
-        .hasConstraintValue(constraintValue);
+    return toolchainContexts.getTargetPlatform().constraints().hasConstraintValue(constraintValue);
   }
 
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
@@ -1337,6 +1387,15 @@ public final class RuleContext extends TargetContext
       implements SaneAnalysisException {
     InvalidExecGroupException(String message) {
       super(message);
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setAnalysis(Analysis.newBuilder().setCode(Code.EXEC_GROUP_MISSING))
+              .build());
     }
   }
 
@@ -1463,7 +1522,8 @@ public final class RuleContext extends TargetContext
    */
   @Override
   public final PathFragment getUniqueDirectory(PathFragment fragment) {
-    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
+    return AnalysisUtils.getUniqueDirectory(
+        getLabel(), fragment, getConfiguration().isSiblingRepositoryLayout());
   }
 
   /**
@@ -1608,7 +1668,7 @@ public final class RuleContext extends TargetContext
   public final Artifact.DerivedArtifact getRelatedArtifact(
       PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
-    return getDerivedArtifact(file, getConfiguration().getBinDirectory(rule.getRepository()));
+    return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
   }
 
   /**
@@ -1693,10 +1753,10 @@ public final class RuleContext extends TargetContext
     return "RuleContext(" + getLabel() + ", " + getConfiguration() + ")";
   }
 
-  /**
-   * Builder class for a RuleContext.
-   */
-  public static final class Builder implements RuleErrorConsumer  {
+  /** Builder class for a RuleContext. */
+  // TODO(bazel-team): I get the feeling we could delete much of the boilerplate by replacing some
+  // of these fields with a RuleClassProvider -- both in the builder and in the RuleContext itself.
+  public static final class Builder implements RuleErrorConsumer {
     private final AnalysisEnvironment env;
     private final Target target;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
@@ -1707,7 +1767,10 @@ public final class RuleContext extends TargetContext
     private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
-    private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+    private ImmutableMap<Label, ConfigMatchingProvider> configConditions = ImmutableMap.of();
+    private String toolsRepository;
+    private StarlarkSemantics starlarkSemantics;
+    private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
@@ -1747,6 +1810,9 @@ public final class RuleContext extends TargetContext
     public RuleContext build() throws InvalidExecGroupException {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
+      Preconditions.checkNotNull(toolsRepository);
+      Preconditions.checkNotNull(starlarkSemantics);
+      Preconditions.checkNotNull(mutability);
       Preconditions.checkNotNull(visibility);
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
@@ -1775,7 +1841,10 @@ public final class RuleContext extends TargetContext
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
           toolchainContexts,
           constraintSemantics,
-          requiredConfigFragments);
+          requiredConfigFragments,
+          toolsRepository,
+          starlarkSemantics,
+          mutability);
     }
 
     private void checkAttributesNonEmpty(AttributeMap attributes) {
@@ -1797,6 +1866,23 @@ public final class RuleContext extends TargetContext
           reporter.attributeError(attr.getName(), "attribute must be non empty");
         }
       }
+    }
+
+    // TODO(bazel-team): This field is only used by BazelStarlarkContext. Investigate whether that's
+    // even needed in the analysis phase, and delete it if not.
+    public Builder setToolsRepository(String toolsRepository) {
+      this.toolsRepository = toolsRepository;
+      return this;
+    }
+
+    public Builder setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
+      this.starlarkSemantics = starlarkSemantics;
+      return this;
+    }
+
+    public Builder setMutability(Mutability mutability) {
+      this.mutability = mutability;
+      return this;
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
@@ -2302,6 +2388,14 @@ public final class RuleContext extends TargetContext
 
     private void validateDirectPrerequisite(
         Attribute attribute, ConfiguredTargetAndData prerequisite) {
+      if (RuleContextConstraintSemantics.checkForIncompatibility(prerequisite.getConfiguredTarget())
+          .isIncompatible()) {
+        // If the prerequisite is incompatible (e.g. has an incompatible provider), we pretend that
+        // there is no further validation needed. Otherwise, it would be difficult to make the
+        // incompatible target satisfy things like required providers and file extensions.
+        return;
+      }
+
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

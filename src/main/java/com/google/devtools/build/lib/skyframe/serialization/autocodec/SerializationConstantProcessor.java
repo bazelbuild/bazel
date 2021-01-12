@@ -56,7 +56,7 @@ public class SerializationConstantProcessor extends AbstractProcessor {
       // Reporting a message with ERROR kind will fail compilation.
       env.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.getElement());
     }
-    return true;
+    return false;
   }
 
   private void processInternal(RoundEnvironment roundEnv)

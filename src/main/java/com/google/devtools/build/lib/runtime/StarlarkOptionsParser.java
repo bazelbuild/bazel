@@ -22,12 +22,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -39,10 +40,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * An options parser for starlark defined options. Takes a mutable {@link OptionsParser} that has
@@ -54,17 +58,55 @@ public class StarlarkOptionsParser {
 
   private final SkyframeExecutor skyframeExecutor;
   private final PathFragment relativeWorkingDirectory;
-  private final Reporter reporter;
+  private final ExtendedEventHandler reporter;
   private final OptionsParser nativeOptionsParser;
+
+  /**
+   * {@link ExtendedEventHandler} override that passes through "normal" events but not events that
+   * would go to the build event proto.
+   *
+   * <p>Starlark flags are conceptually options but still need target pattern evaluation in {@link
+   * com.google.devtools.build.lib.skyframe.TargetPatternPhaseFunction} to translate their labels to
+   * actual targets. If we pass the {@link #post}able events that function calls, that would produce
+   * "target loaded" and "target configured" events in the build event proto output that consumers
+   * can confuse with actual targets requested by the build.
+   *
+   * <p>This is important because downstream services (like a continuous integration tool or build
+   * results dashboard) read these messages to reconcile which requested targets were built. If they
+   * determine Blaze tried to build {@code //foo //bar} then see a "target configured" message for
+   * some other target {@code //my_starlark_flag}, they might show misleading messages like "Built 3
+   * of 2 requested targets.".
+   *
+   * <p>Hence this class. By dropping those events, we restrict all info and error reporting logic
+   * to the options parsing pipeline.
+   */
+  private static class NonPostingEventHandler implements ExtendedEventHandler {
+    private final ExtendedEventHandler delegate;
+
+    NonPostingEventHandler(ExtendedEventHandler delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void handle(Event e) {
+      delegate.handle(e);
+    }
+
+    @Override
+    public void post(ExtendedEventHandler.Postable e) {}
+  }
+
+  // Local cache of build settings so we don't repeatedly load them.
+  private final Map<String, Target> buildSettings = new HashMap<>();
 
   private StarlarkOptionsParser(
       SkyframeExecutor skyframeExecutor,
       PathFragment relativeWorkingDirectory,
-      Reporter reporter,
+      ExtendedEventHandler reporter,
       OptionsParser nativeOptionsParser) {
     this.skyframeExecutor = skyframeExecutor;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
-    this.reporter = reporter;
+    this.reporter = new NonPostingEventHandler(reporter);
     this.nativeOptionsParser = nativeOptionsParser;
   }
 
@@ -85,21 +127,17 @@ public class StarlarkOptionsParser {
   public void parse(ExtendedEventHandler eventHandler) throws OptionsParsingException {
     ImmutableList.Builder<String> residue = new ImmutableList.Builder<>();
     // Map of <option name (label), <unparsed option value, loaded option>>.
-    Map<String, Pair<String, Target>> unparsedOptions =
-        Maps.newHashMapWithExpectedSize(nativeOptionsParser.getResidue().size());
+    Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
 
     // sort the old residue into starlark flags and legitimate residue
-    Iterator<String> unparsedArgs = nativeOptionsParser.getPreDoubleDashResidue().iterator();
-    while (unparsedArgs.hasNext()) {
-      String arg = unparsedArgs.next();
-
+    for (String arg : nativeOptionsParser.getPreDoubleDashResidue()) {
       // TODO(bazel-team): support single dash options?
       if (!arg.startsWith("--")) {
         residue.add(arg);
         continue;
       }
 
-      parseArg(arg, unparsedArgs, unparsedOptions, eventHandler);
+      parseArg(arg, unparsedOptions, eventHandler);
     }
 
     List<String> postDoubleDashResidue = nativeOptionsParser.getPostDoubleDashResidue();
@@ -110,9 +148,14 @@ public class StarlarkOptionsParser {
       return;
     }
 
-    ImmutableMap.Builder<String, Object> parsedOptions = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Pair<String, Target>> option : unparsedOptions.entrySet()) {
+    // Map of flag label as a string to its loaded target and set value after parsing.
+    HashMap<String, Pair<Target, Object>> buildSettingWithTargetAndValue = new HashMap<>();
+    for (Map.Entry<String, Pair<String, Target>> option : unparsedOptions.entries()) {
+      // These are already in umambiguous canonical form - this just turns main repo
+      // label from @//myflag -> //myflag since that's how users are used to seeing this label.
       String loadedFlag = option.getKey();
+      // String loadedFlag =
+      // Label.parseAbsoluteUnchecked(option.getKey()).getDefaultCanonicalForm();
       String unparsedValue = option.getValue().first;
       Target buildSettingTarget = option.getValue().second;
       BuildSetting buildSetting =
@@ -134,20 +177,59 @@ public class StarlarkOptionsParser {
                 loadedFlag, unparsedValue, unparsedValue, type),
             e);
       }
-      if (!value.equals(
+      if (buildSetting.allowsMultiple()) {
+        List<Object> newValue;
+        if (buildSettingWithTargetAndValue.containsKey(loadedFlag)) {
+          newValue =
+              new ArrayList<>(
+                  (Collection<?>) buildSettingWithTargetAndValue.get(loadedFlag).getSecond());
+        } else {
+          newValue = new ArrayList<>();
+        }
+        newValue.add(value);
+        value = newValue;
+      }
+      buildSettingWithTargetAndValue.put(loadedFlag, Pair.of(buildSettingTarget, value));
+    }
+
+    Map<String, Object> parsedOptions = new HashMap<>();
+    for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
+      Pair<Target, Object> buildSettingAndFinalValue =
+          buildSettingWithTargetAndValue.get(buildSetting);
+      Target buildSettingTarget = buildSettingAndFinalValue.getFirst();
+      boolean allowsMultiple =
           buildSettingTarget
               .getAssociatedRule()
-              .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
-        parsedOptions.put(loadedFlag, value);
+              .getRuleClassObject()
+              .getBuildSetting()
+              .allowsMultiple();
+      Object value = buildSettingAndFinalValue.getSecond();
+      if (allowsMultiple) {
+        List<?> defaultValue =
+            ImmutableList.of(
+                Objects.requireNonNull(
+                    buildSettingTarget
+                        .getAssociatedRule()
+                        .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
+        List<?> newValue = (List<?>) value;
+        if (!newValue.equals(defaultValue)) {
+          parsedOptions.put(buildSetting, value);
+        }
+      } else {
+        if (!value.equals(
+            buildSettingTarget
+                .getAssociatedRule()
+                .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+          parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
+        }
       }
     }
-    nativeOptionsParser.setStarlarkOptions(parsedOptions.build());
+    nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
   }
 
   private void parseArg(
       String arg,
-      Iterator<String> unparsedArgs,
-      Map<String, Pair<String, Target>> unparsedOptions,
+      Multimap<String, Pair<String, Target>> unparsedOptions,
       ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
     int equalsAt = arg.indexOf('=');
@@ -159,8 +241,12 @@ public class StarlarkOptionsParser {
 
     if (value != null) {
       // --flag=value or -flag=value form
-      Target buildSettingTarget = loadBuildSetting(name, nativeOptionsParser, eventHandler);
-      unparsedOptions.put(name, new Pair<>(value, buildSettingTarget));
+      Target buildSettingTarget = loadBuildSetting(name, eventHandler);
+      // Use the unambiguous canonical form to ensure we don't have
+      // duplicate options getting into the starlark options map.
+      unparsedOptions.put(
+          buildSettingTarget.getLabel().getDefaultCanonicalForm(),
+          new Pair<>(value, buildSettingTarget));
     } else {
       boolean booleanValue = true;
       // check --noflag form
@@ -168,7 +254,7 @@ public class StarlarkOptionsParser {
         booleanValue = false;
         name = name.substring(2);
       }
-      Target buildSettingTarget = loadBuildSetting(name, nativeOptionsParser, eventHandler);
+      Target buildSettingTarget = loadBuildSetting(name, eventHandler);
       BuildSetting current =
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       if (current.getType().equals(BOOLEAN)) {
@@ -180,19 +266,17 @@ public class StarlarkOptionsParser {
           throw new OptionsParsingException(
               "Illegal use of 'no' prefix on non-boolean option: " + name, name);
         }
-        if (unparsedArgs.hasNext()) {
-          // --flag value
-          unparsedOptions.put(name, new Pair<>(unparsedArgs.next(), buildSettingTarget));
-        } else {
-          throw new OptionsParsingException("Expected value after " + arg);
-        }
+        throw new OptionsParsingException("Expected value after " + arg);
       }
     }
   }
 
-  private Target loadBuildSetting(
-      String targetToBuild, OptionsParser optionsParser, ExtendedEventHandler eventHandler)
+  private Target loadBuildSetting(String targetToBuild, ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
+    if (buildSettings.containsKey(targetToBuild)) {
+      return buildSettings.get(targetToBuild);
+    }
+
     Target buildSetting;
     try {
       TargetPatternPhaseValue result =
@@ -201,7 +285,7 @@ public class StarlarkOptionsParser {
               Collections.singletonList(targetToBuild),
               relativeWorkingDirectory,
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
-              optionsParser.getOptions(KeepGoingOption.class).keepGoing);
+              /*keepGoing=*/ false);
       buildSetting =
           Iterables.getOnlyElement(
               result.getTargets(eventHandler, skyframeExecutor.getPackageManager()));
@@ -214,6 +298,7 @@ public class StarlarkOptionsParser {
     if (associatedRule == null || associatedRule.getRuleClassObject().getBuildSetting() == null) {
       throw new OptionsParsingException("Unrecognized option: " + targetToBuild, targetToBuild);
     }
+    buildSettings.put(targetToBuild, buildSetting);
     return buildSetting;
   }
 
@@ -245,6 +330,11 @@ public class StarlarkOptionsParser {
       if (name.startsWith("no")) {
         potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
       }
+      // Check if the string contains a value, trim off the value if so.
+      int equalsIdx = potentialStarlarkFlag.indexOf('=');
+      if (equalsIdx > 0) {
+        potentialStarlarkFlag = potentialStarlarkFlag.substring(0, equalsIdx);
+      }
       // Check if we can properly parse the (potentially trimmed) string as a label. If so, count
       // as starlark flag, else count as regular residue.
       try {
@@ -260,7 +350,7 @@ public class StarlarkOptionsParser {
   @VisibleForTesting
   public static StarlarkOptionsParser newStarlarkOptionsParserForTesting(
       SkyframeExecutor skyframeExecutor,
-      Reporter reporter,
+      ExtendedEventHandler reporter,
       PathFragment relativeWorkingDirectory,
       OptionsParser nativeOptionsParser) {
     return new StarlarkOptionsParser(

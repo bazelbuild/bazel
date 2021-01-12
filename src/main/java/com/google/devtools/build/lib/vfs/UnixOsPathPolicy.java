@@ -122,13 +122,13 @@ class UnixOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public char getSeparator() {
-    return '/';
+  public boolean isSeparator(char c) {
+    return c == '/';
   }
 
   @Override
-  public boolean isSeparator(char c) {
-    return c == '/';
+  public char additionalSeparator() {
+    return 0;
   }
 
   @Override

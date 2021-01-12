@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
+import com.google.devtools.build.lib.rules.android.AndroidBinaryTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidBinaryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -71,10 +73,25 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** A test for {@link com.google.devtools.build.lib.rules.android.AndroidBinary}. */
-@RunWith(JUnit4.class)
-public class AndroidBinaryTest extends AndroidBuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidBinaryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidBinaryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setupCcToolchain() throws Exception {
@@ -1400,7 +1417,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             .getExecutable();
     assertWithMessage("ProGuard implementation was not correctly taken from the configuration")
         .that(proguardAction.getCommandFilename())
-        .isEqualTo(jkrunchyExecutable.getExecPathString());
+        .endsWith(jkrunchyExecutable.getRepositoryRelativePathString());
   }
 
   @Test
@@ -2502,7 +2519,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         args,
         ImmutableList.of(
             "-include",
-            targetConfig.getBinFragment() + "/java/a/proguard/a/main_dex_a_proguard.cfg"));
+            targetConfig.getBinFragment(RepositoryName.MAIN)
+                + "/java/a/proguard/a/main_dex_a_proguard.cfg"));
   }
 
   @Test
@@ -3253,7 +3271,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
-        "--experimental_dynamic_configs=on",
+        // TODO(b/173547615): Re-enable this flag or delete.
+        // "--experimental_dynamic_configs=on",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
@@ -3295,7 +3314,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
       throws Exception {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
-        "--experimental_dynamic_configs=on",
+        // TODO(b/173547615): Re-enable this flag or delete.
+        // "--experimental_dynamic_configs=on",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
@@ -3549,7 +3569,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNotNull();
     // the package_group is busted, so we would have failed to get this far if we depended on it
     assertNoEvents();
-    // sanity check time: does this test actually test what we're testing for?
+    // Check time: does this test actually test what we're testing for?
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//tools/allowlists/config_feature_flag:config_feature_flag"))
         .isNull();
@@ -3777,7 +3797,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         false,
         null,
         /*splitOptimizationPass=*/ false,
-        targetConfig.getBinFragment()
+        targetConfig.getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
 
@@ -4106,7 +4126,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     checkProguardLibJars(
         action,
-        targetConfig.getBinFragment()
+        targetConfig.getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
 
@@ -4132,7 +4152,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     checkProguardLibJars(
         action,
-        targetConfig.getBinFragment()
+        targetConfig.getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars_filtered.jar");
   }
 
@@ -4166,14 +4186,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     scratch.file(
         "java/com/google/android/postprocess.bzl",
         "def _impl(ctx):",
-        "  return [DefaultInfo(files=depset([ctx.attr.dep[ApkInfo].signed_apk]))]",
+        "  return [DefaultInfo(files=depset(",
+        "    [ctx.attr.dep[ApkInfo].signed_apk, ctx.attr.dep[ApkInfo].deploy_jar]))]",
         "postprocess = rule(implementation=_impl,",
         "              attrs={'dep': attr.label(providers=[ApkInfo])})");
     ConfiguredTarget postprocess = getConfiguredTarget("//java/com/google/android:postprocess");
     assertThat(postprocess).isNotNull();
     assertThat(
             prettyArtifactNames(postprocess.getProvider(FilesToRunProvider.class).getFilesToRun()))
-        .containsExactly("java/com/google/android/b1.apk");
+        .containsExactly("java/com/google/android/b1.apk", "java/com/google/android/b1_deploy.jar");
   }
 
   @Test
@@ -4610,6 +4631,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    resources_zip = ctx.actions.declare_file(ctx.label.name + '/resource_files.zip')",
         "    ctx.actions.write(resources_zip, 'empty resources zip')",
         "",
+        "    databinding_info = ctx.actions.declare_file(ctx.label.name + '/layout-info.zip')",
+        "    ctx.actions.write(databinding_info, 'empty databinding layout info zip')",
+        "",
         "    return [",
         "        DefaultInfo(files = depset([resource_apk, resource_proguard_config])),",
         "        AndroidApplicationResourceInfo(",
@@ -4621,6 +4645,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "            main_dex_proguard_config = None,",
         "            r_txt = r_txt,",
         "            resources_zip = resources_zip,",
+        "            databinding_info = databinding_info,",
         "        ),",
         "    ]",
         "",
@@ -4751,6 +4776,46 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             getBinaryMergeeManifests(getConfiguredTarget("//java/com/google/android/instr:b1"))
                 .values())
         .isEmpty();
+  }
+
+  @Test
+  public void testOptimizedJavaResourcesDisabled() throws Exception {
+    useConfiguration("--noexperimental_get_android_java_resources_from_optimized_jar");
+    ConfiguredTarget ct =
+        scratchConfiguredTarget(
+            "java/a",
+            "a",
+            "android_binary(",
+            "    name = 'a',",
+            "    srcs = ['A.java'],",
+            "    manifest = 'AndroidManifest.xml',",
+            "    proguard_specs = ['proguard.cfg'],",
+            ")");
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ct));
+    Artifact extractedResources = getFirstArtifactEndingWith(artifacts, "extracted_a_deploy.jar");
+    String args = Joiner.on(" ").join(getGeneratingSpawnActionArgs(extractedResources));
+    assertThat(args).contains("/a_deploy.jar");
+    assertThat(args).doesNotContain("a_proguard.jar");
+  }
+
+  @Test
+  public void testOptimizedJavaResourcesEnabled() throws Exception {
+    useConfiguration("--experimental_get_android_java_resources_from_optimized_jar");
+    ConfiguredTarget ct =
+        scratchConfiguredTarget(
+            "java/a",
+            "a",
+            "android_binary(",
+            "    name = 'a',",
+            "    srcs = ['A.java'],",
+            "    manifest = 'AndroidManifest.xml',",
+            "    proguard_specs = ['proguard.cfg'],",
+            ")");
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ct));
+    Artifact extractedResources = getFirstArtifactEndingWith(artifacts, "extracted_a_proguard.jar");
+    String args = Joiner.on(" ").join(getGeneratingSpawnActionArgs(extractedResources));
+    assertThat(args).doesNotContain("a_deploy.jar");
+    assertThat(args).contains("/a_proguard.jar");
   }
 
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would

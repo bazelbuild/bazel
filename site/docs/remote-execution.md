@@ -3,7 +3,10 @@ layout: documentation
 title: Remote execution overview
 ---
 
-# Remote execution overview
+# Remote Execution Overview
+
+This page covers the benefits, requirements, and options for running Bazel
+with remote execution.
 
 By default, Bazel executes builds and tests on your local machine. Remote
 execution of a Bazel build allows you to distribute build and test actions
@@ -38,6 +41,8 @@ To run Bazel with remote execution, you can use one of the following:
         and remote caching service. Can be self-hosted or hosted.
     *   [BuildBuddy](https://www.buildbuddy.io) -- Remote build execution,
         caching, and results UI.
+    *   [Flare](https://www.flare.build) --  Providing a cache + CDN for Bazel
+        artifacts and Apple-focused remote builds in addition to build & test analytics.
 
 ## Requirements
 

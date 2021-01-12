@@ -18,13 +18,17 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
-import net.starlark.java.syntax.Location;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Sequence. */
+/** Tests for StarlarkList. */
+// TODO(adonovan): duplicate/share these tests for Tuple where applicable.
 @RunWith(JUnit4.class)
 public final class StarlarkListTest {
 
@@ -33,14 +37,14 @@ public final class StarlarkListTest {
   @Test
   public void testIndex() throws Exception {
     ev.exec("l = [1, '2', 3]");
-    assertThat(ev.eval("l[0]")).isEqualTo(1);
+    assertThat(ev.eval("l[0]")).isEqualTo(StarlarkInt.of(1));
     assertThat(ev.eval("l[1]")).isEqualTo("2");
-    assertThat(ev.eval("l[2]")).isEqualTo(3);
+    assertThat(ev.eval("l[2]")).isEqualTo(StarlarkInt.of(3));
 
     ev.exec("t = (1, '2', 3)");
-    assertThat(ev.eval("t[0]")).isEqualTo(1);
+    assertThat(ev.eval("t[0]")).isEqualTo(StarlarkInt.of(1));
     assertThat(ev.eval("t[1]")).isEqualTo("2");
-    assertThat(ev.eval("t[2]")).isEqualTo(3);
+    assertThat(ev.eval("t[2]")).isEqualTo(StarlarkInt.of(3));
   }
 
   @Test
@@ -145,19 +149,25 @@ public final class StarlarkListTest {
 
   @Test
   public void testListSize() throws Exception {
-    assertThat(ev.eval("len([42, 'hello, world', []])")).isEqualTo(3);
+    assertThat(ev.eval("len([42, 'hello, world', []])")).isEqualTo(StarlarkInt.of(3));
   }
 
   @Test
   public void testListEmpty() throws Exception {
-    assertThat(ev.eval("8 if [1, 2, 3] else 9")).isEqualTo(8);
-    assertThat(ev.eval("8 if [] else 9")).isEqualTo(9);
+    assertThat(ev.eval("8 if [1, 2, 3] else 9")).isEqualTo(StarlarkInt.of(8));
+    assertThat(ev.eval("8 if [] else 9")).isEqualTo(StarlarkInt.of(9));
   }
 
   @Test
   public void testListConcat() throws Exception {
     assertThat(ev.eval("[1, 2] + [3, 4]"))
-        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4));
+        .isEqualTo(
+            StarlarkList.of(
+                /*mutability=*/ null,
+                StarlarkInt.of(1),
+                StarlarkInt.of(2),
+                StarlarkInt.of(3),
+                StarlarkInt.of(4)));
   }
 
   @Test
@@ -168,10 +178,10 @@ public final class StarlarkListTest {
         "e1 = l[1]",
         "e2 = l[2]",
         "e3 = l[3]");
-    assertThat(ev.lookup("e0")).isEqualTo(1);
-    assertThat(ev.lookup("e1")).isEqualTo(2);
-    assertThat(ev.lookup("e2")).isEqualTo(3);
-    assertThat(ev.lookup("e3")).isEqualTo(4);
+    assertThat(ev.lookup("e0")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("e1")).isEqualTo(StarlarkInt.of(2));
+    assertThat(ev.lookup("e2")).isEqualTo(StarlarkInt.of(3));
+    assertThat(ev.lookup("e3")).isEqualTo(StarlarkInt.of(4));
   }
 
   @Test
@@ -183,16 +193,16 @@ public final class StarlarkListTest {
         "e2 = l[2]",
         "e3 = l[3]",
         "e4 = l[4]");
-    assertThat(ev.lookup("e0")).isEqualTo(1);
-    assertThat(ev.lookup("e1")).isEqualTo(2);
-    assertThat(ev.lookup("e2")).isEqualTo(3);
-    assertThat(ev.lookup("e3")).isEqualTo(4);
-    assertThat(ev.lookup("e4")).isEqualTo(5);
+    assertThat(ev.lookup("e0")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("e1")).isEqualTo(StarlarkInt.of(2));
+    assertThat(ev.lookup("e2")).isEqualTo(StarlarkInt.of(3));
+    assertThat(ev.lookup("e3")).isEqualTo(StarlarkInt.of(4));
+    assertThat(ev.lookup("e4")).isEqualTo(StarlarkInt.of(5));
   }
 
   @Test
   public void testConcatListSize() throws Exception {
-    assertThat(ev.eval("len([1, 2] + [3, 4])")).isEqualTo(4);
+    assertThat(ev.eval("len([1, 2] + [3, 4])")).isEqualTo(StarlarkInt.of(4));
   }
 
   @Test
@@ -225,13 +235,13 @@ public final class StarlarkListTest {
   @Test
   public void testConcatListNotEmpty() throws Exception {
     ev.exec("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
-    assertThat(ev.lookup("v")).isEqualTo(1);
+    assertThat(ev.lookup("v")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
   public void testConcatListEmpty() throws Exception {
     ev.exec("l = [] + []", "v = 1 if l else 0");
-    assertThat(ev.lookup("v")).isEqualTo(0);
+    assertThat(ev.lookup("v")).isEqualTo(StarlarkInt.of(0));
   }
 
   @Test
@@ -250,53 +260,54 @@ public final class StarlarkListTest {
   public void testListAddWithIndex() throws Exception {
     Mutability mutability = Mutability.create("test");
     StarlarkList<String> list = StarlarkList.newList(mutability);
-    Location loc = null;
-    list.add("a", loc);
-    list.add("b", loc);
-    list.add("c", loc);
-    list.add(0, "d", loc);
+    list.addElement("a");
+    list.addElement("b");
+    list.addElement("c");
+    list.addElementAt(0, "d");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"b\", \"c\"]");
-    list.add(2, "e", loc);
+    list.addElementAt(2, "e");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"c\"]");
-    list.add(4, "f", loc);
+    list.addElementAt(4, "f");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\"]");
-    list.add(6, "g", loc);
+    list.addElementAt(6, "g");
     assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\", \"g\"]");
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.add(8, "h", loc));
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.addElementAt(8, "h"));
   }
 
   @Test
   public void testMutatorsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list =
+        StarlarkList.copyOf(
+            mutability, ImmutableList.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     mutability.freeze();
 
-    // The casts force selection of the Starlark add/remove methods,
-    // not the disabled ones like List.add(int, Object).
-    // We could enable the List method, but then it would have to
-    // report failures using unchecked exceptions.
-    EvalException e =
-        assertThrows(EvalException.class, () -> list.add((Object) 4, (Location) null));
+    EvalException e = assertThrows(EvalException.class, () -> list.addElement(StarlarkInt.of(4)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.add(0, (Object) 4, (Location) null));
+    e = assertThrows(EvalException.class, () -> list.addElementAt(0, StarlarkInt.of(4)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e =
         assertThrows(
-            EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), (Location) null));
+            EvalException.class,
+            () ->
+                list.addElements(
+                    ImmutableList.of(StarlarkInt.of(4), StarlarkInt.of(5), StarlarkInt.of(6))));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.remove(0, (Location) null));
+    e = assertThrows(EvalException.class, () -> list.removeElementAt(0));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.set(0, 10, (Location) null));
+    e = assertThrows(EvalException.class, () -> list.setElementAt(0, StarlarkInt.of(10)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
   @Test
   public void testCannotMutateAfterShallowFreeze() throws Exception {
     Mutability mutability = Mutability.createAllowingShallowFreeze("test");
-    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list =
+        StarlarkList.copyOf(
+            mutability, ImmutableList.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     list.unsafeShallowFreeze();
 
-    EvalException e = assertThrows(EvalException.class, () -> list.add((Object) 4, null));
+    EvalException e = assertThrows(EvalException.class, () -> list.addElement(StarlarkInt.of(4)));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
@@ -306,20 +317,101 @@ public final class StarlarkListTest {
     Mutability mutability = Mutability.create("test");
     StarlarkList<String> mutableList = StarlarkList.copyOf(mutability, copyFrom);
     copyFrom.add("added1");
-    mutableList.add("added2", (Location) null);
+    mutableList.addElement("added2");
 
     assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
-    assertThat(mutableList).containsExactly("hi", "added2").inOrder();
+    assertThat((List<String>) mutableList).containsExactly("hi", "added2").inOrder();
   }
 
   @Test
   public void testWrapTakesOwnershipOfArray() throws EvalException {
-    String[] wrapped = {"hello"};
+    Object[] wrapped = {"hello"};
     Mutability mutability = Mutability.create("test");
-    StarlarkList<String> mutableList = StarlarkList.wrap(mutability, wrapped);
+    StarlarkList<Object> mutableList = StarlarkList.wrap(mutability, wrapped);
 
     // Big no-no, but we're proving a point.
     wrapped[0] = "goodbye";
-    assertThat(mutableList).containsExactly("goodbye");
+    assertThat((List<?>) mutableList).containsExactly("goodbye");
+  }
+
+  @Test
+  public void testOfReturnsListWhoseArrayElementTypeIsObject() throws EvalException {
+    Mutability mu = Mutability.create("test");
+    StarlarkList<Object> list = StarlarkList.of(mu, "a", "b");
+    list.addElement(StarlarkInt.of(1)); // no ArrayStoreException
+    assertThat(list.toString()).isEqualTo("[\"a\", \"b\", 1]");
+  }
+
+  @Test
+  public void testStarlarkListToArray() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.newList(mu);
+
+    for (int i = 0; i < 10; ++i) {
+      for (int len : new int[] {0, list.size() / 2, list.size(), list.size() * 2}) {
+        for (Class<?> elemType : new Class<?>[] {Object.class, String.class}) {
+          Object[] input = (Object[]) Array.newInstance(elemType, len);
+          try {
+            checkToArray(input, list);
+          } catch (AssertionError ex) {
+            fail("list.toArray(new %s[%d]): %s", elemType.getSimpleName(), len, ex.getMessage());
+          }
+        }
+      }
+      // Note we add elements in loop instead of recreating a list
+      // to also check that code works correctly when list capacity exceeds size.
+      list.addElement(Integer.toString(i));
+    }
+  }
+
+  @Test
+  public void testTupleToArray() throws Exception {
+    Tuple tuple = Tuple.of(IntStream.range(0, 10).mapToObj(Integer::toString).toArray());
+    for (int len : new int[] {0, tuple.size() / 2, tuple.size(), tuple.size() * 2}) {
+      for (Class<?> elemType : new Class<?>[] {Object.class, String.class}) {
+        Object[] input = (Object[]) Array.newInstance(elemType, len);
+        try {
+          checkToArray(input, tuple);
+        } catch (AssertionError ex) {
+          fail("tuple.toArray(new %s[%d]): %s", elemType.getSimpleName(), len, ex.getMessage());
+        }
+      }
+    }
+  }
+
+  private static void fail(String format, Object... args) {
+    throw new AssertionError(String.format(format, args));
+  }
+
+  // Asserts that seq.toArray(input) returns an array of class input.getClass(),
+  // regardless of seq's element type, and contains the correct elements,
+  // including trailing null padding if size < len.
+  private void checkToArray(Object[] input, Sequence<?> seq) throws AssertionError {
+    Arrays.fill(input, "x");
+
+    Object[] output = seq.toArray(input);
+    if (output.getClass() != input.getClass()) {
+      fail("array class mismatch: input=%s, output=%s", input.getClass(), output.getClass());
+    }
+    if (input.length < seq.size()) {
+      // assert input is unchanged
+      for (int i = 0; i < input.length; i++) {
+        if (!input[i].equals("x")) {
+          fail("input[%d] = %s, want \"x\"", i, Starlark.repr(input[i]));
+        }
+      }
+
+      Object[] expected = IntStream.range(0, seq.size()).mapToObj(Integer::toString).toArray();
+      if (!Arrays.equals(output, expected)) {
+        fail("output array = %s, want %s", output, expected);
+      }
+    } else if (output != input) {
+      for (int j = 0; j < output.length; ++j) {
+        String want = j < seq.size() ? Integer.toString(j) : null;
+        if (!output[j].equals(want)) {
+          fail("output[%d] = %s, want %s", j, output[j], want);
+        }
+      }
+    }
   }
 }

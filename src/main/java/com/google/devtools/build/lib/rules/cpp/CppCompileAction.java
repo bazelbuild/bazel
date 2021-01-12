@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -103,8 +103,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -117,6 +117,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
+
+  private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
+  private static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
 
   protected final Artifact outputFile;
   private final Artifact sourceFile;
@@ -134,10 +137,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable private final Artifact grepIncludes;
   private final boolean shareable;
   private final boolean shouldScanIncludes;
-  private final boolean shouldPruneModules;
   private final boolean usePic;
   private final boolean useHeaderModules;
-  private final boolean needsDotdInputPruning;
   protected final boolean needsIncludeValidation;
   private final IncludeProcessing includeProcessing;
 
@@ -236,7 +237,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CppConfiguration cppConfiguration,
       boolean shareable,
       boolean shouldScanIncludes,
-      boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
@@ -265,7 +265,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .build(),
         CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
-    Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceFile = sourceFile;
     this.shareable = shareable;
@@ -276,7 +275,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes;
-    this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.ccCompilationContext = ccCompilationContext;
@@ -289,8 +287,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
-    this.needsDotdInputPruning =
-        cppSemantics.needsDotdInputPruning() && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
     this.includeProcessing = cppSemantics.getIncludeProcessing();
     this.actionClassId = actionClassId;
@@ -299,7 +295,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.usedModules = null;
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       paramFilePath =
           outputFile
               .getExecPath()
@@ -331,12 +327,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *
    * <p>This does *not* have anything to do with "hdrs_check".
    */
-  public boolean shouldScanIncludes() {
+  @VisibleForTesting
+  boolean shouldScanIncludes() {
     return shouldScanIncludes;
-  }
-
-  private boolean shouldScanDotdFiles() {
-    return !useHeaderModules || !shouldPruneModules;
   }
 
   public boolean useInMemoryDotdFiles() {
@@ -389,7 +382,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public boolean discoversInputs() {
-    return shouldScanIncludes || needsDotdInputPruning;
+    return shouldScanIncludes
+        || getDotdFile() != null
+        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
   @Override
@@ -401,121 +396,27 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         .build();
   }
 
-  /**
-   * Returns the results of include scanning or, when that is null, all prunable headers.
-   *
-   * <p>This is necessary because the inputs that can be pruned by .d file parsing must be returned
-   * from {@link #discoverInputs(ActionExecutionContext)} and they cannot be in {@link
-   * #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we "discover"
-   * these headers.
-   */
+  /** Returns the results of include scanning. */
   private NestedSet<Artifact> findUsedHeaders(
       ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
+    Preconditions.checkState(
+        shouldScanIncludes, "findUsedHeaders() called although include scanning is disabled");
     try {
       try {
-        ListenableFuture<List<Artifact>> future =
+        List<Artifact> includes =
             actionExecutionContext
                 .getContext(CppIncludeScanningContext.class)
                 .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData);
-        if (future == null) {
-          return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
-              .addTransitive(additionalPrunableHeaders)
-              .build();
-        }
-        return NestedSetBuilder.wrap(Order.STABLE_ORDER, future.get());
-      } catch (ExecutionException e) {
-        Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
-        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-        IOException ioException = getIoExceptionIfAny(e);
-        if (ioException != null) {
-          throw new EnvironmentalExecException(
-              ioException,
-              createFailureDetail(
-                  "Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
-        }
-        Throwables.throwIfUnchecked(e.getCause());
-        throw new IllegalStateException(e.getCause());
+        return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
+      } catch (IORuntimeException e) {
+        throw new EnvironmentalExecException(
+            e.getCauseIOException(),
+            createFailureDetail("Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
       }
     } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          "Include scanning of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
-          this);
+      throw e.toActionExecutionException("include scanning", this);
     }
-  }
-
-  @Nullable
-  private static IOException getIoExceptionIfAny(ExecutionException e) {
-    IOException ioException = null;
-    if (e.getCause() instanceof IORuntimeException) {
-      ioException = ((IORuntimeException) e.getCause()).getCauseIOException();
-    }
-    if (e.getCause() instanceof IOException) {
-      ioException = (IOException) e.getCause();
-    }
-    return ioException;
-  }
-
-  /**
-   * Filters discovered headers according to declared rule inputs. This fundamentally mirrors the
-   * behavior of {@link #validateInclusions} and just removes inputs that would be considered
-   * invalid from {@code headers}. That way, the compiler does not get access to them (assuming a
-   * sand-boxed environment) and can diagnose the missing headers.
-   */
-  private NestedSet<Artifact> filterDiscoveredHeaders(
-      ActionExecutionContext actionExecutionContext,
-      NestedSet<Artifact> headers,
-      List<CcCompilationContext.HeaderInfo> headerInfo) {
-    Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers.toList());
-
-    // Remove all declared headers and find out which modules were used while at it.
-    CcCompilationContext.HeadersAndModules headersAndModules =
-        ccCompilationContext.computeDeclaredHeadersAndUsedModules(
-            usePic, undeclaredHeaders, headerInfo);
-    usedModules = ImmutableList.copyOf(headersAndModules.modules);
-    undeclaredHeaders.removeAll(headersAndModules.headers);
-
-    // Note that this (compared to validateInclusions) does not take mandatoryInputs into account.
-    // The reason is that these by definition get added to the action input and thus are available
-    // anyway. Not having to look at them here saves us from requiring and ArtifactExpander, which
-    // actionExecutionContext doesn't have at this point. This only works as long as mandatory
-    // inputs do not contain headers that are built into a module.
-    for (Artifact source : getIncludeScannerSources()) {
-      undeclaredHeaders.remove(source);
-    }
-    for (Artifact header : additionalPrunableHeaders.toList()) {
-      undeclaredHeaders.remove(header);
-    }
-    if (undeclaredHeaders.isEmpty()) {
-      return headers;
-    }
-
-    Iterable<PathFragment> ignoreDirs =
-        cppConfiguration.isStrictSystemIncludes()
-            ? getBuiltInIncludeDirectories()
-            : getValidationIgnoredDirs();
-    Set<Artifact> missing = Sets.newHashSet();
-    // Lazily initialize, so that compiles that properly declare all their files profit.
-    Set<PathFragment> declaredIncludeDirs = null;
-    for (Artifact header : undeclaredHeaders) {
-      if (FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)) {
-        continue;
-      }
-      if (declaredIncludeDirs == null) {
-        declaredIncludeDirs = ccCompilationContext.getLooseHdrsDirs().toSet();
-      }
-      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
-        missing.add(header);
-      }
-    }
-    if (missing.isEmpty()) {
-      return headers;
-    }
-
-    return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER,
-        Iterables.filter(headers.toList(), header -> !missing.contains(header)));
   }
 
   /**
@@ -542,41 +443,52 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       commandLineKey = computeCommandLineKey(options);
       List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
+      boolean siblingLayout =
+          actionExecutionContext
+              .getOptions()
+              .getOptions(BuildLanguageOptions.class)
+              .experimentalSiblingRepositoryLayout;
+      if (!shouldScanIncludes) {
+        // When not actually doing include scanning, add all prunable headers to additionalInputs.
+        // This is necessary because the inputs that can be pruned by .d file parsing must be
+        // returned from discoverInputs() and they cannot be in mandatoryInputs. Thus, even with
+        // include scanning turned off, we pretend that we "discover" these headers.
+        additionalInputs =
+            NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+                .addTransitive(additionalPrunableHeaders)
+                .build();
+        if (needsIncludeValidation) {
+          verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+        }
+        return additionalInputs;
+      }
       List<CcCompilationContext.HeaderInfo> headerInfo =
           ccCompilationContext.getTransitiveHeaderInfos();
-      IncludeScanningHeaderData.Builder includeScanningHeaderData =
+      IncludeScanningHeaderData.Builder includeScanningHeaderDataBuilder =
           ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
               useHeaderModules,
               headerInfo);
-      if (includeScanningHeaderData == null) {
+      if (includeScanningHeaderDataBuilder == null) {
         return null;
       }
-      additionalInputs =
-          findUsedHeaders(
-              actionExecutionContext,
-              includeScanningHeaderData
-                  .setSystemIncludeDirs(systemIncludeDirs)
-                  .setCmdlineIncludes(getCmdlineIncludes(options))
-                  .build());
+      // In theory, we could verify include paths even earlier, but we want to avoid the restart
+      // above necessitating a double-execution.
       if (needsIncludeValidation) {
-        verifyActionIncludePaths(
-            systemIncludeDirs,
-            actionExecutionContext
-                .getOptions()
-                .getOptions(BuildLanguageOptions.class)
-                .experimentalSiblingRepositoryLayout);
+        verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
       }
+      IncludeScanningHeaderData includeScanningHeaderData =
+          includeScanningHeaderDataBuilder
+              .setSystemIncludeDirs(systemIncludeDirs)
+              .setCmdlineIncludes(getCmdlineIncludes(options))
+              .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate(actionExecutionContext))
+              .build();
+      additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
 
-      if (!shouldScanIncludes) {
-        return additionalInputs;
-      }
-
-      if (!shouldScanDotdFiles()) {
-        // If we aren't looking at .d files later, remove undeclared inputs now.
-        additionalInputs =
-            filterDiscoveredHeaders(actionExecutionContext, additionalInputs, headerInfo);
+      if (useHeaderModules) {
+        usedModules =
+            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), headerInfo);
       }
     }
 
@@ -614,6 +526,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // because a NestedSet may contain a future.
       Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
       Artifact dep = entry.getKey();
+      if (!topLevel.contains(dep)) {
+        // If this module was removed from topLevel because it is a dependency of another module,
+        // we can safely ignore it now as all of its dependants have also been removed.
+        continue;
+      }
       NestedSet<? extends Artifact> transitive = entry.getValue();
 
       List<? extends Artifact> modules;
@@ -631,7 +548,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           // If rewinding is enabled, this error is recoverable.
           throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
         }
-        BugReport.sendBugReport(e);
+        actionExecutionContext.getBugReporter().sendBugReport(e);
         throw new ActionExecutionException(
             code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
       }
@@ -657,6 +574,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     usedModules = null;
     return additionalInputs;
+  }
+
+  private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
+      ActionExecutionContext actionExecutionContext) {
+    if (getDotdFile() != null) {
+      // If we'll looking at .d files later, don't remove undeclared inputs now.
+      return null;
+    }
+    Iterable<PathFragment> ignoreDirs =
+        cppConfiguration.isStrictSystemIncludes()
+            ? getBuiltInIncludeDirectories()
+            : getValidationIgnoredDirs();
+    ImmutableSet<Artifact> additionalPrunableHeadersSet = additionalPrunableHeaders.toSet();
+    Supplier<ImmutableSet<PathFragment>> looseHdrDirs =
+        Suppliers.memoize(ccCompilationContext.getLooseHdrsDirs()::toSet);
+    return header ->
+        additionalPrunableHeadersSet.contains(header)
+            || FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)
+            || isDeclaredIn(cppConfiguration, actionExecutionContext, header, looseHdrDirs.get());
   }
 
   /**
@@ -939,7 +875,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
 
@@ -1029,6 +965,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public void validateInclusions(
       ActionExecutionContext actionExecutionContext, NestedSet<Artifact> inputsForValidation)
       throws ActionExecutionException {
+    if (!needsIncludeValidation) {
+      return;
+    }
     IncludeProblems errors = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
     for (Artifact input :
@@ -1245,7 +1184,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
       // in the latter case using the inputs from the action cache.
       // Note that this breaks the invariant that Actions are immutable after the analysis phase.
-      if (shouldPruneModules && topLevelModules != null) {
+      if (shouldScanIncludes && topLevelModules != null) {
         return calculateModuleVariable(topLevelModules);
       } else {
         return calculateModuleVariable(getInputs());
@@ -1319,7 +1258,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     computeKey(
         actionKeyContext,
         fp,
@@ -1352,7 +1291,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
       NestedSet<Artifact> inputsForInvalidation,
-      boolean validateTopLevelHeaderInclusions) {
+      boolean validateTopLevelHeaderInclusions)
+      throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(actionClassId);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);
@@ -1403,7 +1343,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       try {
         paramFileActionInput =
             new ParamFileActionInput(
@@ -1422,7 +1362,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
 
-    if (!shouldScanDotdFiles()) {
+    if (shouldScanIncludes) {
       updateActionInputs(additionalInputs);
     }
 
@@ -1479,9 +1419,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     NestedSetBuilder<ActionInput> inputsBuilder =
-        NestedSetBuilder.<ActionInput>stableOrder()
-            .addTransitive(getMandatoryInputs())
-            .addTransitive(getAdditionalInputs());
+        NestedSetBuilder.<ActionInput>stableOrder().addTransitive(getMandatoryInputs());
+    if (discoversInputs()) {
+      inputsBuilder.addTransitive(getAdditionalInputs());
+    }
     if (getParamFileActionInput() != null) {
       inputsBuilder.add(getParamFileActionInput());
     }
@@ -1533,9 +1474,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ShowIncludesFilter showIncludesFilterForStderr,
       boolean siblingRepositoryLayout)
       throws ActionExecutionException {
-    if (!needsDotdInputPruning) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
     ImmutableList.Builder<Path> dependencies = new ImmutableList.Builder<>();
     dependencies.addAll(showIncludesFilterForStdout.getDependencies(execRoot));
     dependencies.addAll(showIncludesFilterForStderr.getDependencies(execRoot));
@@ -1564,9 +1502,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       byte[] dotDContents,
       boolean siblingRepositoryLayout)
       throws ActionExecutionException {
-    if (!needsDotdInputPruning || getDotdFile() == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
+    Preconditions.checkNotNull(getDotdFile(), "Trying to scan .d file which is unset");
     HeaderDiscovery.Builder discoveryBuilder =
         new HeaderDiscovery.Builder()
             .setAction(this)
@@ -1650,6 +1586,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    if (!shouldScanIncludes) {
+      return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+          .addTransitive(additionalPrunableHeaders)
+          .build();
+    }
     try {
       IncludeScanningHeaderData.Builder includeScanningHeaderData =
           ccCompilationContext.createIncludeScanningHeaderData(
@@ -1660,14 +1601,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (includeScanningHeaderData == null) {
         return null;
       }
-      NestedSet<Artifact> discoveredInputs =
-          findUsedHeaders(
-              actionExecutionContext,
-              includeScanningHeaderData
-                  .setSystemIncludeDirs(getSystemIncludeDirs())
-                  .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
-                  .build());
-      return discoveredInputs;
+      return findUsedHeaders(
+          actionExecutionContext,
+          includeScanningHeaderData
+              .setSystemIncludeDirs(getSystemIncludeDirs())
+              .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+              .build());
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -1678,11 +1617,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  static String actionNameToMnemonic(String actionName) {
+  static String actionNameToMnemonic(
+      String actionName,
+      FeatureConfiguration featureConfiguration,
+      boolean useCppCompileHeaderMnemonic) {
     switch (actionName) {
       case CppActionNames.OBJC_COMPILE:
       case CppActionNames.OBJCPP_COMPILE:
-        return "ObjcCompile";
+        return OBJC_COMPILE_MNEMONIC;
 
       case CppActionNames.LINKSTAMP_COMPILE:
         // When compiling shared native deps, e.g. when two java_binary rules have the same set of
@@ -1694,14 +1636,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         // extra actions to regular CppCompileActions without tickling this bug.
         return "CppLinkstampCompile";
 
+      case CppActionNames.CPP_HEADER_PARSING:
+        String suffix = useCppCompileHeaderMnemonic ? "Header" : "";
+        return featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)
+            ? OBJC_COMPILE_MNEMONIC + suffix
+            : CPP_COMPILE_MNEMONIC + suffix;
+
       default:
-        return "CppCompile";
+        return CPP_COMPILE_MNEMONIC;
     }
   }
 
   @Override
   public String getMnemonic() {
-    return actionNameToMnemonic(actionName);
+    return actionNameToMnemonic(
+        actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic());
   }
 
   @Override
@@ -1839,8 +1788,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
         throw e.toActionExecutionException(
-            "C++ compilation of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
@@ -1851,11 +1798,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
       ensureCoverageNotesFilesExist(actionExecutionContext);
 
-      if (!shouldScanDotdFiles()) {
-        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
-      }
-
-      // This is the .d file scanning part.
       CppIncludeExtractionContext scanningContext =
           actionExecutionContext.getContext(CppIncludeExtractionContext.class);
       Path execRoot = actionExecutionContext.getExecRoot();
@@ -1865,44 +1807,40 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .getOptions(BuildLanguageOptions.class)
               .experimentalSiblingRepositoryLayout;
 
-      NestedSet<Artifact> discoveredInputs;
       if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-        discoveredInputs =
+        NestedSet<Artifact> discoveredInputs =
             discoverInputsFromShowIncludesFilters(
                 execRoot,
                 scanningContext.getArtifactResolver(),
                 showIncludesFilterForStdout,
                 showIncludesFilterForStderr,
                 siblingRepositoryLayout);
-      } else {
-        discoveredInputs =
-            discoverInputsFromDotdFiles(
-                actionExecutionContext,
-                execRoot,
-                scanningContext.getArtifactResolver(),
-                dotDContents,
-                siblingRepositoryLayout);
+        updateActionInputs(discoveredInputs);
+        validateInclusions(actionExecutionContext, discoveredInputs);
+        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
       }
+
+      if (getDotdFile() == null) {
+        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
+      }
+
+      // Post-execute "include scanning", which modifies the action inputs to match what the
+      // compile action actually used by incorporating the results of .d file parsing.
+      NestedSet<Artifact> discoveredInputs =
+          discoverInputsFromDotdFiles(
+              actionExecutionContext,
+              execRoot,
+              scanningContext.getArtifactResolver(),
+              dotDContents,
+              siblingRepositoryLayout);
       dotDContents = null; // Garbage collect in-memory .d contents.
 
-      if (discoversInputs()) {
-        // Post-execute "include scanning", which modifies the action inputs to match what the
-        // compile action actually used by incorporating the results of .d file parsing.
-        updateActionInputs(discoveredInputs);
-      } else {
-        Preconditions.checkState(
-            discoveredInputs.isEmpty(),
-            "Discovered inputs without discovering inputs? %s %s",
-            discoveredInputs,
-            this);
-      }
+      updateActionInputs(discoveredInputs);
 
       // hdrs_check: This cannot be switched off for C++ build actions,
       // because doing so would allow for incorrect builds.
       // HeadersCheckingMode.NONE should only be used for ObjC build actions.
-      if (needsIncludeValidation) {
-        validateInclusions(actionExecutionContext, discoveredInputs);
-      }
+      validateInclusions(actionExecutionContext, discoveredInputs);
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
 
@@ -1930,10 +1868,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         } catch (IOException e) {
           throw new EnvironmentalExecException(
                   e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
-              .toActionExecutionException(
-                  getRawProgressMessage(),
-                  actionExecutionContext.getVerboseFailures(),
-                  CppCompileAction.this);
+              .toActionExecutionException(CppCompileAction.this);
         }
       }
     }

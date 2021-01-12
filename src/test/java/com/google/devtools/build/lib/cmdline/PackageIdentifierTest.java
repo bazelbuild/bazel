@@ -31,22 +31,26 @@ public class PackageIdentifierTest {
     PackageIdentifier fooA = PackageIdentifier.parse("@foo//a");
     assertThat(fooA.getRepository().strippedName()).isEqualTo("foo");
     assertThat(fooA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(fooA.getRepository().getSourceRoot()).isEqualTo(PathFragment.create("foo"));
-    assertThat(fooA.getRepository().getPackagePath())
-        .isEqualTo(PathFragment.create("external/foo"));
+    assertThat(fooA.getPackagePath(false)).isEqualTo(PathFragment.create("external/foo/a"));
+    assertThat(fooA.getPackagePath(true)).isEqualTo(PathFragment.create("a"));
 
     PackageIdentifier absoluteA = PackageIdentifier.parse("//a");
     assertThat(absoluteA.getRepository().strippedName()).isEmpty();
     assertThat(absoluteA.getPackageFragment().getPathString()).isEqualTo("a");
+    assertThat(absoluteA.getPackagePath(false)).isEqualTo(PathFragment.create("a"));
+    assertThat(absoluteA.getPackagePath(true)).isEqualTo(PathFragment.create("a"));
 
     PackageIdentifier plainA = PackageIdentifier.parse("a");
     assertThat(plainA.getRepository().strippedName()).isEmpty();
     assertThat(plainA.getPackageFragment().getPathString()).isEqualTo("a");
+    assertThat(plainA.getPackagePath(false)).isEqualTo(PathFragment.create("a"));
+    assertThat(plainA.getPackagePath(true)).isEqualTo(PathFragment.create("a"));
 
     PackageIdentifier mainA = PackageIdentifier.parse("@//a");
     assertThat(mainA.getRepository()).isEqualTo(RepositoryName.MAIN);
     assertThat(mainA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(mainA.getRepository().getSourceRoot()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(mainA.getPackagePath(false)).isEqualTo(PathFragment.create("a"));
+    assertThat(mainA.getPackagePath(true)).isEqualTo(PathFragment.create("a"));
   }
 
   @Test

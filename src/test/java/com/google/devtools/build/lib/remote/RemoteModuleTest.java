@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -25,11 +26,18 @@ import build.bazel.remote.execution.v2.DigestFunction.Value;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.auth.Credentials;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -46,6 +54,7 @@ import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -58,14 +67,17 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link RemoteModule}. */
 @RunWith(JUnit4.class)
-public class RemoteModuleTest {
+public final class RemoteModuleTest {
 
   private static CommandEnvironment createTestCommandEnvironment(RemoteOptions remoteOptions)
       throws IOException, AbruptExitException {
@@ -116,7 +128,7 @@ public class RemoteModuleTest {
             productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
-    return workspace.initCommand(command, options, new ArrayList<>(), 0, 0);
+    return workspace.initCommand(command, options, new ArrayList<>(), 0, 0, ImmutableList.of());
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {
@@ -136,7 +148,7 @@ public class RemoteModuleTest {
       responseObserver.onCompleted();
     }
 
-    public int getRequestCount() {
+    int getRequestCount() {
       return requestCount;
     }
   }
@@ -360,11 +372,7 @@ public class RemoteModuleTest {
 
       CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
 
-      assertThrows(
-          AbruptExitException.class,
-          () -> {
-            remoteModule.beforeCommand(env);
-          });
+      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
@@ -397,11 +405,7 @@ public class RemoteModuleTest {
 
       CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
 
-      assertThrows(
-          AbruptExitException.class,
-          () -> {
-            remoteModule.beforeCommand(env);
-          });
+      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
@@ -441,5 +445,101 @@ public class RemoteModuleTest {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
     }
+  }
+
+  @Test
+  public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
+    Map<String, String> clientEnv = ImmutableMap.of();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_netrcNotExist_shouldIgnore() throws Exception {
+    String home = "/home/foo";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_netrcExist_shouldUse() throws Exception {
+    String home = "/home/foo";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNotNull();
+    assertRequestMetadata(
+        credentials.getRequestMetadata(URI.create("https://foo.example.org")),
+        "foouser",
+        "foopass");
+  }
+
+  @Test
+  public void testNetrc_netrcFromNetrcEnvExist_shouldUse() throws Exception {
+    String home = "/home/foo";
+    String netrc = "/.netrc";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "NETRC", netrc);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
+    scratch.file(netrc, "machine foo.example.org login baruser password barpass");
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNotNull();
+    assertRequestMetadata(
+        credentials.getRequestMetadata(URI.create("https://foo.example.org")),
+        "baruser",
+        "barpass");
+  }
+
+  @Test
+  public void testNetrc_netrcFromNetrcEnvNotExist_shouldIgnore() throws Exception {
+    String home = "/home/foo";
+    String netrc = "/.netrc";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "NETRC", netrc);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_netrcWithoutRemoteCache() throws Exception {
+    String netrc = "/.netrc";
+    Map<String, String> clientEnv = ImmutableMap.of("NETRC", netrc);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(netrc, "machine foo.example.org login baruser password barpass");
+    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    Reporter reporter = new Reporter(new EventBus());
+
+    Credentials credentials =
+        RemoteModule.newCredentials(
+            clientEnv, fileSystem, reporter, authAndTLSOptions, remoteOptions);
+
+    assertThat(credentials).isNotNull();
+  }
+
+  private static void assertRequestMetadata(
+      Map<String, List<String>> requestMetadata, String username, String password) {
+    assertThat(requestMetadata.keySet()).containsExactly("Authorization");
+    assertThat(Iterables.getOnlyElement(requestMetadata.values()))
+        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password, UTF_8));
   }
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
 import net.starlark.java.eval.EvalException;
@@ -32,16 +33,20 @@ import net.starlark.java.eval.EvalException;
  */
 @Immutable
 @AutoCodec
-public final class JavaNativeLibraryInfo
-    extends NativeInfo implements JavaNativeLibraryInfoApi<Artifact, LibraryToLink> {
+public final class JavaNativeLibraryInfo extends NativeInfo
+    implements JavaNativeLibraryInfoApi<Artifact, LtoBackendArtifacts, LibraryToLink> {
 
   public static final Provider PROVIDER = new Provider();
 
   private final NestedSet<LibraryToLink> transitiveJavaNativeLibraries;
 
   public JavaNativeLibraryInfo(NestedSet<LibraryToLink> transitiveJavaNativeLibraries) {
-    super(PROVIDER);
     this.transitiveJavaNativeLibraries = transitiveJavaNativeLibraries;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /**
@@ -68,7 +73,7 @@ public final class JavaNativeLibraryInfo
 
   /** Provider class for {@link JavaNativeLibraryInfo} objects. */
   public static class Provider extends BuiltinProvider<JavaNativeLibraryInfo>
-      implements JavaNativeLibraryInfoApi.Provider<Artifact, LibraryToLink> {
+      implements JavaNativeLibraryInfoApi.Provider<Artifact, LtoBackendArtifacts, LibraryToLink> {
 
     private Provider() {
       super(NAME, JavaNativeLibraryInfo.class);

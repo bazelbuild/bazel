@@ -54,18 +54,18 @@ public final class StarlarkFlagGuardingTest {
         name = "positionals_only_method",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = true, named = false, type = Integer.class),
+          @Param(name = "a", positional = true, named = false),
           @Param(
               name = "b",
               positional = true,
               named = false,
-              type = Boolean.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
-          @Param(name = "c", positional = true, named = false, type = Integer.class),
+          @Param(name = "c", positional = true, named = false),
         },
         useStarlarkThread = true)
-    public String positionalsOnlyMethod(Integer a, boolean b, Integer c, StarlarkThread thread) {
+    public String positionalsOnlyMethod(
+        StarlarkInt a, boolean b, StarlarkInt c, StarlarkThread thread) {
       return "positionals_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
@@ -73,18 +73,18 @@ public final class StarlarkFlagGuardingTest {
         name = "keywords_only_method",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = false, named = true, type = Integer.class),
+          @Param(name = "a", positional = false, named = true),
           @Param(
               name = "b",
               positional = false,
               named = true,
-              type = Boolean.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
-          @Param(name = "c", positional = false, named = true, type = Integer.class),
+          @Param(name = "c", positional = false, named = true),
         },
         useStarlarkThread = true)
-    public String keywordsOnlyMethod(Integer a, boolean b, Integer c, StarlarkThread thread) {
+    public String keywordsOnlyMethod(
+        StarlarkInt a, boolean b, StarlarkInt c, StarlarkThread thread) {
       return "keywords_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
@@ -92,26 +92,24 @@ public final class StarlarkFlagGuardingTest {
         name = "mixed_params_method",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = true, named = false, type = Integer.class),
+          @Param(name = "a", positional = true, named = false),
           @Param(
               name = "b",
               positional = true,
               named = false,
-              type = Boolean.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
-              type = Integer.class,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "3"),
-          @Param(name = "d", positional = false, named = true, type = Boolean.class),
+          @Param(name = "d", positional = false, named = true),
         },
         useStarlarkThread = true)
     public String mixedParamsMethod(
-        Integer a, boolean b, Integer c, boolean d, StarlarkThread thread) {
+        StarlarkInt a, boolean b, StarlarkInt c, boolean d, StarlarkThread thread) {
       return "mixed_params_method(" + a + ", " + b + ", " + c + ", " + d + ")";
     }
 
@@ -119,24 +117,23 @@ public final class StarlarkFlagGuardingTest {
         name = "keywords_multiple_flags",
         documented = false,
         parameters = {
-          @Param(name = "a", positional = false, named = true, type = Integer.class),
+          @Param(name = "a", positional = false, named = true),
           @Param(
               name = "b",
               positional = false,
               named = true,
-              type = Boolean.class,
               disableWithFlag = FLAG2,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
-              type = Integer.class,
               enableOnlyWithFlag = FLAG1,
               valueWhenDisabled = "3"),
         },
         useStarlarkThread = true)
-    public String keywordsMultipleFlags(Integer a, boolean b, Integer c, StarlarkThread thread) {
+    public String keywordsMultipleFlags(
+        StarlarkInt a, boolean b, StarlarkInt c, StarlarkThread thread) {
       return "keywords_multiple_flags(" + a + ", " + b + ", " + c + ")";
     }
   }

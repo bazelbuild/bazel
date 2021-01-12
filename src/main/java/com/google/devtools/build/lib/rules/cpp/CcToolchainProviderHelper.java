@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.util.Pair;
@@ -76,11 +75,7 @@ public class CcToolchainProviderHelper {
     CcToolchainFeatures toolchainFeatures;
     PathFragment toolsDirectory =
         getToolsDirectory(
-            attributes.getCcToolchainLabel(),
-            ruleContext
-                .getAnalysisEnvironment()
-                .getStarlarkSemantics()
-                .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+            attributes.getCcToolchainLabel(), configuration.isSiblingRepositoryLayout());
     try {
       toolPaths = computeToolPaths(toolchainConfigInfo, toolsDirectory);
       toolchainFeatures = new CcToolchainFeatures(toolchainConfigInfo, toolsDirectory);
@@ -98,7 +93,7 @@ public class CcToolchainProviderHelper {
     String purposePrefix = attributes.getPurposePrefix();
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
     final PathFragment runtimeSolibDir =
-        configuration.getBinFragment().getRelative(runtimeSolibDirBase);
+        ruleContext.getBinFragment().getRelative(runtimeSolibDirBase);
     String solibDirectory = "_solib_" + toolchainConfigInfo.getTargetCpu();
     PathFragment defaultSysroot =
         CppConfiguration.computeDefaultSysroot(toolchainConfigInfo.getBuiltinSysroot());
@@ -177,7 +172,9 @@ public class CcToolchainProviderHelper {
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
     for (String s : toolchainConfigInfo.getCxxBuiltinIncludeDirectories()) {
       try {
-        builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot, toolsDirectory));
+        builtInIncludeDirectoriesBuilder.add(
+            resolveIncludeDir(
+                s, sysroot, toolsDirectory, configuration.isSiblingRepositoryLayout()));
       } catch (InvalidConfigurationException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -328,7 +325,10 @@ public class CcToolchainProviderHelper {
    * <p>If it is absolute, it remains unchanged.
    */
   static PathFragment resolveIncludeDir(
-      String s, PathFragment sysroot, PathFragment crosstoolTopPathFragment)
+      String s,
+      PathFragment sysroot,
+      PathFragment crosstoolTopPathFragment,
+      boolean siblingRepositoryLayout)
       throws InvalidConfigurationException {
     PathFragment pathPrefix;
     String pathString;
@@ -337,7 +337,7 @@ public class CcToolchainProviderHelper {
       String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
       try {
         // TODO(jungjw): This should probably be getExecPath.
-        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath();
+        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath(siblingRepositoryLayout);
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
       }
@@ -488,7 +488,7 @@ public class CcToolchainProviderHelper {
                 if (tool == CppConfiguration.Tool.DWP) {
                   // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
                   return false;
-                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA) {
+                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA || tool == Tool.LLVM_COV) {
                   // TODO(tmsriram): Fix this to check if this is a llvm crosstool
                   // and return true.  This needs changes to crosstool_config.proto.
                   return false;

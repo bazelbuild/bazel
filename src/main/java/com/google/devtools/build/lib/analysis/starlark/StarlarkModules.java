@@ -19,32 +19,30 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
-import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
+import net.starlark.java.eval.Starlark;
 
-/** The basis for a Starlark Environment with all build-related modules registered. */
+/** A helper class for determining essential Build Language builtins. */
 public final class StarlarkModules {
 
-  private StarlarkModules() { }
+  private StarlarkModules() {}
 
-  /** A bootstrap for non-rules-specific built-ins of the build API. */
-  private static TopLevelBootstrap topLevelBootstrap =
-      new TopLevelBootstrap(
-          new BazelBuildApiGlobals(),
-          new StarlarkAttrModule(),
-          new StarlarkCommandLine(),
-          new StarlarkNativeModule(),
-          new StarlarkRuleClassFunctions(),
-          StructProvider.STRUCT,
-          OutputGroupInfo.STARLARK_CONSTRUCTOR,
-          ActionsProvider.INSTANCE,
-          DefaultInfo.PROVIDER);
-
-  /** Adds predeclared Starlark bindings for the Bazel build language. */
-  // TODO(adonovan): rename "globals" -> "builtins"
-  public static void addStarlarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> predeclared) {
+  /**
+   * Adds essential predeclared symbols for the Build Language.
+   *
+   * <p>This includes generic symbols like {@code rule()}, but not symbols specific to a rule
+   * family, like {@code CcInfo}; those are registered on a RuleClassProvider instead. This also
+   * does not include Starlark Universe symbols like {@code len()}.
+   */
+  public static void addPredeclared(ImmutableMap.Builder<String, Object> predeclared) {
     predeclared.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
-    topLevelBootstrap.addBindingsToBuilder(predeclared);
+    Starlark.addMethods(predeclared, new BazelBuildApiGlobals()); // e.g. configuration_field
+    Starlark.addMethods(predeclared, new StarlarkRuleClassFunctions()); // e.g. rule
+    predeclared.put("cmd_helper", new StarlarkCommandLine());
+    predeclared.put("attr", new StarlarkAttrModule());
+    predeclared.put("struct", StructProvider.STRUCT);
+    predeclared.put("OutputGroupInfo", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    predeclared.put("Actions", ActionsProvider.INSTANCE);
+    predeclared.put("DefaultInfo", DefaultInfo.PROVIDER);
   }
 }

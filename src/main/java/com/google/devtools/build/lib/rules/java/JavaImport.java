@@ -45,7 +45,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     ImmutableList<Artifact> srcJars = ImmutableList.of();
     ImmutableList<Artifact> jars = collectJars(ruleContext);
     Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar");
@@ -152,8 +151,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(new JavaNativeLibraryInfo(transitiveJavaNativeLibraries))
@@ -181,9 +178,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> jars, ImmutableList<Artifact> interfaceJars) {
     return new JavaCompilationArtifacts.Builder()
         .addRuntimeJars(jars)
-        .addFullCompileTimeJars(jars)
         // interfaceJars Artifacts have proper owner labels
-        .addInterfaceJars(interfaceJars)
+        .addInterfaceJarsWithFullJars(interfaceJars, jars)
         .build();
   }
 

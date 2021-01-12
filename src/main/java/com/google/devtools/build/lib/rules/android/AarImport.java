@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -121,9 +120,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ResourceApk resourceApk = ResourceApk.of(validatedResources, mergedAssets, null, null);
 
     // There isn't really any use case for building an aar_import target on its own, so the files to
-    // build could be empty. The R class JAR and merged JARs are added here as a sanity check for
-    // Bazel developers so that `bazel build java/com/my_aar_import` will fail if the resource
-    // processing or JAR merging steps fail.
+    // build could be empty. The R class JAR and merged JARs are added here as a check for Bazel
+    // developers so that `bazel build java/com/my_aar_import` will fail if the resource processing
+    // or JAR merging steps fail.
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(resourceApk.getValidatedResources().getJavaClassJar())
@@ -241,8 +240,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addNativeDeclaredProvider(dataBindingV2Provider)
         .addNativeDeclaredProvider(

@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Implementation of the {@code android_ndk_repository} rule. */
 public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
@@ -286,9 +287,8 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "Either the path attribute of android_ndk_repository or the ANDROID_NDK_HOME "
+          Starlark.errorf(
+              "Either the path attribute of android_ndk_repository or the ANDROID_NDK_HOME"
                   + " environment variable must be set."),
           Transience.PERSISTENT);
     }
@@ -336,10 +336,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
         // themselves.
         throwInvalidPathException(
             ndkHome,
-            new EvalException(
-                rule.getLocation(),
-                "android_ndk_repository requires that at least one Android platform is present in "
-                    + "the Android NDK platforms directory."));
+            Starlark.errorf(
+                "android_ndk_repository requires that at least one Android platform is present in"
+                    + " the Android NDK platforms directory."));
       }
       apiLevelString = apiLevels.first().toString();
     }

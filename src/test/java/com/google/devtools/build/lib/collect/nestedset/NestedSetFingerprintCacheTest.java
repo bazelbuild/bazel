@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Objects;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.CapturingMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
@@ -37,7 +38,8 @@ public class NestedSetFingerprintCacheTest {
     private Multiset<Object> fingerprinted = HashMultiset.create();
 
     @Override
-    <T> void addToFingerprint(MapFn<? super T> mapFn, Fingerprint fingerprint, T object) {
+    <T> void addToFingerprint(MapFn<? super T> mapFn, Fingerprint fingerprint, T object)
+        throws CommandLineExpansionException, InterruptedException {
       super.addToFingerprint(mapFn, fingerprint, object);
       fingerprinted.add(object);
     }
@@ -51,7 +53,7 @@ public class NestedSetFingerprintCacheTest {
   }
 
   @Test
-  public void testBasic() {
+  public void testBasic() throws Exception {
     NestedSet<String> nestedSet = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
 
     // This test does reimplement the inner algorithm of the cache, but serves
@@ -72,7 +74,7 @@ public class NestedSetFingerprintCacheTest {
   }
 
   @Test
-  public void testOnlyFingerprintedOncePerString() {
+  public void testOnlyFingerprintedOncePerString() throws Exception {
     // Leaving leaf nodes with a single item will defeat this check
     // The nested set builder will effectively inline single-item objects into their parent,
     // meaning they will get hashed multiple times.
@@ -93,7 +95,7 @@ public class NestedSetFingerprintCacheTest {
   }
 
   @Test
-  public void testMapFn() {
+  public void testMapFn() throws Exception {
     // Make sure that the map function assigns completely different key spaces
     NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a0").add("a1").build();
 
@@ -118,7 +120,7 @@ public class NestedSetFingerprintCacheTest {
   }
 
   @Test
-  public void testMultipleInstancesOfMapFnThrows() {
+  public void testMultipleInstancesOfMapFnThrows() throws Exception {
     NestedSet<String> nestedSet =
         NestedSetBuilder.<String>stableOrder().add("a0").add("a1").build();
 

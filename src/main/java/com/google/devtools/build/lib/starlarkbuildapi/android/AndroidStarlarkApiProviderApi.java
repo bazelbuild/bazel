@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -30,8 +30,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "AndroidStarlarkApiProvider",
-    title = "android",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
@@ -147,7 +146,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   /** Helper class to provide information about IDLs related to this rule. */
   @StarlarkBuiltin(
       name = "AndroidStarlarkIdlInfo",
-      category = StarlarkDocumentationCategory.NONE,
+      category = DocCategory.NONE,
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed."

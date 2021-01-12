@@ -21,12 +21,12 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -36,7 +36,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor intAttribute(
-      Integer defaultInt,
+      StarlarkInt defaultInt,
       String doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -259,23 +259,27 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
     return providerNameGroup;
   }
 
-  /**
-   * Returns the name of {@code provider}.
-   *
-   * <p>{@code thread} contains a {@code Map<String, Object>} where the values are built-in objects
-   * or objects defined in the file and the keys are the names of these objects. If a {@code
-   * provider} is in the map, the name of the provider is set as the key of this object in {@code
-   * bindings}. If it is not in the map, the provider may be part of a module in the map and the
-   * name will be set to "Unknown Provider".
-   */
+  // Returns the name of the provider using fragile heuristics.
   private static String providerName(ProviderApi provider, StarlarkThread thread) {
-    Map<String, Object> bindings =
-        Module.ofInnermostEnclosingStarlarkFunction(thread).getTransitiveBindings();
-    for (Entry<String, Object> envEntry : bindings.entrySet()) {
-      if (provider.equals(envEntry.getValue())) {
-        return envEntry.getKey();
+    Module bzl = Module.ofInnermostEnclosingStarlarkFunction(thread);
+
+    // Generic fake provider? (e.g. Starlark-defined, or trivial fake)
+    // Return name set at construction, or by "export" operation, if any.
+    if (provider instanceof FakeProviderApi) {
+      return ((FakeProviderApi) provider).getName(); // may be "Unexported Provider"
+    }
+
+    // Specialized fake provider? (e.g. DefaultInfo)
+    // Return name under which FakeApi.addPredeclared added it to environment.
+    // (This only works for top-level names such as DefaultInfo, but not for
+    // nested ones such as cc_common.XyzInfo, but that has always been broken;
+    // it is not part of the regression that is b/175703093.)
+    for (Map.Entry<String, Object> e : bzl.getPredeclaredBindings().entrySet()) {
+      if (provider.equals(e.getValue())) {
+        return e.getKey();
       }
     }
+
     return "Unknown Provider";
   }
 }

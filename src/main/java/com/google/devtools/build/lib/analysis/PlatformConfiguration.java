@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -28,6 +29,7 @@ import java.util.Map;
 
 /** A configuration fragment describing the current platform configuration. */
 @ThreadSafety.Immutable
+@RequiresOptions(options = {PlatformOptions.class})
 public class PlatformConfiguration extends Fragment implements PlatformConfigurationApi {
   private final Label hostPlatform;
   private final ImmutableList<String> extraExecutionPlatforms;
@@ -35,17 +37,15 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   private final ImmutableList<String> extraToolchains;
   private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
-  PlatformConfiguration(
-      Label hostPlatform,
-      ImmutableList<String> extraExecutionPlatforms,
-      Label targetPlatform,
-      ImmutableList<String> extraToolchains,
-      List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints) {
-    this.hostPlatform = hostPlatform;
-    this.extraExecutionPlatforms = extraExecutionPlatforms;
-    this.targetPlatform = targetPlatform;
-    this.extraToolchains = extraToolchains;
-    this.targetFilterToAdditionalExecConstraints = targetFilterToAdditionalExecConstraints;
+  public PlatformConfiguration(BuildOptions buildOptions) {
+    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+
+    this.hostPlatform = platformOptions.computeHostPlatform();
+    this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
+    this.targetPlatform = platformOptions.computeTargetPlatform();
+    this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
+    this.targetFilterToAdditionalExecConstraints =
+        platformOptions.targetFilterToAdditionalExecConstraints;
   }
 
   @Override

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlark
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A module that contains Starlark utilities for Java support. */
@@ -37,7 +38,6 @@ public class JavaStarlarkCommon
         Artifact,
         JavaInfo,
         JavaToolchainProvider,
-        JavaRuntimeInfo,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
@@ -69,7 +69,7 @@ public class JavaStarlarkCommon
       Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase,
+      Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
       Boolean neverlink,
@@ -102,7 +102,6 @@ public class JavaStarlarkCommon
                 "annotation_processor_additional_outputs"),
             strictDepsMode,
             javaToolchain,
-            hostJavabase,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
             neverlink,
@@ -140,7 +139,7 @@ public class JavaStarlarkCommon
       Sequence<?> sourceFiles, // <Artifact> expected.
       Sequence<?> sourceJars, // <Artifact> expected.
       JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase)
+      Object hostJavabase)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .packSourceFiles(
@@ -149,8 +148,7 @@ public class JavaStarlarkCommon
             outputSourceJar instanceof Artifact ? (Artifact) outputSourceJar : null,
             Sequence.cast(sourceFiles, Artifact.class, "sources"),
             Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            javaToolchain,
-            hostJavabase);
+            javaToolchain);
   }
 
   @Override
@@ -215,6 +213,13 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public Sequence<String> getConstraints(JavaInfo javaInfo) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return StarlarkList.empty();
+  }
+
+  @Override
   public JavaInfo removeAnnotationProcessors(JavaInfo javaInfo) {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
@@ -260,8 +265,6 @@ public class JavaStarlarkCommon
 
   @Override
   public ProviderApi getBootClassPathInfo() {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
+    return BootClassPathInfo.PROVIDER;
   }
 }

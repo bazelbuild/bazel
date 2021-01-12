@@ -97,10 +97,10 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "batch_cpu_scheduling");
   ExpectValidNullaryOption(options, "block_for_lock");
   ExpectValidNullaryOption(options, "client_debug");
-  ExpectValidNullaryOption(options, "deep_execroot");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
+  ExpectValidNullaryOption(options, "autodetect_server_javabase");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
   ExpectValidNullaryOption(options, "incompatible_enable_execution_transition");
   ExpectValidNullaryOption(options, "master_bazelrc");
@@ -118,6 +118,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");
+  ExpectIsUnaryOption(options, "local_startup_timeout_secs");
   ExpectIsUnaryOption(options, "macos_qos_class");
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");

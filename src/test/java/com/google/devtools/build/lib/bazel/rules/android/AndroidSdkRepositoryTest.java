@@ -15,13 +15,17 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction.AndroidRevision;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryTest.WithPlatforms;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -29,10 +33,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidSdkRepositoryFunction}. */
-@RunWith(JUnit4.class)
-public class AndroidSdkRepositoryTest extends BuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidSdkRepositoryTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidSdkRepositoryTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   @Before
   public void setup() throws Exception {
     scratch.file(
@@ -175,7 +195,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
             artifactsToStrings(
                 android25ArmFilegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
         .containsExactly(
-            "src(external) androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
+            "src external/androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
 
     ConfiguredTarget android24X86Filegroup =
         getConfiguredTarget("@androidsdk//:emulator_images_google_24_x86");
@@ -184,7 +204,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
             artifactsToStrings(
                 android24X86Filegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
         .containsExactly(
-            "src(external) androidsdk/system-images/android-24/google_apis/x86/system.img");
+            "src external/androidsdk/system-images/android-24/google_apis/x86/system.img");
   }
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/3672.
@@ -288,6 +308,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    build_tools_version = '26.0.1',",
         ")");
     invalidatePackages();
+    reporter.removeHandler(failFastHandler);
 
     try {
       getTarget("@androidsdk//:files");
@@ -332,6 +353,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    path = '/sdk',",
         ")");
     invalidatePackages();
+    reporter.removeHandler(failFastHandler);
 
     try {
       getTarget("@androidsdk//:files");
@@ -355,6 +377,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    path = '/sdk',",
         ")");
     invalidatePackages();
+    reporter.removeHandler(failFastHandler);
 
     try {
       getTarget("@androidsdk//:files");
@@ -364,5 +387,56 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
           .contains("Expected directory at /sdk/build-tools but it is not a directory or it does "
               + "not exist.");
     }
+  }
+
+  @Test
+  public void testAndroidRevision() {
+    assertThat(AndroidRevision.parse("2.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0"));
+    assertThat(AndroidRevision.parse("12.0.0")).isGreaterThan(AndroidRevision.parse("11.0.0"));
+    assertThat(AndroidRevision.parse("1.1.0")).isGreaterThan(AndroidRevision.parse("1.0.0"));
+    assertThat(AndroidRevision.parse("1.0.1")).isGreaterThan(AndroidRevision.parse("1.0.0"));
+    assertThat(AndroidRevision.parse("1.1.1")).isGreaterThan(AndroidRevision.parse("1.0.1"));
+
+    assertThat(AndroidRevision.parse("1.1.0-rc1"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-rc1"));
+    assertThat(AndroidRevision.parse("1.1.0-alpha1"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-rc1"));
+
+    assertThat(AndroidRevision.parse("1.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0-rc1"));
+    assertThat(AndroidRevision.parse("1.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0-rc2"));
+    assertThat(AndroidRevision.parse("1.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0-alpha1"));
+    assertThat(AndroidRevision.parse("1.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0-alpha2"));
+    assertThat(AndroidRevision.parse("1.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0-beta1"));
+    assertThat(AndroidRevision.parse("1.0.0")).isGreaterThan(AndroidRevision.parse("1.0.0-beta2"));
+
+    assertThat(AndroidRevision.parse("1.0.0-rc1"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-beta1"));
+    assertThat(AndroidRevision.parse("1.0.0-beta1"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-alpha1"));
+    assertThat(AndroidRevision.parse("1.0.0-beta1"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-alpha2"));
+
+    assertThat(AndroidRevision.parse("1.0.0-rc2"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-rc1"));
+    assertThat(AndroidRevision.parse("1.0.0-beta2"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-beta1"));
+    assertThat(AndroidRevision.parse("1.0.0-alpha2"))
+        .isGreaterThan(AndroidRevision.parse("1.0.0-alpha1"));
+
+    assertThat(AndroidRevision.parse("1.1.0-rc1"))
+        .isEquivalentAccordingToCompareTo(AndroidRevision.parse("1.1.0 rc1"));
+
+    assertThat(AndroidRevision.parse("1.0"))
+        .isEquivalentAccordingToCompareTo(AndroidRevision.parse("1.0.0"));
+
+    assertThat(AndroidRevision.parse("2")).isGreaterThan(AndroidRevision.parse("1"));
+    assertThat(AndroidRevision.parse("2.1")).isGreaterThan(AndroidRevision.parse("2"));
+    assertThat(AndroidRevision.parse("2")).isGreaterThan(AndroidRevision.parse("1.0"));
+    assertThat(AndroidRevision.parse("2")).isGreaterThan(AndroidRevision.parse("1"));
+    assertThat(AndroidRevision.parse("1 rc1")).isGreaterThan(AndroidRevision.parse("1 beta1"));
+
+    assertThrows(NumberFormatException.class, () -> AndroidRevision.parse("1 0 0"));
+    assertThrows(NumberFormatException.class, () -> AndroidRevision.parse("1.0.0-abc1"));
+    assertThrows(NumberFormatException.class, () -> AndroidRevision.parse("1.0.0-rc 1"));
   }
 }

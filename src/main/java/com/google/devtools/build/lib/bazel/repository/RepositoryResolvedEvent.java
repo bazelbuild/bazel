@@ -224,8 +224,9 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     // Emit stack of rule instantiation.
     buf.append("Repository ").append(rule.getName()).append(" instantiated at:\n");
     ImmutableList<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList();
+    // TODO: Callstack should always be available for bazel.
     if (stack.isEmpty()) {
-      buf.append("  no stack (--record_rule_instantiation_callstack not enabled)\n");
+      buf.append("  callstack not available\n");
     } else {
       for (StarlarkThread.CallStackEntry frame : stack) {
         buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');

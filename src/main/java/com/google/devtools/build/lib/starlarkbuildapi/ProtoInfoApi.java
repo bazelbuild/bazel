@@ -15,24 +15,24 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object propagating information about protocol buffer sources. */
 @StarlarkBuiltin(
     name = "ProtoInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "Encapsulates information provided by <a href=\""
             + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
             + "<p>"
             + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"ProtoInfo\")` "
-            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
-            + "rules_proto</a>"
+            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
+            + "rules_proto</a>."
             + "</p>")
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */

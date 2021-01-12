@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 
 /**
@@ -231,6 +232,11 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void repr(Printer printer) {
     printer.append("<merged target " + getLabel() + ">");
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
   }
 
   @VisibleForTesting

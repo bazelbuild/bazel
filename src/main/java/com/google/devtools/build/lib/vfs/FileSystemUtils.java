@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
@@ -790,24 +791,23 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns an iterable that allows iterating over ISO-8859-1 (Latin1) text
-   * file contents line by line. If the file ends in a line break, the iterator
-   * will return an empty string as the last element.
+   * Returns a list of the lines in an ISO-8859-1 (Latin1) text file. If the file ends in a line
+   * break, the list will contain an empty string as the last element.
    *
    * @throws IOException if there was an error
    */
-  public static Iterable<String> iterateLinesAsLatin1(Path inputFile) throws IOException {
+  public static ImmutableList<String> readLinesAsLatin1(Path inputFile) throws IOException {
     return readLines(inputFile, ISO_8859_1);
   }
 
   /**
-   * Returns an iterable that allows iterating over text file contents line by line in the given
-   * {@link Charset}. If the file ends in a line break, the iterator will return an empty string
-   * as the last element.
+   * Returns a list of the lines in a text file in the given {@link Charset}. If the file ends in a
+   * line break, the list will contain an empty string as the last element.
    *
    * @throws IOException if there was an error
    */
-  public static Iterable<String> readLines(Path inputFile, Charset charset) throws IOException {
+  public static ImmutableList<String> readLines(Path inputFile, Charset charset)
+      throws IOException {
     return asByteSource(inputFile).asCharSource(charset).readLines();
   }
 
@@ -861,11 +861,11 @@ public class FileSystemUtils {
   }
 
   /**
-   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
-   * check on the number of bytes read.
+   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a check on
+   * the number of bytes read.
    *
-   * <p>Use this method when you already know the size of the file. The sanity check is intended to
-   * catch issues where filesystems incorrectly truncate files.
+   * <p>Use this method when you already know the size of the file. The check is intended to catch
+   * issues where filesystems incorrectly truncate files.
    *
    * @throws IOException if there was an error, or if fewer than {@code fileSize} bytes were read.
    */

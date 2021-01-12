@@ -296,6 +296,9 @@ EOF
 }
 
 function test_workspace_name_change() {
+  # TODO(b/174761497): Re-enable the test outside of Bazel.
+  [[ "${PRODUCT_NAME}" != bazel ]] && return 0
+
   # Rewrite the workspace name but leave the rest of WORKSPACE alone.
   sed -ie 's,workspace(.*,workspace(name = "foo"),' WORKSPACE
 

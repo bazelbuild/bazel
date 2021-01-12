@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsApi;
@@ -26,6 +27,7 @@ import java.util.Set;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
 public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
@@ -108,6 +110,25 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   @Override
   public Sequence<Artifact> getStarlarkPicObjects() throws EvalException {
     return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ true));
+  }
+
+  @Override
+  public Depset getStarlarkTemps(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getTemps());
+  }
+
+  @Override
+  public Depset getStarlarkFilesToCompile(
+      boolean parseHeaders, boolean usePic, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getFilesToCompile(parseHeaders, usePic));
+  }
+
+  @Override
+  public Sequence<Artifact> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getHeaderTokenFiles());
   }
 
   /** Returns information about bitcode object files resulting from compilation. */

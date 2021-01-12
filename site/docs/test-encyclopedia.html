@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Test encyclopedia
+title: Test Encyclopedia
 ---
 <h1>Test encyclopedia</h1>
 
@@ -431,6 +431,14 @@ take care to be hermetic, to use unique paths to avoid colliding with other,
 simultaneously running tests and non-test processes, and to clean up the files it
 creates in <code>/tmp</code>.</p>
 
+<p>Some popular testing frameworks, such as
+<a href="https://junit.org/junit4/javadoc/latest/org/junit/rules/TemporaryFolder.html">
+JUnit4 <code>TemporaryFolder</code></a> or
+<a href="https://golang.org/pkg/testing/#T.TempDir">Go <code>TempDir</code></a>,
+have their own ways to create a temporary directory under <code>/tmp</code>.
+These testing frameworks include functionality that cleans up files in <code>/tmp</code>,
+so you may use them even though they create files outside of <code>TEST_TMPDIR</code>.</p>
+
 <p>Tests must access inputs through the <b>runfiles</b> mechanism, or other
 parts of the execution environment which are specifically intended to make
 input files available.
@@ -541,7 +549,7 @@ would be <code>$(WORKSPACE)/foo/bar/unittest.runfiles/$(WORKSPACE)/deps/server/s
 The destination of the symlink is the OutputFileName() of the OutputFile or CommandRule,
 expressed as an absolute path. Thus, the destination of the symlink might be
 <code>$(WORKSPACE)/linux-dbg/deps/server/42/server</code>.</li>
-  <li><b>Symlinks to sub-runfiles</b>: for every *_binary() Z that is a run-time depdendency of
+  <li><b>Symlinks to sub-runfiles</b>: for every *_binary() Z that is a run-time dependency of
 *_binary() C, there is a second link in the runfiles directory of C to the runfiles of Z.
 The name of the symlink is <code>$(WORKSPACE)/package_name/rule_name.runfiles</code>.
 The target of the symlink is the runfiles directory. I.e. all subprograms share a common

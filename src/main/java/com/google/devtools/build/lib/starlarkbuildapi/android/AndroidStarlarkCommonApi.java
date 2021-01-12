@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -35,7 +36,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
   @StarlarkMethod(
       name = "create_device_broker_info",
       documented = false,
-      parameters = {@Param(name = "type", type = String.class)})
+      parameters = {@Param(name = "type")})
   AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
 
   @StarlarkMethod(
@@ -52,9 +53,9 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
             name = "resource",
             doc = "The android resource file.",
             positional = true,
-            named = false,
-            type = FileApi.class)
+            named = false)
       })
+  @Nullable
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @StarlarkMethod(
@@ -78,8 +79,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
                 "A JavaInfo that will be used as an implicit export for sourceless deps exports"
                     + " compatibility.",
             positional = true,
-            named = false,
-            type = JavaInfoApi.class)
+            named = false)
       })
   JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo);
 }

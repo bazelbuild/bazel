@@ -27,7 +27,7 @@ public class BuildEncyclopediaGenerator {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
         "Usage: docgen_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
-            + "    [-o outputdir] [-b blacklist] [-1] [-h]\n\n"
+            + "    [-o outputdir] [-b denylist] [-1] [-h]\n\n"
             + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
             + "The product name (-n), rule class provider (-p) and at least one input_dir\n"
             + "(-i) must be specified.\n");
@@ -84,8 +84,7 @@ public class BuildEncyclopediaGenerator {
             new MultiPageBuildEncyclopediaProcessor(
                 options.productName, createRuleClassProvider(options.provider));
       }
-      processor.generateDocumentation(
-          options.inputDirs, options.outputDir, options.blacklist);
+      processor.generateDocumentation(options.inputDirs, options.outputDir, options.denylist);
     } catch (BuildEncyclopediaDocException e) {
       fail(e, false);
     } catch (Throwable e) {

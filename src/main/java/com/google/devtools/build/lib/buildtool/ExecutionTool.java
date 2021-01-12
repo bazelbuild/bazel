@@ -196,20 +196,6 @@ public class ExecutionTool {
 
     this.actionContextRegistry = moduleActionContextRegistry;
     this.spawnStrategyRegistry = spawnStrategyRegistry;
-
-    if (options.availableResources != null && options.removeLocalResources) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      "--local_resources is deprecated. Please use --local_ram_resources and/or"
-                          + " --local_cpu_resources")
-                  .setExecutionOptions(
-                      FailureDetails.ExecutionOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.ExecutionOptions.Code.DEPRECATED_LOCAL_RESOURCES_USED))
-                  .build()));
-    }
   }
 
   Executor getExecutor() throws AbruptExitException {
@@ -229,6 +215,7 @@ public class ExecutionTool {
         env.getExecRoot(),
         getReporter(),
         runtime.getClock(),
+        runtime.getBugReporter(),
         request,
         actionContextRegistry,
         spawnStrategyRegistry);
@@ -811,15 +798,7 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
-    if (options.availableResources != null && !options.removeLocalResources) {
-      logger.atWarning().log(
-          "--local_resources will be deprecated. Please use --local_ram_resources "
-              + "and/or --local_cpu_resources.");
-      resources = options.availableResources;
-    } else {
-      resources =
-          ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
-    }
+    resources = ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
     resourceMgr.setAvailableResources(

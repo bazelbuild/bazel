@@ -41,14 +41,14 @@ public abstract class FileOptions {
   /** The default options for Starlark static processing. New clients should use these defaults. */
   public static final FileOptions DEFAULT = builder().build();
 
-  // Options are presented in phase order: scanner, parser, validator, compiler.
+  // Options are presented in phase order: scanner, parser, resolver, compiler.
 
   // --- scanner options ---
 
   /** Disallow ineffective escape sequences such as {@code \a} when scanning string literals. */
   public abstract boolean restrictStringEscapes();
 
-  // --- validator options ---
+  // --- resolver options ---
 
   /**
    * During resolution, permit load statements to access private names such as {@code _x}. <br>
@@ -57,18 +57,21 @@ public abstract class FileOptions {
   public abstract boolean allowLoadPrivateSymbols();
 
   /**
-   * During resolution, permit multiple bindings of top-level variables. <br>
+   * During resolution, permit multiple assignments to a given top-level binding, whether file-local
+   * or global. However, as usual, you may not create both a file-local and a global binding of the
+   * same name (e.g. {@code load(..., x="x"); x=1}), so if you use this option, you probably want
+   * {@link #loadBindsGlobally} too, to avoid confusing errors. <br>
    * (Required for continued support of Bazel BUILD files and Copybara files.)
    */
   public abstract boolean allowToplevelRebinding();
 
-  // TODO(adonovan): implement this option to support the REPL and prelude.
-  //
-  // /**
-  //  * During resolution, make load statements bind global variables of the module, not file-local
-  //  * variables. (Intended for use in REPLs, and the prelude.)
-  //  */
-  // public abstract boolean loadBindsGlobally();
+  /**
+   * During resolution, make load statements bind global variables of the module, not file-local
+   * variables.<br>
+   * (Intended for use in REPLs, and the Bazel prelude; and in Bazel BUILD files, which make
+   * frequent use of {@code load(..., "x"); x=1} for reasons unclear.)
+   */
+  public abstract boolean loadBindsGlobally();
 
   /**
    * During resolution, require load statements to appear before other kinds of statements. <br>
@@ -76,21 +79,14 @@ public abstract class FileOptions {
    */
   public abstract boolean requireLoadStatementsFirst();
 
-  /**
-   * Record the results of name resolution in the syntax tree by setting {@code Identifer.scope}.
-   * (Disabled for Bazel BUILD files, as its prelude's syntax trees are shared.)
-   */
-  public abstract boolean recordScope();
-
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
         .restrictStringEscapes(true)
         .allowLoadPrivateSymbols(false)
         .allowToplevelRebinding(false)
-        // .loadBindsGlobally(false)
-        .requireLoadStatementsFirst(true)
-        .recordScope(true);
+        .loadBindsGlobally(false)
+        .requireLoadStatementsFirst(true);
   }
 
   public abstract Builder toBuilder();
@@ -105,11 +101,9 @@ public abstract class FileOptions {
 
     public abstract Builder allowToplevelRebinding(boolean value);
 
-    // public abstract Builder loadBindsGlobally(boolean value);
+    public abstract Builder loadBindsGlobally(boolean value);
 
     public abstract Builder requireLoadStatementsFirst(boolean value);
-
-    public abstract Builder recordScope(boolean value);
 
     public abstract FileOptions build();
   }

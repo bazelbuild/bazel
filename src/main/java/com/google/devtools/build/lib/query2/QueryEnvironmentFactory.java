@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 public class QueryEnvironmentFactory {
   /** Creates an appropriate {@link AbstractBlazeQueryEnvironment} based on the given options. */
   public AbstractBlazeQueryEnvironment<Target> create(
-      TransitivePackageLoader transitivePackageLoader,
+      QueryTransitivePackagePreloader queryTransitivePackagePreloader,
       WalkableGraphFactory graphFactory,
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
@@ -72,7 +72,7 @@ public class QueryEnvironmentFactory {
           blockUniverseEvaluationErrors);
     } else if (useGraphlessQuery) {
       return new GraphlessBlazeQueryEnvironment(
-          transitivePackageLoader,
+          queryTransitivePackagePreloader,
           targetProvider,
           cachingPackageLocator,
           targetPatternPreloader,
@@ -86,7 +86,7 @@ public class QueryEnvironmentFactory {
           extraFunctions);
     } else {
       return new BlazeQueryEnvironment(
-          transitivePackageLoader,
+          queryTransitivePackagePreloader,
           targetProvider,
           cachingPackageLocator,
           targetPatternPreloader,

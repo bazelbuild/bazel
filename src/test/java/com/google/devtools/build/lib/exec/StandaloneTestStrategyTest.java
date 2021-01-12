@@ -59,6 +59,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy.StandaloneFailedAttemptResult;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -85,6 +88,10 @@ import org.mockito.MockitoAnnotations;
 /** Unit tests for {@link StandaloneTestStrategy}. */
 @RunWith(JUnit4.class)
 public final class StandaloneTestStrategyTest extends BuildViewTestCase {
+  private static final FailureDetail NON_ZERO_EXIT_DETAILS =
+      FailureDetail.newBuilder()
+          .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+          .build();
 
   private static class TestedStandaloneTestStrategy extends StandaloneTestStrategy {
     TestResult postedResult = null;
@@ -136,7 +143,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           LostInputsCheck.NONE,
           fileOutErr,
           /*eventHandler=*/ null,
-          /*clientEnv=*/ ImmutableMap.of(),
+          /*clientEnv=*/ ImmutableMap.of("PATH", "/usr/bin:/bin"),
           /*topLevelFilesets=*/ ImmutableMap.of(),
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
@@ -327,6 +334,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setWallTime(Duration.ofMillis(10))
             .setRunnerName("test")
             .build();
@@ -522,6 +530,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnStrategy.beginExecution(any(), any()))
@@ -614,6 +623,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     SpawnResult xmlGeneratorSpawnResult =
@@ -893,6 +903,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnStrategy.beginExecution(any(), any()))
@@ -983,6 +994,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnStrategy.beginExecution(any(), any()))

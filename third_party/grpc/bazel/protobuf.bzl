@@ -1,5 +1,7 @@
 """Utility functions for generating protobuf code."""
 
+load("@rules_proto//proto:defs.bzl", "ProtoInfo")
+
 _PROTO_EXTENSION = ".proto"
 _VIRTUAL_IMPORTS = "/_virtual_imports/"
 
@@ -212,7 +214,12 @@ def get_out_dir(protos, context):
             path = out_dir,
             import_path = out_dir[out_dir.find(_VIRTUAL_IMPORTS) + 1:],
         )
-    return struct(path = context.genfiles_dir.path, import_path = None)
+
+    out_dir = context.genfiles_dir.path
+    ws_root = context.label.workspace_root
+    if ws_root:
+        out_dir = out_dir + "/" + ws_root
+    return struct(path = out_dir, import_path = None)
 
 def is_in_virtual_imports(source_file, virtual_folder = _VIRTUAL_IMPORTS):
     """Determines if source_file is virtual (is placed in _virtual_imports

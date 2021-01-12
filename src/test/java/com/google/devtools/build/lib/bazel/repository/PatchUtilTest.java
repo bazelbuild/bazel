@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.github.difflib.patch.PatchFailedException;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -32,16 +34,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link PatchUtil}. */
 @RunWith(JUnit4.class)
-public class PatchUtilTest {
+public final class PatchUtilTest {
 
-  private FileSystem fs;
-  private Scratch scratch;
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+  private final Scratch scratch = new Scratch(fs, "/root");
   private Path root;
 
   @Before
-  public final void initializeFileSystemAndDirectories() throws Exception {
-    fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    scratch = new Scratch(fs, "/root");
+  public void createRoot() throws Exception {
     root = scratch.dir("/root");
   }
 
@@ -63,7 +63,7 @@ public class PatchUtilTest {
     PatchUtil.apply(patchFile, 1, root);
     Path newFile = root.getRelative("newfile");
     ImmutableList<String> newFileContent = ImmutableList.of("I'm a new file", "hello, world");
-    assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newFileContent);
+    assertThat(FileSystemUtils.readLines(newFile, UTF_8)).isEqualTo(newFileContent);
     // Make sure file permission is set as specified.
     assertThat(newFile.isReadable()).isTrue();
     assertThat(newFile.isWritable()).isFalse();
@@ -85,7 +85,7 @@ public class PatchUtilTest {
     PatchUtil.apply(patchFile, 1, root);
     Path newFile = root.getRelative("newfile");
     ImmutableList<String> newFileContent = ImmutableList.of("hello, world");
-    assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newFileContent);
+    assertThat(FileSystemUtils.readLines(newFile, UTF_8)).isEqualTo(newFileContent);
   }
 
   @Test
@@ -132,7 +132,7 @@ public class PatchUtilTest {
             "-bye, world");
     PatchUtil.apply(patchFile, 1, root);
     assertThat(oldFile.exists()).isTrue();
-    assertThat(PatchUtil.readFile(oldFile)).isEmpty();
+    assertThat(FileSystemUtils.readLines(oldFile, UTF_8)).isEmpty();
   }
 
   @Test
@@ -150,9 +150,9 @@ public class PatchUtilTest {
             "+line two");
     PatchUtil.apply(patchFile, 0, root);
     ImmutableList<String> newContent = ImmutableList.of("line one", "line two");
-    assertThat(PatchUtil.readFile(oldFile)).containsExactlyElementsIn(newContent);
+    assertThat(FileSystemUtils.readLines(oldFile, UTF_8)).isEqualTo(newContent);
     // new file should not change
-    assertThat(PatchUtil.readFile(newFile)).containsExactly("line one");
+    assertThat(FileSystemUtils.readLines(newFile, UTF_8)).containsExactly("line one");
   }
 
   @Test
@@ -172,7 +172,7 @@ public class PatchUtilTest {
             "+line two");
     PatchUtil.apply(patchFile, 0, root);
     ImmutableList<String> newContent = ImmutableList.of("line one", "line two");
-    assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newContent);
+    assertThat(FileSystemUtils.readLines(newFile, UTF_8)).isEqualTo(newContent);
     // Make sure file permission is preserved.
     assertThat(newFile.isReadable()).isTrue();
     assertThat(newFile.isWritable()).isTrue();
@@ -192,7 +192,7 @@ public class PatchUtilTest {
             "old mode 100644",
             "new mode 100755");
     PatchUtil.apply(patchFile, 1, root);
-    assertThat(PatchUtil.readFile(myFile)).containsExactly("line one");
+    assertThat(FileSystemUtils.readLines(myFile, UTF_8)).containsExactly("line one");
     assertThat(myFile.isReadable()).isTrue();
     assertThat(myFile.isWritable()).isTrue();
     assertThat(myFile.isExecutable()).isTrue();
@@ -256,8 +256,8 @@ public class PatchUtilTest {
             "}");
     ImmutableList<String> newBar =
         ImmutableList.of("void lib(){", "  printf(\"Hello patch\");", "}");
-    assertThat(PatchUtil.readFile(foo)).containsExactlyElementsIn(newFoo);
-    assertThat(PatchUtil.readFile(bar)).containsExactlyElementsIn(newBar);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
+    assertThat(FileSystemUtils.readLines(bar, UTF_8)).isEqualTo(newBar);
   }
 
   @Test
@@ -300,8 +300,8 @@ public class PatchUtilTest {
     Path barCpp = root.getRelative("bar.cpp");
     assertThat(foo.exists()).isFalse();
     assertThat(bar.exists()).isFalse();
-    assertThat(PatchUtil.readFile(fooCpp)).containsExactlyElementsIn(newFoo);
-    assertThat(PatchUtil.readFile(barCpp)).containsExactlyElementsIn(newBar);
+    assertThat(FileSystemUtils.readLines(fooCpp, UTF_8)).isEqualTo(newFoo);
+    assertThat(FileSystemUtils.readLines(barCpp, UTF_8)).isEqualTo(newBar);
   }
 
   @Test
@@ -336,7 +336,7 @@ public class PatchUtilTest {
             "  printf(\"Hello foo\");",
             "  printf(\"Hello from patch\");",
             "}");
-    assertThat(PatchUtil.readFile(foo)).containsExactlyElementsIn(newFoo);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
   }
 
   @Test
@@ -366,7 +366,7 @@ public class PatchUtilTest {
     PatchUtil.apply(patchFile, 1, root);
     ImmutableList<String> newFoo =
         ImmutableList.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14");
-    assertThat(PatchUtil.readFile(foo)).containsExactlyElementsIn(newFoo);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
   }
 
   @Test

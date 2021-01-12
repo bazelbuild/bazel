@@ -73,25 +73,9 @@ BinaryLauncherBase::BinaryLauncherBase(
 }
 
 static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
-  // If this binary X runs as the data-dependency of some other binary Y, then
-  // X has no runfiles manifest/directory and should use Y's.
-  if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
-      DoesFilePathExist(result->c_str())) {
-    return true;
-  }
-
-  wstring directory;
-  if (GetEnv(L"RUNFILES_DIR", &directory)) {
-    *result = directory + L"/MANIFEST";
-    if (DoesFilePathExist(result->c_str())) {
-      return true;
-    }
-  }
-
-  // If this binary X runs by itself (not as a data-dependency of another
-  // binary), then look for the manifest in a runfiles directory next to the
-  // main binary, then look for it (the manifest) next to the main binary.
-  directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
+  // Look for the runfiles manifest of the binary in a runfiles directory next
+  // to the binary, then look for it (the manifest) next to the binary.
+  wstring directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
   *result = directory + L"/MANIFEST";
   if (DoesFilePathExist(result->c_str())) {
     return true;
@@ -100,6 +84,21 @@ static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
   *result = directory + L"_manifest";
   if (DoesFilePathExist(result->c_str())) {
     return true;
+  }
+
+  // If the manifest is not found then this binary (X) runs as the
+  // data-dependency of some other binary (Y) and X has no runfiles
+  // manifest/directory so it should use Y's.
+  if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
+      DoesFilePathExist(result->c_str())) {
+    return true;
+  }
+
+  if (GetEnv(L"RUNFILES_DIR", &directory)) {
+    *result = directory + L"/MANIFEST";
+    if (DoesFilePathExist(result->c_str())) {
+      return true;
+    }
   }
 
   return false;
@@ -151,10 +150,12 @@ wstring BinaryLauncherBase::Rlocation(wstring path,
     return path;
   }
 
-  if (path.find(L"external/") == 0) {
-    // Ignore 'has_workspace_name' when the path is under "external/". Such
-    // paths already have a workspace name in the next path component.
-    path = path.substr(9);
+  if (path.find(L"../") == 0) {
+    // Ignore 'has_workspace_name' when the runfile path is under "../". Such
+    // paths already have a workspace name in the next path component. We could
+    // append it to this->workspace_name and re-evaluate it, but this is
+    // simpler.
+    path = path.substr(3);
   } else if (!has_workspace_name) {
     path = this->workspace_name + L"/" + path;
   }

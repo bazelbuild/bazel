@@ -189,6 +189,9 @@ struct Duration {
   bool FromString(const wchar_t* str);
 };
 
+enum class MainType { kTestWrapperMain, kXmlWriterMain };
+enum class DeleteAfterwards { kEnabled, kDisabled };
+
 void WriteStdout(const std::string& s) {
   DWORD written;
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), s.c_str(), s.size(), &written,
@@ -1603,8 +1606,15 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool ShouldCreateXml(const Path& xml_log, bool* result) {
+bool ShouldCreateXml(const Path& xml_log, const MainType main_type,
+                     bool* result) {
   *result = true;
+
+  // If running from the xml generator binary, we should always create the xml
+  // file.
+  if (main_type == MainType::kXmlWriterMain) {
+    return true;
+  }
 
   DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(xml_log).c_str());
   if (attr != INVALID_FILE_ATTRIBUTES) {
@@ -1630,9 +1640,10 @@ bool ShouldCreateXml(const Path& xml_log, bool* result) {
 
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
                   const Duration duration, const int exit_code,
-                  const bool delete_afterwards) {
+                  const DeleteAfterwards delete_afterwards,
+                  const MainType main_type) {
   bool should_create_xml;
-  if (!ShouldCreateXml(output, &should_create_xml)) {
+  if (!ShouldCreateXml(output, main_type, &should_create_xml)) {
     LogErrorWithArg(__LINE__, "Failed to decide if XML log is needed",
                     output.Get());
     return false;
@@ -1645,7 +1656,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     // Delete the test's outerr file after we have the XML file.
     // We don't care if this succeeds or not, because the outerr file is not a
     // declared output.
-    if (delete_afterwards) {
+    if (delete_afterwards == DeleteAfterwards::kEnabled) {
       DeleteFileW(test_outerr.Get().c_str());
     }
   });
@@ -1904,7 +1915,8 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 
   Duration test_duration;
   int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result, true) ||
+  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
+                    DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
                                           undecl.annotations)) {
@@ -1921,7 +1933,8 @@ int XmlWriterMain(int argc, wchar_t** argv) {
   if (!GetCwd(&cwd) ||
       !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
                           &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code, false)) {
+      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code,
+                    DeleteAfterwards::kDisabled, MainType::kXmlWriterMain)) {
     return 1;
   }
 

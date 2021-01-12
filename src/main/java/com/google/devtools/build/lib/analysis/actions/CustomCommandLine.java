@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -68,13 +69,15 @@ public final class CustomCommandLine extends CommandLine {
      * @return The index of the next argument, after the ArgvFragment has consumed its args. If the
      *     ArgvFragment doesn't have any args, it should return {@code argi} unmodified.
      */
-    int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder);
+    int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder)
+        throws CommandLineExpansionException, InterruptedException;
 
     int addToFingerprint(
         List<Object> arguments,
         int argi,
         ActionKeyContext actionKeyContext,
-        Fingerprint fingerprint);
+        Fingerprint fingerprint)
+        throws CommandLineExpansionException, InterruptedException;
   }
 
   /**
@@ -368,7 +371,8 @@ public final class CustomCommandLine extends CommandLine {
 
       @SuppressWarnings("unchecked")
       @Override
-      public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+      public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder)
+          throws CommandLineExpansionException, InterruptedException {
         final List<String> mutatedValues;
         CommandLineItem.MapFn<Object> mapFn =
             hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
@@ -430,7 +434,8 @@ public final class CustomCommandLine extends CommandLine {
           List<Object> arguments,
           int argi,
           ActionKeyContext actionKeyContext,
-          Fingerprint fingerprint) {
+          Fingerprint fingerprint)
+          throws CommandLineExpansionException, InterruptedException {
         CommandLineItem.MapFn<Object> mapFn =
             hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
         if (isNestedSet) {
@@ -1229,16 +1234,19 @@ public final class CustomCommandLine extends CommandLine {
   }
 
   @Override
-  public Iterable<String> arguments() {
+  public ImmutableList<String> arguments()
+      throws CommandLineExpansionException, InterruptedException {
     return argumentsInternal(null);
   }
 
   @Override
-  public Iterable<String> arguments(ArtifactExpander artifactExpander) {
+  public ImmutableList<String> arguments(ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException, InterruptedException {
     return argumentsInternal(Preconditions.checkNotNull(artifactExpander));
   }
 
-  private Iterable<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander) {
+  private ImmutableList<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     int count = arguments.size();
     for (int i = 0; i < count; ) {
@@ -1291,7 +1299,8 @@ public final class CustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint) {
+      Fingerprint fingerprint)
+      throws CommandLineExpansionException, InterruptedException {
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);

@@ -15,24 +15,12 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
-import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.io.RecordingOutErr;
-import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -42,91 +30,53 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class CleanCommandRecommendsAsyncTest {
 
-  private final RecordingOutErr outErr = new RecordingOutErr();
-  private final List<String> commandLine;
+  private final boolean asyncOnCommandLine;
   private final OS os;
   private final boolean expectSuggestion;
   private static final String EXPECTED_SUGGESTION = "Consider using --async";
 
-  public CleanCommandRecommendsAsyncTest(List<String> commandLine, OS os, boolean expectSuggestion)
-      throws Exception {
-    this.commandLine = commandLine;
+  public CleanCommandRecommendsAsyncTest(
+      boolean asyncOnCommandLine, OS os, boolean expectSuggestion) throws Exception {
+    this.asyncOnCommandLine = asyncOnCommandLine;
     this.os = os;
     this.expectSuggestion = expectSuggestion;
   }
 
-  @Parameters(name = "Command line {0} on OS {1}")
+  @Parameters(name = "async={0} on OS {1}")
   public static Iterable<Object[]> data() {
     return Arrays.asList(
         new Object[][] {
           // When --async is provided, don't expect --async to be suggested.
-          {ImmutableList.of("clean", "--async"), OS.LINUX, false},
-          {ImmutableList.of("clean", "--async"), OS.WINDOWS, false},
-          {ImmutableList.of("clean", "--async"), OS.DARWIN, false},
+          {/* asyncOnCommandLine= */ true, OS.LINUX, false},
+          {/* asyncOnCommandLine= */ true, OS.WINDOWS, false},
+          {/* asyncOnCommandLine= */ true, OS.DARWIN, false},
 
           // When --async is not provided, expect the suggestion on platforms that support it.
-          {ImmutableList.of("clean"), OS.LINUX, true},
-          {ImmutableList.of("clean"), OS.WINDOWS, false},
-          {ImmutableList.of("clean"), OS.DARWIN, false},
-
-          // When --noasync is explicitly provided, unfortunately we still expect the suggestion,
-          // since there's no way to tell the difference between false-by-default and explicit
-          // false.
-          {ImmutableList.of("clean", "--noasync"), OS.LINUX, true},
+          {/* asyncOnCommandLine= */ false, OS.LINUX, true},
+          {/* asyncOnCommandLine= */ false, OS.WINDOWS, false},
+          {/* asyncOnCommandLine= */ false, OS.DARWIN, false},
         });
   }
 
   @Test
   public void testCleanProvidesExpectedSuggestion() throws Exception {
-    String productName = TestConstants.PRODUCT_NAME;
-    Scratch scratch = new Scratch();
-    ServerDirectories serverDirectories =
-        new ServerDirectories(
-            scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
-    BlazeRuntime runtime =
-        new BlazeRuntime.Builder()
-            .setFileSystem(scratch.getFileSystem())
-            .setProductName(productName)
-            .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    // We must add these options so that the defaults package can be created.
-                    builder.addConfigurationOptions(CoreOptions.class);
-                    builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
-                    // The tools repository is needed for createGlobals
-                    builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
-                  }
-                })
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.getDefaultBuildOptionsForFragments(
-                        runtime.getRuleClassProvider().getConfigurationOptions());
-                  }
-                })
-            .build();
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories,
-            scratch.dir("workspace"),
-            /* defaultSystemJavabase= */ null,
-            productName);
-    runtime.initWorkspace(directories, /* binTools= */ null);
+    Reporter reporter = new Reporter(new EventBus());
+    StoredEventHandler storedEventHandler = new StoredEventHandler();
+    reporter.addHandler(storedEventHandler);
 
-    runtime.overrideCommands(ImmutableList.of(new CleanCommand(os)));
-    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
-    dispatcher.exec(commandLine, "test", outErr);
-    String output = outErr.toString();
-
-    if (expectSuggestion) {
-      assertThat(output).contains(EXPECTED_SUGGESTION);
-    } else {
-      assertThat(output).doesNotContain(EXPECTED_SUGGESTION);
+    boolean async =
+        CleanCommand.canUseAsync(this.asyncOnCommandLine, /* expunge= */ false, os, reporter);
+    if (os != OS.LINUX) {
+      assertThat(async).isFalse();
     }
+
+    boolean matches =
+        storedEventHandler.getEvents().stream()
+            .map(Event::getMessage)
+            .anyMatch(
+                event -> {
+                  return event.contains(EXPECTED_SUGGESTION);
+                });
+    assertThat(matches).isEqualTo(expectSuggestion);
   }
 }

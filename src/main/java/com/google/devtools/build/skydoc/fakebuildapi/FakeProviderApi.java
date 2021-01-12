@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkCallable;
@@ -24,21 +25,27 @@ import net.starlark.java.eval.Tuple;
 /** Fake callable implementation of {@link ProviderApi}. */
 public class FakeProviderApi implements StarlarkCallable, ProviderApi {
 
-  /**
-   * Each fake is constructed with a unique name, controlled by this counter being the name suffix.
-   */
-  private static int idCounter = 0;
+  private String name;
 
-  private final String name = "ProviderIdentifier" + idCounter++;
+  public FakeProviderApi(@Nullable String name) {
+    this.name = name;
+  }
 
   @Override
-  public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs) {
+  public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
     return new FakeStructApi();
   }
 
   @Override
   public String getName() {
-    return name;
+    return name != null ? name : "Unexported Provider";
+  }
+
+  /** Called when provider is "exported" by a top-level assignment {@code name = provider()}. */
+  public void setName(String name) {
+    if (this.name == null) {
+      this.name = name;
+    }
   }
 
   @Override

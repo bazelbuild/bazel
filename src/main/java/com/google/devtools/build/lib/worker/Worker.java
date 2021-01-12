@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,107 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-
-import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.shell.Subprocess;
-import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
-import javax.annotation.Nullable;
 
 /**
- * Interface to a worker process running as a child process.
- *
- * <p>A worker process must follow this protocol to be usable via this class: The worker process is
- * spawned on demand. The worker process is free to exit whenever necessary, as new instances will
- * be relaunched automatically. Communication happens via the WorkerProtocol protobuf, sent to and
- * received from the worker process via stdin / stdout.
- *
- * <p>Other code in Blaze can talk to the worker process via input / output streams provided by this
- * class.
+ * An abstract superclass for persistent workers. Workers execute actions in long-running processes
+ * that can handle multiple actions.
  */
-class Worker {
+public abstract class Worker {
+
   /** An unique identifier of the work process. */
   protected final WorkerKey workerKey;
   /** An unique ID of the worker. It will be used in WorkRequest and WorkResponse as well. */
   protected final int workerId;
-  /** The execution root of the worker. */
-  protected final Path workDir;
   /** The path of the log file for this worker. */
-  private final Path logFile;
-  /**
-   * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
-   * parsing failures.
-   */
-  @Nullable private RecordingInputStream recordingInputStream;
-  /** The implementation of the worker protocol (JSON or Proto). */
-  @Nullable private WorkerProtocolImpl workerProtocol;
+  protected final Path logFile;
 
-  private Subprocess process;
-  private Thread shutdownHook;
-  /** True if we deliberately destroyed this process. */
-  private boolean wasDestroyed;
-
-  Worker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
+  public Worker(WorkerKey workerKey, int workerId, Path logFile) {
     this.workerKey = workerKey;
     this.workerId = workerId;
-    this.workDir = workDir;
     this.logFile = logFile;
-
-    final Worker self = this;
-    this.shutdownHook =
-        new Thread(
-            () -> {
-              try {
-                self.shutdownHook = null;
-                self.destroy();
-              } catch (IOException e) {
-                // We can't do anything here.
-              }
-            });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
-  }
-
-  Subprocess createProcess() throws IOException {
-    ImmutableList<String> args = workerKey.getArgs();
-    File executable = new File(args.get(0));
-    if (!executable.isAbsolute() && executable.getParent() != null) {
-      List<String> newArgs = new ArrayList<>(args);
-      newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
-      args = ImmutableList.copyOf(newArgs);
-    }
-    SubprocessBuilder processBuilder = new SubprocessBuilder();
-    processBuilder.setArgv(args);
-    processBuilder.setWorkingDirectory(workDir.getPathFile());
-    processBuilder.setStderr(logFile.getPathFile());
-    processBuilder.setEnv(workerKey.getEnv());
-    return processBuilder.start();
-  }
-
-  void destroy() throws IOException {
-    if (shutdownHook != null) {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
-    }
-    if (workerProtocol != null) {
-      workerProtocol.close();
-      workerProtocol = null;
-    }
-    if (process != null) {
-      wasDestroyed = true;
-      process.destroyAndWait();
-    }
   }
 
   /**
@@ -137,56 +66,58 @@ class Worker {
     return workerKey.getWorkerFilesWithHashes();
   }
 
-  boolean isAlive() {
-    // This is horrible, but Process.isAlive() is only available from Java 8 on and this is the
-    // best we can do prior to that.
-    return !process.finished();
-  }
+  /**
+   * Sets the reporter this {@code Worker} should report anomalous events to, or clears it. We
+   * expect the reporter to be cleared at end of build.
+   */
+  void setReporter(EventHandler reporter) {}
 
-  /** Returns true if this process is dead but we didn't deliberately kill it. */
-  boolean diedUnexpectedly() {
-    return process != null && !wasDestroyed && !process.isAlive();
-  }
+  /**
+   * Performs the necessary steps to prepare for execution. Once this is done, the worker should be
+   * able to receive a WorkRequest without further setup.
+   */
+  public abstract void prepareExecution(
+      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      throws IOException;
+
+  /**
+   * Sends a WorkRequest to the worker.
+   *
+   * @param request The request to send.
+   * @throws IOException If there was a problem doing I/O, or this thread was interrupted at a time
+   *     where some or all of the expected I/O has been done.
+   */
+  abstract void putRequest(WorkRequest request) throws IOException;
+
+  /**
+   * Waits to receive a response from the worker. This method should return as soon as a response
+   * has been received, moving of files and cleanup should wait until finishExecution().
+   *
+   * @param requestId ID of the request to retrieve a response for.
+   * @return The WorkResponse received.
+   * @throws IOException If there was a problem doing I/O.
+   * @throws InterruptedException If this thread was interrupted, which can also happen during IO.
+   */
+  abstract WorkResponse getResponse(int requestId) throws IOException, InterruptedException;
+
+  /** Does whatever cleanup may be required after execution is done. */
+  public abstract void finishExecution(Path execRoot) throws IOException;
+
+  /**
+   * Destroys this worker. Once this has been called, we assume it's safe to clean up related
+   * directories.
+   */
+  abstract void destroy();
+
+  /** Returns true if this worker is dead but we didn't deliberately kill it. */
+  abstract boolean diedUnexpectedly();
 
   /** Returns the exit value of this worker's process, if it has exited. */
-  public Optional<Integer> getExitValue() {
-    return process != null && !process.isAlive()
-        ? Optional.of(process.exitValue())
-        : Optional.empty();
-  }
+  public abstract Optional<Integer> getExitValue();
 
-  void putRequest(WorkRequest request) throws IOException {
-    workerProtocol.putRequest(request);
-  }
-
-  WorkResponse getResponse() throws IOException {
-    recordingInputStream.startRecording(4096);
-    return workerProtocol.getResponse();
-  }
-
-  String getRecordingStreamMessage() {
-    recordingInputStream.readRemaining();
-    return recordingInputStream.getRecordedDataAsString();
-  }
-
-  public void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
-    if (process == null) {
-      process = createProcess();
-      recordingInputStream = new RecordingInputStream(process.getInputStream());
-    }
-    if (workerProtocol == null) {
-      switch (workerKey.getProtocolFormat()) {
-        case JSON:
-          workerProtocol = new JsonWorkerProtocol(recordingInputStream, process.getOutputStream());
-          break;
-        case PROTO:
-          workerProtocol = new ProtoWorkerProtocol(recordingInputStream, process.getOutputStream());
-          break;
-      }
-    }
-  }
-
-  public void finishExecution(Path execRoot) throws IOException {}
+  /**
+   * Returns the last message received on the InputStream, if an unparseable message has been
+   * received.
+   */
+  abstract String getRecordingStreamMessage();
 }

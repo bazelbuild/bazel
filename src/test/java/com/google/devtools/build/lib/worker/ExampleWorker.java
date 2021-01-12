@@ -15,18 +15,25 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.worker.ExampleWorkerOptions.ExampleWorkOptions;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.gson.stream.JsonReader;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -35,11 +42,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** An example implementation of a worker process that is used for integration tests. */
-public class ExampleWorker {
+public final class ExampleWorker {
 
   static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
@@ -52,8 +60,50 @@ public class ExampleWorker {
   // If true, returns corrupt responses instead of correct protobufs.
   static boolean poisoned = false;
 
-  // Keep state across multiple builds.
   static final LinkedHashMap<String, String> inputs = new LinkedHashMap<>();
+
+  // Contains the request currently being worked on.
+  private static WorkRequest currentRequest;
+
+  // The options passed to this worker on a per-worker-lifetime basis.
+  static ExampleWorkerOptions workerOptions;
+
+  private static class InterruptableWorkRequestHandler extends WorkRequestHandler {
+
+    InterruptableWorkRequestHandler(
+        BiFunction<List<String>, PrintWriter, Integer> callback,
+        PrintStream stderr,
+        WorkerMessageProcessor messageProcessor) {
+      super(callback, stderr, messageProcessor);
+    }
+
+    @Override
+    public void processRequests() throws IOException {
+      while (true) {
+        WorkRequest request = messageProcessor.readWorkRequest();
+        if (request == null) {
+          break;
+        }
+        currentRequest = request;
+        inputs.clear();
+        for (Input input : request.getInputsList()) {
+          inputs.put(input.getPath(), input.getDigest().toStringUtf8());
+        }
+        if (poisoned && workerOptions.hardPoison) {
+          throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
+        }
+        if (request.getRequestId() != 0) {
+          Thread t = createResponseThread(request);
+          t.start();
+        } else {
+          respondToRequest(request);
+        }
+        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
+          System.exit(0);
+        }
+      }
+    }
+  }
 
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
@@ -63,100 +113,89 @@ public class ExampleWorker {
               .allowResidue(false)
               .build();
       parser.parse(args);
-      ExampleWorkerOptions workerOptions = parser.getOptions(ExampleWorkerOptions.class);
-      Preconditions.checkState(workerOptions.persistentWorker);
-      runPersistentWorker(workerOptions);
+      workerOptions = parser.getOptions(ExampleWorkerOptions.class);
+      WorkerProtocolFormat protocolFormat = workerOptions.workerProtocol;
+      WorkRequestHandler.WorkerMessageProcessor messageProcessor = null;
+      switch (protocolFormat) {
+        case JSON:
+          messageProcessor =
+              new JsonWorkerMessageProcessor(
+                  new JsonReader(new BufferedReader(new InputStreamReader(System.in, UTF_8))),
+                  new BufferedWriter(new OutputStreamWriter(System.out, UTF_8)));
+          break;
+        case PROTO:
+          messageProcessor = new ProtoWorkerMessageProcessor(System.in, System.out);
+          break;
+      }
+      Preconditions.checkNotNull(messageProcessor);
+      WorkRequestHandler workRequestHandler =
+          new InterruptableWorkRequestHandler(ExampleWorker::doWork, System.err, messageProcessor);
+      workRequestHandler.processRequests();
+
     } else {
       // This is a single invocation of the example that exits after it processed the request.
-      processRequest(ImmutableList.copyOf(args));
+      parseOptionsAndLog(ImmutableList.copyOf(args));
     }
   }
 
-  private static void runPersistentWorker(ExampleWorkerOptions workerOptions) throws IOException {
+  private static int doWork(List<String> args, PrintWriter err) {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
-    ExampleWorkerProtocol workerProtocol = null;
-    switch (workerOptions.workerProtocol) {
-      case JSON:
-        workerProtocol = new JsonExampleWorkerProtocolImpl(System.in, System.out);
-        break;
-      case PROTO:
-        workerProtocol = new ProtoExampleWorkerProtocolImpl(System.in, System.out);
+    try (PrintStream ps = new PrintStream(baos)) {
+      System.setOut(ps);
+      System.setErr(ps);
+      if (poisoned) {
+        System.out.println("I'm a poisoned worker and this is not a protobuf.");
+        System.out.println("Here's a fake stack trace for you:");
+        System.out.println("    at com.example.Something(Something.java:83)");
+        System.out.println("    at java.lang.Thread.run(Thread.java:745)");
+        System.out.print("And now, 8k of random bytes: ");
+        byte[] b = new byte[8192];
+        new Random().nextBytes(b);
+        try {
+          System.out.write(b);
+        } catch (IOException e) {
+          e.printStackTrace();
+          return 1;
+        }
+      } else {
+        try {
+          parseOptionsAndLog(args);
+        } catch (Exception e) {
+          e.printStackTrace();
+          return 1;
+        }
+      }
+    } finally {
+      System.setOut(originalStdOut);
+      System.setErr(originalStdErr);
+      currentRequest = null;
     }
-    Preconditions.checkNotNull(workerProtocol);
-    while (true) {
+
+    if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
+      System.exit(0);
+    }
+
+    if (poisoned) {
       try {
-        WorkRequest request = workerProtocol.readRequest();
-        if (request == null) {
-          break;
-        }
-
-        inputs.clear();
-        for (Input input : request.getInputsList()) {
-          inputs.put(input.getPath(), input.getDigest().toStringUtf8());
-        }
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        int exitCode = 0;
-
-        try (PrintStream ps = new PrintStream(baos)) {
-          System.setOut(ps);
-          System.setErr(ps);
-
-          if (poisoned) {
-            if (workerOptions.hardPoison) {
-              throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
-            }
-            System.out.println("I'm a poisoned worker and this is not a protobuf.");
-            System.out.println("Here's a fake stack trace for you:");
-            System.out.println("    at com.example.Something(Something.java:83)");
-            System.out.println("    at java.lang.Thread.run(Thread.java:745)");
-            System.out.print("And now, 8k of random bytes: ");
-            byte[] b = new byte[8192];
-            new Random().nextBytes(b);
-            System.out.write(b);
-          } else {
-            try {
-              processRequest(request.getArgumentsList());
-            } catch (Exception e) {
-              e.printStackTrace();
-              exitCode = 1;
-            }
-          }
-        } finally {
-          System.setOut(originalStdOut);
-          System.setErr(originalStdErr);
-        }
-
-        if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
-          return;
-        }
-
-        if (poisoned) {
-          baos.writeTo(System.out);
-          System.out.flush();
-        } else {
-          WorkResponse response =
-              WorkResponse.newBuilder().setOutput(baos.toString()).setExitCode(exitCode).build();
-          workerProtocol.writeResponse(response);
-        }
-
-        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
-          return;
-        }
-
-        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
-          poisoned = true;
-        }
-      } finally {
-        // Be a good worker process and consume less memory when idle.
-        System.gc();
+        baos.writeTo(System.out);
+        System.out.flush();
+        System.exit(1);
+      } catch (IOException e) {
+        e.printStackTrace();
+        System.exit(1);
       }
     }
+    if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+      poisoned = true;
+    }
+    return 0;
   }
 
-  private static void processRequest(List<String> args) throws Exception {
+  private static void parseOptionsAndLog(List<String> args) throws Exception {
     ImmutableList.Builder<String> expandedArgs = ImmutableList.builder();
     for (String arg : args) {
       Matcher flagFileMatcher = FLAG_FILE_PATTERN.matcher(arg);
@@ -175,7 +214,7 @@ public class ExampleWorker {
     List<String> outputs = new ArrayList<>();
 
     if (options.writeUUID) {
-      outputs.add("UUID " + workerUuid.toString());
+      outputs.add("UUID " + workerUuid);
     }
 
     if (options.writeCounter) {
@@ -184,7 +223,7 @@ public class ExampleWorker {
 
     String residueStr = Joiner.on(' ').join(parser.getResidue());
     if (options.uppercase) {
-      residueStr = residueStr.toUpperCase();
+      residueStr = Ascii.toUpperCase(residueStr);
     }
     outputs.add(residueStr);
 
@@ -192,6 +231,10 @@ public class ExampleWorker {
       for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
       }
+    }
+
+    if (options.printRequests) {
+      outputs.add("REQUEST: " + currentRequest);
     }
 
     if (options.printEnv) {
@@ -209,4 +252,6 @@ public class ExampleWorker {
       }
     }
   }
+
+  private ExampleWorker() {}
 }

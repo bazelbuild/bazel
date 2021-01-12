@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.ExecGroup.EMPTY_EXEC_GROUP;
+import static com.google.devtools.build.lib.packages.ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -263,6 +263,12 @@ public class RuleClass {
    * supports, appending them to the defaults for their respective groups.
    */
   public static final String COMPATIBLE_ENVIRONMENT_ATTR = "compatible_with";
+
+  /**
+   * For Bazel's constraint system: the attribute that declares the list of constraints that the
+   * target must satisfy to be considered compatible.
+   */
+  public static final String TARGET_RESTRICTED_TO_ATTR = "target_compatible_with";
 
   /**
    * For Bazel's constraint system: the implicit attribute used to store rule class restriction
@@ -634,6 +640,8 @@ public class RuleClass {
      */
     public static final String STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
+    public static final String STARLARK_BUILD_SETTING_HELP_ATTR_NAME = "help";
+
     public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
         "Build setting defaults are referenced during analysis.";
 
@@ -757,7 +765,24 @@ public class RuleClass {
         useToolchainTransition = parent.useToolchainTransition;
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
-          addExecGroups(parent.getExecGroups());
+          ImmutableMap.Builder<String, ExecGroup> cleanedExecGroups = new ImmutableMap.Builder<>();
+          // For exec groups that copied toolchains and constraints from the rule, clear
+          // the toolchains and constraints. This prevents multiple inherited rule-copying exec
+          // groups with the same name from different parents from clashing. The toolchains and
+          // constraints will be overwritten with the rule's toolchains and constraints later
+          // anyway (see {@link #build}).
+          // For example, every rule that creates c++ linking actions inherits the rule-copying
+          // exec group "cpp_link". For rules that are the child of multiple of these rules,
+          // we need to clear out whatever toolchains and constraints have been copied from the rule
+          // in order to prevent clashing and fill with the the child's toolchain and constraints.
+          for (Map.Entry<String, ExecGroup> execGroup : parent.getExecGroups().entrySet()) {
+            if (execGroup.getValue().copyFromRule()) {
+              cleanedExecGroups.put(execGroup.getKey(), COPY_FROM_RULE_EXEC_GROUP);
+            } else {
+              cleanedExecGroups.put(execGroup);
+            }
+          }
+          addExecGroups(cleanedExecGroups.build());
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
@@ -831,15 +856,19 @@ public class RuleClass {
 
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
-        Attribute.Builder<?> attrBuilder =
+        Attribute.Builder<?> defaultAttrBuilder =
             attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
         if (BuildType.isLabelType(type)) {
-          attrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
-          attrBuilder.allowedRuleClasses(ANY_RULE);
+          defaultAttrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
+          defaultAttrBuilder.allowedRuleClasses(ANY_RULE);
         }
-        this.add(attrBuilder);
+        this.add(defaultAttrBuilder);
+
+        this.add(
+            attr(STARLARK_BUILD_SETTING_HELP_ATTR_NAME, Type.STRING)
+                .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE));
 
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
@@ -851,14 +880,15 @@ public class RuleClass {
       // toolchains and constraints. Note that this isn't the same as a target's constraints which
       // also read from attributes and configuration.
       Map<String, ExecGroup> execGroupsWithInheritance = new HashMap<>();
-      ExecGroup inherited = null;
+      ExecGroup copiedFromRule = null;
       for (Map.Entry<String, ExecGroup> groupEntry : execGroups.entrySet()) {
         ExecGroup group = groupEntry.getValue();
-        if (group.equals(EMPTY_EXEC_GROUP)) {
-          if (inherited == null) {
-            inherited = ExecGroup.create(requiredToolchains, executionPlatformConstraints);
+        if (group.copyFromRule()) {
+          if (copiedFromRule == null) {
+            copiedFromRule =
+                ExecGroup.createCopied(requiredToolchains, executionPlatformConstraints);
           }
-          execGroupsWithInheritance.put(groupEntry.getKey(), inherited);
+          execGroupsWithInheritance.put(groupEntry.getKey(), copiedFromRule);
         } else {
           execGroupsWithInheritance.put(groupEntry.getKey(), group);
         }
@@ -1162,7 +1192,7 @@ public class RuleClass {
      */
     public Builder advertiseProvider(Class<?>... providers) {
       for (Class<?> provider : providers) {
-        advertisedProviders.addNative(provider);
+        advertisedProviders.addBuiltin(provider);
       }
       return this;
     }
@@ -1410,6 +1440,7 @@ public class RuleClass {
       this.supportsConstraintChecking = false;
       attributes.remove(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR);
       attributes.remove(RuleClass.RESTRICTED_ENVIRONMENT_ATTR);
+      attributes.remove(RuleClass.TARGET_RESTRICTED_TO_ATTR);
       return this;
     }
 
@@ -1464,12 +1495,9 @@ public class RuleClass {
       return this;
     }
 
-    /**
-     * Adds an exec group that is empty. During {@code build()} this will be replaced by an exec
-     * group that inherits its toolchains and constraints from the rule.
-     */
+    /** Adds an exec group that copies its toolchains and constraints from the rule. */
     public Builder addExecGroup(String name) {
-      return addExecGroups(ImmutableMap.of(name, EMPTY_EXEC_GROUP));
+      return addExecGroups(ImmutableMap.of(name, COPY_FROM_RULE_EXEC_GROUP));
     }
 
     /** An error to help report {@link ExecGroup}s with the same name */
@@ -2020,7 +2048,7 @@ public class RuleClass {
   }
 
   /**
-   * Same as {@link #createRule}, except without some internal sanity checks.
+   * Same as {@link #createRule}, except without some internal checks.
    *
    * <p>Don't call this function unless you know what you're doing.
    */
@@ -2053,13 +2081,13 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
 
-
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             rule,
             pkgBuilder.getRepositoryMapping(),
             attributeValues,
             pkgBuilder.getListInterner(),
+            pkgBuilder.getConvertedLabelsInPackage(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -2082,6 +2110,7 @@ public class RuleClass {
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
+      HashMap<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2114,7 +2143,13 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping, listInterner);
+              convertFromBuildLangType(
+                  rule,
+                  attr,
+                  attributeValue,
+                  repositoryMapping,
+                  listInterner,
+                  convertedLabelsInPackage);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2379,9 +2414,11 @@ public class RuleClass {
       Attribute attr,
       Object buildLangValue,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      Interner<ImmutableList<?>> listInterner)
+      Interner<ImmutableList<?>> listInterner,
+      HashMap<String, Label> convertedLabelsInPackage)
       throws ConversionException {
-    LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
+    LabelConversionContext context =
+        new LabelConversionContext(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),

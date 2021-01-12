@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -99,11 +100,11 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
-   * Returns null if there were rule errors reported.
+   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder. Returns
+   * null if there were rule errors reported.
    */
   @Nullable
-  public ConfiguredTarget build() throws ActionConflictException {
+  public ConfiguredTarget build() throws ActionConflictException, InterruptedException {
     // If allowing analysis failures, the current target may not propagate all of the
     // expected providers; be lenient on such cases (for example, avoid precondition checks).
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
@@ -161,13 +162,16 @@ public final class RuleConfiguredTargetBuilder {
     // Create test action and artifacts if target was successfully initialized
     // and is a test. Also, as an extreme hack, only bother doing this if the TestConfiguration
     // is actually present.
-    if (TargetUtils.isTestRule(ruleContext.getTarget())
-        && ruleContext.getConfiguration().hasFragment(TestConfiguration.class)) {
-      if (runfilesSupport != null) {
-        add(TestProvider.class, initializeTestProvider(filesToRunProvider));
-      } else {
-        if (!allowAnalysisFailures) {
-          throw new IllegalStateException("Test rules must have runfiles");
+    if (TargetUtils.isTestRule(ruleContext.getTarget())) {
+      ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
+      add(TestTagsProvider.class, new TestTagsProvider(testTags));
+      if (ruleContext.getConfiguration().hasFragment(TestConfiguration.class)) {
+        if (runfilesSupport != null) {
+          add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+        } else {
+          if (!allowAnalysisFailures) {
+            throw new IllegalStateException("Test rules must have runfiles");
+          }
         }
       }
     }
@@ -373,8 +377,10 @@ public final class RuleConfiguredTargetBuilder {
     }
   }
 
-  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
-    int explicitShardCount = ruleContext.attributes().get("shard_count", Type.INTEGER);
+  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider)
+      throws InterruptedException {
+    int explicitShardCount =
+        ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
     if (explicitShardCount < 0
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("shard_count")) {
       ruleContext.attributeError("shard_count", "Must not be negative.");
@@ -407,8 +413,7 @@ public final class RuleConfiguredTargetBuilder {
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
             .build();
-    ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
-    return new TestProvider(testParams, testTags);
+    return new TestProvider(testParams);
   }
 
   /**
@@ -474,20 +479,17 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
-   * providers defined in Skyark.
+   * providers defined in Starlark. The provider symbol must be exported.
    *
    * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Starlark
    * directly, instead its output groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider)
-      throws EvalException {
+  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
-    if (!constructor.isExported()) {
-      throw new EvalException(constructor.getLocation(),
-          "All providers must be top level values");
-    }
+    // Starlark providers are already exported (enforced by SRCTU.getProviderKey).
+    Preconditions.checkArgument(constructor.isExported());
     if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
       OutputGroupInfo outputGroupInfo = (OutputGroupInfo) provider;
       for (String outputGroup : outputGroupInfo) {

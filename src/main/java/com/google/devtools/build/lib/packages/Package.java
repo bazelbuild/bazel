@@ -551,6 +551,36 @@ public class Package {
     return failureDetail;
   }
 
+  /**
+   * Returns a {@link FailureDetail} attributing a target error to the package's {@link
+   * FailureDetail}, or a generic {@link Code#TARGET_MISSING} failure detail if the package has
+   * none.
+   *
+   * <p>May only be called when {@link #containsErrors()} is true and with a target whose package is
+   * this one.
+   */
+  public FailureDetail contextualizeFailureDetailForTarget(Target target) {
+    Preconditions.checkState(
+        target.getPackage().getPackageIdentifier().equals(packageIdentifier),
+        "contextualizeFailureDetailForTarget called for target not in package. target=%s,"
+            + " package=%s",
+        target,
+        this);
+    Preconditions.checkState(
+        containsErrors,
+        "contextualizeFailureDetailForTarget called for package not in error. target=%s",
+        target);
+    String prefix =
+        "Target '" + target.getLabel() + "' contains an error and its package is in error";
+    if (failureDetail == null) {
+      return FailureDetail.newBuilder()
+          .setMessage(prefix)
+          .setPackageLoading(PackageLoading.newBuilder().setCode(Code.TARGET_MISSING))
+          .build();
+    }
+    return failureDetail.toBuilder().setMessage(prefix + ": " + failureDetail.getMessage()).build();
+  }
+
   /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
   public ImmutableSortedKeyMap<String, Target> getTargets() {
     return targets;
@@ -943,10 +973,20 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
-    private final Map<Location, String> generatorNameByLocation = new HashMap<>();
+    private final HashMap<String, Label> convertedLabelsInPackage = new HashMap<>();
 
-    Map<Location, String> getGeneratorNameByLocation() {
-      return generatorNameByLocation;
+    private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
+
+    /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
+    @Nullable
+    public String getGeneratorNameByLocation(Location loc) {
+      return generatorMap.get(loc);
+    }
+
+    /** Sets the package's map of "generator_name" values keyed by the location of the call site. */
+    public Builder setGeneratorMap(ImmutableMap<Location, String> map) {
+      this.generatorMap = map;
+      return this;
     }
 
     // Value of '$implicit_tests' attribute shared by all test_suite rules in the
@@ -1042,8 +1082,12 @@ public class Package {
       return listInterner;
     }
 
+    HashMap<String, Label> getConvertedLabelsInPackage() {
+      return convertedLabelsInPackage;
+    }
+
     /** Sets the name of this package's BUILD file. */
-    Builder setFilename(RootedPath filename) {
+    public Builder setFilename(RootedPath filename) {
       this.filename = filename;
       try {
         buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
@@ -1104,19 +1148,17 @@ public class Package {
     }
 
     /**
-     * Sets the default visibility for this package. Called at most once per
-     * package from PackageFactory.
+     * Sets the default visibility for this package. Called at most once per package from
+     * PackageFactory.
      */
-    Builder setDefaultVisibility(RuleVisibility visibility) {
+    public Builder setDefaultVisibility(RuleVisibility visibility) {
       this.defaultVisibility = visibility;
       this.defaultVisibilitySet = true;
       return this;
     }
 
-    /**
-     * Sets whether the default visibility is set in the BUILD file.
-     */
-    Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
+    /** Sets whether the default visibility is set in the BUILD file. */
+    public Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
       this.defaultVisibilitySet = defaultVisibilitySet;
       return this;
     }
@@ -1532,13 +1574,15 @@ public class Package {
       }
 
       targets.put(group.getName(), group);
-      Collection<Event> membershipErrors = group.validateMembership();
-      if (!membershipErrors.isEmpty()) {
-        for (Event error : membershipErrors) {
-          eventHandler.handle(error);
-        }
+      // Invariant: once group is inserted into targets, it must also:
+      // (a) be inserted into environmentGroups, or
+      // (b) have its group.processMemberEnvironments called.
+      // Otherwise it will remain uninitialized,
+      // causing crashes when it is later toString-ed.
+
+      for (Event error : group.validateMembership()) {
+        eventHandler.handle(error);
         setContainsErrors();
-        return;
       }
 
       // For each declared environment, make sure it doesn't also belong to some other group.
@@ -1553,6 +1597,8 @@ public class Package {
                       environment, group.getLabel(), otherGroup.getLabel()),
                   Code.ENVIRONMENT_IN_MULTIPLE_GROUPS));
           setContainsErrors();
+          // Ensure the orphan gets (trivially) initialized.
+          group.processMemberEnvironments(ImmutableMap.of());
         } else {
           environmentGroups.put(environment, group);
         }

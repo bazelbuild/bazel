@@ -253,7 +253,7 @@ public class TestSummaryTest {
     when(testParams.getRuns()).thenReturn(2);
     when(testParams.getShards()).thenReturn(3);
 
-    TestProvider testProvider = new TestProvider(testParams, ImmutableList.of());
+    TestProvider testProvider = new TestProvider(testParams);
     when(stubTarget.getProvider(eq(TestProvider.class))).thenReturn(testProvider);
 
     PathConverter pathConverter = mock(PathConverter.class);

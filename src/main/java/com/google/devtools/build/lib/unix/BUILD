@@ -6,9 +6,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/unix/jni:srcs",
-    ],
+    srcs = glob(["*"]),
     visibility = ["//src:__subpackages__"],
 )
 
@@ -17,9 +15,8 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/unix/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

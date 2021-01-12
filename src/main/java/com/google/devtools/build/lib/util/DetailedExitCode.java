@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/** An {@link ExitCode} and an optional {@link FailureDetail}. */
+/** An {@link ExitCode} that has a {@link FailureDetail} unless it's {@link ExitCode#SUCCESS}. */
 public class DetailedExitCode {
   private final ExitCode exitCode;
   @Nullable private final FailureDetail failureDetail;
@@ -42,7 +42,7 @@ public class DetailedExitCode {
   }
 
   /** Returns the registered {@link ExitCode} associated with a {@link FailureDetail} message. */
-  private static ExitCode getExitCode(FailureDetail failureDetail) {
+  public static ExitCode getExitCode(FailureDetail failureDetail) {
     // TODO(mschaller): Consider specializing for unregistered exit codes here, if absolutely
     //  necessary.
     int numericExitCode = getNumericExitCode(failureDetail);
@@ -65,25 +65,6 @@ public class DetailedExitCode {
   }
 
   /**
-   * Returns a {@link DetailedExitCode} specifying {@link ExitCode} but no {@link FailureDetail}.
-   *
-   * <p>This method exists in order to allow for code which has not yet been wired for {@link
-   * FailureDetail) support to interact with {@link FailureDetail}-handling code infrastructure.
-   *
-   * <p>Callsites should migrate to using either:
-   *
-   * <ul>
-   *   <li>{@link #of(ExitCode, FailureDetail)}, when they're wired for {@link FailureDetail}
-   *   support but not yet ready to have {@link FailureDetail} metadata determine exit code behavior
-   *   <li>{@link #of(FailureDetail)}, when changing exit code behavior is desired.
-   * </ul>
-   *
-   */
-  public static DetailedExitCode justExitCode(ExitCode exitCode) {
-    return new DetailedExitCode(checkNotNull(exitCode), null);
-  }
-
-  /**
    * Returns a {@link DetailedExitCode} combining the provided {@link FailureDetail} and {@link
    * ExitCode}.
    *
@@ -91,9 +72,9 @@ public class DetailedExitCode {
    * FailureDetail)-handling code infrastructure without requiring any simultaneous change in exit
    * code behavior.
    *
-   * <p>Callsites should migrate to using {@link #of(FailureDetail)} instead.
+   * <p>Unless contrained by backwards-compatibility needs, callers should use {@link
+   * #of(FailureDetail)} instead.
    */
-  // TODO(b/138456686): consider controlling this behavior by flag if migration appears risky.
   public static DetailedExitCode of(ExitCode exitCode, FailureDetail failureDetail) {
     return new DetailedExitCode(checkNotNull(exitCode), checkNotNull(failureDetail));
   }
@@ -103,7 +84,7 @@ public class DetailedExitCode {
    * FailureDetail}'s metadata.
    */
   public static DetailedExitCode of(FailureDetail failureDetail) {
-    return new DetailedExitCode(getExitCode(failureDetail), failureDetail);
+    return new DetailedExitCode(getExitCode(failureDetail), checkNotNull(failureDetail));
   }
 
   @Override
@@ -142,7 +123,7 @@ public class DetailedExitCode {
    * Returns the numeric exit code associated with a {@link FailureDetail} submessage's subcategory
    * enum value.
    */
-  private static int getNumericExitCode(EnumValueDescriptor subcategoryDescriptor) {
+  public static int getNumericExitCode(EnumValueDescriptor subcategoryDescriptor) {
     checkArgument(
         subcategoryDescriptor.getOptions().hasExtension(FailureDetails.metadata),
         "Enum value %s has no FailureDetails.metadata",

@@ -237,11 +237,6 @@ public class PackageLookupFunction implements SkyFunction {
             Transience.PERSISTENT);
       }
 
-      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-      if (starlarkSemantics == null) {
-        return null;
-      }
-
       if (localRepository.exists()
           && !localRepository.getRepository().equals(packageIdentifier.getRepository())) {
         // There is a repository mismatch, this is an error.
@@ -329,15 +324,21 @@ public class PackageLookupFunction implements SkyFunction {
     SkyKey repositoryKey = RepositoryValue.key(id.getRepository());
     RepositoryValue repositoryValue;
     try {
-      repositoryValue = (RepositoryValue) env.getValueOrThrow(
-          repositoryKey, NoSuchPackageException.class, IOException.class, EvalException.class);
+      repositoryValue =
+          (RepositoryValue)
+              env.getValueOrThrow(
+                  repositoryKey,
+                  NoSuchPackageException.class,
+                  IOException.class,
+                  EvalException.class,
+                  AlreadyReportedException.class);
       if (repositoryValue == null) {
         return null;
       }
     } catch (NoSuchPackageException e) {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
           Transience.PERSISTENT);
-    } catch (IOException | EvalException e) {
+    } catch (IOException | EvalException | AlreadyReportedException e) {
       throw new PackageLookupFunctionException(
           new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }

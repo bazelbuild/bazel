@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment representing protocol buffers. */
 @StarlarkBuiltin(
     name = "proto",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT,
+    category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment representing protocol buffers.")
 public interface ProtoConfigurationApi extends StarlarkValue {}

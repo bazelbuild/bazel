@@ -36,6 +36,7 @@ public interface Downloader {
    * @param authHeaders map of authentication headers per URL
    * @param checksum valid checksum which is checked, or absent to disable
    * @param output path to the destination file to write
+   * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
@@ -46,6 +47,7 @@ public interface Downloader {
       String canonicalId,
       Path output,
       ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      Optional<String> type)
       throws IOException, InterruptedException;
 }

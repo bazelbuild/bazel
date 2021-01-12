@@ -90,7 +90,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
-        "//src/main/protobuf:worker_protocol_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
@@ -115,7 +115,6 @@ java_library(
 java_library(
     name = "invalid_command_line_exception",
     srcs = ["InvalidCommandLineException.java"],
-    deps = [],
 )
 
 java_library(

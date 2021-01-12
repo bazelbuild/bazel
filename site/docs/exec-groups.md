@@ -3,7 +3,7 @@ layout: documentation
 title: Execution groups
 ---
 
-# Execution groups
+# Execution Groups
 
 
 Execution groups allow for multiple execution platforms within a single target.
@@ -14,7 +14,7 @@ performs its own [toolchain resolution](toolchains.md#toolchain-resolution).
 To use Starlark rules that create execution groups, set
 `--experimental_exec_groups=true` on your command line or in a .bazelrc:
 
-```
+```shell
 $ bazel build //target/with/exec/group --experimental_exec_groups
 ```
 
@@ -38,10 +38,7 @@ During rule definition, rule authors can
 a set of execution groups. On each execution group, the rule author can specify
 everything needed to select an execution platform for that execution group,
 namely any constraints via `exec_compatible_with` and toolchain types via
-`toolchain`. If an execution group is created as empty (no specified toolchains
-or constraints) it will automatically inherit these
-[parameters](https://docs.bazel.build/versions/master/skylark/lib/globals.html#rule)
-from the rule to which the group is attached.
+`toolchain`.
 
 ```python
 # foo.bzl
@@ -51,7 +48,6 @@ my_rule = rule(
         “link”: exec_group(
             exec_compatible_with = [ "@platforms//os:linux" ]
             toolchains = ["//foo:toolchain_type"],
-
         ),
         “test”: exec_group(
             toolchains = ["//foo_tools:toolchain_type"],
@@ -135,4 +131,34 @@ my_rule(
 All actions with `exec_group = "link"` would see the exec properties
 dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
+
+### Creating exec groups to set exec properties
+
+Sometimes you want to use an exec group to give specific actions different exec
+properties but don't actually want different toolchains or constraints than the
+rule. For these situations, you can create exec groups using the `copy_from_rule`
+parameter:
+
+```python
+# foo.bzl
+
+# Creating an exec group with `copy_from_rule=True` is the same as explicitly
+# setting the exec group's toolchains and constraints to the same values as the
+# rule's respective parameters.
+my_rule = rule(
+    _impl,
+    exec_compatible_with = [ "@platforms//os:linux" ],
+    toolchains = ["//foo:toolchain_type"],
+    exec_groups = {
+        # The following two groups have the same toolchains and constraints:
+        “foo”: exec_group(copy_from_rule = True),
+        "bar": exec_group(
+            exec_compatible_with = [ "@platforms//os:linux" ],
+            toolchains = ["//foo:toolchain_type"],
+        ),
+    },
+)
+
+#
+```
 

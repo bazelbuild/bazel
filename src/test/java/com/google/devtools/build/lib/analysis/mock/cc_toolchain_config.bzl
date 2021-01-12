@@ -60,6 +60,9 @@ _FEATURE_NAMES = struct(
     enable_fdo_thinlto = "enable_fdo_thinlto",
     xbinaryfdo_implicit_thinlto = "xbinaryfdo_implicit_thinlto",
     enable_xbinaryfdo_thinlto = "enable_xbinaryfdo_thinlto",
+    native_deps_link = "native_deps_link",
+    java_launcher_link = "java_launcher_link",
+    py_launcher_link = "py_launcher_link",
     autofdo = "autofdo",
     is_cc_fake_binary = "is_cc_fake_binary",
     xbinaryfdo = "xbinaryfdo",
@@ -577,6 +580,36 @@ _enable_xbinaryfdo_thinlto_feature = feature(
 )
 
 _xbinaryfdo_implicit_thinlto_feature = feature(name = _FEATURE_NAMES.xbinaryfdo_implicit_thinlto)
+
+_native_deps_link_feature = feature(
+    name = _FEATURE_NAMES.native_deps_link,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_dynamic_library],
+            flag_groups = [flag_group(flags = ["native_deps_link"])],
+        ),
+    ],
+)
+
+_java_launcher_link_feature = feature(
+    name = _FEATURE_NAMES.java_launcher_link,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [flag_group(flags = ["java_launcher_link"])],
+        ),
+    ],
+)
+
+_py_launcher_link_feature = feature(
+    name = _FEATURE_NAMES.py_launcher_link,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [flag_group(flags = ["py_launcher_link"])],
+        ),
+    ],
+)
 
 _autofdo_feature = feature(
     name = _FEATURE_NAMES.autofdo,
@@ -1168,6 +1201,9 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.fdo_implicit_thinlto: _fdo_implicit_thinlto_feature,
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.native_deps_link: _native_deps_link_feature,
+    _FEATURE_NAMES.java_launcher_link: _java_launcher_link_feature,
+    _FEATURE_NAMES.py_launcher_link: _py_launcher_link_feature,
     _FEATURE_NAMES.autofdo: _autofdo_feature,
     _FEATURE_NAMES.is_cc_fake_binary: _is_cc_fake_binary_feature,
     _FEATURE_NAMES.xbinaryfdo: _xbinaryfdo_feature,

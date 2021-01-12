@@ -80,7 +80,7 @@ public class LabelBuildSettings {
         .removeAttribute("licenses")
         .removeAttribute("distribs")
         .add(attr(":alias", LABEL).value(ACTUAL))
-        .setBuildSetting(new BuildSetting(flag, LABEL))
+        .setBuildSetting(BuildSetting.create(flag, LABEL))
         .canHaveAnyProvider()
         .useToolchainResolution(false)
         .build();

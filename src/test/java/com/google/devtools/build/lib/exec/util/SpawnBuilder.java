@@ -44,6 +44,7 @@ public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   private String ownerLabel = "//dummy:label";
+  @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
   private final List<String> args;
   private final Map<String, String> environment = new HashMap<>();
@@ -56,6 +57,7 @@ public final class SpawnBuilder {
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
+  private ResourceSet resourceSet = ResourceSet.ZERO;
 
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
@@ -63,7 +65,8 @@ public final class SpawnBuilder {
 
   public Spawn build() {
     ActionExecutionMetadata owner =
-        new FakeOwner(mnemonic, progressMessage, ownerLabel, platform, execProperties);
+        new FakeOwner(
+            mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -74,7 +77,7 @@ public final class SpawnBuilder {
         inputs.build(),
         tools.build(),
         ImmutableSet.copyOf(outputs),
-        ResourceSet.ZERO);
+        resourceSet);
   }
 
   public SpawnBuilder withPlatform(PlatformInfo platform) {
@@ -94,6 +97,11 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  public SpawnBuilder withOwnerPrimaryOutput(Artifact output) {
+    ownerPrimaryOutput = checkNotNull(output);
     return this;
   }
 
@@ -138,6 +146,13 @@ public final class SpawnBuilder {
     return withOutput(ActionInputHelper.fromPath(name));
   }
 
+  public SpawnBuilder withOutputs(ActionInput... outputs) {
+    for (ActionInput output : outputs) {
+      withOutput(output);
+    }
+    return this;
+  }
+
   public SpawnBuilder withOutputs(String... names) {
     for (String name : names) {
       this.outputs.add(ActionInputHelper.fromPath(name));
@@ -159,6 +174,11 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withTool(ActionInput tool) {
     tools.add(tool);
+    return this;
+  }
+
+  public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
+    this.resourceSet = resourceSet;
     return this;
   }
 }

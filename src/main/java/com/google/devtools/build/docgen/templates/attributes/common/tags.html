@@ -46,7 +46,7 @@
     or cached remotely. This is equivalent to using both no-remote-cache and no-remote-exec.
   </li>
 
-  <li><code>local</code> keyword precludes the action or test from being remotely cached,
+    <li><code>local</code> keyword precludes the action or test from being remotely cached,
     remotely executed, or run inside the sandbox.
     For genrules and tests, marking the rule with the <code>local = True</code>
     attribute has the same effect.
@@ -86,8 +86,9 @@
   <li><code>exclusive</code> will force the test to be run in the
     &quot;exclusive&quot; mode, ensuring that no other tests are running at the
     same time. Such tests will be executed in serial fashion after all build
-    activity and non-exclusive tests have been completed. They will also always
-    run locally and thus without sandboxing.
+    activity and non-exclusive tests have been completed. Remote execution is
+    disabled for such tests because Bazel doesn't have control over what's
+    running on a remote machine.
   </li>
 
   <li><code>manual</code> keyword will exclude the target from expansion of target pattern wildcards

@@ -61,7 +61,7 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
       RuleContext ruleContext,
       AspectParameters params,
       String toolsRepository)
-      throws ActionConflictException {
+      throws ActionConflictException, InterruptedException {
     ImmutableList.Builder<GraphNodeInfo> children = ImmutableList.builder();
     if (ruleContext.attributes().has("deps")) {
       children.addAll(

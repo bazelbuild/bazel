@@ -4555,7 +4555,7 @@ def _impl(ctx):
                         key = "APPLE_SDK_PLATFORM",
                         value = "%{apple_sdk_platform_value}",
                     ),
-                ],
+                ] + [env_entry(key = key, value = value) for key, value in ctx.attr.extra_env.items()],
             ),
         ],
     )
@@ -5198,20 +5198,35 @@ def _impl(ctx):
         name = "linker_param_file",
         flag_sets = [
             flag_set(
-                actions = all_link_actions,
-                flag_groups = [
-                    flag_group(
-                        flags = ["-Wl,@%{linker_param_file}"],
-                        expand_if_available = "linker_param_file",
-                    ),
+                actions = all_link_actions + [
+                    ACTION_NAMES.cpp_link_static_library,
+                    ACTION_NAMES.objc_archive,
+                    ACTION_NAMES.objc_fully_link,
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
                 ],
-            ),
-            flag_set(
-                actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["@%{linker_param_file}"],
                         expand_if_available = "linker_param_file",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    relative_ast_path_feature = feature(
+        name = "relative_ast_path",
+        env_sets = [
+            env_set(
+                actions = all_link_actions + [
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
+                ],
+                env_entries = [
+                    env_entry(
+                        key = "RELATIVE_AST_PATH",
+                        value = "true",
                     ),
                 ],
             ),
@@ -5338,6 +5353,7 @@ def _impl(ctx):
 
     debug_prefix_map_pwd_is_dot_feature = feature(
         name = "debug_prefix_map_pwd_is_dot",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5352,7 +5368,30 @@ def _impl(ctx):
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
                 ],
-                flag_groups = [flag_group(flags = ["DEBUG_PREFIX_MAP_PWD=."])],
+                flag_groups = [flag_group(flags = ["-fdebug-compilation-dir", "."])],
+            ),
+        ],
+    )
+
+    remap_xcode_path_feature = feature(
+        name = "remap_xcode_path",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.linkstamp_compile,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                ],
+                flag_groups = [flag_group(flags = [
+                    "-fdebug-prefix-map=__BAZEL_XCODE_DEVELOPER_DIR__=DEVELOPER_DIR",
+                ])],
             ),
         ],
     )
@@ -5668,7 +5707,7 @@ def _impl(ctx):
                           ["objc-executable", "objc++-executable"],
                 flag_groups = [
                     flag_group(
-                        flags = ["-dead_strip", "-no_dead_strip_inits_and_terms"],
+                        flags = ["-dead_strip"],
                     ),
                 ],
             ),
@@ -5680,8 +5719,7 @@ def _impl(ctx):
         name = "oso_prefix_is_pwd",
         flag_sets = [
             flag_set(
-                actions = all_link_actions +
-                          ["objc-executable", "objc++-executable"],
+                actions = ["objc-executable", "objc++-executable"],
                 flag_groups = [flag_group(flags = ["OSO_PREFIX_MAP_PWD"])],
             ),
         ],
@@ -5968,7 +6006,7 @@ def _impl(ctx):
                                 "-Xlinker",
                                 "-bitcode_symbol_map",
                                 "-Xlinker",
-                                "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}",
+                                "%{bitcode_symbol_map_path}",
                             ],
                             expand_if_available = "bitcode_symbol_map_path",
                         ),
@@ -6023,6 +6061,27 @@ def _impl(ctx):
         ],
     )
 
+    set_install_name = feature(
+        name = "set_install_name",
+        enabled = ctx.fragments.cpp.do_not_use_macos_set_install_name,
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_dynamic_library,
+                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-Wl,-install_name,@rpath/%{runtime_solib_name}",
+                        ],
+                        expand_if_available = "runtime_solib_name",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
@@ -6046,6 +6105,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6090,6 +6150,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6105,6 +6166,7 @@ def _impl(ctx):
             compiler_input_flags_feature,
             compiler_output_flags_feature,
             objcopy_embed_flags_feature,
+            set_install_name,
         ]
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "darwin_arm64" or
@@ -6121,6 +6183,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6165,6 +6228,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6182,6 +6246,7 @@ def _impl(ctx):
             supports_dynamic_linker_feature,
             objcopy_embed_flags_feature,
             dynamic_linking_mode_feature,
+            set_install_name,
         ]
     elif (ctx.attr.cpu == "armeabi-v7a"):
         features = [
@@ -6196,6 +6261,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6240,6 +6306,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6256,6 +6323,7 @@ def _impl(ctx):
             compiler_output_flags_feature,
             supports_pic_feature,
             objcopy_embed_flags_feature,
+            set_install_name,
         ]
     else:
         fail("Unreachable")
@@ -6350,6 +6418,7 @@ cc_toolchain_config = rule(
         "compiler": attr.string(),
         "cxx_builtin_include_directories": attr.string_list(),
         "tool_paths_overrides": attr.string_dict(),
+        "extra_env": attr.string_dict(),
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",
             name = "xcode_config_label",
@@ -6357,4 +6426,5 @@ cc_toolchain_config = rule(
     },
     provides = [CcToolchainConfigInfo],
     executable = True,
+    fragments = ["cpp"],
 )

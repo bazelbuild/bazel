@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A class that can be used to expand directories at execution time. */
 @StarlarkBuiltin(
     name = "DirectoryExpander",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "Expands directories created by <a href='actions.html#declare_directory'>"
             + "<code>ctx.actions.declare_directory</code></a>"
@@ -40,7 +40,6 @@ public interface DirectoryExpander extends StarlarkValue {
       parameters = {
         @Param(
             name = "file",
-            type = FileApi.class,
             positional = true,
             named = false,
             doc = "The directory or file to expand."),

@@ -1,3 +1,4 @@
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
@@ -19,8 +20,6 @@ java_library(
 #
 ## Bootstrapping using Starlark rules
 #
-
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "bootstrap_jarhelper",

@@ -60,7 +60,8 @@ public class JavaCommon {
   public static final InstrumentationSpec JAVA_COLLECTION_SPEC =
       new InstrumentationSpec(FileTypeSet.of(JavaSemantics.JAVA_SOURCE))
           .withSourceAttributes("srcs")
-          .withDependencyAttributes("deps", "data", "resources", "exports", "runtime_deps");
+          .withDependencyAttributes(
+              "deps", "data", "resources", "resource_jars", "exports", "runtime_deps", "jars");
 
   private ClasspathConfiguredFragment classpathFragment = new ClasspathConfiguredFragment();
   private JavaCompilationArtifacts javaArtifacts = JavaCompilationArtifacts.EMPTY;
@@ -301,8 +302,8 @@ public class JavaCommon {
   }
 
   /**
-   * Sanity checks the given runtime dependencies, and emits errors if there is a problem. Also
-   * called by {@link #initCommon()} for the current target's runtime dependencies.
+   * Checks the given runtime dependencies, and emits errors if there is a problem. Also called by
+   * {@link #initCommon()} for the current target's runtime dependencies.
    */
   public static void checkRuntimeDeps(
       RuleContext ruleContext, List<TransitiveInfoCollection> runtimeDepInfo) {
@@ -322,32 +323,6 @@ public class JavaCommon {
         }
       }
     }
-  }
-
-  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext) {
-    if (!ruleContext.getFragment(JavaConfiguration.class).loadJavaRulesFromBzl()) {
-      return;
-    }
-
-    if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
-      registerMigrationRuleError(ruleContext);
-    }
-  }
-
-  private static boolean hasValidTag(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains("__JAVA_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
-  }
-
-  private static void registerMigrationRuleError(RuleContext ruleContext) {
-    ruleContext.ruleError(
-        "The native Java rules are deprecated. Please load "
-            + ruleContext.getRule().getRuleClass()
-            + " from the rules_java repository. See http://github.com/bazelbuild/rules_java and "
-            + "https://github.com/bazelbuild/bazel/issues/8741. You can temporarily bypass this "
-            + "error by setting --incompatible_load_java_rules_from_bzl=false.");
   }
 
   /**
@@ -567,7 +542,7 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() throws InterruptedException {
+  public JavaTargetAttributes.Builder initCommon() {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
   }
 
@@ -580,7 +555,7 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws InterruptedException {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
     Preconditions.checkState(javacOpts == null);
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
@@ -596,7 +571,7 @@ public class JavaCommon {
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
-        && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
+        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
       ruleContext.attributeError("deps", "deps not allowed without srcs; move to runtime_deps?");
     }
 

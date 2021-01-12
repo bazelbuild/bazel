@@ -70,7 +70,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
           new WorkerProxy(
               key, workerId, key.getExecRoot(), workerMultiplexer.getLogFile(), workerMultiplexer);
     } else {
-      worker = new Worker(key, workerId, key.getExecRoot(), logFile);
+      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
     if (workerOptions.workerVerbose) {
       reporter.handle(
@@ -81,7 +81,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
                   key.getMnemonic(),
                   workTypeName,
                   workerId,
-                  logFile)));
+                  worker.getLogFile())));
     }
     return worker;
   }

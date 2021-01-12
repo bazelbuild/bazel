@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.util.io;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -31,9 +32,7 @@ public class OutErr implements Closeable {
 
   public static final OutErr SYSTEM_OUT_ERR = create(System.out, System.err);
 
-  /**
-   * Creates a new OutErr instance from the specified output and error streams.
-   */
+  /** Creates a new OutErr instance from the specified output and error streams. */
   public static OutErr create(OutputStream out, OutputStream err) {
     return new OutErr(out, err);
   }
@@ -62,7 +61,7 @@ public class OutErr implements Closeable {
    * ends the scope of the patch, returning {@link System#out} and {@link System#err} to what they
    * were before.
    */
-  public interface SystemPatcher extends AutoCloseable {
+  public interface SystemPatcher extends SilentCloseable {
     void start();
   }
 
@@ -109,38 +108,38 @@ public class OutErr implements Closeable {
   }
 
   /**
-   * Creates a new OutErr instance from the specified stream.
-   * Writes to either the output or err of the new OutErr are written
-   * to outputStream, synchronized.
+   * Creates a new OutErr instance from the specified stream. Writes to either the output or err of
+   * the new OutErr are written to outputStream, synchronized.
    */
   public static OutErr createSynchronizedFunnel(final OutputStream outputStream) {
-    OutputStream syncOut = new OutputStream() {
+    OutputStream syncOut =
+        new OutputStream() {
 
-      @Override
-      public synchronized void write(int b) throws IOException {
-        outputStream.write(b);
-      }
+          @Override
+          public synchronized void write(int b) throws IOException {
+            outputStream.write(b);
+          }
 
-      @Override
-      public synchronized void write(byte b[]) throws IOException {
-        outputStream.write(b);
-      }
+          @Override
+          public synchronized void write(byte[] b) throws IOException {
+            outputStream.write(b);
+          }
 
-      @Override
-      public synchronized  void write(byte b[], int off, int len) throws IOException {
-        outputStream.write(b, off, len);
-      }
+          @Override
+          public synchronized void write(byte[] b, int off, int len) throws IOException {
+            outputStream.write(b, off, len);
+          }
 
-      @Override
-      public synchronized void flush() throws IOException {
-        outputStream.flush();
-      }
+          @Override
+          public synchronized void flush() throws IOException {
+            outputStream.flush();
+          }
 
-      @Override
-      public synchronized void close() throws IOException {
-        outputStream.close();
-      }
-    };
+          @Override
+          public synchronized void close() throws IOException {
+            outputStream.close();
+          }
+        };
 
     return create(syncOut, syncOut);
   }
@@ -153,9 +152,7 @@ public class OutErr implements Closeable {
     return err;
   }
 
-  /**
-   * Writes the specified string to the output stream, and flushes.
-   */
+  /** Writes the specified string to the output stream, and flushes. */
   public void printOut(String s) {
     PrintWriter writer = new PrintWriter(out, true);
     writer.print(s);
@@ -166,9 +163,7 @@ public class OutErr implements Closeable {
     printOut(s + "\n");
   }
 
-  /**
-   * Writes the specified string to the error stream, and flushes.
-   */
+  /** Writes the specified string to the error stream, and flushes. */
   public void printErr(String s) {
     PrintWriter writer = new PrintWriter(err, true);
     writer.print(s);
@@ -178,5 +173,4 @@ public class OutErr implements Closeable {
   public void printErrLn(String s) {
     printErr(s + "\n");
   }
-
 }

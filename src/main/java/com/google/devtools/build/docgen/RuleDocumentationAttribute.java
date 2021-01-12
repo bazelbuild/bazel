@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * A class storing a rule attribute documentation along with some meta information. The class
@@ -176,8 +177,8 @@ public class RuleDocumentationAttribute
     Object value = attribute.getDefaultValueUnchecked();
     if (value instanceof Boolean) {
       return prefix + ((Boolean) value ? "True" : "False");
-    } else if (value instanceof Integer) {
-      return prefix + String.valueOf(value);
+    } else if (value instanceof StarlarkInt) {
+      return prefix + value;
     } else if (value instanceof String && !((String) value).isEmpty()) {
       return prefix + "\"" + value + "\"";
     } else if (value instanceof TriState) {

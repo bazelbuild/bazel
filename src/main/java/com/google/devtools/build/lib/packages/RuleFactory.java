@@ -115,8 +115,7 @@ public class RuleFactory {
             pkgBuilder, attributeValues, callstack, label, recordRuleInstantiationCallstack);
 
     // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
-    // If we're recording it (--record_rule_instantiation_callstack),
-    // pop the innermost frame for the rule, since it's obvious.
+    // Pop the innermost frame for the rule, since it's obvious.
     callstack =
         recordRuleInstantiationCallstack
             ? callstack.subList(0, callstack.size() - 1) // pop
@@ -330,7 +329,7 @@ public class RuleFactory {
       String attributeName = args.getName(attributeAccessor);
       builder.put(attributeName, args.getValue(attributeAccessor));
     }
-    String generatorName = pkgBuilder.getGeneratorNameByLocation().get(generatorLocation);
+    String generatorName = pkgBuilder.getGeneratorNameByLocation(generatorLocation);
     if (generatorName == null) {
       generatorName = (String) args.getAttributeValue("name");
     }

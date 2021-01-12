@@ -148,6 +148,56 @@ class GenRuleTest(test_base.TestBase):
         'The term \'command_not_exist\' is not recognized as the name of a cmdlet',
         ''.join(stderr))
 
+  def testCopyWithSpacesWithBatch(self):
+    if not self.IsWindows():
+      return
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'genrule(',
+        '  name = "x",',
+        '  srcs = ["hello source"],',
+        '  outs = ["hello copied"],',
+        '  cmd_bat = "copy \\"$<\\" \\"$@\\"",',
+        ')',
+    ])
+    self.ScratchFile('foo/hello source', ['hello world'])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    copied = os.path.join(bazel_bin, 'foo', 'hello copied')
+    self.assertTrue(os.path.exists(copied))
+    self.AssertFileContentContains(copied, 'hello world')
+
+  def testCopyWithSpacesWithPowershell(self):
+    if not self.IsWindows():
+      return
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'genrule(',
+        '  name = "x",',
+        '  srcs = ["hello source"],',
+        '  outs = ["hello copied"],',
+        '  cmd_ps = "cp \\"$<\\" \\"$@\\"",',
+        ')',
+    ])
+    self.ScratchFile('foo/hello source', ['hello world'])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    copied = os.path.join(bazel_bin, 'foo', 'hello copied')
+    self.assertTrue(os.path.exists(copied))
+    self.AssertFileContentContains(copied, 'hello world')
+
 
 if __name__ == '__main__':
   unittest.main()

@@ -22,17 +22,14 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import java.util.List;
 
 /** A {@link TransitiveInfoProvider} for configured targets that implement test rules. */
 @Immutable
 public final class TestProvider implements TransitiveInfoProvider {
   private final TestParams testParams;
-  private final ImmutableList<String> testTags;
 
-  public TestProvider(TestParams testParams, ImmutableList<String> testTags) {
+  public TestProvider(TestParams testParams) {
     this.testParams = testParams;
-    this.testTags = testTags;
   }
 
   /**
@@ -41,14 +38,6 @@ public final class TestProvider implements TransitiveInfoProvider {
    */
   public TestParams getTestParams() {
     return testParams;
-  }
-
-  /**
-   * Temporary hack to allow dependencies on test_suite targets to continue to work for the time
-   * being.
-   */
-  public List<String> getTestTags() {
-    return testTags;
   }
 
   /**

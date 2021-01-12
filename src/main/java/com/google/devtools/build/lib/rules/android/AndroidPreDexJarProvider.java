@@ -37,8 +37,12 @@ public final class AndroidPreDexJarProvider extends NativeInfo
   }
 
   public AndroidPreDexJarProvider(Artifact preDexJar) {
-    super(PROVIDER);
     this.preDexJar = preDexJar;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /** Provider class for {@link AndroidPreDexJarProvider} objects. */

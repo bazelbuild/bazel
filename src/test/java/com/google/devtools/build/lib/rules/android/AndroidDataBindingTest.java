@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.android.AndroidDataBindingTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidDataBindingTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.UsesDataBindingProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import java.util.List;
@@ -37,10 +39,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for Bazel's Android data binding support. */
-@RunWith(JUnit4.class)
-public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidDataBindingTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidDataBindingTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidDataBindingTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   @Before
   public void setupCcToolchain() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");

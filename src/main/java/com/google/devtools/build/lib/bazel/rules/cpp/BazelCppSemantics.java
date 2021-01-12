@@ -68,6 +68,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     actionBuilder
         .addTransitiveMandatoryInputs(
             configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
+                    && !actionBuilder.getSourceFile().isTreeArtifact()
                 ? (actionBuilder.getActionName().equals(CppActionNames.ASSEMBLE)
                     ? toolchain.getAsFiles()
                     : toolchain.getCompilerFiles())
@@ -95,7 +96,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning() {
+  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
     return true;
   }
 

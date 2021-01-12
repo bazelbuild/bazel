@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
@@ -34,9 +36,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -85,6 +89,7 @@ public final class RunfilesSupport {
   private final boolean buildRunfileLinks;
   private final boolean runfilesEnabled;
   private final CommandLine args;
+  private final ActionEnvironment actionEnvironment;
 
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
@@ -94,7 +99,11 @@ public final class RunfilesSupport {
    * @param runfiles the runfiles
    */
   private static RunfilesSupport create(
-      RuleContext ruleContext, Artifact executable, Runfiles runfiles, CommandLine args) {
+      RuleContext ruleContext,
+      Artifact executable,
+      Runfiles runfiles,
+      CommandLine args,
+      ActionEnvironment actionEnvironment) {
     Artifact owningExecutable = Preconditions.checkNotNull(executable);
     boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
     boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
@@ -139,7 +148,8 @@ public final class RunfilesSupport {
         owningExecutable,
         buildRunfileLinks,
         runfilesEnabled,
-        args);
+        args,
+        actionEnvironment);
   }
 
   @AutoCodec.Instantiator
@@ -152,7 +162,8 @@ public final class RunfilesSupport {
       Artifact owningExecutable,
       boolean buildRunfileLinks,
       boolean runfilesEnabled,
-      CommandLine args) {
+      CommandLine args,
+      ActionEnvironment actionEnvironment) {
     this.runfiles = runfiles;
     this.runfilesInputManifest = runfilesInputManifest;
     this.runfilesManifest = runfilesManifest;
@@ -161,6 +172,7 @@ public final class RunfilesSupport {
     this.buildRunfileLinks = buildRunfileLinks;
     this.runfilesEnabled = runfilesEnabled;
     this.args = args;
+    this.actionEnvironment = actionEnvironment;
   }
 
   /** Returns the executable owning this RunfilesSupport. Only use from Starlark. */
@@ -222,13 +234,12 @@ public final class RunfilesSupport {
     // The executable may be null for emptyRunfiles
     PathFragment relativePath =
         (owningExecutable != null)
-            ? owningExecutable.getRootRelativePath()
+            ? owningExecutable.getOutputDirRelativePath(
+                context.getConfiguration().isSiblingRepositoryLayout())
             : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
-    return context.getDerivedArtifact(
-        inputManifestPath,
-        context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
+    return context.getDerivedArtifact(inputManifestPath, context.getBinDirectory());
   }
 
   /**
@@ -350,7 +361,10 @@ public final class RunfilesSupport {
     }
 
     PathFragment runfilesDir =
-        FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(), RUNFILES_DIR_EXT);
+        FileSystemUtils.replaceExtension(
+            inputManifest.getOutputDirRelativePath(
+                context.getConfiguration().isSiblingRepositoryLayout()),
+            RUNFILES_DIR_EXT);
     PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfiguration config = context.getConfiguration();
@@ -392,6 +406,11 @@ public final class RunfilesSupport {
     return args;
   }
 
+  /** Returns the immutable environment from the 'env' and 'env_inherit' attribute values. */
+  public ActionEnvironment getActionEnvironment() {
+    return actionEnvironment;
+  }
+
   /**
    * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
    * that this method calls back into the passed in rule to obtain the runfiles.
@@ -399,7 +418,11 @@ public final class RunfilesSupport {
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
     return RunfilesSupport.create(
-        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.EMPTY));
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, CommandLine.EMPTY),
+        computeActionEnvironment(ruleContext));
   }
 
   /**
@@ -409,7 +432,11 @@ public final class RunfilesSupport {
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs) {
     return RunfilesSupport.create(
-        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.of(appendingArgs)));
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, CommandLine.of(appendingArgs)),
+        computeActionEnvironment(ruleContext));
   }
 
   /**
@@ -419,7 +446,11 @@ public final class RunfilesSupport {
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs) {
     return RunfilesSupport.create(
-        ruleContext, executable, runfiles, computeArgs(ruleContext, appendingArgs));
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, appendingArgs),
+        computeActionEnvironment(ruleContext));
   }
 
   private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs) {
@@ -430,6 +461,36 @@ public final class RunfilesSupport {
     }
     return CommandLine.concat(
         ruleContext.getExpander().withDataLocations().tokenized("args"), additionalArgs);
+  }
+
+  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
+    // Currently, "env" and "env_inherit" are not added to Starlark-defined rules (unlike "args"),
+    // in order to avoid breaking existing Starlark rules that use those attribute names.
+    // TODO(brandjon): Support "env" and "env_inherit" for Starlark-defined rules.
+    boolean isNativeRule =
+        ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
+    if (!isNativeRule
+        || (!ruleContext.getRule().isAttrDefined("env", Type.STRING_DICT)
+            && !ruleContext.getRule().isAttrDefined("env_inherit", Type.STRING_LIST))) {
+      return ActionEnvironment.EMPTY;
+    }
+    TreeMap<String, String> fixedEnv = new TreeMap<>();
+    Set<String> inheritedEnv = new LinkedHashSet<>();
+    if (ruleContext.isAttrDefined("env", Type.STRING_DICT)) {
+      Expander expander = ruleContext.getExpander().withDataLocations();
+      for (Map.Entry<String, String> entry :
+          ruleContext.attributes().get("env", Type.STRING_DICT).entrySet()) {
+        fixedEnv.put(entry.getKey(), expander.expand("env", entry.getValue()));
+      }
+    }
+    if (ruleContext.isAttrDefined("env_inherit", Type.STRING_LIST)) {
+      for (String key : ruleContext.attributes().get("env_inherit", Type.STRING_LIST)) {
+        if (!fixedEnv.containsKey(key)) {
+          inheritedEnv.add(key);
+        }
+      }
+    }
+    return ActionEnvironment.create(fixedEnv, ImmutableSet.copyOf(inheritedEnv));
   }
 
   /** Returns the path of the input manifest of {@code runfilesDir}. */

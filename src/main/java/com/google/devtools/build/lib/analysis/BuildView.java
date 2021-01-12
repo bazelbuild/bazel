@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
@@ -212,6 +213,7 @@ public class BuildView {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       Set<String> multiCpu,
+      ImmutableSet<String> explicitTargetPatterns,
       List<String> aspects,
       AnalysisOptions viewOptions,
       boolean keepGoing,
@@ -333,16 +335,21 @@ public class BuildView {
               Label.parseAbsolute(
                   bzlFileLoadLikeString, /* repositoryMapping= */ ImmutableMap.of());
         } catch (LabelSyntaxException e) {
+          String errorMessage = String.format("Invalid aspect '%s': %s", aspect, e.getMessage());
           throw new ViewCreationFailedException(
-              String.format("Invalid aspect '%s': %s", aspect, e.getMessage()), e);
+              errorMessage,
+              createFailureDetail(errorMessage, Analysis.Code.ASPECT_LABEL_SYNTAX_ERROR),
+              e);
         }
 
         String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
           if (targetSpec.getConfiguration() != null
               && targetSpec.getConfiguration().trimConfigurationsRetroactively()) {
+            String errorMessage =
+                "Aspects were requested, but are not supported in retroactive trimming mode.";
             throw new ViewCreationFailedException(
-                "Aspects were requested, but are not supported in retroactive trimming mode.");
+                errorMessage, createFailureDetail(errorMessage, Analysis.Code.ASPECT_PREREQ_UNMET));
           }
           aspectConfigurations.put(
               Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
@@ -364,8 +371,11 @@ public class BuildView {
           for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
             if (targetSpec.getConfiguration() != null
                 && targetSpec.getConfiguration().trimConfigurationsRetroactively()) {
+              String errorMessage =
+                  "Aspects were requested, but are not supported in retroactive trimming mode.";
               throw new ViewCreationFailedException(
-                  "Aspects were requested, but are not supported in retroactive trimming mode.");
+                  errorMessage,
+                  createFailureDetail(errorMessage, Analysis.Code.ASPECT_PREREQ_UNMET));
             }
             // For invoking top-level aspects, use the top-level configuration for both the
             // aspect and the base target while the top-level configuration is untrimmed.
@@ -379,7 +389,9 @@ public class BuildView {
                     configuration));
           }
         } else {
-          throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
+          String errorMessage = "Aspect '" + aspect + "' is unknown";
+          throw new ViewCreationFailedException(
+              errorMessage, createFailureDetail(errorMessage, Analysis.Code.ASPECT_NOT_FOUND));
         }
       }
     }
@@ -420,6 +432,24 @@ public class BuildView {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
 
+    TopLevelConstraintSemantics topLevelConstraintSemantics =
+        new TopLevelConstraintSemantics(
+            skyframeExecutor.getPackageManager(),
+            input -> skyframeExecutor.getConfiguration(eventHandler, input),
+            eventHandler);
+
+    PlatformRestrictionsResult platformRestrictions =
+        topLevelConstraintSemantics.checkPlatformRestrictions(
+            skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+
+    if (!platformRestrictions.targetsWithErrors().isEmpty()) {
+      // If there are any errored targets (e.g. incompatible targets that are explicitly specified
+      // on the command line), remove them from the list of targets to be built.
+      skyframeAnalysisResult =
+          skyframeAnalysisResult.withAdditionalErroredTargets(
+              ImmutableSet.copyOf(platformRestrictions.targetsWithErrors()));
+    }
+
     int numTargetsToAnalyze = topLevelTargetsWithConfigs.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
@@ -430,11 +460,11 @@ public class BuildView {
     }
 
     Set<ConfiguredTarget> targetsToSkip =
-        new TopLevelConstraintSemantics(
-                skyframeExecutor.getPackageManager(),
-                input -> skyframeExecutor.getConfiguration(eventHandler, input),
-                eventHandler)
-            .checkTargetEnvironmentRestrictions(skyframeAnalysisResult.getConfiguredTargets());
+        Sets.union(
+                topLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
+                    skyframeAnalysisResult.getConfiguredTargets()),
+                platformRestrictions.targetsToSkip())
+            .immutableCopy();
 
     AnalysisResult result =
         createResult(
@@ -615,6 +645,13 @@ public class BuildView {
           .build();
     }
     return null;
+  }
+
+  private static FailureDetail createFailureDetail(String errorMessage, Analysis.Code code) {
+    return FailureDetail.newBuilder()
+        .setMessage(errorMessage)
+        .setAnalysis(Analysis.newBuilder().setCode(code))
+        .build();
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
