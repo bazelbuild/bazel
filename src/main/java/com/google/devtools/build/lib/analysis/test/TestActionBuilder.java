@@ -85,7 +85,7 @@ public final class TestActionBuilder {
    *
    * @return ordered list of test status artifacts
    */
-  public TestParams build() throws InterruptedException {
+  public TestParams build() throws InterruptedException { // due to TestTargetExecutionSettings
     Preconditions.checkNotNull(runfilesSupport);
     TestShardingStrategy strategy =
         ruleContext.getConfiguration().getFragment(TestConfiguration.class).testShardingStrategy();
@@ -155,7 +155,8 @@ public final class TestActionBuilder {
    *     Skyframe, and by AggregatingTestListener and TestResultAnalyzer to keep track of completed
    *     and pending test runs.
    */
-  private TestParams createTestAction(int shards) throws InterruptedException {
+  private TestParams createTestAction(int shards)
+      throws InterruptedException { // due to TestTargetExecutionSettings
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfiguration config = ruleContext.getConfiguration();
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
