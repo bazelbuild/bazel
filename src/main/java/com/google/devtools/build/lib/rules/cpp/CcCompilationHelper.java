@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1368,8 +1370,15 @@ public final class CcCompilationHelper {
     }
     outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
+    Set<String> compiledBasenames = new HashSet<>();
     for (CppSource source : compilationUnitSources.values()) {
       Artifact sourceArtifact = source.getSource();
+
+      // Headers compilations will be created in the loop below.
+      if (!sourceArtifact.isTreeArtifact() && source.getType() == CppSource.Type.HEADER) {
+        continue;
+      }
+
       Label sourceLabel = source.getLabel();
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
@@ -1385,33 +1394,27 @@ public final class CcCompilationHelper {
       String outputName = outputNameMap.get(sourceArtifact);
 
       if (!sourceArtifact.isTreeArtifact()) {
-        switch (source.getType()) {
-          case HEADER:
-            createHeaderAction(sourceLabel, outputName, result, builder);
-            break;
-          default:
-            createSourceAction(
-                sourceLabel,
-                outputName,
-                result,
-                sourceArtifact,
-                builder,
-                // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
-                // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
-                // that could be instantiated with arbitrary values.
-                source.getType() == CppSource.Type.CLIF_INPUT_PROTO
-                    ? ArtifactCategory.CLIF_OUTPUT_PROTO
-                    : ArtifactCategory.OBJECT_FILE,
-                ccCompilationContext.getCppModuleMap(),
-                /* addObject= */ true,
-                isCodeCoverageEnabled,
-                // The source action does not generate dwo when it has bitcode
-                // output (since it isn't generating a native object with debug
-                // info). In that case the LtoBackendAction will generate the dwo.
-                ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
-                bitcodeOutput);
-            break;
-        }
+        compiledBasenames.add(Files.getNameWithoutExtension(sourceArtifact.getExecPathString()));
+        createSourceAction(
+            sourceLabel,
+            outputName,
+            result,
+            sourceArtifact,
+            builder,
+            // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
+            // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
+            // that could be instantiated with arbitrary values.
+            source.getType() == CppSource.Type.CLIF_INPUT_PROTO
+                ? ArtifactCategory.CLIF_OUTPUT_PROTO
+                : ArtifactCategory.OBJECT_FILE,
+            ccCompilationContext.getCppModuleMap(),
+            /* addObject= */ true,
+            isCodeCoverageEnabled,
+            // The source action does not generate dwo when it has bitcode
+            // output (since it isn't generating a native object with debug
+            // info). In that case the LtoBackendAction will generate the dwo.
+            ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
+            bitcodeOutput);
       } else {
         switch (source.getType()) {
           case HEADER:
@@ -1454,6 +1457,26 @@ public final class CcCompilationHelper {
                 "Encountered invalid source types when creating CppCompileActionTemplates");
         }
       }
+    }
+    for (CppSource source : compilationUnitSources.values()) {
+      Artifact artifact = source.getSource();
+      if (source.getType() != CppSource.Type.HEADER || artifact.isTreeArtifact()) {
+        // These are already handled above.
+        continue;
+      }
+      if (cppConfiguration.getParseHeadersSkippedIfCorrespondingSrcsFound()
+          && compiledBasenames.contains(
+              Files.getNameWithoutExtension(artifact.getExecPathString()))) {
+        continue;
+      }
+      CppCompileActionBuilder builder = initializeCompileAction(artifact);
+      builder
+          .setSemantics(semantics)
+          .addMandatoryInputs(additionalCompilationInputs)
+          .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+
+      String outputName = outputNameMap.get(artifact);
+      createHeaderAction(source.getLabel(), outputName, result, builder);
     }
 
     return result.build();

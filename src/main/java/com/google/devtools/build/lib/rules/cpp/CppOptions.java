@@ -743,6 +743,16 @@ public class CppOptions extends FragmentOptions {
   public boolean parseHeadersVerifiesModules;
 
   @Option(
+      name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If enabled, the parse_headers feature does not create a separate header compile action "
+              + "if a source with the same basename is found in the same target.")
+  public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
+
+  @Option(
     name = "experimental_omitfp",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1142,6 +1152,7 @@ public class CppOptions extends FragmentOptions {
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
+    host.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
