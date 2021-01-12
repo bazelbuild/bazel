@@ -172,12 +172,12 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_toolchain_resolution_for_java_rules",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
           "If set to true, toolchain resolution will be used to resolve java_toolchain and"
