@@ -7,40 +7,52 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
+      - "--embed_label"
+      - "4.0.0"
   ubuntu1604:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "-c"
-      - "opt"
+    - "-c"
+    - "opt"
+    - "--embed_label"
+    - "4.0.0"
   ubuntu1804:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "-c"
-      - "opt"
+    - "-c"
+    - "opt"
+    - "--embed_label"
+    - "4.0.0"
   ubuntu2004:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "-c"
-      - "opt"
+    - "-c"
+    - "opt"
+    - "--embed_label"
+    - "4.0.0"
   macos:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "-c"
-      - "opt"
+    - "-c"
+    - "opt"
+    - "--embed_label"
+    - "4.0.0"
   windows:
     build_flags:
-      - "--copt=-w"
-      - "--host_copt=-w"
-      - "-c"
-      - "opt"
+    - "--copt=-w"
+    - "--host_copt=-w"
+    - "-c"
+    - "opt"
+    - "--embed_label"
+    - "4.0.0"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"
