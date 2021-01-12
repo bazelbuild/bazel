@@ -1777,12 +1777,12 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         ")");
     scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
-    AssertionError expected =
+    AssertionError ex =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "cannot return a non-exported provider instance from a rule implementation function.");
+    String msg = ex.getMessage();
+    assertThat(msg)
+        .contains("rule implementation function returned an instance of an unnamed provider");
+    assertThat(msg).contains("Provider defined at /workspace/test/my_rule.bzl:2:28");
   }
 
   @Test

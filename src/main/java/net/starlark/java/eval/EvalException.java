@@ -228,19 +228,6 @@ public class EvalException extends Exception {
     return buf.toString();
   }
 
-  /**
-   * Returns the optional location passed to the constructor.
-   *
-   * @deprecated Do not use this feature. Instead, record auxiliary (non-stack) locations in the
-   *     error message itself, or call a dummy wrapper function to introduce a fake frame into the
-   *     call stack.
-   */
-  @Nullable
-  @Deprecated
-  public final Location getDeprecatedLocation() {
-    return location;
-  }
-
   // Ensures that this exception holds a call stack, taking the current
   // stack (which must be non-empty) from the thread if not.
   final EvalException ensureStack(StarlarkThread thread) {

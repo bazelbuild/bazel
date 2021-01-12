@@ -206,24 +206,20 @@ public abstract class BuildEncyclopediaProcessor {
   /**
    * Sets the {@link RuleLinkExpander} for the provided {@link RuleDocumentationAttributes}.
    *
-   * <p>This method is used to set the {@link RuleLinkExpander} for common attributes, such as
-   * those defined in {@link PredefinedAttributes}, so that rule references in the docs for those
+   * <p>This method is used to set the {@link RuleLinkExpander} for common attributes, such as those
+   * defined in {@link PredefinedAttributes}, so that rule references in the docs for those
    * attributes can be expanded.
    *
    * @param attributes The map containing the RuleDocumentationAttributes, keyed by attribute name.
    * @param expander The RuleLinkExpander to set in each of the RuleDocumentationAttributes.
-   * @return A map of name to RuleDocumentationAttribute with the RuleLinkExpander set for each
-   *     attribute.
+   * @return The provided map of attributes.
    */
   protected static Map<String, RuleDocumentationAttribute> expandCommonAttributes(
       Map<String, RuleDocumentationAttribute> attributes, RuleLinkExpander expander) {
-    Map<String, RuleDocumentationAttribute> expanded = new HashMap<>(attributes.size());
-    for (Map.Entry<String, RuleDocumentationAttribute> entry : attributes.entrySet()) {
-      RuleDocumentationAttribute attribute = entry.getValue();
+    for (RuleDocumentationAttribute attribute : attributes.values()) {
       attribute.setRuleLinkExpander(expander);
-      expanded.put(entry.getKey(), attribute);
     }
-    return expanded;
+    return attributes;
   }
 
   /**
