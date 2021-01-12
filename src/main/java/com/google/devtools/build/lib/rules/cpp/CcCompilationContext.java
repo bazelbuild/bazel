@@ -90,7 +90,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final NestedSet<Artifact> transitivePicModules;
 
   private final CppModuleMap cppModuleMap;
-  private final CppModuleMap verificationModuleMap;
 
   private final boolean propagateModuleMapAsActionInput;
 
@@ -129,7 +128,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       ImmutableList<Artifact> directModuleMaps,
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
-      @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
       CppConfiguration.HeadersCheckingMode headersCheckingMode,
       NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
@@ -144,7 +142,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.transitivePicModules = transitivePicModules;
     this.cppModuleMap = cppModuleMap;
     this.nonCodeInputs = nonCodeInputs;
-    this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.headersCheckingMode = headersCheckingMode;
@@ -582,7 +579,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ccCompilationContext.directModuleMaps,
         ccCompilationContext.exportingModuleMaps,
         ccCompilationContext.cppModuleMap,
-        ccCompilationContext.verificationModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
         ccCompilationContext.headersCheckingMode,
         ccCompilationContext.virtualToOriginalHeaders);
@@ -591,11 +587,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   /** @return the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
-  }
-
-  /** @return the C++ module map of the owner. */
-  public CppModuleMap getVerificationModuleMap() {
-    return verificationModuleMap;
   }
 
   /** Returns the list of dependencies' C++ module maps re-exported by this compilation context. */
@@ -689,7 +680,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final TransitiveSetHelper<String> defines = new TransitiveSetHelper<>();
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
-    private CppModuleMap verificationModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
     private CppConfiguration.HeadersCheckingMode headersCheckingMode =
         CppConfiguration.HeadersCheckingMode.STRICT;
@@ -944,12 +934,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return this;
     }
 
-    /** Sets the C++ module map used to verify that headers are modules compatible. */
-    public Builder setVerificationModuleMap(CppModuleMap verificationModuleMap) {
-      this.verificationModuleMap = verificationModuleMap;
-      return this;
-    }
-
     /** Causes the module map to be passed as an action input to dependant compilations. */
     public Builder setPropagateCppModuleMapAsActionInput(boolean propagateModuleMap) {
       this.propagateModuleMapAsActionInput = propagateModuleMap;
@@ -1020,7 +1004,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           ImmutableList.copyOf(directModuleMaps),
           ImmutableList.copyOf(exportingModuleMaps),
           cppModuleMap,
-          verificationModuleMap,
           propagateModuleMapAsActionInput,
           headersCheckingMode,
           virtualToOriginalHeaders.build());

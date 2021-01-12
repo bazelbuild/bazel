@@ -567,14 +567,12 @@ public class CppHelper {
   public static CppModuleMap createDefaultCppModuleMap(
       ActionConstructionContext actionConstructionContext,
       BuildConfiguration configuration,
-      Label label,
-      String suffix) {
+      Label label) {
     // Create the module map artifact as a genfile.
     Artifact mapFile =
         actionConstructionContext.getPackageRelativeArtifact(
             PathFragment.create(
                 label.getName()
-                    + suffix
                     + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions())),
             configuration.getGenfilesDirectory(label.getRepository()));
     return new CppModuleMap(mapFile, label.toString());
