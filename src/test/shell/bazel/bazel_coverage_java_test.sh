@@ -189,9 +189,6 @@ end_of_record"
 
   bazel coverage --test_output=all --java_toolchain=//:custom_toolchain //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
   assert_coverage_result "$expected_result" "$coverage_file_path"
-
-  bazel coverage --test_output=all --javabase=@bazel_tools//tools/jdk:remote_jdk11 --java_toolchain=@bazel_tools//tools/jdk:toolchain_java10 //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
-  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_java_test_coverage_combined_report() {
