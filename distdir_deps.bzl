@@ -211,58 +211,13 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
-    "openjdk_linux_vanilla": {
-        "aliases": ["remotejdk11_linux_for_testing", "openjdk11_linux_archive",],
-        "archive": "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz",
-        "sha256": "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
-        "strip_prefix": "zulu11.37.17-ca-jdk11.0.6-linux_x64",
-        "urls": [
-            "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-            "test_WORKSPACE_files",
-        ],
-    },
-    #"remotejdk11_linux_aarch64_for_testing": {
-    #    "archive": "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
-    #    "sha256": "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
-    #    "urls": [
-    #        "https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
-    #    ],
-    #    "used_in": [
-    #        "test_WORKSPACE_files",
-    #    ],
-    #    "strip_prefix": "zulu11.37.48-ca-jdk11.0.6-linux_aarch64",
-    #},
-    #"remotejdk11_macos_for_testing": {
-    #    "archive": "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
-    #    "sha256": "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
-    #    "urls": [
-    #        "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
-    #    ],
-    #    "used_in": [
-    #        "test_WORKSPACE_files",
-    #    ],
-    #    "strip_prefix": "zulu11.37.17-ca-jdk11.0.6-macosx_x64",
-    #},
-    #"remotejdk11_win_for_testing": {
-    #    "archive": "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
-    #    "sha256": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
-    #    "urls": [
-    #        "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
-    #    ],
-    #    "used_in": [
-    #        "test_WORKSPACE_files",
-    #    ],
-    #    "strip_prefix": "zulu11.37.17-ca-jdk11.0.6-win_x64",
-    #},
     "remote_java_tools": {
         "aliases": ["remote_java_tools_test", "remote_java_tools_for_testing"],
         "archive": "java_tools-v11.0.zip",
         "sha256": "09ecd438f1a10aa36bf0a6a2f24ead884ef7e8e8a46d086f8af6db33556b76a8",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools-v11.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.0/java_tools-v11.0.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -275,6 +230,7 @@ DIST_DEPS = {
         "sha256": "b66d5b97b90cb20787cfa61565672b0538912d230f120a03f38020052f25c4bc",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools_linux-v11.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.0/java_tools_linux-v11.0.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -287,6 +243,7 @@ DIST_DEPS = {
         "sha256": "8a683275b0f24e011b56e27eb4d7e35919d774ae57ec3353d48606cfc81e4116",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools_windows-v11.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.0/java_tools_windows-v11.0.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -299,6 +256,7 @@ DIST_DEPS = {
         "sha256": "39e3bb7e554e817de76a9b2cc9354b0c2363108dfcd56b360d3c35eadc8cddbd",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools_darwin-v11.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.0/java_tools_darwin-v11.0.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -308,14 +266,18 @@ DIST_DEPS = {
 }
 
 # Add aliased names
-def add_aliases():
-    for repo in DIST_DEPS.values():
-        aliases = repo.get('aliases')
+DEPS_BY_NAME = {}
+
+def create_index():
+    for repo_name in DIST_DEPS:
+        repo = DIST_DEPS[repo_name]
+        DEPS_BY_NAME[repo_name] = repo
+        aliases = repo.get("aliases")
         if aliases:
             for alias in aliases:
-                DIST_DEPS[alias] = repo
+                DEPS_BY_NAME[alias] = repo
 
-add_aliases()
+create_index()
 
 def _gen_workspace_stanza_impl(ctx):
     if ctx.attr.template and (ctx.attr.preamble or ctx.attr.postamble):
@@ -343,8 +305,7 @@ http_archive(
 
     repo_stanzas = {}
     for repo in ctx.attr.repos:
-        # info = DIST_DEPS.get(repo) or _ALIASES[repo]
-        info = DIST_DEPS[repo]
+        info = DEPS_BY_NAME[repo]
         strip_prefix = info.get("strip_prefix")
         if strip_prefix:
             strip_prefix = "\"%s\"" % strip_prefix

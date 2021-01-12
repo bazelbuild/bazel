@@ -13,7 +13,7 @@
 # limitations under the License.
 """Defines a repository rule that generates an archive consisting of the specified files to fetch"""
 
-load("//:distdir_deps.bzl", "DIST_DEPS")
+load("//:distdir_deps.bzl", "DEPS_BY_NAME")
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 _BUILD = """
@@ -75,17 +75,16 @@ def distdir_tar(name, archives, sha256, urls, dirname, dist_deps = None):
     )
 
 def dist_http_archive(name, **kwargs):
-    """Wraps http_archive but takes sha and urls from DIST_DEPS.
+    """Wraps http_archive, providing attributes like sha and urls from the central list.
 
-    dist_http_archive wraps an http_archive invocation, but looks up relevant
-    information from DIST_DEPS so the user does not have to specify it. It
-    always strips sha256 and urls from kwargs.
+    dist_http_archive wraps an http_archive invocation, but looks up relevant attributes
+    from distdir_deps.bzl so the user does not have to specify them.
 
     Args:
       name: repo name
       **kwargs: see http_archive for allowed args.
     """
-    info = DIST_DEPS[name]
+    info = DEPS_BY_NAME[name]
     if "patch_args" not in kwargs:
         kwargs["patch_args"] = info.get("patch_args")
     if "patches" not in kwargs:
@@ -100,21 +99,16 @@ def dist_http_archive(name, **kwargs):
     )
 
 def dist_http_file(name, **kwargs):
-    """Wraps http_file but takes sha and urls from DIST_DEPS.
+    """Wraps http_file, providing attributes like sha and urls from the central list.
 
-    dist_http_file wraps an http_file invocation, but looks up relevant
-    information from DIST_DEPS so the user does not have to specify it. It
-    always strips sha256 and urls from kwargs.
+    dist_http_file wraps an http_file invocation, but looks up relevant attributes
+    from distdir_deps.bzl so the user does not have to specify them.
 
     Args:
       name: repo name
       **kwargs: see http_file for allowed args.
     """
-    info = DIST_DEPS[name]
-    if "patch_args" not in kwargs:
-        kwargs["patch_args"] = info.get("patch_args")
-    if "patches" not in kwargs:
-        kwargs["patches"] = info.get("patches")
+    info = DEPS_BY_NAME[name]
     http_file(
         name = name,
         sha256 = info["sha256"],
