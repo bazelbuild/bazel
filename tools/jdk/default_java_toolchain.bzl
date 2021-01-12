@@ -56,6 +56,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "header_compiler_direct": ["@bazel_tools//tools/jdk:turbine_direct"],
     "ijar": ["@bazel_tools//tools/jdk:ijar"],
     "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
+    "jacocorunner": "@bazel_tools//tools/jdk:JacocoCoverage",
     "tools": [
         "@bazel_tools//tools/jdk:javac_jar",
         "@bazel_tools//tools/jdk:java_compiler_jar",
