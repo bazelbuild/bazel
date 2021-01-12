@@ -1227,7 +1227,8 @@ public final class CcCompilationHelper {
 
   /** @return whether we want to provide header modules for the current target. */
   private boolean shouldProvideHeaderModules() {
-    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+        && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
   }
 
   /** @return the no-PIC header module artifact for the current target. */
