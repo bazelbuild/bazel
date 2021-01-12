@@ -128,7 +128,7 @@ public class CommonQueryOptions extends OptionsBase {
 
   @Option(
       name = "include_aspects",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =

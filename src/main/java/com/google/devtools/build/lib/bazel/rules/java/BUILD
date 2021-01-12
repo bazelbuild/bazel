@@ -78,6 +78,10 @@ gen_workspace_stanza(
     name = "workspace_with_rules_java",
     out = "jdk.WORKSPACE",
     repos = [
+        "remote_java_tools",
+        "remote_java_tools_linux",
+        "remote_java_tools_windows",
+        "remote_java_tools_darwin",
         "rules_cc",
         "rules_java",
     ],

@@ -814,7 +814,9 @@ public final class CcCommon {
       // cc_toolchain rule.
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }
-    if (toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
+
+    if (!requestedFeatures.contains(CppRuleClasses.LANG_OBJC)
+        && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
 

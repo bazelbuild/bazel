@@ -42,7 +42,7 @@ public class FakeJavaCommon
 
   @Override
   public ProviderApi getJavaProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaInfo");
   }
 
   @Override
@@ -118,12 +118,12 @@ public class FakeJavaCommon
 
   @Override
   public ProviderApi getJavaToolchainProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaToolchain");
   }
 
   @Override
   public ProviderApi getJavaRuntimeProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaRuntime");
   }
 
   @Override
@@ -134,7 +134,7 @@ public class FakeJavaCommon
 
   @Override
   public ProviderApi getMessageBundleInfo() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("JavaMessageBundle");
   }
 
   @Override

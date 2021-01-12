@@ -19,6 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 import java.util.Collections;
@@ -112,7 +114,8 @@ public class EnvironmentLabels {
    */
   public NestedSet<Label> getFulfillers(Label environment) {
     checkInitialized();
-    return fulfillersMap.get(environment);
+    NestedSet<Label> ans = fulfillersMap.get(environment);
+    return ans == null ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : ans;
   }
 
   public Label getLabel() {
