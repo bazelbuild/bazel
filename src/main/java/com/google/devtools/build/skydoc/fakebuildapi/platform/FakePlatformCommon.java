@@ -25,26 +25,26 @@ public class FakePlatformCommon implements PlatformCommonApi {
 
   @Override
   public ProviderApi getMakeVariableProvider() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("TemplateVariableInfo");
   }
 
   @Override
   public ProviderApi getToolchainInfoConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("ToolchainInfo");
   }
 
   @Override
   public ProviderApi getPlatformInfoConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("PlatformInfo");
   }
 
   @Override
   public ProviderApi getConstraintSettingInfoConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("ConstraintSettingInfo");
   }
 
   @Override
   public ProviderApi getConstraintValueInfoConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("ConstraintValueInfo");
   }
 }
