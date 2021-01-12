@@ -673,10 +673,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private String purpose;
     private final NestedSetBuilder<Artifact> compilationPrerequisites =
         NestedSetBuilder.stableOrder();
-    private final Set<PathFragment> includeDirs = new LinkedHashSet<>();
-    private final Set<PathFragment> quoteIncludeDirs = new LinkedHashSet<>();
-    private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
-    private final Set<PathFragment> frameworkIncludeDirs = new LinkedHashSet<>();
+    private final TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
+    private final TransitiveSetHelper<PathFragment> quoteIncludeDirs = new TransitiveSetHelper<>();
+    private final TransitiveSetHelper<PathFragment> systemIncludeDirs = new TransitiveSetHelper<>();
+    private final TransitiveSetHelper<PathFragment> frameworkIncludeDirs =
+        new TransitiveSetHelper<>();
     private final NestedSetBuilder<PathFragment> looseHdrsDirs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
@@ -685,14 +686,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
     private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
     private final Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
-    private final Set<String> defines = new LinkedHashSet<>();
+    private final TransitiveSetHelper<String> defines = new TransitiveSetHelper<>();
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
     private CppConfiguration.HeadersCheckingMode headersCheckingMode =
         CppConfiguration.HeadersCheckingMode.STRICT;
-    private NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
+    private final NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
         NestedSetBuilder.stableOrder();
 
     /** The rule that owns the context */
@@ -738,10 +739,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       Preconditions.checkNotNull(otherCcCompilationContext);
       compilationPrerequisites.addTransitive(
           otherCcCompilationContext.getTransitiveCompilationPrerequisites());
-      includeDirs.addAll(otherCcCompilationContext.getIncludeDirs());
-      quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
-      systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
-      frameworkIncludeDirs.addAll(otherCcCompilationContext.getFrameworkIncludeDirs());
+      includeDirs.addTransitive(otherCcCompilationContext.getIncludeDirs());
+      quoteIncludeDirs.addTransitive(otherCcCompilationContext.getQuoteIncludeDirs());
+      systemIncludeDirs.addTransitive(otherCcCompilationContext.getSystemIncludeDirs());
+      frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
       looseHdrsDirs.addTransitive(otherCcCompilationContext.getLooseHdrsDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       headerInfoBuilder.addDep(otherCcCompilationContext.headerInfo);
@@ -766,7 +767,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         directModuleMaps.add(moduleMap.getArtifact());
       }
 
-      defines.addAll(otherCcCompilationContext.getDefines());
+      defines.addTransitive(otherCcCompilationContext.getDefines());
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
@@ -827,7 +828,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** See {@link #addIncludeDir(PathFragment)} */
     public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
-      Iterables.addAll(this.includeDirs, includeDirs);
+      this.includeDirs.addAll(includeDirs);
       return this;
     }
 
@@ -844,7 +845,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** See {@link #addQuoteIncludeDir(PathFragment)} */
     public Builder addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
-      Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
+      this.quoteIncludeDirs.addAll(quoteIncludeDirs);
       return this;
     }
 
@@ -855,13 +856,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * Before it is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
-      Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
+      this.systemIncludeDirs.addAll(systemIncludeDirs);
       return this;
     }
 
     /** Add framewrok include directories to be added with "-F". */
     public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
-      Iterables.addAll(this.frameworkIncludeDirs, frameworkIncludeDirs);
+      this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
       return this;
     }
 
@@ -927,7 +928,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Adds multiple defines. */
     public Builder addDefines(Iterable<String> defines) {
-      Iterables.addAll(this.defines, defines);
+      this.defines.addAll(defines);
       return this;
     }
 
@@ -1003,11 +1004,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
       return new CcCompilationContext(
           new CommandLineCcCompilationContext(
-              ImmutableList.copyOf(includeDirs),
-              ImmutableList.copyOf(quoteIncludeDirs),
-              ImmutableList.copyOf(systemIncludeDirs),
-              ImmutableList.copyOf(frameworkIncludeDirs),
-              ImmutableList.copyOf(defines),
+              includeDirs.getMergedResult(),
+              quoteIncludeDirs.getMergedResult(),
+              systemIncludeDirs.getMergedResult(),
+              frameworkIncludeDirs.getMergedResult(),
+              defines.getMergedResult(),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
           looseHdrsDirs.build(),
@@ -1064,6 +1065,38 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               compilationPrerequisites.build(),
               configuration.getMiddlemanDirectory(label.getRepository()));
       return NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile);
+    }
+
+    /**
+     * This class helps create efficient flattened transitive sets across all transitive
+     * dependencies. For very sparsely populated items, this can be more efficient both in terms of
+     * CPU and in terms of memory than NestedSets. Merged transitive set will be returned as a flat
+     * list to be memory efficient. As a further optimization, if a single dependencies contains a
+     * superset of all other dependencies, its list is simply re-used.
+     */
+    private static class TransitiveSetHelper<E> {
+      private final Set<E> all = CompactHashSet.create();
+      private ImmutableList<E> largestTransitive = ImmutableList.of();
+
+      public void add(E element) {
+        all.add(element);
+      }
+
+      public void addAll(Iterable<E> elements) {
+        Iterables.addAll(all, elements);
+      }
+
+      public void addTransitive(ImmutableList<E> transitive) {
+        all.addAll(transitive);
+        if (transitive.size() > largestTransitive.size()) {
+          largestTransitive = transitive;
+        }
+      }
+
+      public ImmutableList<E> getMergedResult() {
+        ImmutableList<E> allAsList = ImmutableList.copyOf(all);
+        return allAsList.equals(largestTransitive) ? largestTransitive : allAsList;
+      }
     }
   }
 
