@@ -291,6 +291,10 @@ android_ndk_repository(
 EOF
   bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
   expect_log "Either the path attribute of android_ndk_repository"
+
+  # Ensure that the prefix identifies the errant rule.
+  # (All errors have this prefix, but we check only in this test.)
+  expect_log "WORKSPACE:1:23: fetching android_ndk_repository rule //external:androidndk: Either..."
 }
 
 function test_android_ndk_repository_wrong_path() {

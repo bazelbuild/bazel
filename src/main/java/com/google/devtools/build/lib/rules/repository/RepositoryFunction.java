@@ -100,9 +100,6 @@ public abstract class RepositoryFunction {
    */
   public static class RepositoryFunctionException extends SkyFunctionException {
 
-    public RepositoryFunctionException(NoSuchPackageException cause, Transience transience) {
-      super(cause, transience);
-    }
     /**
      * Error reading or writing to the filesystem.
      */
