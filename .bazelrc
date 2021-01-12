@@ -1,3 +1,6 @@
+build --stamp
+build --embed_label=4.0.0
+
 common --enable_platform_specific_config
 
 # Shared configuration flags to build and test Bazel on RBE.
