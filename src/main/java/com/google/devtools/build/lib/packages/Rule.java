@@ -695,7 +695,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
                     + "another name for the rule", eventHandler);
     }
-    OutputFile outputFile = new OutputFile(pkg, label, ruleClass.getOutputFileKind(), this);
+    OutputFile outputFile = new OutputFile(label, this);
     outputFilesBuilder.add(outputFile);
     return outputFile;
   }
