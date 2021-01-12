@@ -159,7 +159,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   @Override
   public Depset getStarlarkDefines() {
-    return Depset.of(Depset.ElementType.STRING, getDefines());
+    return Depset.of(
+        Depset.ElementType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
   }
 
   @Override
@@ -551,7 +552,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * Returns the set of defines needed to compile this target. This includes definitions from the
    * transitive deps closure for the target. The order of the returned collection is deterministic.
    */
-  public NestedSet<String> getDefines() {
+  public ImmutableList<String> getDefines() {
     return commandLineCcCompilationContext.defines;
   }
 
@@ -640,7 +641,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<PathFragment> frameworkIncludeDirs;
-    private final NestedSet<String> defines;
+    private final ImmutableList<String> defines;
     private final ImmutableList<String> localDefines;
 
     CommandLineCcCompilationContext(
@@ -648,7 +649,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
         ImmutableList<PathFragment> frameworkIncludeDirs,
-        NestedSet<String> defines,
+        ImmutableList<String> defines,
         ImmutableList<String> localDefines) {
       this.includeDirs = includeDirs;
       this.quoteIncludeDirs = quoteIncludeDirs;
@@ -684,7 +685,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
     private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
     private final Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
-    private final NestedSetBuilder<String> defines = NestedSetBuilder.linkOrder();
+    private final Set<String> defines = new LinkedHashSet<>();
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
@@ -765,7 +766,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         directModuleMaps.add(moduleMap.getArtifact());
       }
 
-      defines.addTransitive(otherCcCompilationContext.getDefines());
+      defines.addAll(otherCcCompilationContext.getDefines());
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
@@ -925,8 +926,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     /** Adds multiple defines. */
-    public Builder addDefines(NestedSet<String> defines) {
-      this.defines.addTransitive(defines);
+    public Builder addDefines(Iterable<String> defines) {
+      Iterables.addAll(this.defines, defines);
       return this;
     }
 
@@ -1006,7 +1007,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),
               ImmutableList.copyOf(frameworkIncludeDirs),
-              defines.build(),
+              ImmutableList.copyOf(defines),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
           looseHdrsDirs.build(),
