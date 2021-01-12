@@ -925,6 +925,24 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/Arrays"
+      name: "deepEquals0"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarArrays"
+      name: "deepEquals0"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -942,6 +960,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -959,6 +978,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -1044,24 +1064,50 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
+    opcode: 184
     method_id {
       owner: "java/util/TimeZone"
       name: "getTimeZone"
+      desc: "(Ljava/time/ZoneId;)Ljava/util/TimeZone;"
     }
   }
   destination {
+    opcode: 184
     method_id {
       owner: "java/util/DesugarTimeZone"
       name: "getTimeZone"
+      desc: "(Ljava/time/ZoneId;)Ljava/util/TimeZone;"
     }
   }
   range: DESUGAR_JAVA8_LIBS
-  auto_deduce_opcode_and_desc: true
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/util/TimeZone"
+      name: "toZoneId"
+      desc: "()Ljava/time/ZoneId;"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/util/DesugarTimeZone"
+      name: "toZoneId"
+      desc: "(Ljava/util/TimeZone;)Ljava/time/ZoneId;"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+  range: DESUGAR_JAVA8_LIBS
 }
 
 replacements {
@@ -1078,6 +1124,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -1095,6 +1142,27 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/util/Collections"
+      name: "sort"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/util/DesugarCollections"
+      name: "sort"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
