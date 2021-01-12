@@ -784,6 +784,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             metadataHandler.getMetadata(testAction.getTestXml());
             testXmlExists = true;
           } catch (IOException ignored) {
+            // If test.xml doesn't exist, A call to getMetadata above will insert a MISSING_FILE_MARKER value
+            // into the store. We need to reset the outputs.
+            metadataHandler.resetOutputs(ImmutableList.of(testAction.getTestXml()));
           }
       }
 
