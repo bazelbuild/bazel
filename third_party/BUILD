@@ -528,7 +528,6 @@ distrib_java_import(
 java_import(
     name = "reactive_streams",
     jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
-    deps = [],
 )
 
 java_import(
