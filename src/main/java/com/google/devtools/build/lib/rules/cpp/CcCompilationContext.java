@@ -433,13 +433,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.modularPublicHeaders,
-          pathToLegalArtifact,
-          treeArtifacts,
-          isModule,
-          modularHeaders);
-      handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.modularPrivateHeaders,
+          transitiveHeaderInfo.modularHeaders,
           pathToLegalArtifact,
           treeArtifacts,
           isModule,
@@ -456,8 +450,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return null;
     }
     transitiveHeaderCount.compareAndSet(-1, pathToLegalArtifact.size());
-    removeArtifactsFromSet(modularHeaders, headerInfo.modularPublicHeaders);
-    removeArtifactsFromSet(modularHeaders, headerInfo.modularPrivateHeaders);
+    removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
   }
@@ -476,16 +469,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
       // Not using range-based for loops here as often there is exactly one element in this list
       // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
-      for (int i = 0; i < transitiveHeaderInfo.modularPublicHeaders.size(); i++) {
-        Artifact header = transitiveHeaderInfo.modularPublicHeaders.get(i);
+      for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularHeaders.get(i);
         if (includes.contains(header)) {
           modules.add(module);
-        }
-      }
-      for (int i = 0; i < transitiveHeaderInfo.modularPrivateHeaders.size(); i++) {
-        Artifact header = transitiveHeaderInfo.modularPrivateHeaders.get(i);
-        if (includes.contains(header)) {
-          modules.add(module);
+          break;
         }
       }
     }
@@ -539,8 +527,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    */
   ImmutableSet<Artifact> getHeaderModuleSrcs() {
     return new ImmutableSet.Builder<Artifact>()
-        .addAll(headerInfo.modularPublicHeaders)
-        .addAll(headerInfo.modularPrivateHeaders)
+        .addAll(headerInfo.modularHeaders)
         .addAll(headerInfo.textualHeaders)
         .build();
   }
@@ -1113,6 +1100,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** All private header files that are compiled into this module. */
     private final ImmutableList<Artifact> modularPrivateHeaders;
 
+    /** All header files that are compiled into this module. */
+    private final ImmutableList<Artifact> modularHeaders;
+
     /** All textual header files that are contained in this module. */
     private final ImmutableList<Artifact> textualHeaders;
 
@@ -1133,6 +1123,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       this.picHeaderModule = picHeaderModule;
       this.modularPublicHeaders = modularPublicHeaders;
       this.modularPrivateHeaders = modularPrivateHeaders;
+      this.modularHeaders =
+          ImmutableList.copyOf(Iterables.concat(modularPublicHeaders, modularPrivateHeaders));
       this.textualHeaders = textualHeaders;
       this.deps = deps;
     }
