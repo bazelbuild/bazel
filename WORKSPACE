@@ -643,48 +643,32 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
     name = "remote_java_tools_test",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "12cffbb7c87622a6bd6e9231e81ecb9efdb118afbdd6e047ef06eeb3d72a7dc3",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools-v11.1.zip",
-    ],
 )
 
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
     name = "remote_java_tools_test_linux",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "a0dea21d348c8be94d06fde5a6c18d7691aa659cd56c3f1f932f0a28ae943a23",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_linux-v11.1.zip",
-    ],
 )
 
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
     name = "remote_java_tools_test_windows",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "ac4d22ce9b10a1d5e46cbae0beb63221d96043d1f3543a729482005481e3e51a",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_windows-v11.1.zip",
-    ],
 )
 
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
     name = "remote_java_tools_test_darwin",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "72a2f34806e7f83b111601495c3bd401b96ea1794daa259608481fd4f6a60629",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_darwin-v11.1.zip",
-    ],
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
