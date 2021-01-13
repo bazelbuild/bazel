@@ -353,3 +353,4 @@ EOF
 }
 
 run_suite "examples on Windows"
+

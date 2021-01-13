@@ -28,18 +28,6 @@ java_library(
     resources = ["//examples/java-native/src/main/resources:greeting"],
 )
 
-java_binary(
-    name = "hello-special-resources",
-    main_class = "com.example.myproject.Greeter",
-    runtime_deps = [":special%greeting"],
-)
-
-java_library(
-    name = "special%greeting",
-    srcs = ["Greeter.java"],
-    resources = ["//examples/java-native/src/main/resources:greeting"],
-)
-
 java_library(
     name = "hello-error-prone",
     srcs = ["HelloErrorProne.java"],
