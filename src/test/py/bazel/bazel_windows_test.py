@@ -289,6 +289,66 @@ class BazelWindowsTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['clean'])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testBuildJavaTargetWithClasspathJar(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'java_binary(',
+      '  name = "java_bin",',
+      '  srcs = ["Main.java"],',
+      '  main_class = "Main",',
+      '  deps = ["java_lib"],',
+      ')',
+      '',
+      'java_library(',
+      '  name = "java_lib",',
+      '  srcs = ["Greeting.java"],',
+      ')',
+      '',
+      'java_binary(',
+      '  name = "special_java_bin",',
+      '  srcs = ["Main.java"],',
+      '  main_class = "Main",',
+      '  deps = [":special%java%lib"],',
+      ')',
+      '',
+      'java_library(',
+      '  name = "special%java%lib",',
+      '  srcs = ["Greeting.java"],',
+      ')',
+      '',
+    ])
+    self.ScratchFile('Main.java', [
+      'public class Main {',
+      '  public static void main(String[] args) {',
+      '    Greeting.sayHi();',
+      '  }',
+      '}',
+    ])
+    self.ScratchFile('Greeting.java', [
+      'public class Greeting {',
+      '  public static void sayHi() {',
+      '    System.out.println("Hello World!");',
+      '  }',
+      '}',
+    ])
+    exit_code, stdout, stderr = self.RunBazel(
+      [
+        'run', '//:java_bin', '--',
+        '--wrapper_script_flag=--classpath_limit=0',
+      ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello World!', '\n'.join(stdout))
+
+    exit_code, stdout, stderr = self.RunBazel(
+      [
+        'run', '//:special_java_bin', '--',
+        '--wrapper_script_flag=--classpath_limit=0',
+      ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello World!', '\n'.join(stdout))
+
 
 if __name__ == '__main__':
   unittest.main()
