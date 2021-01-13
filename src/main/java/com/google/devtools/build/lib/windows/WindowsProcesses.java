@@ -77,6 +77,12 @@ public class WindowsProcesses {
   public static native long getStderr(long process);
 
   /**
+   * Returns an estimate of the number of bytes available to read on the stream. Unlike {@link
+   * InputStream#available()}, this returns 0 on closed or broken streams.
+   */
+  public static native int streamBytesAvailable(long stream);
+
+  /**
    * Reads data from the stream into the given array. {@code stream} should come from {@link
    * #getStdout(long)} or {@link #getStderr(long)}.
    *

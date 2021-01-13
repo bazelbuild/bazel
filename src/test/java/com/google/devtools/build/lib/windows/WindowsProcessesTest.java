@@ -199,6 +199,44 @@ public class WindowsProcessesTest {
   }
 
   @Test
+  public void testAvailable_givesBytesFromLiveProcess() throws Exception {
+    process =
+        WindowsProcesses.createProcess(mockBinary, mockArgs("O-HELLOWRLD"), null, null, null, null);
+    byte[] one = new byte[2];
+    byte[] two = new byte[3];
+
+    long stdout = WindowsProcesses.getStdout(process);
+    // Need to wait until the process has posted its data before we can check available()
+    assertThat(readStdout(one, 0, 2)).isEqualTo(2);
+    assertNoStreamError(stdout);
+    assertThat(WindowsProcesses.streamBytesAvailable(stdout)).isEqualTo(7);
+    assertNoStreamError(stdout);
+
+    assertThat(readStdout(two, 0, 3)).isEqualTo(3);
+    assertNoStreamError(stdout);
+    assertThat(WindowsProcesses.streamBytesAvailable(stdout)).isEqualTo(4);
+    assertNoStreamError(stdout);
+
+    WindowsProcesses.closeStream(stdout);
+    assertThat(WindowsProcesses.streamBytesAvailable(stdout)).isEqualTo(0);
+    assertThat(WindowsProcesses.streamGetLastError(stdout)).isEmpty();
+
+    assertThat(new String(one, UTF_8)).isEqualTo("HE");
+    assertThat(new String(two, UTF_8)).isEqualTo("LLO");
+  }
+
+  @Test
+  public void testAvailable_doesNotFailOnDeadProcess() throws Exception {
+    process = WindowsProcesses.createProcess(mockBinary, mockArgs("X42"), null, null, null, null);
+    long stdout = WindowsProcesses.getStdout(process);
+    assertThat(WindowsProcesses.waitFor(process, -1)).isEqualTo(0);
+    assertThat(WindowsProcesses.getExitCode(process)).isEqualTo(42);
+    // Windows allows streams to be read after the process has died.
+    assertThat(WindowsProcesses.streamBytesAvailable(stdout)).isAtLeast(0);
+    assertThat(WindowsProcesses.streamGetLastError(stdout)).isEmpty();
+  }
+
+  @Test
   public void testArrayOutOfBounds() throws Exception {
     process =
         WindowsProcesses.createProcess(mockBinary, mockArgs("O-oob"), null, null, null, null);
