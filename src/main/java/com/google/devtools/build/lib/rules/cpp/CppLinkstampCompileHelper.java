@@ -95,7 +95,7 @@ public class CppLinkstampCompileHelper {
     return builder.buildOrThrowIllegalStateException();
   }
 
-  private static NestedSet<String> computeAllLinkstampDefines(
+  private static Iterable<String> computeAllLinkstampDefines(
       String labelReplacement,
       String outputReplacement,
       Iterable<String> additionalLinkstampDefines,
@@ -126,14 +126,12 @@ public class CppLinkstampCompileHelper {
       defines.add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
     }
 
-    return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER,
-        Iterables.transform(
-            defines.build(),
-            define ->
-                define
-                    .replaceAll(labelPattern, labelReplacement)
-                    .replaceAll(outputPathPattern, outputReplacement)));
+    return Iterables.transform(
+        defines.build(),
+        define ->
+            define
+                .replaceAll(labelPattern, labelReplacement)
+                .replaceAll(outputPathPattern, outputReplacement));
   }
 
   private static CcToolchainVariables getVariables(

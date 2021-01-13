@@ -809,7 +809,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   public ImmutableCollection<String> getDefines() {
-    return ccCompilationContext.getDefines().toList();
+    return ccCompilationContext.getDefines();
   }
 
   @Override

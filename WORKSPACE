@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//:distdir.bzl", "distdir_tar", "dist_http_archive")
+load("//:distdir.bzl", "dist_http_archive", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes

@@ -453,6 +453,7 @@ public final class CcCompilationHelper {
 
     if (shouldProcessHeaders
         && ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        && !shouldProvideHeaderModules()
         && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
@@ -511,7 +512,8 @@ public final class CcCompilationHelper {
     if (!shouldProcessHeaders
         || isTextualInclude
         || !isHeader
-        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)) {
+        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        || shouldProvideHeaderModules()) {
       return;
     }
 
@@ -1022,7 +1024,7 @@ public final class CcCompilationHelper {
     mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
 
     // But defines come after those inherited from deps.
-    ccCompilationContextBuilder.addDefines(NestedSetBuilder.wrap(Order.LINK_ORDER, defines));
+    ccCompilationContextBuilder.addDefines(defines);
 
     ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
 
@@ -1049,8 +1051,7 @@ public final class CcCompilationHelper {
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
       if (cppModuleMap == null) {
         cppModuleMap =
-            CppHelper.createDefaultCppModuleMap(
-                actionConstructionContext, configuration, label, /*suffix=*/ "");
+            CppHelper.createDefaultCppModuleMap(actionConstructionContext, configuration, label);
       }
 
       ccCompilationContextBuilder.setPropagateCppModuleMapAsActionInput(
@@ -1082,21 +1083,6 @@ public final class CcCompilationHelper {
       }
       if (getGeneratesNoPicHeaderModule()) {
         ccCompilationContextBuilder.setHeaderModule(getHeaderModule(cppModuleMap.getArtifact()));
-      }
-      if (!compiled
-          && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)
-          && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
-          && cppConfiguration.getParseHeadersVerifiesModules()) {
-        // Here, we are creating a compiled module to verify that headers are self-contained and
-        // modules ready, but we don't use the corresponding module map or compiled file anywhere
-        // else.
-        CppModuleMap verificationMap =
-            CppHelper.createDefaultCppModuleMap(
-                actionConstructionContext, configuration, label, /*suffix=*/ ".verify");
-        actionRegistry.registerAction(
-            createModuleMapAction(
-                verificationMap, publicHeaders, dependentModuleMaps, /*compiledModule=*/ true));
-        ccCompilationContextBuilder.setVerificationModuleMap(verificationMap);
       }
     }
     ccCompilationContextBuilder.setPurpose(purpose);
@@ -1351,12 +1337,6 @@ public final class CcCompilationHelper {
           // module map. It is used for per-file-copts.
           createModuleCodegenAction(result, moduleMapLabel, module);
         }
-      }
-    } else if (ccCompilationContext.getVerificationModuleMap() != null) {
-      Collection<Artifact> modules =
-          createModuleAction(result, ccCompilationContext.getVerificationModuleMap());
-      for (Artifact module : modules) {
-        result.addHeaderTokenFile(module);
       }
     }
 
