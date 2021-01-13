@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -408,6 +409,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       try {
         inputFiles.materializeVirtualInputs(execRoot);
       } catch (IOException e) {
+        restoreInterrupt(e);
         String message = "IOException while materializing virtual inputs:";
         throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
       }
@@ -415,6 +417,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       try {
         context.prefetchInputs();
       } catch (IOException e) {
+        restoreInterrupt(e);
         String message = "IOException while prefetching for worker:";
         throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
       }
@@ -426,6 +429,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         worker.setReporter(workerOptions.workerVerbose ? reporter : null);
         request = createWorkRequest(spawn, context, flagFiles, inputFileCache, key);
       } catch (IOException e) {
+        restoreInterrupt(e);
         String message = "IOException while borrowing a worker from the pool:";
         throw createUserExecException(e, message, Code.BORROW_FAILURE);
       }
@@ -442,6 +446,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
           spawnMetrics.setSetupTime(setupInputsTime.plus(prepareExecutionStopwatch.elapsed()));
         } catch (IOException e) {
+          restoreInterrupt(e);
           String message =
               ErrorMessage.builder()
                   .message("IOException while preparing the execution environment of a worker:")
@@ -456,6 +461,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try {
           worker.putRequest(request);
         } catch (IOException e) {
+          restoreInterrupt(e);
           String message =
               ErrorMessage.builder()
                   .message(
@@ -471,6 +477,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try {
           response = worker.getResponse(request.getRequestId());
         } catch (IOException e) {
+          restoreInterrupt(e);
           // If protobuf or json reader couldn't parse the response, try to print whatever the
           // failing worker wrote to stdout - it's probably a stack trace or some kind of error
           // message that will help the user figure out why the compiler is failing.
@@ -494,6 +501,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         worker.finishExecution(execRoot);
         spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {
+        restoreInterrupt(e);
         String message =
             ErrorMessage.builder()
                 .message("IOException while finishing worker execution:")
@@ -509,8 +517,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
           workers.invalidateObject(key, worker);
         } catch (IOException e1) {
           // The original exception is more important / helpful, so we'll just ignore this one.
+          restoreInterrupt(e1);
+        } finally {
+          worker = null;
         }
-        worker = null;
       }
 
       throw e;
@@ -521,6 +531,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     return response;
+  }
+
+  private static void restoreInterrupt(IOException e) {
+    if (e instanceof InterruptedIOException) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private static UserExecException createUserExecException(
