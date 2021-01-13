@@ -258,15 +258,13 @@ function test_java_test() {
 function test_java_with_classpath_jar() {
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
 
-  # Launch java binary with creating classpath jar
-  bazel build ${java_pkg}:hello-special-resources
-  assert_binary_run_from_subdir \
-   "bazel-bin/${java_pkg}/hello-resources --classpath_limit=0" "Bye world"
+  # Build and run java binary with creating classpath jar
+  assert_bazel_run \
+   "bazel-bin/${java_pkg}/hello-resources -- --wrapper_script_flag=classpath_limit=0" "Bye world"
 
-  # Build java binary depending on jar with special characters in its name
-  bazel build ${java_pkg}:hello-special-resources
-  assert_binary_run_from_subdir \
-   "bazel-bin/${java_pkg}/hello-special-resources --classpath_limit=0" "Bye world"
+  # Build and run java binary depending on jar with special characters in its name
+  assert_bazel_run \
+   "bazel-bin/${java_pkg}/hello-special-resources -- --wrapper_script_flag=classpath_limit=0" "Bye world"
 }
 
 function test_native_python() {
