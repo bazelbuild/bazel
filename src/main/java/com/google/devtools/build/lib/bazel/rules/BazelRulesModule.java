@@ -481,6 +481,16 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean skyframeEvalWithOrderedList;
+
+    @Option(
+        name = "legacy_spawn_scheduler",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        deprecationWarning =
+            "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
+        help = "Was used to enable the old spawn scheduler. Now a no-op.")
+    public boolean legacySpawnScheduler;
   }
 
   @Override

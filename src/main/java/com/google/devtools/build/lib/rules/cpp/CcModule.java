@@ -298,7 +298,7 @@ public abstract class CcModule
         Depset.noneableCast(quoteIncludeDirs, String.class, "quote_include_directories"),
         Depset.noneableCast(systemIncludeDirs, String.class, "system_include_directories"),
         Depset.noneableCast(frameworkIncludeDirs, String.class, "framework_include_directories"),
-        Depset.noneableCast(defines, String.class, "preprocessor_defines"),
+        Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
         ImmutableList.of());
   }
 
@@ -758,7 +758,7 @@ public abstract class CcModule
             .stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
-    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines"));
+    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").toList());
     ccCompilationContext.addNonTransitiveDefines(
         toNestedSetOfStrings(localDefines, "local_defines").toList());
     ccCompilationContext.addTextualHdrs(textualHdrs);

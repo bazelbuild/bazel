@@ -331,10 +331,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return strictDependencyIncludes;
   }
 
-  public NestedSet<String> define() {
-    return getCcCompilationContext().getDefines();
-  }
-
   @Override
   public Depset /*<Artifact>*/ dynamicFrameworkFileForStarlark() {
     return Depset.of(Artifact.TYPE, dynamicFrameworkFile());

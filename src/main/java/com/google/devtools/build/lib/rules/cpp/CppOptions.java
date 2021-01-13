@@ -732,17 +732,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-    name = "parse_headers_verifies_modules",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "If enabled, the parse_headers feature verifies that a header module can be built for the "
-            + "target in question instead of doing a separate compile of the header."
-  )
-  public boolean parseHeadersVerifiesModules;
-
-  @Option(
       name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,

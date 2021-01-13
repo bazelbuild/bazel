@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.dynamic.DynamicExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -39,41 +38,12 @@ import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.LocalExecution;
-import com.google.devtools.build.lib.server.FailureDetails.LocalExecution.Code;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * StandaloneModule provides pluggable functionality for blaze.
  */
 public class StandaloneModule extends BlazeModule {
-
-  @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    LocalExecutionOptions localOptions = env.getOptions().getOptions(LocalExecutionOptions.class);
-    if (localOptions == null) {
-      // This module doesn't make sense in non-build commands (which don't register these options).
-      return;
-    }
-
-    DynamicExecutionOptions dynamicOptions =
-        env.getOptions().getOptions(DynamicExecutionOptions.class);
-    if (dynamicOptions != null) { // Guard against tests that don't pull this module in.
-      if (localOptions.localLockfreeOutput && dynamicOptions.legacySpawnScheduler) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        "--experimental_local_lockfree_output requires --nolegacy_spawn_scheduler")
-                    .setLocalExecution(
-                        LocalExecution.newBuilder().setCode(Code.LOCKFREE_OUTPUT_PREREQ_UNMET))
-                    .build()));
-      }
-    }
-  }
 
   @Override
   public void registerActionContexts(

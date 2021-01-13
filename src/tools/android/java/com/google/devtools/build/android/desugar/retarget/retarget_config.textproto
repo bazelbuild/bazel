@@ -517,7 +517,6 @@ replacements {
       name: "toUnsignedLong"
     }
   }
-  range: DESUGAR_JAVA8_LIBS
   range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
@@ -669,7 +668,6 @@ replacements {
       name: "divideUnsigned"
     }
   }
-  range: DESUGAR_JAVA8_LIBS
   range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
@@ -1141,26 +1139,6 @@ replacements {
     method_id {
       owner: "java/util/DesugarCollections"
       name: "synchronizedSortedMap"
-    }
-  }
-  range: DESUGAR_JAVA8_LIBS
-  range: DESUGAR_JAVA8_CORE_LIBS
-  auto_deduce_opcode_and_desc: true
-}
-
-replacements {
-  source {
-    opcode: 182
-    method_id {
-      owner: "java/util/Collections"
-      name: "sort"
-    }
-  }
-  destination {
-    opcode: 184
-    method_id {
-      owner: "java/util/DesugarCollections"
-      name: "sort"
     }
   }
   range: DESUGAR_JAVA8_LIBS
