@@ -87,13 +87,13 @@ public class MerkleTreeTest {
 
     Directory fizzDir =
         Directory.newBuilder()
-            .addFiles(newFileNode("buzz.cc", digestUtil.computeAsUtf8("buzz")))
-            .addFiles(newFileNode("fizzbuzz.cc", digestUtil.computeAsUtf8("fizzbuzz")))
+            .addFiles(newFileNode("buzz.cc", digestUtil.computeAsUtf8("buzz"), false))
+            .addFiles(newFileNode("fizzbuzz.cc", digestUtil.computeAsUtf8("fizzbuzz"), false))
             .build();
     Directory srcsDir =
         Directory.newBuilder()
-            .addFiles(newFileNode("bar.cc", digestUtil.computeAsUtf8("bar")))
-            .addFiles(newFileNode("foo.cc", digestUtil.computeAsUtf8("foo")))
+            .addFiles(newFileNode("bar.cc", digestUtil.computeAsUtf8("bar"), false))
+            .addFiles(newFileNode("foo.cc", digestUtil.computeAsUtf8("foo"), false))
             .addDirectories(
                 DirectoryNode.newBuilder().setName("fizz").setDigest(digestUtil.compute(fizzDir)))
             .build();
@@ -153,7 +153,7 @@ public class MerkleTreeTest {
     return a;
   }
 
-  private static FileNode newFileNode(String name, Digest digest) {
-    return FileNode.newBuilder().setName(name).setDigest(digest).setIsExecutable(true).build();
+  private static FileNode newFileNode(String name, Digest digest, boolean isExecutable) {
+    return FileNode.newBuilder().setName(name).setDigest(digest).setIsExecutable(isExecutable).build();
   }
 }

@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,12 +73,14 @@ final class DirectoryTree {
     private final Path path;
     private final ByteString data;
     private final Digest digest;
+    private final boolean isExecutable;
 
-    FileNode(String pathSegment, Path path, Digest digest) {
+    FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
       super(pathSegment);
       this.path = Preconditions.checkNotNull(path, "path");
       this.data = null;
       this.digest = Preconditions.checkNotNull(digest, "digest");
+      this.isExecutable = isExecutable;
     }
 
     FileNode(String pathSegment, ByteString data, Digest digest) {
@@ -85,6 +88,7 @@ final class DirectoryTree {
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
       this.digest = Preconditions.checkNotNull(digest, "digest");
+      this.isExecutable = false;
     }
 
     Digest getDigest() {
@@ -97,6 +101,10 @@ final class DirectoryTree {
 
     ByteString getBytes() {
       return data;
+    }
+
+    public boolean isExecutable() {
+      return isExecutable;
     }
 
     @Override
@@ -165,7 +173,7 @@ final class DirectoryTree {
   }
 
   /**
-   * Traverses the {@link ActionInputsTree} in a depth first search manner. The children are visited
+   * Traverses the {@link DirectoryTree} in a depth first search manner. The children are visited
    * in lexographical order.
    */
   void visit(Visitor visitor) {

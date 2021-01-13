@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.common.RemoteActionFileArtifactValue;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -101,7 +102,7 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          currDir.addChild(new FileNode(path.getBaseName(), input, d));
+          currDir.addChild(new FileNode(path.getBaseName(), input, d, input.isExecutable()));
           return 1;
         });
   }
@@ -139,9 +140,16 @@ class DirectoryTreeBuilder {
           switch (metadata.getType()) {
             case REGULAR_FILE:
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-              currDir.addChild(
-                  new FileNode(
-                      path.getBaseName(), ActionInputHelper.toInputPath(input, execRoot), d));
+              Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+
+              boolean isExecutable;
+              if (metadata instanceof RemoteActionFileArtifactValue) {
+                isExecutable = ((RemoteActionFileArtifactValue) metadata).isExecutable();
+              } else {
+                isExecutable = inputPath.isExecutable();
+              }
+
+              currDir.addChild(new FileNode(path.getBaseName(), inputPath, d, isExecutable));
               return 1;
 
             case DIRECTORY:
