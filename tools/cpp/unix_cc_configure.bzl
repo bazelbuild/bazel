@@ -357,6 +357,14 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         warn = True,
         silent = True,
     )
+    overriden_tools["ar"] = _find_generic(
+        repository_ctx,
+        "ar",
+        "AR",
+        overriden_tools,
+        warn = True,
+        silent = True,
+    )
     if darwin:
         overriden_tools["gcc"] = "cc_wrapper.sh"
         overriden_tools["ar"] = "/usr/bin/libtool"
