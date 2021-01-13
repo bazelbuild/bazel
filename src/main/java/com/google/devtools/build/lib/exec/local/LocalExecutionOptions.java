@@ -67,8 +67,7 @@ public class LocalExecutionOptions extends OptionsBase {
       help =
           "When true, the local spawn runner does lock the output tree during dynamic execution. "
               + "Instead, spawns are allowed to execute until they are explicitly interrupted by a "
-              + "faster remote action. Requires --legacy_spawn_scheduler=false because of the need "
-              + "for this explicit cancellation.")
+              + "faster remote action.")
   public boolean localLockfreeOutput;
 
   @Option(

@@ -100,7 +100,7 @@ function build_and_interrupt() {
   local file="${1}"; shift
 
   bazel clean
-  bazel build --genrule_strategy=local --nolegacy_spawn_scheduler \
+  bazel build --genrule_strategy=local \
     "${@}" //pkg &> $TEST_log &
   local pid=$!
   while [[ ! -e "${dir}" && ! -e "${file}" ]]; do

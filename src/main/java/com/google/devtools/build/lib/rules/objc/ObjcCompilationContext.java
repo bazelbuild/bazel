@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -112,7 +110,7 @@ public final class ObjcCompilationContext {
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     builder
-        .addDefines(NestedSetBuilder.wrap(Order.LINK_ORDER, getDefines()))
+        .addDefines(getDefines())
         .addDeclaredIncludeSrcs(getPublicHeaders())
         .addDeclaredIncludeSrcs(getPrivateHeaders())
         .addDeclaredIncludeSrcs(getPublicTextualHeaders())
