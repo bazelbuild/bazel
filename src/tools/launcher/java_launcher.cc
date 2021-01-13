@@ -150,11 +150,10 @@ static void WriteJarClasspath(const wstring& jar_path,
   for (const auto& x : jar_path) {
     if (isalnum(x) || x == L'.' || x == L'-' || x == L'_' || x == L'~') {
       *manifest_classpath << x;
-    }
-    else if (x == L'\\') {
+    } else if (x == L'\\') {
       *manifest_classpath << L"/";
-    }
-    else {
+    } else {
+    // Replace the character with its 2-digit hexadecimal representation.
      char buffer[4];
      sprintf(buffer, "%02X", x);
      *manifest_classpath << L"%" << buffer;
