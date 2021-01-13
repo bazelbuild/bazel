@@ -68,6 +68,9 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
       throws IOException {
     Page page = TemplateEngine.newPage(DocgenConsts.COMMON_DEFINITIONS_TEMPLATE);
     page.add("expander", expander);
+    page.add(
+        "typicalAttributes",
+        expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES, expander));
     page.add("commonAttributes",
         expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES, expander));
     page.add("testAttributes",

@@ -1,12 +1,12 @@
-<p><code>Boolean; optional; <a href="#configurable-attributes">nonconfigurable</a></code></p>
+<p><code>Boolean; optional; default False; <a href="#configurable-attributes">nonconfigurable</a></code></p>
 
 <p>
 Marks test as flaky.
 </p>
 
 <p>
-If set, executes the test up to 3 times before being declared as failed.
-By default this attribute is set to 0 and test is considered to be stable.
-Note, that use of this attribute is generally discouraged - we do prefer
-all tests to be stable.
+If set, executes the test up to three times, marking it as failed only if it
+fails each time. By default, this attribute is set to False and the test is
+executed only once. Note, that use of this attribute is generally discouraged -
+tests should pass reliably when their assertions are upheld.
 </p>

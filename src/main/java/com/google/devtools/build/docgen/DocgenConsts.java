@@ -62,6 +62,7 @@ public class DocgenConsts {
 
   public static final String VAR_SECTION_STARLARK_BUILTIN = "SECTION_BUILTIN";
 
+  public static final String TYPICAL_ATTRIBUTES = "typical";
   public static final String COMMON_ATTRIBUTES = "common";
   public static final String TEST_ATTRIBUTES = "test";
   public static final String BINARY_ATTRIBUTES = "binary";

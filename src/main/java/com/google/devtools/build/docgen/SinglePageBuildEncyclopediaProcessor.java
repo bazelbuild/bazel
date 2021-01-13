@@ -54,6 +54,9 @@ public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProce
     page.add("expander", expander);
 
     // Populate variables for Common Definitions section.
+    page.add(
+        "typicalAttributes",
+        expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES, expander));
     page.add("commonAttributes",
         expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES, expander));
     page.add("testAttributes",

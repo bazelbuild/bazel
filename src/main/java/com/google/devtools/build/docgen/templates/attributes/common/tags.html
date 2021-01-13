@@ -1,12 +1,11 @@
 <p>
-  <code>List of arbitrary text tags.  Tags may be any valid string; default is
-  the empty list; <a href="#configurable-attributes">nonconfigurable</a></code>
+  <code>List of strings; optional; <a href="#configurable-attributes">nonconfigurable</a></code>
 </p>
 
 <p>
   <i>Tags</i> can be used on any rule. <i>Tags</i> on test and
   <code>test_suite</code> rules are useful for categorizing the tests.
-  <i>Tags</i> on non-test rules are used to control sandboxed execution of
+  <i>Tags</i> on non-test targets are used to control sandboxed execution of
   <code>genrule</code>s and
 
 <a href="/versions/{{ site.version }}/skylark/index.html">Starlark</a>
@@ -15,9 +14,9 @@
 
 <p>
   Bazel modifies the behavior of its sandboxing code if it finds the following
-  keywords in the <code>tags</code> attribute of any test rule or
-  <code>genrule</code>, or the keys of <code>execution_requirements</code> for
-  any Starlark action.
+  keywords in the <code>tags</code> attribute of any test or <code>genrule</code>
+  target, or the keys of <code>execution_requirements</code> for any Starlark
+  action.
 </p>
 
 <ul>
@@ -111,4 +110,4 @@
 </ul>
 
 See <a href="../test-encyclopedia.html#tag-conventions">Tag Conventions</a> in the
-Test Encyclopedia for more conventions on tags attached to test rules.
+Test Encyclopedia for more conventions on tags attached to test targets.

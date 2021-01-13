@@ -1,11 +1,10 @@
 <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional; <a href="#configurable-attributes">nonconfigurable</a></code></p>
 
 <p>
-  The set of targets whose <a href="${link make-variables}">Make variables</a> the rule is allowed
-  to access. These rules are either rules that provide
-  the <code>TemplateVariableInfo</code> provider or special targets for toolchain types built into
-Bazel.
-These include:
+  The set of targets whose <a href="${link make-variables}">Make variables</a> this target is
+  allowed to access. These targets are either instances of rules that provide
+  <code>TemplateVariableInfo</code> or special targets for toolchain types built into Bazel. These
+  include:
 
 <ul>
     <li><code>@bazel_tools//tools/cpp:current_cc_toolchain</code>
@@ -16,5 +15,6 @@ These include:
   Note that this is distinct from the concept of
     <a href="../toolchains.html#toolchain-resolution">toolchain resolution</a>
     that is used by rule implementations for platform-dependent configuration. You cannot use this
-  attribute to determine which specific cc_toolchain or java_toolchain a target will use.
+  attribute to determine which specific <code>cc_toolchain</code> or <code>java_toolchain</code> a
+  target will use.
 </p>

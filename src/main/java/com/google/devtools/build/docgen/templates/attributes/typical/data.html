@@ -1,0 +1,26 @@
+<a name="common.data"></a>
+<p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+
+<p>
+Files needed by this rule at runtime. May list file or rule targets. Generally
+allows any target.
+</p>
+
+<p>
+The default outputs and runfiles of targets in the <code>data</code> attribute
+should appear in the <code>*.runfiles</code> area of any executable which is
+output by or has a runtime dependency on this target. This may include data
+files or binaries used when this target's
+<a href="#typical.srcs"><code>srcs</code></a> are executed. See the
+<a href="../build-ref.html#data">data dependencies</a> section for more
+information about how to depend on and use data files.
+</p>
+
+<p>
+New rules should define a <code>data</code> attribute if they process
+inputs which might use other inputs at runtime. Rules' implementation functions
+must also <a href="../skylark/rules.html#runfiles">populate the target's
+runfiles</a> from the outputs and runfiles of any <code>data</code> attribute,
+as well as runfiles from any dependency attribute which provides either
+source code or runtime dependencies.
+</p>
