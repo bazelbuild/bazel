@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Helper methods that are shared by the different sandboxing strategies.
@@ -102,6 +103,10 @@ public final class SandboxHelpers {
 
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
+
+    private static final AtomicInteger tempFileUniquifierForVirtualInputWrites =
+        new AtomicInteger();
+
     private final Map<PathFragment, Path> files;
     private final Set<VirtualActionInput> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
@@ -145,7 +150,12 @@ public final class SandboxHelpers {
 
       Path outputPath = execroot.getRelative(input.getExecPath());
       if (isExecRootSandboxed) {
-        atomicallyWriteVirtualInput(input, outputPath, ".sandbox");
+        atomicallyWriteVirtualInput(
+            input,
+            outputPath,
+            // When 2 actions try to atomically create the same virtual input, they need to have a
+            // different suffix for the temporary file in order to avoid racy write to the same one.
+            ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
         return;
       }
 
