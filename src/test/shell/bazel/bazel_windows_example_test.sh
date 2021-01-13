@@ -260,11 +260,11 @@ function test_java_with_classpath_jar() {
 
   # Build and run java binary with creating classpath jar
   assert_bazel_run \
-   "${java_pkg}:hello-resources -- --wrapper_script_flag=classpath_limit=0" "Bye world"
+   "${java_pkg}:hello-resources -- --wrapper_script_flag=--classpath_limit=0" "Bye world"
 
   # Build and run java binary depending on jar with special characters in its name
   assert_bazel_run \
-   "${java_pkg}:hello-special-resources -- --wrapper_script_flag=classpath_limit=0" "Bye world"
+   "${java_pkg}:hello-special-resources -- --wrapper_script_flag=--classpath_limit=0" "Bye world"
 }
 
 function test_native_python() {
