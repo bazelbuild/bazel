@@ -213,6 +213,19 @@ def read_netrc(ctx, filename):
       about them
     """
     contents = ctx.read(filename)
+    return parse_netrc(contents, filename)
+
+def parse_netrc(contents, filename = None):
+    """Utility function to parse at least a basic .netrc file.
+
+    Args:
+      contents: input for the parser.
+      filename: filename to use in error messages, if any.
+
+    Returns:
+      dict mapping a machine names to a dict with the information provided
+      about them
+    """
 
     # Parse the file. This is mainly a token-based update of a simple state
     # machine, but we need to keep the line structure to correctly determine
@@ -283,6 +296,8 @@ def read_netrc(ctx, filename):
                     currentmachinename = ""
                     currentmachine = {}
                 else:
+                    if filename == None:
+                        filename = "a .netrc file"
                     fail("Unexpected token '%s' while reading %s" %
                          (token, filename))
     if not currentmachinename == None:
