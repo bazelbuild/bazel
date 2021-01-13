@@ -81,32 +81,32 @@ public class FakeAppleCommon
 
   @Override
   public ProviderApi getXcodeVersionPropertiesConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("XcodeProperties");
   }
 
   @Override
   public ProviderApi getXcodeVersionConfigConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("XcodeVersionConfig");
   }
 
   @Override
   public ProviderApi getObjcProviderConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("objc");
   }
 
   @Override
   public ProviderApi getAppleDynamicFrameworkConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("AppleDynamicFramework");
   }
 
   @Override
   public ProviderApi getAppleDylibBinaryConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("AppleDylibBinary");
   }
 
   @Override
   public ProviderApi getAppleExecutableBinaryConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("AppleExecutableBinary");
   }
 
   @Override
@@ -116,12 +116,12 @@ public class FakeAppleCommon
 
   @Override
   public ProviderApi getAppleDebugOutputsConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("AppleDebugOutputs");
   }
 
   @Override
   public ProviderApi getAppleLoadableBundleBinaryConstructor() {
-    return new FakeProviderApi();
+    return new FakeProviderApi("AppleLoadableBundleBinary");
   }
 
   @Override

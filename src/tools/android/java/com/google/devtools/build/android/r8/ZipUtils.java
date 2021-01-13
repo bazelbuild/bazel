@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
@@ -42,8 +43,8 @@ public class ZipUtils {
     zip.closeEntry();
   }
 
-  private static ZipEntry copyEntryMetadata(ZipEntry entry) {
-    ZipEntry copy = new ZipEntry(entry.getName());
+  private static ZipEntry copyEntryMetadata(ZipEntry entry, String name) {
+    ZipEntry copy = new ZipEntry(name);
     copy.setMethod(entry.getMethod());
     if (entry.getSize() != -1) {
       copy.setSize(entry.getSize());
@@ -67,13 +68,18 @@ public class ZipUtils {
   }
 
   public static void copyEntries(
-      Path input, ZipOutputStream zipOutputStream, Predicate<String> exclude) throws IOException {
+      Path input,
+      ZipOutputStream zipOutputStream,
+      Predicate<String> exclude,
+      Function<String, String> nameMapping)
+      throws IOException {
     try (ZipFile zipFile = new ZipFile(input.toFile())) {
       Enumeration<? extends ZipEntry> entries = zipFile.entries();
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
-        if (!exclude.test(entry.getName())) {
-          zipOutputStream.putNextEntry(copyEntryMetadata(entry));
+        String name = entry.getName();
+        if (!exclude.test(name)) {
+          zipOutputStream.putNextEntry(copyEntryMetadata(entry, nameMapping.apply(name)));
           try (InputStream stream = zipFile.getInputStream(entry)) {
             ByteStreams.copy(stream, zipOutputStream);
           }

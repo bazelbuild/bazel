@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesF
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
-import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -72,7 +71,6 @@ public class SpawnIncludeScanner {
       ResourceSet.createWithRamCpu(/*memoryMb=*/ 10, /*cpuUsage=*/ 1);
 
   private final Path execRoot;
-  private OutputService outputService;
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
 
@@ -80,11 +78,6 @@ public class SpawnIncludeScanner {
   public SpawnIncludeScanner(Path execRoot, int remoteExtractionThreshold) {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
-  }
-
-  public void setOutputService(OutputService outputService) {
-    Preconditions.checkState(this.outputService == null);
-    this.outputService = outputService;
   }
 
   public void setInMemoryOutput(boolean inMemoryOutput) {
@@ -120,11 +113,11 @@ public class SpawnIncludeScanner {
     if (file.getRoot().getRoot().isAbsolute()) {
       return false;
     }
-    // Files written remotely that are not locally available should be scanned remotely to avoid the
+    // Output files are generally not locally available should be scanned remotely to avoid the
     // bandwidth and disk space penalty of bringing them across. Also, enable include scanning
-    // remotely when explicitly directed to via a flag.
+    // remotely when the file size exceeds a certain size.
     return remoteExtractionThreshold == 0
-        || (outputService != null && outputService.isRemoteFile(file))
+        || !file.isSourceArtifact()
         || ctx.getPathResolver().toPath(file).getFileSize() > remoteExtractionThreshold;
   }
 

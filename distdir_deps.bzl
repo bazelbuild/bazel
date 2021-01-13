@@ -224,7 +224,73 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
+    "remote_java_tools": {
+        "aliases": ["remote_java_tools_test", "remote_java_tools_for_testing"],
+        "archive": "java_tools-v11.1.zip",
+        "sha256": "12cffbb7c87622a6bd6e9231e81ecb9efdb118afbdd6e047ef06eeb3d72a7dc3",
+        "urls": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools-v11.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools-v11.1.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "remote_java_tools_linux": {
+        "aliases": ["remote_java_tools_test_linux", "remote_java_tools_linux_for_testing"],
+        "archive": "java_tools_linux-v11.0.zip",
+        "sha256": "a0dea21d348c8be94d06fde5a6c18d7691aa659cd56c3f1f932f0a28ae943a23",
+        "urls": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_linux-v11.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools_linux-v11.1.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "remote_java_tools_windows": {
+        "aliases": ["remote_java_tools_test_windows", "remote_java_tools_windows_for_testing"],
+        "archive": "java_tools_windows-v11.0.zip",
+        "sha256": "ac4d22ce9b10a1d5e46cbae0beb63221d96043d1f3543a729482005481e3e51a",
+        "urls": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_windows-v11.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools_windows-v11.1.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "remote_java_tools_darwin": {
+        "aliases": ["remote_java_tools_test_darwin", "remote_java_tools_darwin_for_testing"],
+        "archive": "java_tools_darwin-v11.0.zip",
+        "sha256": "72a2f34806e7f83b111601495c3bd401b96ea1794daa259608481fd4f6a60629",
+        "urls": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_darwin-v11.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools_darwin-v11.1.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
 }
+
+# Add aliased names
+DEPS_BY_NAME = {}
+
+def _create_index():
+    for repo_name in DIST_DEPS:
+        repo = DIST_DEPS[repo_name]
+        DEPS_BY_NAME[repo_name] = repo
+        aliases = repo.get("aliases")
+        if aliases:
+            for alias in aliases:
+                DEPS_BY_NAME[alias] = repo
+
+_create_index()
 
 def _gen_workspace_stanza_impl(ctx):
     if ctx.attr.template and (ctx.attr.preamble or ctx.attr.postamble):
@@ -234,7 +300,7 @@ def _gen_workspace_stanza_impl(ctx):
         repo_clause = """
 maybe(
     http_archive,
-    "{repo}",
+    name = "{repo}",
     sha256 = "{sha256}",
     strip_prefix = {strip_prefix},
     urls = {urls},
@@ -252,7 +318,7 @@ http_archive(
 
     repo_stanzas = {}
     for repo in ctx.attr.repos:
-        info = DIST_DEPS[repo]
+        info = DEPS_BY_NAME[repo]
         strip_prefix = info.get("strip_prefix")
         if strip_prefix:
             strip_prefix = "\"%s\"" % strip_prefix
