@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//:distdir.bzl", "distdir_tar", "dist_http_archive")
+load("//:distdir.bzl", "dist_http_archive", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
@@ -662,9 +662,9 @@ http_archive(
     name = "remote_java_tools_test",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "09ecd438f1a10aa36bf0a6a2f24ead884ef7e8e8a46d086f8af6db33556b76a8",
+    sha256 = "12cffbb7c87622a6bd6e9231e81ecb9efdb118afbdd6e047ef06eeb3d72a7dc3",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools-v11.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools-v11.1.zip",
     ],
 )
 
@@ -673,9 +673,9 @@ http_archive(
     name = "remote_java_tools_test_linux",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "b66d5b97b90cb20787cfa61565672b0538912d230f120a03f38020052f25c4bc",
+    sha256 = "a0dea21d348c8be94d06fde5a6c18d7691aa659cd56c3f1f932f0a28ae943a23",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools_linux-v11.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_linux-v11.1.zip",
     ],
 )
 
@@ -684,9 +684,9 @@ http_archive(
     name = "remote_java_tools_test_windows",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "8a683275b0f24e011b56e27eb4d7e35919d774ae57ec3353d48606cfc81e4116",
+    sha256 = "ac4d22ce9b10a1d5e46cbae0beb63221d96043d1f3543a729482005481e3e51a",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools_windows-v11.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_windows-v11.1.zip",
     ],
 )
 
@@ -695,9 +695,9 @@ http_archive(
     name = "remote_java_tools_test_darwin",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "39e3bb7e554e817de76a9b2cc9354b0c2363108dfcd56b360d3c35eadc8cddbd",
+    sha256 = "72a2f34806e7f83b111601495c3bd401b96ea1794daa259608481fd4f6a60629",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.0/java_tools_darwin-v11.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_darwin-v11.1.zip",
     ],
 )
 
