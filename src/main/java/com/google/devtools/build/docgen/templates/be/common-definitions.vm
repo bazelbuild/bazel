@@ -11,7 +11,7 @@ title: Common Definitions
 <h1 id="common-definitions">Common definitions</h1>
 
 <p>This section defines various terms and concepts that are common to
-many functions or build rules below.
+many functions or build rules.
 </p>
 
 #if (!$singlePage)
@@ -20,6 +20,7 @@ many functions or build rules below.
   <ul>
     <li><a href="#sh-tokenization">Bourne shell tokenization</a></li>
     <li><a href="#label-expansion">Label Expansion</a></li>
+    <li><a href="#typical-attributes">Typical attributes defined by most build rules</a></li>
     <li><a href="#common-attributes">Attributes common to all build rules</a></li>
     <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>
     <li><a href="#common-attributes-binaries">Attributes common to all binary rules (*_binary)</a></li>
@@ -68,8 +69,6 @@ many functions or build rules below.
   specifics.
 </p>
 
-<h2 id="common-attributes">Attributes common to all build rules</h2>
-
 #macro(commonAttributeDoc $type $attributeMap)
   <table class="table table-condensed table-bordered table-params">
     <colgroup>
@@ -93,9 +92,18 @@ many functions or build rules below.
   </table>
 #end
 
-<p>This section describes attributes that are common to all build rules.<br/>
-Please note that it is an error to list the same label twice in a list of
-labels attribute.
+<h2 id="typical-attributes">Typical attributes defined by most build rules</h2>
+
+<p>This section describes attributes that are defined by many build rules,
+but not all.
+</p>
+
+#commonAttributeDoc("typical" $typicalAttributes)
+
+<h2 id="common-attributes">Attributes common to all build rules</h2>
+
+<p>This section describes attributes that are implicitly added to all build
+rules.
 </p>
 
 #commonAttributeDoc("common" $commonAttributes)
