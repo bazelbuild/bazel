@@ -137,17 +137,12 @@ public class DynamicExecutionModule extends BlazeModule {
       return;
     }
 
-    SpawnStrategy strategy;
-    if (options.legacySpawnScheduler) {
-      strategy = new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
-    } else {
-      strategy =
-          new DynamicSpawnStrategy(
-              executorService,
-              options,
-              this::getExecutionPolicy,
-              this::getPostProcessingSpawnForLocalExecution);
-    }
+    SpawnStrategy strategy =
+        new DynamicSpawnStrategy(
+            executorService,
+            options,
+            this::getExecutionPolicy,
+            this::getPostProcessingSpawnForLocalExecution);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
 
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
