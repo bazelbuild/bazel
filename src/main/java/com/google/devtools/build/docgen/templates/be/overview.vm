@@ -12,7 +12,8 @@ title: Build Encyclopedia
     <ul>
       <li><a href="$expander.expandRef("common-definitions#sh-tokenization")">Bourne shell tokenization</a></li>
       <li><a href="$expander.expandRef("common-definitions#label-expansion")">Label expansion</a></li>
-      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#typical-attributes")">Typical attributes for most rules</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes for all rules</a></li>
       <li><a href="$expander.expandRef("common-definitions#common-attributes-tests")">Common attributes for tests</a></li>
       <li><a href="$expander.expandRef("common-definitions#common-attributes-binaries")">Common attributes for binaries</a></li>
       <li><a href="$expander.expandRef("common-definitions#configurable-attributes")">Configurable attributes</a></li>
