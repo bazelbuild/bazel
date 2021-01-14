@@ -809,8 +809,8 @@ register_execution_platforms("//:default_host_platform")  # buildozer: disable=p
 # Tools for building deb, rpm and tar files.
 dist_http_archive(
     name = "rules_pkg",
-    #patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    #patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     #XXX# TODO(aiuto): Add a dummy workspace to rules_pkg packaging so we do not
     #XXX# need this any more.
     #XXXworkspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
