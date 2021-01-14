@@ -71,13 +71,17 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
 fi
 
 # Unzip platforms.zip into platforms/, move files up from external/platforms
-# subdirectory, and create WORKSPACE if it doesn't exist.
+# subdirectory if required, and create WORKSPACE if it doesn't exist.
 (
   cd $PACKAGE_DIR
   unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
   cd platforms
-  mv external/platforms/* .
-  rmdir -p external/platforms
+  # Platform files may be located under external/platform depending on the
+  # external repository source layout. Take them out if it's the case.
+  if [ -d "external/platforms" ]; then
+    mv external/platforms/* .
+    rmdir -p external/platforms
+  fi
   >> WORKSPACE
 )
 

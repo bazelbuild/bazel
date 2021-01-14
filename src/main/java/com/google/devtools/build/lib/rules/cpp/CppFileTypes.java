@@ -49,7 +49,7 @@ public final class CppFileTypes {
 
   public static final FileType CPP_HEADER =
       FileType.of(
-          ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H",
+          ".cuh", ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H",
           ".tcc");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);

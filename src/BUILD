@@ -433,6 +433,7 @@ filegroup(
         "//src/java_tools/buildjar:srcs",
         "//src/java_tools/import_deps_checker:srcs",
         "//src/java_tools/junitrunner:srcs",
+        "//src/java_tools/junitrunner/javatests/com/google/testing/coverage:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
         "//src/main/res:srcs",

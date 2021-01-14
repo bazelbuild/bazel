@@ -27,7 +27,6 @@ assert_eq(b, [])
 
 assert_fails(lambda: (1, 2).insert(3), "'tuple' value has no field or method 'insert'")
 ---
-
 # append
 
 foo = ["a", "b"]
@@ -36,15 +35,18 @@ assert_eq(foo, ["a", "b", "c"])
 foo.append("d")
 assert_eq(foo, ["a", "b", "c", "d"])
 
+bar = [1, 2]
+assert_eq(bar.append([3, 4]), None)
+assert_eq(bar, [1, 2, [3, 4]])
+
 assert_fails(lambda: (1, 2).append(3), "'tuple' value has no field or method 'append'")
 ---
-
 # extend
 
 foo = ["a", "b"]
-foo.extend(["c", "d"])
-foo.extend(("e", "f"))
-foo.extend({"g": None})
+assert_eq(foo.extend(["c", "d"]), None)
+assert_eq(foo.extend(("e", "f")), None)
+assert_eq(foo.extend({"g": None}), None)
 assert_eq(foo, ["a", "b", "c", "d", "e", "f", "g"])
 
 assert_fails(lambda: (1, 2).extend([3, 4]), "'tuple' value has no field or method 'extend'")
