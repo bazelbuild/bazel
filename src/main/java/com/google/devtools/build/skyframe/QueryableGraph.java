@@ -168,6 +168,12 @@ public interface QueryableGraph {
     /** Some other reason than one of the above that needs the node's value and deps. */
     OTHER_NEEDING_VALUE_AND_DEPS,
 
+    /** Some other reason than one of the above that needs the node's reverse deps. */
+    OTHER_NEEDING_REVERSE_DEPS,
+
+    /** Some other reason than one of the above that needs the node's value and reverse deps. */
+    OTHER_NEEDING_VALUE_AND_REVERSE_DEPS,
+
     /** Some other reason than one of the above. */
     OTHER;
 
