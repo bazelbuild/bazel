@@ -147,19 +147,17 @@ static wstring GetManifestJarDir(const wstring& binary_base_path) {
 static void WriteJarClasspath(const wstring& jar_path,
                               wostringstream* manifest_classpath) {
   *manifest_classpath << L' ';
-  if (jar_path.find_first_of(L" \\") != wstring::npos) {
-    for (const auto& x : jar_path) {
-      if (x == L' ') {
-        *manifest_classpath << L"%20";
-      }
-      if (x == L'\\') {
-        *manifest_classpath << L"/";
-      } else {
-        *manifest_classpath << x;
-      }
+  for (const auto& x : jar_path) {
+    if (isalnum(x) || x == L'.' || x == L'-' || x == L'_' || x == L'~') {
+      *manifest_classpath << x;
+    } else if (x == L'\\') {
+      *manifest_classpath << L"/";
+    } else {
+      // Replace the character with its 2-digit hexadecimal representation.
+      char buffer[4];
+      snprintf(buffer, sizeof(buffer), "%02X", x);
+      *manifest_classpath << L"%" << buffer;
     }
-  } else {
-    *manifest_classpath << jar_path;
   }
 }
 

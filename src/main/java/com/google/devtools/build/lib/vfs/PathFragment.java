@@ -613,8 +613,8 @@ public final class PathFragment
    * of the path fragment.
    */
   public boolean containsUplevelReferences() {
-    // Path is normalized, so any ".." would have to be at the very start
-    return normalizedPath.startsWith("..");
+    // Path is normalized, so any ".." would have to be the first segment.
+    return normalizedPath.equals("..") || normalizedPath.startsWith(".." + SEPARATOR_CHAR);
   }
 
   /**

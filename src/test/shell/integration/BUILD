@@ -1,3 +1,4 @@
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(default_visibility = ["//visibility:private"])
@@ -33,6 +34,14 @@ filegroup(
         "//src:bazel-bin_nojdk",
         "//src/test/shell:bin/bazel_nojdk",
         "//src/test/shell/bazel:test-deps-wo-bazel",
+    ],
+)
+
+gen_workspace_stanza(
+    name = "rules_proto_stanza",
+    out = "rules_proto_stanza.txt",
+    repos = [
+        "rules_proto",
     ],
 )
 
@@ -355,6 +364,7 @@ sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
+        ":rules_proto_stanza.txt",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],

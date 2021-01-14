@@ -84,6 +84,7 @@ gen_workspace_stanza(
         "remote_java_tools_darwin",
         "rules_cc",
         "rules_java",
+        "rules_proto",
     ],
     template = "jdk.WORKSPACE.tmpl",
     use_maybe = True,
