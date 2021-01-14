@@ -73,6 +73,21 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
+    # TODO(aiuto): Update src/test/java/com/google/devtools/build/lib/blackbox/framework/BlackBoxTestEnvironment.java to use
+    # this dynamically.
+    "rules_proto": {
+        "archive": "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+        "sha256": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
+        "strip_prefix": "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
     #################################################
     #
     # Dependencies which are part of the Bazel binary
@@ -88,6 +103,18 @@ DIST_DEPS = {
         ],
         "patch_args": ["-p1"],
         "patches": ["//third_party/protobuf:3.13.0.patch"],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "protocolbuffers": {
+        "archive": "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+        "sha256": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
+        "urls": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+        ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
@@ -239,7 +266,7 @@ DIST_DEPS = {
     },
     "remote_java_tools_linux": {
         "aliases": ["remote_java_tools_test_linux", "remote_java_tools_linux_for_testing"],
-        "archive": "java_tools_linux-v11.0.zip",
+        "archive": "java_tools_linux-v11.1.zip",
         "sha256": "a0dea21d348c8be94d06fde5a6c18d7691aa659cd56c3f1f932f0a28ae943a23",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_linux-v11.1.zip",
@@ -252,7 +279,7 @@ DIST_DEPS = {
     },
     "remote_java_tools_windows": {
         "aliases": ["remote_java_tools_test_windows", "remote_java_tools_windows_for_testing"],
-        "archive": "java_tools_windows-v11.0.zip",
+        "archive": "java_tools_windows-v11.1.zip",
         "sha256": "ac4d22ce9b10a1d5e46cbae0beb63221d96043d1f3543a729482005481e3e51a",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_windows-v11.1.zip",
@@ -265,7 +292,7 @@ DIST_DEPS = {
     },
     "remote_java_tools_darwin": {
         "aliases": ["remote_java_tools_test_darwin", "remote_java_tools_darwin_for_testing"],
-        "archive": "java_tools_darwin-v11.0.zip",
+        "archive": "java_tools_darwin-v11.1.zip",
         "sha256": "72a2f34806e7f83b111601495c3bd401b96ea1794daa259608481fd4f6a60629",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_darwin-v11.1.zip",

@@ -88,6 +88,7 @@ class CorePackageRenamer extends ClassRemapper {
           !remapper.didSomething
               || !owner.startsWith("android/")
               || owner.startsWith("android/arch/")
+              || owner.startsWith("android/car/")
               || owner.startsWith("android/support/"),
           "%s accesses %s.%s: %s which is not supported with core library desugaring. Please file "
               + "a feature request to support this field",
