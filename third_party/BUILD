@@ -3,6 +3,8 @@ load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "d
 
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [

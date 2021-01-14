@@ -28,7 +28,7 @@ gen_workspace_stanza(
     repos = [
         "rules_cc",
         "rules_java",
-        "rules_pkg",
+        "rules_pkg_for_testing",
     ],
     template = "testenv.sh.tmpl",
     visibility = ["//visibility:public"],

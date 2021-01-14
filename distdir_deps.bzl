@@ -186,6 +186,18 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
+    "rules_pkg_for_testing": {
+        "archive": "rules_pkg-0.2.4.tar.gz",
+        "sha256": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
     # for Stardoc
     "io_bazel_rules_sass": {
         "archive": "1.25.0.zip",
