@@ -434,6 +434,7 @@ filegroup(
         "//src/java_tools/import_deps_checker:srcs",
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/junitrunner/javatests/com/google/testing/coverage:srcs",
+        "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
         "//src/main/res:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
@@ -569,6 +570,7 @@ genrule(
     srcs = [
         "//src/java_tools/buildjar:srcs",
         "//src/java_tools/junitrunner:srcs",
+        "//src/java_tools/singlejar:srcs",
         "//src/tools/singlejar:embedded_java_tools",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
