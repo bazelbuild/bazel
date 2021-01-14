@@ -42,7 +42,8 @@ public class CorePackageRenamerTest {
                 ImmutableList.of("java/time/"),
                 ImmutableList.of(),
                 ImmutableList.of("java/util/A#m->java/time/B"),
-                ImmutableList.of()));
+                ImmutableList.of(),
+                /* retargetConfig= */ null));
     MethodVisitor mv = renamer.visitMethod(0, "test", "()V", null, null);
 
     mv.visitMethodInsn(
@@ -78,7 +79,8 @@ public class CorePackageRenamerTest {
                 ImmutableList.of("java/time/"),
                 ImmutableList.of(),
                 ImmutableList.of(),
-                ImmutableList.of()));
+                ImmutableList.of(),
+                /* retargetConfig= */ null));
     MethodVisitor mv = renamer.visitMethod(0, "test", "()V", null, null);
 
     mv.visitMethodInsn(

@@ -623,7 +623,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
                   Opcodes.INVOKESPECIAL, superName, name, desc, /*itf=*/ false);
           if (emulatedImplementation != null && !emulatedImplementation.isInterface()) {
             receiverName = internalName(emulatedImplementation);
-            owner = checkNotNull(coreLibrarySupport.getMoveTarget(receiverName, name));
+            owner = checkNotNull(coreLibrarySupport.getMoveTarget(receiverName, name, desc));
             calledMethodName = name;
           }
         }
