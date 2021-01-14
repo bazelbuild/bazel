@@ -18,12 +18,26 @@ filegroup(
 java_binary(
     name = "JacocoCoverage",
     srcs = [
+        "JacocoCoverageRunner.java",
+    ],
+    deps = [
+        ":JacocoCoverageLib",
+        ":bitfield",
+        "//third_party:guava",
+        "//third_party/java/jacoco:blaze-agent-0.8.3",
+        "//third_party/java/jacoco:core-0.8.3",
+        "//third_party/java/jacoco:report-0.8.3",
+    ],
+)
+
+java_library(
+    name = "JacocoCoverageLib",
+    srcs = [
         "BranchCoverageDetail.java",
         "BranchDetailAnalyzer.java",
         "BranchExp.java",
         "ClassProbesMapper.java",
         "CovExp.java",
-        "JacocoCoverageRunner.java",
         "JacocoLCOVFormatter.java",
         "MethodProbesMapper.java",
         "ProbeExp.java",
