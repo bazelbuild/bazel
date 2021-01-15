@@ -73,7 +73,7 @@ class TestBase(unittest.TestCase):
       'remote_java_tools_darwin_for_testing',
       'remote_java_tools_linux_for_testing',
       'remote_java_tools_windows_for_testing',
-      'remote_coverage_tools_for_testing',
+      'remote_coverage_tools',
   )
 
   def setUp(self):
