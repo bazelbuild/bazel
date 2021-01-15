@@ -251,6 +251,17 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
+    "remote_coverage_tools": {
+        "archive": "coverage_output_generator-v2.5.zip",
+        "sha256": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
+        "urls": [
+            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
     "remote_java_tools": {
         "aliases": ["remote_java_tools_test", "remote_java_tools_for_testing"],
         "archive": "java_tools-v11.1.zip",
