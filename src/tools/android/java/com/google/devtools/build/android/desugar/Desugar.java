@@ -226,8 +226,8 @@ public class Desugar {
 
     ClassMemberRetargetConfig classMemberRetargetConfig =
         ClassMemberRetargetConfig.builder()
-            .setInvocationReplacementConfigUrl(ClassMemberRetargetConfig.DEFAULT_PROTO_URL)
-            .setEnabledInvocationReplacementRanges(enabledInvocationReplacementRanges)
+            .addInvocationReplacementConfigUrl(ClassMemberRetargetConfig.DEFAULT_PROTO_URL)
+            .addAllEnabledInvocationReplacementRange(enabledInvocationReplacementRanges)
             .build();
 
     try (Closer closer = Closer.create()) {
@@ -301,8 +301,8 @@ public class Desugar {
                   loader,
                   options.rewriteCoreLibraryPrefixes,
                   options.emulateCoreLibraryInterfaces,
-                  options.retargetCoreLibraryMembers,
-                  options.dontTouchCoreLibraryMembers)
+                  options.dontTouchCoreLibraryMembers,
+                  classMemberRetargetConfig)
               : null;
 
       InvocationSiteTransformationRecordBuilder callSiteTransCollector =
