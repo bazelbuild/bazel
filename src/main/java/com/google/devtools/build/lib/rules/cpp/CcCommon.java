@@ -889,6 +889,12 @@ public final class CcCommon {
             && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
         }
+
+        // Support implicit enabling of split functions for FDO unless it has been disabled.
+        if (toolchain.isLLVMCompiler()
+            && !allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FDO_SPLIT_FUNCTIONS);
+        }
       }
       if (branchFdoProvider.isLlvmCSFdo()) {
         allFeatures.add(CppRuleClasses.CS_FDO_OPTIMIZE);

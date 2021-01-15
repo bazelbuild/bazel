@@ -68,6 +68,9 @@ _FEATURE_NAMES = struct(
     xbinaryfdo = "xbinaryfdo",
     fdo_optimize = "fdo_optimize",
     fdo_implicit_thinlto = "fdo_implicit_thinlto",
+    split_functions = "split_functions",
+    enable_fdo_split_functions = "enable_fdo_split_functions",
+    fdo_split_functions = "fdo_split_functions",
     fdo_instrument = "fdo_instrument",
     supports_pic = "supports_pic",
     copy_dynamic_libraries_to_binary = "copy_dynamic_libraries_to_binary",
@@ -580,6 +583,33 @@ _enable_xbinaryfdo_thinlto_feature = feature(
 )
 
 _xbinaryfdo_implicit_thinlto_feature = feature(name = _FEATURE_NAMES.xbinaryfdo_implicit_thinlto)
+
+_split_functions_feature = feature(
+    name = _FEATURE_NAMES.split_functions,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.lto_backend,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = ["-fsplit-machine-functions"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_enable_fdo_split_functions_feature = feature(
+    name = _FEATURE_NAMES.enable_fdo_split_functions,
+    requires = [feature_set(features = ["fdo_split_functions"])],
+    implies = ["split_functions"],
+)
+
+_fdo_split_functions_feature = feature(name = _FEATURE_NAMES.fdo_split_functions)
 
 _native_deps_link_feature = feature(
     name = _FEATURE_NAMES.native_deps_link,
@@ -1199,6 +1229,9 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.autofdo_implicit_thinlto: _autofdo_implicit_thinlto_feature,
     _FEATURE_NAMES.enable_fdo_thinlto: _enable_fdo_thin_lto_feature,
     _FEATURE_NAMES.fdo_implicit_thinlto: _fdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.split_functions: _split_functions_feature,
+    _FEATURE_NAMES.enable_fdo_split_functions: _enable_fdo_split_functions_feature,
+    _FEATURE_NAMES.fdo_split_functions: _fdo_split_functions_feature,
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
     _FEATURE_NAMES.native_deps_link: _native_deps_link_feature,
