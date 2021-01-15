@@ -614,7 +614,7 @@ replacements {
 }
 
 replacements {
-   source {
+  source {
     opcode: 184
     method_id {
       owner: "java/lang/Long"
@@ -1052,20 +1052,23 @@ replacements {
 
 replacements {
   source {
+    opcode: 182
     method_id {
       owner: "java/util/LinkedHashSet"
       name: "spliterator"
+      desc: "()Ljava/util/Spliterator;"
     }
   }
   destination {
+    opcode: 184
     method_id {
       owner: "java/util/DesugarLinkedHashSet"
       name: "spliterator"
+      desc: "(Ljava/util/LinkedHashSet;)Ljava/util/Spliterator;"
     }
   }
-  range: DESUGAR_JAVA8_LIBS
   range: DESUGAR_JAVA8_CORE_LIBS
-  auto_deduce_opcode_and_desc: true
+  range: DESUGAR_JAVA8_LIBS
 }
 
 replacements {
@@ -1087,6 +1090,26 @@ replacements {
   }
   range: DESUGAR_JAVA8_LIBS
   range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/util/TimeZone"
+      name: "getTimeZone"
+      desc: "(Ljava/lang/String;)Ljava/util/TimeZone;"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/util/DesugarTimeZone"
+      name: "getTimeZone"
+      desc: "(Ljava/lang/String;)Ljava/util/TimeZone;"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
 }
 
 replacements {

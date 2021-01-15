@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
@@ -29,6 +30,7 @@ import com.google.protobuf.TextFormat;
 import java.io.IOError;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -44,7 +46,9 @@ public abstract class ClassMemberRetargetConfig {
       ClassMemberRetargetConfig.class.getResource("retarget_config.textproto");
 
   /** The configuration file that defines class member retargeting. */
-  abstract URL invocationReplacementConfigUrl();
+  abstract ImmutableList<URL> invocationReplacementConfigUrls();
+
+  abstract ImmutableList<MethodInvocationReplacement> inProcessReplacements();
 
   /**
    * The enabled configuration flags for invocation replacements. A replacement takes effect if and
@@ -59,20 +63,27 @@ public abstract class ClassMemberRetargetConfig {
 
   @Memoized
   MethodInvocations invocationReplacementConfigProto() {
+    MethodInvocations.Builder invocationReplacementsBuilder = MethodInvocations.newBuilder();
     try {
-      String protoText = Resources.toString(invocationReplacementConfigUrl(), UTF_8);
-      return TextFormat.parse(
-          protoText, ExtensionRegistry.getEmptyRegistry(), MethodInvocations.class);
+      for (URL url : invocationReplacementConfigUrls()) {
+        String protoText = Resources.toString(url, UTF_8);
+        MethodInvocations methodInvocations =
+            TextFormat.parse(
+                protoText, ExtensionRegistry.getEmptyRegistry(), MethodInvocations.class);
+        invocationReplacementsBuilder.mergeFrom(methodInvocations);
+      }
+      invocationReplacementsBuilder.addAllReplacements(inProcessReplacements());
+      return invocationReplacementsBuilder.build();
     } catch (IOException e) {
       throw new IOError(e);
     }
   }
 
   /**
-   * The parsed invocation replacement configuration from {@link #invocationReplacementConfigUrl}.
+   * The parsed invocation replacement configuration from {@link #invocationReplacementConfigUrls}.
    */
   @Memoized
-  ImmutableMap<MethodInvocationSite, MethodInvocationSite> invocationReplacements() {
+  public ImmutableMap<MethodInvocationSite, MethodInvocationSite> invocationReplacements() {
     ImmutableMap.Builder<MethodInvocationSite, MethodInvocationSite> replacementsBuilder =
         ImmutableMap.builder();
     for (MethodInvocationReplacement replacement :
@@ -98,10 +109,33 @@ public abstract class ClassMemberRetargetConfig {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    public abstract Builder setInvocationReplacementConfigUrl(URL value);
+    public abstract ImmutableList.Builder<URL> invocationReplacementConfigUrlsBuilder();
 
-    public abstract Builder setEnabledInvocationReplacementRanges(
-        ImmutableSet<ReplacementRange> value);
+    public abstract ImmutableList.Builder<MethodInvocationReplacement>
+        inProcessReplacementsBuilder();
+
+    public abstract ImmutableSet.Builder<ReplacementRange>
+        enabledInvocationReplacementRangesBuilder();
+
+    public Builder addInvocationReplacementConfigUrl(URL value) {
+      invocationReplacementConfigUrlsBuilder().add(value);
+      return this;
+    }
+
+    public Builder addInProcessReplacement(MethodInvocationReplacement value) {
+      inProcessReplacementsBuilder().add(value);
+      return this;
+    }
+
+    public Builder addEnabledInvocationReplacementRange(ReplacementRange value) {
+      enabledInvocationReplacementRangesBuilder().add(value);
+      return this;
+    }
+
+    public Builder addAllEnabledInvocationReplacementRange(Collection<ReplacementRange> value) {
+      enabledInvocationReplacementRangesBuilder().addAll(value);
+      return this;
+    }
 
     public abstract ClassMemberRetargetConfig build();
   }

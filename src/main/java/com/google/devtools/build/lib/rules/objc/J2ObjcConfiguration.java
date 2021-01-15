@@ -42,8 +42,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    * J2ObjcCommandLineOptions}. See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS =
-      ImmutableList.of(
-          "-encoding", "UTF-8", "--doc-comments", "-XcombineJars", "-XDinjectLogSites=true");
+      ImmutableList.of("-encoding", "UTF-8", "--doc-comments", "-XcombineJars");
 
   /**
    * Default flags for J2ObjC translation. These flags are used by default when invoking the J2ObjC

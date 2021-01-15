@@ -19,8 +19,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -55,7 +56,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -70,6 +70,9 @@ import java.util.concurrent.Future;
  * </pre>
  */
 public class LegacyIncludeScanner implements IncludeScanner {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final class ArtifactWithInclusionContext {
     private final Artifact artifact;
     private final Kind contextKind;
@@ -764,31 +767,45 @@ public class LegacyIncludeScanner implements IncludeScanner {
       checkForInterrupt("processing", source);
 
       Collection<Inclusion> inclusions;
-      SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
-      Future<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
-      if (previous == null) {
-        previous = future;
-        try {
-          future.set(
-              parser.extractInclusions(
-                  source,
-                  actionExecutionMetadata,
-                  actionExecutionContext,
-                  grepIncludes,
-                  spawnIncludeScannerSupplier.get(),
-                  isRealOutputFile(source.getExecPath())));
-        } catch (Throwable t) {
-          future.setException(t);
-          fileParseCache.remove(source);
-          throw t;
-        }
-      }
       try {
-        inclusions = previous.get();
-      } catch (ExecutionException e) {
-        Throwables.propagateIfPossible(e.getCause(), IOException.class, InterruptedException.class);
-        Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
-        throw new IllegalStateException(e.getCause());
+        inclusions =
+            fileParseCache
+                .computeIfAbsent(
+                    source,
+                    file -> {
+                      try {
+                        return Futures.immediateFuture(
+                            parser.extractInclusions(
+                                file,
+                                actionExecutionMetadata,
+                                actionExecutionContext,
+                                grepIncludes,
+                                spawnIncludeScannerSupplier.get(),
+                                isRealOutputFile(source.getExecPath())));
+                      } catch (IOException e) {
+                        throw new IORuntimeException(e);
+                      } catch (ExecException e) {
+                        throw new ExecRuntimeException(e);
+                      } catch (InterruptedException e) {
+                        throw new InterruptedRuntimeException(e);
+                      }
+                    })
+                .get();
+      } catch (ExecutionException ee) {
+        try {
+          Throwables.throwIfInstanceOf(ee.getCause(), RuntimeException.class);
+          throw new IllegalStateException(ee.getCause());
+        } catch (IORuntimeException e) {
+          throw e.getCauseIOException();
+        } catch (ExecRuntimeException e) {
+          throw e.getRealCause();
+        } catch (InterruptedRuntimeException e) {
+          throw e.getRealCause();
+        }
+      } catch (RuntimeException e) {
+        // TODO(b/175294870): Remove after diagnosing the bug.
+        logger.atSevere().withCause(e).log("Uncaught exception in call to extractInclusions");
+        throw e;
       }
       Preconditions.checkNotNull(inclusions, source);
 
