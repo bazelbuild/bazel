@@ -674,6 +674,7 @@ java_import(
     jars = ["truth/truth-1.0.1.jar"],
     exports = [
         ":truth8",
+        ":truth_proto",
     ],
     deps = [
         ":diffutils",
@@ -683,6 +684,11 @@ java_import(
 java_import(
     name = "truth8",
     jars = ["truth8/truth-java8-extension-1.0.1.jar"],
+)
+
+java_import(
+    name = "truth_proto",
+    jars = ["truth_proto/truth-proto-extension-1.0.1.jar"],
 )
 
 distrib_java_import(
