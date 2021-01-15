@@ -713,7 +713,7 @@ filegroup(
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_x86_64_minimal//file",
         "@openjdk_win_minimal//file",
-        "@remote_coverage_tools_for_testing//:WORKSPACE",
+        "@remote_coverage_tools//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",
         "@remote_java_tools_for_testing//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
