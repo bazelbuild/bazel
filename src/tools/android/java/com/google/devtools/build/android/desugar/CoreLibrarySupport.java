@@ -20,9 +20,7 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Stream.concat;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
@@ -65,8 +63,6 @@ class CoreLibrarySupport {
   private final ImmutableSet<String> excludeFromEmulation;
   /** Internal names of interfaces whose default and static interface methods we'll emulate. */
   private final ImmutableSet<Class<?>> emulatedInterfaces;
-  /** Map from {@code owner#name} core library members to their new owners. */
-  private final ImmutableMap<String, String> memberMoves;
 
   private final ClassMemberRetargetConfig retargetConfig;
 
@@ -90,7 +86,6 @@ class CoreLibrarySupport {
       ClassLoader targetLoader,
       List<String> renamedPrefixes,
       List<String> emulatedInterfaces,
-      List<String> memberMoves,
       List<String> excludeFromEmulation,
       ClassMemberRetargetConfig retargetConfig) {
     this.rewriter = rewriter;
@@ -112,41 +107,6 @@ class CoreLibrarySupport {
       classBuilder.add(clazz);
     }
     this.emulatedInterfaces = classBuilder.build();
-
-    // We can call isRenamed and rename below b/c we initialized the necessary fields above
-    // Use LinkedHashMap to tolerate identical duplicates
-    // TODO(kmb): Make map parsing code more reusable
-    LinkedHashMap<String, String> mapBuilder = new LinkedHashMap<>();
-    Splitter splitter = Splitter.on("->").trimResults().omitEmptyStrings();
-    for (String move : memberMoves) {
-      List<String> pair = splitter.splitToList(move);
-      checkArgument(pair.size() == 2, "Doesn't split as expected: %s", move);
-      int sep = pair.get(0).indexOf('#');
-      checkArgument(sep > 0 && sep == pair.get(0).lastIndexOf('#'), "invalid member: %s", move);
-      checkArgument(
-          !isRenamedCoreLibrary(pair.get(0).substring(0, sep)),
-          "Original renamed, no need to move it: %s",
-          move);
-      checkArgument(
-          !(pair.get(1).startsWith("java/") || pair.get(1).startsWith("javadesugar/"))
-              || isRenamedCoreLibrary(pair.get(1)),
-          "Core library target not renamed: %s",
-          move);
-      checkArgument(
-          !this.excludeFromEmulation.contains(pair.get(0)),
-          "Retargeted invocation %s shouldn't overlap with excluded",
-          move);
-
-      String value = renameCoreLibrary(pair.get(1));
-      String existing = mapBuilder.put(pair.get(0), value);
-      checkArgument(
-          existing == null || existing.equals(value),
-          "Two move destinations %s and %s configured for %s",
-          existing,
-          value,
-          pair.get(0));
-    }
-    this.memberMoves = ImmutableMap.copyOf(mapBuilder);
   }
 
   public boolean isRenamedCoreLibrary(String internalName) {
@@ -413,7 +373,6 @@ class CoreLibrarySupport {
 
   private ImmutableList<Class<?>> findCustomOverrides(Class<?> root, String methodName) {
     ImmutableList.Builder<Class<?>> customOverrides = ImmutableList.builder();
-    // for (ImmutableMap.Entry<String, String> move : memberMoves.entrySet()) {
     for (Map.Entry<MethodInvocationSite, MethodInvocationSite> move :
         retargetConfig.invocationReplacements().entrySet()) {
       // move.getKey is a string <owner>#<name> which we validated in the constructor.

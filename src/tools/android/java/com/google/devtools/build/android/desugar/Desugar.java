@@ -301,7 +301,6 @@ public class Desugar {
                   loader,
                   options.rewriteCoreLibraryPrefixes,
                   options.emulateCoreLibraryInterfaces,
-                  options.retargetCoreLibraryMembers,
                   options.dontTouchCoreLibraryMembers,
                   classMemberRetargetConfig)
               : null;
