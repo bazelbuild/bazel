@@ -551,7 +551,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /** Metadata for remotely stored files. */
-  public static final class RemoteFileArtifactValue extends FileArtifactValue {
+  public static class RemoteFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     private final long size;
     private final int locationIndex;

@@ -198,7 +198,7 @@ public class MerkleTree {
     return FileNode.newBuilder()
         .setName(file.getPathSegment())
         .setDigest(file.getDigest())
-        .setIsExecutable(true)
+        .setIsExecutable(file.isExecutable())
         .build();
   }
 

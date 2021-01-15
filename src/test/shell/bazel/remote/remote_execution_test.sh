@@ -2159,6 +2159,28 @@ EOF
     @local_foo//:all
 }
 
+function test_remote_input_files_executable_bit() {
+  # Test that input files uploaded to remote executor have the same executable bit with local files. #12818
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+genrule(
+  name = "test",
+  srcs = ["foo.txt", "bar.sh"],
+  outs = ["out.txt"],
+  cmd = "ls -l $(SRCS); touch $@",
+)
+EOF
+  touch foo.txt bar.sh
+  chmod a+x bar.sh
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //:test >& $TEST_log || fail "Failed to build //:test"
+
+  expect_log "-rwxr--r-- .* bar.sh"
+  expect_log "-rw-r--r-- .* foo.txt"
+}
+
 function test_exclusive_tag() {
   # Test that the exclusive tag works with the remote cache.
   mkdir -p a
