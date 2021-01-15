@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -101,6 +102,64 @@ public class NinjaGraphTest extends BuildViewTestCase {
         .containsExactly(PathFragment.create("build_config/input.txt"));
     assertThat(target.getAllOutputs())
         .containsExactly(PathFragment.create("build_config/hello.txt"));
+  }
+
+  @Test
+  public void testNinjaGraphRuleWithOutputRootInputDirs() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
+
+    scratch.file("build_config/input.txt", "One");
+    scratch.file("build_config/deps/source_files/input2.txt", "Two");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule echo",
+        "  command = echo \"$$(cat ${in})!\" > ${out}",
+        "build build_config/output.txt: echo build_config/input.txt "
+            + "build_config/deps/source_files/input2.txt");
+
+    // Working directory is workspace root.
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "graph",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " main = 'build_config/build.ninja',",
+            " output_root_input_dirs = ['deps/source_files'],",
+            " output_root_inputs = ['input.txt'])");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(2);
+    assertThat(
+            actions.stream()
+                .map(a -> ((SymlinkAction) a).getInputPath())
+                .collect(toImmutableList()))
+        .containsExactly(
+            PathFragment.create("/workspace/build_config/input.txt"),
+            PathFragment.create("/workspace/build_config/deps/source_files/input2.txt"));
+
+    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
+    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(provider.getPhonyTargetsMap()).isEmpty();
+
+    assertThat(provider.getOutputRootInputsSymlinks()).hasSize(2);
+    assertThat(provider.getOutputRootInputsSymlinks())
+        .containsExactly(
+            PathFragment.create("build_config/input.txt"),
+            PathFragment.create("build_config/deps/source_files/input2.txt"));
+
+    assertThat(provider.getTargetsMap()).hasSize(1);
+    NinjaTarget target = Iterables.getOnlyElement(provider.getTargetsMap().values());
+    assertThat(target.getRuleName()).isEqualTo("echo");
+    assertThat(target.getAllInputs())
+        .containsExactly(
+            PathFragment.create("build_config/input.txt"),
+            PathFragment.create("build_config/deps/source_files/input2.txt"));
+    assertThat(target.getAllOutputs())
+        .containsExactly(PathFragment.create("build_config/output.txt"));
   }
 
   @Test
