@@ -277,6 +277,12 @@ public class CppRuleClasses {
    */
   public static final String ENABLE_XFDO_THINLTO = "enable_xbinaryfdo_thinlto";
 
+  /** A string constant for the split functions feature. */
+  public static final String SPLIT_FUNCTIONS = "split_functions";
+
+  /** A string constant for enabling split functions for FDO implicitly. */
+  public static final String ENABLE_FDO_SPLIT_FUNCTIONS = "enable_fdo_split_functions";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.

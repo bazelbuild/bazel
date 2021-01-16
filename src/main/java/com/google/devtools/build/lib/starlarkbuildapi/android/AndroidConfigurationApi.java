@@ -241,4 +241,7 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   boolean incompatibleUseToolchainResolution();
+
+  @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
+  boolean isHwasan();
 }

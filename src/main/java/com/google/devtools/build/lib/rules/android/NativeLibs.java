@@ -56,7 +56,9 @@ public final class NativeLibs {
   private static String getLibDirName(ConfiguredTargetAndData dep) {
     BuildConfiguration configuration = dep.getConfiguration();
     String name = configuration.getFragment(AndroidConfiguration.class).getCpu();
-    name += configuration.getFatApkSplitSanitizer().androidLibDirSuffix;
+    if (configuration.getFragment(AndroidConfiguration.class).isHwasan()) {
+      name += "-hwasan";
+    }
     return name;
   }
 

@@ -4734,8 +4734,6 @@ def _impl(ctx):
         ],
     )
 
-    supports_dynamic_linker_feature = feature(name = "supports_dynamic_linker", enabled = True)
-
     objc_actions_feature = feature(
         name = "objc_actions",
         implies = [
@@ -6243,7 +6241,6 @@ def _impl(ctx):
             linker_param_file_feature,
             compiler_input_flags_feature,
             compiler_output_flags_feature,
-            supports_dynamic_linker_feature,
             objcopy_embed_flags_feature,
             dynamic_linking_mode_feature,
             set_install_name,

@@ -84,6 +84,10 @@ public abstract class MockCcSupport {
 
   public static final String XFDO_IMPLICIT_THINLTO = "xbinaryfdo_implicit_thinlto";
 
+  public static final String FDO_SPLIT_FUNCTIONS = "fdo_split_functions";
+
+  public static final String SPLIT_FUNCTIONS = "split_functions";
+
   public static final ImmutableList<String> STATIC_LINK_TWEAKED_ARTIFACT_NAME_PATTERN =
       ImmutableList.of("static_library", "lib", ".lib");
 
