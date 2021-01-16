@@ -910,10 +910,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.autoCpuEnvironmentGroup;
   }
 
-  public CoreOptions.FatApkSplitSanitizer getFatApkSplitSanitizer() {
-    return options.fatApkSplitSanitizer;
-  }
-
   public Class<? extends Fragment> getStarlarkFragmentByName(String name) {
     return starlarkVisibleFragments.get(name);
   }

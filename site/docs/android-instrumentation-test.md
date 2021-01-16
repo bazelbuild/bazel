@@ -218,7 +218,7 @@ Maven](https://maven.google.com) or [Maven Central](https://central.maven.org),
 we recommend using a Maven resolver like
 [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external).
 
-For the rest of this documentation, we will be using `rules_jvm_external` to
+The rest of this page shows how to use `rules_jvm_external` to
 resolve and fetch dependencies from Maven repositories.
 
 # Choosing an android_device target

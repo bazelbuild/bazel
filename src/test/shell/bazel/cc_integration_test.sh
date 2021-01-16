@@ -660,6 +660,10 @@ EOF
 }
 
 function test_aspect_accessing_args_link_action_with_tree_artifact() {
+  # This test assumes the presence of "nodeps" dynamic libraries, which do not
+  # function on Apple platforms.
+  [ "$PLATFORM" != "darwin" ] || return 0
+
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
   cat > "${package}/makes_tree_artifacts.sh" <<EOF
@@ -739,6 +743,10 @@ EOF
 }
 
 function test_directory_arg_compile_action() {
+  # This test assumes the presence of "nodeps" dynamic libraries, which do not
+  # function on Apple platforms.
+  [ "$PLATFORM" != "darwin" ] || return 0
+
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
