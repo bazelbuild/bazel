@@ -13,7 +13,7 @@ GitHub repositories.
 
 ## Prerequisites
 
-Before completing the steps in this document, ensure the following:
+Before completing the steps on this page, ensure the following:
 
 *   Your GitHub repository is part of the
     [Bazel GitHub organization](https://github.com/bazelbuild).
@@ -70,7 +70,7 @@ If your build or tests fail, it's likely due to the following:
     your rules require tools not present in the default container, you must
     create a custom container based on the
     [`rbe-ubuntu16-04`](https://console.cloud.google.com/marketplace/details/google/rbe-ubuntu16-04)
-    container and include those tools as described later in this document.
+    container and include those tools as described later.
 
 *   **Build or test targets are using rules that are incompatible with remote
     execution.** See
@@ -185,7 +185,7 @@ Container Registry as follows:
     ````
 
 4.  Take note of the SHA256 checksum of your custom container. You will need to
-    provide it in your build platform definition later in this document.
+    provide it in your build platform definition later.
 
 5.  Configure the container for public access as described in  publicly
     accessible as explained in
