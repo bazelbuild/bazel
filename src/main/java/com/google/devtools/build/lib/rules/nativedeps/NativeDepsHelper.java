@@ -217,10 +217,6 @@ public abstract class NativeDepsHelper {
     if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
       requestedFeaturesBuilder.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
     }
-    final String sanitizerFeature = configuration.getFatApkSplitSanitizer().feature;
-    if (sanitizerFeature != null && !ruleContext.getDisabledFeatures().contains(sanitizerFeature)) {
-      requestedFeaturesBuilder.add(sanitizerFeature);
-    }
     ImmutableSortedSet<String> requestedFeatures = requestedFeaturesBuilder.build();
 
     FeatureConfiguration featureConfiguration =

@@ -294,9 +294,6 @@ public final class RuleContext extends TargetContext
     Set<String> globallyEnabled = new HashSet<>();
     Set<String> globallyDisabled = new HashSet<>();
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
-    if (getConfiguration().getFatApkSplitSanitizer().feature != null) {
-      globallyEnabled.add(getConfiguration().getFatApkSplitSanitizer().feature);
-    }
     Set<String> packageEnabled = new HashSet<>();
     Set<String> packageDisabled = new HashSet<>();
     parseFeatures(getRule().getPackage().getFeatures(), packageEnabled, packageDisabled);

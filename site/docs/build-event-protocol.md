@@ -54,9 +54,7 @@ network transport, some announced build events may never be posted.
 ## Build Event Protocol example
 
 The full specification of the Build Event Protocol can be found in its protocol
-buffer definition and describing it here is beyond the scope of this document.
-However, it might be helpful to build up some intuition before looking at the
-specification.
+buffer definition. However, it might be helpful to build up some intuition before looking at the specification.
 
 Consider a simple Bazel workspace that consists of two empty shell scripts
 `foo.sh` and `foo_test.sh` and the following BUILD file:

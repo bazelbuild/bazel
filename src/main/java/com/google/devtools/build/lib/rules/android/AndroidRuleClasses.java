@@ -298,15 +298,14 @@ public final class AndroidRuleClasses {
           if (cpu.equals("arm64-v8a") && androidOptions.fatApkHwasan) {
             BuildOptionsView hwasanSplitOptions = splitOptions.clone();
 
-            // Setting the fatApkSplitSanitizer has these consequences:
-            // - changes the native library install directory to lib/arm64-v8a-hwasan
-            // - adds "hwasan" to the default feature set such that it gets removed when
-            //   transitioning to host or exec configurations as a consequence of
-            //   CoreOptions.getHost() not copying the fatApkSplitSanitizer field (which rules out
-            //   adding it to defaultFeatures, which gets copied).
-            hwasanSplitOptions.get(CoreOptions.class).fatApkSplitSanitizer =
-                CoreOptions.FatApkSplitSanitizer.HWASAN;
-
+            // A HWASAN build is different from a regular one in these ways:
+            // - The native library install directory gets a "-hwasan" suffix
+            // - Some compiler/linker command line options are different (defined in the Android C++
+            //   toolchain)
+            // - The name of the output directory is changed so that HWASAN and non-HWASAN artifacts
+            //   do not conflict
+            hwasanSplitOptions.get(CppOptions.class).outputDirectoryTag = "hwasan";
+            hwasanSplitOptions.get(AndroidConfiguration.Options.class).hwasan = true;
             result.put(cpu + "-hwasan", hwasanSplitOptions.underlying());
           }
         }

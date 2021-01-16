@@ -181,8 +181,6 @@ public final class CppConfiguration extends Fragment
 
   private final boolean appleGenerateDsym;
 
-  private final CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer;
-
   public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
@@ -289,7 +287,6 @@ public final class CppConfiguration extends Fragment
     this.appleGenerateDsym =
         (cppOptions.appleGenerateDsym
             || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
-    this.fatApkSplitSanitizer = commonOptions.fatApkSplitSanitizer;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -532,9 +529,6 @@ public final class CppConfiguration extends Fragment
   @Override
   public String getOutputDirectoryName() {
     String result = cpu;
-    if (fatApkSplitSanitizer.feature != null) {
-      result += "-" + fatApkSplitSanitizer.feature;
-    }
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       result += "-" + cppOptions.outputDirectoryTag;
     }

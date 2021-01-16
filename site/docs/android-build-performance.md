@@ -5,7 +5,7 @@ title: Android Build Performance
 
 # Android Build Performance
 
-This document contains information on optimizing build performance for Android
+This page contains information on optimizing build performance for Android
 apps specifically. For general build performance optimization with Bazel, see
 [Optimizing Performance](skylark/performance.html).
 

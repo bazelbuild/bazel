@@ -1159,7 +1159,6 @@ def _impl(ctx):
         features = [
             default_compile_flags_feature,
             default_link_flags_feature,
-            supports_dynamic_linker_feature,
             supports_pic_feature,
             objcopy_embed_flags_feature,
             dbg_feature,

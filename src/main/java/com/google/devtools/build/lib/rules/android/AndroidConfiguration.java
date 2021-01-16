@@ -764,6 +764,15 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean incompatibleUseToolchainResolution;
 
     @Option(
+        name = "android hwasan", // Space is so that this cannot be set on the command line
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        help = "Whether HWASAN is enabled.")
+    public boolean hwasan;
+
+    @Option(
         name = "experimental_filter_r_jars_from_android_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -929,6 +938,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
+      host.hwasan = false;
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
@@ -1007,6 +1017,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
+  private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
@@ -1066,6 +1077,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
+    this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
@@ -1302,6 +1314,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean incompatibleUseToolchainResolution() {
     return incompatibleUseToolchainResolution;
+  }
+
+  @Override
+  public boolean isHwasan() {
+    return hwasan;
   }
 
   @Override
