@@ -157,6 +157,7 @@ public abstract class FoundationTestCase {
         "    },",
         "    tools = [':javac_canary.jar'],",
         "    javabuilder = [':JavaBuilder_deploy.jar'],",
+        "    jacocorunner = ':jacocorunner.jar',",
         "    header_compiler = [':turbine_canary_deploy.jar'],",
         "    header_compiler_direct = [':turbine_graal'],",
         "    singlejar = ['SingleJar_deploy.jar'],",
