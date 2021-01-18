@@ -419,18 +419,45 @@ py_test(
     ],
 )
 
+# Aliases for JDKs, so that they are only downloaded when needed. Do not use,
+# the aliases are only temporary.
+_JDKS = [
+    "remotejdk11_macos",
+    "remotejdk11_win",
+    "remotejdk11_linux_aarch64",
+    "remotejdk11_win",
+    "remotejdk11_linux",
+    "remotejdk11_linux_ppc64le",
+    "remotejdk11_linux_s390x",
+    "remotejdk14_macos",
+    "remotejdk14_win",
+    "remotejdk14_linux",
+    "remotejdk15_macos",
+    "remotejdk15_win",
+    "remotejdk15_linux",
+]
+
+[
+    alias(
+        name = JDK,
+        actual = "@%s//:jdk" % JDK,
+        deprecation = "Only to support Java plaformization transition",
+    )
+    for JDK in _JDKS
+]
+
 # A JDK 11 for use as a --host_javabase.
 java_runtime_version_alias(
     name = "remote_jdk11",
     runtime_version = "remotejdk_11",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk11_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
-            "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
-            "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
+            "//src/conditions:darwin": ":remotejdk11_macos",
+            "//src/conditions:windows": ":remotejdk11_win",
+            "//src/conditions:linux_aarch64": ":remotejdk11_linux_aarch64",
+            "//src/conditions:linux_x86_64": ":remotejdk11_linux",
+            "//src/conditions:linux_ppc64le": ":remotejdk11_linux_ppc64le",
+            "//src/conditions:linux_s390x": ":remotejdk11_linux_s390x",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
@@ -443,9 +470,9 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_14",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": "@remotejdk14_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk14_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk14_linux//:jdk",
+            "//src/conditions:darwin": ":remotejdk14_macos",
+            "//src/conditions:windows": ":remotejdk14_win",
+            "//src/conditions:linux_x86_64": ":remotejdk14_linux",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
@@ -458,9 +485,9 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_15",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": "@remotejdk15_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk15_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk15_linux//:jdk",
+            "//src/conditions:darwin": ":remotejdk15_macos",
+            "//src/conditions:windows": ":remotejdk15_win",
+            "//src/conditions:linux_x86_64": ":remotejdk15_linux",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
