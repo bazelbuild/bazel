@@ -419,8 +419,7 @@ py_test(
     ],
 )
 
-# Aliases for JDKs, so that they are only downloaded when needed. Do not use,
-# the aliases are only temporary.
+# Aliases for JDKs, so that they are only downloaded when needed.
 _JDKS = [
     "remotejdk11_macos",
     "remotejdk11_win",
@@ -441,7 +440,7 @@ _JDKS = [
     alias(
         name = JDK,
         actual = "@%s//:jdk" % JDK,
-        deprecation = "Only to support Java plaformization transition",
+        visibility = ["//visibility:private"],
     )
     for JDK in _JDKS
 ]
