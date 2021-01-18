@@ -145,6 +145,26 @@ config_setting(
     values = {"define": "EXECUTOR=remote"},
 )
 
+[
+    (
+        alias(
+            name = "ijar_prebuilt_binary_%s" % OS,
+            actual = "@remote_java_tools_%s//:ijar_prebuilt_binary" % OS,
+            visibility = ["//visibility:private"],
+        ),
+        alias(
+            name = "prebuilt_singlejar_%s" % OS,
+            actual = "@remote_java_tools_%s//:prebuilt_singlejar" % OS,
+            visibility = ["//visibility:private"],
+        ),
+    )
+    for OS in [
+        "linux",
+        "darwin",
+        "windows",
+    ]
+]
+
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
@@ -159,9 +179,9 @@ alias(
 alias(
     name = "ijar_prebuilt_binary_or_cc_binary",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:ijar_prebuilt_binary",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:ijar_prebuilt_binary",
-        "//src/conditions:windows": "@remote_java_tools_windows//:ijar_prebuilt_binary",
+        "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
+        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
         "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
     }),
 )
@@ -169,9 +189,9 @@ alias(
 alias(
     name = "ijar_prebuilt_binary",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:ijar_prebuilt_binary",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:ijar_prebuilt_binary",
-        "//src/conditions:windows": "@remote_java_tools_windows//:ijar_prebuilt_binary",
+        "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
+        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
     }),
 )
 
@@ -192,9 +212,9 @@ alias(
 alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
-        "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
+        "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
+        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:windows": ":prebuilt_singlejar_windows",
         "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
 )
@@ -202,9 +222,9 @@ alias(
 alias(
     name = "prebuilt_singlejar",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
-        "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
+        "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
+        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:windows": ":prebuilt_singlejar_windows",
     }),
 )
 
@@ -424,7 +444,6 @@ _JDKS = [
     "remotejdk11_macos",
     "remotejdk11_win",
     "remotejdk11_linux_aarch64",
-    "remotejdk11_win",
     "remotejdk11_linux",
     "remotejdk11_linux_ppc64le",
     "remotejdk11_linux_s390x",
