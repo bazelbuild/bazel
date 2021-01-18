@@ -193,4 +193,24 @@ final class WorkerPool {
     workerPools.values().forEach(GenericKeyedObjectPool::close);
     multiplexPools.values().forEach(GenericKeyedObjectPool::close);
   }
+
+  /** Stops any ongoing work in the worker pools. This may entail killing the worker processes. */
+  public void stopWork() {
+    workerPools
+        .values()
+        .forEach(
+            pool -> {
+              if (pool.getNumActive() > 0) {
+                pool.clear();
+              }
+            });
+    multiplexPools
+        .values()
+        .forEach(
+            pool -> {
+              if (pool.getNumActive() > 0) {
+                pool.clear();
+              }
+            });
+  }
 }
