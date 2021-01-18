@@ -15,8 +15,6 @@ load(
     "java_runtime_alias",
     "java_runtime_version_alias",
     "java_toolchain_alias",
-    "legacy_java_runtime_alias",
-    "legacy_java_toolchain_alias",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
@@ -37,14 +35,6 @@ java_host_runtime_alias(name = "current_host_java_runtime")
 
 # Points to toolchain[":toolchain_type"] (was :legacy_current_java_toolchain)
 java_toolchain_alias(name = "current_java_toolchain")
-
-# This exists to support the migration to toolchain resolution.
-# TODO(cushon): delete once the migration is complete.
-# Points to --javabase/--host_javabase, defaults ":jdk"/":remote_jdk11"
-legacy_java_runtime_alias(name = "legacy_current_java_runtime")
-
-# Points to --java_toolchain/--host_java_toolchain, defaults ":toolchain"/":remote_toolchain"
-legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
 # This is necessary to get the *host* Java runtime. Depending on
 # //tools/jdk:current_java_runtime from an attribute with the host transition
@@ -423,54 +413,23 @@ py_test(
 java_runtime_version_alias(
     name = "remote_jdk11",
     runtime_version = "remotejdk_11",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk11_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
-            "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
-            "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
     name = "remotejdk_14",
     runtime_version = "remotejdk_14",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk14_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk14_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk14_linux//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
     name = "remotejdk_15",
     runtime_version = "remotejdk_15",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk15_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk15_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk15_linux//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
     name = "jdk_8",
     runtime_version = "8",
-    selected_java_runtime = ":legacy_current_java_runtime",
     visibility = ["//visibility:public"],
 )
