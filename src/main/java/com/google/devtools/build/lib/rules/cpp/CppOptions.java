@@ -1142,6 +1142,7 @@ public class CppOptions extends FragmentOptions {
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
     host.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
+    host.strictSystemIncludes = strictSystemIncludes;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
