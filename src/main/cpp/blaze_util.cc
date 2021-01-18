@@ -82,12 +82,6 @@ std::vector<std::string> SearchNaryOption(const vector<string>& args,
   for (vector<string>::size_type i = 0; i < args.size(); ++i) {
     if (args[i] == "--") {
       // If the current argument is "--", all following args are target names.
-      // If 'key' was not found, an empty vector is returned.
-      // If 'key' was found exactly once, then 'value' has the value and again
-      // we can return that.
-      // If 'key' was found more than once then we could not have reached this
-      // line, because we would have broken out of the loop when 'key' was found
-      // the second time.
       return values;
     }
     const char* result = GetUnaryOption(args[i].c_str(),
