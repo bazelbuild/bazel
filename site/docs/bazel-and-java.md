@@ -1,8 +1,7 @@
---------------------------------------------------------------------------------
-
+---
 layout: documentation
-
-## title: Java and Bazel
+title: Java and Bazel
+---
 
 # Java and Bazel
 
