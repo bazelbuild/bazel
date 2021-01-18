@@ -202,8 +202,8 @@ std::set<std::string> GetOldRcPaths(
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
   vector<std::string> cmd_line_rc_files = SearchNaryOption(startup_args, "--bazelrc");
-  // Divide the cases where the vector is empty vs not, as `FindLegacyUserBazelrc` has a case
-  // for rc_file to be a nullptr.
+  // Divide the cases where the vector is empty vs not, as `FindLegacyUserBazelrc`
+  // has a case for rc_file to be a nullptr.
   if (cmd_line_rc_files.empty()){
     string user_bazelrc_path = internal::FindLegacyUserBazelrc(nullptr, workspace);
     if (!user_bazelrc_path.empty()) {
