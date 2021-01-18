@@ -189,24 +189,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java14_test",
-    srcs = ["bazel_java14_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
     name = "bazel_java15_test",
     srcs = ["bazel_java15_test.sh"],
     args = [
