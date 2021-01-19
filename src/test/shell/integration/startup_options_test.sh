@@ -82,4 +82,30 @@ function test_autodetect_server_javabase() {
   bazel --noautodetect_server_javabase version &> $TEST_log || fail "Should pass"
 }
 
+# Below are the regression tests for Issue #7489
+function test_multiple_bazelrc() {
+  tmpdir=$(cd $(mktemp -d) &> /dev/null && pwd -P)
+  echo "common --repository_cache=$tmpdir" > 1.rc
+  bazel --bazelrc=1.rc info &> $TEST_log || fail "Should success"
+  expect_log "repository_cache: $tmpdir"
+}
+
+function test_multiple_bazelrc_later_overwrites_earlier() {
+  tmpdir1=$(cd $(mktemp -d) &> /dev/null && pwd -P)
+  tmpdir2=$(cd $(mktemp -d) &> /dev/null && pwd -P)
+  echo "common --repository_cache=$tmpdir1" > 1.rc
+  echo "common --repository_cache=$tmpdir2" > 2.rc
+  bazel --bazelrc=1.rc --bazelrc=2.rc info &> $TEST_log || fail "Should pass"
+  expect_log "repository_cache: $tmpdir2"
+}
+
+function test_multiple_bazelrc_set_different_options() {
+  tmpdir=$(cd $(mktemp -d) &> /dev/null && pwd -P)
+  echo "common --repository_cache=$tmpdir" > 1.rc
+  echo "common --test_output=all" > 2.rc
+  bazel --bazelrc=1.rc --bazelrc=2.rc build --announce_rc &> $TEST_log || fail "Should pass"
+  expect_log "Inherited 'common' options: --repository_cache=$tmpdir"
+  expect_log "Inherited 'common' options: --test_output=all"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"
