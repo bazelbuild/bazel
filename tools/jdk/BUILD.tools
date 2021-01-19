@@ -140,20 +140,12 @@ alias(
     actual = "@local_jdk//:javadoc",
 )
 
-config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
-)
-
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
 alias(
     name = "ijar",
-    actual = select({
-        ":remote": "@remote_java_tools//:ijar_cc_binary",
-        "//conditions:default": ":ijar_prebuilt_binary_or_cc_binary",
-    }),
+    actual = ":ijar_prebuilt_binary_or_cc_binary",
 )
 
 alias(
@@ -183,10 +175,7 @@ alias(
 # must be platform-independent.
 alias(
     name = "singlejar",
-    actual = select({
-        ":remote": "@remote_java_tools//:singlejar_cc_bin",
-        "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
-    }),
+    actual = ":singlejar_prebuilt_or_cc_binary",
 )
 
 alias(
