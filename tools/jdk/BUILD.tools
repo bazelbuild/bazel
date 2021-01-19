@@ -428,21 +428,6 @@ java_runtime_version_alias(
 )
 
 java_runtime_version_alias(
-    name = "remotejdk_14",
-    runtime_version = "remotejdk_14",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk14_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk14_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk14_linux//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
     name = "remotejdk_15",
     runtime_version = "remotejdk_15",
     selected_java_runtime = select(

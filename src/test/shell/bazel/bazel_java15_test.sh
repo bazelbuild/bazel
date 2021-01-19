@@ -135,6 +135,41 @@ EOF
   expect_log "^World\$"
 }
 
+# Java source files version shall match --java_language_version_flag version.
+function test_java14_record_type() {
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_binary(
+    name = 'Javac14Example',
+    srcs = ['Javac14Example.java'],
+    main_class = 'Javac14Example',
+    javacopts = ["--enable-preview"],
+    jvm_flags = ["--enable-preview"],
+)
+EOF
+
+  cat >java/main/Javac14Example.java <<EOF
+public class Javac14Example {
+  record Point(int x, int y) {}
+  public static void main(String[] args) {
+    Point point = new Point(0, 1);
+    System.out.println(point.x);
+  }
+}
+EOF
+  bazel run java/main:Javac14Example --java_language_version=15 --java_runtime_version=15 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      || fail "Running with --java_language_version=15 failed"
+
+  expect_log "0"
+
+  bazel run java/main:Javac14Example --java_language_version=11 --java_runtime_version=11 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      && fail "Running with --java_language_version=11 unexpectedly succeeded."
+
+  expect_log "0"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/12605
 function test_java15_plugins() {
   mkdir -p java/main
