@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -219,17 +218,16 @@ public class IncludeScanningModule extends BlazeModule {
   }
 
   /**
-   * Lifecycle manager for the include scanner. Maintains a {@linkplain
-   * IncludeScanner.IncludeScannerSupplier supplier} which can be used to access the (potentially
-   * shared) scanners and exposes {@linkplain #getSwigActionContext() action} {@linkplain
-   * #getCppActionContext() contexts} based on them.
+   * Lifecycle manager for the include scanner. Maintains an {@linkplain IncludeScannerSupplier
+   * supplier} which can be used to access the (potentially shared) scanners and exposes {@linkplain
+   * #getSwigActionContext() action} {@linkplain #getCppActionContext() contexts} based on them.
    */
   private static class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
     private final BuildRequest buildRequest;
 
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
-    private IncludeScannerSupplierImpl includeScannerSupplier;
+    private IncludeScannerSupplier includeScannerSupplier;
     private ExecutorService includePool;
 
     public IncludeScannerLifecycleManager(
@@ -298,7 +296,7 @@ public class IncludeScanningModule extends BlazeModule {
         includePool = MoreExecutors.newDirectExecutorService();
       }
       includeScannerSupplier =
-          new IncludeScannerSupplierImpl(
+          new IncludeScannerSupplier(
               env.getDirectories(),
               includePool,
               env.getSkyframeBuildView().getArtifactFactory(),

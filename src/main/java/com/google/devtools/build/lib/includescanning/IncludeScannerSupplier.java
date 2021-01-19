@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -34,8 +33,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 
-/** IncludeScannerSupplier implementation. */
-public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
+/**
+ * Creates include scanner instances.
+ *
+ * <p>Each include scanner is specific to a given triplet (-I, -isystem, -iquote) of include paths.
+ */
+public class IncludeScannerSupplier {
   private static class IncludeScannerParams {
     final List<PathFragment> quoteIncludePaths;
     final List<PathFragment> includePaths;
@@ -111,7 +114,7 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
                 }
               });
 
-  public IncludeScannerSupplierImpl(
+  public IncludeScannerSupplier(
       BlazeDirectories directories,
       ExecutorService includePool,
       ArtifactFactory artifactFactory,
@@ -125,7 +128,10 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
     this.pathCache = new PathExistenceCache(execRoot, artifactFactory);
   }
 
-  @Override
+  /**
+   * Returns the possibly shared scanner to be used for a given triplet of include paths. The paths
+   * are specified as PathFragments relative to the execution root.
+   */
   public IncludeScanner scannerFor(
       List<PathFragment> quoteIncludePaths,
       List<PathFragment> includePaths,
