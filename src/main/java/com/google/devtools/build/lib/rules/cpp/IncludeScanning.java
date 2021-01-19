@@ -43,12 +43,11 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Runs include scanning on actions, if include scanning is enabled. */
-public class IncludeScanning implements IncludeProcessing {
+public class IncludeScanning {
 
   @AutoCodec public static final IncludeScanning INSTANCE = new IncludeScanning();
 
   @Nullable
-  @Override
   public List<Artifact> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,

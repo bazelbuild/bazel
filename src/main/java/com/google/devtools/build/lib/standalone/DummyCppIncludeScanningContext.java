@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -29,7 +28,6 @@ class DummyCppIncludeScanningContext implements CppIncludeScanningContext {
   public List<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing,
       IncludeScanningHeaderData includeScanningHeaderData) {
     return null;
   }

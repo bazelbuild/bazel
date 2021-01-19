@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
-import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.IncludeProcessingType;
 
 /**
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.IncludeProces
 public class ObjcCppSemantics implements CppSemantics {
 
   private final IncludeProcessingType includeProcessingType;
-  private final IncludeProcessing includeProcessing;
   private final ObjcConfiguration config;
   private final IntermediateArtifacts intermediateArtifacts;
   private final BuildConfiguration buildConfiguration;
@@ -50,8 +48,6 @@ public class ObjcCppSemantics implements CppSemantics {
    * Creates an instance of ObjcCppSemantics
    *
    * @param includeProcessingType The type of include processing to be run.
-   * @param includeProcessing the closure providing the strategy for processing of includes for
-   *     actions
    * @param config the ObjcConfiguration for this build
    * @param intermediateArtifacts used to create headers_list artifacts
    * @param buildConfiguration the build configuration for this build
@@ -59,13 +55,11 @@ public class ObjcCppSemantics implements CppSemantics {
    */
   public ObjcCppSemantics(
       IncludeProcessingType includeProcessingType,
-      IncludeProcessing includeProcessing,
       ObjcConfiguration config,
       IntermediateArtifacts intermediateArtifacts,
       BuildConfiguration buildConfiguration,
       boolean enableModules) {
     this.includeProcessingType = includeProcessingType;
-    this.includeProcessing = includeProcessing;
     this.config = config;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
@@ -102,8 +96,8 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public IncludeProcessing getIncludeProcessing() {
-    return includeProcessing;
+  public boolean allowIncludeScanning() {
+    return includeProcessingType == IncludeProcessingType.INCLUDE_SCANNING;
   }
 
   @Override

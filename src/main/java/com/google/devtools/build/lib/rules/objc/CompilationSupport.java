@@ -97,11 +97,8 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
-import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanning;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
@@ -217,16 +214,6 @@ public class CompilationSupport {
   /** Defines a library that contains the transitive closure of dependencies. */
   public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
       fromTemplates("%{name}_fully_linked.a");
-
-  /** Create and return the include processing to be used. */
-  private IncludeProcessing createIncludeProcessing() {
-    switch (includeProcessingType) {
-      case INCLUDE_SCANNING:
-        return IncludeScanning.INSTANCE;
-      default:
-        return NoProcessing.INSTANCE;
-    }
-  }
 
   private static ImmutableList<String> pathsToIncludeArgs(Iterable<PathFragment> paths) {
     ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
@@ -502,7 +489,6 @@ public class CompilationSupport {
   ObjcCppSemantics createObjcCppSemantics() {
     return new ObjcCppSemantics(
         includeProcessingType,
-        createIncludeProcessing(),
         ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
         buildConfiguration,

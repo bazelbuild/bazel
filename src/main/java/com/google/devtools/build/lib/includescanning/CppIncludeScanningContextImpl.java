@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanning;
 import java.util.List;
 
 /**
@@ -40,10 +40,9 @@ public class CppIncludeScanningContextImpl implements CppIncludeScanningContext 
   public List<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing,
       IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
-    return includeProcessing.determineAdditionalInputs(
+    return IncludeScanning.INSTANCE.determineAdditionalInputs(
         includeScannerSupplier.get(), action, actionExecutionContext, includeScanningHeaderData);
   }
 }
