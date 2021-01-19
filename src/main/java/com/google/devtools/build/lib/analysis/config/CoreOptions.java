@@ -742,7 +742,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction, "
               + "TestRunner. When specifying multiple values, order matters because "
               + "many regexes may apply to the same mnemonic.\n\n"
-              + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"
+              + "Syntax: \"regex=[+-]key,regex=[+-]key,...\".\n\n"
               + "Examples:\n"
               + "  '.*=+x,.*=-y,.*=+z' adds 'x' and 'z' to, and removes 'y' from, "
               + "the execution info for all actions.\n"
