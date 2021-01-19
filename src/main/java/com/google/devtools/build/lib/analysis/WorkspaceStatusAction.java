@@ -80,7 +80,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         help =
             "A command invoked at the beginning of the build to provide status "
                 + "information about the workspace in the form of key/value pairs.  "
-                + "See the User's Manual for the full specification. Also see"
+                + "See the User's Manual for the full specification. Also see "
                 + "tools/buildstamp/get_workspace_status for an example.")
     public PathFragment workspaceStatusCommand;
   }
