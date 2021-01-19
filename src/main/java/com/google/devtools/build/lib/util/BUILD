@@ -103,7 +103,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:apache_commons_lang",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
