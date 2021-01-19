@@ -83,13 +83,6 @@ function test_autodetect_server_javabase() {
 }
 
 # Below are the regression tests for Issue #7489
-function test_multiple_bazelrc() {
-  tmpdir=$(cd $(mktemp -d) &> /dev/null && pwd -P)
-  echo "common --repository_cache=$tmpdir" > 1.rc
-  bazel --bazelrc=1.rc info &> $TEST_log || fail "Should success"
-  expect_log "repository_cache: $tmpdir"
-}
-
 function test_multiple_bazelrc_later_overwrites_earlier() {
   tmpdir1=$(cd $(mktemp -d) &> /dev/null && pwd -P)
   tmpdir2=$(cd $(mktemp -d) &> /dev/null && pwd -P)
