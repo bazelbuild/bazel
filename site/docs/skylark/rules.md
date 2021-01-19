@@ -173,7 +173,7 @@ relationship between a rule and a tool (such as a compiler), since most of the
 time a user is not interested in specifying what tool the rule uses. Inside the
 rule's implementation function, this is treated the same as other dependencies.
 
-If you want to provide an implcit dependency without allowing the user to
+If you want to provide an implicit dependency without allowing the user to
 override that value, you can make the attribute *private* by giving it a name
 that begins with an underscore (`_`). Private attributes must have default
 values. It generally only makes sense to use private attributes for implicit
