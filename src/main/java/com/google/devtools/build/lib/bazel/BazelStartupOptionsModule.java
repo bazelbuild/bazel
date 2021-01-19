@@ -33,7 +33,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
         valueHelp = "<path>",
         help =
             "The location of the user .bazelrc file containing default values of "
-                + "Bazel options. This option can also be chained together.\n"
+                + "Bazel options. This option can also be specified multiple times.\n"
                 + "E.g. `--bazelrc=x.rc --bazelrc=y.rc` so options in both RCs will be read.\n"
                 + "Note: `--bazelrc x.rc y.rc` is illegal, and each bazelrc file needs to be "
                 + "accompanied by --bazelrc flag before it.\n"

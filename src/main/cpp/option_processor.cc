@@ -209,8 +209,7 @@ std::set<std::string> GetOldRcPaths(
     if (!user_bazelrc_path.empty()) {
       candidate_bazelrc_paths.push_back(user_bazelrc_path);
     }
-  }
-  else {
+  } else {
     for (auto& rc_file : cmd_line_rc_files) {
       string user_bazelrc_path = internal::FindLegacyUserBazelrc(rc_file.c_str(), workspace);
       if (!user_bazelrc_path.empty()) {

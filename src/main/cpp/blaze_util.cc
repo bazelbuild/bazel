@@ -81,7 +81,7 @@ std::vector<std::string> SearchNaryOption(const vector<string>& args,
   vector<std::string> values;
   for (vector<string>::size_type i = 0; i < args.size(); ++i) {
     if (args[i] == "--") {
-      // If the current argument is "--", all following args are target names.
+      // "--" means all remaining args aren't options
       return values;
     }
     const char* result = GetUnaryOption(args[i].c_str(),
