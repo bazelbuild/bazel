@@ -1,8 +1,7 @@
---------------------------------------------------------------------------------
-
+---
 layout: documentation
-
-## title: Java and Bazel
+title: Java and Bazel
+---
 
 # Java and Bazel
 
@@ -139,25 +138,34 @@ Java execution toolchains may added using `local_java_repository` or
 the JVM available using a flag. When multiple definitions for the same operating
 system and CPU architecture are given, the first one is used.
 
-Example configuration of local JVM: ```python
-load("@bazel_tools//tools/jdk:local_java_repository.bzl",
-"local_java_repository")
+Example configuration of local JVM:
 
-local_java_repository( name = "additionaljdk", # Can be used with
---java_runtime_version=additionaljdk or --java_runtime_version=11 version =
-11, # Optional, if not set it is autodetected java_home = "/usr/lib/jdk-15/", #
-Path to directory containing bin/java ) ```
+```python
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 
-Example configuration of remote JVM: ```python
-load("@bazel_tools//tools/jdk:remote_java_repository.bzl",
-"remote_java_repository")
+local_java_repository(
+  name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk or --java_runtime_version=11
+  version = 11,                    # Optional, if not set it is autodetected
+  java_home = "/usr/lib/jdk-15/",  # Path to directory containing bin/java
+)
+```
 
-remote_java_repository( name = "openjdk_canary_linux_arm", prefix =
-"openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
-version = "11", # or --java_runtime_version=11 exec_compatible_with = [ #
-Specifies contraints this JVM is compatible with "@platforms//cpu:arm",
-"@platforms//os:linux", ], urls = ... # Other parameters are from
-http_repository rule. sha256 = ... strip_prefix = ... ) ```
+Example configuration of remote JVM:
+```python
+load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
+
+remote_java_repository(
+  name = "openjdk_canary_linux_arm",
+  prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
+  version = "11",            # or --java_runtime_version=11
+  exec_compatible_with = [   # Specifies constraints this JVM is compatible with "@platforms//cpu:arm",
+    "@platforms//os:linux",
+  ],
+  urls = ...,               # Other parameters are from http_repository rule.
+  sha256 = ...,
+  strip_prefix = ...
+)
+```
 
 ### Compilation toolchains
 
@@ -171,18 +179,24 @@ a `BUILD` file and registering it either by adding `register_toolchain` rule to
 the `WORKSPACE` file or by using
 [`--extra_toolchains`](user-manual.html#flag--extra_toolchains) flag.
 
-Example toolchain configuration: ```python
-load("@bazel_tools@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-"default_java_toolchain")
+Example toolchain configuration:
 
-default_java_toolchain( name = "repository_default_toolchain", configuration =
-DEFAULT_TOOLCHAIN_CONFIGURATION, # One of predefined configurations
+```python
+load(
+  '@bazel_tools@bazel_tools//tools/jdk:default_java_toolchain.bzl',
+  "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION", "JDK9_JVM_OPTS", "DEFAULT_JAVACOPTS"
+)
 
-\# Other parameters are from java_toolchain rule: java_runtime =
-"//tools/jdk:remote_jdk11", # JDK to use for compilation jvm_opts =
-JDK9_JVM_OPTS + ["--enable_preview"] # Additional JDK options misc =
-DEFAULT_JAVACOPTS + ["--enable_preview"] # Additional javac options
-source_version = "9", ) ```
+default_java_toolchain(
+  name = "repository_default_toolchain",
+  configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, # One of predefined configurations
+                                                   # Other parameters are from java_toolchain rule:
+  java_runtime = "//tools/jdk:remote_jdk11",       # JDK to use for compilation
+  jvm_opts = JDK9_JVM_OPTS + ["--enable_preview"], # Additional JDK options
+  misc = DEFAULT_JAVACOPTS + ["--enable_preview"], # Additional javac options
+  source_version = "9",
+)
+```
 
 Predefined configurations:
 
