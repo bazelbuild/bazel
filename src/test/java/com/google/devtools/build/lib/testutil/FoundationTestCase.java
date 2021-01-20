@@ -160,7 +160,7 @@ public abstract class FoundationTestCase {
         "    jacocorunner = ':jacocorunner.jar',",
         "    header_compiler = [':turbine_canary_deploy.jar'],",
         "    header_compiler_direct = [':turbine_graal'],",
-        "    singlejar = ['SingleJar_deploy.jar'],",
+        "    singlejar = ['singlejar'],",
         "    ijar = ['ijar'],",
         "    genclass = ['GenClass_deploy.jar'],",
         "    timezone_data = 'tzdata.jar',",
