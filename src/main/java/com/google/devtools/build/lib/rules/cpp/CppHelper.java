@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1016,7 +1015,7 @@ public class CppHelper {
 
   public static ImmutableList<CcCompilationContext> getCompilationContextsFromDeps(
       List<TransitiveInfoCollection> deps) {
-    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+    return AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
         .map(CcInfo::getCcCompilationContext)
         .collect(ImmutableList.toImmutableList());
   }
@@ -1033,14 +1032,14 @@ public class CppHelper {
 
   public static ImmutableList<CcLinkingContext> getLinkingContextsFromDeps(
       ImmutableList<TransitiveInfoCollection> deps) {
-    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+    return AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
         .map(CcInfo::getCcLinkingContext)
         .collect(ImmutableList.toImmutableList());
   }
 
   public static ImmutableList<CcDebugInfoContext> getDebugInfoContextsFromDeps(
       List<TransitiveInfoCollection> deps) {
-    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+    return AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
         .map(CcInfo::getCcDebugInfoContext)
         .collect(ImmutableList.toImmutableList());
   }

@@ -18,7 +18,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -499,7 +498,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public ImmutableList<String> getFlattenedUserLinkFlags() {
-    return Streams.stream(getUserLinkFlags().toList())
+    return getUserLinkFlags().toList().stream()
         .map(LinkOptions::get)
         .flatMap(Collection::stream)
         .collect(ImmutableList.toImmutableList());

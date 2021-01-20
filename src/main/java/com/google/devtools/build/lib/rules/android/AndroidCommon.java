@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -808,12 +807,11 @@ public class AndroidCommon {
         ImmutableList.<CcInfo>builder()
             .add(linkoptsCcInfo)
             .addAll(
-                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
+                AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
                     .map(JavaCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
             .addAll(
-                Streams.stream(
-                        AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER))
+                AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER).stream()
                     .map(AndroidCcLinkParamsProvider::getLinkParams)
                     .collect(ImmutableList.toImmutableList()))
             .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
