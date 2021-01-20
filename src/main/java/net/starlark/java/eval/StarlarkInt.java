@@ -577,12 +577,19 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     if (y == ZERO) {
       throw Starlark.errorf("integer division by zero");
     }
-    if (x instanceof Int32 && y instanceof Int32) {
-      long xl = ((Int32) x).v;
-      long yl = ((Int32) y).v;
+    try {
+      long xl = x.toLongFast();
+      long yl = y.toLongFast();
       // http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html
-      long quo = Math.floorDiv(xl, yl);
-      return StarlarkInt.of(quo);
+      if (xl == Long.MIN_VALUE && yl == -1) {
+        /* sole case in which quotient doesn't fit in long */
+      } else {
+        long quo = Math.floorDiv(xl, yl);
+        return StarlarkInt.of(quo);
+      }
+      /* overflow */
+    } catch (Overflow unused) {
+      /* fall through */
     }
 
     BigInteger xbig = x.toBigInteger();
@@ -599,15 +606,13 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     if (y == ZERO) {
       throw Starlark.errorf("integer modulo by zero");
     }
-    if (x instanceof Int32 && y instanceof Int32) {
-      long xl = ((Int32) x).v;
-      long yl = ((Int32) y).v;
+    try {
+      long xl = x.toLongFast();
+      long yl = y.toLongFast();
       // In Starlark, the sign of the result is the sign of the divisor.
-      long z = xl % yl;
-      if ((xl < 0) != (yl < 0) && z != 0) {
-        z += yl;
-      }
-      return StarlarkInt.of(z);
+      return StarlarkInt.of(Math.floorMod(xl, yl));
+    } catch (Overflow unused) {
+      /* fall through */
     }
 
     BigInteger xbig = x.toBigInteger();
