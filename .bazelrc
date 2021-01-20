@@ -13,6 +13,7 @@ build:remote_shared --java_runtime_version=rbe_jdk
 build:remote_shared --tool_java_runtime_version=rbe_jdk
 # Workaround for singlejar incompatibility with RBE
 build:remote_shared --noexperimental_check_desugar_deps
+build:remote_shared --incompatible_use_toolchain_resolution_for_java_rules
 
 # Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
 build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//java:all
