@@ -76,8 +76,8 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
-std::vector<std::string> SearchNaryOption(const vector<string>& args,
-                              const char *key) {
+std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
+                                                 const char *key) {
   vector<std::string> values;
   for (vector<string>::size_type i = 0; i < args.size(); ++i) {
     if (args[i] == "--") {
