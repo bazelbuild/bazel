@@ -979,7 +979,7 @@ lock used by the user's interactive Bazel commands. If the user issues
 long-running commands such as builds, your script will have to wait for those
 commands to complete before it can continue.
 
-### Notes about Server Mode
+### Notes about server mode
 
 By default, Bazel uses a long-running [server process](#client/server) as an
 optimization. When running Bazel in a script, don't forget to call `shutdown`

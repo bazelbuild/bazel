@@ -42,7 +42,7 @@ encoded as a protocol buffer message specific to that event. Note, that the
 payload might not be the expected type, but could be an `Aborted` message e.g.
 if the build aborted prematurely.
 
-### Build Event graph
+### Build event graph
 
 All build events form a directed acyclic graph through their parent and child
 relationship. Every build event except for the initial build event has one or
