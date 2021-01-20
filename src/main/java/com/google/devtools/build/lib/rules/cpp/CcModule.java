@@ -1824,6 +1824,12 @@ public abstract class CcModule
         Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
   }
 
+  @Override
+  public Object getCcNativeLibraryProvider(StarlarkThread thread) throws EvalException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    return CcNativeLibraryProvider.PROVIDER;
+  }
+
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
     String rulePackage =

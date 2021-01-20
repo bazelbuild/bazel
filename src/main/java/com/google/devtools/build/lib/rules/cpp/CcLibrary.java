@@ -479,7 +479,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
-        .addProvider(ccNativeLibraryProvider)
+        .addNativeDeclaredProvider(ccNativeLibraryProvider)
         .addNativeDeclaredProvider(
             CcInfo.builder()
                 .setCcCompilationContext(compilationInfo.getCcCompilationContext())

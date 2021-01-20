@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -7209,6 +7210,64 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }
+  }
+
+  @Test
+  public void testDisallowedCcNativeLibraryRaisesError() throws Exception {
+    scratch.file(
+        "b/BUILD", "load('//b:rule.bzl', 'test_rule')", "test_rule(", "  name = 'test',", ")");
+    scratch.file(
+        "b/rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.get_CcNativeLibraryProvider()",
+        "  return DefaultInfo()",
+        "test_rule = rule(implementation = _impl)");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:test"));
+    assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+  }
+
+  @Test
+  public void testAllowedCcNativeLibraryProviderIsUsable() throws Exception {
+    scratch.file(
+        "b/BUILD",
+        "load('//bazel_internal/test_rules/cc:rule.bzl', 'test_rule')",
+        "test_rule(",
+        "  name = 'test',",
+        "  cc_dep = ':foo',",
+        ")",
+        "cc_library(",
+        "  name = 'foo',",
+        "  srcs = ['foo.cc'],",
+        ")");
+    scratch.file("bazel_internal/test_rules/cc/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  CcNativeLibraryProvider = cc_common.get_CcNativeLibraryProvider()",
+        "  libs = ctx.attr.cc_dep[CcNativeLibraryProvider].libs",
+        "  files = []",
+        "  for l in libs.to_list():",
+        "    files.append(l.dynamic_library)",
+        "    files.append(l.interface_library)",
+        "    files.append(l.static_library)",
+        "    files.append(l.pic_static_library)",
+        "  files = [f for f in files if f != None]",
+        "  runfiles = ctx.runfiles(files=files)",
+        "  return [DefaultInfo(runfiles=runfiles)]",
+        "test_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'cc_dep': attr.label(),",
+        "    },",
+        ")");
+
+    ConfiguredTarget test = getConfiguredTarget("//b:test");
+
+    assertThat(
+            test.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts().toList().stream()
+                .map(Artifact::getFilename))
+        .containsExactly("libfoo.a");
   }
 
   @Test

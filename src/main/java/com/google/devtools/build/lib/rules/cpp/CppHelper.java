@@ -999,7 +999,7 @@ public class CppHelper {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.linkOrder();
     result.addAll(libraries);
     for (CcNativeLibraryProvider dep :
-        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {
+        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.PROVIDER)) {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
     return new CcNativeLibraryProvider(result.build());
