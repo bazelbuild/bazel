@@ -569,15 +569,6 @@ public final class PyCommon {
     }
   }
 
-
-  /** Checks that the package name of this Python rule does not contain a '-'. */
-  private void validatePackageName() {
-    if (semantics.prohibitHyphensInPackagePaths()
-        && Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
-      ruleContext.ruleError("paths to Python packages may not contain '-'");
-    }
-  }
-
   /**
    * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
