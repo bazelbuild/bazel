@@ -84,12 +84,20 @@ std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
       // "--" means all remaining args aren't options
       return values;
     }
+
+    const char* next_arg = args[std::min(i + 1, args.size() - 1)].c_str();
     const char* result = GetUnaryOption(args[i].c_str(),
-                                        args[std::min(i + 1, args.size() -1)].c_str(),
+                                        next_arg,
                                         key);
     if (result != nullptr) {
       // 'key' was found and 'result' has its value.
       values.push_back(result);
+    }
+    // This is a pointer comparison, so equality means that the result must be from the next arg
+    // instead of happening to match the value from "--key=<value>" string, in which case
+    // we need to advance the index to skip the next arg for later iterations.
+    if (result == next_arg) {
+      i++;
     }
   }
 
