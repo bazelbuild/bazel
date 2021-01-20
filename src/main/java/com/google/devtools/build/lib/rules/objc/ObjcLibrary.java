@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -120,8 +120,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       libraries.add(
           LibraryToLink.builder()
               .setStaticLibrary(library)
-              .setLibraryIdentifier(
-                  FileSystemUtils.removeExtension(library.getRootRelativePathString()))
+              .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(library))
               .build());
     }
 
