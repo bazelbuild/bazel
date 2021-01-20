@@ -36,11 +36,11 @@ like. In the first approximation, this means Bazel needs to know every single
 input that goes into a given build step, such that it can rerun that step if any
 of the inputs change. There are limits to how correct Bazel can get, as it leaks
 some information such as date / time of the build, and ignores certain types of
-changes such as changes to file attributes. Sandboxing helps ensure correctness
-by preventing reads to undeclared input files. Besides the intrinsic limits of
-the system, there are a few known correctness issues, most of which are related
-to Fileset or the C++ rules, which are both hard problems. We have long-term
-efforts to fix these.
+changes such as changes to file attributes. [Sandboxing](sandboxing.md)
+helps ensure correctness by preventing reads to undeclared input files. Besides
+the intrinsic limits of the system, there are a few known correctness issues,
+most of which are related to Fileset or the C++ rules, which are both hard
+problems. We have long-term efforts to fix these.
 
 The second goal of the build system is to have high throughput; we are
 permanently pushing the boundaries of what can be done within the current
