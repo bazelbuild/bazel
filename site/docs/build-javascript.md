@@ -149,8 +149,6 @@ this list.
 
 > The Bazel team is aware that this configuration is not ergonomic. Follow https://github.com/bazelbuild/buildtools/issues/479
 
-> Also the Buildifier tool is not available on Windows. Follow https://github.com/bazelbuild/buildtools/issues/375
-
 ## Building JavaScript
 
 Use the [`rules_nodejs`](https://github.com/bazelbuild/rules_nodejs)
