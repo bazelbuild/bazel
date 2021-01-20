@@ -104,13 +104,13 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + "<li>Labels are converted to strings of the form <code>':foo'</code> for targets"
               + " in the same package or <code>'//pkg:name'</code> for targets in a different"
               + " package.</li>" //
-              + "<li>Lists are converted to new, mutable lists, and dicts are converted to new, " //
-              + "mutable dicts. Their elements are recursively converted in the same fashion.</li>"
+              + "<li>Lists are represented as tuples, and dicts are converted to new, mutable"
+              + " dicts. Their elements are recursively converted in the same fashion.</li>" //
               + "<li><code>select</code> values are returned with their contents transformed as " //
               + "described above.</li>" //
               + "<li>Attributes for which no value was specified during rule instantiation and"
               + " whose default value is computed are excluded from the result. (Computed defaults"
-              + " cannot be computed until the analysis phase.)</li>" //
+              + " cannot be computed until the analysis phase.).</li>" //
               + "</ul>" //
               + "<p>If possible, avoid using this function. It makes BUILD files brittle and"
               + " order-dependent. Also, beware that it differs subtly from the two"

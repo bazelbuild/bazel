@@ -572,8 +572,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "cc_library(name = 'a', srcs = [])");
     getConfiguredTarget("//test:a");
     assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
-    // The short labels are now in their canonical form, but the select is otherwise unchanged.
-    assertContainsEvent("Returned: select({\"//foo:foo\": [\"//bar:bar\"]}");
+    // The short labels are now in their canonical form, and the sequence is represented as
+    // tuple instead of list, but the meaning is unchanged.
+    assertContainsEvent("Returned: select({\"//foo:foo\": (\"//bar:bar\",)}");
   }
 
   @Test
@@ -664,23 +665,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  native.config_setting(name='x', define_values={'key': 'value'})",
         "  r = native.existing_rule('x')",
         "  r['define_values']['key'] = 123"); // mutate the dict
-
-    // Logically this belongs among the loading-phase tests of existing_rules. Where are they?
-    assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error
-  }
-
-  @Test
-  public void testExistingRuleListIsMutable() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
-    scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.cc_library(name = 'a', srcs = [])",
-        "  r = native.existing_rule('a')['srcs']",
-        "  r.append('//baz')"); // mutate the list
 
     // Logically this belongs among the loading-phase tests of existing_rules. Where are they?
     assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error

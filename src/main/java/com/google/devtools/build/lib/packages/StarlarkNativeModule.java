@@ -49,6 +49,7 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /** The Starlark native module. */
@@ -345,7 +346,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     if (val instanceof List) {
-      List<Object> l = new ArrayList<>(((List) val).size());
+      List<Object> l = new ArrayList<>();
       for (Object o : (List) val) {
         Object elt = starlarkifyValue(mu, o, pkg);
         if (elt == null) {
@@ -353,7 +354,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         }
         l.add(elt);
       }
-      return StarlarkList.copyOf(mu, l);
+
+      return Tuple.copyOf(l);
     }
 
     if (val instanceof Map) {
