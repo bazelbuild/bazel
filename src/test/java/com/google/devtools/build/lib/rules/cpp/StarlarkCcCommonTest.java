@@ -6922,7 +6922,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ImmutableList.of(
             String.format(callFormatString, "link_artifact_name_suffix='test'"),
             String.format(callFormatString, "never_link=False"),
-            String.format(callFormatString, "test_only_target=False"));
+            String.format(callFormatString, "test_only_target=False"),
+            String.format(callFormatString, "always_link=False"),
+            String.format(callFormatString, "additional_linkstamp_defines=[]"),
+            String.format(callFormatString, "whole_archive=False"),
+            String.format(callFormatString, "native_deps=False"),
+            String.format(callFormatString, "only_for_dynamic_libs=False"));
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",

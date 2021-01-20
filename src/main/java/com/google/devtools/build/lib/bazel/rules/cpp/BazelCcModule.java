@@ -161,8 +161,13 @@ public class BazelCcModule extends CcModule
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
+      Object alwaysLink,
       Object testOnlyTarget,
       Object variablesExtension,
+      Object nativeDeps,
+      Object wholeArchive,
+      Object additionalLinkstampDefines,
+      Object onlyForDynamicLibs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -181,8 +186,13 @@ public class BazelCcModule extends CcModule
         /* grepIncludes= */ null,
         linkArtifactNameSuffix,
         neverLink,
+        alwaysLink,
         testOnlyTarget,
         variablesExtension,
+        nativeDeps,
+        wholeArchive,
+        additionalLinkstampDefines,
+        onlyForDynamicLibs,
         thread);
   }
 

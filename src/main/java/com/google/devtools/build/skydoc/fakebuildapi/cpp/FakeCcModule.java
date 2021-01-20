@@ -338,8 +338,13 @@ public class FakeCcModule
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
+      Object alwaysLink,
       Object testOnlyTarget,
       Object variablesExtension,
+      Object nativeDeps,
+      Object wholeArchive,
+      Object additionalLinkstampDefines,
+      Object onlyForDynamicLibs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;

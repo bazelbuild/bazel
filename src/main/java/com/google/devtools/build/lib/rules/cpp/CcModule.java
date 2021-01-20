@@ -2110,15 +2110,25 @@ public abstract class CcModule
       Object grepIncludes,
       Object linkedArtifactNameSuffixObject,
       Object neverLinkObject,
+      Object alwaysLinkObject,
       Object testOnlyTargetObject,
       Object variablesExtension,
+      Object nativeDepsObject,
+      Object wholeArchiveObject,
+      Object additionalLinkstampDefines,
+      Object onlyForDynamicLibsObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     if (checkObjectsBound(
         linkedArtifactNameSuffixObject,
         neverLinkObject,
+        alwaysLinkObject,
         testOnlyTargetObject,
-        variablesExtension)) {
+        variablesExtension,
+        nativeDepsObject,
+        wholeArchiveObject,
+        additionalLinkstampDefines,
+        onlyForDynamicLibsObject)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     validateLanguage(language);
@@ -2182,7 +2192,15 @@ public abstract class CcModule
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
             .setLinkedArtifactNameSuffix(convertFromNoneable(linkedArtifactNameSuffixObject, ""))
             .setNeverLink(convertFromNoneable(neverLinkObject, false))
+            // setAlwayslink may be deprecated but we're trying to replicate CcBinary as closely as
+            // possible for the moment.
+            .setAlwayslink(convertFromNoneable(alwaysLinkObject, false))
             .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
+            .setNativeDeps(convertFromNoneable(nativeDepsObject, false))
+            .setWholeArchive(convertFromNoneable(wholeArchiveObject, false))
+            .addAdditionalLinkstampDefines(asStringImmutableList(additionalLinkstampDefines))
+            .setWillOnlyBeLinkedIntoDynamicLibraries(
+                convertFromNoneable(onlyForDynamicLibsObject, false))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)

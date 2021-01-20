@@ -440,6 +440,13 @@ public interface BazelCcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
+            name = "always_link",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
             name = "test_only_target",
             positional = false,
             named = true,
@@ -452,6 +459,34 @@ public interface BazelCcModuleApi<
             named = true,
             documented = false,
             allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "native_deps",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "whole_archive",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "additional_linkstamp_defines",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "only_for_dynamic_libs",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
   LinkingOutputsT link(
@@ -470,8 +505,13 @@ public interface BazelCcModuleApi<
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
+      Object alwaysLink,
       Object testOnlyTarget,
       Object variablesExtension,
+      Object nativeDeps,
+      Object wholeArchive,
+      Object additionalLinkstampDefines,
+      Object onlyForDynamicLibs,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
