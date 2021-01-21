@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
-import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -1606,18 +1605,6 @@ public class CompilationSupport {
             .build(ruleContext));
   }
 
-  private CompilationSupport registerGenerateUmbrellaHeaderAction(
-      Artifact umbrellaHeader, NestedSet<Artifact> publicHeaders) {
-    ruleContext.registerAction(
-        new UmbrellaHeaderAction(
-            ruleContext.getActionOwner(),
-            umbrellaHeader,
-            publicHeaders,
-            ImmutableList.<PathFragment>of()));
-
-    return this;
-  }
-
   private Optional<Artifact> getPchFile() {
     if (!usePch) {
       return Optional.absent();
@@ -1633,24 +1620,41 @@ public class CompilationSupport {
    * Registers an action that will generate a clang module map for this target, using the hdrs
    * attribute of this rule.
    */
-  CompilationSupport registerGenerateModuleMapAction(CompilationArtifacts compilationArtifacts) {
+  CompilationSupport registerGenerateModuleMapAction(CompilationArtifacts compilationArtifacts)
+      throws RuleErrorException, InterruptedException {
     // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
     // dropped.
     // TODO(b/32225593): Include private headers in the module map.
     // Both registerGenerateModuleMapAction and registerGenerateUmbrellaHeaderAction make a copy,
     // so flattening eagerly here using toList() is acceptable.
+    ObjcCppSemantics semantics = createObjcCppSemantics();
+    CcCompilationHelper ccCompilationHelper =
+        new CcCompilationHelper(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            CppHelper.getGrepIncludes(ruleContext),
+            semantics,
+            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, semantics),
+            CcCompilationHelper.SourceCategory.CC_AND_OBJC,
+            toolchain,
+            toolchain.getFdoContext(),
+            buildConfiguration,
+            TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
+            /* shouldProcessHeaders= */ false);
+
     NestedSet<Artifact> publicHeaders =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(attributes.hdrs())
             .addTransitive(compilationArtifacts.getAdditionalHdrs())
             .build();
-    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-    registerGenerateModuleMapAction(moduleMap, publicHeaders);
 
-    Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
-    if (umbrellaHeader.isPresent()) {
-      registerGenerateUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders);
-    }
+    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+
+    ccCompilationHelper.setCppModuleMap(moduleMap).addPublicHeaders(publicHeaders.toList());
+
+    ccCompilationHelper.compile(ruleContext);
 
     return this;
   }
