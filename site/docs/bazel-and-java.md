@@ -23,11 +23,13 @@ migration guide to start building your Maven projects with Bazel:
 
 *   [Migrating from Maven to Bazel](migrate-maven.html)
 
-## Java versions
+## Java Versions
 
 There are two relevant versions of Java that are set with configuration flags:
  - the version of the source files in the repository
  - the version of the Java runtime that is used to execute the code and to test it
+
+### Configuring the Version of the Source code in your Repository
 
 Without an additional configuration, Bazel assumes all Java source files in the
 repository are written in a single Java version. To specify the version of the
@@ -36,6 +38,8 @@ sources in the repository add `build --java_language_version={ver}` to
 should set this flag so that Bazel and its users can reference the source code's
 Java version number. For more details, see
 [Java language version flag](user-manual.html#flag--java_language_version).
+
+### Configuring the JVM used to Execute and Test the Code
 
 Bazel uses one JDK for compilation and another JVM to execute and test the code.
 
@@ -47,16 +51,33 @@ The resulting binaries are compatible with locally installed JVM in system
 libraries, which means the resulting binaries depend on what is installed on the
 machine.
 
+To configure the JVM used for execution and testing use `--java_runtime_version`
+flag. It's default value is `local_jdk`.
+
+### Hermetic Testing and Compilation
+
 To create a hermetic compile, you can use command line flag
 `--java_runtime_version=remotejdk_11`. The code is compiled for, executed, and
 tested on the JVM downloaded from a remote repository. For more details, see
 [Java runtime version flag](user-manual.html#flag--java_runtime_version).
 
+### Configuring Compilation and Execution of Build tools in Java
+
 There is a second pair of JDK and JVM used to build and execute tools, which are
 used in the build process, but are not in the build results. That JDK and JVM
 are controlled using `--tool_java_language_version` and
-`--tool_java_runtime_version`. Default values are 11 and `remotejdk_11`,
+`--tool_java_runtime_version`. Default values are `11` and `remotejdk_11`,
 respectively.
+
+#### Compiling using locally installed JDK
+
+Bazel by default compiles using remote JDK, because it is overriding JDK's 
+internals. The compilation toolchains using locally installed JDK are configured,
+however not used.
+
+To compile using locally installed JDK, that is use the compilation toolchains 
+for local JDK, use additional flag `--extra_toolchains=@local_jdk//:all`,
+however mind that this may not work on JDK of arbitrary vendors.
 
 For more details, see
 [configuring Java toolchains](#Configuring-the-Java-toolchains).
@@ -121,13 +142,15 @@ projects:
     *   [`JavaRuntimeInfo`](skylark/lib/JavaRuntimeInfo.html)
     *   [`JavaToolchainInfo`](skylark/lib/JavaToolchainInfo.html)
 
-## Configuring the Java toolchains
+## Configuring the Java Toolchains
 
-Bazel uses two types of Java toolchains: - execution, used to execute and test
-Java binaries, controlled with `--java_runtime_version` flag - compilation, used
-to compile Java sources, controlled with `--java_language_version` flag
+Bazel uses two types of Java toolchains: 
+- execution, used to execute and test Java binaries, controlled with 
+  `--java_runtime_version` flag 
+- compilation, used to compile Java sources, controlled with 
+  `--java_language_version` flag
 
-### Execution toolchains
+### Configuring additional Execution toolchains
 
 Execution toolchain is the JVM, either local or from a repository, with some
 additional information about its version, operating system, and CPU
@@ -144,7 +167,7 @@ Example configuration of local JVM:
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 
 local_java_repository(
-  name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk or --java_runtime_version=11
+  name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk, --java_runtime_version=11 or --java_runtime_version=additionaljdk_11 
   version = 11,                    # Optional, if not set it is autodetected
   java_home = "/usr/lib/jdk-15/",  # Path to directory containing bin/java
 )
@@ -167,7 +190,7 @@ remote_java_repository(
 )
 ```
 
-### Compilation toolchains
+### Configuring additional Compilation toolchains
 
 Compilation toolchain is composed of JDK and multiple tools that Bazel uses
 during the compilation and that provides additional features, such as: Error
@@ -178,6 +201,9 @@ You can reconfigure the compilation by adding `default_java_toolchain` macro to
 a `BUILD` file and registering it either by adding `register_toolchain` rule to
 the `WORKSPACE` file or by using
 [`--extra_toolchains`](user-manual.html#flag--extra_toolchains) flag.
+
+The toolchain will only be used when `source_version` attribute matches the value
+specified by `--java_language_version` flag.
 
 Example toolchain configuration:
 
@@ -201,10 +227,76 @@ default_java_toolchain(
 Predefined configurations:
 
 -   `DEFAULT_TOOLCHAIN_CONFIGURATION`: all features, supports JDK versions >= 9
--   `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports all JDKs
+-   `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports JDKs of
+    arbitrary vendors.
 -   `JVM8_TOOLCHAIN_CONFIGURATION`: all features, JDK version 8
 -   `PREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but only use prebuilt
     tools (`ijar`, `singlejar`)
 -   `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are
     built from sources (this may be useful on operating system with different
     libc)
+
+#### Configuring JVM and Java compiler flags
+
+You may configure JVM and javac flags either with flags or with
+ `default_java_toolchain` attributes.
+ 
+The relevant flags are `--jvmopt`, `--host_jvmopt`, `--javacopt`,  and 
+`--host_javacopt`.
+
+The relevant `default_java_toolchain` parameters are `misc`, `jvm_opts`, 
+`javabuilder_jvm_opts`, and `turbine_jvm_opts`.
+
+#### Package specific Java compiler flags configuration
+
+It is possible to configure different Java compiler flags for specific source
+files using `package_configuration` attribute of `default_java_toolchain`.
+Please refer to the example below.
+
+```python
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
+# This is a convenience macro that inherits values from Bazel's default java_toolchain
+default_java_toolchain(
+    name = "toolchain",
+    package_configuration = [
+        ":error_prone",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# This associates a set of javac flags with a set of packages
+java_package_configuration(
+    name = "error_prone",
+    javacopts = [
+        "-Xep:MissingOverride:ERROR",
+    ],
+    packages = ["error_prone_packages"],
+)
+
+# This is a regular package_group, which is used to specify a set of packages to apply flags to
+package_group(
+    name = "error_prone_packages",
+    packages = [
+        "//foo/...",
+        "-//foo/bar/...", # this is an exclusion
+    ],
+)
+```
+
+#### Multiple versions of Java Source code in a single Repository
+
+At the moment Bazel only supports compiling a single version of Java sources in
+a single build. This means when building a Java test or an application, all the 
+ dependencies are built as they were written in the same Java version.
+ 
+However separate builds may be executed using different flags.
+
+To ease the task a set of flags for specific version may be specified in `.bazelrc`:
+```python
+build:java8 --java_language_version=8
+build:java8 --java_runtime_version=localjdk_8
+build:java11 --java_language_version=11
+build:java11 --java_runtime_version=remotejdk_11
+```
+and used with `--config` flag, for example `bazel test --config=java11 //:java11_test`.
