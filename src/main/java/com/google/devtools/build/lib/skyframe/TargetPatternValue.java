@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -343,44 +341,6 @@ public final class TargetPatternValue implements SkyValue {
 
     public ImmutableSet<PathFragment> getExcludedSubdirectories() {
       return excludedSubdirectories;
-    }
-
-    ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
-        ImmutableSet<PathFragment> ignoredPackagePrefixes) throws InterruptedException {
-      ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
-      excludedPathsBuilder.addAll(getExcludedSubdirectories());
-      excludedPathsBuilder.addAll(
-          getAllIgnoredSubdirectoriesToExclude(() -> ignoredPackagePrefixes));
-      return excludedPathsBuilder.build();
-    }
-
-    public ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
-        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredPackagePrefixes)
-        throws InterruptedException {
-      return getAllIgnoredSubdirectoriesToExclude(parsedPattern, ignoredPackagePrefixes);
-    }
-
-    public static ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
-        TargetPattern pattern,
-        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredPackagePrefixes)
-        throws InterruptedException {
-      if (pattern.getType() != Type.TARGETS_BELOW_DIRECTORY) {
-        return ImmutableSet.of();
-      }
-      TargetsBelowDirectory targetsBelowDirectory = (TargetsBelowDirectory) pattern;
-      ImmutableSet<PathFragment> ignoredPaths = ignoredPackagePrefixes.get();
-      ImmutableSet.Builder<PathFragment> ignoredPathsBuilder =
-          ImmutableSet.builderWithExpectedSize(0);
-      for (PathFragment ignoredPackagePrefix : ignoredPaths) {
-        PackageIdentifier pkgIdForIgnoredDirectorPrefix =
-            PackageIdentifier.create(
-                targetsBelowDirectory.getDirectory().getRepository(), ignoredPackagePrefix);
-        if (targetsBelowDirectory.containsAllTransitiveSubdirectories(
-            pkgIdForIgnoredDirectorPrefix)) {
-          ignoredPathsBuilder.add(ignoredPackagePrefix);
-        }
-      }
-      return ignoredPathsBuilder.build();
     }
 
     @Override

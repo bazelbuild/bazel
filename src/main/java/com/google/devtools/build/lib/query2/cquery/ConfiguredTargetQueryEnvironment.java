@@ -290,29 +290,25 @@ public class ConfiguredTargetQueryEnvironment
           return Futures.immediateFuture(null);
         };
 
-    try {
-      return QueryTaskFutureImpl.ofDelegate(
-          Futures.catchingAsync(
-              patternToEval.evalAdaptedForAsync(
-                  resolver,
-                  getIgnoredPackagePrefixesPathFragments(),
-                  /* excludedSubdirectories= */ ImmutableSet.of(),
-                  (Callback<Target>)
-                      partialResult -> {
-                        List<KeyedConfiguredTarget> transformedResult = new ArrayList<>();
-                        for (Target target : partialResult) {
-                          transformedResult.addAll(
-                              getConfiguredTargetsForConfigFunction(target.getLabel()));
-                        }
-                        callback.process(transformedResult);
-                      },
-                  QueryException.class),
-              TargetParsingException.class,
-              reportBuildFileErrorAsyncFunction,
-              MoreExecutors.directExecutor()));
-    } catch (InterruptedException e) {
-      return immediateCancelledFuture();
-    }
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.catchingAsync(
+            patternToEval.evalAdaptedForAsync(
+                resolver,
+                getIgnoredPackagePrefixesPathFragments(),
+                /* excludedSubdirectories= */ ImmutableSet.of(),
+                (Callback<Target>)
+                    partialResult -> {
+                      List<KeyedConfiguredTarget> transformedResult = new ArrayList<>();
+                      for (Target target : partialResult) {
+                        transformedResult.addAll(
+                            getConfiguredTargetsForConfigFunction(target.getLabel()));
+                      }
+                      callback.process(transformedResult);
+                    },
+                QueryException.class),
+            TargetParsingException.class,
+            reportBuildFileErrorAsyncFunction,
+            MoreExecutors.directExecutor()));
   }
 
   /**
