@@ -52,7 +52,7 @@ libraries, which means the resulting binaries depend on what is installed on the
 machine.
 
 To configure the JVM used for execution and testing use `--java_runtime_version`
-flag. It's default value is `local_jdk`.
+flag. The default value is `local_jdk`.
 
 ### Hermetic Testing and Compilation
 
