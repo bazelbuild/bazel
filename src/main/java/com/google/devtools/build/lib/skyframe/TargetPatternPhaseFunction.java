@@ -188,15 +188,18 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     maybeReportDeprecation(env.getListener(), targets.getTargets());
 
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
+    ImmutableMap.Builder<Label, ImmutableSet<Label>> testSuiteExpansions =
+        ImmutableMap.builderWithExpectedSize(expandedTests.size());
     for (Target target : targets.getTargets()) {
+      Label label = target.getLabel();
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
-        SkyKey expansionKey =
-            Preconditions.checkNotNull(testExpansionKeys.get(target.getLabel()));
-        TestsForTargetPatternValue testExpansion =
-            (TestsForTargetPatternValue) expandedTests.get(expansionKey);
-        expandedLabelsBuilder.merge(testExpansion.getLabels());
+        SkyKey expansionKey = Preconditions.checkNotNull(testExpansionKeys.get(label));
+        ResolvedTargets<Label> testExpansion =
+            ((TestsForTargetPatternValue) expandedTests.get(expansionKey)).getLabels();
+        expandedLabelsBuilder.merge(testExpansion);
+        testSuiteExpansions.put(label, testExpansion.getTargets());
       } else {
-        expandedLabelsBuilder.add(target.getLabel());
+        expandedLabelsBuilder.add(label);
       }
     }
     ResolvedTargets<Label> targetLabels = expandedLabelsBuilder.build();
@@ -231,7 +234,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 options.getTargetPatterns(),
                 expandedTargets.getTargets(),
                 ImmutableList.copyOf(failedPatterns),
-                mapOriginalPatternsToLabels(expandedPatterns, targets.getTargets())));
+                mapOriginalPatternsToLabels(expandedPatterns, targets.getTargets()),
+                testSuiteExpansions.build()));
     env.getListener()
         .post(new LoadingPhaseCompleteEvent(result.getTargetLabels(), removedTargetLabels));
     return result;

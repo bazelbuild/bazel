@@ -404,7 +404,23 @@ message Configuration {
 // The main information is in the chaining part: the id will contain the
 // target pattern that was expanded and the children id will contain the
 // target or target pattern it was expanded to.
-message PatternExpanded {}
+message PatternExpanded {
+  // Represents a test_suite target and the tests that it expanded to. Nested
+  // test suites are recursively expanded. The test labels only contain the
+  // final test targets, not any nested suites.
+  message TestSuiteExpansion {
+    // The label of the test_suite rule.
+    string suite_label = 1;
+    // Labels of the test targets included in the suite. Includes all tests in
+    // the suite regardless of any filters or negative patterns which may result
+    // in the test not actually being run.
+    repeated string test_labels = 2;
+  }
+
+  // All test suites requested via top-level target patterns. Does not include
+  // test suites whose label matched a negative pattern.
+  repeated TestSuiteExpansion test_suite_expansions = 1;
+}
 
 // Enumeration type characterizing the size of a test, as specified by the
 // test rule.
