@@ -156,6 +156,13 @@ $ bazel build --platforms=//:myplatform //...`
 $ bazel build --platforms=//:myplatform //:all`
 ```
 
+Incompatible tests in a [`test_suite`](be/general.html#test_suite) are
+similarly skipped if the `test_suite` is specified on the command line with
+[`--expand_test_suites`](command-line-reference.html#flag--expand_test_suites).
+In other words, `test_suite` targets on the command line behave like `:all` and
+`...`. Using `--noexpand_test_suites` prevents expansion and causes
+`test_suite` targets with incompatible tests to also be incompatible.
+
 Explicitly specifying an incompatible target on the command line results in an
 error message and a failed build.
 
