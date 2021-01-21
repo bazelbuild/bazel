@@ -490,7 +490,7 @@ public final class ConfiguredTargetFactory {
   }
 
   /**
-   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
+   * Constructs a {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
    * aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
   public ConfiguredAspect createAspect(
