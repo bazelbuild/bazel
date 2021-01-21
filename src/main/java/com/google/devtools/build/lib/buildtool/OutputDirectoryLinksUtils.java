@@ -130,7 +130,7 @@ public final class OutputDirectoryLinksUtils {
     List<String> ambiguousLinks = new ArrayList<>();
     Set<String> createdLinks = new LinkedHashSet<>();
     String workspaceBaseName = workspace.getBaseName();
-    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
+    RepositoryName repositoryName = RepositoryName.MAIN;
     boolean logOnly = mode == ConvenienceSymlinksMode.LOG_ONLY;
 
     for (SymlinkDefinition symlink :
