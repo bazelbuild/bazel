@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -72,6 +73,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:all')",
             "register_toolchains('@bazel_tools//tools/android:all')",
+            "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
             "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
             "local_repository(name = 'local_config_platform', path = '"
                 + localConfigPlatformWorkspace
@@ -199,12 +201,63 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "   toolchain = ':jdk',",
         ")");
 
+    // Create a default Android target platform.
+    // Any tests that create platforms should inherit from this.
+    config.create(
+        TestConstants.PLATFORMS_PATH + "/android/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "platform(",
+        "  name = 'android',",
+        "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
+        "  constraint_values = [",
+        "    '" + TestConstants.PLATFORM_PACKAGE_ROOT + ":android',",
+        "  ],",
+        ")");
+
+    // Create the actual SDKs.
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();
     config.create(
         "bazel_tools_workspace/tools/android/BUILD", androidBuildContents.toArray(new String[0]));
     config.create(
         "bazel_tools_workspace/tools/android/emulator/BUILD",
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
+    // Create a dummy toolchain to make toolchain resolution happy.
+    config.create(
+        "bazel_tools_workspace/tools/android/dummy_sdk/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "toolchain(",
+        "    name = 'dummy-sdk',",
+        "    toolchain = ':invalid-fallback-sdk',",
+        "    toolchain_type = '@bazel_tools//tools/android:sdk_toolchain_type'",
+        ")",
+        "filegroup(",
+        "    name = 'jar-filegroup',",
+        "    srcs = ['dummy.jar'],",
+        ")",
+        "genrule(",
+        "    name = 'empty-binary',",
+        "    srcs = [],",
+        "    outs = ['empty.sh'],",
+        "    cmd = 'touch $@',",
+        "    executable = 1,",
+        ")",
+        "android_sdk(",
+        "    name = 'invalid-fallback-sdk',",
+        "    aapt = ':empty_binary',",
+        "    aapt2 = ':empty_binary',",
+        "    adb = ':empty_binary',",
+        "    aidl = ':empty_binary',",
+        "    android_jar = ':jar-filegroup',",
+        "    apksigner = ':empty_binary',",
+        "    dx = ':empty_binary',",
+        "    framework_aidl = 'dummy.jar',",
+        "    main_dex_classes = 'dummy.jar',",
+        "    main_dex_list_creator = ':empty_binary',",
+        "    proguard = 'empty_binary',",
+        "    shrinked_android_jar = 'dummy.jar',",
+        "    zipalign = ':empty_binary',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")");
 
     config.create(
         "bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
@@ -329,11 +382,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
     ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
 
     androidBuildContents.add(
+        "package(default_visibility=['//visibility:public'])",
         "toolchain_type(name = 'sdk_toolchain_type')",
         "toolchain(",
         "  name = 'sdk_toolchain',",
         "  toolchain = ':sdk',",
         "  toolchain_type = ':sdk_toolchain_type',",
+        "  target_compatible_with = [",
+        "    '@bazel_tools//platforms:android',",
+        "  ],",
         ")",
         "android_sdk(",
         "    name = 'sdk',",
