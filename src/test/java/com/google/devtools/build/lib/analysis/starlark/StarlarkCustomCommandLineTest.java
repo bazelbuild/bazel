@@ -59,7 +59,7 @@ public class StarlarkCustomCommandLineTest {
   @Before
   public void createArtifactRoot() throws IOException {
     execRoot = scratch.dir("execroot");
-    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, "bin");
+    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, false, "bin");
   }
 
   @Test

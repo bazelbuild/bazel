@@ -43,7 +43,8 @@ public class HeaderDiscoveryTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/execroot");
   private final Path derivedRoot = execRoot.getChild(DERIVED_SEGMENT);
-  private final ArtifactRoot artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, DERIVED_SEGMENT);
+  private final ArtifactRoot artifactRoot =
+      ArtifactRoot.asDerivedRoot(execRoot, false, DERIVED_SEGMENT);
 
   @Test
   public void errorsWhenMissingHeaders() {

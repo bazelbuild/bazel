@@ -58,7 +58,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     Path execRoot = outputBase.getRelative("exec");
     String outSegment = "root";
     Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, outSegment);
     try {
       return ActionsTestUtil.createArtifact(
           root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
@@ -392,7 +392,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, "out"), execPath);
+        ArtifactRoot.asDerivedRoot(execRoot, false, "out"), execPath);
   }
 
   private void verifyArguments(

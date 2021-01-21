@@ -1124,6 +1124,7 @@ public abstract class Artifact
       return ArtifactRoot.asDerivedRoot(
           getExecRoot(treeArtifactRoot),
           // e.g. bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
+          false,
           getExecPathWithinCustomDerivedRoot(
               derivedPathPrefix, customDerivedTreeRoot, treeArtifactRoot.getExecPath()));
     }

@@ -114,7 +114,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
     Path execRoot = outputBase.getRelative("exec");
     String outSegment = "out";
     Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, outSegment);
     try {
       return ActionsTestUtil.createArtifact(
           root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));

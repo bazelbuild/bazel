@@ -53,7 +53,7 @@ public class TopLevelArtifactHelperTest {
   public final void setRootDir() throws Exception {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = ArtifactRoot.asDerivedRoot(execRoot, "blaze-out");
+    root = ArtifactRoot.asDerivedRoot(execRoot, false, "blaze-out");
     path = scratch.dir("/blaze-out/foo");
   }
 

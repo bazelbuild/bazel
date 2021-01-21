@@ -54,7 +54,8 @@ public final class TreeArtifactValueTest {
   private static final PathFragment BIN_PATH = PathFragment.create("bin");
 
   private final Scratch scratch = new Scratch();
-  private final ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.resolve("root"), BIN_PATH);
+  private final ArtifactRoot root =
+      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), false, BIN_PATH);
 
   @Test
   public void createsCorrectValue() {

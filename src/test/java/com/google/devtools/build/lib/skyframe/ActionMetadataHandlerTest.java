@@ -77,7 +77,7 @@ public final class ActionMetadataHandlerTest {
       ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
   private final PathFragment derivedPathPrefix = PathFragment.create("bin");
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), derivedPathPrefix);
+      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), false, derivedPathPrefix);
   private final Path execRoot = outputRoot.getRoot().asPath();
 
   @Before

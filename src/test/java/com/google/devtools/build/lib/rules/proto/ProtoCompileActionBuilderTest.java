@@ -55,7 +55,7 @@ public class ProtoCompileActionBuilderTest {
   private final ArtifactRoot root =
       ArtifactRoot.asSourceRoot(Root.fromPath(FILE_SYSTEM.getPath("/")));
   private final ArtifactRoot derivedRoot =
-      ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), "out");
+      ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), false, "out");
 
   private ProtoSource protoSource(String importPath) {
     return protoSource(artifact("//:dont-care", importPath));

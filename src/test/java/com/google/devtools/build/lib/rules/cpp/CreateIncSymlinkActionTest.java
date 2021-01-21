@@ -49,7 +49,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   public void testDifferentOrderSameActionKey() {
     String outSegment = "out";
     Path includePath = rootDirectory.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, false, outSegment);
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     Artifact c = ActionsTestUtil.createArtifact(root, "c");
@@ -71,7 +71,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   public void testDifferentTargetsDifferentActionKey() {
     String outSegment = "out";
     Path includePath = rootDirectory.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, false, outSegment);
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action1 =
@@ -89,7 +89,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   public void testDifferentSymlinksDifferentActionKey() {
     String outSegment = "out";
     Path includePath = rootDirectory.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, false, outSegment);
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action1 =
@@ -108,7 +108,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     String outSegment = "out";
     Path outputDir = rootDirectory.getRelative(outSegment);
     outputDir.createDirectory();
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, false, outSegment);
     Path symlink = rootDirectory.getRelative("out/a");
     Artifact a = ActionsTestUtil.createArtifact(root, symlink);
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
@@ -146,7 +146,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     String outSegment = "out";
     Path outputDir = rootDirectory.getRelative(outSegment);
     outputDir.createDirectory();
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, false, outSegment);
     Path symlink = rootDirectory.getRelative("out/subdir/a");
     Artifact a = ActionsTestUtil.createArtifact(root, symlink);
     Artifact b = ActionsTestUtil.createArtifact(root, "b");

@@ -966,7 +966,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         fs.getPath(TestUtils.tmpDir()).getRelative("execroot").getRelative("default-exec-root");
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, "out"),
+        ArtifactRoot.asDerivedRoot(execRoot, false, "out"),
         execPath,
         ACTION_LOOKUP_KEY,
         SpecialArtifactType.TREE);

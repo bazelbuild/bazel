@@ -216,7 +216,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     SpecialArtifact output =
         new SpecialArtifact(
-            ArtifactRoot.asDerivedRoot(root, "out"), execPath, ALL_OWNER, SpecialArtifactType.TREE);
+            ArtifactRoot.asDerivedRoot(root, false, "out"),
+            execPath,
+            ALL_OWNER,
+            SpecialArtifactType.TREE);
     actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     FileSystemUtils.createDirectoryAndParents(fullPath);
     return output;

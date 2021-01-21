@@ -60,7 +60,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   @Before
   public void createArtifacts() throws Exception  {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, "out");
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, false, "out");
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     outputArtifact.getPath().getParentDirectory().createDirectoryAndParents();
     treeArtifact = createTreeArtifact("artifact/myTreeFileArtifact");

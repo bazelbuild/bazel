@@ -213,7 +213,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private SpecialArtifact treeArtifact(String path) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(rootDirectory, "out"), PathFragment.create("out/" + path));
+        ArtifactRoot.asDerivedRoot(rootDirectory, false, "out"),
+        PathFragment.create("out/" + path));
   }
 
   private void addNewTreeFileArtifact(SpecialArtifact parent, String relatedPath)
@@ -227,7 +228,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact.DerivedArtifact result =
         (Artifact.DerivedArtifact)
             ActionsTestUtil.createArtifactWithExecPath(
-                ArtifactRoot.asDerivedRoot(rootDirectory, "out"), execPath);
+                ArtifactRoot.asDerivedRoot(rootDirectory, false, "out"), execPath);
     result.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, artifacts.size()));
     artifacts.add(result);

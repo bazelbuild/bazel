@@ -158,7 +158,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutDerivedArtifactWithDifferentOwnerDoesNotConflict() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), "out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), false, "out");
     PathFragment path = PathFragment.create("src/foo.cc");
 
     SimpleActionLookupKey owner1 = new SimpleActionLookupKey("//owner1");
@@ -181,7 +181,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutDerivedArtifactWithDifferentPathConflicts() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), "out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), false, "out");
     PathFragment path = PathFragment.create("src/foo.cc");
     PathFragment path2 = PathFragment.create("src/bar.cc");
 
@@ -489,7 +489,7 @@ public class RunfilesTest extends FoundationTestCase {
   @Test
   public void testOnlyExtraMiddlemenNotConsideredEmpty() {
     ArtifactRoot root =
-        ArtifactRoot.middlemanRoot(scratch.resolve("execroot"), scratch.resolve("execroot/out"));
+        ArtifactRoot.asDerivedRoot(scratch.resolve("execroot"), true, PathFragment.create("out"));
     Artifact mm = ActionsTestUtil.createArtifact(root, "a-middleman");
     Runfiles runfiles = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm).build();
     assertThat(runfiles.isEmpty()).isFalse();
@@ -498,7 +498,7 @@ public class RunfilesTest extends FoundationTestCase {
   @Test
   public void testMergingExtraMiddlemen() {
     ArtifactRoot root =
-        ArtifactRoot.middlemanRoot(scratch.resolve("execroot"), scratch.resolve("execroot/out"));
+        ArtifactRoot.asDerivedRoot(scratch.resolve("execroot"), true, PathFragment.create("out"));
     Artifact mm1 = ActionsTestUtil.createArtifact(root, "middleman-1");
     Artifact mm2 = ActionsTestUtil.createArtifact(root, "middleman-2");
     Runfiles runfiles1 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm1).build();

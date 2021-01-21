@@ -51,7 +51,8 @@ public class MapBasedActionGraphTest {
     Path root = execRoot.getChild(outSegment);
     Path path = root.getRelative("foo");
     Artifact output =
-        ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, outSegment), path);
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asDerivedRoot(execRoot, false, outSegment), path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -60,7 +61,9 @@ public class MapBasedActionGraphTest {
     actionGraph.registerAction(action);
     actionGraph.unregisterAction(action);
     path = root.getRelative("bar");
-    output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, outSegment), path);
+    output =
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asDerivedRoot(execRoot, false, outSegment), path);
     Action action2 =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -79,7 +82,8 @@ public class MapBasedActionGraphTest {
     Path path = root.getRelative("foo");
     Artifact output =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, root.relativeTo(execRoot).getPathString()), path);
+            ArtifactRoot.asDerivedRoot(execRoot, false, root.relativeTo(execRoot).getPathString()),
+            path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -115,7 +119,8 @@ public class MapBasedActionGraphTest {
       Path root = execRoot.getChild(rootSegment);
       Path path = root.getChild("foo");
       output =
-          ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, rootSegment), path);
+          ActionsTestUtil.createArtifact(
+              ArtifactRoot.asDerivedRoot(execRoot, false, rootSegment), path);
       allActions.add(
           new TestAction(
               TestAction.NO_EFFECT,

@@ -77,7 +77,7 @@ public class RemoteActionInputFetcherTest {
     Path dev = fs.getPath("/dev");
     dev.createDirectory();
     dev.setWritable(false);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "root");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, false, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     options = Options.getDefaults(RemoteOptions.class);
     digestUtil = new DigestUtil(HASH_FUNCTION);
