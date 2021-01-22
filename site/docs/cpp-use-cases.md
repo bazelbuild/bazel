@@ -32,9 +32,9 @@ subdirectories).
 ## Using transitive includes
 
 If a file includes a header, then the file's rule should depend on that header's
-library.  Conversely, only direct dependencies need to be specified as
-dependencies.  For example, suppose `sandwich.h` includes `bread.h` and
-`bread.h` includes `flour.h`.  `sandwich.h` doesn't include `flour.h` (who wants
+library. Conversely, only direct dependencies need to be specified as
+dependencies. For example, suppose `sandwich.h` includes `bread.h` and
+`bread.h` includes `flour.h`. `sandwich.h` doesn't include `flour.h` (who wants
 flour in their sandwich?), so the `BUILD` file would look like this:
 
 ```python
@@ -66,7 +66,7 @@ on the `flour` library.
 
 Sometimes you cannot (or do not want to) root include paths at the workspace
 root. Existing libraries might already have an include directory that doesn't
-match its path in your workspace.  For example, suppose you have the following
+match its path in your workspace. For example, suppose you have the following
 directory structure:
 
 ```
@@ -82,7 +82,7 @@ directory structure:
 
 Bazel will expect `some_lib.h` to be included as
 `legacy/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
-`"some_lib.h"`.  To make that include path valid,
+`"some_lib.h"`. To make that include path valid,
 `legacy/some_lib/BUILD` will need to specify that the `some_lib/include`
 directory is an include directory:
 

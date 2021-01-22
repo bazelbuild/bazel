@@ -139,7 +139,7 @@ cc_library(
 ```
 
 When building for anything but 64-bit Windows we say that `:win_driver_lib` is
-incompatible.  Incompatibility is transitive. Any targets that transitively
+incompatible. Incompatibility is transitive. Any targets that transitively
 depend on an incompatible target are themselves considered incompatible.
 
 ### When are targets skipped?

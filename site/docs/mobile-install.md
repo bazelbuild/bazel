@@ -65,7 +65,7 @@ know how to reuse work from previous builds: it dexes every method again, even
 though only one method was changed.
 
 - Uploading data to the device. adb does not use the full bandwidth of a USB 2.0
-connection, and larger apps can take a lot of time to upload.  The entire app is
+connection, and larger apps can take a lot of time to upload. The entire app is
 uploaded, even if only small parts have changed, for example, a resource or a
 single method, so this can be a major bottleneck.
 
