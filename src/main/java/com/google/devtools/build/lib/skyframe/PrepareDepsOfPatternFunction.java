@@ -260,9 +260,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      if (repositoryIgnoredSubdirectories.contains(directoryPathFragment)) {
-        return;
-      }
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;

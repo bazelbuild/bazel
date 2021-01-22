@@ -171,14 +171,9 @@ public final class EnvironmentBackedRecursivePackageProvider
       roots.add(Root.fromPath(repositoryValue.getPath()));
     }
 
-    if (ignoredSubdirectories.contains(directory)) {
-      return;
-    }
     ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
         ImmutableSet.copyOf(
-            Iterables.filter(
-                ignoredSubdirectories,
-                path -> !path.equals(directory) && path.startsWith(directory)));
+            Iterables.filter(ignoredSubdirectories, path -> path.startsWith(directory)));
 
     for (Root root : roots) {
       RecursivePkgValue lookup =

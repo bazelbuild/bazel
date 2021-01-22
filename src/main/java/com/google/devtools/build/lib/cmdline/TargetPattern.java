@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -551,14 +552,17 @@ public abstract class TargetPattern implements Serializable {
           "Fully excluded target pattern %s should have already been filtered out (%s)",
           this,
           excludedSubdirectories);
-      ImmutableSet<PathFragment> filteredIgnored =
+      IgnoredPathFragmentsInScopeOrFilteringIgnorer ignoredIntersection =
           getAllIgnoredSubdirectoriesToExclude(ignoredSubdirectories);
+      if (warnIfFiltered(ignoredIntersection, resolver)) {
+        return;
+      }
       resolver.findTargetsBeneathDirectory(
           directory.getRepository(),
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          filteredIgnored,
+          ignoredIntersection.ignoredPathFragments(),
           excludedSubdirectories,
           callback,
           exceptionClass);
@@ -577,38 +581,136 @@ public abstract class TargetPattern implements Serializable {
           "Fully excluded target pattern %s should have already been filtered out (%s)",
           this,
           excludedSubdirectories);
-      ImmutableSet<PathFragment> filteredIgnored;
+      IgnoredPathFragmentsInScopeOrFilteringIgnorer ignoredIntersection;
       try {
-        filteredIgnored = getAllIgnoredSubdirectoriesToExclude(ignoredSubdirectories);
+        ignoredIntersection = getAllIgnoredSubdirectoriesToExclude(ignoredSubdirectories);
       } catch (InterruptedException e) {
         return immediateCancelledFuture();
+      }
+      if (warnIfFiltered(ignoredIntersection, resolver)) {
+        return immediateVoidFuture();
       }
       return resolver.findTargetsBeneathDirectoryAsync(
           directory.getRepository(),
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          filteredIgnored,
+          ignoredIntersection.ignoredPathFragments(),
           excludedSubdirectories,
           callback,
           exceptionClass,
           executor);
     }
 
-    public ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
+    private boolean warnIfFiltered(
+        IgnoredPathFragmentsInScopeOrFilteringIgnorer ignoredIntersection,
+        TargetPatternResolver<?> resolver) {
+      if (ignoredIntersection.wasFiltered()) {
+        resolver.warn(
+            "Pattern '"
+                + getOriginalPattern()
+                + "' was filtered out by ignored directory '"
+                + ignoredIntersection.filteringIgnorer().getPathString()
+                + "'");
+        return true;
+      }
+      return false;
+    }
+
+    public IgnoredPathFragmentsInScopeOrFilteringIgnorer getAllIgnoredSubdirectoriesToExclude(
         InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredPackagePrefixes)
         throws InterruptedException {
-      ImmutableSet<PathFragment> ignoredPaths = ignoredPackagePrefixes.get();
       ImmutableSet.Builder<PathFragment> ignoredPathsBuilder =
           ImmutableSet.builderWithExpectedSize(0);
-      for (PathFragment ignoredPackagePrefix : ignoredPaths) {
+      for (PathFragment ignoredPackagePrefix : ignoredPackagePrefixes.get()) {
+        if (this.containedIn(ignoredPackagePrefix)) {
+          return new IgnoredPathFragmentsInScopeOrFilteringIgnorer.FilteringIgnorer(
+              ignoredPackagePrefix);
+        }
         PackageIdentifier pkgIdForIgnoredDirectorPrefix =
             PackageIdentifier.create(this.getDirectory().getRepository(), ignoredPackagePrefix);
         if (this.containsAllTransitiveSubdirectories(pkgIdForIgnoredDirectorPrefix)) {
           ignoredPathsBuilder.add(ignoredPackagePrefix);
         }
       }
-      return ignoredPathsBuilder.build();
+      return IgnoredPathFragmentsInScopeOrFilteringIgnorer.IgnoredPathFragments.of(
+          ignoredPathsBuilder.build());
+    }
+
+    /**
+     * Morally an {@code Either<ImmutableSet<PathFragment>, PathFragment>}, saying whether the given
+     * set of ignored directories intersected a directory (in which case the directories that were
+     * in the intersection are returned) or completely contained it (in which case a containing
+     * directory is returned).
+     */
+    public abstract static class IgnoredPathFragmentsInScopeOrFilteringIgnorer {
+      public abstract boolean wasFiltered();
+
+      public abstract ImmutableSet<PathFragment> ignoredPathFragments();
+
+      public abstract PathFragment filteringIgnorer();
+
+      private static class IgnoredPathFragments
+          extends IgnoredPathFragmentsInScopeOrFilteringIgnorer {
+        private static final IgnoredPathFragments EMPTYSET_IGNORED =
+            new IgnoredPathFragments(ImmutableSet.of());
+
+        private final ImmutableSet<PathFragment> ignoredPathFragments;
+
+        private IgnoredPathFragments(ImmutableSet<PathFragment> ignoredPathFragments) {
+          this.ignoredPathFragments = ignoredPathFragments;
+        }
+
+        static IgnoredPathFragments of(ImmutableSet<PathFragment> ignoredPathFragments) {
+          if (ignoredPathFragments.isEmpty()) {
+            return EMPTYSET_IGNORED;
+          }
+          return new IgnoredPathFragments(ignoredPathFragments);
+        }
+
+        @Override
+        public boolean wasFiltered() {
+          return false;
+        }
+
+        @Override
+        public ImmutableSet<PathFragment> ignoredPathFragments() {
+          return ignoredPathFragments;
+        }
+
+        @Override
+        public PathFragment filteringIgnorer() {
+          throw new UnsupportedOperationException("No filter: " + ignoredPathFragments);
+        }
+      }
+
+      private static class FilteringIgnorer extends IgnoredPathFragmentsInScopeOrFilteringIgnorer {
+        private final PathFragment filteringIgnorer;
+
+        FilteringIgnorer(PathFragment filteringIgnorer) {
+          this.filteringIgnorer = filteringIgnorer;
+        }
+
+        @Override
+        public boolean wasFiltered() {
+          return true;
+        }
+
+        @Override
+        public ImmutableSet<PathFragment> ignoredPathFragments() {
+          throw new UnsupportedOperationException("was filtered: " + filteringIgnorer);
+        }
+
+        @Override
+        public PathFragment filteringIgnorer() {
+          return filteringIgnorer;
+        }
+      }
+    }
+
+    /** Is {@code containingDirectory} an ancestor of or equal to this {@link #directory}? */
+    public boolean containedIn(PathFragment containingDirectory) {
+      return directory.getPackageFragment().startsWith(containingDirectory);
     }
 
     /**

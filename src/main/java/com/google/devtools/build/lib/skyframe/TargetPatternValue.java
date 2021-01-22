@@ -288,8 +288,8 @@ public final class TargetPatternValue implements SkyValue {
     private final PathFragment offset;
     /**
      * Must be "compatible" with {@link #parsedPattern}: if {@link #parsedPattern} is a {@link
-     * TargetsBelowDirectory} object, then no element of {@code excludedSubdirectories} fully
-     * contains it.
+     * TargetsBelowDirectory} object, then {@link TargetsBelowDirectory#containedIn} is false for
+     * every element of {@code excludedSubdirectories}.
      */
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 

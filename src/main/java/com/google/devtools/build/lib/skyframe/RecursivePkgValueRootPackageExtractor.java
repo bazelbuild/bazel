@@ -45,9 +45,7 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       throws InterruptedException, QueryException {
     ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
         ImmutableSet.copyOf(
-            Iterables.filter(
-                ignoredSubdirectories,
-                path -> !path.equals(directory) && path.startsWith(directory)));
+            Iterables.filter(ignoredSubdirectories, path -> path.startsWith(directory)));
 
     for (Root root : roots) {
       RootedPath rootedPath = RootedPath.toRootedPath(root, directory);
