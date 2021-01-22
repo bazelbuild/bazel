@@ -665,20 +665,16 @@ public final class EvaluationTest {
     ev.new Scenario().testExpression("not 'a' in ['a'] or 0", StarlarkInt.of(0));
   }
 
-  private static StarlarkValue createObjWithStr() {
-    return new StarlarkValue() {
-      @Override
-      public void repr(Printer printer) {
-        printer.append("<str marker>");
-      }
-    };
-  }
-
   @Test
-  public void testPercentOnObjWithStr() throws Exception {
-    ev.new Scenario()
-        .update("obj", createObjWithStr())
-        .testExpression("'%s' % obj", "<str marker>");
+  public void testPercentOnValueWithRepr() throws Exception {
+    Object obj =
+        new StarlarkValue() {
+          @Override
+          public void repr(Printer printer) {
+            printer.append("<str marker>");
+          }
+        };
+    ev.new Scenario().update("obj", obj).testExpression("'%s' % obj", "<str marker>");
   }
 
   private static class Dummy implements StarlarkValue {}
@@ -697,8 +693,15 @@ public final class EvaluationTest {
 
   @Test
   public void testPercentOnTupleOfDummyValues() throws Exception {
+    Object obj =
+        new StarlarkValue() {
+          @Override
+          public void repr(Printer printer) {
+            printer.append("<str marker>");
+          }
+        };
     ev.new Scenario()
-        .update("obj", createObjWithStr())
+        .update("obj", obj)
         .testExpression("'%s %s' % (obj, obj)", "<str marker> <str marker>");
     ev.new Scenario()
         .update("unknown", new Dummy())
@@ -706,13 +709,6 @@ public final class EvaluationTest {
             "'%s %s' % (unknown, unknown)",
             "<unknown object net.starlark.java.eval.EvaluationTest$Dummy> <unknown"
                 + " object net.starlark.java.eval.EvaluationTest$Dummy>");
-  }
-
-  @Test
-  public void testPercOnObjectInvalidFormat() throws Exception {
-    ev.new Scenario()
-        .update("obj", createObjWithStr())
-        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
   }
 
   @Test

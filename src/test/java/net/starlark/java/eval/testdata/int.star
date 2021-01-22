@@ -39,11 +39,35 @@ assert_eq(str(-1 << 48), "-281474976710656")
 assert_eq(str(-1 << 96), "-79228162514264337593543950336")
 
 # %d formatting
-# TODO(adonovan): implement %x.
+assert_eq("%d" % 255, "255")
 assert_eq("%d" % (1 << 32), "4294967296")
 assert_eq("%d" % (1 << 64), "18446744073709551616")
 assert_eq("%d" % (1 << 128), "340282366920938463463374607431768211456")
 assert_eq("%d" % (-1 << 128), "-340282366920938463463374607431768211456")
+
+# %x formatting
+assert_eq("%x" % 255, "ff")
+assert_eq("%x" % (1 << 32), "100000000")
+assert_eq("%x" % (1 << 64), "10000000000000000")
+assert_eq("%x" % (1 << 128), "100000000000000000000000000000000")
+assert_eq("%x" % (-1 << 128), "-100000000000000000000000000000000")
+assert_fails(lambda: "%x" % "1", "got string for '%x' format, want int or float")
+
+# %X formatting
+assert_eq("%X" % 255, "FF")
+assert_eq("%X" % (1 << 32), "100000000")
+assert_eq("%X" % (1 << 64), "10000000000000000")
+assert_eq("%X" % (1 << 128), "100000000000000000000000000000000")
+assert_eq("%X" % (-1 << 128), "-100000000000000000000000000000000")
+assert_fails(lambda: "%X" % "1", "got string for '%X' format, want int or float")
+
+# %o formatting
+assert_eq("%o" % 255, "377")
+assert_eq("%o" % (1 << 32), "40000000000")
+assert_eq("%o" % (1 << 64), "2000000000000000000000")
+assert_eq("%o" % (1 << 128), "4000000000000000000000000000000000000000000")
+assert_eq("%o" % (-1 << 128), "-4000000000000000000000000000000000000000000")
+assert_fails(lambda: "%o" % "1", "got string for '%o' format, want int or float")
 
 # truth
 assert_(not 0)
