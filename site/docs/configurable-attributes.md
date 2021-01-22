@@ -453,9 +453,9 @@ For more direct support, use one of the following:
 ### <a name="selects-with-or"></a>`selects.with_or`
 
 The
-[with_or](https://g3doc.corp.google.com/third_party/bazel_skylib/g3doc/selects_doc.md#selectswith-or)
+[with_or](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectswith_or)
 macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
-[`selects`](https://g3doc.corp.google.com/third_party/bazel_skylib/g3doc/selects_doc.md)
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
 module supports `OR`ing conditions directly inside a `select`:
 
 ```python
