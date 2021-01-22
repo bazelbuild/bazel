@@ -675,7 +675,7 @@ the first binary called and look for an adjacent runfiles directory.
 Normally, the relative path of a file in the runfiles tree is the same as the
 relative path of that file in the source tree or generated output tree. If these
 need to be different for some reason, you can specify the `root_symlinks` or
-`symlinks` arguments.  The `root_symlinks` is a dictionary mapping paths to
+`symlinks` arguments. The `root_symlinks` is a dictionary mapping paths to
 files, where the paths are relative to the root of the runfiles directory. The
 `symlinks` dictionary is the same, but paths are implicitly prefixed with the
 name of the workspace.
