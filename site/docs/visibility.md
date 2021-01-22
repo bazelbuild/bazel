@@ -62,6 +62,10 @@ specified in the [`package`](be/functions.html#package) statement of the
 target's BUILD file. If there is no such `default_visibility` declaration, the
 visibility is `//visibility:private`.
 
+`config_setting` targets default to `//visibility:public`. This is purely for
+legacy reasons. Best practice is to treat `config_setting` targets as if they
+also use the private default.
+
 ### Example
 
 File `//frobber/bin/BUILD`:

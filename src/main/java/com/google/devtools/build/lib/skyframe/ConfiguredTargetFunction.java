@@ -48,13 +48,13 @@ import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -115,9 +115,6 @@ import javax.annotation.Nullable;
  */
 public final class ConfiguredTargetFunction implements SkyFunction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  private static final ImmutableMap<Label, ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
-      ImmutableMap.of();
 
   /**
    * Attempt to find a {@link ConfiguredValueCreationException} in a {@link ToolchainException}, or
@@ -287,7 +284,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Get the configuration targets that trigger this rule's configurable attributes.
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+      ConfigConditions configConditions =
           getConfigConditions(
               env,
               ctgValue,
@@ -307,7 +304,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
       // attributes.
       if (!transitiveRootCauses.isEmpty()
-          && !Objects.equals(configConditions, NO_CONFIG_CONDITIONS)) {
+          && !Objects.equals(configConditions, ConfigConditions.EMPTY)) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
@@ -324,7 +321,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               resolver,
               ctgValue,
               ImmutableList.<Aspect>of(),
-              configConditions,
+              configConditions.asProviders(),
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
@@ -712,14 +709,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Returns the set of {@link ConfigMatchingProvider}s that key the configurable attributes used by
-   * this rule.
+   * Returns the targets that key the configurable attributes used by this rule.
    *
    * <p>>If the configured targets supplying those providers aren't yet resolved by the dependency
    * resolver, returns null.
    */
   @Nullable
-  static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(
+  static ConfigConditions getConfigConditions(
       Environment env,
       TargetAndConfiguration ctgValue,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
@@ -728,11 +724,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws DependencyEvaluationException, InterruptedException {
     Target target = ctgValue.getTarget();
     if (!(target instanceof Rule)) {
-      return NO_CONFIG_CONDITIONS;
+      return ConfigConditions.EMPTY;
     }
     RawAttributeMapper attrs = RawAttributeMapper.of(((Rule) target));
     if (!attrs.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
-      return NO_CONFIG_CONDITIONS;
+      return ConfigConditions.EMPTY;
     }
 
     // Collect the labels of the configured targets we need to resolve.
@@ -741,7 +737,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
             .collect(Collectors.toList());
     if (configLabels.isEmpty()) {
-      return NO_CONFIG_CONDITIONS;
+      return ConfigConditions.EMPTY;
     } else if (ctgValue.getConfiguration().trimConfigurationsRetroactively()) {
       String message =
           target.getLabel()
@@ -795,33 +791,23 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw e;
     }
 
-    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
+    Map<Label, ConfiguredTargetAndData> asConfiguredTargets = new LinkedHashMap<>();
+    Map<Label, ConfigMatchingProvider> asConfigConditions = new LinkedHashMap<>();
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
       SkyKey baseKey = entry.getConfiguredTargetKey();
-      // The code above guarantees that value is non-null here.
-      ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
-      // The below handles config_setting (which nativly provides ConfigMatchingProvider) and
-      // constraint_value (which needs a custom-built ConfigMatchingProvider). If we ever add
-      // support for more rules we should move resolution logic to ConfigMatchingProvider and
-      // simplify the logic here.
-      ConfigMatchingProvider matchingProvider = value.getProvider(ConfigMatchingProvider.class);
-      ConstraintValueInfo constraintValueInfo = value.get(ConstraintValueInfo.PROVIDER);
-
-      if (matchingProvider != null) {
-        configConditions.put(entry.getLabel(), matchingProvider);
-      } else if (constraintValueInfo != null && platformInfo != null) {
-        // If platformInfo == null, that means the owning target doesn't invoke toolchain
-        // resolution, in which case depending on a constraint_value is non-sensical.
-        configConditions.put(
-            entry.getLabel(), constraintValueInfo.configMatchingProvider(platformInfo));
-      } else {
-        // Not a valid provider for configuration conditions.
+      // The code above guarantees that selectKeyTarget is non-null here.
+      ConfiguredTargetAndData selectKeyTarget = configValues.get(baseKey);
+      asConfiguredTargets.put(entry.getLabel(), selectKeyTarget);
+      try {
+        asConfigConditions.put(
+            entry.getLabel(), ConfigConditions.fromConfiguredTarget(selectKeyTarget, platformInfo));
+      } catch (ConfigConditions.InvalidConditionException e) {
         String message =
             String.format(
                     "%s is not a valid select() condition for %s.\n",
-                    entry.getLabel(), target.getLabel())
+                    selectKeyTarget.getTarget().getLabel(), target.getLabel())
                 + String.format(
                     "To inspect the select(), run: bazel query --output=build %s.\n",
                     target.getLabel())
@@ -833,7 +819,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
 
-    return ImmutableMap.copyOf(configConditions);
+    return ConfigConditions.create(
+        ImmutableMap.copyOf(asConfiguredTargets), ImmutableMap.copyOf(asConfigConditions));
   }
 
   /**
@@ -992,7 +979,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       BuildConfiguration configuration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {

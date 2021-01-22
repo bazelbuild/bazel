@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -931,7 +931,7 @@ public final class SkyframeBuildView {
       CachingAnalysisEnvironment analysisEnvironment,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     Preconditions.checkState(
