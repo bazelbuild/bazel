@@ -335,6 +335,7 @@ public class FakeCcModule
       boolean linkDepsStatically,
       StarlarkInt stamp,
       Sequence<?> additionalInputs,
+      Sequence<?> additionalOutputs,
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,

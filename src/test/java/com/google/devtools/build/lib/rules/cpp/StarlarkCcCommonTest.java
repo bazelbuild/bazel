@@ -5563,6 +5563,26 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAdditionalLinkingOutputs() throws Exception {
+    createCcBinRule(scratch, "additional_outputs=ctx.outputs.additional_outputs");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs:extension.bzl', 'cc_bin')",
+        "cc_bin(",
+        "    name = 'bin',",
+        "    objects = ['file.o'],",
+        "    pic_objects = ['file.pic.o'],",
+        "    additional_outputs = [':bin.map'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".map"));
+    assertThat(artifactsToStrings(action.getOutputs()))
+        .contains("bin foo/bin.map");;
+  }
+
+  @Test
   public void testAdditionalCompilationInputs() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_compiler_inputs");
@@ -6193,7 +6213,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
   }
 
-  private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
+  private static void createCcBinRule(Scratch scratch, String... additionalLines)
       throws Exception {
     String fragments = "    fragments = ['google_cpp', 'cpp'],";
     if (AnalysisMock.get().isThisBazel()) {
@@ -6248,9 +6268,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "             default = Label('//tools/cpp/grep_includes:grep-includes'),",
         "             cfg = 'host'",
         "       ),",
+        "      'additional_outputs': attr.output_list(),",
         "    },",
         fragments,
         ")");
+  }
+
+  private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
+      throws Exception {
+    createCcBinRule(scratch, additionalLines);
     scratch.file(
         "foo/BUILD",
         "load('//tools/build_defs:extension.bzl', 'cc_bin')",

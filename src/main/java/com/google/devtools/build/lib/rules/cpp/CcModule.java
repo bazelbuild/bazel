@@ -2107,6 +2107,7 @@ public abstract class CcModule
       boolean linkDepsStatically,
       StarlarkInt stamp,
       Sequence<?> additionalInputs,
+      Sequence<?> additionalOutputs,
       Object grepIncludes,
       Object linkedArtifactNameSuffixObject,
       Object neverLinkObject,
@@ -2185,6 +2186,8 @@ public abstract class CcModule
             .setIsStampingEnabled(isStampingEnabled)
             .addNonCodeLinkerInputs(
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+            .addNonCodeLinkerOutputs(
+                Sequence.cast(additionalOutputs, Artifact.class, "additional_outputs"))
             .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(
                 Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))

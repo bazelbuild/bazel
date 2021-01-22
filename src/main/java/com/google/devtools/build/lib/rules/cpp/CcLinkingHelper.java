@@ -88,6 +88,7 @@ public final class CcLinkingHelper {
   private final CppConfiguration cppConfiguration;
 
   private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
+  private final List<Artifact> nonCodeLinkerOutputs = new ArrayList<>();
   private final List<String> linkopts = new ArrayList<>();
   private final List<CcLinkingContext> ccLinkingContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
@@ -206,6 +207,18 @@ public final class CcLinkingHelper {
     if (fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
       this.nonCodeLinkerInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
+    return this;
+  }
+
+  /** Adds the corresponding non-code files as linker outputs. */
+  public CcLinkingHelper addNonCodeLinkerOutputs(List<Artifact> nonCodeLinkerOutputs) {
+    for (Artifact nonCodeLinkerOutput : nonCodeLinkerOutputs) {
+      String basename = nonCodeLinkerOutput.getFilename();
+      Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
+      Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
+      Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
+      this.nonCodeLinkerOutputs.add(nonCodeLinkerOutput);
     }
     return this;
   }
@@ -696,6 +709,10 @@ public final class CcLinkingHelper {
             .addLinkopts(sonameLinkopts)
             .addNonCodeInputs(nonCodeLinkerInputs)
             .addVariablesExtensions(variablesExtensions);
+
+    for (Artifact nonCodeLinkerOutput : nonCodeLinkerOutputs) {
+        dynamicLinkActionBuilder.addActionOutput(nonCodeLinkerOutput);
+    }
 
     dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
 

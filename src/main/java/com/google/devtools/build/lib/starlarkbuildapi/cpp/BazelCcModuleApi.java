@@ -417,6 +417,12 @@ public interface BazelCcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "additional_outputs",
+            doc = "For additional outputs to the linking action, e.g.: map files.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "grep_includes",
             positional = false,
             named = true,
@@ -502,6 +508,7 @@ public interface BazelCcModuleApi<
       boolean linkDepsStatically,
       StarlarkInt stamp,
       Sequence<?> additionalInputs, // <FileT> expected
+      Sequence<?> additionalOutputs, // <FileT> expected
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,

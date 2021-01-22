@@ -158,6 +158,7 @@ public class BazelCcModule extends CcModule
       boolean linkDepsStatically,
       StarlarkInt stamp,
       Sequence<?> additionalInputs, // <Artifact> expected
+      Sequence<?> additionalOutputs, // <Artifact> expected
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
@@ -183,6 +184,7 @@ public class BazelCcModule extends CcModule
         linkDepsStatically,
         stamp,
         additionalInputs,
+        additionalOutputs,
         /* grepIncludes= */ null,
         linkArtifactNameSuffix,
         neverLink,
