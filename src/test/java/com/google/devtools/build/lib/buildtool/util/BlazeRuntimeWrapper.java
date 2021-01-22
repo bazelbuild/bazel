@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
+import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.ClientOptions;
@@ -209,6 +210,9 @@ public class BlazeRuntimeWrapper {
    */
   public final CommandEnvironment newCommandWithExtensions(
       Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+    additionalOptionsClasses.addAll(
+        BlazeCommandUtils.getOptions(
+            command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
     initializeOptionsParser();
     commandCreated = true;
     if (env != null) {
