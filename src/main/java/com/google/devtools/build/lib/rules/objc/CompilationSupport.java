@@ -42,7 +42,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,8 +66,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -99,7 +96,6 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -108,7 +104,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1142,52 +1137,35 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    CppSemantics cppSemantics = createObjcCppSemantics();
-    FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(
-            ruleContext, toolchain, buildConfiguration, createObjcCppSemantics());
-
-    Label binaryLabel = null;
-    try {
-      binaryLabel =
-          Label.create(ruleContext.getLabel().getPackageIdentifier(), binaryToLink.getFilename());
-    } catch (LabelSyntaxException e) {
-      // Formed from existing label, just replacing name with artifact name.
-    }
-
-    CcLinkingHelper executableLinkingHelper =
-        new CcLinkingHelper(
-                ruleContext,
-                binaryLabel,
+    CppLinkActionBuilder executableLinkActionBuilder =
+        new CppLinkActionBuilder(
                 ruleContext,
                 ruleContext,
-                cppSemantics,
-                featureConfiguration,
+                ruleContext.getLabel(),
+                binaryToLink,
+                buildConfiguration,
                 toolchain,
                 toolchain.getFdoContext(),
-                buildConfiguration,
-                ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator(),
-                TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                getFeatureConfiguration(
+                    ruleContext, toolchain, buildConfiguration, createObjcCppSemantics()),
+                createObjcCppSemantics())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
-            .addNonCodeLinkerInputs(bazelBuiltLibraries)
-            .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-            .addNonCodeLinkerInputs(ImmutableList.copyOf(prunedJ2ObjcArchives))
-            .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
-            .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(LINK_INPUTS))
-            .setShouldCreateStaticLibraries(false)
-            .setDynamicLinkType(linkType)
+            .setMnemonic("ObjcLink")
+            .addActionInputs(bazelBuiltLibraries)
+            .addActionInputs(objcProvider.getCcLibraries())
+            .addTransitiveActionInputs(objcProvider.get(IMPORTED_LIBRARY))
+            .addTransitiveActionInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addTransitiveActionInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .addTransitiveActionInputs(objcProvider.get(LINK_INPUTS))
+            .setLinkerFiles(toolchain.getLinkerFiles())
+            .addActionInputs(prunedJ2ObjcArchives)
+            .addActionInputs(extraLinkInputs)
+            .addActionInput(inputFileList)
+            .setLinkType(linkType)
             .setLinkingMode(LinkingMode.STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
-
-    ImmutableList.Builder<Artifact> linkerOutputs = ImmutableList.builder();
 
     if (objcConfiguration.generateDsym()) {
       Artifact dsymSymbol =
@@ -1197,13 +1175,13 @@ public class CompilationSupport {
       extensionBuilder
           .setDsymSymbol(dsymSymbol)
           .addVariableCategory(VariableCategory.DSYM_VARIABLES);
-      linkerOutputs.add(dsymSymbol);
+      executableLinkActionBuilder.addActionOutput(dsymSymbol);
     }
 
     if (objcConfiguration.generateLinkmap()) {
       Artifact linkmap = intermediateArtifacts.linkmap();
       extensionBuilder.setLinkmap(linkmap).addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
-      linkerOutputs.add(linkmap);
+      executableLinkActionBuilder.addActionOutput(linkmap);
     }
 
     if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
@@ -1211,39 +1189,29 @@ public class CompilationSupport {
       extensionBuilder
           .setBitcodeSymbolMap(bitcodeSymbolMap)
           .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
-      linkerOutputs.add(bitcodeSymbolMap);
+      executableLinkActionBuilder.addActionOutput(bitcodeSymbolMap);
     }
 
-    executableLinkingHelper.addVariableExtension(extensionBuilder.build());
+    executableLinkActionBuilder.addVariablesExtension(extensionBuilder.build());
 
-    executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
-
-    CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
     for (CcLinkingContext context :
         CppHelper.getLinkingContextsFromDeps(
             ImmutableList.copyOf(ruleContext.getPrerequisites("deps")))) {
-      linkstampsBuilder.addLinkstamps(context.getLinkstamps().toList());
+      executableLinkActionBuilder.addLinkstamps(context.getLinkstamps().toList());
     }
-    CcLinkingContext linkstamps = linkstampsBuilder.build();
-    executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
-    executableLinkingHelper.link(CcCompilationOutputs.EMPTY);
-
-    ImmutableCollection<Artifact> linkstampValues =
-        CppLinkActionBuilder.mapLinkstampsToOutputs(
-                linkstamps.getLinkstamps().toSet(),
-                ruleContext,
-                ruleContext.getRepository(),
-                buildConfiguration,
-                binaryToLink,
-                CppLinkAction.DEFAULT_ARTIFACT_FACTORY)
-            .values();
+    CppLinkAction executableLinkAction = executableLinkActionBuilder.build();
 
     // Populate the input file list with both the compiled object files and any linkstamp object
     // files.
     registerObjFilelistAction(
-        ImmutableSet.<Artifact>builder().addAll(objFiles).addAll(linkstampValues).build(),
+        ImmutableSet.<Artifact>builder()
+            .addAll(objFiles)
+            .addAll(executableLinkAction.getLinkstampObjectFileInputs())
+            .build(),
         inputFileList);
+
+    ruleContext.registerAction(executableLinkAction);
 
     if (objcConfiguration.shouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
@@ -1330,7 +1298,12 @@ public class CompilationSupport {
       throws InterruptedException, RuleErrorException {
     checkNotNull(toolchain);
     checkNotNull(toolchain.getFdoContext());
-
+    PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
+    String libraryIdentifier =
+        ruleContext
+            .getPackageDirectory()
+            .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
+            .getPathString();
     ObjcVariablesExtension extension =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
@@ -1340,43 +1313,31 @@ public class CompilationSupport {
             .setFullyLinkArchive(outputArchive)
             .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
             .build();
-
-    Label archiveLabel = null;
-    try {
-      archiveLabel =
-          Label.create(
-              ruleContext.getLabel().getPackageIdentifier(),
-              FileSystemUtils.removeExtension(outputArchive.getFilename()));
-    } catch (LabelSyntaxException e) {
-      // Formed from existing label, just replacing name with artifact name.
-    }
-
-    new CcLinkingHelper(
-            ruleContext,
-            archiveLabel,
-            ruleContext,
-            ruleContext,
-            createObjcCppSemantics(),
-            getFeatureConfiguration(
-                ruleContext, toolchain, buildConfiguration, createObjcCppSemantics()),
-            toolchain,
-            toolchain.getFdoContext(),
-            buildConfiguration,
-            ruleContext.getFragment(CppConfiguration.class),
-            ruleContext.getSymbolGenerator(),
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-        .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
-        .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
-        .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
-        .addNonCodeLinkerInputs(objcProvider.getObjcLibraries())
-        .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-        .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
-        .setLinkingMode(LinkingMode.STATIC)
-        .setStaticLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-        .setShouldCreateDynamicLibrary(false)
-        .addVariableExtension(extension)
-        .link(CcCompilationOutputs.EMPTY);
+    CppLinkAction fullyLinkAction =
+        new CppLinkActionBuilder(
+                ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
+                outputArchive,
+                buildConfiguration,
+                toolchain,
+                toolchain.getFdoContext(),
+                getFeatureConfiguration(
+                    ruleContext, toolchain, buildConfiguration, createObjcCppSemantics()),
+                createObjcCppSemantics())
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
+            .addActionInputs(objcProvider.getObjcLibraries())
+            .addActionInputs(objcProvider.getCcLibraries())
+            .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
+            .setLinkerFiles(toolchain.getLinkerFiles())
+            .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
+            .setLinkingMode(LinkingMode.STATIC)
+            .setLibraryIdentifier(libraryIdentifier)
+            .addVariablesExtension(extension)
+            .build();
+    ruleContext.registerAction(fullyLinkAction);
 
     return this;
   }

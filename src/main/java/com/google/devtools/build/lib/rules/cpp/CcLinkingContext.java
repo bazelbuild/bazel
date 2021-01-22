@@ -565,7 +565,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return this;
     }
 
-    public Builder addLinkstamps(List<Linkstamp> linkstamps) {
+    Builder addLinkstamps(List<Linkstamp> linkstamps) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLinkstamps(linkstamps);
       return this;
