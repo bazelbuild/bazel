@@ -3,8 +3,7 @@ layout: documentation
 title: Common C++ Build Use Cases
 ---
 
-Introduction to Bazel: Common C++ Build Use Cases
-==========
+# Common C++ Build Use Cases
 
 Here you will find some of the most common use cases for building C++ projects
 with Bazel. If you have not done so already, get started with building C++
