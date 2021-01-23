@@ -331,16 +331,6 @@ public class Printer {
         continue;
       }
 
-      // valid?
-      if ("doxXrsefgEFG".indexOf(conv) < 0) {
-        throw new MissingFormatWidthException(
-            // The call to Starlark.repr doesn't cause an infinite recursion because it's
-            // only used to format a string properly.
-            String.format(
-                "unsupported format character \"%s\" at index %s in %s",
-                String.valueOf(conv), p + 1, Starlark.repr(pattern)));
-      }
-
       // get argument
       if (a >= argLength) {
         throw new MissingFormatWidthException(
@@ -410,7 +400,12 @@ public class Printer {
           continue;
 
         default:
-          throw new IllegalStateException("unreachable");
+          // The call to Starlark.repr doesn't cause an infinite recursion
+          // because it's only used to format a string properly.
+          throw new MissingFormatWidthException(
+              String.format(
+                  "unsupported format character \"%s\" at index %s in %s",
+                  String.valueOf(conv), p + 1, Starlark.repr(pattern)));
       }
     }
     if (a < argLength) {
