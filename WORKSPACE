@@ -60,7 +60,7 @@ bind(
 http_archive(
     name = "bazel_j2objc",
     # Computed using "shasum -a 256 j2objc-2.5.zip"
-    sha256 = "8d3403b5b7db57e347c943d214577f6879e5b175c2b59b7e075c0b6453330e9b",
+    sha256 = "Bad SHA here",
     strip_prefix = "j2objc-2.5",
     urls = [
         "https://mirror.bazel.build/github.com/google/j2objc/releases/download/2.5/j2objc-2.5.zip",
