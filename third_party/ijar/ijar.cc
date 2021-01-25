@@ -370,9 +370,12 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
             strerror(errno));
     abort();
   }
-  u8 output_length =
-      std::max(in->CalculateOutputLength(), 103ull + DUMMY_PATH_LENGTH) +
-      EstimateManifestOutputSize(target_label, injecting_rule_kind);
+  u8 output_length = in->CalculateOutputLength();
+  if (output_length < 103ull + DUMMY_PATH_LENGTH) {
+    output_length = 103ull + DUMMY_PATH_LENGTH;
+  }
+  output_length += EstimateManifestOutputSize(target_label, injecting_rule_kind);
+
   std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
   if (out == NULL) {
     fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
