@@ -633,13 +633,12 @@ public final class Profiler {
    * have any subtasks, logSimpleTask() should be used instead.
    *
    * <p>Use like this:
-   * <pre>
-   * {@code
+   *
+   * <pre>{@code
    * try (SilentCloseable c = Profiler.instance().profile(type, "description")) {
    *   // Your code here.
    * }
-   * }
-   * </pre>
+   * }</pre>
    *
    * @param type predefined task type - see ProfilerTask for available types.
    * @param description task description. May be stored until the end of the build.
@@ -658,6 +657,30 @@ public final class Profiler {
     } else {
       return NOP;
     }
+  }
+
+  /**
+   * Records the beginning of a task as specified, and returns a {@link SilentCloseable} instance
+   * that ends the task. This lets the system do the work of ending the task, with the compiler
+   * giving a warning if the returned instance is not closed.
+   *
+   * <p>Use of this method allows to support nested task monitoring. For tasks that are known to not
+   * have any subtasks, logSimpleTask() should be used instead.
+   *
+   * <p>This is a convenience method that uses {@link ProfilerTask#INFO}.
+   *
+   * <p>Use like this:
+   *
+   * <pre>{@code
+   * try (SilentCloseable c = Profiler.instance().profile("description")) {
+   *   // Your code here.
+   * }
+   * }</pre>
+   *
+   * @param description task description. May be stored until the end of the build.
+   */
+  public SilentCloseable profile(String description) {
+    return profile(ProfilerTask.INFO, description);
   }
 
   /**
@@ -683,31 +706,6 @@ public final class Profiler {
   }
 
   private static final SilentCloseable NOP = () -> {};
-
-  /**
-   * Records the beginning of a task as specified, and returns a {@link SilentCloseable} instance
-   * that ends the task. This lets the system do the work of ending the task, with the compiler
-   * giving a warning if the returned instance is not closed.
-   *
-   * <p>Use of this method allows to support nested task monitoring. For tasks that are known to not
-   * have any subtasks, logSimpleTask() should be used instead.
-   *
-   * <p>This is a convenience method that uses {@link ProfilerTask#INFO}.
-   *
-   * <p>Use like this:
-   * <pre>
-   * {@code
-   * try (SilentCloseable c = Profiler.instance().profile("description")) {
-   *   // Your code here.
-   * }
-   * }
-   * </pre>
-   *
-   * @param description task description. May be stored until the end of the build.
-   */
-  public SilentCloseable profile(String description) {
-    return profile(ProfilerTask.INFO, description);
-  }
 
   private boolean countAction(ProfilerTask type, TaskData taskData) {
     return type == ProfilerTask.ACTION
