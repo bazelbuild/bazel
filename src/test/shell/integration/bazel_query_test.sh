@@ -734,13 +734,10 @@ EOF
   bazel build --experimental_genquery_use_graphless_query \
       //foo:q || fail "Expected success"
 
-  # TODO(tanzhengwei): Remove flags from query when this becomes the default.
-  # Query currently requires the --incompatible_prefer_unordered_output flag to
-  # switch to graphless.
-  # In addition, --incompatible_use_lexicographical_unordered_output is used to
-  # switch sort the graphless output in lexicographical order.
-  bazel query --incompatible_prefer_unordered_output \
-      --incompatible_use_lexicographical_unordered_output \
+  # The --incompatible_use_lexicographical_unordered_output flag is used to
+  # switch order_output=auto to use graphless query and output in
+  # lexicographical order.
+  bazel query --incompatible_use_lexicographical_unordered_output \
       "deps(//foo:b)" | grep foo >& foo/query_output || fail "Expected success"
 
   # The outputs of graphless query and graphless genquery should be the same.

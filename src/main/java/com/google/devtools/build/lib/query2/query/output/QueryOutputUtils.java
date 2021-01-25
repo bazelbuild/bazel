@@ -36,7 +36,8 @@ public class QueryOutputUtils {
 
   public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {
     return (queryOptions.orderOutput == OrderOutput.NO
-            || (queryOptions.orderOutput == OrderOutput.AUTO && queryOptions.preferUnorderedOutput))
+            || (queryOptions.orderOutput == OrderOutput.AUTO
+                && queryOptions.useLexicographicalUnorderedOutput))
         && formatter instanceof StreamedFormatter;
   }
 
