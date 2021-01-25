@@ -43,6 +43,11 @@ public class Checksum {
     byte[] hash = null;
     int expectedLength = 0;
 
+    if (integrity.startsWith("sha1-")) {
+      keyType = KeyType.SHA1;
+      expectedLength = 20;
+      hash = decoder.decode(integrity.substring(5));
+    }
     if (integrity.startsWith("sha256-")) {
       keyType = KeyType.SHA256;
       expectedLength = 32;
@@ -63,7 +68,7 @@ public class Checksum {
       throw new IllegalArgumentException(
           "Unsupported checksum algorithm: '"
               + integrity
-              + "' (expected SHA-256, SHA-384, or SHA-512)");
+              + "' (expected SHA-1, SHA-256, SHA-384, or SHA-512)");
     }
 
     if (hash.length != expectedLength) {
