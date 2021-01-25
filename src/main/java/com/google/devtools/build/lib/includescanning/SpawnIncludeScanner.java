@@ -51,14 +51,18 @@ import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -73,11 +77,14 @@ public class SpawnIncludeScanner {
   private final Path execRoot;
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
+  private final AtomicReference<FilesystemCalls> syscallCache;
 
   /** Constructs a new SpawnIncludeScanner. */
-  public SpawnIncludeScanner(Path execRoot, int remoteExtractionThreshold) {
+  public SpawnIncludeScanner(
+      Path execRoot, int remoteExtractionThreshold, AtomicReference<FilesystemCalls> syscallCache) {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
+    this.syscallCache = syscallCache;
   }
 
   public void setInMemoryOutput(boolean inMemoryOutput) {
@@ -116,9 +123,11 @@ public class SpawnIncludeScanner {
     // Output files are generally not locally available should be scanned remotely to avoid the
     // bandwidth and disk space penalty of bringing them across. Also, enable include scanning
     // remotely when the file size exceeds a certain size.
-    return remoteExtractionThreshold == 0
-        || !file.isSourceArtifact()
-        || ctx.getPathResolver().toPath(file).getFileSize() > remoteExtractionThreshold;
+    if (remoteExtractionThreshold == 0 || !file.isSourceArtifact()) {
+      return true;
+    }
+    FileStatus status = syscallCache.get().statIfFound(file.getPath(), Symlinks.FOLLOW);
+    return status == null || status.getSize() > remoteExtractionThreshold;
   }
 
   /**

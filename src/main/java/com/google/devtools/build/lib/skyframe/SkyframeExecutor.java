@@ -672,6 +672,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return perBuildSyscallCache;
   }
 
+  public AtomicReference<UnixGlob.FilesystemCalls> getSyscalls() {
+    return syscalls;
+  }
+
   @ThreadCompatible
   public void setActive(boolean active) {
     this.active = active;

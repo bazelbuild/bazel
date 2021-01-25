@@ -241,7 +241,8 @@ public class IncludeScanningModule extends BlazeModule {
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
               env.getExecRoot(),
-              options.experimentalRemoteExtractionThreshold));
+              options.experimentalRemoteExtractionThreshold,
+              env.getSkyframeExecutor().getSyscalls()));
       this.spawnScannerSupplier = spawnScannerSupplier;
       env.getEventBus().register(this);
     }
