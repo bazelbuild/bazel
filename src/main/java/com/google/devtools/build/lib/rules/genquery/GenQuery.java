@@ -214,9 +214,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                         ruleContext.getConfiguration().legacyExternalRunfiles())
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
+        .setPropagateValidationActionOutputGroup(false)
         .build();
   }
-
 
   /**
    * DO NOT USE! We should get rid of this method: errors reported directly to this object don't set

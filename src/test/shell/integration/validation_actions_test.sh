@@ -172,6 +172,11 @@ sh_test(
   data = [":some_implicit_dep"],
 )
 
+genquery(
+  name = "genquery_with_validation_actions_somewhere",
+  expression = "deps(//validation_actions:gen)",
+  scope = ["//validation_actions:gen"],
+)
 EOF
 
 cat > validation_actions/test_with_rule_with_validation_in_deps.sh <<'EOF'
@@ -287,6 +292,16 @@ function test_failing_validation_action_for_dep_from_test_fails_build() {
   # run with bazel test.
   bazel test --experimental_run_validations //validation_actions:test_with_rule_with_validation_in_deps >& "$TEST_log" && fail "Expected build to fail"
   expect_log "validation failed!"
+}
+
+function test_validation_actions_do_not_propagate_through_genquery() {
+  setup_test_project
+  setup_failing_validation_action
+
+  # Validation action is set up to fail, but it shouldn't matter because it
+  # shouldn't get propagated through the genquery target.
+  bazel build --experimental_run_validations //validation_actions:genquery_with_validation_actions_somewhere >& "$TEST_log" || fail "Expected build to succeed"
+  expect_not_log "validation failed!"
 }
 
 run_suite "Validation actions integration tests"

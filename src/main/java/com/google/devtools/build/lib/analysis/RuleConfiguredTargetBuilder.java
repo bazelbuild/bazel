@@ -92,6 +92,7 @@ public final class RuleConfiguredTargetBuilder {
   private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
   private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
       new LinkedHashSet<>();
+  private boolean propagateValidationActionOutputGroup = true;
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -149,7 +150,9 @@ public final class RuleConfiguredTargetBuilder {
               .getAllArtifacts());
     }
 
-    collectTransitiveValidationOutputGroups();
+    if (propagateValidationActionOutputGroup) {
+      propagateTransitiveValidationOutputGroups();
+    }
 
     // Add a default provider that forwards InstrumentedFilesInfo from dependencies, even if this
     // rule doesn't configure InstrumentedFilesInfo. This needs to be done for non-test rules
@@ -304,15 +307,17 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Collects the validation action output groups from every dependency-type attribute on this rule.
-   * This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
+   * Collects the validation action output groups from every dependency-type attribute of this
+   * target and adds them to this target's output groups.
+   *
+   * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
    *
    * <p>Note that in addition to {@link LabelClass.DEPENDENCY}, there is also {@link
    * LabelClass.FILESET_ENTRY}, however the fileset implementation takes care of propagating the
    * validation action output group itself.
    */
-  private void collectTransitiveValidationOutputGroups() {
+  private void propagateTransitiveValidationOutputGroups() {
 
     for (String attributeName : ruleContext.attributes().getAttributeNames()) {
 
@@ -574,6 +579,12 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
+    return this;
+  }
+
+  /** Sets whether to propagate the validation actions output group. This is true by default. */
+  public RuleConfiguredTargetBuilder setPropagateValidationActionOutputGroup(boolean propagate) {
+    this.propagateValidationActionOutputGroup = propagate;
     return this;
   }
 
