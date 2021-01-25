@@ -68,7 +68,8 @@ public class FilesystemValueCheckerTestBase {
     Path outputDir = fs.getPath("/" + outSegment);
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();
-    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(fs.getPath("/"), false, outSegment);
+    ArtifactRoot derivedRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), false, false, false, outSegment);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)));

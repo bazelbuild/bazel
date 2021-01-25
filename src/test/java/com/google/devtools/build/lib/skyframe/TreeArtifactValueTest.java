@@ -55,7 +55,7 @@ public final class TreeArtifactValueTest {
 
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), false, BIN_PATH);
+      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), false, false, false, BIN_PATH);
 
   @Test
   public void createsCorrectValue() {

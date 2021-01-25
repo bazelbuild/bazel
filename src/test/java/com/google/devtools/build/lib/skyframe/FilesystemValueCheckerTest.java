@@ -719,7 +719,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     Path outputPath = fs.getPath("/" + outSegment);
     outputPath.createDirectory();
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), false, outSegment),
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), false, false, false, outSegment),
         outputPath.getRelative(relPath));
   }
 

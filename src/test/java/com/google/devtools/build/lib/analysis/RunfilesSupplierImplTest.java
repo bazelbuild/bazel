@@ -39,7 +39,8 @@ public class RunfilesSupplierImplTest {
   public final void setRoot() {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, false, "fake", "root", "dont", "matter");
+    rootDir =
+        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "fake", "root", "dont", "matter");
   }
 
   @Test

@@ -59,7 +59,7 @@ public class RemoteActionFileSystemTest {
     MockitoAnnotations.initMocks(this);
     fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
     execRoot = fs.getPath("/exec");
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, false, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
   }
 

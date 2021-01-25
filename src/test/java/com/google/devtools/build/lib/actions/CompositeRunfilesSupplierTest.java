@@ -48,7 +48,8 @@ public class CompositeRunfilesSupplierTest {
   public final void createMocks() throws IOException {
     Scratch scratch = new Scratch();
     execRoot = scratch.getFileSystem().getPath("/");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, false, "fake", "root", "dont", "matter");
+    rootDir =
+        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "fake", "root", "dont", "matter");
 
     mockFirst = mock(RunfilesSupplier.class);
     mockSecond = mock(RunfilesSupplier.class);

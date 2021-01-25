@@ -440,7 +440,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new Artifact.DerivedArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, false, "out"), execPath, ACTION_LOOKUP_KEY);
+        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "out"),
+        execPath,
+        ACTION_LOOKUP_KEY);
   }
 
   /** Creates and returns a new "amnesiac" builder based on the amnesiac cache. */

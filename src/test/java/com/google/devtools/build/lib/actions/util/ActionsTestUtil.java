@@ -262,7 +262,7 @@ public final class ActionsTestUtil {
 
   public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
     return ArtifactRoot.asDerivedRoot(
-        root, false, execPath.relativeTo(root).getSegments().toArray(new String[0]));
+        root, false, false, false, execPath.relativeTo(root).getSegments().toArray(new String[0]));
   }
 
   /**

@@ -54,7 +54,7 @@ public class SpawnActionTemplateTest {
   public void setRootDir() throws Exception  {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = ArtifactRoot.asDerivedRoot(execRoot, false, "root");
+    root = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "root");
   }
 
   @Test

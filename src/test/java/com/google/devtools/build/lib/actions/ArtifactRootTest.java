@@ -57,7 +57,7 @@ public class ArtifactRootTest {
     Path execRoot = scratch.dir("/exec");
     Path rootDir = scratch.dir("/exec/root");
 
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, "root");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "root");
 
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
@@ -69,14 +69,15 @@ public class ArtifactRootTest {
   public void asDerivedRoot_derivedRootIsExecRoot_failsNotOk() throws IOException {
     Path execRoot = scratch.dir("/exec");
     assertThrows(
-        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, false, ""));
+        IllegalArgumentException.class,
+        () -> ArtifactRoot.asDerivedRoot(execRoot, false, false, false, ""));
   }
 
   @Test
   public void asDerivedRoot_emptyPrefix_createsArtifactRoot() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    assertThat(ArtifactRoot.asDerivedRoot(execRoot, false, "", "suffix", ""))
-        .isEqualTo(ArtifactRoot.asDerivedRoot(execRoot, false, "suffix"));
+    assertThat(ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "", "suffix", ""))
+        .isEqualTo(ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "suffix"));
   }
 
   @Test
@@ -84,18 +85,22 @@ public class ArtifactRootTest {
     Path execRoot = scratch.dir("/exec");
     assertThrows(
         IllegalArgumentException.class,
-        () -> ArtifactRoot.asDerivedRoot(execRoot, false, "suffix/"));
+        () -> ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "suffix/"));
   }
 
   @Test
   public void asDerivedRoot_noPrefixes_fails() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    assertThrows(IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, false));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ArtifactRoot.asDerivedRoot(execRoot, false, false, false));
   }
 
   @Test
   public void asDerivedRoot_nullExecPath_fails() {
-    assertThrows(NullPointerException.class, () -> ArtifactRoot.asDerivedRoot(null, false, "exec"));
+    assertThrows(
+        NullPointerException.class,
+        () -> ArtifactRoot.asDerivedRoot(null, false, false, false, "exec"));
   }
 
   @Test
@@ -103,7 +108,8 @@ public class ArtifactRootTest {
     Path execRoot = scratch.dir("/exec");
     Path rootDir = scratch.dir("/exec/root");
 
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.create("root"));
+    ArtifactRoot root =
+        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, PathFragment.create("root"));
 
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
@@ -117,7 +123,8 @@ public class ArtifactRootTest {
     Path rootDir = scratch.dir("/exec/dir1/dir2/dir3");
 
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.create("dir1/dir2/dir3"));
+        ArtifactRoot.asDerivedRoot(
+            execRoot, false, false, false, PathFragment.create("dir1/dir2/dir3"));
 
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("dir1/dir2/dir3"));
@@ -131,7 +138,8 @@ public class ArtifactRootTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.EMPTY_FRAGMENT));
+        () ->
+            ArtifactRoot.asDerivedRoot(execRoot, false, false, false, PathFragment.EMPTY_FRAGMENT));
   }
 
   @Test
@@ -140,7 +148,7 @@ public class ArtifactRootTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.create(".")));
+        () -> ArtifactRoot.asDerivedRoot(execRoot, false, false, false, PathFragment.create(".")));
   }
 
   @Test
@@ -149,7 +157,7 @@ public class ArtifactRootTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.create("..")));
+        () -> ArtifactRoot.asDerivedRoot(execRoot, false, false, false, PathFragment.create("..")));
   }
 
   @Test
@@ -159,7 +167,8 @@ public class ArtifactRootTest {
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.create("../outsideExecRoot")));
+            ArtifactRoot.asDerivedRoot(
+                execRoot, false, false, false, PathFragment.create("../outsideExecRoot")));
   }
 
   @Test
@@ -167,7 +176,7 @@ public class ArtifactRootTest {
       throws Exception {
     Path execRoot = scratch.dir("/thisisaveryverylongexecrootthatwedontwanttoserialize");
     ArtifactRoot derivedRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, false, "first", "second", "third");
+        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "first", "second", "third");
     ObjectCodecRegistry registry = AutoRegistry.get();
     ImmutableMap<Class<?>, Object> dependencies =
         ImmutableMap.<Class<?>, Object>builder()
@@ -198,10 +207,12 @@ public class ArtifactRootTest {
 
     new EqualsTester()
         .addEqualityGroup(
-            ArtifactRoot.asDerivedRoot(execRoot, false, rootSegment),
-            ArtifactRoot.asDerivedRoot(execRoot, false, PathFragment.create(rootSegment)))
-        .addEqualityGroup(ArtifactRoot.asDerivedRoot(otherRootDir, false, "exec", rootSegment))
-        .addEqualityGroup(ArtifactRoot.asDerivedRoot(execRoot, false, "otherSegment"))
+            ArtifactRoot.asDerivedRoot(execRoot, false, false, false, rootSegment),
+            ArtifactRoot.asDerivedRoot(
+                execRoot, false, false, false, PathFragment.create(rootSegment)))
+        .addEqualityGroup(
+            ArtifactRoot.asDerivedRoot(otherRootDir, false, false, false, "exec", rootSegment))
+        .addEqualityGroup(ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "otherSegment"))
         .addEqualityGroup(ArtifactRoot.asSourceRoot(Root.fromPath(sourceDir)))
         .addEqualityGroup(ArtifactRoot.asSourceRoot(Root.fromPath(rootDir)))
         .testEquals();

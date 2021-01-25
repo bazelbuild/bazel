@@ -118,7 +118,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, false, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));

@@ -360,7 +360,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private DerivedArtifact createDerivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     DerivedArtifact output =
-        new DerivedArtifact(ArtifactRoot.asDerivedRoot(root, false, "out"), execPath, ALL_OWNER);
+        new DerivedArtifact(
+            ArtifactRoot.asDerivedRoot(root, false, false, false, "out"), execPath, ALL_OWNER);
     actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
     return output;
@@ -368,7 +369,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   private Artifact createMiddlemanArtifact(String path) {
     ArtifactRoot middlemanRoot =
-        ArtifactRoot.asDerivedRoot(middlemanPath, true, PathFragment.create("out"));
+        ArtifactRoot.asDerivedRoot(middlemanPath, true, false, false, PathFragment.create("out"));
     return new DerivedArtifact(
         middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
   }
@@ -383,7 +384,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private SpecialArtifact createDerivedTreeArtifactOnly(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(root, false, "out"),
+        ArtifactRoot.asDerivedRoot(root, false, false, false, "out"),
         execPath,
         ALL_OWNER,
         SpecialArtifactType.TREE);

@@ -56,7 +56,7 @@ public class CustomCommandLineTest {
   @Before
   public void createArtifacts() throws Exception  {
     Scratch scratch = new Scratch();
-    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), false, "dir");
+    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), false, false, false, "dir");
     artifact1 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file1.txt"));
     artifact2 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file2.txt"));
   }

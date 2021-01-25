@@ -700,7 +700,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Path execRoot = outputBase.getRelative("exec");
     String outSegment = "out";
     Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, outSegment);
     try {
       return ActionsTestUtil.createArtifact(
           root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
@@ -858,7 +858,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, false, "out"), execPath);
+        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "out"), execPath);
   }
 
   private void verifyArguments(
