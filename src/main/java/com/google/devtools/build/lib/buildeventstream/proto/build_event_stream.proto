@@ -781,6 +781,18 @@ message BuildMetrics {
     int64 analysis_phase_time_in_ms = 3;
   }
   TimingMetrics timing_metrics = 5;
+
+  message CumulativeMetrics {
+    // One-indexed number of "analyses" the server has run, including the
+    // current one. Will be incremented for every build/test/cquery/etc. command
+    // that reaches the analysis phase.
+    int32 num_analyses = 11;
+    // One-indexed number of "builds" the server has run, including the current
+    // one. Will be incremented for every build/test/run/etc. command that
+    // reaches the execution phase.
+    int32 num_builds = 12;
+  }
+  CumulativeMetrics cumulative_metrics = 6;
 }
 
 // Event providing additional statistics/logs after completion of the build.

@@ -17,13 +17,16 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -31,6 +34,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 class MetricsCollector {
@@ -38,6 +42,8 @@ class MetricsCollector {
   private final CommandEnvironment env;
   private final boolean bepPublishUsedHeapSizePostBuild;
   private final AtomicLong executedActionCount = new AtomicLong();
+  private final AtomicInteger numAnalyses;
+  private final AtomicInteger numBuilds;
 
   private int actionsConstructed;
   private int targetsLoaded;
@@ -50,11 +56,19 @@ class MetricsCollector {
     Options options = env.getOptions().getOptions(Options.class);
     this.bepPublishUsedHeapSizePostBuild =
         options != null && options.bepPublishUsedHeapSizePostBuild;
+    this.numAnalyses = env.getRuntime().getNumAnalyses();
+    this.numBuilds = env.getRuntime().getNumBuilds();
     env.getEventBus().register(this);
   }
 
   static void installInEnv(CommandEnvironment env) {
     new MetricsCollector(env);
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  public synchronized void logAnalysisStartingEvent(AnalysisPhaseStartedEvent event) {
+    numAnalyses.getAndIncrement();
   }
 
   @Subscribe
@@ -64,6 +78,12 @@ class MetricsCollector {
     targetsConfigured = event.getTargetsConfigured();
     packagesLoaded = event.getPkgManagerStats().getPackagesLoaded();
     analysisTimeInMs = event.getTimeInMs();
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  public synchronized void logExecutionStartingEvent(ExecutionStartingEvent event) {
+    numBuilds.getAndIncrement();
   }
 
   @Subscribe
@@ -78,13 +98,14 @@ class MetricsCollector {
   }
 
   private BuildMetrics createBuildMetrics() {
-    BuildMetrics.Builder metrics = BuildMetrics.newBuilder();
-    metrics.setActionSummary(createActionSummary());
-    metrics.setMemoryMetrics(createMemoryMetrics());
-    metrics.setTargetMetrics(createTargetMetrics());
-    metrics.setPackageMetrics(createPackageMetrics());
-    metrics.setTimingMetrics(createTimingMetrics());
-    return metrics.build();
+    return BuildMetrics.newBuilder()
+        .setActionSummary(createActionSummary())
+        .setMemoryMetrics(createMemoryMetrics())
+        .setTargetMetrics(createTargetMetrics())
+        .setPackageMetrics(createPackageMetrics())
+        .setTimingMetrics(createTimingMetrics())
+        .setCumulativeMetrics(createCumulativeMetrics())
+        .build();
   }
 
   private ActionSummary createActionSummary() {
@@ -117,6 +138,13 @@ class MetricsCollector {
 
   private PackageMetrics createPackageMetrics() {
     return PackageMetrics.newBuilder().setPackagesLoaded(packagesLoaded).build();
+  }
+
+  private CumulativeMetrics createCumulativeMetrics() {
+    return CumulativeMetrics.newBuilder()
+        .setNumAnalyses(numAnalyses.get())
+        .setNumBuilds(numBuilds.get())
+        .build();
   }
 
   private static TimingMetrics createTimingMetrics() {

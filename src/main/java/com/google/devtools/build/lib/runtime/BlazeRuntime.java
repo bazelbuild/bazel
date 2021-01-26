@@ -184,6 +184,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final RetainedHeapLimiter retainedHeapLimiter;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
   private final Supplier<Downloader> downloaderSupplier;
+  private final AtomicInteger numAnalyses = new AtomicInteger(0);
+  private final AtomicInteger numBuilds = new AtomicInteger(0);
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -712,6 +714,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public Map<String, BlazeCommand> getCommandMap() {
     return commandMap;
+  }
+
+  public AtomicInteger getNumAnalyses() {
+    return numAnalyses;
+  }
+
+  public AtomicInteger getNumBuilds() {
+    return numBuilds;
   }
 
   /** Invokes {@link BlazeModule#blazeShutdown()} on all registered modules. */
