@@ -371,8 +371,8 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
     abort();
   }
   u8 output_length = in->CalculateOutputLength();
-  if (output_length < 103ull + DUMMY_PATH_LENGTH) {
-    output_length = 103ull + DUMMY_PATH_LENGTH;
+  if (output_length < 98ull + 2 * DUMMY_PATH_LENGTH) {
+    output_length = 98ull + 2 * DUMMY_PATH_LENGTH;
   }
   output_length += EstimateManifestOutputSize(target_label, injecting_rule_kind);
 
