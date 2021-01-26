@@ -177,6 +177,9 @@ filegroup(
         "//src/conditions:darwin_x86_64": [
             "@openjdk_macos_x86_64//file",
         ],
+        "//src/conditions:darwin_arm64": [
+            "@openjdk_macos_aarch64//file",
+        ],
         "//src/conditions:windows": [
             "@openjdk_win//file",
         ],
@@ -195,6 +198,9 @@ filegroup(
     srcs = select({
         "//src/conditions:darwin_x86_64": [
             "@openjdk_macos_x86_64_minimal//file",
+        ],
+        "//src/conditions:darwin_arm64": [
+            "@openjdk_macos_aarch64_minimal//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win_minimal//file",
@@ -703,14 +709,17 @@ filegroup(
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",
         "@openjdk11_darwin_archive//:WORKSPACE",
+        "@openjdk11_darwin_aarch64_archive//:WORKSPACE",
         "@openjdk11_linux_archive//:WORKSPACE",
         "@openjdk11_windows_archive//:WORKSPACE",
         "@openjdk15_darwin_archive//:WORKSPACE",
+        "@openjdk15_darwin_aarch64_archive//:WORKSPACE",
         "@openjdk15_linux_archive//:WORKSPACE",
         "@openjdk15_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_x86_64_minimal//file",
+        "@openjdk_macos_aarch64_minimal//file",
         "@openjdk_win_minimal//file",
         "@remote_coverage_tools//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",
@@ -726,9 +735,11 @@ filegroup(
         "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
         "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
         "@remotejdk11_macos_for_testing//:WORKSPACE",
+        "@remotejdk11_macos_aarch64_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
         "@remotejdk15_linux_for_testing//:WORKSPACE",
         "@remotejdk15_macos_for_testing//:WORKSPACE",
+        "@remotejdk15_macos_aarch64_for_testing//:WORKSPACE",
         "@remotejdk15_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
