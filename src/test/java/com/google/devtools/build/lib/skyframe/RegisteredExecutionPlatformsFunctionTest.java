@@ -221,7 +221,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   @Test
   public void testRegisteredExecutionPlatforms_notExecutionPlatform() throws Exception {
     rewriteWorkspace("register_execution_platforms(", "    '//error:not_an_execution_platform')");
-    scratch.file("error/BUILD", "filegroup(name = 'not_an_execution_platform')");
+    // Have to use a rule that doesn't require a target platform, or else there will be a cycle.
+    scratch.file("error/BUILD", "toolchain_type(name = 'not_an_execution_platform')");
 
     // Request the executionPlatforms.
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
