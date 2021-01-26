@@ -446,11 +446,13 @@ public final class SkyframeBuildView {
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
         // targets together that haven't been built before.
-        actionConflicts =
+        ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
                 skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys),
                 strictConflictChecks,
                 actionKeyContext);
+        eventBus.post(conflictsAndStats.getStats());
+        actionConflicts = conflictsAndStats.getConflicts();
         someConfiguredTargetEvaluated = false;
       }
     }
