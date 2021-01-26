@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -472,19 +473,24 @@ public class CppHelper {
     }
 
     return getLinkedArtifact(
-        ruleContext.getLabel(), ruleContext, config, linkType, linkedArtifactNameSuffix, name);
+        ruleContext.getLabel(),
+        ruleContext,
+        ruleContext.getBinDirectory(),
+        config,
+        linkType,
+        linkedArtifactNameSuffix,
+        name);
   }
 
   public static Artifact getLinkedArtifact(
       Label label,
       ActionConstructionContext actionConstructionContext,
+      ArtifactRoot artifactRoot,
       BuildConfiguration config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
       PathFragment name) {
-    Artifact result =
-        actionConstructionContext.getPackageRelativeArtifact(
-            name, config.getBinDirectory(label.getRepository()));
+    Artifact result = actionConstructionContext.getPackageRelativeArtifact(name, artifactRoot);
 
     // If the linked artifact is not the linux default, then a FailAction is generated for said
     // linux default to satisfy the requirements of any implicit outputs.
@@ -506,7 +512,7 @@ public class CppHelper {
     return result;
   }
 
-  public static Artifact getLinuxLinkedArtifact(
+  private static Artifact getLinuxLinkedArtifact(
       Label label,
       ActionConstructionContext actionConstructionContext,
       BuildConfiguration config,
