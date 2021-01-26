@@ -54,6 +54,10 @@ const char *TARGET_LABEL_KEY = "Target-Label: ";
 const size_t TARGET_LABEL_KEY_LENGTH = strlen(TARGET_LABEL_KEY);
 const char *INJECTING_RULE_KIND_KEY = "Injecting-Rule-Kind: ";
 const size_t INJECTING_RULE_KIND_KEY_LENGTH = strlen(INJECTING_RULE_KIND_KEY);
+const char *DUMMY_FILE = "dummy";
+const size_t DUMMY_PATH_LENGTH = strlen(DUMMY_FILE);
+// The size of an output jar containing only an empty dummy file:
+const size_t JAR_WITH_DUMMY_FILE_SIZE = 98ull + 2 * DUMMY_PATH_LENGTH;
 
 class JarExtractorProcessor : public ZipExtractorProcessor {
  public:
@@ -368,9 +372,13 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
             strerror(errno));
     abort();
   }
-  u8 output_length =
-      in->CalculateOutputLength() +
+  u8 output_length = in->CalculateOutputLength();
+  if (output_length < JAR_WITH_DUMMY_FILE_SIZE) {
+    output_length = JAR_WITH_DUMMY_FILE_SIZE;
+  }
+  output_length +=
       EstimateManifestOutputSize(target_label, injecting_rule_kind);
+
   std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
   if (out == NULL) {
     fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
@@ -388,7 +396,7 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
 
   // Add dummy file, since javac doesn't like truly empty jars.
   if (out->GetNumberFiles() == 0) {
-    out->WriteEmptyFile("dummy");
+    out->WriteEmptyFile(DUMMY_FILE);
   }
   // Finish writing the output file
   if (out->Finish() < 0) {
