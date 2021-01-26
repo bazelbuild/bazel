@@ -84,20 +84,27 @@ function test_autodetect_server_javabase() {
 
 # Below are the regression tests for Issue #7489
 function test_multiple_bazelrc_later_overwrites_earlier() {
-  tmpdir1=$(cd $(mktemp -d) &> /dev/null && pwd -P)
-  tmpdir2=$(cd $(mktemp -d) &> /dev/null && pwd -P)
-  echo "common --repository_cache=$tmpdir1" > 1.rc
-  echo "common --repository_cache=$tmpdir2" > 2.rc
-  bazel --bazelrc=1.rc --bazelrc=2.rc info &> $TEST_log || fail "Should pass"
-  expect_log "repository_cache: $tmpdir2"
+  plain_expected_output="INFO: Build completed successfully, 1 total action"
+
+  echo "common --color=yes" > 1.rc
+  echo "common --color=no" > 2.rc
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" build &> $TEST_log || fail "Should pass"
+  expect_log "$plain_expected_output"
+
+  echo "common --color=no" > 3.rc
+  echo "common --color=yes" > 4.rc
+  bazel "--${PRODUCT_NAME}rc=3.rc" "--${PRODUCT_NAME}rc=4.rc" build &> $TEST_log || fail "Should pass"
+  # The final value for color should be yes, therefore the colored output would not contain
+  # the plain string, but rather something like
+  # "^[[32mINFO:^[[0m Build completed successfully, 1 total action"
+  expect_not_log "$plain_expected_output"
 }
 
 function test_multiple_bazelrc_set_different_options() {
-  tmpdir=$(cd $(mktemp -d) &> /dev/null && pwd -P)
-  echo "common --repository_cache=$tmpdir" > 1.rc
+  echo "common --verbose_failures" > 1.rc
   echo "common --test_output=all" > 2.rc
-  bazel --bazelrc=1.rc --bazelrc=2.rc build --announce_rc &> $TEST_log || fail "Should pass"
-  expect_log "Inherited 'common' options: --repository_cache=$tmpdir"
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" build --announce_rc &> $TEST_log || fail "Should pass"
+  expect_log "Inherited 'common' options: --verbose_failures"
   expect_log "Inherited 'common' options: --test_output=all"
 }
 
