@@ -740,6 +740,10 @@ message BuildMetrics {
     // This includes any remote cache hits, but excludes
     // local action cache hits.
     int64 actions_executed = 2;
+
+    // Total size of all source files newly read this build. Will not include
+    // unchanged sources on incremental builds.
+    int64 source_artifact_bytes_read = 5;
   }
   ActionSummary action_summary = 1;
 

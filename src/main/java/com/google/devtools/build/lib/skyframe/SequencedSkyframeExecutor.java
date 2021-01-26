@@ -912,21 +912,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public ExecutionFinishedEvent createExecutionFinishedEvent() {
-    ExecutionFinishedEvent result =
+  protected ExecutionFinishedEvent.Builder createExecutionFinishedEventInternal() {
+    ExecutionFinishedEvent.Builder builder =
         ExecutionFinishedEvent.builder()
             .setOutputDirtyFiles(outputDirtyFiles)
             .setOutputModifiedFilesDuringPreviousBuild(modifiedFilesDuringPreviousBuild)
             .setSourceDiffCheckingDuration(sourceDiffCheckingDuration)
             .setNumSourceFilesCheckedBecauseOfMissingDiffs(
                 numSourceFilesCheckedBecauseOfMissingDiffs)
-            .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration)
-            .build();
+            .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration);
     outputDirtyFiles = 0;
     modifiedFilesDuringPreviousBuild = 0;
     sourceDiffCheckingDuration = Duration.ZERO;
     outputTreeDiffCheckingDuration = Duration.ZERO;
-    return result;
+    return builder;
   }
 
   @Override

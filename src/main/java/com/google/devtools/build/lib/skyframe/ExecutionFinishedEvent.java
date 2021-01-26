@@ -22,14 +22,16 @@ import java.time.Duration;
  */
 @AutoValue
 public abstract class ExecutionFinishedEvent {
-  public static final ExecutionFinishedEvent EMPTY =
-      builder()
-          .setOutputDirtyFiles(0)
-          .setOutputModifiedFilesDuringPreviousBuild(0)
-          .setSourceDiffCheckingDuration(Duration.ZERO)
-          .setNumSourceFilesCheckedBecauseOfMissingDiffs(0)
-          .setOutputTreeDiffCheckingDuration(Duration.ZERO)
-          .build();
+  // AutoValue Builders require that all fields are populated, so we provide a default.
+  public static ExecutionFinishedEvent.Builder builderWithDefaults() {
+    return builder()
+        .setOutputDirtyFiles(0)
+        .setOutputModifiedFilesDuringPreviousBuild(0)
+        .setSourceDiffCheckingDuration(Duration.ZERO)
+        .setNumSourceFilesCheckedBecauseOfMissingDiffs(0)
+        .setOutputTreeDiffCheckingDuration(Duration.ZERO)
+        .setSourceArtifactBytesRead(0L);
+  }
 
   public abstract int outputDirtyFiles();
 
@@ -40,6 +42,8 @@ public abstract class ExecutionFinishedEvent {
   public abstract int numSourceFilesCheckedBecauseOfMissingDiffs();
 
   public abstract Duration outputTreeDiffCheckingDuration();
+
+  public abstract long sourceArtifactBytesRead();
 
   static Builder builder() {
     return new AutoValue_ExecutionFinishedEvent.Builder();
@@ -58,6 +62,8 @@ public abstract class ExecutionFinishedEvent {
         int numSourceFilesCheckedBecauseOfMissingDiffs);
 
     abstract Builder setOutputTreeDiffCheckingDuration(Duration outputTreeDiffCheckingDuration);
+
+    abstract Builder setSourceArtifactBytesRead(long sourceArtifactBytesRead);
 
     abstract ExecutionFinishedEvent build();
   }

@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -65,6 +66,7 @@ import javax.annotation.Nullable;
  */
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
+  private final AtomicLong sourceArtifactBytesReadThisBuild;
 
   public static final class MissingFileArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
@@ -87,8 +89,10 @@ class ArtifactFunction implements SkyFunction {
     }
   }
 
-  public ArtifactFunction(Supplier<Boolean> mkdirForTreeArtifacts) {
+  public ArtifactFunction(
+      Supplier<Boolean> mkdirForTreeArtifacts, AtomicLong sourceArtifactBytesReadThisBuild) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
+    this.sourceArtifactBytesReadThisBuild = sourceArtifactBytesReadThisBuild;
   }
 
   @Override
@@ -251,7 +255,7 @@ class ArtifactFunction implements SkyFunction {
     return tree;
   }
 
-  private static SkyValue createSourceValue(Artifact artifact, Environment env)
+  private SkyValue createSourceValue(Artifact artifact, Environment env)
       throws IOException, InterruptedException {
     RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
     SkyKey fileSkyKey = FileValue.key(path);
@@ -268,51 +272,54 @@ class ArtifactFunction implements SkyFunction {
       return makeMissingSourceInputFileValue(artifact);
     }
 
+    if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      if (fileValue.isFile()) {
+        sourceArtifactBytesReadThisBuild.addAndGet(fileValue.getSize());
+      }
+      try {
+        return FileArtifactValue.createForSourceArtifact(artifact, fileValue);
+      } catch (IOException e) {
+        return makeIOExceptionSourceInputFileValue(artifact, e);
+      }
+    }
     // For directory artifacts that are not Filesets, we initiate a directory traversal here, and
     // compute a hash from the directory structure.
-    if (fileValue.isDirectory() && TrackSourceDirectoriesFlag.trackSourceDirectories()) {
-      // We rely on the guarantees of RecursiveFilesystemTraversalFunction for correctness.
-      //
-      // This approach may have unexpected interactions with --package_path. In particular, the exec
-      // root is setup from the loading / analysis phase, and it is now too late to change it;
-      // therefore, this may traverse a different set of files depending on which targets are built
-      // at the same time and what the package-path layout is (this may be moot if there is only one
-      // entry). Or this may return a set of files that's inconsistent with those actually available
-      // to the action (for local execution).
-      //
-      // In the future, we need to make this result the source of truth for the files available to
-      // the action so that we at least have consistency.
-      TraversalRequest request =
-          TraversalRequest.create(
-              DirectTraversalRoot.forRootedPath(path),
-              /*isRootGenerated=*/ false,
-              PackageBoundaryMode.CROSS,
-              /*strictOutputFiles=*/ true,
-              /*skipTestingForSubpackage=*/ true,
-              /*errorInfo=*/ "Directory artifact " + artifact.prettyPrint());
-      RecursiveFilesystemTraversalValue value;
-      try {
-        value =
-            (RecursiveFilesystemTraversalValue) env.getValueOrThrow(
-                request, RecursiveFilesystemTraversalException.class);
-      } catch (RecursiveFilesystemTraversalException e) {
-        throw new IOException(e);
-      }
-      if (value == null) {
-        return null;
-      }
-      Fingerprint fp = new Fingerprint();
-      for (ResolvedFile file : value.getTransitiveFiles().toList()) {
-        fp.addString(file.getNameInSymlinkTree().getPathString());
-        fp.addBytes(file.getMetadata().getDigest());
-      }
-      return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
-    }
+    // We rely on the guarantees of RecursiveFilesystemTraversalFunction for correctness.
+    //
+    // This approach may have unexpected interactions with --package_path. In particular, the exec
+    // root is setup from the loading / analysis phase, and it is now too late to change it;
+    // therefore, this may traverse a different set of files depending on which targets are built
+    // at the same time and what the package-path layout is (this may be moot if there is only one
+    // entry). Or this may return a set of files that's inconsistent with those actually available
+    // to the action (for local execution).
+    //
+    // In the future, we need to make this result the source of truth for the files available to
+    // the action so that we at least have consistency.
+    TraversalRequest request =
+        TraversalRequest.create(
+            DirectTraversalRoot.forRootedPath(path),
+            /*isRootGenerated=*/ false,
+            PackageBoundaryMode.CROSS,
+            /*strictOutputFiles=*/ true,
+            /*skipTestingForSubpackage=*/ true,
+            /*errorInfo=*/ "Directory artifact " + artifact.prettyPrint());
+    RecursiveFilesystemTraversalValue value;
     try {
-      return FileArtifactValue.createForSourceArtifact(artifact, fileValue);
-    } catch (IOException e) {
-      return makeIOExceptionSourceInputFileValue(artifact, e);
+      value =
+          (RecursiveFilesystemTraversalValue)
+              env.getValueOrThrow(request, RecursiveFilesystemTraversalException.class);
+    } catch (RecursiveFilesystemTraversalException e) {
+      throw new IOException(e);
     }
+    if (value == null) {
+      return null;
+    }
+    Fingerprint fp = new Fingerprint();
+    for (ResolvedFile file : value.getTransitiveFiles().toList()) {
+      fp.addString(file.getNameInSymlinkTree().getPathString());
+      fp.addBytes(file.getMetadata().getDigest());
+    }
+    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
   }
 
   static MissingFileArtifactValue makeMissingSourceInputFileValue(Artifact artifact) {

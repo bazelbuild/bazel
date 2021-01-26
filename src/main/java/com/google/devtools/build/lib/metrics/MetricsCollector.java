@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
@@ -49,7 +50,8 @@ class MetricsCollector {
   private int targetsLoaded;
   private int targetsConfigured;
   private int packagesLoaded;
-  private static long analysisTimeInMs;
+  private long sourceArtifactBytesReadPerBuild;
+  private long analysisTimeInMs;
 
   private MetricsCollector(CommandEnvironment env) {
     this.env = env;
@@ -92,6 +94,12 @@ class MetricsCollector {
     executedActionCount.incrementAndGet();
   }
 
+  @SuppressWarnings("unused")
+  @Subscribe
+  public void onExecutionComplete(ExecutionFinishedEvent event) {
+    this.sourceArtifactBytesReadPerBuild = event.sourceArtifactBytesRead();
+  }
+
   @Subscribe
   public void onBuildComplete(BuildPrecompleteEvent event) {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
@@ -112,6 +120,7 @@ class MetricsCollector {
     return ActionSummary.newBuilder()
         .setActionsCreated(actionsConstructed)
         .setActionsExecuted(executedActionCount.get())
+        .setSourceArtifactBytesRead(sourceArtifactBytesReadPerBuild)
         .build();
   }
 
@@ -147,7 +156,7 @@ class MetricsCollector {
         .build();
   }
 
-  private static TimingMetrics createTimingMetrics() {
+  private TimingMetrics createTimingMetrics() {
     TimingMetrics.Builder timingMetricsBuilder = TimingMetrics.newBuilder();
     Duration elapsedWallTime = Profiler.elapsedTimeMaybe();
     if (elapsedWallTime != null) {

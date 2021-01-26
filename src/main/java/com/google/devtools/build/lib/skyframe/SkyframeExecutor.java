@@ -217,6 +217,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -249,6 +250,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final BlazeDirectories directories;
   protected final ExternalFilesHelper externalFilesHelper;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
+  /**
+   * Tracks the accumulated size of source artifacts read this build. Does not include cached
+   * artifacts, so is not useful on incremental builds.
+   */
+  private final AtomicLong sourceArtifactBytesReadThisBuild = new AtomicLong();
+
   @Nullable protected OutputService outputService;
 
   // TODO(bazel-team): Figure out how to handle value builders that block internally. Blocking
@@ -584,7 +591,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         Artifact.ARTIFACT,
         new ArtifactFunction(
-            () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem()));
+            () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
+            sourceArtifactBytesReadThisBuild));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
@@ -2694,6 +2702,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
+    sourceArtifactBytesReadThisBuild.set(0L);
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {
@@ -3014,7 +3023,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  public abstract ExecutionFinishedEvent createExecutionFinishedEvent();
+  public final ExecutionFinishedEvent createExecutionFinishedEvent() {
+    return createExecutionFinishedEventInternal()
+        .setSourceArtifactBytesRead(sourceArtifactBytesReadThisBuild.getAndSet(0L))
+        .build();
+  }
+
+  @ForOverride
+  protected ExecutionFinishedEvent.Builder createExecutionFinishedEventInternal() {
+    return ExecutionFinishedEvent.builderWithDefaults();
+  }
 
   protected Iterable<ActionLookupValue> getActionLookupValuesInBuild(
       List<ConfiguredTargetKey> topLevelCtKeys, List<AspectValueKey> aspectKeys)
