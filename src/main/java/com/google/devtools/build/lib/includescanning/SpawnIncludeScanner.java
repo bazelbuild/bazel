@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -75,6 +76,7 @@ public class SpawnIncludeScanner {
       ResourceSet.createWithRamCpu(/*memoryMb=*/ 10, /*cpuUsage=*/ 1);
 
   private final Path execRoot;
+  private OutputService outputService;
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
   private final AtomicReference<FilesystemCalls> syscallCache;
@@ -85,6 +87,11 @@ public class SpawnIncludeScanner {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
     this.syscallCache = syscallCache;
+  }
+
+  public void setOutputService(OutputService outputService) {
+    Preconditions.checkState(this.outputService == null);
+    this.outputService = outputService;
   }
 
   public void setInMemoryOutput(boolean inMemoryOutput) {
@@ -120,10 +127,11 @@ public class SpawnIncludeScanner {
     if (file.getRoot().getRoot().isAbsolute()) {
       return false;
     }
-    // Output files are generally not locally available should be scanned remotely to avoid the
+    // Files written remotely that are not locally available should be scanned remotely to avoid the
     // bandwidth and disk space penalty of bringing them across. Also, enable include scanning
-    // remotely when the file size exceeds a certain size.
-    if (remoteExtractionThreshold == 0 || !file.isSourceArtifact()) {
+    // remotely when explicitly directed to via a flag.
+    if (remoteExtractionThreshold == 0
+        || (outputService != null && outputService.isRemoteFile(file))) {
       return true;
     }
     FileStatus status = syscallCache.get().statIfFound(file.getPath(), Symlinks.FOLLOW);
