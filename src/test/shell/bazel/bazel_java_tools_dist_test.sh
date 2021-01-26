@@ -147,18 +147,14 @@ function test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "third_party/asm/asm-8.0-sources.jar"
 }
 
+# TODO(bencodes) These tests should assert against a 6.2.2 after proguard is switched over
 function test_java_tools_has_proguard() {
   expect_path_in_java_tools "third_party/java/proguard"
-  expect_path_in_java_tools "third_party/java/proguard/proguard5.3.3" \
-    || expect_path_in_java_tools "third_party/java/proguard/proguard6.2.2"
-  expect_path_in_java_tools "third_party/java/proguard/proguard5.3.3/bin" \
-    || expect_path_in_java_tools "third_party/java/proguard/proguard6.2.2/bin"
-  expect_path_in_java_tools "third_party/java/proguard/proguard5.3.3/buildscripts" \
-    || expect_path_in_java_tools "third_party/java/proguard/proguard6.2.2/buildscripts"
-  expect_path_in_java_tools "third_party/java/proguard/proguard5.3.3/src" \
-    || expect_path_in_java_tools "third_party/java/proguard/proguard6.2.2/src"
-  expect_path_in_java_tools "third_party/java/proguard/proguard5.3.3/src/proguard" \
-    || expect_path_in_java_tools "third_party/java/proguard/proguard6.2.2/src/proguard"
+  expect_path_in_java_tools "third_party/java/proguard/proguard.*"
+  expect_path_in_java_tools "third_party/java/proguard/proguard.*/bin"
+  expect_path_in_java_tools "third_party/java/proguard/proguard.*/buildscripts"
+  expect_path_in_java_tools "third_party/java/proguard/proguard.*/src"
+  expect_path_in_java_tools "third_party/java/proguard/proguard.*/src/proguard"
 }
 
 run_suite "Java tools archive tests"
