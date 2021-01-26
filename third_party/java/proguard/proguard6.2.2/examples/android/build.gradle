@@ -1,0 +1,65 @@
+buildscript {
+    repositories {
+        google()  // For the Android plugin.
+        jcenter() // For anything else.
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.4.0'
+    }
+    configurations.all {
+        resolutionStrategy {
+            // Override the default version of ProGuard
+            // with the most recent one.
+            force 'net.sf.proguard:proguard-gradle:6.2.2'
+        }
+    }
+}
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 28
+
+    signingConfigs {
+        debug {
+            storeFile     file('debug.keystore')
+            storePassword 'android'
+            keyAlias      'androiddebugkey'
+            keyPassword   'android'
+        }
+    }
+
+    defaultConfig {
+        signingConfig signingConfigs.debug
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs         = ['src']
+            resources.srcDirs    = ['src']
+            aidl.srcDirs         = ['src']
+            renderscript.srcDirs = ['src']
+            res.srcDirs          = ['res']
+            assets.srcDirs       = ['assets']
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled   false
+            shrinkResources false
+        }
+        release {
+            minifyEnabled   true
+            shrinkResources true
+            proguardFile getDefaultProguardFile('proguard-android-optimize.txt')
+            proguardFile 'proguard-project.txt'
+        }
+    }
+}
+
+repositories {
+    google()  // For the Android plugin.
+    jcenter() // For anything else.
+}

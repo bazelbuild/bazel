@@ -1,0 +1,89 @@
+<!-- This Ant build file illustrates how to process applets.
+     Usage: ant -f applets.xml -->
+
+<project name="Applets" default="obfuscate" basedir="../..">
+
+<target name="obfuscate">
+  <taskdef resource="proguard/ant/task.properties"
+           classpath="lib/proguard.jar" />
+
+  <proguard verbose="true"
+            printseeds="on"
+            printmapping="out.map"
+            renamesourcefileattribute="SourceFile">
+
+    <!-- Specify the input jars, output jars, and library jars. -->
+
+    <injar  file="in.jar" />
+    <outjar file="out.jar" />
+
+    <libraryjar file="${java.home}/lib/rt.jar" />
+
+    <!-- Optionally preserve line numbers in the obfuscated stack traces.
+    <keepattribute name="LineNumberTable">
+    <keepattribute name="SourceFile">
+    -->
+
+    <!-- Preserve all annotations. -->
+
+    <keepattribute name="*Annotation*" />
+
+    <!-- Preserve all public applets. -->
+
+    <keep access="public" extends="java.applet.Applet" />
+
+    <!-- Preserve all native method names and the names of their classes. -->
+
+    <keepclasseswithmembernames includedescriptorclasses="true">
+      <method access="native" />
+    </keepclasseswithmembernames>
+
+    <!-- Preserve the methods that are required in all enumeration classes. -->
+
+    <keepclassmembers allowoptimization="true" type="enum">
+      <method access="public static"
+              type="**[]"
+              name="values"
+              parameters="" />
+      <method access="public static"
+              type="**"
+              name="valueOf"
+              parameters="java.lang.String" />
+    </keepclassmembers>
+
+    <!-- Explicitly preserve all serialization members. The Serializable
+         interface is only a marker interface, so it wouldn't save them.
+         You can comment this out if your library doesn't use serialization.
+         If your code contains serializable classes that have to be backward
+         compatible, please refer to the manual. -->
+
+    <keepclassmembers implements="java.io.Serializable">
+      <field  access    ="static final"
+              type      ="long"
+              name      ="serialVersionUID" />
+      <field  access    ="static final"
+              type      ="java.io.ObjectStreamField[]"
+              name      ="serialPersistentFields" />
+      <method access    ="private"
+              type      ="void"
+              name      ="writeObject"
+              parameters="java.io.ObjectOutputStream" />
+      <method access    ="private"
+              type      ="void"
+              name      ="readObject"
+              parameters="java.io.ObjectInputStream" />
+      <method type      ="java.lang.Object"
+              name      ="writeReplace"
+              parameters="" />
+      <method type      ="java.lang.Object"
+              name      ="readResolve"
+              parameters="" />
+    </keepclassmembers>
+
+    <!-- Your application may contain more items that need to be preserved;
+         typically classes that are dynamically created using Class.forName -->
+
+   </proguard>
+</target>
+
+</project>

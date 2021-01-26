@@ -1,0 +1,71 @@
+// Gradle build script for all ProGuard jars.
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+    }
+}
+
+task clean {
+    delete fileTree('../lib')
+}
+
+// Collect the main ProGuard jar.
+
+task assembleProguardJar(type: Jar) {
+    destinationDir = file('../lib')
+    baseName       = 'proguard'
+
+    manifest.from '../core/src/META-INF/MANIFEST.MF'
+}
+
+def proguardSubprojects =
+    [':core', ':gradle', ':ant', ':wtk'].collect{ project(it) }
+
+proguardSubprojects.each { subproject ->
+    subproject.afterEvaluate {
+        assembleProguardJar.dependsOn subproject.tasks['jar']
+        assembleProguardJar.from      subproject.configurations.archives.artifacts.files.collect { zipTree(it) }
+    }
+}
+
+// Copy the ReTrace jar.
+
+task copyRetraceJar(type: Copy) {
+    into '../lib'
+}
+
+project(':retrace').afterEvaluate {
+    copyRetraceJar.from it.tasks['jar']
+}
+
+// Copy the GUI jar.
+
+task copyGuiJar(type: Copy) {
+    into '../lib'
+    rename 'gui.jar', 'proguardgui.jar'
+}
+
+project(':gui').afterEvaluate {
+    copyGuiJar.from it.tasks['jar']
+}
+
+// Copy the annotations jar.
+
+task copyAnnotationsJar(type: Copy) {
+    into '../lib'
+}
+
+project(':annotations').afterEvaluate {
+    copyAnnotationsJar.from it.tasks['jar']
+}
+
+// Assemble or copy all jars.
+
+task assemble {
+    dependsOn assembleProguardJar
+    dependsOn copyRetraceJar
+    dependsOn copyGuiJar
+    dependsOn copyAnnotationsJar
+}

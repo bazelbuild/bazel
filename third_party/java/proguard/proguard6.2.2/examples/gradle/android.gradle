@@ -1,0 +1,279 @@
+//
+// This Gradle build file illustrates how to process Android
+// applications.
+//
+// If you're using the Android SDK, the provided build systems with Gradle,
+// Android Studio, Eclipse, and Ant already take care of the proper settings.
+// You only need to enable ProGuard as explained in the Android documentation.
+// You can still add project-specific configuration in proguard-project.txt.
+//
+// This configuration file is for custom, stand-alone builds.
+// Usage:
+//     gradle -b android.gradle proguard
+
+// Tell Gradle where to find the ProGuard task.
+
+buildscript {
+    repositories {
+        flatDir dirs: '../../lib'
+    }
+    dependencies {
+        classpath ':proguard'
+    }
+}
+
+// Define a ProGuard task.
+
+task ('proguard', type: proguard.gradle.ProGuardTask) {
+
+    // You should probably import a more compact ProGuard-style configuration
+    // file for all static settings, but we're specifying them all here, for
+    // the sake of the example.
+    //configuration 'configuration.pro'
+
+
+    //##############################################################################
+    // Input and output.
+    //##############################################################################
+
+    // Specify the input jars, output jars, and library jars.
+    // Note that ProGuard works with Java bytecode (.class),
+    // before the dex compiler converts it into Dalvik code (.dex).
+
+    injars  'classes'
+    injars  'libs'
+    outjars 'classes-processed.jar'
+
+    libraryjars '/usr/local/android-sdk/platforms/android-27/android.jar'
+    //libraryjars '/usr/local/java/android-sdk/extras/android/support/v4/android-support-v4.jar'
+    //libraryjars '/usr/local/java/android-sdk/add-ons/addon-google_apis-google-21/libs/maps.jar'
+    // ...
+
+    // Save the obfuscation mapping to a file, so you can de-obfuscate any stack
+    // traces later on.
+
+    printmapping 'bin/classes-processed.map'
+
+    // You can print out the seeds that are matching the keep options below.
+
+    //printseeds 'bin/classes-processed.seeds'
+
+
+    //##############################################################################
+    // General settings.
+    //##############################################################################
+
+    verbose
+
+    // We can debug the ProGuard configuration by instrumenting the code and
+    // checking the log for feedback. Disable the option again for actual releases!
+
+    //addconfigurationdebugging
+
+    // We can also disable the individual processing steps.
+
+    //dontshrink
+    //dontoptimize
+    //dontobfuscate
+
+    // Specifically target Android.
+
+    android
+
+    // The dex compiler ignores preverification information.
+
+    dontpreverify
+
+    // Reduce the size of the output some more.
+
+    repackageclasses ''
+    allowaccessmodification
+
+    // Switch off some optimizations that trip older versions of the Dalvik VM.
+
+    optimizations '!code/simplification/arithmetic'
+
+    // Keep a fixed source file attribute and all line number tables to get line
+    // numbers in the stack traces.
+
+    renamesourcefileattribute 'SourceFile'
+    keepattributes 'SourceFile,LineNumberTable'
+
+
+    //##############################################################################
+    // Settings to handle reflection in the code.
+    //##############################################################################
+
+    // RemoteViews might need annotations.
+
+    keepattributes '*Annotation*'
+
+    // Preserve all fundamental application classes.
+
+    keep 'public class * extends android.app.Activity'
+    keep 'public class * extends android.app.Application'
+    keep 'public class * extends android.app.Service'
+    keep 'public class * extends android.content.BroadcastReceiver'
+    keep 'public class * extends android.content.ContentProvider'
+
+    // Preserve all View implementations, their special context constructors, and
+    // their setters.
+
+    keep 'public class * extends android.view.View { \
+        public <init>(android.content.Context); \
+        public <init>(android.content.Context, android.util.AttributeSet); \
+        public <init>(android.content.Context, android.util.AttributeSet, int); \
+        public void set*(...); \
+    }'
+
+    // Preserve all classes that have special context constructors, and the
+    // constructors themselves.
+
+    keepclasseswithmembers 'class * { \
+        public <init>(android.content.Context, android.util.AttributeSet); \
+    }'
+
+    // Preserve all classes that have special context constructors, and the
+    // constructors themselves.
+
+    keepclasseswithmembers 'class * { \
+        public <init>(android.content.Context, android.util.AttributeSet, int); \
+    }'
+
+    // Preserve all possible onClick handlers.
+
+    keepclassmembers 'class * extends android.content.Context { \
+       public void *(android.view.View); \
+       public void *(android.view.MenuItem); \
+    }'
+
+    // Preserve the special fields of all Parcelable implementations.
+
+    keepclassmembers 'class * implements android.os.Parcelable { \
+        static android.os.Parcelable$Creator CREATOR; \
+    }'
+
+    // Preserve static fields of inner classes of R classes that might be accessed
+    // through introspection.
+
+    keepclassmembers 'class **.R$* { \
+      public static <fields>; \
+    }'
+
+    // Preserve annotated Javascript interface methods.
+
+    keepclassmembers 'class * { \
+        @android.webkit.JavascriptInterface <methods>; \
+    }'
+
+    // Preserve annotated and generated classes for Dagger.
+
+    keepclassmembers allowobfuscation: true, 'class * { \
+        @dagger.** *; \
+    }'
+
+    keep 'class **$$ModuleAdapter'
+    keep 'class **$$InjectAdapter'
+    keep 'class **$$StaticInjection'
+
+    keep if: 'class **$$ModuleAdapter', 'class <1>'
+
+    keep if: 'class **$$InjectAdapter', 'class <1>'
+
+    keep if: 'class **$$StaticInjection', 'class <1>'
+
+    keepnames 'class dagger.Lazy'
+
+    // Preserve annotated and generated classes for Butterknife.
+
+    keep 'class **$$ViewBinder { \
+        public static void bind(...); \
+        public static void unbind(...); \
+    }'
+
+    keep if: 'class **$$ViewBinder', 'class <1>'
+
+    keep 'class **_ViewBinding { \
+        <init>(<1>, android.view.View); \
+    }'
+
+    keep if: 'class **_ViewBinding', 'class <1>'
+
+    // Preserve fields that are serialized with GSON.
+
+    //keepclassmembers 'class com.example.SerializedClass1,'
+    //                        com.example.SerializedClass2 {
+    //    <fields>;
+    //}'
+
+    keepclassmembers allowobfuscation: true, 'class * { \
+        @com.google.gson.annotations.SerializedName <fields>; \
+    }'
+
+    keep allowobfuscation: true, '@interface com.google.gson.annotations.**'
+
+
+    // Preserve the required interface from the License Verification Library
+    // (but don't nag the developer if the library is not used at all).
+
+    keep 'public interface com.android.vending.licensing.ILicensingService'
+
+    dontnote 'com.android.vending.licensing.ILicensingService'
+
+    // The Android Compatibility library references some classes that may not be
+    // present in all versions of the API, but we know that's ok.
+
+    dontwarn 'android.support.**'
+
+    // Preserve all native method names and the names of their classes.
+
+    keepclasseswithmembernames includedescriptorclasses: true, 'class * { \
+        native <methods>; \
+    }'
+
+    // Preserve the special static methods that are required in all enumeration
+    // classes.
+
+    keepclassmembers allowoptimization: true, 'enum * { \
+        public static **[] values(); \
+        public static ** valueOf(java.lang.String); \
+    }'
+
+    // Explicitly preserve all serialization members. The Serializable interface
+    // is only a marker interface, so it wouldn't save them.
+    // You can comment this out if your application doesn't use serialization.
+    // If your code contains serializable classes that have to be backward
+    // compatible, please refer to the manual.
+
+    keepclassmembers 'class * implements java.io.Serializable { \
+        static final long serialVersionUID; \
+        static final java.io.ObjectStreamField[] serialPersistentFields; \
+        private void writeObject(java.io.ObjectOutputStream); \
+        private void readObject(java.io.ObjectInputStream); \
+        java.lang.Object writeReplace(); \
+        java.lang.Object readResolve(); \
+    }'
+
+    // Your application may contain more items that need to be preserved;
+    // typically classes that are dynamically created using Class.forName:
+
+    // keep 'public class com.example.MyClass'
+    // keep 'public interface com.example.MyInterface'
+    // keep 'public class * implements com.example.MyInterface'
+
+
+    //##############################################################################
+    // Further optimizations.
+    //##############################################################################
+
+    // If you wish, you can let the optimization step remove Android logging calls.
+
+    assumenosideeffects 'class android.util.Log { \
+        public static boolean isLoggable(java.lang.String, int); \
+        public static int v(...); \
+        public static int i(...); \
+        public static int w(...); \
+        public static int d(...); \
+        public static int e(...); \
+    }'
+}

@@ -1,0 +1,12 @@
+includeFlat 'core'
+includeFlat 'retrace'
+includeFlat 'gui'
+includeFlat 'gradle'
+includeFlat 'ant'
+includeFlat 'annotations'
+
+if (file(wtkDir).isDirectory()) {
+    includeFlat 'wtk'
+} else {
+    System.err.println "Can't find the WTK directory [${wtkDir}]. Not building the WTK plugin."
+}
