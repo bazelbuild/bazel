@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -330,7 +329,6 @@ public final class RemoteModule extends BlazeModule {
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
-      interceptors.add(new NetworkTime.Interceptor());
       try {
         execChannel =
             RemoteCacheClientFactory.createGrpcChannelPool(
@@ -357,7 +355,6 @@ public final class RemoteModule extends BlazeModule {
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
-      interceptors.add(new NetworkTime.Interceptor());
       try {
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannelPool(
@@ -551,7 +548,9 @@ public final class RemoteModule extends BlazeModule {
               remoteCache,
               remoteExecutor,
               digestUtil,
-              repoContext,
+              buildRequestId,
+              invocationId,
+              "repository_rule",
               remoteOptions.remoteInstanceName,
               remoteOptions.remoteAcceptCached));
     } else {

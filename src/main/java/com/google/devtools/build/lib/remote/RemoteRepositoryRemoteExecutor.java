@@ -28,11 +28,15 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,7 +53,9 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
   private final RemoteExecutionCache remoteCache;
   private final RemoteExecutionClient remoteExecutor;
   private final DigestUtil digestUtil;
-  private final Context requestCtx;
+  private final String buildRequestId;
+  private final String commandId;
+  private final String actionId;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
@@ -58,13 +64,17 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       RemoteExecutionCache remoteCache,
       RemoteExecutionClient remoteExecutor,
       DigestUtil digestUtil,
-      Context requestCtx,
+      String buildRequestId,
+      String commandId,
+      String actionId,
       String remoteInstanceName,
       boolean acceptCached) {
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
     this.digestUtil = digestUtil;
-    this.requestCtx = requestCtx;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
+    this.actionId = actionId;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
   }
@@ -100,6 +110,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       String workingDirectory,
       Duration timeout)
       throws IOException, InterruptedException {
+    Context requestCtx =
+        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionId);
     Context prev = requestCtx.attach();
     try {
       Platform platform = PlatformUtils.buildPlatformProto(executionProperties);
@@ -117,10 +129,16 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
               commandHash, merkleTree.getRootDigest(), timeout, acceptCached);
       Digest actionDigest = digestUtil.compute(action);
       ActionKey actionKey = new ActionKey(actionDigest);
+      RemoteActionExecutionContext remoteActionExecutionContext =
+          new RemoteActionExecutionContextImpl(
+              TracingMetadataUtils.buildMetadata(buildRequestId, commandId, actionId),
+              new NetworkTime());
       ActionResult actionResult;
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-        actionResult = remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ true);
+        actionResult =
+            remoteCache.downloadActionResult(
+                remoteActionExecutionContext, actionKey, /* inlineOutErr= */ true);
       }
       if (actionResult == null || actionResult.getExitCode() != 0) {
         try (SilentCloseable c =

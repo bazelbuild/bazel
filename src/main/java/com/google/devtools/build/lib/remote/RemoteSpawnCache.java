@@ -48,12 +48,14 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -151,9 +153,15 @@ final class RemoteSpawnCache implements SpawnCache {
             digestUtil.compute(command), merkleTreeRoot, context.getTimeout(), true);
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
+
+    RemoteActionExecutionContext remoteActionExecutionContext =
+        new RemoteActionExecutionContextImpl(
+            TracingMetadataUtils.buildMetadata(
+                buildRequestId, commandId, actionKey.getDigest().getHash()),
+            networkTime);
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey)
-            .withValue(NetworkTime.CONTEXT_KEY, networkTime);
+            .withValue(NetworkTimeInterceptor.CONTEXT_KEY, networkTime);
 
     Profiler prof = Profiler.instance();
     if (options.remoteAcceptCached
@@ -165,7 +173,9 @@ final class RemoteSpawnCache implements SpawnCache {
       try {
         ActionResult result;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          result = remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ false);
+          result =
+              remoteCache.downloadActionResult(
+                  remoteActionExecutionContext, actionKey, /* inlineOutErr= */ false);
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
