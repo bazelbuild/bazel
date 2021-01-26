@@ -712,6 +712,7 @@ EOF
 }
 
 function test_graphless_query_matches_graphless_genquery_output() {
+  rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
 sh_library(name = "b", deps = [":c"])
@@ -734,19 +735,69 @@ EOF
   bazel build --experimental_genquery_use_graphless_query \
       //foo:q || fail "Expected success"
 
-  # The --incompatible_use_lexicographical_unordered_output flag is used to
+  # The --incompatible_lexicographical_output flag is used to
   # switch order_output=auto to use graphless query and output in
   # lexicographical order.
-  bazel query --incompatible_use_lexicographical_unordered_output \
+  bazel query --incompatible_lexicographical_output \
       "deps(//foo:b)" | grep foo >& foo/query_output || fail "Expected success"
 
-  # The outputs of graphless query and graphless genquery should be the same.
-  assert_equals "$(cat bazel-bin/foo/q)" "$(cat foo/query_output)"
-
-  # The outputs of both graphless query and graphless genquery should be in
-  # lexicographical order (comparing one should be sufficient).
+  # The outputs of graphless query and graphless genquery should be the same and
+  # should both be in lexicographical order.
+  assert_equals \
+      "$(cat foo/expected_lexicographical_result)" "$(cat foo/query_output)"
   assert_equals \
       "$(cat foo/expected_lexicographical_result)" "$(cat bazel-bin/foo/q)"
+}
+
+function test_lexicographical_output_does_not_affect_order_output_no() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "a")
+genquery(
+    name = "q",
+    expression = "deps(//foo:b)",
+    scope = ["//foo:b"],
+)
+EOF
+
+  bazel query --order_output=no \
+      "deps(//foo:b)" | grep foo >& foo/query_output \
+      || fail "Expected success"
+  bazel query --order_output=no \
+      --incompatible_lexicographical_output \
+      "deps(//foo:b)" | grep foo >& foo/lex_query_output \
+      || fail "Expected success"
+
+  # The --incompatible_lexicographical_output flag should not affect query
+  # order_output=no. Note that there is a chance it may output in
+  # lexicographical order since it is unordered.
+  assert_equals \
+      "$(cat foo/query_output)" "$(cat foo/lex_query_output)"
+}
+
+function test_lexicographical_output_does_not_affect_somepath() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "a")
+EOF
+
+  cat > foo/expected_deps_output <<EOF
+//foo:b
+//foo:c
+//foo:a
+EOF
+
+  bazel query --incompatible_lexicographical_output \
+      "somepath(//foo:b, //foo:a)" | grep foo >& foo/query_output
+
+  assert_equals \
+      "$(cat foo/expected_deps_output)" "$(cat foo/query_output)"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
