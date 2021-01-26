@@ -180,10 +180,10 @@ EOF
 function assert_depth_query_idempotence() {
   order_results="$1"
   if $order_results ; then
-    add_to_bazelrc "query --order_output=auto"
+    order_output_arg=--order_output=auto
     universe_arg=""
   else
-    add_to_bazelrc "query --order_output=no"
+    order_output_arg=--order_output=no
     universe_arg=--universe_scope=//depth:*
   fi
   make_depth_tests
@@ -191,8 +191,8 @@ function assert_depth_query_idempotence() {
   for run in {1..5}; do
     # Only compare the output stream with the query results.
     mv -f $TEST_log $last_log
-    bazel query 'deps(//depth:one, 4)' $universe_arg > $TEST_log \
-        || fail "Expected success"
+    bazel query 'deps(//depth:one, 4)' $order_output_arg $universe_arg \
+        > $TEST_log || fail "Expected success"
     if [ $run -gt 1 ]; then
       if $order_results ; then
         diff $TEST_log $last_log || \
