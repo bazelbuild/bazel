@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ConfigurableAttributesTest extends BuildViewTestCase {
+
   private void writeConfigRules() throws Exception {
     scratch.file("conditions/BUILD",
         "config_setting(",
@@ -150,6 +152,15 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
                           .value(Label.parseAbsoluteUnchecked("//foo:default"))
                           .allowedFileTypes(FileTypeSet.ANY_FILE)));
 
+  private static final MockRule RULE_WITH_NO_PLATFORM =
+      () ->
+          MockRule.define(
+              "rule_with_no_platform",
+              (builder, env) ->
+                  builder
+                      .add(attr("deps", LABEL_LIST).allowedFileTypes())
+                      .useToolchainResolution(false));
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -158,7 +169,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             .addRuleDefinition(RULE_WITH_COMPUTED_DEFAULT)
             .addRuleDefinition(RULE_WITH_BOOLEAN_ATTR)
             .addRuleDefinition(RULE_WITH_ALLOWED_VALUES)
-            .addRuleDefinition(RULE_WITH_LABEL_DEFAULT);
+            .addRuleDefinition(RULE_WITH_LABEL_DEFAULT)
+            .addRuleDefinition(RULE_WITH_NO_PLATFORM);
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -1073,7 +1085,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("--test_arg=a");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//srctest:gen");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
-    assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
+    assertThat(attributes.get("srcs", LABEL_LIST)).isEmpty();
   }
 
   @Test
@@ -1243,8 +1255,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "check/BUILD",
         "filegroup(name = 'adep', srcs = ['afile'])",
-        "filegroup(name = 'hello',",
-        "    srcs = select({",
+        "rule_with_no_platform(name = 'hello',",
+        "    deps = select({",
         "        '//conditions:apple': [':adep'],",
         "    })",
         ")");
