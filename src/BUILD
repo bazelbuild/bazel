@@ -215,6 +215,9 @@ filegroup(
         "//src/conditions:darwin_x86_64": [
             "@openjdk_macos_x86_64_vanilla//file",
         ],
+        "//src/conditions:darwin_arm64": [
+            "@openjdk_macos_aarch64_vanilla//file",
+        ],
         "//src/conditions:windows": [
             "@openjdk_win_vanilla//file",
         ],
