@@ -66,14 +66,16 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -244,9 +246,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
     NetworkTime networkTime = new NetworkTime();
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
+
+    RemoteActionExecutionContext remoteActionExecutionContext =
+        new RemoteActionExecutionContextImpl(
+            TracingMetadataUtils.buildMetadata(
+                buildRequestId, commandId, actionKey.getDigest().getHash()),
+            networkTime);
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey)
-            .withValue(NetworkTime.CONTEXT_KEY, networkTime);
+            .withValue(NetworkTimeInterceptor.CONTEXT_KEY, networkTime);
     Context previous = withMetadata.attach();
     Profiler prof = Profiler.instance();
     try {
@@ -256,7 +264,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           cachedResult =
               acceptCachedResult
-                  ? remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ false)
+                  ? remoteCache.downloadActionResult(
+                      remoteActionExecutionContext, actionKey, /* inlineOutErr= */ false)
                   : null;
         }
         if (cachedResult != null) {

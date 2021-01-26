@@ -58,6 +58,22 @@ public class TracingMetadataUtils {
     return contextWithMetadata(buildRequestId, commandId, actionKey.getDigest().getHash());
   }
 
+  public static RequestMetadata buildMetadata(
+      String buildRequestId, String commandId, String actionId) {
+    Preconditions.checkNotNull(buildRequestId);
+    Preconditions.checkNotNull(commandId);
+    Preconditions.checkNotNull(actionId);
+    return RequestMetadata.newBuilder()
+        .setCorrelatedInvocationsId(buildRequestId)
+        .setToolInvocationId(commandId)
+        .setActionId(actionId)
+        .setToolDetails(
+            ToolDetails.newBuilder()
+                .setToolName("bazel")
+                .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+        .build();
+  }
+
   /**
    * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
    * accessible by the {@link fromCurrentContext()} method.
@@ -67,19 +83,7 @@ public class TracingMetadataUtils {
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, String actionId) {
-    Preconditions.checkNotNull(buildRequestId);
-    Preconditions.checkNotNull(commandId);
-    Preconditions.checkNotNull(actionId);
-    RequestMetadata metadata =
-        RequestMetadata.newBuilder()
-            .setCorrelatedInvocationsId(buildRequestId)
-            .setToolInvocationId(commandId)
-            .setActionId(actionId)
-            .setToolDetails(
-                ToolDetails.newBuilder()
-                    .setToolName("bazel")
-                    .setToolVersion(BlazeVersionInfo.instance().getVersion()))
-            .build();
+    RequestMetadata metadata = buildMetadata(buildRequestId, commandId, actionId);
     return contextWithMetadata(metadata);
   }
 
@@ -107,8 +111,13 @@ public class TracingMetadataUtils {
    * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
    */
   public static Metadata headersFromCurrentContext() {
+    return headersFromRequestMetadata(fromCurrentContext());
+  }
+
+  /** Creates a {@link Metadata} containing the {@link RequestMetadata}. */
+  public static Metadata headersFromRequestMetadata(RequestMetadata requestMetadata) {
     Metadata headers = new Metadata();
-    headers.put(METADATA_KEY, fromCurrentContext());
+    headers.put(METADATA_KEY, requestMetadata);
     return headers;
   }
 
@@ -122,6 +131,10 @@ public class TracingMetadataUtils {
 
   public static ClientInterceptor attachMetadataFromContextInterceptor() {
     return MetadataUtils.newAttachHeadersInterceptor(headersFromCurrentContext());
+  }
+
+  public static ClientInterceptor attachMetadataInterceptor(RequestMetadata requestMetadata) {
+    return MetadataUtils.newAttachHeadersInterceptor(headersFromRequestMetadata(requestMetadata));
   }
 
   private static Metadata newMetadataForHeaders(List<Entry<String, String>> headers) {
@@ -169,5 +182,4 @@ public class TracingMetadataUtils {
       return Contexts.interceptCall(ctx, call, headers, next);
     }
   }
-
 }

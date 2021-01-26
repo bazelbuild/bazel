@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
-import io.grpc.Context;
 
 /** Factory for {@link RemoteRepositoryRemoteExecutor}. */
 class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorFactory {
@@ -25,7 +24,9 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
   private final RemoteExecutionCache remoteExecutionCache;
   private final RemoteExecutionClient remoteExecutor;
   private final DigestUtil digestUtil;
-  private final Context requestCtx;
+  private final String buildRequestId;
+  private final String commandId;
+  private final String actionId;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
@@ -34,13 +35,17 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
       RemoteExecutionCache remoteExecutionCache,
       RemoteExecutionClient remoteExecutor,
       DigestUtil digestUtil,
-      Context requestCtx,
+      String buildRequestId,
+      String commandId,
+      String actionId,
       String remoteInstanceName,
       boolean acceptCached) {
     this.remoteExecutionCache = remoteExecutionCache;
     this.remoteExecutor = remoteExecutor;
     this.digestUtil = digestUtil;
-    this.requestCtx = requestCtx;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
+    this.actionId = actionId;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
   }
@@ -51,7 +56,9 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
         remoteExecutionCache,
         remoteExecutor,
         digestUtil,
-        requestCtx,
+        buildRequestId,
+        commandId,
+        actionId,
         remoteInstanceName,
         acceptCached);
   }

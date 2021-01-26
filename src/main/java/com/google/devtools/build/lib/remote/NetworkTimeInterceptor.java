@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,12 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.util;
+package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.ExecutionGrpc;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Stopwatch;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -27,59 +25,31 @@ import io.grpc.ForwardingClientCallListener;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
-import java.time.Duration;
+import java.util.function.Supplier;
 
-/** Reentrant wall clock stopwatch and grpc interceptor for network waits. */
-@ThreadSafety.ThreadSafe
-public class NetworkTime {
+/** The ClientInterceptor used to track network time. */
+public class NetworkTimeInterceptor implements ClientInterceptor {
 
   public static final Context.Key<NetworkTime> CONTEXT_KEY = Context.key("remote-network-time");
+  private final Supplier<NetworkTime> networkTimeSupplier;
 
-  private final Stopwatch wallTime = Stopwatch.createUnstarted();
-  private int outstanding = 0;
-
-  private synchronized void start() {
-    if (!wallTime.isRunning()) {
-      wallTime.start();
-    }
-    outstanding++;
-  }
-
-  private synchronized void stop() {
-    if (--outstanding == 0) {
-      wallTime.stop();
-    }
-  }
-
-  public Duration getDuration() {
-    return wallTime.elapsed();
+  public NetworkTimeInterceptor(Supplier<NetworkTime> networkTimeSupplier) {
+    this.networkTimeSupplier = networkTimeSupplier;
   }
 
   @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("outstanding", outstanding)
-        .add("wallTime", wallTime)
-        .add("wallTime.isRunning", wallTime.isRunning())
-        .toString();
-  }
-
-  /** The ClientInterceptor used to track network time. */
-  public static class Interceptor implements ClientInterceptor {
-    @Override
-    public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
-        MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
-      ClientCall<ReqT, RespT> call = next.newCall(method, callOptions);
-      // prevent accounting for execution wait time
-      if (method != ExecutionGrpc.getExecuteMethod()
-          && method != ExecutionGrpc.getWaitExecutionMethod()) {
-        NetworkTime networkTime = CONTEXT_KEY.get();
-        if (networkTime != null) {
-          call = new NetworkTimeCall<>(call, networkTime);
-        }
+  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
+      MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
+    ClientCall<ReqT, RespT> call = next.newCall(method, callOptions);
+    // prevent accounting for execution wait time
+    if (method != ExecutionGrpc.getExecuteMethod()
+        && method != ExecutionGrpc.getWaitExecutionMethod()) {
+      NetworkTime networkTime = networkTimeSupplier.get();
+      if (networkTime != null) {
+        call = new NetworkTimeCall<>(call, networkTime);
       }
-      return call;
     }
+    return call;
   }
 
   private static class NetworkTimeCall<ReqT, RespT>

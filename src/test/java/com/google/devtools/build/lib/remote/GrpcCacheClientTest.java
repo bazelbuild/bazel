@@ -61,6 +61,9 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -129,6 +132,7 @@ public class GrpcCacheClientTest {
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
   private Context withEmptyMetadata;
+  private RemoteActionExecutionContext remoteActionExecutionContext;
   private Context prevContext;
   private ListeningScheduledExecutorService retryService;
 
@@ -152,9 +156,13 @@ public class GrpcCacheClientTest {
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
+    remoteActionExecutionContext =
+        new RemoteActionExecutionContextImpl(
+            TracingMetadataUtils.buildMetadata(
+                "none", "none", Digest.getDefaultInstance().getHash()),
+            new NetworkTime());
     withEmptyMetadata =
-        TracingMetadataUtils.contextWithMetadata(
-            "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+        TracingMetadataUtils.contextWithMetadata(remoteActionExecutionContext.getRequestMetadata());
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
     prevContext = withEmptyMetadata.attach();
@@ -761,7 +769,9 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
     remoteCache.downloadActionResult(
-        DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")), /* inlineOutErr= */ false);
+        remoteActionExecutionContext,
+        DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
+        /* inlineOutErr= */ false);
   }
 
   @Test
@@ -1052,7 +1062,10 @@ public class GrpcCacheClientTest {
                 (numErrors-- <= 0 ? Status.NOT_FOUND : Status.UNAVAILABLE).asRuntimeException());
           }
         });
-    assertThat(getFromFuture(client.downloadActionResult(actionKey, /* inlineOutErr= */ false)))
+    assertThat(
+            getFromFuture(
+                client.downloadActionResult(
+                    remoteActionExecutionContext, actionKey, /* inlineOutErr= */ false)))
         .isNull();
   }
 

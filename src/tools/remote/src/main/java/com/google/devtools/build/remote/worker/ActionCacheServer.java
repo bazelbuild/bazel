@@ -18,10 +18,15 @@ package com.google.devtools.build.remote.worker;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.stub.StreamObserver;
 
 /** A basic implementation of an {@link ActionCacheImplBase} service. */
@@ -40,8 +45,13 @@ final class ActionCacheServer extends ActionCacheImplBase {
   public void getActionResult(
       GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
+      RequestMetadata requestMetadata = TracingMetadataUtils.fromCurrentContext();
+      RemoteActionExecutionContext context =
+          new RemoteActionExecutionContextImpl(requestMetadata, new NetworkTime());
+
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      ActionResult result = cache.downloadActionResult(actionKey, /* inlineOutErr= */ false);
+      ActionResult result =
+          cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false);
 
       if (result == null) {
         responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));

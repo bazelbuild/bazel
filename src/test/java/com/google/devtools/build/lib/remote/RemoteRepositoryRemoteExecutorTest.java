@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.protobuf.ByteString;
-import io.grpc.Context;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -62,7 +61,9 @@ public class RemoteRepositoryRemoteExecutorTest {
             remoteCache,
             remoteExecutor,
             DIGEST_UTIL,
-            Context.current(),
+            "none",
+            "none",
+            "repo",
             /* remoteInstanceName= */ "foo",
             /* acceptCached= */ true);
   }
@@ -73,7 +74,7 @@ public class RemoteRepositoryRemoteExecutorTest {
 
     // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(remoteCache.downloadActionResult(any(), /* inlineOutErr= */ eq(true)))
+    when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
         .thenReturn(cachedResult);
 
     // Act
@@ -87,7 +88,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* timeout= */ Duration.ZERO);
 
     // Assert
-    verify(remoteCache).downloadActionResult(any(), anyBoolean());
+    verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
     // Don't fallback to execution
     verify(remoteExecutor, never()).executeRemotely(any(), any());
 
@@ -100,7 +101,7 @@ public class RemoteRepositoryRemoteExecutorTest {
 
     // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(1).build();
-    when(remoteCache.downloadActionResult(any(), /* inlineOutErr= */ eq(true)))
+    when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
         .thenReturn(cachedResult);
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
@@ -117,7 +118,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* timeout= */ Duration.ZERO);
 
     // Assert
-    verify(remoteCache).downloadActionResult(any(), anyBoolean());
+    verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
     // Fallback to execution
     verify(remoteExecutor).executeRemotely(any(), any());
 
@@ -137,7 +138,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             .setStdoutRaw(ByteString.copyFrom(stdout))
             .setStderrRaw(ByteString.copyFrom(stderr))
             .build();
-    when(remoteCache.downloadActionResult(any(), /* inlineOutErr= */ eq(true)))
+    when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
         .thenReturn(cachedResult);
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
@@ -154,7 +155,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* timeout= */ Duration.ZERO);
 
     // Assert
-    verify(remoteCache).downloadActionResult(any(), /* inlineOutErr= */ eq(true));
+    verify(remoteCache).downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true));
 
     assertThat(executionResult.exitCode()).isEqualTo(0);
     assertThat(executionResult.stdout()).isEqualTo(stdout);

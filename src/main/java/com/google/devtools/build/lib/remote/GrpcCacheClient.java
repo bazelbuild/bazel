@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
@@ -142,9 +143,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
-  private ActionCacheFutureStub acFutureStub() {
+  private ActionCacheFutureStub acFutureStub(RemoteActionExecutionContext context) {
     return ActionCacheGrpc.newFutureStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
+            new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
@@ -240,7 +243,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
@@ -248,11 +251,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
             .build();
-    Context ctx = Context.current();
     return Utils.refreshIfUnauthenticatedAsync(
         () ->
             retrier.executeAsync(
-                () -> ctx.call(() -> handleStatus(acFutureStub().getActionResult(request)))),
+                () -> handleStatus(acFutureStub(context).getActionResult(request))),
         callCredentialsProvider);
   }
 
