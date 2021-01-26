@@ -160,6 +160,14 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+genrule(
+    name = "empty_without_target_label",
+    srcs = [":empty_zip.jar"],
+    outs = ["empty_without_target_label.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_library(
     name = "typeannotations2",
     srcs = glob(["typeannotations2/**/*.java"]),
@@ -357,7 +365,7 @@ java_binary(
         ("largest_regular", 65535),
         ("smallest_zip64", 65536),
         ("definitely_zip64", 70000),
-        ("empty_zip", 1),
+        ("empty_zip", 0),
     ]
 ]
 
