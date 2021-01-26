@@ -189,7 +189,8 @@ function test_java_tools_has_jacocoagent() {
 
 function test_java_tools_has_proguard() {
   expect_path_in_java_tools "java_tools/third_party/java/proguard/proguard.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html"
+  expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html" \
+    || expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.md"
 }
 
 function test_java_tools_toolchain_builds() {
