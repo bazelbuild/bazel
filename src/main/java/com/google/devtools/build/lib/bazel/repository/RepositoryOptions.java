@@ -53,7 +53,7 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "If set, the repository cache will hardlink the file in case of a"
-              + " cache hit, rather than copying. This is inteded to save disk space.")
+              + " cache hit, rather than copying. This is intended to save disk space.")
   public boolean useHardlinks;
 
   @Option(
