@@ -65,7 +65,7 @@ public class ConfigRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$config_base_rule")
           .type(RuleClass.Builder.RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .build();
     }
   }

@@ -86,7 +86,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       BaseRuleClasses.execPropertiesAttribute(builder);
     }
     builder.addAttribute(attr("$environ", STRING_LIST).defaultValue(environ).build());
-    BaseRuleClasses.nameAttribute(builder);
     BaseRuleClasses.commonCoreAndStarlarkAttributes(builder);
     builder.add(attr("expect_failure", STRING));
     if (attrs != Starlark.NONE) {

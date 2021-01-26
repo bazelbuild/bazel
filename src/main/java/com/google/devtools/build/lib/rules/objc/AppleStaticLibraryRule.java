@@ -120,7 +120,8 @@ public class AppleStaticLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_static_library")
         .factoryClass(AppleStaticLibrary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class)
+        .ancestors(
+            BaseRuleClasses.NativeBuildRule.class, ObjcRuleClasses.MultiArchPlatformRule.class)
         .build();
   }
 }

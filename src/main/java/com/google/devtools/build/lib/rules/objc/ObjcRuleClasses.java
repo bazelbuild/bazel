@@ -500,7 +500,7 @@ public class ObjcRuleClasses {
           .name("$objc_compiling_rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(
-              BaseRuleClasses.RuleBase.class,
+              BaseRuleClasses.NativeActionCreatingRule.class,
               CompileDependencyRule.class,
               CoptsRule.class,
               XcrunRule.class,
@@ -751,7 +751,7 @@ public class ObjcRuleClasses {
           .ancestors(
               PlatformRule.class,
               CrosstoolRule.class,
-              BaseRuleClasses.RuleBase.class,
+              BaseRuleClasses.NativeActionCreatingRule.class,
               CppRuleClasses.CcIncludeScanningRule.class,
               XcrunRule.class,
               SdkFrameworksDependerRule.class)

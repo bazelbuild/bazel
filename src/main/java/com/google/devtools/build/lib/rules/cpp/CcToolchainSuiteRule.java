@@ -65,7 +65,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("cc_toolchain_suite")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(CcToolchainSuite.class)
         .build();
   }

@@ -101,7 +101,7 @@ public class ToolchainRule implements RuleDefinition {
   public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(Toolchain.class)
         .build();
   }

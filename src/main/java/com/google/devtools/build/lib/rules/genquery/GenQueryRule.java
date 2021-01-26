@@ -74,7 +74,7 @@ public final class GenQueryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("genquery")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(GenQuery.class)
         .build();
   }

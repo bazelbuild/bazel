@@ -101,7 +101,7 @@ public class Alias implements RuleConfiguredTargetFactory {
       return Metadata.builder()
           .name(RULE_NAME)
           .factoryClass(Alias.class)
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .build();
     }
   }

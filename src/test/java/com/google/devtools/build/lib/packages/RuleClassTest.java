@@ -1167,7 +1167,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(expected)
         .hasMessageThat()
-        .isEqualTo("Rule class myclass declared too many attributes (201 > 200)");
+        .isEqualTo("Rule class myclass declared too many attributes (202 > 200)");
   }
 
   @Test

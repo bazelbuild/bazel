@@ -79,7 +79,7 @@ public final class BazelShRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$sh_target")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
     }
   }

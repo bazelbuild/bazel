@@ -135,8 +135,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   /** Parent rule class for non-executable non-test Starlark rules. */
   public static final RuleClass baseRule =
       BaseRuleClasses.commonCoreAndStarlarkAttributes(
-              BaseRuleClasses.nameAttribute(
-                      new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
+              new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
                   .add(attr("expect_failure", STRING)))
           // TODO(skylark-team): Allow Starlark rules to extend native rules and remove duplication.
           .add(

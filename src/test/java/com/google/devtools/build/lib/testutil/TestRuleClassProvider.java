@@ -165,7 +165,7 @@ public class TestRuleClassProvider {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("testing_dummy_rule")
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }
@@ -202,7 +202,8 @@ public class TestRuleClassProvider {
       return Metadata.builder()
           .name("make_variable_tester")
           .ancestors(
-              BaseRuleClasses.BaseRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
+              BaseRuleClasses.NativeBuildRule.class,
+              BaseRuleClasses.MakeVariableExpandingRule.class)
           .factoryClass(MakeVariableTester.class)
           .build();
     }
@@ -224,7 +225,7 @@ public class TestRuleClassProvider {
       return RuleDefinition.Metadata.builder()
           .name("mock_toolchain_rule")
           .factoryClass(UnknownRuleConfiguredTarget.class)
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
     }
   }

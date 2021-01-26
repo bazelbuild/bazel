@@ -453,7 +453,7 @@ public final class AndroidRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$android_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
     }
   }
@@ -949,7 +949,7 @@ public final class AndroidRuleClasses {
     public Metadata getMetadata() {
       return Metadata.builder()
           .name("android_tools_defaults_jar")
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .factoryClass(factoryClass)
           .build();
     }

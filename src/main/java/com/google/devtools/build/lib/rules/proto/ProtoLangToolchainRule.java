@@ -84,7 +84,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("proto_lang_toolchain")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(ProtoLangToolchain.class)
         .build();
   }
