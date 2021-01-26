@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment representing protocol buffers. */
@@ -23,4 +25,11 @@ import net.starlark.java.eval.StarlarkValue;
     name = "proto",
     category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment representing protocol buffers.")
-public interface ProtoConfigurationApi extends StarlarkValue {}
+public interface ProtoConfigurationApi extends StarlarkValue {
+  @StarlarkMethod(
+      name = "protoc_options",
+      doc = "Exposes the value of `--protocopt`.",
+      documented = false,
+      structField = true)
+  ImmutableList<String> protocOpts();
+}

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoConfigurationApi;
@@ -204,6 +205,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.options = options;
   }
 
+  @Override
   public ImmutableList<String> protocOpts() {
     return protocOpts;
   }
@@ -221,6 +223,11 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.experimentalProtoExtraActions;
   }
 
+  // Must match `@rules_proto//proto/private/rules:proto_toolchain.bzl`.
+  @StarlarkConfigurationField(
+      name = "protoc",
+      doc = "Exposes the value of `--proto_compiler`.",
+      documented = false)
   public Label protoCompiler() {
     return options.protoCompiler;
   }
