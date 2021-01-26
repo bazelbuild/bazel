@@ -1,0 +1,53 @@
+<!-- This Ant build file illustrates how to process J2ME midlets.
+     Usage: ant -f midlets.xml -->
+
+<project name="Midlets" default="obfuscate" basedir="../..">
+
+<target name="obfuscate">
+  <taskdef resource="proguard/ant/task.properties"
+           classpath="lib/proguard.jar" />
+
+  <proguard verbose="true"
+            microedition="on"
+            printseeds="on"
+            printmapping="out.map"
+            overloadaggressively="on"
+            repackageclasses=""
+            allowaccessmodification="on"
+            renamesourcefileattribute="SourceFile">
+
+            <!-- On Windows, you can't use mixed case class names,
+                 should you still want to use the preverify tool.
+            usemixedcaseclassnames="false">
+            -->
+
+    <!-- Specify the input jars, output jars, and library jars. -->
+
+    <injar  file="in.jar" />
+    <outjar file="out.jar" />
+
+    <libraryjar file="/usr/local/java/wtk2.5.2/lib/midpapi20.jar" />
+    <libraryjar file="/usr/local/java/wtk2.5.2/lib/cldcapi11.jar" />
+
+    <!-- Optionally preserve line numbers in the obfuscated stack traces.
+    <keepattribute name="LineNumberTable">
+    <keepattribute name="SourceFile">
+    -->
+
+    <!-- Preserve all public midlets. -->
+
+    <keep access="public" extends="javax.microedition.midlet.MIDlet" />
+
+    <!-- Preserve all native method names and the names of their classes. -->
+
+    <keepclasseswithmembernames includedescriptorclasses="true">
+      <method access="native" />
+    </keepclasseswithmembernames>
+
+    <!-- Your application may contain more items that need to be preserved;
+         typically classes that are dynamically created using Class.forName -->
+
+   </proguard>
+</target>
+
+</project>
