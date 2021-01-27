@@ -62,9 +62,12 @@ specified in the [`package`](be/functions.html#package) statement of the
 target's BUILD file. If there is no such `default_visibility` declaration, the
 visibility is `//visibility:private`.
 
-`config_setting` targets default to `//visibility:public`. This is purely for
+`config_setting` targets default to `//visibility:public, regardless of how the
+package's [`default_visibility`](be/functions.html#package.default_visibility)
+is set. This is purely for
 legacy reasons. Best practice is to treat `config_setting` targets as if they
-also use the private default.
+use the private default: any `config_setting` intended for use by other packages
+should set its visibility explicitly.
 
 ### Example
 
