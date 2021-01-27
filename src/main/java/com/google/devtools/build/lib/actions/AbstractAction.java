@@ -159,7 +159,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public final synchronized boolean inputsDiscovered() {
-    return discoversInputs() ? inputsDiscovered : true;
+    return !discoversInputs() || inputsDiscovered;
   }
 
   /**
@@ -176,19 +176,23 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /**
-   * Run input discovery on the action.
+   * Runs input discovery on the action.
    *
    * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
-   * artifacts that were not known at analysis time. May also call {@link
-   * #updateInputs(NestedSet<Artifact>)}; if it doesn't, the action itself must arrange for the
-   * newly discovered artifacts to be available during action execution, probably by keeping state
-   * in the action instance and using a custom action execution context and for {@code
-   * #updateInputs()} to be called during the execution of the action.
+   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
+   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
+   * during action execution, probably by keeping state in the action instance and using a custom
+   * action execution context and for {@link #updateInputs} to be called during the execution of the
+   * action.
    *
-   * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
-   * to do so.
+   * <p>Since keeping state within an action is bad, don't do that unless there is a very good
+   * reason to do so.
+   *
+   * <p>May return {@code null} if more dependencies were requested from skyframe but were
+   * unavailable, meaning a restart is necessary.
    */
   @Override
+  @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()

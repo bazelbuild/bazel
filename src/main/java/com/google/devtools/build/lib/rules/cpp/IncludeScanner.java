@@ -58,6 +58,12 @@ public interface IncludeScanner {
    *
    * <p>{@code mainSource} is the source file relative to which the {@code cmdlineIncludes} are
    * interpreted.
+   *
+   * <p>Additional dependencies may be requested via {@link
+   * ActionExecutionContext#getEnvironmentForDiscoveringInputs}. If any dependency is not
+   * immediately available, processing will be short-circuited. The caller should check {@link
+   * com.google.devtools.build.skyframe.SkyFunction.Environment#valuesMissing} - if it returns
+   * {@code true}, then include scanning did not complete and a skyframe restart is necessary.
    */
   void processAsync(
       Artifact mainSource,
@@ -74,7 +80,7 @@ public interface IncludeScanner {
    * Holds pre-aggregated information that the {@link IncludeScanner} needs from the compilation
    * action.
    */
-  class IncludeScanningHeaderData {
+  final class IncludeScanningHeaderData {
     /**
      * Lookup table to find the {@link Artifact}s of generated files based on their {@link
      * Artifact#getExecPath}.

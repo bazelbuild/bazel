@@ -589,7 +589,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   @Override
-  public void processAsync(
+  public final void processAsync(
       Artifact mainSource,
       Collection<Artifact> sources,
       IncludeScanningHeaderData includeScanningHeaderData,
@@ -599,31 +599,26 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException {
-    ImmutableSet<Artifact> pathHints =
-        prepare(actionExecutionContext.getEnvironmentForDiscoveringInputs());
-    IncludeVisitor visitor;
-    visitor =
+    ImmutableSet<Artifact> pathHints;
+    if (parser.getHints() == null) {
+      pathHints = ImmutableSet.of();
+    } else {
+      SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
+      Collection<Artifact> artifacts =
+          parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
+      if (env.valuesMissing()) {
+        return;
+      }
+      pathHints = ImmutableSet.copyOf(artifacts);
+    }
+
+    IncludeVisitor visitor =
         new IncludeVisitor(
             actionExecutionMetadata,
             actionExecutionContext,
             grepIncludes,
             includeScanningHeaderData);
     visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
-  }
-
-  private ImmutableSet<Artifact> prepare(SkyFunction.Environment env) throws InterruptedException {
-    if (parser.getHints() != null) {
-      Collection<Artifact> artifacts =
-          parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
-      if (env.valuesMissing()) {
-        throw new MissingDepException();
-      }
-      ImmutableSet.Builder<Artifact> pathHints;
-      pathHints = ImmutableSet.builderWithExpectedSize(quoteIncludePaths.size());
-      pathHints.addAll(Preconditions.checkNotNull(artifacts, quoteIncludePaths));
-      return pathHints.build();
-    }
-    return ImmutableSet.of();
   }
 
   private static void checkForInterrupt(String operation, Object source)

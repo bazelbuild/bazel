@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -41,19 +40,19 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
-/**
- * Include scanning context implementation.
- */
-public class CppIncludeScanningContextImpl implements CppIncludeScanningContext {
-  private final Supplier<? extends IncludeScannerSupplier> includeScannerSupplier;
+/** Include scanning context implementation. */
+public final class CppIncludeScanningContextImpl implements CppIncludeScanningContext {
+  private final Supplier<IncludeScannerSupplier> includeScannerSupplier;
 
-  public CppIncludeScanningContextImpl(
-      Supplier<? extends IncludeScannerSupplier> includeScannerSupplier) {
+  public CppIncludeScanningContextImpl(Supplier<IncludeScannerSupplier> includeScannerSupplier) {
     this.includeScannerSupplier = includeScannerSupplier;
   }
 
   @Override
+  @Nullable
   public List<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
@@ -62,8 +61,6 @@ public class CppIncludeScanningContextImpl implements CppIncludeScanningContext 
     Preconditions.checkNotNull(includeScannerSupplier, action);
 
     Set<Artifact> includes = Sets.newConcurrentHashSet();
-
-    final List<PathFragment> absoluteBuiltInIncludeDirs = new ArrayList<>();
     includes.addAll(action.getBuiltInIncludeFiles());
 
     // Deduplicate include directories. This can occur especially with "built-in" and "system"
@@ -77,6 +74,7 @@ public class CppIncludeScanningContextImpl implements CppIncludeScanningContext 
     includeDirs.addAll(includeScanningHeaderData.getSystemIncludeDirs());
 
     // Add the system include paths to the list of include paths.
+    List<PathFragment> absoluteBuiltInIncludeDirs = new ArrayList<>();
     for (PathFragment pathFragment : action.getBuiltInIncludeDirectories()) {
       if (pathFragment.isAbsolute()) {
         absoluteBuiltInIncludeDirs.add(pathFragment);
@@ -105,6 +103,9 @@ public class CppIncludeScanningContextImpl implements CppIncludeScanningContext 
           action,
           actionExecutionContext,
           action.getGrepIncludes());
+      if (actionExecutionContext.getEnvironmentForDiscoveringInputs().valuesMissing()) {
+        return null;
+      }
       return collect(actionExecutionContext, includes, absoluteBuiltInIncludeDirs);
     } catch (IOException e) {
       throw new EnvironmentalExecException(
