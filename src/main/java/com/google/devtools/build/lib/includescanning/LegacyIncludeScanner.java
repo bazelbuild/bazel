@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MissingDepException;
+import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -599,11 +599,11 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException {
+    SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
     ImmutableSet<Artifact> pathHints;
     if (parser.getHints() == null) {
       pathHints = ImmutableSet.of();
     } else {
-      SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
       pathHints = parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
       if (env.valuesMissing()) {
         return;
@@ -617,7 +617,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
             actionExecutionContext,
             grepIncludes,
             includeScanningHeaderData);
-    visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
+
+    try {
+      visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
+    } catch (MissingDepExecException e) {
+      // This happens when a skyframe restart is necessary. Callers are responsible for checking
+      // env.valuesMissing() as per this method's contract, so we can just ignore the exception.
+      if (!env.valuesMissing()) {
+        throw new IllegalStateException("Missing dep without skyframe request", e);
+      }
+    }
   }
 
   private static void checkForInterrupt(String operation, Object source)
@@ -721,7 +730,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             frontier = adjacent;
           }
         }
-      } catch (IOException | InterruptedException | ExecException | MissingDepException e) {
+      } catch (IOException | InterruptedException | ExecException e) {
         // Careful: Do not leak visitation threads if we have an exception in the initial thread.
         sync();
         throw e;

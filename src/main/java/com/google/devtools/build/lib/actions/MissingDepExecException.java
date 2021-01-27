@@ -13,8 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+
 /**
- * Exception to be thrown if an action is missing Skyframe dependencies that it finds are missing
- * during execution/input discovery.
+ * Exception to be thrown if an action failed to execute because it is missing Skyframe
+ * dependencies.
+ *
+ * <p>This is expected to be possible when {@link
+ * MetadataProvider#mayGetGeneratingActionsFromSkyframe} is {@code true}.
  */
-public final class MissingDepException extends RuntimeException {}
+public final class MissingDepExecException extends ExecException {
+
+  public MissingDepExecException() {
+    super("Missing skyframe dependency");
+  }
+
+  @Override
+  protected FailureDetail getFailureDetail(String message) {
+    throw new UnsupportedOperationException("MissingDepException should be handled");
+  }
+}
