@@ -48,7 +48,7 @@ public abstract class ConfigConditions {
   public static final ConfigConditions EMPTY =
       ConfigConditions.create(ImmutableMap.of(), ImmutableMap.of());
 
-  /** Exception for when a {@code select()} has an invalid key (like wrong target type). */
+  /** Exception for when a {@code select()} has an invalid key (for example, wrong target type). */
   public static class InvalidConditionException extends Exception {}
 
   /**
