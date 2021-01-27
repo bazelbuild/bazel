@@ -181,7 +181,9 @@ def get_cpu_value(repository_ctx):
     """Compute the cpu_value based on the OS name. Doesn't %-escape the result!"""
     os_name = repository_ctx.os.name.lower()
     if os_name.startswith("mac os"):
-        return "darwin"
+        # Check if we are on x86_64 or arm64 and return the corresponding cpu value.
+        result = repository_ctx.execute(["uname", "-m"])
+        return "darwin" + ("_arm64" if result.stdout.strip() == "arm64" else "")
     if os_name.find("freebsd") != -1:
         return "freebsd"
     if os_name.find("openbsd") != -1:
