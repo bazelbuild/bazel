@@ -1285,7 +1285,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // Production builds default to private visibility, but BuildViewTestCase defaults to public.
     setPackageOptions("--default_visibility=private");
     scratch.file(
-        "c/BUILD", "config_setting(", "    name = 'foo',", "    define_values = { 'foo': '1' })");
+        "c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
     scratch.file(
         "a/BUILD",
         "rule_with_boolean_attr(",

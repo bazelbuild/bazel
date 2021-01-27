@@ -791,8 +791,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw e;
     }
 
-    Map<Label, ConfiguredTargetAndData> asConfiguredTargets = new LinkedHashMap<>();
-    Map<Label, ConfigMatchingProvider> asConfigConditions = new LinkedHashMap<>();
+    ImmutableMap.Builder<Label, ConfiguredTargetAndData> asConfiguredTargets =
+        ImmutableMap.builder();
+    ImmutableMap.Builder<Label, ConfigMatchingProvider> asConfigConditions = ImmutableMap.builder();
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
@@ -819,8 +820,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
 
-    return ConfigConditions.create(
-        ImmutableMap.copyOf(asConfiguredTargets), ImmutableMap.copyOf(asConfigConditions));
+    return ConfigConditions.create(asConfiguredTargets.build(), asConfigConditions.build());
   }
 
   /**

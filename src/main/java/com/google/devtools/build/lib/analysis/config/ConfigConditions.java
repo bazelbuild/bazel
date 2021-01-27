@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
  * {@link ConfiguredTarget}s.
  *
  * <p>This is a utility class because its only purpose is to maintain {@link ConfiguredTarget} long
- * enough for {@link RuleContext.Builder} to do prerequisite validation on it (like visibility
- * checking).
+ * enough for {@link RuleContext.Builder} to do prerequisite validation on it (for example,
+ * visibility checks).
  *
  * <p>Once {@link RuleContext} is instantiated, it should only have access to {@link
  * ConfigMatchingProvider}, on the principle that providers are the correct interfaces for storing
@@ -65,10 +65,10 @@ public abstract class ConfigConditions {
     // The below handles config_setting (which natively provides ConfigMatchingProvider) and
     // constraint_value (which needs a custom-built ConfigMatchingProvider).
     ConfigMatchingProvider matchingProvider = selectable.getProvider(ConfigMatchingProvider.class);
-    ConstraintValueInfo constraintValueInfo = selectable.get(ConstraintValueInfo.PROVIDER);
     if (matchingProvider != null) {
       return matchingProvider;
     }
+    ConstraintValueInfo constraintValueInfo = selectable.get(ConstraintValueInfo.PROVIDER);
     if (constraintValueInfo != null && targetPlatform != null) {
       // If platformInfo == null, that means the owning target doesn't invoke toolchain
       // resolution, in which case depending on a constraint_value is nonsensical.
