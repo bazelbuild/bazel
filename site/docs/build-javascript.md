@@ -36,7 +36,7 @@ following:
 
 You can either [Install Bazel](install.html) following the same steps that you
 would for backend development, or you can install NodeJS with npm and run
-`npm install -g @bazel/bazel`.
+`npm install -g @bazel/bazelisk`.
 
 ### Installing iBazel
 
