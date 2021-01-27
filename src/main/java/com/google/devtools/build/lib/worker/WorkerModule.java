@@ -25,15 +25,11 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
-import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -167,7 +163,6 @@ public class WorkerModule extends BlazeModule {
             workerPool,
             options.workerMultiplex,
             env.getReporter(),
-            createFallbackRunner(env, localEnvProvider),
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
@@ -179,21 +174,6 @@ public class WorkerModule extends BlazeModule {
     registryBuilder.registerStrategy(
         new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions.verboseFailures),
         "worker");
-  }
-
-  private static SpawnRunner createFallbackRunner(
-      CommandEnvironment env, LocalEnvProvider localEnvProvider) {
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
-    return new LocalSpawnRunner(
-        env.getExecRoot(),
-        localExecutionOptions,
-        env.getLocalResourceManager(),
-        localEnvProvider,
-        env.getBlazeWorkspace().getBinTools(),
-        ProcessWrapper.fromCommandEnvironment(env),
-        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-        RunfilesTreeUpdater.INSTANCE);
   }
 
   @Subscribe
