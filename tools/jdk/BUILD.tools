@@ -431,12 +431,14 @@ py_test(
 # Aliases for JDKs, so that they are only downloaded when needed.
 _JDKS = [
     "remotejdk11_macos",
+    "remotejdk11_macos_aarch64",
     "remotejdk11_win",
     "remotejdk11_linux_aarch64",
     "remotejdk11_linux",
     "remotejdk11_linux_ppc64le",
     "remotejdk11_linux_s390x",
     "remotejdk15_macos",
+    "remotejdk15_macos_aarch64",
     "remotejdk15_win",
     "remotejdk15_linux",
 ]
@@ -456,7 +458,8 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_11",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": ":remotejdk11_macos",
+            "//src/conditions:darwin_x86_64": ":remotejdk11_macos",
+            "//src/conditions:darwin_arm64": ":remotejdk11_macos_aarch64",
             "//src/conditions:windows": ":remotejdk11_win",
             "//src/conditions:linux_aarch64": ":remotejdk11_linux_aarch64",
             "//src/conditions:linux_x86_64": ":remotejdk11_linux",
@@ -474,7 +477,8 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_15",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": ":remotejdk15_macos",
+            "//src/conditions:darwin_x86_64": ":remotejdk15_macos",
+            "//src/conditions:darwin_arm64": ":remotejdk15_macos_aarch64",
             "//src/conditions:windows": ":remotejdk15_win",
             "//src/conditions:linux_x86_64": ":remotejdk15_linux",
         },
