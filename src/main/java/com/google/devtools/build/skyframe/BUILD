@@ -55,6 +55,14 @@ java_library(
     ],
 )
 
+java_library(
+    name = "skyframe_graph_stats_event",
+    srcs = ["SkyframeGraphStatsEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+    ],
+)
+
 proto_library(
     name = "graph_inconsistency",
     srcs = ["graph_inconsistency.proto"],

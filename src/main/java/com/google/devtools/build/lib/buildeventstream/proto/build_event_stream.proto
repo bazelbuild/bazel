@@ -740,10 +740,6 @@ message BuildMetrics {
     // This includes any remote cache hits, but excludes
     // local action cache hits.
     int64 actions_executed = 2;
-
-    // Total size of all source files newly read this build. Will not include
-    // unchanged sources on incremental builds.
-    int64 source_artifact_bytes_read = 5;
   }
   ActionSummary action_summary = 1;
 
@@ -796,7 +792,36 @@ message BuildMetrics {
     // reaches the execution phase.
     int32 num_builds = 12;
   }
+
   CumulativeMetrics cumulative_metrics = 6;
+
+  message ArtifactMetrics {
+    // Total size of all source files newly read this build. Will not include
+    // unchanged sources on incremental builds.
+    int64 source_artifact_bytes_read = 1;
+  }
+
+  ArtifactMetrics artifact_metrics = 7;
+
+  // Information about the size and shape of the build graph. Some fields may
+  // not be populated if Bazel was able to skip steps due to caching.
+  message BuildGraphMetrics {
+    // How many configured targets/aspects were in this build.
+    int32 action_lookup_value_count = 1;
+    // How many actions belonged to those configured targets/aspects. It may not
+    // be necessary to execute all of these actions to build the requested
+    // targets.
+    int32 action_count = 2;
+    // How many artifacts are outputs of the above actions.
+    int32 output_artifact_count = 3;
+    // How many Skyframe nodes there are in memory at the end of the build. This
+    // may underestimate the number of nodes when running with memory-saving
+    // settings or with Skybuild, and may overestimate if there are nodes from
+    // prior evaluations still in the cache.
+    int32 post_invocation_skyframe_node_count = 4;
+  }
+
+  BuildGraphMetrics build_graph_metrics = 8;
 }
 
 // Event providing additional statistics/logs after completion of the build.
