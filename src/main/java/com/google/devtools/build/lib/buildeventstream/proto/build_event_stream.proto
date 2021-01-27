@@ -295,9 +295,7 @@ message Aborted {
     // set to false causing the build be ended upon failure).
     INCOMPLETE = 10;
 
-    // The build tool ran out of memory and crashed. Not yet used. OOMs are
-    // currently reported as INTERNAL.
-    // TODO(b/170643206): Use this reason for OOMs after updating consumers.
+    // The build tool ran out of memory and crashed.
     OUT_OF_MEMORY = 11;
   }
   AbortReason reason = 1;
