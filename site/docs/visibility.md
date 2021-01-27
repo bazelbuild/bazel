@@ -64,10 +64,10 @@ visibility is `//visibility:private`.
 
 `config_setting` targets default to `//visibility:public, regardless of how the
 package's [`default_visibility`](be/functions.html#package.default_visibility)
-is set. This is purely for
-legacy reasons. Best practice is to treat `config_setting` targets as if they
-use the private default: any `config_setting` intended for use by other packages
-should set its visibility explicitly.
+is set. This is purely for legacy reasons. Best practice is to treat
+`config_setting` targets as if they use the private default: any
+`config_setting` intended for use by other packages should set its visibility
+explicitly.
 
 ### Example
 
