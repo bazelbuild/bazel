@@ -31,12 +31,12 @@ public class AutoCpuConverter implements Converter<String> {
   public String convert(String input) throws OptionsParsingException {
     if (input.isEmpty()) {
       // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
-      // linux-x86_64 ...).
+      // linux-x86_64, darwin includes the CPU architecture, ...).
       switch (OS.getCurrent()) {
         case DARWIN:
           switch (CPU.getCurrent()) {
             case X86_64:
-              return "darwin_x86_64";
+              return "darwin";
             case AARCH64:
               return "darwin_arm64";
             default:
