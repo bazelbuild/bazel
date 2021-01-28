@@ -99,6 +99,7 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
