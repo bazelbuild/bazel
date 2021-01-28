@@ -56,7 +56,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * <p>Returns the given path as a source root. The path may not be {@code null}.
    */
   public static ArtifactRoot asSourceRoot(Root root) {
-    return INTERNER.intern(new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source));
+    return INTERNER.intern(
+        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.MainSource));
   }
 
   /**
@@ -84,12 +85,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
    */
-  public static ArtifactRoot asDerivedRoot(
-      Path execRoot,
-      boolean isMiddleman,
-      boolean isExternal,
-      boolean siblingRepositoryLayout,
-      String... prefixes) {
+  public static ArtifactRoot asDerivedRoot(Path execRoot, RootType rootType, String... prefixes) {
     PathFragment execPath = PathFragment.EMPTY_FRAGMENT;
     for (String prefix : prefixes) {
       // Tests can have empty segments here, be gentle to them.
@@ -97,7 +93,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
         execPath = execPath.getChild(prefix);
       }
     }
-    return asDerivedRoot(execRoot, isMiddleman, isExternal, siblingRepositoryLayout, execPath);
+    return asDerivedRoot(execRoot, rootType, execPath);
   }
 
   /**
@@ -107,31 +103,19 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
    */
   public static ArtifactRoot asDerivedRoot(
-      Path execRoot,
-      boolean isMiddleman,
-      boolean isExternal,
-      boolean siblingRepositoryLayout,
-      PathFragment execPath) {
+      Path execRoot, RootType rootType, PathFragment execPath) {
     // Make sure that we are not creating a derived artifact under the execRoot.
     Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
     Preconditions.checkArgument(
         !execPath.getSegments().contains(".."),
         "execPath: %s contains parent directory reference (..)",
         execPath);
+    Preconditions.checkArgument(
+        isOutputRootType(rootType) || isMiddlemanRootType(rootType),
+        "%s is not a derived root type",
+        rootType);
     Path root = execRoot.getRelative(execPath);
-    RootType type;
-    if (siblingRepositoryLayout) {
-      type =
-          isMiddleman
-              ? (isExternal ? RootType.ExternalMiddleman : RootType.Middleman)
-              : (isExternal ? RootType.ExternalOutput : RootType.Output);
-    } else {
-      Preconditions.checkArgument(
-          !isExternal,
-          "external derived roots unavailable without --experimental_sibling_repository_layout");
-      type = isMiddleman ? RootType.LegacyMiddleman : RootType.LegacyOutput;
-    }
-    return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, type));
+    return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, rootType));
   }
 
   @AutoCodec.VisibleForSerialization
@@ -142,32 +126,25 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
       return INTERNER.intern(new ArtifactRoot(rootForSerialization, execPath, rootType));
     }
     return asDerivedRoot(
-        rootForSerialization.asPath(),
-        false,
-        rootType == RootType.ExternalOutput,
-        rootType != RootType.LegacyOutput,
-        execPath.getSegments().toArray(new String[0]));
+        rootForSerialization.asPath(), rootType, execPath.getSegments().toArray(new String[0]));
   }
 
-  @AutoCodec.VisibleForSerialization
-  enum RootType {
-    Source,
+  /**
+   * ArtifactRoot types. Callers of asDerivedRoot methods need to specify which type of derived root
+   * artifact they want to create, which is why this enum is public.
+   */
+  public enum RootType {
+    MainSource,
+    ExternalSource,
     Output,
     Middleman,
-    // Root types for external repository artifacts. Note that ExternalOutput and ExternalMiddleman
-    // are activated only if --experimental_sibling_repository_layout is true, which will become
-    // the default value soon. The ExternalSource type is already in effect by default.
-    ExternalSource,
-    ExternalOutput,
-    ExternalMiddleman,
-    // Legacy root types for derived artifacts. Even though they're called legacy, they are still
-    // the default, but soon to be deprecated when --experimental_sibling_repository_layout is set
-    // true by default. In terms of the actual root paths, there are no differences between these
-    // and Output and Middleman. Their sole purpose is to embed the
-    // --experimental_sibling_repository_layout flag value information in Artifacts without
-    // additional storage cost.
-    LegacyOutput,
-    LegacyMiddleman
+    // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
+    // These will eventually replace the above Output and Middleman types when the flag becomes
+    // the default option and then removed.
+    SiblingMainOutput,
+    SiblingMainMiddleman,
+    SiblingExternalOutput,
+    SiblingExternalMiddleman,
   }
 
   private final Root root;
@@ -207,29 +184,37 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   public boolean isSourceRoot() {
-    return rootType == RootType.Source || rootType == RootType.ExternalSource;
+    return rootType == RootType.MainSource || rootType == RootType.ExternalSource;
   }
 
   private static boolean isOutputRootType(RootType rootType) {
-    return rootType == RootType.Output
-        || rootType == RootType.ExternalOutput
-        || rootType == RootType.LegacyOutput;
+    return rootType == RootType.SiblingMainOutput
+        || rootType == RootType.SiblingExternalOutput
+        || rootType == RootType.Output;
+  }
+
+  private static boolean isMiddlemanRootType(RootType rootType) {
+    return rootType == RootType.SiblingMainMiddleman
+        || rootType == RootType.SiblingExternalMiddleman
+        || rootType == RootType.Middleman;
   }
 
   boolean isMiddlemanRoot() {
-    return rootType == RootType.Middleman
-        || rootType == RootType.ExternalMiddleman
-        || rootType == RootType.LegacyMiddleman;
+    return isMiddlemanRootType(rootType);
   }
 
   public boolean isExternal() {
     return rootType == RootType.ExternalSource
-        || rootType == RootType.ExternalOutput
-        || rootType == RootType.ExternalMiddleman;
+        || rootType == RootType.SiblingExternalOutput
+        || rootType == RootType.SiblingExternalMiddleman;
   }
 
+  /**
+   * Returns true if the ArtifactRoot is a legacy derived root type, i.e. a derived root type
+   * created without the --experimental_sibling_repository_layout flag set.
+   */
   public boolean isLegacy() {
-    return rootType == RootType.LegacyOutput || rootType == RootType.LegacyMiddleman;
+    return rootType == RootType.Output || rootType == RootType.Middleman;
   }
 
   @Override

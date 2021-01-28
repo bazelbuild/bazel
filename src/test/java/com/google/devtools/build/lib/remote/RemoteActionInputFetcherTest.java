@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -77,7 +78,7 @@ public class RemoteActionInputFetcherTest {
     Path dev = fs.getPath("/dev");
     dev.createDirectory();
     dev.setWritable(false);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "root");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     options = Options.getDefaults(RemoteOptions.class);
     digestUtil = new DigestUtil(HASH_FUNCTION);

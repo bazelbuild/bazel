@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -55,7 +56,7 @@ public final class TreeArtifactValueTest {
 
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), false, false, false, BIN_PATH);
+      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), RootType.Output, BIN_PATH);
 
   @Test
   public void createsCorrectValue() {

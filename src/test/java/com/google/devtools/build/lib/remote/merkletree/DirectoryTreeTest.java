@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
@@ -48,7 +49,7 @@ public abstract class DirectoryTreeTest {
   public void setup() {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "srcs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
     digestUtil = new DigestUtil(fs.getDigestFunction());
   }
 

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
@@ -66,7 +67,7 @@ public class ArtifactTest {
   public final void setRootDir() throws Exception  {
     scratch = new Scratch();
     execDir = scratch.dir("/base/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execDir, false, false, false, "root");
+    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "root");
   }
 
   @Test
@@ -76,7 +77,7 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execDir, false, false, false, "bogus"),
+                    ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "bogus"),
                     f1.relativeTo(execDir))
                 .getRootRelativePath());
   }
@@ -182,7 +183,7 @@ public class ArtifactTest {
     Artifact aHeader3 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar3.h"));
     ArtifactRoot middleRoot =
         ArtifactRoot.asDerivedRoot(
-            scratch.dir("/foo"), true, false, false, PathFragment.create("/foo/out"));
+            scratch.dir("/foo"), RootType.Middleman, PathFragment.create("/foo/out"));
     Artifact middleman = ActionsTestUtil.createArtifact(middleRoot, "middleman");
     MiddlemanAction.create(
         new ActionRegistry() {
@@ -262,7 +263,7 @@ public class ArtifactTest {
     Path execRoot = scratch.getFileSystem().getPath("/execroot/workspace");
     Artifact a =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "b"), "c");
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "b"), "c");
     assertThat(a.toDetailString()).isEqualTo("[[<execution_root>]b]c");
   }
 
@@ -273,7 +274,7 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "a"),
+                    ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "a"),
                     PathFragment.create("c"))
                 .getRootRelativePath());
   }
@@ -284,8 +285,7 @@ public class ArtifactTest {
         (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
     artifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(
-            scratch.getFileSystem().getPath("/"), false, false, false, "src");
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
     Artifact.DerivedArtifact anotherArtifact =
         new Artifact.DerivedArtifact(
             anotherRoot,
@@ -387,8 +387,7 @@ public class ArtifactTest {
         .isTrue();
     assertThat(
             ActionsTestUtil.createArtifact(
-                    ArtifactRoot.asDerivedRoot(
-                        scratch.dir("/genfiles"), false, false, false, "aaa"),
+                    ArtifactRoot.asDerivedRoot(scratch.dir("/genfiles"), RootType.Output, "aaa"),
                     scratch.file("/genfiles/aaa/bar.out"))
                 .isSourceArtifact())
         .isFalse();
@@ -397,7 +396,7 @@ public class ArtifactTest {
   @Test
   public void testGetRoot() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
     assertThat(ActionsTestUtil.createArtifact(root, scratch.file("/newRoot/foo")).getRoot())
         .isEqualTo(root);
   }
@@ -405,7 +404,7 @@ public class ArtifactTest {
   @Test
   public void hashCodeAndEquals() {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
     ActionLookupKey firstOwner =
         new ActionLookupKey() {
           @Override
@@ -471,7 +470,7 @@ public class ArtifactTest {
   @Test
   public void canDeclareContentBasedOutput() {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
     assertThat(
             new Artifact.DerivedArtifact(
                     root,
@@ -514,7 +513,7 @@ public class ArtifactTest {
   @Test
   public void archivedTreeArtifact_create_returnsArtifactInArchivedRoot() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, false, false, false, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
@@ -547,7 +546,7 @@ public class ArtifactTest {
   @Test
   public void archivedTreeArtifact_createWithLongerDerivedPrefix_returnsArtifactWithCorrectPath() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, false, false, false, "dir1", "dir2", "dir3");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "dir1", "dir2", "dir3");
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
@@ -562,7 +561,7 @@ public class ArtifactTest {
   @Test
   public void archivedTreeArtifact_create_failsForWrongDerivedPrefix() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, false, false, false, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "tree");
     PathFragment wrongPrefix = PathFragment.create("notAPrefix");
 
@@ -572,7 +571,7 @@ public class ArtifactTest {
 
   @Test
   public void archivedTreeArtifact_create_failsForDerivedPrefixOutsideOfArtifactRoot() {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, false, false, false, "dir1", "dir2");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "dir1", "dir2");
     SpecialArtifact tree = createTreeArtifact(root, "dir3/tree");
     PathFragment prefixOutsideOfRoot = PathFragment.create("dir1/dir2/dir3");
 
@@ -584,7 +583,7 @@ public class ArtifactTest {
   @Test
   public void archivedTreeArtifact_createWithCustomDerivedTreeRoot_returnsArtifactWithCustomRoot() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, false, false, false, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "dir/tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
@@ -605,8 +604,7 @@ public class ArtifactTest {
   public void archivedTreeArtifact_codec_roundTripsArchivedArtifact() throws Exception {
     ArchivedTreeArtifact artifact1 = createArchivedTreeArtifact(rootDir, "tree1");
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(
-            scratch.getFileSystem().getPath("/"), false, false, false, "src");
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
     ArchivedTreeArtifact artifact2 = createArchivedTreeArtifact(anotherRoot, "tree2");
     new SerializationTester(artifact1, artifact2)
         .addDependency(FileSystem.class, scratch.getFileSystem())

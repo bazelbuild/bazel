@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -216,7 +217,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     SpecialArtifact output =
         new SpecialArtifact(
-            ArtifactRoot.asDerivedRoot(root, false, false, false, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath,
             ALL_OWNER,
             SpecialArtifactType.TREE);

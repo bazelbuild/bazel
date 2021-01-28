@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -49,7 +50,7 @@ public class CompositeRunfilesSupplierTest {
     Scratch scratch = new Scratch();
     execRoot = scratch.getFileSystem().getPath("/");
     rootDir =
-        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "fake", "root", "dont", "matter");
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake", "root", "dont", "matter");
 
     mockFirst = mock(RunfilesSupplier.class);
     mockSecond = mock(RunfilesSupplier.class);

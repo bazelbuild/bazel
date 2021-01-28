@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
@@ -112,9 +113,7 @@ public class OutputDirectories {
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
           execRoot,
-          middleman,
-          false,
-          false,
+          middleman ? RootType.Middleman : RootType.Output,
           directories.getRelativeOutputPath(),
           outputDirName,
           nameFragment);
@@ -219,11 +218,15 @@ public class OutputDirectories {
     // TODO(jungjw): Ideally, we would like to do execroot_base/repoName/bazel-out/config/bin
     // instead. However, it requires individually symlinking the top-level elements of external
     // repositories, which is blocked by a Windows symlink issue #8704.
+    RootType rootType;
+    if (repository.isMain() || repository.isDefault()) {
+      rootType = isMiddleman ? RootType.SiblingMainMiddleman : RootType.SiblingMainOutput;
+    } else {
+      rootType = isMiddleman ? RootType.SiblingExternalMiddleman : RootType.SiblingExternalOutput;
+    }
     return ArtifactRoot.asDerivedRoot(
         execRoot,
-        isMiddleman,
-        !repository.isMain() && !repository.isDefault(),
-        true,
+        rootType,
         directories.getRelativeOutputPath(),
         repository.strippedName(),
         outputDirName,

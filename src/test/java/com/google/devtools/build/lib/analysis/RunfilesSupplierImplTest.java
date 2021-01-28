@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -40,7 +41,7 @@ public class RunfilesSupplierImplTest {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
     rootDir =
-        ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "fake", "root", "dont", "matter");
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake", "root", "dont", "matter");
   }
 
   @Test

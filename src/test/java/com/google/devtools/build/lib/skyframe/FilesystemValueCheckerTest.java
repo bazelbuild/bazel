@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -719,7 +720,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     Path outputPath = fs.getPath("/" + outSegment);
     outputPath.createDirectory();
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), false, false, false, outSegment),
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment),
         outputPath.getRelative(relPath));
   }
 

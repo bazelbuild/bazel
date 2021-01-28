@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -118,7 +119,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, false, false, false, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));

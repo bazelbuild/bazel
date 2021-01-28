@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -366,9 +367,7 @@ public class ActionCacheCheckerTest {
         new Artifact.SpecialArtifact(
             ArtifactRoot.asDerivedRoot(
                 new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/output"),
-                false,
-                false,
-                false,
+                RootType.Output,
                 "bin"),
             PathFragment.create("bin/dummy"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -75,7 +76,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     fakeManifest.put(buildFilePath.relativeTo(rootDirectory), buildFile);
     fakeManifest.put(pythonSourcePath.relativeTo(rootDirectory), pythonSourceFile);
     ArtifactRoot outputDir =
-        ArtifactRoot.asDerivedRoot(rootDirectory, false, false, false, "blaze-output");
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
     manifestOutputPath = rootDirectory.getRelative("blaze-output/trivial.runfiles_manifest");
     manifestOutputFile = ActionsTestUtil.createArtifact(outputDir, manifestOutputPath);
   }
