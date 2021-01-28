@@ -134,7 +134,7 @@ public class AndroidNdkCrosstoolsTest {
     // NDK test data is based on the x86 64-bit Linux Android NDK.
     NdkPaths ndkPaths =
         new NdkPaths(
-            REPOSITORY_NAME, HOST_PLATFORM, params.apiLevel, params.ndkRelease.majorRevision);
+            REPOSITORY_NAME, HOST_PLATFORM, params.apiLevel, params.ndkRelease.majorRevision, true);
 
     ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
     ImmutableMap.Builder<String, String> stlFilegroupsBuilder = ImmutableMap.builder();

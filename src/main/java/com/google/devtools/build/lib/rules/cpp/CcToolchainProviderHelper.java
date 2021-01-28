@@ -373,9 +373,6 @@ public class CcToolchainProviderHelper {
       }
     }
 
-    if (!PathFragment.isNormalized(pathString)) {
-      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
-    }
     PathFragment path = PathFragment.create(pathString);
     return pathPrefix.getRelative(path);
   }

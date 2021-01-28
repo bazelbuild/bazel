@@ -667,10 +667,6 @@ public final class CppConfiguration extends Fragment
     if (builtInSysroot.isEmpty()) {
       return null;
     }
-    if (!PathFragment.isNormalized(builtInSysroot)) {
-      throw new IllegalArgumentException(
-          "The built-in sysroot '" + builtInSysroot + "' is not normalized.");
-    }
     return PathFragment.create(builtInSysroot);
   }
 

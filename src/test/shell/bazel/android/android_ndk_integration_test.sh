@@ -219,6 +219,28 @@ function test_android_binary() {
   check_soname
 }
 
+function test_android_binary_sibling_repository_layout() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  create_android_binary
+
+  # TODO(b/161709111): enable platform-based toolchain resolution when
+  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
+  # out --platforms. The mapping in android_helper.sh re-enables a test Android
+  # platform for ARM but not x86. Enabling it for x86 requires an
+  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
+  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+
+  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+
+  bazel build --experimental_sibling_repository_layout -s \
+      //java/bazel:bin --fat_apk_cpu="$cpus" \
+      || fail "build failed"
+  check_num_sos
+  check_soname
+}
+
 function test_android_binary_clang() {
   create_new_workspace
   setup_android_sdk_support
