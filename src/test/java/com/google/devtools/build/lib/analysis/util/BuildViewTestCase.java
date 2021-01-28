@@ -1883,6 +1883,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return config;
   }
 
+  protected final BuildConfiguration getConfiguration(
+      BuildConfigurationValue.Key configurationKey) {
+    return skyframeExecutor.getConfiguration(reporter, configurationKey);
+  }
+
   protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
     return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
   }

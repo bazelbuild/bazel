@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -4474,15 +4475,22 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    exports_manifest = 1,",
         "    resource_files = ['theme/res/values/values.xml'],",
         ")");
-    Artifact androidCoreManifest = getLibraryManifest(getConfiguredTarget("//java/android:core"));
+    ConfiguredTarget application = getConfiguredTarget("//java/binary:application");
+    BuildConfiguration appConfiguration = getConfiguration(application);
+    Artifact androidCoreManifest =
+        getLibraryManifest(getConfiguredTarget("//java/android:core", appConfiguration));
     Artifact androidUtilityManifest =
-        getLibraryManifest(getConfiguredTarget("//java/android:utility"));
+        getLibraryManifest(getConfiguredTarget("//java/android:utility", appConfiguration));
     Artifact binaryLibraryManifest =
-        getLibraryManifest(getConfiguredTarget("//java/binary:library"));
-    Artifact commonManifest = getLibraryManifest(getConfiguredTarget("//java/common:common"));
-    Artifact commonThemeManifest = getLibraryManifest(getConfiguredTarget("//java/common:theme"));
+        getLibraryManifest(getConfiguredTarget("//java/binary:library", appConfiguration));
+    Artifact commonManifest =
+        getLibraryManifest(getConfiguredTarget("//java/common:common", appConfiguration));
+    Artifact commonThemeManifest =
+        getLibraryManifest(getConfiguredTarget("//java/common:theme", appConfiguration));
 
-    assertThat(getBinaryMergeeManifests(getConfiguredTarget("//java/binary:application")))
+    assertThat(
+            getBinaryMergeeManifests(
+                getConfiguredTarget("//java/binary:application", appConfiguration)))
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 androidCoreManifest.getExecPath().toString(), "//java/android:core",
