@@ -157,7 +157,7 @@ public class BazelCcModule extends CcModule
       String outputType,
       boolean linkDepsStatically,
       StarlarkInt stamp,
-      Sequence<?> additionalInputs, // <Artifact> expected
+      Object additionalInputs, // <Artifact> expected
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
@@ -168,6 +168,7 @@ public class BazelCcModule extends CcModule
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object linkerOutputs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -193,6 +194,7 @@ public class BazelCcModule extends CcModule
         wholeArchive,
         additionalLinkstampDefines,
         onlyForDynamicLibs,
+        linkerOutputs,
         thread);
   }
 

@@ -2106,7 +2106,7 @@ public abstract class CcModule
       String outputType,
       boolean linkDepsStatically,
       StarlarkInt stamp,
-      Sequence<?> additionalInputs,
+      Object additionalInputs,
       Object grepIncludes,
       Object linkedArtifactNameSuffixObject,
       Object neverLinkObject,
@@ -2117,6 +2117,7 @@ public abstract class CcModule
       Object wholeArchiveObject,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibsObject,
+      Object linkerOutputsObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     if (checkObjectsBound(
@@ -2157,6 +2158,12 @@ public abstract class CcModule
     } else {
       throw Starlark.errorf("Language '%s' does not support %s", language, outputType);
     }
+    NestedSet<Artifact> additionalInputsSet =
+        additionalInputs instanceof Depset
+            ? Depset.cast(additionalInputs, Artifact.class, "additional_inputs")
+            : NestedSetBuilder.<Artifact>compileOrder()
+                .addAll(Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+                .build();
     FeatureConfiguration actualFeatureConfiguration =
         featureConfiguration.getFeatureConfiguration();
     CppConfiguration cppConfiguration =
@@ -2164,6 +2171,7 @@ public abstract class CcModule
             .getActionConstructionContext()
             .getConfiguration()
             .getFragment(CppConfiguration.class);
+    ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 actions.getActionConstructionContext().getRuleErrorConsumer(),
@@ -2183,8 +2191,7 @@ public abstract class CcModule
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
-            .addNonCodeLinkerInputs(
-                Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+            .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
             .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(
                 Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
@@ -2205,7 +2212,8 @@ public abstract class CcModule
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                     && CppHelper.useInterfaceSharedLibraries(
-                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration));
+                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
+            .addLinkerOutputs(linkerOutputs);
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }

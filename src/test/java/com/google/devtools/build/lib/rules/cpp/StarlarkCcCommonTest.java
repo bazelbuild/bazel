@@ -6193,8 +6193,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
   }
 
-  private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
-      throws Exception {
+  private static void createCcBinRule(Scratch scratch, String... additionalLines) throws Exception {
     String fragments = "    fragments = ['google_cpp', 'cpp'],";
     if (AnalysisMock.get().isThisBazel()) {
       fragments = "    fragments = ['cpp'],";
@@ -6248,9 +6247,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "             default = Label('//tools/cpp/grep_includes:grep-includes'),",
         "             cfg = 'host'",
         "       ),",
+        "      'additional_outputs': attr.output_list(),",
         "    },",
         fragments,
         ")");
+  }
+
+  private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
+      throws Exception {
+    createCcBinRule(scratch, additionalLines);
     scratch.file(
         "foo/BUILD",
         "load('//tools/build_defs:extension.bzl', 'cc_bin')",
@@ -7345,6 +7350,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
       assertThat(e).hasMessageThat().contains("Trying to build UserVariableExtension");
     }
+  }
+
+  @Test
+  public void testAdditionalLinkingOutputsAppearAsOutputsOfLinkAction() throws Exception {
+    createCcBinRule(scratch, "additional_outputs=ctx.outputs.additional_outputs");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs:extension.bzl', 'cc_bin')",
+        "cc_bin(",
+        "    name = 'bin',",
+        "    objects = ['file.o'],",
+        "    pic_objects = ['file.pic.o'],",
+        "    additional_outputs = [':bin.map'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".map"));
+    assertThat(artifactsToStrings(action.getOutputs())).contains("bin foo/bin.map");
   }
 
   private String getVariablesExtensionStarlarkRule(String call, String dictionaryEntries) {
