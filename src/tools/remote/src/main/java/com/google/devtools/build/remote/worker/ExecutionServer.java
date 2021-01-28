@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
+import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
@@ -252,9 +253,15 @@ final class ExecutionServer extends ExecutionImplBase {
     Action action;
     ActionKey actionKey = digestUtil.asActionKey(actionDigest);
     try {
-      action = Action.parseFrom(getFromFuture(cache.downloadBlob(actionDigest)));
-      command = Command.parseFrom(getFromFuture(cache.downloadBlob(action.getCommandDigest())));
-      cache.downloadTree(action.getInputRootDigest(), execRoot);
+      action =
+          Action.parseFrom(
+              getFromFuture(cache.downloadBlob(context, actionDigest)),
+              ExtensionRegistry.getEmptyRegistry());
+      command =
+          Command.parseFrom(
+              getFromFuture(cache.downloadBlob(context, action.getCommandDigest())),
+              ExtensionRegistry.getEmptyRegistry());
+      cache.downloadTree(context, action.getInputRootDigest(), execRoot);
     } catch (CacheNotFoundException e) {
       throw StatusUtils.notFoundError(e.getMissingDigest());
     }

@@ -26,8 +26,13 @@ import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetTreeRequest;
 import build.bazel.remote.execution.v2.GetTreeResponse;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
@@ -86,6 +91,9 @@ final class CasServer extends ContentAddressableStorageImplBase {
 
   @Override
   public void getTree(GetTreeRequest request, StreamObserver<GetTreeResponse> responseObserver) {
+    RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context =
+        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
     // Directories are returned in depth-first order.  We store all previously-traversed digests so
     // identical subtrees having the same digest will only be traversed and returned once.
     Set<Digest> seenDigests = new HashSet<>();
@@ -97,7 +105,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
       Digest digest = pendingDigests.pop();
       byte[] directoryBytes;
       try {
-        directoryBytes = getFromFuture(cache.downloadBlob(digest));
+        directoryBytes = getFromFuture(cache.downloadBlob(context, digest));
       } catch (CacheNotFoundException e) {
         responseObserver.onError(StatusUtils.notFoundError(digest));
         return;

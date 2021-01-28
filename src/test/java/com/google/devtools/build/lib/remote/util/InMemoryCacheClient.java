@@ -32,8 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** A {@link RemoteCache} that stores its contents in memory. */
-public class InMemoryCacheClient implements RemoteCacheClient {
+/** A {@link RemoteCacheClient} that stores its contents in memory. */
+public final class InMemoryCacheClient implements RemoteCacheClient {
 
   private final ConcurrentMap<Digest, Exception> downloadFailures = new ConcurrentHashMap<>();
   private final ConcurrentMap<ActionKey, ActionResult> ac = new ConcurrentHashMap<>();
@@ -66,7 +66,8 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+  public ListenableFuture<Void> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     Exception failure = downloadFailures.get(digest);
     if (failure != null) {
       numFailures.incrementAndGet();

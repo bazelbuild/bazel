@@ -261,13 +261,13 @@ public class RemoteSpawnCacheTest {
               }
             })
         .when(remoteCache)
-        .download(eq(actionResult), eq(execRoot), eq(outErr), any());
+        .download(any(), eq(actionResult), eq(execRoot), eq(outErr), any());
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isTrue();
     SpawnResult result = entry.getResult();
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
-    verify(remoteCache).download(eq(actionResult), eq(execRoot), eq(outErr), any());
+    verify(remoteCache).download(any(), eq(actionResult), eq(execRoot), eq(outErr), any());
     verify(remoteCache, never())
         .upload(
             any(RemoteActionExecutionContext.class),
@@ -621,7 +621,7 @@ public class RemoteSpawnCacheTest {
             });
     doThrow(new CacheNotFoundException(digest))
         .when(remoteCache)
-        .download(eq(actionResult), eq(execRoot), eq(outErr), any());
+        .download(any(), eq(actionResult), eq(execRoot), eq(outErr), any());
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
@@ -700,7 +700,7 @@ public class RemoteSpawnCacheTest {
     assertThat(cacheHandle.hasResult()).isTrue();
     assertThat(cacheHandle.getResult().exitCode()).isEqualTo(0);
     verify(remoteCache)
-        .downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(any(), any(), any(), anyCollection(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -717,7 +717,7 @@ public class RemoteSpawnCacheTest {
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(success);
     when(remoteCache.downloadMinimal(
-            any(), any(), anyCollection(), any(), any(), any(), any(), any()))
+            any(), any(), any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
 
     // act
@@ -726,7 +726,7 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(cacheHandle.hasResult()).isFalse();
     verify(remoteCache)
-        .downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(any(), any(), any(), anyCollection(), any(), any(), any(), any(), any());
     assertThat(eventHandler.getEvents().size()).isEqualTo(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);

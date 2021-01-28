@@ -124,10 +124,11 @@ public class GrpcRemoteDownloaderTest {
         new ReferenceCountedChannel(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     return new GrpcRemoteDownloader(
+        "none",
+        "none",
         channel.retain(),
         Optional.<CallCredentials>empty(),
         retrier,
-        withEmptyMetadata,
         cacheClient,
         remoteOptions);
   }

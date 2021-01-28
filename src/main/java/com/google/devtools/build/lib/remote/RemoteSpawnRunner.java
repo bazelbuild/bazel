@@ -277,6 +277,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
           } else {
             try {
               return downloadAndFinalizeSpawnResult(
+                  remoteActionExecutionContext,
                   actionKey.getDigest().getHash(),
                   cachedResult,
                   /* cacheHit= */ true,
@@ -366,11 +367,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
               spawnMetricsAccounting(spawnMetrics, actionResult.getExecutionMetadata());
 
               try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
-                maybeDownloadServerLogs(reply, actionKey);
+                maybeDownloadServerLogs(remoteActionExecutionContext, reply, actionKey);
               }
 
               try {
                 return downloadAndFinalizeSpawnResult(
+                    remoteActionExecutionContext,
                     actionKey.getDigest().getHash(),
                     actionResult,
                     reply.getCachedResult(),
@@ -452,6 +454,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private SpawnResult downloadAndFinalizeSpawnResult(
+      RemoteActionExecutionContext remoteActionExecutionContext,
       String actionId,
       ActionResult actionResult,
       boolean cacheHit,
@@ -473,7 +476,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (downloadOutputs) {
       try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
         remoteCache.download(
-            actionResult, execRoot, context.getFileOutErr(), context::lockOutputFiles);
+            remoteActionExecutionContext,
+            actionResult,
+            execRoot,
+            context.getFileOutErr(),
+            context::lockOutputFiles);
       }
     } else {
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
@@ -481,6 +488,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs minimal")) {
         inMemoryOutput =
             remoteCache.downloadMinimal(
+                remoteActionExecutionContext,
                 actionId,
                 actionResult,
                 spawn.getOutputFiles(),
@@ -532,7 +540,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private void maybeDownloadServerLogs(ExecuteResponse resp, ActionKey actionKey)
+  private void maybeDownloadServerLogs(
+      RemoteActionExecutionContext context, ExecuteResponse resp, ActionKey actionKey)
       throws InterruptedException {
     ActionResult result = resp.getResult();
     if (resp.getServerLogsCount() > 0
@@ -545,7 +554,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
           logPath = parent.getRelative(e.getKey());
           logCount++;
           try {
-            getFromFuture(remoteCache.downloadFile(logPath, e.getValue().getDigest()));
+            getFromFuture(remoteCache.downloadFile(context, logPath, e.getValue().getDigest()));
           } catch (IOException ex) {
             reportOnce(Event.warn("Failed downloading server logs from the remote cache."));
           }
@@ -598,11 +607,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
           command,
           uploadLocalResults);
     }
-    return handleError(cause, context.getFileOutErr(), actionKey, context);
+    return handleError(
+        remoteActionExecutionContext, cause, context.getFileOutErr(), actionKey, context);
   }
 
   private SpawnResult handleError(
-      IOException exception, FileOutErr outErr, ActionKey actionKey, SpawnExecutionContext context)
+      RemoteActionExecutionContext remoteActionExecutionContext,
+      IOException exception,
+      FileOutErr outErr,
+      ActionKey actionKey,
+      SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed =
         BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
@@ -610,11 +624,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
-        maybeDownloadServerLogs(resp, actionKey);
+        maybeDownloadServerLogs(remoteActionExecutionContext, resp, actionKey);
         if (resp.hasResult()) {
           try {
             // We try to download all (partial) results even on server error, for debuggability.
-            remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
+            remoteCache.download(
+                remoteActionExecutionContext,
+                resp.getResult(),
+                execRoot,
+                outErr,
+                context::lockOutputFiles);
           } catch (BulkTransferException bulkTransferEx) {
             exception.addSuppressed(bulkTransferEx);
           }

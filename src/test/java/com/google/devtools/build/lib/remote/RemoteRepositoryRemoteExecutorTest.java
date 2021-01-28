@@ -63,7 +63,6 @@ public class RemoteRepositoryRemoteExecutorTest {
             DIGEST_UTIL,
             "none",
             "none",
-            "repo",
             /* remoteInstanceName= */ "foo",
             /* acceptCached= */ true);
   }
