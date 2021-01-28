@@ -291,7 +291,13 @@ final class RemoteSpawnCache implements SpawnCache {
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
           try (SilentCloseable c = prof.profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
             remoteCache.upload(
-                actionKey, action, command, execRoot, files, context.getFileOutErr());
+                remoteActionExecutionContext,
+                actionKey,
+                action,
+                command,
+                execRoot,
+                files,
+                context.getFileOutErr());
           } catch (IOException e) {
             String errorMessage;
             if (!verboseFailures) {

@@ -49,11 +49,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
-    diskCache.uploadActionResult(actionKey, actionResult);
+    diskCache.uploadActionResult(context, actionKey, actionResult);
     if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
-      remoteCache.uploadActionResult(actionKey, actionResult);
+      remoteCache.uploadActionResult(context, actionKey, actionResult);
     }
   }
 
@@ -177,7 +178,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
             if (actionResult == null) {
               return Futures.immediateFuture(null);
             } else {
-              diskCache.uploadActionResult(actionKey, actionResult);
+              diskCache.uploadActionResult(context, actionKey, actionResult);
               return Futures.immediateFuture(actionResult);
             }
           },

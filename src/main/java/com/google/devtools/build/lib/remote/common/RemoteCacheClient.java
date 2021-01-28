@@ -83,7 +83,8 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @throws IOException If there is an error uploading the action result.
    * @throws InterruptedException In case the thread
    */
-  void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException;
 
   /**

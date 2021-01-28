@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteCache;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -66,9 +67,10 @@ class OnDiskBlobStoreCache extends RemoteCache {
     return cacheProtocol.uploadBlob(digest, data);
   }
 
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
-    cacheProtocol.uploadActionResult(actionKey, actionResult);
+    cacheProtocol.uploadActionResult(context, actionKey, actionResult);
   }
 
   public DigestUtil getDigestUtil() {

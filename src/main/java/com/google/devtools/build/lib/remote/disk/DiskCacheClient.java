@@ -108,7 +108,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException {
     try (InputStream data = actionResult.toByteString().newInput()) {
       saveFile(actionKey.getDigest().getHash(), data, /* actionResult= */ true);

@@ -54,10 +54,14 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.RemoteCache.UploadManifest;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -98,6 +102,7 @@ public class RemoteCacheTests {
 
   @Mock private OutputFilesLocker outputFilesLocker;
 
+  private RemoteActionExecutionContext remoteActionExecutionContext;
   private FileSystem fs;
   private Path execRoot;
   ArtifactRoot artifactRoot;
@@ -109,6 +114,11 @@ public class RemoteCacheTests {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
+    remoteActionExecutionContext =
+        new RemoteActionExecutionContextImpl(
+            TracingMetadataUtils.buildMetadata(
+                "none", "none", Digest.getDefaultInstance().getHash()),
+            new NetworkTime());
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
@@ -1425,6 +1435,7 @@ public class RemoteCacheTests {
     InMemoryRemoteCache remoteCache = newRemoteCache();
     ActionResult result =
         remoteCache.upload(
+            remoteActionExecutionContext,
             digestUtil.asActionKey(actionDigest),
             action,
             cmd,
@@ -1461,6 +1472,7 @@ public class RemoteCacheTests {
     InMemoryRemoteCache remoteCache = newRemoteCache();
     ActionResult result =
         remoteCache.upload(
+            remoteActionExecutionContext,
             actionDigest,
             action,
             cmd,
@@ -1517,6 +1529,7 @@ public class RemoteCacheTests {
     InMemoryRemoteCache remoteCache = newRemoteCache();
     ActionResult result =
         remoteCache.upload(
+            remoteActionExecutionContext,
             actionDigest,
             action,
             cmd,
