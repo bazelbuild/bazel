@@ -294,6 +294,7 @@ public class FakeCcModule
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
       Object variablesExtension,
+      Object language,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;

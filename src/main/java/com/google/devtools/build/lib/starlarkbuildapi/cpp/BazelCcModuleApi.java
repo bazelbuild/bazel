@@ -296,6 +296,13 @@ public interface BazelCcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = Dict.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class)},
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -327,6 +334,7 @@ public interface BazelCcModuleApi<
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
       Object variablesExtension,
+      Object language,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

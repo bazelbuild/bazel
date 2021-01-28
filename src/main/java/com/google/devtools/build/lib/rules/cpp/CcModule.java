@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -1923,6 +1924,7 @@ public abstract class CcModule
       Object codeCoverageEnabledObject,
       Object hdrsCheckingModeObject,
       Object variablesExtension,
+      Object languageObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -1934,7 +1936,8 @@ public abstract class CcModule
         doNotGenerateModuleMapObject,
         codeCoverageEnabledObject,
         hdrsCheckingModeObject,
-        variablesExtension)) {
+        variablesExtension,
+        languageObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -1999,6 +2002,17 @@ public abstract class CcModule
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
     }
 
+    String language = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
+    validateLanguage(language);
+    SourceCategory sourceCategory;
+    if (language.equals(Language.CPP.getRepresentation())) {
+      sourceCategory = SourceCategory.CC;
+    } else if (language.equals(Language.OBJC.getRepresentation())
+        || language.equals(Language.OBJCPP.getRepresentation())) {
+      sourceCategory = SourceCategory.CC_AND_OBJC;
+    } else {
+      throw Starlark.errorf("Language '%s' is not supported", language);
+    }
     CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
     CcCompilationHelper helper =
         new CcCompilationHelper(
@@ -2008,8 +2022,10 @@ public abstract class CcModule
                 grepIncludes,
                 getSemantics(),
                 featureConfiguration.getFeatureConfiguration(),
+                sourceCategory,
                 ccToolchainProvider,
                 fdoContext,
+                actions.getActionConstructionContext().getConfiguration(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()),
