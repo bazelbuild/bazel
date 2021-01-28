@@ -129,6 +129,7 @@ public class RemoteCache implements AutoCloseable {
    * @throws ExecException if uploading any of the action outputs is not supported
    */
   public ActionResult upload(
+      RemoteActionExecutionContext context,
       ActionKey actionKey,
       Action action,
       Command command,
@@ -142,12 +143,13 @@ public class RemoteCache implements AutoCloseable {
     resultBuilder.setExitCode(exitCode);
     ActionResult result = resultBuilder.build();
     if (exitCode == 0 && !action.getDoNotCache()) {
-      cacheProtocol.uploadActionResult(actionKey, result);
+      cacheProtocol.uploadActionResult(context, actionKey, result);
     }
     return result;
   }
 
   public ActionResult upload(
+      RemoteActionExecutionContext context,
       ActionKey actionKey,
       Action action,
       Command command,
@@ -155,7 +157,8 @@ public class RemoteCache implements AutoCloseable {
       Collection<Path> outputs,
       FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    return upload(actionKey, action, command, execRoot, outputs, outErr, /* exitCode= */ 0);
+    return upload(
+        context, actionKey, action, command, execRoot, outputs, outErr, /* exitCode= */ 0);
   }
 
   private void uploadOutputs(

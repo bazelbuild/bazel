@@ -270,6 +270,7 @@ public class RemoteSpawnCacheTest {
     verify(remoteCache).download(eq(actionResult), eq(execRoot), eq(outErr), any());
     verify(remoteCache, never())
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -309,6 +310,7 @@ public class RemoteSpawnCacheTest {
             })
         .when(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -318,6 +320,7 @@ public class RemoteSpawnCacheTest {
     entry.store(result);
     verify(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -485,6 +488,7 @@ public class RemoteSpawnCacheTest {
     entry.store(result);
     verify(remoteCache, never())
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -510,6 +514,7 @@ public class RemoteSpawnCacheTest {
     doThrow(new IOException("cache down"))
         .when(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -520,6 +525,7 @@ public class RemoteSpawnCacheTest {
     entry.store(result);
     verify(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -566,6 +572,7 @@ public class RemoteSpawnCacheTest {
             })
         .when(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -575,6 +582,7 @@ public class RemoteSpawnCacheTest {
     entry.store(result);
     verify(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -637,6 +645,7 @@ public class RemoteSpawnCacheTest {
             })
         .when(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
@@ -646,6 +655,7 @@ public class RemoteSpawnCacheTest {
     entry.store(result);
     verify(remoteCache)
         .upload(
+            any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),

@@ -136,9 +136,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
-  private ActionCacheBlockingStub acBlockingStub() {
+  private ActionCacheBlockingStub acBlockingStub(RemoteActionExecutionContext context) {
     return ActionCacheGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
+            new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
@@ -259,14 +261,15 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     try {
       Utils.refreshIfUnauthenticated(
           () ->
               retrier.execute(
                   () ->
-                      acBlockingStub()
+                      acBlockingStub(context)
                           .updateActionResult(
                               UpdateActionResultRequest.newBuilder()
                                   .setInstanceName(options.remoteInstanceName)

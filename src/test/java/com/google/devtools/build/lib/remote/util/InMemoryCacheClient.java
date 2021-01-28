@@ -100,7 +100,8 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult) {
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ac.put(actionKey, actionResult);
   }
 

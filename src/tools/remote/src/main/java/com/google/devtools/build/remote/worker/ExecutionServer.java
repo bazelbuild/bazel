@@ -37,6 +37,9 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -221,7 +224,9 @@ final class ExecutionServer extends ExecutionImplBase {
               "build-request-id: %s command-id: %s action-id: %s",
               meta.getCorrelatedInvocationsId(), meta.getToolInvocationId(), meta.getActionId());
       logger.atFine().log("Received work for: %s", workDetails);
-      ActionResult result = execute(request.getActionDigest(), tempRoot);
+      RemoteActionExecutionContext context =
+          new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+      ActionResult result = execute(context, request.getActionDigest(), tempRoot);
       logger.atFine().log("Completed %s", workDetails);
       return result;
     } catch (Exception e) {
@@ -240,7 +245,8 @@ final class ExecutionServer extends ExecutionImplBase {
     }
   }
 
-  private ActionResult execute(Digest actionDigest, Path execRoot)
+  private ActionResult execute(
+      RemoteActionExecutionContext context, Digest actionDigest, Path execRoot)
       throws IOException, InterruptedException, StatusException {
     Command command;
     Action action;
@@ -327,7 +333,8 @@ final class ExecutionServer extends ExecutionImplBase {
 
       ActionResult result = null;
       try {
-        result = cache.upload(actionKey, action, command, execRoot, outputs, outErr, exitCode);
+        result =
+            cache.upload(context, actionKey, action, command, execRoot, outputs, outErr, exitCode);
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =

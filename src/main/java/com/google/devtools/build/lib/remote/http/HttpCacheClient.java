@@ -705,7 +705,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     ByteString serialized = actionResult.toByteString();
     ListenableFuture<Void> uploadFuture =

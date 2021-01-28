@@ -298,7 +298,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       } catch (IOException e) {
         return execLocallyAndUploadOrFail(
-            spawn, context, inputMap, actionKey, action, command, uploadLocalResults, e);
+            remoteActionExecutionContext,
+            spawn,
+            context,
+            inputMap,
+            actionKey,
+            action,
+            command,
+            uploadLocalResults,
+            e);
       }
 
       ExecuteRequest.Builder requestBuilder =
@@ -383,7 +391,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
             });
       } catch (IOException e) {
         return execLocallyAndUploadOrFail(
-            spawn, context, inputMap, actionKey, action, command, uploadLocalResults, e);
+            remoteActionExecutionContext,
+            spawn,
+            context,
+            inputMap,
+            actionKey,
+            action,
+            command,
+            uploadLocalResults,
+            e);
       }
     } finally {
       withMetadata.detach(previous);
@@ -556,6 +572,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private SpawnResult execLocallyAndUploadOrFail(
+      RemoteActionExecutionContext remoteActionExecutionContext,
       Spawn spawn,
       SpawnExecutionContext context,
       SortedMap<PathFragment, ActionInput> inputMap,
@@ -572,7 +589,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(
-          spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
+          remoteActionExecutionContext,
+          spawn,
+          context,
+          inputMap,
+          actionKey,
+          action,
+          command,
+          uploadLocalResults);
     }
     return handleError(cause, context.getFileOutErr(), actionKey, context);
   }
@@ -724,6 +748,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
+      RemoteActionExecutionContext remoteActionExecutionContext,
       Spawn spawn,
       SpawnExecutionContext context,
       SortedMap<PathFragment, ActionInput> inputMap,
@@ -751,7 +776,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
     Collection<Path> outputFiles = resolveActionInputs(execRoot, spawn.getOutputFiles());
     try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
       remoteCache.upload(
-          actionKey, action, command, execRoot, outputFiles, context.getFileOutErr());
+          remoteActionExecutionContext,
+          actionKey,
+          action,
+          command,
+          execRoot,
+          outputFiles,
+          context.getFileOutErr());
     } catch (IOException e) {
       if (verboseFailures) {
         report(Event.debug("Upload to remote cache failed: " + e.getMessage()));

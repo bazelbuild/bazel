@@ -212,7 +212,7 @@ public class RemoteSpawnRunnerTest {
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             /* inlineOutErr= */ eq(false));
-    verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
+    verify(cache, never()).upload(any(), any(), any(), any(), any(), any(), any());
     verifyNoMoreInteractions(localRunner);
   }
 
@@ -282,8 +282,15 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache).upload(any(), any(), any(), any(), any(), any());
+            any(),
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache).upload(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -312,8 +319,15 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
+            any(),
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache, never()).upload(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -352,8 +366,15 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache).upload(any(), any(), any(), any(), any(), any());
+            any(),
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache).upload(any(), any(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -414,7 +435,7 @@ public class RemoteSpawnRunnerTest {
 
     doThrow(new IOException("cache down"))
         .when(cache)
-        .upload(any(), any(), any(), any(), any(), any());
+        .upload(any(), any(), any(), any(), any(), any(), any());
 
     SpawnResult res =
         new SpawnResult.Builder()

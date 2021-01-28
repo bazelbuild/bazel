@@ -700,7 +700,8 @@ public class GrpcCacheClientTest {
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    return remoteCache.upload(actionKey, action, cmd, execRoot, outputs, outErr);
+    return remoteCache.upload(
+        remoteActionExecutionContext, actionKey, action, cmd, execRoot, outputs, outErr);
   }
 
   @Test
@@ -826,6 +827,7 @@ public class GrpcCacheClientTest {
 
     ActionResult result =
         remoteCache.upload(
+            remoteActionExecutionContext,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -888,6 +890,7 @@ public class GrpcCacheClientTest {
 
     ActionResult result =
         remoteCache.upload(
+            remoteActionExecutionContext,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -1036,6 +1039,7 @@ public class GrpcCacheClientTest {
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
     remoteCache.upload(
+        remoteActionExecutionContext,
         actionKey,
         Action.getDefaultInstance(),
         Command.getDefaultInstance(),

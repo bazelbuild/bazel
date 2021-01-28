@@ -70,8 +70,12 @@ final class ActionCacheServer extends ActionCacheImplBase {
   public void updateActionResult(
       UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
+      RequestMetadata requestMetadata = TracingMetadataUtils.fromCurrentContext();
+      RemoteActionExecutionContext context =
+          new RemoteActionExecutionContextImpl(requestMetadata, new NetworkTime());
+
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      cache.uploadActionResult(actionKey, request.getActionResult());
+      cache.uploadActionResult(context, actionKey, request.getActionResult());
       responseObserver.onNext(request.getActionResult());
       responseObserver.onCompleted();
     } catch (Exception e) {
