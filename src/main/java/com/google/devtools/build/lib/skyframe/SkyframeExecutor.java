@@ -442,9 +442,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeActionExecutor =
         new SkyframeActionExecutor(actionKeyContext, statusReporterRef, this::getPathEntries);
+    this.artifactFactory =
+        new ArtifactFactory(
+            /* execRootParent= */ directories.getExecRootBase(),
+            directories.getRelativeOutputPath());
     this.skyframeBuildView =
-        new SkyframeBuildView(directories, this, ruleClassProvider, actionKeyContext);
-    this.artifactFactory = skyframeBuildView.getArtifactFactory();
+        new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
         ExternalFilesHelper.create(
             pkgLocator,
