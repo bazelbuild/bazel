@@ -732,7 +732,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       return visibility;
     }
 
-    return pkg.getDefaultVisibility();
+    // TODO(bazel-team): give config_setting the same default visibility as everything else. The
+    // only reason this isn't trivial is depot cleanup.
+    return ruleClass.getName().equals("config_setting")
+        ? ConstantRuleVisibility.PUBLIC
+        : pkg.getDefaultVisibility();
   }
 
   public boolean isVisibilitySpecified() {

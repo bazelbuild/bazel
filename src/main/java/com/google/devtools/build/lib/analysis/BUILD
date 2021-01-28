@@ -292,6 +292,7 @@ java_library(
         ":buildinfo/build_info_key",
         ":config/build_configuration",
         ":config/build_options",
+        ":config/config_conditions",
         ":config/config_matching_provider",
         ":config/core_options",
         ":config/execution_transition_factory",
@@ -1594,6 +1595,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "config/config_conditions",
+    srcs = ["config/ConfigConditions.java"],
+    deps = [
+        ":config/config_matching_provider",
+        ":configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )

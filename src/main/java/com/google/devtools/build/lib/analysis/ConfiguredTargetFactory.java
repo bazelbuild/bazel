@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
@@ -186,7 +186,7 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration hostConfig,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     if (target instanceof Rule) {
@@ -292,7 +292,7 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration hostConfiguration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     ConfigurationFragmentPolicy configurationFragmentPolicy =
@@ -323,7 +323,7 @@ public final class ConfiguredTargetFactory {
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
                     configurationFragmentPolicy,
-                    configConditions,
+                    configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();
 
@@ -500,7 +500,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ResolvedToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
@@ -545,7 +545,7 @@ public final class ConfiguredTargetFactory {
                     aspectConfiguration,
                     ruleClassProvider.getUniversalFragments(),
                     aspect.getDefinition().getConfigurationFragmentPolicy(),
-                    configConditions,
+                    configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();
 

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
@@ -1764,7 +1765,7 @@ public final class RuleContext extends TargetContext
     private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
-    private ImmutableMap<Label, ConfigMatchingProvider> configConditions = ImmutableMap.of();
+    private ConfigConditions configConditions;
     private String toolsRepository;
     private StarlarkSemantics starlarkSemantics;
     private Mutability mutability;
@@ -1813,11 +1814,15 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(visibility);
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
-          ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions);
+          ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions.asProviders());
       checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
+      Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
+      for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
+        validateDirectPrerequisite(configSettingAttr, condition);
+      }
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
-          createFilesetEntryMap(target.getAssociatedRule(), configConditions);
+          createFilesetEntryMap(target.getAssociatedRule(), configConditions.asProviders());
       if (rawExecProperties == null) {
         if (!attributes.has(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
           rawExecProperties = ImmutableMap.of();
@@ -1831,7 +1836,7 @@ public final class RuleContext extends TargetContext
           attributes,
           targetMap,
           filesetEntryMap,
-          configConditions,
+          configConditions.asProviders(),
           universalFragments,
           getRuleClassNameForLogging(),
           actionOwnerSymbol,
@@ -1906,11 +1911,10 @@ public final class RuleContext extends TargetContext
     }
 
     /**
-     * Sets the configuration conditions needed to determine which paths to follow for this
-     * rule's configurable attributes.
+     * Sets the configuration conditions needed to determine which paths to follow for this rule's
+     * configurable attributes.
      */
-    public Builder setConfigConditions(
-        ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
+    public Builder setConfigConditions(ConfigConditions configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
       return this;
     }
