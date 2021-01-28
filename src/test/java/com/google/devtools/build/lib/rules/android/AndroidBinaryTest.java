@@ -2730,19 +2730,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testManifestMissingFails_localResources() throws Exception {
-    checkError(
-        "java/android/resources",
-        "r",
-        "manifest attribute of android_library rule //java/android/resources:r: manifest is "
-            + "required when resource_files or assets are defined.",
-        "filegroup(name = 'b')",
-        "android_library(name = 'r',",
-        "                resource_files = [':b'],",
-        "                )");
-  }
-
-  @Test
   public void testResourcesDoesNotMatchDirectoryLayout_badFile_localResources() throws Exception {
     checkError(
         "java/android/resources",
