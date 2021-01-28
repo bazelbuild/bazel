@@ -33,6 +33,9 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -66,15 +69,17 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
   @GuardedBy("lock")
   final Map<Path, ListenableFuture<Void>> downloadsInProgress = new HashMap<>();
 
+  private final String buildRequestId;
+  private final String commandId;
   private final RemoteCache remoteCache;
   private final Path execRoot;
-  private final RequestMetadata requestMetadata;
 
   RemoteActionInputFetcher(
-      RemoteCache remoteCache, Path execRoot, RequestMetadata requestMetadata) {
+      String buildRequestId, String commandId, RemoteCache remoteCache, Path execRoot) {
+    this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
+    this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
     this.execRoot = Preconditions.checkNotNull(execRoot);
-    this.requestMetadata = Preconditions.checkNotNull(requestMetadata);
   }
 
   /**
@@ -160,13 +165,15 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
       ListenableFuture<Void> download = downloadsInProgress.get(path);
       if (download == null) {
-        Context ctx =
-            TracingMetadataUtils.contextWithMetadata(
-                requestMetadata.toBuilder().setActionId(metadata.getActionId()).build());
+        RequestMetadata requestMetadata =
+            TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId());
+        RemoteActionExecutionContext remoteActionExecutionContext =
+            new RemoteActionExecutionContextImpl(requestMetadata, new NetworkTime());
+        Context ctx = TracingMetadataUtils.contextWithMetadata(requestMetadata);
         Context prevCtx = ctx.attach();
         try {
           Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-          download = remoteCache.downloadFile(path, digest);
+          download = remoteCache.downloadFile(remoteActionExecutionContext, path, digest);
           downloadsInProgress.put(path, download);
           Futures.addCallback(
               download,

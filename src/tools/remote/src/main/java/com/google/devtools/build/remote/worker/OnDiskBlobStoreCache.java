@@ -45,17 +45,19 @@ class OnDiskBlobStoreCache extends RemoteCache {
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
-  public void downloadTree(Digest rootDigest, Path rootLocation)
+  public void downloadTree(
+      RemoteActionExecutionContext context, Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
-    Directory directory = Directory.parseFrom(Utils.getFromFuture(downloadBlob(rootDigest)));
+    Directory directory =
+        Directory.parseFrom(Utils.getFromFuture(downloadBlob(context, rootDigest)));
     for (FileNode file : directory.getFilesList()) {
       Path dst = rootLocation.getRelative(file.getName());
-      Utils.getFromFuture(downloadFile(dst, file.getDigest()));
+      Utils.getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
-      downloadTree(child.getDigest(), rootLocation.getRelative(child.getName()));
+      downloadTree(context, child.getDigest(), rootLocation.getRelative(child.getName()));
     }
   }
 

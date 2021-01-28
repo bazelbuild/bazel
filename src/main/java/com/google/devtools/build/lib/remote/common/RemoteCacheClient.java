@@ -66,6 +66,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   /**
    * Downloads an action result for the {@code actionKey}.
    *
+   * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param inlineOutErr A hint to the server to inline the stdout and stderr in the {@code
    *     ActionResult} message.
@@ -78,6 +79,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   /**
    * Uploads an action result for the {@code actionKey}.
    *
+   * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param actionResult The action result to associate with the {@code actionKey}.
    * @throws IOException If there is an error uploading the action result.
@@ -92,10 +94,12 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    *
    * <p>It's the callers responsibility to close {@code out}.
    *
+   * @param context the context for the action.
    * @return A Future representing pending completion of the download. If a BLOB for {@code digest}
    *     does not exist in the cache the Future fails with a {@link CacheNotFoundException}.
    */
-  ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out);
+  ListenableFuture<Void> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out);
 
   /**
    * Uploads a {@code file} to the CAS.

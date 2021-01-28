@@ -129,9 +129,10 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+  public ListenableFuture<Void> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     if (diskCache.contains(digest)) {
-      return diskCache.downloadBlob(digest, out);
+      return diskCache.downloadBlob(context, digest, out);
     }
 
     Path tempPath = newTempPath();
@@ -144,21 +145,19 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
     if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
       ListenableFuture<Void> download =
-          closeStreamOnError(remoteCache.downloadBlob(digest, tempOut), tempOut);
-      ListenableFuture<Void> saveToDiskAndTarget =
-          Futures.transformAsync(
-              download,
-              (unused) -> {
-                try {
-                  tempOut.close();
-                  diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
-                } catch (IOException e) {
-                  return Futures.immediateFailedFuture(e);
-                }
-                return diskCache.downloadBlob(digest, out);
-              },
-              MoreExecutors.directExecutor());
-      return saveToDiskAndTarget;
+          closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
+      return Futures.transformAsync(
+          download,
+          (unused) -> {
+            try {
+              tempOut.close();
+              diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
+            } catch (IOException e) {
+              return Futures.immediateFailedFuture(e);
+            }
+            return diskCache.downloadBlob(context, digest, out);
+          },
+          MoreExecutors.directExecutor());
     } else {
       return Futures.immediateFuture(null);
     }
