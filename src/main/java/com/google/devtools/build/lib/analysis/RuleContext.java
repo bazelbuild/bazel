@@ -1817,10 +1817,6 @@ public final class RuleContext extends TargetContext
           ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions.asProviders());
       checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
-      Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
-      for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
-        validateDirectPrerequisite(configSettingAttr, condition);
-      }
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(target.getAssociatedRule(), configConditions.asProviders());
       if (rawExecProperties == null) {
