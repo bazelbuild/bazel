@@ -494,6 +494,20 @@ public class JavaOptions extends FragmentOptions {
   public boolean isDisallowStrictDepsForJpl;
 
   @Option(
+      name = "incompatible_disallow_strict_deps_for_jlpl",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set, any java_lite_proto_library which sets the strict_deps attribute explicitly will"
+              + "fail to build.")
+  public boolean isDisallowStrictDepsForJlpl;
+
+  @Option(
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
