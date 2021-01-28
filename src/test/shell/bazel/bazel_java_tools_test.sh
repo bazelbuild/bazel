@@ -187,9 +187,10 @@ function test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/LICENSE"
 }
 
+# TODO(bencodes) This test should assert against a 6.2.2 after proguard is switched over
 function test_java_tools_has_proguard() {
   expect_path_in_java_tools "java_tools/third_party/java/proguard/proguard.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html"
+  expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.*"
 }
 
 function test_java_tools_toolchain_builds() {
