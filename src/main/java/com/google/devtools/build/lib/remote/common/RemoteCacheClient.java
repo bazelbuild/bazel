@@ -104,20 +104,23 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   /**
    * Uploads a {@code file} to the CAS.
    *
+   * @param context the context for the action.
    * @param digest The digest of the file.
    * @param file The file to upload.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadFile(Digest digest, Path file);
+  ListenableFuture<Void> uploadFile(RemoteActionExecutionContext context, Digest digest, Path file);
 
   /**
    * Uploads a BLOB to the CAS.
    *
+   * @param context the context for the action.
    * @param digest The digest of the blob.
    * @param data The BLOB to upload.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
+  ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data);
 
   /** Close resources associated with the remote cache. */
   void close();

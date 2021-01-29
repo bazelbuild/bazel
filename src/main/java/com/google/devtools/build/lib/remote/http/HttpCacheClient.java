@@ -671,7 +671,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
     try {
       return uploadAsync(
           digest.getHash(), digest.getSizeBytes(), file.getInputStream(), /* casUpload= */ true);
@@ -682,7 +683,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
     return uploadAsync(
         digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true);
   }

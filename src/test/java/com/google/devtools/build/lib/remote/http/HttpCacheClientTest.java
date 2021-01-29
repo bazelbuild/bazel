@@ -319,7 +319,7 @@ public class HttpCacheClientTest {
 
       ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
       Digest digest = DIGEST_UTIL.compute(data.toByteArray());
-      blobStore.uploadBlob(digest, data).get();
+      blobStore.uploadBlob(remoteActionExecutionContext, digest, data).get();
 
       assertThat(cacheContents).hasSize(1);
       String cacheKey = "/cas/" + digest.getHash();
@@ -329,7 +329,7 @@ public class HttpCacheClientTest {
       // Clear the remote cache contents
       cacheContents.clear();
 
-      blobStore.uploadBlob(digest, data).get();
+      blobStore.uploadBlob(remoteActionExecutionContext, digest, data).get();
 
       // Nothing should have been uploaded again.
       assertThat(cacheContents).isEmpty();
@@ -369,7 +369,9 @@ public class HttpCacheClientTest {
       Credentials credentials = newCredentials();
       HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
-      getFromFuture(blobStore.uploadBlob(DIGEST_UTIL.compute(data), ByteString.copyFrom(data)));
+      getFromFuture(
+          blobStore.uploadBlob(
+              remoteActionExecutionContext, DIGEST_UTIL.compute(data), ByteString.copyFrom(data)));
       fail("Exception expected");
     } finally {
       testServer.stop(server);
@@ -432,7 +434,10 @@ public class HttpCacheClientTest {
               IOException.class,
               () ->
                   getFromFuture(
-                      blobStore.uploadBlob(DIGEST_UTIL.compute(data.toByteArray()), data)));
+                      blobStore.uploadBlob(
+                          remoteActionExecutionContext,
+                          DIGEST_UTIL.compute(data.toByteArray()),
+                          data)));
       assertThat(e.getCause()).isInstanceOf(TooLongFrameException.class);
     } finally {
       testServer.stop(server);
@@ -564,7 +569,10 @@ public class HttpCacheClientTest {
       Credentials credentials = newCredentials();
       HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
-      blobStore.uploadBlob(DIGEST_UTIL.compute(data), ByteString.copyFrom(data)).get();
+      blobStore
+          .uploadBlob(
+              remoteActionExecutionContext, DIGEST_UTIL.compute(data), ByteString.copyFrom(data))
+          .get();
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
       verify(credentials, times(2)).hasRequestMetadata();
@@ -621,7 +629,10 @@ public class HttpCacheClientTest {
       HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] oneByte = new byte[] {0};
       getFromFuture(
-          blobStore.uploadBlob(DIGEST_UTIL.compute(oneByte), ByteString.copyFrom(oneByte)));
+          blobStore.uploadBlob(
+              remoteActionExecutionContext,
+              DIGEST_UTIL.compute(oneByte),
+              ByteString.copyFrom(oneByte)));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);

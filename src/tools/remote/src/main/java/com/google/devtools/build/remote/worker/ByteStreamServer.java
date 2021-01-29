@@ -103,6 +103,10 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
   @Override
   public StreamObserver<WriteRequest> write(final StreamObserver<WriteResponse> responseObserver) {
+    RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context =
+        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+
     Path temp = workPath.getRelative("upload").getRelative(UUID.randomUUID().toString());
     try {
       FileSystemUtils.createDirectoryAndParents(temp.getParentDirectory());
@@ -226,7 +230,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
         try {
           Digest d = digestUtil.compute(temp);
-          getFromFuture(cache.uploadFile(d, temp));
+          getFromFuture(cache.uploadFile(context, d, temp));
           try {
             temp.delete();
           } catch (IOException e) {

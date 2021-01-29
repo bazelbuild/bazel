@@ -93,7 +93,7 @@ public class RemoteRepositoryRemoteExecutorTest {
 
     assertThat(executionResult.exitCode()).isEqualTo(0);
   }
-  
+
   @Test
   public void testNoneZeroExitCodeFromCache() throws IOException, InterruptedException {
     // Test that an ActionResult with a none-zero exit code is not accepted as cached.

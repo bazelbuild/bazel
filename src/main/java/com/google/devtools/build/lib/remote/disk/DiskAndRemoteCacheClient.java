@@ -65,11 +65,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
     try {
-      diskCache.uploadFile(digest, file).get();
+      diskCache.uploadFile(context, digest, file).get();
       if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
-        remoteCache.uploadFile(digest, file).get();
+        remoteCache.uploadFile(context, digest, file).get();
       }
     } catch (ExecutionException e) {
       return Futures.immediateFailedFuture(e.getCause());
@@ -80,11 +81,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try {
-      diskCache.uploadBlob(digest, data).get();
+      diskCache.uploadBlob(context, digest, data).get();
       if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
-        remoteCache.uploadBlob(digest, data).get();
+        remoteCache.uploadBlob(context, digest, data).get();
       }
     } catch (ExecutionException e) {
       return Futures.immediateFailedFuture(e.getCause());

@@ -25,6 +25,7 @@ import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc.FetchImplBase;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -37,6 +38,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -79,6 +83,7 @@ public class GrpcRemoteDownloaderTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
+  private RemoteActionExecutionContext context;
   private Context withEmptyMetadata;
   private Context prevContext;
   private ListeningScheduledExecutorService retryService;
@@ -92,9 +97,13 @@ public class GrpcRemoteDownloaderTest {
             .directExecutor()
             .build()
             .start();
-    withEmptyMetadata =
-        TracingMetadataUtils.contextWithMetadata(
-            "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(
+            "none",
+            "none",
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash());
+    context = new RemoteActionExecutionContextImpl(metadata, new NetworkTime());
+    withEmptyMetadata = TracingMetadataUtils.contextWithMetadata(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
@@ -189,7 +198,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
     final byte[] downloaded =
         downloadBlob(
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
@@ -225,7 +234,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
     final byte[] downloaded =
         downloadBlob(
             downloader,
@@ -263,7 +272,8 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(contentDigest, ByteString.copyFromUtf8("wrong content")));
+    getFromFuture(
+        cacheClient.uploadBlob(context, contentDigest, ByteString.copyFromUtf8("wrong content")));
 
     IOException e =
         assertThrows(

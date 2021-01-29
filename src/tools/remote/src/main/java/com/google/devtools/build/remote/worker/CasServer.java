@@ -68,12 +68,16 @@ final class CasServer extends ContentAddressableStorageImplBase {
   @Override
   public void batchUpdateBlobs(
       BatchUpdateBlobsRequest request, StreamObserver<BatchUpdateBlobsResponse> responseObserver) {
+    RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context =
+        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+
     BatchUpdateBlobsResponse.Builder batchResponse = BatchUpdateBlobsResponse.newBuilder();
     for (BatchUpdateBlobsRequest.Request r : request.getRequestsList()) {
       BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
       try {
         Digest digest = cache.getDigestUtil().compute(r.getData().toByteArray());
-        getFromFuture(cache.uploadBlob(digest, r.getData()));
+        getFromFuture(cache.uploadBlob(context, digest, r.getData()));
         if (!r.getDigest().equals(digest)) {
           String err =
               "Upload digest " + r.getDigest() + " did not match data digest: " + digest;
@@ -94,6 +98,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
     RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
     RemoteActionExecutionContext context =
         new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+
     // Directories are returned in depth-first order.  We store all previously-traversed digests so
     // identical subtrees having the same digest will only be traversed and returned once.
     Set<Digest> seenDigests = new HashSet<>();

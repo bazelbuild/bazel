@@ -333,7 +333,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
     ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
-    when(uploader.uploadBlobAsync(any(Digest.class), any(), anyBoolean()))
+    when(uploader.uploadBlobAsync(any(), any(Digest.class), any(), anyBoolean()))
         .thenReturn(Futures.immediateFuture(null));
     ByteStreamBuildEventArtifactUploader artifactUploader =
         newArtifactUploader(uploader, digestQuerier);
@@ -349,7 +349,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     // assert
     verify(digestQuerier).findMissingDigests(any());
-    verify(uploader).uploadBlobAsync(eq(localDigest), any(), anyBoolean());
+    verify(uploader).uploadBlobAsync(any(), eq(localDigest), any(), anyBoolean());
     assertThat(pathConverter.apply(remoteFile)).contains(remoteDigest.getHash());
     assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
   }
@@ -373,7 +373,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         uploader,
         missingDigestsFinder,
         "localhost",
-        withEmptyMetadata,
+        "none",
+        "none",
         "instance",
         /* maxUploadThreads= */ 100);
   }

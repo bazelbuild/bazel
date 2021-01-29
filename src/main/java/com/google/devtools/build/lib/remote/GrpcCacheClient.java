@@ -393,16 +393,22 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path path) {
     return uploader.uploadBlobAsync(
+        context,
         digest,
         Chunker.builder().setInput(digest.getSizeBytes(), path).build(),
         /* forceUpload= */ true);
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
     return uploader.uploadBlobAsync(
-        digest, Chunker.builder().setInput(data.toByteArray()).build(), /* forceUpload= */ true);
+        context,
+        digest,
+        Chunker.builder().setInput(data.toByteArray()).build(),
+        /* forceUpload= */ true);
   }
 }
