@@ -96,6 +96,11 @@ public final class Starlark {
   }
 
   /**
+   * Universal bindings index.
+   */
+  static final ImportedScopeObjects UNIVERSE_OBJECTS = ImportedScopeObjects.create(UNIVERSE);
+
+  /**
    * Reports whether the argument is a legal Starlark value: a string, boolean, or StarlarkValue.
    */
   public static boolean valid(Object x) {
