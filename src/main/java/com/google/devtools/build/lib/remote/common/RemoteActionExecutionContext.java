@@ -26,4 +26,9 @@ public interface RemoteActionExecutionContext {
    * execution.
    */
   NetworkTime getNetworkTime();
+
+  /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link RequestMetadata}. */
+  static RemoteActionExecutionContext create(RequestMetadata metadata) {
+    return new SimpleRemoteActionExecutionContext(metadata, new NetworkTime());
+  }
 }

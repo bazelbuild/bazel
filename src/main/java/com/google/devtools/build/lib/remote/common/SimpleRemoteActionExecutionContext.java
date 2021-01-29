@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.remote.common;
 import build.bazel.remote.execution.v2.RequestMetadata;
 
 /** A {@link RemoteActionExecutionContext} implementation */
-public class RemoteActionExecutionContextImpl implements RemoteActionExecutionContext {
+public class SimpleRemoteActionExecutionContext implements RemoteActionExecutionContext {
 
   private final RequestMetadata requestMetadata;
   private final NetworkTime networkTime;
 
-  public RemoteActionExecutionContextImpl(
+  public SimpleRemoteActionExecutionContext(
       RequestMetadata requestMetadata, NetworkTime networkTime) {
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;

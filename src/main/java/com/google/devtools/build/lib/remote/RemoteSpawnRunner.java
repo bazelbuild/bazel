@@ -35,6 +35,7 @@ import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -66,10 +67,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -91,7 +90,6 @@ import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
-import io.grpc.Context;
 import io.grpc.Status.Code;
 import java.io.IOException;
 import java.time.Duration;
@@ -243,169 +241,165 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Preconditions.checkArgument(
         Spawns.mayBeExecutedRemotely(spawn), "Spawn can't be executed remotely. This is a bug.");
-    NetworkTime networkTime = new NetworkTime();
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId, commandId, actionKey.getDigest().getHash());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        new RemoteActionExecutionContextImpl(
-            TracingMetadataUtils.buildMetadata(
-                buildRequestId, commandId, actionKey.getDigest().getHash()),
-            networkTime);
-    Context withMetadata =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey)
-            .withValue(NetworkTimeInterceptor.CONTEXT_KEY, networkTime);
-    Context previous = withMetadata.attach();
+        RemoteActionExecutionContext.create(metadata);
     Profiler prof = Profiler.instance();
     try {
-      try {
-        // Try to lookup the action in the action cache.
-        ActionResult cachedResult;
-        try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          cachedResult =
-              acceptCachedResult
-                  ? remoteCache.downloadActionResult(
-                      remoteActionExecutionContext, actionKey, /* inlineOutErr= */ false)
-                  : null;
-        }
-        if (cachedResult != null) {
-          if (cachedResult.getExitCode() != 0) {
-            // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
-            // actions (tests).
-            // Set acceptCachedResult to false in order to force the action re-execution
+      // Try to lookup the action in the action cache.
+      ActionResult cachedResult;
+      try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
+        cachedResult =
+            acceptCachedResult
+                ? remoteCache.downloadActionResult(
+                    remoteActionExecutionContext, actionKey, /* inlineOutErr= */ false)
+                : null;
+      }
+      if (cachedResult != null) {
+        if (cachedResult.getExitCode() != 0) {
+          // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
+          // actions (tests).
+          // Set acceptCachedResult to false in order to force the action re-execution
+          acceptCachedResult = false;
+        } else {
+          try {
+            return downloadAndFinalizeSpawnResult(
+                remoteActionExecutionContext,
+                actionKey.getDigest().getHash(),
+                cachedResult,
+                /* cacheHit= */ true,
+                spawn,
+                context,
+                remoteOutputsMode,
+                totalTime,
+                () -> remoteActionExecutionContext.getNetworkTime().getDuration(),
+                spawnMetrics);
+          } catch (BulkTransferException e) {
+            if (!e.onlyCausedByCacheNotFoundException()) {
+              throw e;
+            }
+            // No cache hit, so we fall through to local or remote execution.
+            // We set acceptCachedResult to false in order to force the action re-execution.
             acceptCachedResult = false;
-          } else {
+          }
+        }
+      }
+    } catch (IOException e) {
+      return execLocallyAndUploadOrFail(
+          remoteActionExecutionContext,
+          spawn,
+          context,
+          inputMap,
+          actionKey,
+          action,
+          command,
+          uploadLocalResults,
+          e);
+    }
+
+    ExecuteRequest.Builder requestBuilder =
+        ExecuteRequest.newBuilder()
+            .setInstanceName(remoteOptions.remoteInstanceName)
+            .setActionDigest(actionKey.getDigest())
+            .setSkipCacheLookup(!acceptCachedResult);
+    if (remoteOptions.remoteResultCachePriority != 0) {
+      requestBuilder
+          .getResultsCachePolicyBuilder()
+          .setPriority(remoteOptions.remoteResultCachePriority);
+    }
+    if (remoteOptions.remoteExecutionPriority != 0) {
+      requestBuilder.getExecutionPolicyBuilder().setPriority(remoteOptions.remoteExecutionPriority);
+    }
+    try {
+      return retrier.execute(
+          () -> {
+            ExecuteRequest request = requestBuilder.build();
+
+            // Upload the command and all the inputs into the remote cache.
+            try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
+              Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
+              additionalInputs.put(actionKey.getDigest(), action);
+              additionalInputs.put(commandHash, command);
+              Duration networkTimeStart =
+                  remoteActionExecutionContext.getNetworkTime().getDuration();
+              Stopwatch uploadTime = Stopwatch.createStarted();
+              remoteCache.ensureInputsPresent(
+                  remoteActionExecutionContext, merkleTree, additionalInputs);
+              // subtract network time consumed here to ensure wall clock during upload is not
+              // double
+              // counted, and metrics time computation does not exceed total time
+              spawnMetrics.setUploadTime(
+                  uploadTime
+                      .elapsed()
+                      .minus(
+                          remoteActionExecutionContext
+                              .getNetworkTime()
+                              .getDuration()
+                              .minus(networkTimeStart)));
+            }
+
+            ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
+            ExecuteResponse reply;
+            try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
+              reply =
+                  remoteExecutor.executeRemotely(remoteActionExecutionContext, request, reporter);
+            }
+            // In case of replies from server contains metadata, but none of them has EXECUTING
+            // status.
+            // It's already late at this stage, but we should at least report once.
+            reporter.reportExecutingIfNot();
+
+            FileOutErr outErr = context.getFileOutErr();
+            String message = reply.getMessage();
+            ActionResult actionResult = reply.getResult();
+            if ((actionResult.getExitCode() != 0 || reply.getStatus().getCode() != Code.OK.value())
+                && !message.isEmpty()) {
+              outErr.printErr(message + "\n");
+            }
+
+            spawnMetricsAccounting(spawnMetrics, actionResult.getExecutionMetadata());
+
+            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
+              maybeDownloadServerLogs(remoteActionExecutionContext, reply, actionKey);
+            }
+
             try {
               return downloadAndFinalizeSpawnResult(
                   remoteActionExecutionContext,
                   actionKey.getDigest().getHash(),
-                  cachedResult,
-                  /* cacheHit= */ true,
+                  actionResult,
+                  reply.getCachedResult(),
                   spawn,
                   context,
                   remoteOutputsMode,
                   totalTime,
-                  networkTime::getDuration,
+                  () -> remoteActionExecutionContext.getNetworkTime().getDuration(),
                   spawnMetrics);
             } catch (BulkTransferException e) {
-              if (!e.onlyCausedByCacheNotFoundException()) {
-                throw e;
+              if (e.onlyCausedByCacheNotFoundException()) {
+                // No cache hit, so if we retry this execution, we must no longer accept
+                // cached results, it must be reexecuted
+                requestBuilder.setSkipCacheLookup(true);
               }
-              // No cache hit, so we fall through to local or remote execution.
-              // We set acceptCachedResult to false in order to force the action re-execution.
-              acceptCachedResult = false;
+              throw e;
             }
-          }
-        }
-      } catch (IOException e) {
-        return execLocallyAndUploadOrFail(
-            remoteActionExecutionContext,
-            spawn,
-            context,
-            inputMap,
-            actionKey,
-            action,
-            command,
-            uploadLocalResults,
-            e);
-      }
-
-      ExecuteRequest.Builder requestBuilder =
-          ExecuteRequest.newBuilder()
-              .setInstanceName(remoteOptions.remoteInstanceName)
-              .setActionDigest(actionKey.getDigest())
-              .setSkipCacheLookup(!acceptCachedResult);
-      if (remoteOptions.remoteResultCachePriority != 0) {
-        requestBuilder
-            .getResultsCachePolicyBuilder()
-            .setPriority(remoteOptions.remoteResultCachePriority);
-      }
-      if (remoteOptions.remoteExecutionPriority != 0) {
-        requestBuilder
-            .getExecutionPolicyBuilder()
-            .setPriority(remoteOptions.remoteExecutionPriority);
-      }
-      try {
-        return retrier.execute(
-            () -> {
-              ExecuteRequest request = requestBuilder.build();
-
-              // Upload the command and all the inputs into the remote cache.
-              try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
-                Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-                additionalInputs.put(actionKey.getDigest(), action);
-                additionalInputs.put(commandHash, command);
-                Duration networkTimeStart = networkTime.getDuration();
-                Stopwatch uploadTime = Stopwatch.createStarted();
-                remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree, additionalInputs);
-                // subtract network time consumed here to ensure wall clock during upload is not
-                // double
-                // counted, and metrics time computation does not exceed total time
-                spawnMetrics.setUploadTime(
-                    uploadTime.elapsed().minus(networkTime.getDuration().minus(networkTimeStart)));
-              }
-
-              ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
-              ExecuteResponse reply;
-              try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-                reply = remoteExecutor.executeRemotely(request, reporter);
-              }
-              // In case of replies from server contains metadata, but none of them has EXECUTING
-              // status.
-              // It's already late at this stage, but we should at least report once.
-              reporter.reportExecutingIfNot();
-
-              FileOutErr outErr = context.getFileOutErr();
-              String message = reply.getMessage();
-              ActionResult actionResult = reply.getResult();
-              if ((actionResult.getExitCode() != 0
-                      || reply.getStatus().getCode() != Code.OK.value())
-                  && !message.isEmpty()) {
-                outErr.printErr(message + "\n");
-              }
-
-              spawnMetricsAccounting(spawnMetrics, actionResult.getExecutionMetadata());
-
-              try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
-                maybeDownloadServerLogs(remoteActionExecutionContext, reply, actionKey);
-              }
-
-              try {
-                return downloadAndFinalizeSpawnResult(
-                    remoteActionExecutionContext,
-                    actionKey.getDigest().getHash(),
-                    actionResult,
-                    reply.getCachedResult(),
-                    spawn,
-                    context,
-                    remoteOutputsMode,
-                    totalTime,
-                    networkTime::getDuration,
-                    spawnMetrics);
-              } catch (BulkTransferException e) {
-                if (e.onlyCausedByCacheNotFoundException()) {
-                  // No cache hit, so if we retry this execution, we must no longer accept
-                  // cached results, it must be reexecuted
-                  requestBuilder.setSkipCacheLookup(true);
-                }
-                throw e;
-              }
-            });
-      } catch (IOException e) {
-        return execLocallyAndUploadOrFail(
-            remoteActionExecutionContext,
-            spawn,
-            context,
-            inputMap,
-            actionKey,
-            action,
-            command,
-            uploadLocalResults,
-            e);
-      }
-    } finally {
-      withMetadata.detach(previous);
+          });
+    } catch (IOException e) {
+      return execLocallyAndUploadOrFail(
+          remoteActionExecutionContext,
+          spawn,
+          context,
+          inputMap,
+          actionKey,
+          action,
+          command,
+          uploadLocalResults,
+          e);
     }
   }
 

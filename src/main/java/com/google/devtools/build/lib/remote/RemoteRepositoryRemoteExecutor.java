@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -43,7 +41,6 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
-import io.grpc.Context;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
@@ -110,61 +107,48 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       throws IOException, InterruptedException {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "repository_rule");
-    Context requestCtx = TracingMetadataUtils.contextWithMetadata(metadata);
-    Context prev = requestCtx.attach();
-    try {
-      Platform platform = PlatformUtils.buildPlatformProto(executionProperties);
-      Command command =
-          RemoteSpawnRunner.buildCommand(
-              /* outputs= */ ImmutableList.of(),
-              arguments,
-              environment,
-              platform,
-              workingDirectory);
-      Digest commandHash = digestUtil.compute(command);
-      MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
-      Action action =
-          RemoteSpawnRunner.buildAction(
-              commandHash, merkleTree.getRootDigest(), timeout, acceptCached);
-      Digest actionDigest = digestUtil.compute(action);
-      ActionKey actionKey = new ActionKey(actionDigest);
-      RemoteActionExecutionContext remoteActionExecutionContext =
-          new RemoteActionExecutionContextImpl(metadata, new NetworkTime());
-      ActionResult actionResult;
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-        actionResult =
-            remoteCache.downloadActionResult(
-                remoteActionExecutionContext, actionKey, /* inlineOutErr= */ true);
-      }
-      if (actionResult == null || actionResult.getExitCode() != 0) {
-        try (SilentCloseable c =
-            Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload missing inputs")) {
-          Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-          additionalInputs.put(actionDigest, action);
-          additionalInputs.put(commandHash, command);
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
-          remoteCache.ensureInputsPresent(
-              remoteActionExecutionContext, merkleTree, additionalInputs);
-        }
-
-        try (SilentCloseable c =
-            Profiler.instance().profile(ProfilerTask.REMOTE_EXECUTION, "execute remotely")) {
-          ExecuteRequest executeRequest =
-              ExecuteRequest.newBuilder()
-                  .setActionDigest(actionDigest)
-                  .setInstanceName(remoteInstanceName)
-                  .setSkipCacheLookup(!acceptCached)
-                  .build();
-
-          ExecuteResponse response =
-              remoteExecutor.executeRemotely(executeRequest, OperationObserver.NO_OP);
-          actionResult = response.getResult();
-        }
-      }
-      return downloadOutErr(remoteActionExecutionContext, actionResult);
-    } finally {
-      requestCtx.detach(prev);
+    Platform platform = PlatformUtils.buildPlatformProto(executionProperties);
+    Command command =
+        RemoteSpawnRunner.buildCommand(
+            /* outputs= */ ImmutableList.of(), arguments, environment, platform, workingDirectory);
+    Digest commandHash = digestUtil.compute(command);
+    MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
+    Action action =
+        RemoteSpawnRunner.buildAction(
+            commandHash, merkleTree.getRootDigest(), timeout, acceptCached);
+    Digest actionDigest = digestUtil.compute(action);
+    ActionKey actionKey = new ActionKey(actionDigest);
+    ActionResult actionResult;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
+      actionResult = remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
     }
+    if (actionResult == null || actionResult.getExitCode() != 0) {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload missing inputs")) {
+        Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
+        additionalInputs.put(actionDigest, action);
+        additionalInputs.put(commandHash, command);
+
+        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs);
+      }
+
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.REMOTE_EXECUTION, "execute remotely")) {
+        ExecuteRequest executeRequest =
+            ExecuteRequest.newBuilder()
+                .setActionDigest(actionDigest)
+                .setInstanceName(remoteInstanceName)
+                .setSkipCacheLookup(!acceptCached)
+                .build();
+
+        ExecuteResponse response =
+            remoteExecutor.executeRemotely(context, executeRequest, OperationObserver.NO_OP);
+        actionResult = response.getResult();
+      }
+    }
+    return downloadOutErr(context, actionResult);
   }
 }

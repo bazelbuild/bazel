@@ -18,7 +18,6 @@ import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
@@ -46,18 +45,6 @@ public class TracingMetadataUtils {
   public static final Metadata.Key<RequestMetadata> METADATA_KEY =
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
-  /**
-   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
-   * accessible by the {@link fromCurrentContext()} method.
-   *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
-   * version.
-   */
-  public static Context contextWithMetadata(
-      String buildRequestId, String commandId, ActionKey actionKey) {
-    return contextWithMetadata(buildRequestId, commandId, actionKey.getDigest().getHash());
-  }
-
   public static RequestMetadata buildMetadata(
       String buildRequestId, String commandId, String actionId) {
     Preconditions.checkNotNull(buildRequestId);
@@ -75,26 +62,9 @@ public class TracingMetadataUtils {
   }
 
   /**
-   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
-   * accessible by the {@link fromCurrentContext()} method.
-   *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
-   * version.
-   */
-  public static Context contextWithMetadata(
-      String buildRequestId, String commandId, String actionId) {
-    RequestMetadata metadata = buildMetadata(buildRequestId, commandId, actionId);
-    return contextWithMetadata(metadata);
-  }
-
-  public static Context contextWithMetadata(RequestMetadata metadata) {
-    return Context.current().withValue(CONTEXT_KEY, metadata);
-  }
-
-  /**
    * Fetches a {@link RequestMetadata} defined on the current context.
    *
-   * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
+   * @throws IllegalStateException when the metadata is not defined in the current context.
    */
   public static RequestMetadata fromCurrentContext() {
     RequestMetadata metadata = CONTEXT_KEY.get();
@@ -102,16 +72,6 @@ public class TracingMetadataUtils {
       throw new IllegalStateException("RequestMetadata not set in current context.");
     }
     return metadata;
-  }
-
-  /**
-   * Creates a {@link Metadata} containing the {@link RequestMetadata} defined on the current
-   * context.
-   *
-   * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
-   */
-  public static Metadata headersFromCurrentContext() {
-    return headersFromRequestMetadata(fromCurrentContext());
   }
 
   /** Creates a {@link Metadata} containing the {@link RequestMetadata}. */
@@ -127,10 +87,6 @@ public class TracingMetadataUtils {
    */
   public static @Nullable RequestMetadata requestMetadataFromHeaders(Metadata headers) {
     return headers.get(METADATA_KEY);
-  }
-
-  public static ClientInterceptor attachMetadataFromContextInterceptor() {
-    return MetadataUtils.newAttachHeadersInterceptor(headersFromCurrentContext());
   }
 
   public static ClientInterceptor attachMetadataInterceptor(RequestMetadata requestMetadata) {

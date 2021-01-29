@@ -62,7 +62,7 @@ public class RemoteExecutionCache extends RemoteCache {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
-        getFromFuture(cacheProtocol.findMissingDigests(allDigests));
+        getFromFuture(cacheProtocol.findMissingDigests(context, allDigests));
 
     List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
     for (Digest missingDigest : missingDigests) {

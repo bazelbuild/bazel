@@ -208,7 +208,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    *     boolean)} instead.
    */
   @Deprecated
-  @VisibleForTesting
   public ListenableFuture<Void> uploadBlobAsync(
       RemoteActionExecutionContext context, HashCode hash, Chunker chunker, boolean forceUpload) {
     Digest digest =

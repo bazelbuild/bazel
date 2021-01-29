@@ -33,15 +33,12 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
-import io.grpc.Context;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -167,48 +164,42 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
       if (download == null) {
         RequestMetadata requestMetadata =
             TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId());
-        RemoteActionExecutionContext remoteActionExecutionContext =
-            new RemoteActionExecutionContextImpl(requestMetadata, new NetworkTime());
-        Context ctx = TracingMetadataUtils.contextWithMetadata(requestMetadata);
-        Context prevCtx = ctx.attach();
-        try {
-          Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-          download = remoteCache.downloadFile(remoteActionExecutionContext, path, digest);
-          downloadsInProgress.put(path, download);
-          Futures.addCallback(
-              download,
-              new FutureCallback<Void>() {
-                @Override
-                public void onSuccess(Void v) {
-                  synchronized (lock) {
-                    downloadsInProgress.remove(path);
-                    downloadedPaths.add(path);
-                  }
+        RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
-                  try {
-                    path.chmod(0755);
-                  } catch (IOException e) {
-                    logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
-                  }
+        Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+        download = remoteCache.downloadFile(context, path, digest);
+        downloadsInProgress.put(path, download);
+        Futures.addCallback(
+            download,
+            new FutureCallback<Void>() {
+              @Override
+              public void onSuccess(Void v) {
+                synchronized (lock) {
+                  downloadsInProgress.remove(path);
+                  downloadedPaths.add(path);
                 }
 
-                @Override
-                public void onFailure(Throwable t) {
-                  synchronized (lock) {
-                    downloadsInProgress.remove(path);
-                  }
-                  try {
-                    path.delete();
-                  } catch (IOException e) {
-                    logger.atWarning().withCause(e).log(
-                        "Failed to delete output file after incomplete download: %s", path);
-                  }
+                try {
+                  path.chmod(0755);
+                } catch (IOException e) {
+                  logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
                 }
-              },
-              MoreExecutors.directExecutor());
-        } finally {
-          ctx.detach(prevCtx);
-        }
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                synchronized (lock) {
+                  downloadsInProgress.remove(path);
+                }
+                try {
+                  path.delete();
+                } catch (IOException e) {
+                  logger.atWarning().withCause(e).log(
+                      "Failed to delete output file after incomplete download: %s", path);
+                }
+              }
+            },
+            MoreExecutors.directExecutor());
       }
       return download;
     }
