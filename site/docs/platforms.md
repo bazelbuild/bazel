@@ -178,7 +178,7 @@ FAILED: Build did NOT complete successfully
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
-[`constraint_value`](platform.html#constraint_value) that no platform
+[`constraint_value`](be/platforms.html#constraint_value) that no platform
 satisfies.
 
 Use [`select()`](functions.html#select) in combination with
@@ -195,7 +195,7 @@ cc_library(
         "@platforms//os:osx": [],
         "@platforms//os:linux": [],
         "//conditions:default": ["@platforms//:incompatible"],
-    ],
+    }),
 )
 ```
 
