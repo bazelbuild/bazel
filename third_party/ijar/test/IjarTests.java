@@ -401,8 +401,10 @@ public class IjarTests {
 
   @Test
   public void testPreserveManifestSections() throws Exception {
-    try (JarFile stripped = new JarFile(
-        "third_party/ijar/test/jar-with-manifest-sections-nostrip.jar")) {
+    try (JarFile original = new JarFile(
+        "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar");
+        JarFile stripped = new JarFile(
+            "third_party/ijar/test/jar-with-manifest-sections-nostrip.jar")) {
       ImmutableList<String> strippedEntries =
           stripped.stream().map(JarEntry::getName).collect(toImmutableList());
 
@@ -411,6 +413,7 @@ public class IjarTests {
       Manifest manifest = stripped.getManifest();
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
 
       Attributes sectionAttributes1 = manifest.getAttributes("foo");
       assertThat(sectionAttributes1.getValue("Foo")).isEqualTo("bar");
@@ -422,8 +425,11 @@ public class IjarTests {
 
   @Test
   public void testPreserveManifestSectionsAndUpdateExistingTargetLabel() throws Exception {
-    try (JarFile stripped = new JarFile(
-        "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar")) {
+    try (JarFile original = new JarFile(
+        "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar");
+        JarFile stripped = new JarFile(
+            "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar")
+    ) {
       ImmutableList<String> strippedEntries =
           stripped.stream().map(JarEntry::getName).collect(toImmutableList());
 
@@ -432,6 +438,7 @@ public class IjarTests {
       Manifest manifest = stripped.getManifest();
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
 
       Attributes sectionAttributes1 = manifest.getAttributes("foo");
       assertThat(sectionAttributes1.getValue("Foo")).isEqualTo("bar");
