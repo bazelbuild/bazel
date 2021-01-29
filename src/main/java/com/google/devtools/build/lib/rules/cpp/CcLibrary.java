@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DeniedImplicitOutputMarkerProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
@@ -500,7 +501,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       RuleConfiguredTargetBuilder targetBuilder, RuleContext ruleContext) {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         && !Allowlist.isAvailable(ruleContext, IMPLICIT_OUTPUTS_ALLOWLIST)) {
-      targetBuilder.addNativeDeclaredProvider(new DeniedImplicitOutputMarkerProvider());
+      targetBuilder.addNativeDeclaredProvider(
+          new DeniedImplicitOutputMarkerProvider(
+              String.format(
+                  "Using implicit outputs from cc_library (%s) is forbidden. Use the rule"
+                      + " cc_implicit_output as an alternative.",
+                  ruleContext.getLabel())));
     }
   }
 

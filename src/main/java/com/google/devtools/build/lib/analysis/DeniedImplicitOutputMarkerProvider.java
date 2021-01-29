@@ -12,18 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.cpp;
+package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 
-/** TODO(plf): Remove once implicit outputs are removed from cc_library */
+/**
+ * A provider used to signal the denial of implicit outputs.
+ *
+ * <p>Used to facilitate migration away from using implicit outputs.
+ */
 @Immutable
 public class DeniedImplicitOutputMarkerProvider extends NativeInfo {
   public static final BuiltinProvider<DeniedImplicitOutputMarkerProvider> PROVIDER =
       new BuiltinProvider<DeniedImplicitOutputMarkerProvider>(
           "DeniedImplicitOutputMarkerProvider", DeniedImplicitOutputMarkerProvider.class) {};
+
+  private final String errorMessage;
+
+  public DeniedImplicitOutputMarkerProvider(String errorMessage) {
+    this.errorMessage = errorMessage;
+  }
+
+  public String getErrorMessage() {
+    return errorMessage;
+  }
 
   @Override
   public BuiltinProvider<DeniedImplicitOutputMarkerProvider> getProvider() {

@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.rules.cpp.DeniedImplicitOutputMarkerProvider;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -90,10 +89,6 @@ import net.starlark.java.eval.Mutability;
  */
 @ThreadSafe
 public final class ConfiguredTargetFactory {
-
-  public static final String CC_LIB_IMPLICIT_OUTPUTS_ERROR =
-      "Using implicit outputs from cc_library (%s) is forbidden. Use"
-          + " the rule cc_implicit_output as an alternative.";
 
   // This class is not meant to be outside of the analysis phase machinery and is only public
   // in order to be accessible from the .view.skyframe package.
@@ -232,10 +227,10 @@ public final class ConfiguredTargetFactory {
       Verify.verifyNotNull(rule);
       Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
 
-      if (rule.get(DeniedImplicitOutputMarkerProvider.PROVIDER) != null) {
-        analysisEnvironment
-            .getEventHandler()
-            .handle(Event.error(String.format(CC_LIB_IMPLICIT_OUTPUTS_ERROR, rule.getLabel())));
+      DeniedImplicitOutputMarkerProvider deniedProvider =
+          rule.get(DeniedImplicitOutputMarkerProvider.PROVIDER);
+      if (deniedProvider != null) {
+        analysisEnvironment.getEventHandler().handle(Event.error(deniedProvider.getErrorMessage()));
         return null;
       }
 

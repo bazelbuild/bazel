@@ -321,6 +321,7 @@ java_library(
         ":constraints/environment_collection",
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
+        ":denied_implicit_outputs_marker_provider",
         ":dependency",
         ":dependency_key",
         ":dependency_kind",
@@ -406,7 +407,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:denied_implicit_outputs_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
@@ -707,6 +707,15 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "denied_implicit_outputs_marker_provider",
+    srcs = ["DeniedImplicitOutputMarkerProvider.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
