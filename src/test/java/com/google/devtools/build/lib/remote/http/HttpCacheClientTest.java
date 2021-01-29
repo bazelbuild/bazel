@@ -32,9 +32,7 @@ import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -301,10 +299,9 @@ public class HttpCacheClientTest {
   @Before
   public void setUp() throws Exception {
     remoteActionExecutionContext =
-        new RemoteActionExecutionContextImpl(
+        RemoteActionExecutionContext.create(
             TracingMetadataUtils.buildMetadata(
-                "none", "none", Digest.getDefaultInstance().getHash()),
-            new NetworkTime());
+                "none", "none", Digest.getDefaultInstance().getHash()));
   }
 
   @Test

@@ -26,9 +26,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -72,8 +70,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
   @Override
   public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
     RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-    RemoteActionExecutionContext context =
-        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
     Digest digest = parseDigestFromResourceName(request.getResourceName());
 
     if (digest == null) {
@@ -104,8 +101,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
   @Override
   public StreamObserver<WriteRequest> write(final StreamObserver<WriteResponse> responseObserver) {
     RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-    RemoteActionExecutionContext context =
-        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
 
     Path temp = workPath.getRelative("upload").getRelative(UUID.randomUUID().toString());
     try {

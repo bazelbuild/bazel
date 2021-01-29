@@ -29,9 +29,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStrea
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -118,7 +116,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader");
     RemoteActionExecutionContext remoteActionExecutionContext =
-        new RemoteActionExecutionContextImpl(metadata, new NetworkTime());
+        RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
         newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);

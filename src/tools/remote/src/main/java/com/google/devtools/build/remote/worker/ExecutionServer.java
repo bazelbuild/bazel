@@ -37,9 +37,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -56,7 +54,6 @@ import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
-import io.grpc.Context;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
@@ -202,9 +199,12 @@ final class ExecutionServer extends ExecutionImplBase {
 
   @Override
   public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+    RequestMetadata metadata = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
+
     final String opName = UUID.randomUUID().toString();
     ListenableFuture<ActionResult> future =
-        executorService.submit(Context.current().wrap(() -> execute(request, opName)));
+        executorService.submit(() -> execute(context, request, opName));
     operationsCache.put(opName, future);
     // Send the first operation.
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
@@ -213,20 +213,19 @@ final class ExecutionServer extends ExecutionImplBase {
   }
 
   @SuppressWarnings("LogAndThrow")
-  private ActionResult execute(ExecuteRequest request, String id)
+  private ActionResult execute(
+      RemoteActionExecutionContext context, ExecuteRequest request, String id)
       throws IOException, InterruptedException, StatusException {
     Path tempRoot = workPath.getRelative("build-" + id);
     String workDetails = "";
     try {
       tempRoot.createDirectory();
-      RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+      RequestMetadata meta = context.getRequestMetadata();
       workDetails =
           String.format(
               "build-request-id: %s command-id: %s action-id: %s",
               meta.getCorrelatedInvocationsId(), meta.getToolInvocationId(), meta.getActionId());
       logger.atFine().log("Received work for: %s", workDetails);
-      RemoteActionExecutionContext context =
-          new RemoteActionExecutionContextImpl(meta, new NetworkTime());
       ActionResult result = execute(context, request.getActionDigest(), tempRoot);
       logger.atFine().log("Completed %s", workDetails);
       return result;

@@ -38,9 +38,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -53,7 +51,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
-import io.grpc.Context;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -84,8 +81,6 @@ public class GrpcRemoteDownloaderTest {
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
   private RemoteActionExecutionContext context;
-  private Context withEmptyMetadata;
-  private Context prevContext;
   private ListeningScheduledExecutorService retryService;
 
   @Before
@@ -102,18 +97,13 @@ public class GrpcRemoteDownloaderTest {
             "none",
             "none",
             DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash());
-    context = new RemoteActionExecutionContextImpl(metadata, new NetworkTime());
-    withEmptyMetadata = TracingMetadataUtils.contextWithMetadata(metadata);
+    context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-
-    prevContext = withEmptyMetadata.attach();
   }
 
   @After
   public void tearDown() throws Exception {
-    withEmptyMetadata.detach(prevContext);
-
     retryService.shutdownNow();
     retryService.awaitTermination(
         com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);

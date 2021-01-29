@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -48,9 +49,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -125,7 +123,6 @@ final class RemoteSpawnCache implements SpawnCache {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
 
-    NetworkTime networkTime = new NetworkTime();
     Stopwatch totalTime = Stopwatch.createStarted();
 
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
@@ -154,14 +151,11 @@ final class RemoteSpawnCache implements SpawnCache {
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId, commandId, actionKey.getDigest().getHash());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        new RemoteActionExecutionContextImpl(
-            TracingMetadataUtils.buildMetadata(
-                buildRequestId, commandId, actionKey.getDigest().getHash()),
-            networkTime);
-    Context withMetadata =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey)
-            .withValue(NetworkTimeInterceptor.CONTEXT_KEY, networkTime);
+        RemoteActionExecutionContext.create(metadata);
 
     Profiler prof = Profiler.instance();
     if (options.remoteAcceptCached
@@ -169,7 +163,6 @@ final class RemoteSpawnCache implements SpawnCache {
       context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
-      Context previous = withMetadata.attach();
       try {
         ActionResult result;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
@@ -220,7 +213,7 @@ final class RemoteSpawnCache implements SpawnCache {
           spawnMetrics
               .setFetchTime(fetchTime.elapsed())
               .setTotalTime(totalTime.elapsed())
-              .setNetworkTime(networkTime.getDuration());
+              .setNetworkTime(remoteActionExecutionContext.getNetworkTime().getDuration());
           SpawnResult spawnResult =
               createSpawnResult(
                   result.getExitCode(),
@@ -250,8 +243,6 @@ final class RemoteSpawnCache implements SpawnCache {
           errorMessage = "Reading from Remote Cache:\n" + errorMessage;
           report(Event.warn(errorMessage));
         }
-      } finally {
-        withMetadata.detach(previous);
       }
     }
 
@@ -291,7 +282,6 @@ final class RemoteSpawnCache implements SpawnCache {
             }
           }
 
-          Context previous = withMetadata.attach();
           Collection<Path> files =
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
           try (SilentCloseable c = prof.profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
@@ -316,8 +306,6 @@ final class RemoteSpawnCache implements SpawnCache {
             }
             errorMessage = "Writing to Remote Cache:\n" + errorMessage;
             report(Event.warn(errorMessage));
-          } finally {
-            withMetadata.detach(previous);
           }
         }
 

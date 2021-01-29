@@ -129,7 +129,8 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+      RemoteActionExecutionContext context, Iterable<Digest> digests) {
     ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
     for (Digest digest : digests) {
       if (!cas.containsKey(digest)) {

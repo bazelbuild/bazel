@@ -30,13 +30,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import io.grpc.Context;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
@@ -161,7 +158,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    */
   private ListenableFuture<ImmutableIterable<PathMetadata>> queryRemoteCache(
       ImmutableList<ListenableFuture<PathMetadata>> allPaths) throws Exception {
-    Context ctx = TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, "bes-upload");
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     List<PathMetadata> knownRemotePaths = new ArrayList<>(allPaths.size());
     List<PathMetadata> filesToQuery = new ArrayList<>();
@@ -181,7 +180,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return Futures.immediateFuture(ImmutableIterable.from(knownRemotePaths));
     }
     return Futures.transform(
-        ctx.call(() -> missingDigestsFinder.findMissingDigests(digestsToQuery)),
+        missingDigestsFinder.findMissingDigests(context, digestsToQuery),
         (missingDigests) -> {
           List<PathMetadata> filesToQueryUpdated = processQueryResult(missingDigests, filesToQuery);
           return ImmutableIterable.from(Iterables.concat(knownRemotePaths, filesToQueryUpdated));
@@ -197,8 +196,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       ImmutableIterable<PathMetadata> allPaths) {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");
-    RemoteActionExecutionContext context =
-        new RemoteActionExecutionContextImpl(metadata, new NetworkTime());
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     ImmutableList.Builder<ListenableFuture<PathMetadata>> allPathsUploaded =
         ImmutableList.builder();

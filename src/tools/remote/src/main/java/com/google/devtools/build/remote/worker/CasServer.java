@@ -29,9 +29,7 @@ import build.bazel.remote.execution.v2.GetTreeResponse;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
@@ -69,8 +67,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
   public void batchUpdateBlobs(
       BatchUpdateBlobsRequest request, StreamObserver<BatchUpdateBlobsResponse> responseObserver) {
     RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-    RemoteActionExecutionContext context =
-        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
 
     BatchUpdateBlobsResponse.Builder batchResponse = BatchUpdateBlobsResponse.newBuilder();
     for (BatchUpdateBlobsRequest.Request r : request.getRequestsList()) {
@@ -96,8 +93,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
   @Override
   public void getTree(GetTreeRequest request, StreamObserver<GetTreeResponse> responseObserver) {
     RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-    RemoteActionExecutionContext context =
-        new RemoteActionExecutionContextImpl(meta, new NetworkTime());
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
 
     // Directories are returned in depth-first order.  We store all previously-traversed digests so
     // identical subtrees having the same digest will only be traversed and returned once.

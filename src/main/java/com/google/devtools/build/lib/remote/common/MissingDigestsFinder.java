@@ -26,5 +26,6 @@ public interface MissingDigestsFinder {
    *
    * @param digests The list of digests to look for.
    */
-  ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests);
+  ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+      RemoteActionExecutionContext context, Iterable<Digest> digests);
 }

@@ -21,9 +21,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContextImpl;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -46,8 +44,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
       RequestMetadata requestMetadata = TracingMetadataUtils.fromCurrentContext();
-      RemoteActionExecutionContext context =
-          new RemoteActionExecutionContextImpl(requestMetadata, new NetworkTime());
+      RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
       ActionResult result =
@@ -71,8 +68,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
       RequestMetadata requestMetadata = TracingMetadataUtils.fromCurrentContext();
-      RemoteActionExecutionContext context =
-          new RemoteActionExecutionContextImpl(requestMetadata, new NetworkTime());
+      RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
       cache.uploadActionResult(context, actionKey, request.getActionResult());

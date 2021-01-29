@@ -89,7 +89,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Assert
     verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
     // Don't fallback to execution
-    verify(remoteExecutor, never()).executeRemotely(any(), any());
+    verify(remoteExecutor, never()).executeRemotely(any(), any(), any());
 
     assertThat(executionResult.exitCode()).isEqualTo(0);
   }
@@ -104,7 +104,7 @@ public class RemoteRepositoryRemoteExecutorTest {
         .thenReturn(cachedResult);
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
-    when(remoteExecutor.executeRemotely(any(), any())).thenReturn(response);
+    when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
 
     // Act
     ExecutionResult executionResult =
@@ -119,7 +119,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Assert
     verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
     // Fallback to execution
-    verify(remoteExecutor).executeRemotely(any(), any());
+    verify(remoteExecutor).executeRemotely(any(), any(), any());
 
     assertThat(executionResult.exitCode()).isEqualTo(1);
   }
@@ -141,7 +141,7 @@ public class RemoteRepositoryRemoteExecutorTest {
         .thenReturn(cachedResult);
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
-    when(remoteExecutor.executeRemotely(any(), any())).thenReturn(response);
+    when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
 
     // Act
     ExecutionResult executionResult =

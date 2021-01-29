@@ -19,7 +19,6 @@ import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
-import io.grpc.Context;
 import io.grpc.ForwardingClientCall;
 import io.grpc.ForwardingClientCallListener;
 import io.grpc.Metadata;
@@ -30,7 +29,6 @@ import java.util.function.Supplier;
 /** The ClientInterceptor used to track network time. */
 public class NetworkTimeInterceptor implements ClientInterceptor {
 
-  public static final Context.Key<NetworkTime> CONTEXT_KEY = Context.key("remote-network-time");
   private final Supplier<NetworkTime> networkTimeSupplier;
 
   public NetworkTimeInterceptor(Supplier<NetworkTime> networkTimeSupplier) {

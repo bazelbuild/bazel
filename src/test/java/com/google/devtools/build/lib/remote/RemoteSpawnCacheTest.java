@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -97,6 +96,9 @@ import org.mockito.stubbing.Answer;
 public class RemoteSpawnCacheTest {
   private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
       (artifact, output) -> output.add(artifact);
+
+  private static final String BUILD_REQUEST_ID = "build-req-id";
+  private static final String COMMAND_ID = "command-id";
 
   private FileSystem fs;
   private DigestUtil digestUtil;
@@ -201,8 +203,8 @@ public class RemoteSpawnCacheTest {
         options,
         /* verboseFailures=*/ true,
         remoteCache,
-        "build-req-id",
-        "command-id",
+        BUILD_REQUEST_ID,
+        COMMAND_ID,
         reporter,
         digestUtil,
         /* filesToDownload= */ ImmutableSet.of());
@@ -244,9 +246,10 @@ public class RemoteSpawnCacheTest {
             new Answer<ActionResult>() {
               @Override
               public ActionResult answer(InvocationOnMock invocation) {
-                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                RemoteActionExecutionContext context = invocation.getArgument(0);
+                RequestMetadata meta = context.getRequestMetadata();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
+                assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
                 return actionResult;
               }
             });
@@ -254,9 +257,10 @@ public class RemoteSpawnCacheTest {
             new Answer<Void>() {
               @Override
               public Void answer(InvocationOnMock invocation) {
-                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                RemoteActionExecutionContext context = invocation.getArgument(0);
+                RequestMetadata meta = context.getRequestMetadata();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
+                assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
                 return null;
               }
             })
@@ -302,9 +306,10 @@ public class RemoteSpawnCacheTest {
             new Answer<Void>() {
               @Override
               public Void answer(InvocationOnMock invocation) {
-                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                RemoteActionExecutionContext context = invocation.getArgument(0);
+                RequestMetadata meta = context.getRequestMetadata();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
+                assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
                 return null;
               }
             })
@@ -564,9 +569,10 @@ public class RemoteSpawnCacheTest {
             new Answer<Void>() {
               @Override
               public Void answer(InvocationOnMock invocation) {
-                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                RemoteActionExecutionContext context = invocation.getArgument(0);
+                RequestMetadata meta = context.getRequestMetadata();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
+                assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
                 return null;
               }
             })
@@ -613,9 +619,10 @@ public class RemoteSpawnCacheTest {
             new Answer<ActionResult>() {
               @Override
               public ActionResult answer(InvocationOnMock invocation) {
-                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                RemoteActionExecutionContext context = invocation.getArgument(0);
+                RequestMetadata meta = context.getRequestMetadata();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
+                assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
                 return actionResult;
               }
             });
@@ -637,9 +644,10 @@ public class RemoteSpawnCacheTest {
             new Answer<Void>() {
               @Override
               public Void answer(InvocationOnMock invocation) {
-                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                RemoteActionExecutionContext context = invocation.getArgument(0);
+                RequestMetadata meta = context.getRequestMetadata();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
+                assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
                 return null;
               }
             })
