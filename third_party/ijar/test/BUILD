@@ -153,6 +153,14 @@ genrule(
 )
 
 genrule(
+    name = "jar_with_target_label_and_manifest_sections",
+    srcs = ["jar-with-target-label-and-manifest-sections.jar"],
+    outs = ["jar-with-target-label-and-manifest-sections-nostrip.jar"],
+    cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+genrule(
     name = "jar_without_manifest_nostrip_idempotence",
     srcs = ["jar-without-manifest-nostrip.jar"],
     outs = ["jar-without-manifest-nostrip-idempotence.jar"],
@@ -324,6 +332,7 @@ java_test(
         ":jar_with_manifest_and_target_label_nostrip",
         ":jar_with_manifest_nostrip",
         ":jar_with_manifest_sections",
+        ":jar_with_target_label_and_manifest_sections",
         ":jar_without_manifest_nostrip",
         ":jar_without_manifest_nostrip_idempotence",
         ":kotlin_module-interface.jar",
