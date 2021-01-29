@@ -50,8 +50,8 @@ import java.util.logging.Level;
 @Command(
     name = "canonicalize-flags",
     options = {CanonicalizeCommand.Options.class, PackageOptions.class},
-    // inherits from query to get proper package loading options.
-    inherits = {QueryCommand.class},
+    // inherits from build to get proper package loading options and rc flag aliases.
+    inherits = {BuildCommand.class},
     allowResidue = true,
     mustRunInWorkspace = false,
     shortDescription = "Canonicalizes a list of %{product} options.",
