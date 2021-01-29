@@ -285,12 +285,34 @@ public final class Resolver extends NodeVisitor {
    */
   public interface Module {
 
+    /** Name resolve result. */
+    class ResolvedName {
+      private final Scope scope;
+      private final int nameIndex;
+
+      private ResolvedName(Scope scope, int nameIndex) {
+        this.scope = scope;
+        this.nameIndex = nameIndex;
+      }
+
+      /** Binding is non-local and occurs outside any function or comprehension. */
+      public static final ResolvedName GLOBAL = new ResolvedName(Scope.GLOBAL, -1);
+      /** Binding is predeclared by the application (e.g. glob in Bazel). */
+      public static final ResolvedName PREDECLARED = new ResolvedName(Scope.PREDECLARED, -1);
+
+      /** Binding is predeclared by the core (e.g. None). */
+      public static ResolvedName universal(int nameIndex) {
+        Preconditions.checkArgument(nameIndex >= 0);
+        return new ResolvedName(Scope.UNIVERSAL, nameIndex);
+      }
+    }
+
     /**
      * Resolves a name to a GLOBAL, PREDECLARED, or UNIVERSAL binding.
      *
      * @throws Undefined if the name is not defined.
      */
-    Scope resolve(String name) throws Undefined;
+    ResolvedName resolve(String name) throws Undefined;
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}
@@ -316,7 +338,7 @@ public final class Resolver extends NodeVisitor {
     ImmutableSet<String> predeclared = ImmutableSet.copyOf(names);
     return (name) -> {
       if (predeclared.contains(name)) {
-        return Scope.PREDECLARED;
+        return Module.ResolvedName.PREDECLARED;
       }
       throw new Resolver.Module.Undefined(
           String.format("name '%s' is not defined", name), predeclared);
@@ -484,9 +506,9 @@ public final class Resolver extends NodeVisitor {
     if (bind != null) {
       return bind;
     }
-    Scope scope;
+    Module.ResolvedName resolvedName;
     try {
-      scope = module.resolve(name);
+      resolvedName = module.resolve(name);
     } catch (Resolver.Module.Undefined ex) {
       if (!Identifier.isValid(name)) {
         // If Identifier was created by Parser.makeErrorExpression, it
@@ -502,18 +524,20 @@ public final class Resolver extends NodeVisitor {
       }
       return null;
     }
-    switch (scope) {
+    switch (resolvedName.scope) {
       case GLOBAL:
-        bind = new Binding(scope, globals.size(), id);
+        bind = new Binding(Scope.GLOBAL, globals.size(), id);
         // Accumulate globals in module.
         globals.add(name);
         break;
       case PREDECLARED:
+        bind = new Binding(resolvedName.scope, 0, id); // index not used
+        break;
       case UNIVERSAL:
-        bind = new Binding(scope, 0, id); // index not used
+        bind = new Binding(resolvedName.scope, resolvedName.nameIndex, id);
         break;
       default:
-        throw new IllegalStateException("bad scope: " + scope);
+        throw new IllegalStateException("unreachable");
     }
     toplevel.put(name, bind);
     return bind;

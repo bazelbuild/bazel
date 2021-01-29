@@ -25,6 +25,7 @@ java_library(
         "FlagGuardedValue.java",
         "FormatParser.java",
         "HasBinary.java",
+        "ImportedScopeObjects.java",
         "JNI.java",
         "MethodDescriptor.java",
         "MethodLibrary.java",

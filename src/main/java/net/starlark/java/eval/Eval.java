@@ -699,7 +699,7 @@ final class Eval {
         result = fn(fr).getModule().getPredeclared(id.getName());
         break;
       case UNIVERSAL:
-        result = Starlark.UNIVERSE.get(id.getName());
+        result = Starlark.UNIVERSE_OBJECTS.valueByIndex(bind.getIndex());
         break;
       default:
         throw new IllegalStateException(bind.toString());
