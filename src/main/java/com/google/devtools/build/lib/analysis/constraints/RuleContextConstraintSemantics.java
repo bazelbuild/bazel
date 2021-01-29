@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
@@ -898,9 +897,9 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     if (ruleContext.getRule().getRuleClassObject().useToolchainResolution()
         && ruleContext.attributes().has("target_compatible_with")) {
       ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-          stream(
-                  PlatformProviderUtils.constraintValues(
-                      ruleContext.getPrerequisites("target_compatible_with")))
+          PlatformProviderUtils.constraintValues(
+                  ruleContext.getPrerequisites("target_compatible_with"))
+              .stream()
               .filter(cv -> !ruleContext.targetPlatformHasConstraint(cv))
               .collect(toImmutableList());
 
