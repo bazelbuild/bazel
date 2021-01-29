@@ -145,19 +145,21 @@ genrule(
 )
 
 genrule(
-    name = "jar_with_manifest_sections",
-    srcs = ["jar-with-manifest-sections.jar"],
+    name = "jar_with_manifest_sections_nostrip",
+    srcs = [":jar_with_manifest_sections"],
     outs = ["jar-with-manifest-sections-nostrip.jar"],
     cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
     tools = ["//third_party/ijar"],
+    testonly = 1,
 )
 
 genrule(
-    name = "jar_with_target_label_and_manifest_sections",
-    srcs = ["jar-with-target-label-and-manifest-sections.jar"],
+    name = "jar_with_target_label_and_manifest_sections_nostrip",
+    srcs = [":jar_with_target_label_and_manifest_sections"],
     outs = ["jar-with-target-label-and-manifest-sections-nostrip.jar"],
     cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
     tools = ["//third_party/ijar"],
+    testonly = 1,
 )
 
 genrule(
@@ -308,6 +310,30 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+java_binary(
+    name = "GenJarWithManifestSections",
+    main_class = "GenJarWithManifestSections",
+    srcs = ["GenJarWithManifestSections.java"],
+    deps = ["//third_party:guava"],
+    testonly = 1,
+)
+
+genrule(
+    name = "jar_with_manifest_sections",
+    outs = ["jar-with-manifest-sections.jar"],
+    cmd = "$(location :GenJarWithManifestSections) $@",
+    testonly = 1,
+    tools = [":GenJarWithManifestSections"],
+)
+
+genrule(
+    name = "jar_with_target_label_and_manifest_sections",
+    outs = ["jar-with-target-label-and-manifest-sections.jar"],
+    cmd = "$(location :GenJarWithManifestSections) $@ //not:this",
+    testonly = 1,
+    tools = [":GenJarWithManifestSections"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -331,8 +357,8 @@ java_test(
         ":interface_ijar_testlib_with_target_label",
         ":jar_with_manifest_and_target_label_nostrip",
         ":jar_with_manifest_nostrip",
-        ":jar_with_manifest_sections",
-        ":jar_with_target_label_and_manifest_sections",
+        ":jar_with_manifest_sections_nostrip",
+        ":jar_with_target_label_and_manifest_sections_nostrip",
         ":jar_without_manifest_nostrip",
         ":jar_without_manifest_nostrip_idempotence",
         ":kotlin_module-interface.jar",
