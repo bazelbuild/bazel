@@ -61,12 +61,14 @@ class OnDiskBlobStoreCache extends RemoteCache {
     }
   }
 
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
-    return cacheProtocol.uploadFile(digest, file);
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return cacheProtocol.uploadFile(context, digest, file);
   }
 
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
-    return cacheProtocol.uploadBlob(digest, data);
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return cacheProtocol.uploadBlob(context, digest, data);
   }
 
   public void uploadActionResult(

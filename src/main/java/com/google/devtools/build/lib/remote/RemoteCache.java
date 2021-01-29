@@ -139,7 +139,7 @@ public class RemoteCache implements AutoCloseable {
       int exitCode)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder resultBuilder = ActionResult.newBuilder();
-    uploadOutputs(execRoot, actionKey, action, command, outputs, outErr, resultBuilder);
+    uploadOutputs(context, execRoot, actionKey, action, command, outputs, outErr, resultBuilder);
     resultBuilder.setExitCode(exitCode);
     ActionResult result = resultBuilder.build();
     if (exitCode == 0 && !action.getDoNotCache()) {
@@ -162,6 +162,7 @@ public class RemoteCache implements AutoCloseable {
   }
 
   private void uploadOutputs(
+      RemoteActionExecutionContext context,
       Path execRoot,
       ActionKey actionKey,
       Action action,
@@ -192,14 +193,14 @@ public class RemoteCache implements AutoCloseable {
     for (Digest digest : digestsToUpload) {
       Path file = digestToFile.get(digest);
       if (file != null) {
-        uploads.add(cacheProtocol.uploadFile(digest, file));
+        uploads.add(cacheProtocol.uploadFile(context, digest, file));
       } else {
         ByteString blob = digestToBlobs.get(digest);
         if (blob == null) {
           String message = "FindMissingBlobs call returned an unknown digest: " + digest;
           throw new IOException(message);
         }
-        uploads.add(cacheProtocol.uploadBlob(digest, blob));
+        uploads.add(cacheProtocol.uploadBlob(context, digest, blob));
       }
     }
 

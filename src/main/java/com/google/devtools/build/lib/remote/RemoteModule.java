@@ -93,7 +93,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
-import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.HashSet;
@@ -501,14 +500,13 @@ public final class RemoteModule extends BlazeModule {
             digestUtil,
             uploader.retain());
     uploader.release();
-    Context requestContext =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
             uploader,
             cacheClient,
             cacheChannel.authority(),
-            requestContext,
+            buildRequestId,
+            invocationId,
             remoteOptions.remoteInstanceName));
 
     if (enableRemoteExecution) {

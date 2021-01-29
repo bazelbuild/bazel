@@ -121,7 +121,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   public void close() {}
 
   @Override
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
     try (InputStream in = file.getInputStream()) {
       saveFile(digest.getHash(), in, /* actionResult= */ false);
     } catch (IOException e) {
@@ -131,7 +132,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try (InputStream in = data.newInput()) {
       saveFile(digest.getHash(), in, /* actionResult= */ false);
     } catch (IOException e) {

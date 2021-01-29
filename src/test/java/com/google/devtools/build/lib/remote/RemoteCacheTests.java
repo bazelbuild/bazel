@@ -577,7 +577,7 @@ public class RemoteCacheTests {
                 Directory.newBuilder()
                     .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../foo")))
             .build();
-    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
     // Doesn't check for dangling links, hence download succeeds.
@@ -637,7 +637,7 @@ public class RemoteCacheTests {
                 Directory.newBuilder()
                     .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("/foo")))
             .build();
-    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
     IOException expected =
@@ -661,10 +661,10 @@ public class RemoteCacheTests {
   public void downloadFailureMaintainsDirectories() throws Exception {
     InMemoryRemoteCache cache = newRemoteCache();
     Tree tree = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
-    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     Digest outputFileDigest =
         cache.addException("outputdir/outputfile", new IOException("download failed"));
-    Digest otherFileDigest = cache.addContents("otherfile");
+    Digest otherFileDigest = cache.addContents(remoteActionExecutionContext, "otherfile");
 
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("outputdir").setTreeDigest(treeDigest);
@@ -693,9 +693,9 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(remoteActionExecutionContext, "file1");
     Digest digest2 = cache.addException("file2", new IOException("download failed"));
-    Digest digest3 = cache.addContents("file3");
+    Digest digest3 = cache.addContents(remoteActionExecutionContext, "file3");
 
     ActionResult result =
         ActionResult.newBuilder()
@@ -729,7 +729,7 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(remoteActionExecutionContext, "file1");
     Digest digest2 = cache.addException("file2", new IOException("file2 failed"));
     Digest digest3 = cache.addException("file3", new IOException("file3 failed"));
 
@@ -764,7 +764,7 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(remoteActionExecutionContext, "file1");
     IOException reusedException = new IOException("reused io exception");
     Digest digest2 = cache.addException("file2", reusedException);
     Digest digest3 = cache.addException("file3", reusedException);
@@ -800,7 +800,7 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(remoteActionExecutionContext, "file1");
     InterruptedException reusedInterruption = new InterruptedException("reused interruption");
     Digest digest2 = cache.addException("file2", reusedInterruption);
     Digest digest3 = cache.addException("file3", reusedInterruption);
@@ -840,8 +840,8 @@ public class RemoteCacheTests {
     when(spyOutErr.childOutErr()).thenReturn(spyChildOutErr);
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digestStdout = cache.addContents("stdout");
-    Digest digestStderr = cache.addContents("stderr");
+    Digest digestStdout = cache.addContents(remoteActionExecutionContext, "stdout");
+    Digest digestStderr = cache.addContents(remoteActionExecutionContext, "stderr");
 
     ActionResult result =
         ActionResult.newBuilder()
@@ -918,8 +918,8 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = remoteCache.addContents(remoteActionExecutionContext, "content2");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
@@ -950,8 +950,8 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = remoteCache.addContents(remoteActionExecutionContext, "content2");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
@@ -997,19 +997,19 @@ public class RemoteCacheTests {
     // Output Directory:
     // dir/file1
     // dir/a/file2
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = remoteCache.addContents(remoteActionExecutionContext, "content2");
     FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
     FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
-    Digest da = remoteCache.addContents(a);
+    Digest da = remoteCache.addContents(remoteActionExecutionContext, a);
     Directory root =
         Directory.newBuilder()
             .addFiles(file1)
             .addDirectories(DirectoryNode.newBuilder().setName("a").setDigest(da))
             .build();
     Tree t = Tree.newBuilder().setRoot(root).addChildren(a).build();
-    Digest dt = remoteCache.addContents(t);
+    Digest dt = remoteCache.addContents(remoteActionExecutionContext, t);
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
@@ -1070,12 +1070,12 @@ public class RemoteCacheTests {
     // Output Directory:
     // dir/file1
     // dir/a/file2
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = remoteCache.addContents(remoteActionExecutionContext, "content2");
     FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
     FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
-    Digest da = remoteCache.addContents(a);
+    Digest da = remoteCache.addContents(remoteActionExecutionContext, a);
     Directory root =
         Directory.newBuilder()
             .addFiles(file1)
@@ -1127,8 +1127,8 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest dOut = remoteCache.addContents("stdout");
-    Digest dErr = remoteCache.addContents("stderr");
+    Digest dOut = remoteCache.addContents(remoteActionExecutionContext, "stdout");
+    Digest dErr = remoteCache.addContents(remoteActionExecutionContext, "stderr");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
@@ -1168,8 +1168,8 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = remoteCache.addContents(remoteActionExecutionContext, "content2");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
@@ -1216,7 +1216,7 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("in-memory output");
+    Digest d1 = remoteCache.addContents(remoteActionExecutionContext, "in-memory output");
     ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
     MetadataInjector injector = mock(MetadataInjector.class);
@@ -1644,18 +1644,21 @@ public class RemoteCacheTests {
       super(new InMemoryCacheClient(), options, digestUtil);
     }
 
-    Digest addContents(String txt) throws IOException, InterruptedException {
-      return addContents(txt.getBytes(UTF_8));
+    Digest addContents(RemoteActionExecutionContext context, String txt)
+        throws IOException, InterruptedException {
+      return addContents(context, txt.getBytes(UTF_8));
     }
 
-    Digest addContents(byte[] bytes) throws IOException, InterruptedException {
+    Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
+        throws IOException, InterruptedException {
       Digest digest = digestUtil.compute(bytes);
-      Utils.getFromFuture(cacheProtocol.uploadBlob(digest, ByteString.copyFrom(bytes)));
+      Utils.getFromFuture(cacheProtocol.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
       return digest;
     }
 
-    Digest addContents(Message m) throws IOException, InterruptedException {
-      return addContents(m.toByteArray());
+    Digest addContents(RemoteActionExecutionContext context, Message m)
+        throws IOException, InterruptedException {
+      return addContents(context, m.toByteArray());
     }
 
     Digest addException(String txt, Exception e) {
