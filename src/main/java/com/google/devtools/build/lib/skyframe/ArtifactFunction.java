@@ -54,7 +54,6 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -66,7 +65,7 @@ import javax.annotation.Nullable;
  */
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
-  private final AtomicLong sourceArtifactBytesReadThisBuild;
+  private final MetadataConsumerForMetrics sourceArtifactsSeen;
 
   public static final class MissingFileArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
@@ -90,9 +89,9 @@ class ArtifactFunction implements SkyFunction {
   }
 
   public ArtifactFunction(
-      Supplier<Boolean> mkdirForTreeArtifacts, AtomicLong sourceArtifactBytesReadThisBuild) {
+      Supplier<Boolean> mkdirForTreeArtifacts, MetadataConsumerForMetrics sourceArtifactsSeen) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
-    this.sourceArtifactBytesReadThisBuild = sourceArtifactBytesReadThisBuild;
+    this.sourceArtifactsSeen = sourceArtifactsSeen;
   }
 
   @Override
@@ -273,14 +272,14 @@ class ArtifactFunction implements SkyFunction {
     }
 
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
-      if (fileValue.isFile()) {
-        sourceArtifactBytesReadThisBuild.addAndGet(fileValue.getSize());
-      }
+      FileArtifactValue metadata;
       try {
-        return FileArtifactValue.createForSourceArtifact(artifact, fileValue);
+        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue);
       } catch (IOException e) {
         return makeIOExceptionSourceInputFileValue(artifact, e);
       }
+      sourceArtifactsSeen.accumulate(metadata);
+      return metadata;
     }
     // For directory artifacts that are not Filesets, we initiate a directory traversal here, and
     // compute a hash from the directory structure.

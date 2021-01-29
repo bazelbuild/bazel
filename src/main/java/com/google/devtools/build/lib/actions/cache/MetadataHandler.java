@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -59,6 +60,9 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * available.
    */
   ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
+
+  /** Retrieves the metadata for this tree artifact. Data should already be available. */
+  TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException;
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.

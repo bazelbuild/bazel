@@ -42,9 +42,14 @@ class TargetCompletor
         TargetCompletionKey,
         ConfiguredTargetAndData> {
   static SkyFunction targetCompletionFunction(
-      PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
+      PathResolverFactory pathResolverFactory,
+      SkyframeActionExecutor skyframeActionExecutor,
+      MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric) {
     return new CompletionFunction<>(
-        pathResolverFactory, new TargetCompletor(), skyframeActionExecutor);
+        pathResolverFactory,
+        new TargetCompletor(),
+        skyframeActionExecutor,
+        topLevelArtifactsMetric);
   }
 
   @Override

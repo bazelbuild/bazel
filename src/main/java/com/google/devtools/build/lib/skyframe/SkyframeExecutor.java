@@ -152,6 +152,7 @@ import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction.NonexistentFileReceiver;
+import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
 import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCacheEntry;
@@ -217,7 +218,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -251,10 +251,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final ExternalFilesHelper externalFilesHelper;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
   /**
-   * Tracks the accumulated size of source artifacts read this build. Does not include cached
-   * artifacts, so is not useful on incremental builds.
+   * Measures source artifacts read this build. Does not include cached artifacts, so is less useful
+   * on incremental builds.
    */
-  private final AtomicLong sourceArtifactBytesReadThisBuild = new AtomicLong();
+  private final FilesMetricConsumer sourceArtifactsSeen = new FilesMetricConsumer();
+
+  private final FilesMetricConsumer outputArtifactsSeen = new FilesMetricConsumer();
+  private final FilesMetricConsumer outputArtifactsFromActionCache = new FilesMetricConsumer();
+  private final FilesMetricConsumer topLevelArtifactsMetric = new FilesMetricConsumer();
 
   @Nullable protected OutputService outputService;
 
@@ -441,7 +445,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeActionExecutor =
-        new SkyframeActionExecutor(actionKeyContext, statusReporterRef, this::getPathEntries);
+        new SkyframeActionExecutor(
+            actionKeyContext,
+            outputArtifactsSeen,
+            outputArtifactsFromActionCache,
+            statusReporterRef,
+            this::getPathEntries);
     this.artifactFactory =
         new ArtifactFactory(
             /* execRootParent= */ directories.getExecRootBase(),
@@ -586,16 +595,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
     map.put(
         SkyFunctions.TARGET_COMPLETION,
-        TargetCompletor.targetCompletionFunction(pathResolverFactory, skyframeActionExecutor));
+        TargetCompletor.targetCompletionFunction(
+            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric));
     map.put(
         SkyFunctions.ASPECT_COMPLETION,
-        AspectCompletor.aspectCompletionFunction(pathResolverFactory, skyframeActionExecutor));
+        AspectCompletor.aspectCompletionFunction(
+            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
         Artifact.ARTIFACT,
         new ArtifactFunction(
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
-            sourceArtifactBytesReadThisBuild));
+            sourceArtifactsSeen));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
@@ -2705,7 +2716,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
-    sourceArtifactBytesReadThisBuild.set(0L);
+    sourceArtifactsSeen.reset();
+    outputArtifactsSeen.reset();
+    outputArtifactsFromActionCache.reset();
+    topLevelArtifactsMetric.reset();
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {
@@ -3028,7 +3042,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   public final ExecutionFinishedEvent createExecutionFinishedEvent() {
     return createExecutionFinishedEventInternal()
-        .setSourceArtifactBytesRead(sourceArtifactBytesReadThisBuild.getAndSet(0L))
+        .setSourceArtifactsRead(sourceArtifactsSeen.toFilesMetricAndReset())
+        .setOutputArtifactsSeen(outputArtifactsSeen.toFilesMetricAndReset())
+        .setOutputArtifactsFromActionCache(outputArtifactsFromActionCache.toFilesMetricAndReset())
+        .setTopLevelArtifacts(topLevelArtifactsMetric.toFilesMetricAndReset())
         .build();
   }
 

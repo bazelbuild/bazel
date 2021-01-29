@@ -52,7 +52,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 
@@ -107,7 +106,9 @@ abstract class ArtifactFunctionTestCase {
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
-                .put(Artifact.ARTIFACT, new ArtifactFunction(() -> true, new AtomicLong()))
+                .put(
+                    Artifact.ARTIFACT,
+                    new ArtifactFunction(() -> true, MetadataConsumerForMetrics.NO_OP))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(
                     SkyFunctions.PACKAGE,

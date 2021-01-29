@@ -117,7 +117,11 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onExecutionComplete(ExecutionFinishedEvent event) {
-    artifactMetrics.setSourceArtifactBytesRead(event.sourceArtifactBytesRead());
+    artifactMetrics
+        .setSourceArtifactsRead(event.sourceArtifactsRead())
+        .setOutputArtifactsSeen(event.outputArtifactsSeen())
+        .setOutputArtifactsFromActionCache(event.outputArtifactsFromActionCache())
+        .setTopLevelArtifacts(event.topLevelArtifacts());
   }
 
   @SuppressWarnings("unused")

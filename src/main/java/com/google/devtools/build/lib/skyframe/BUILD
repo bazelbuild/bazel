@@ -157,6 +157,7 @@ java_library(
         ":local_repository_lookup_value",
         ":managed_directories_knowledge",
         ":map_as_package_roots",
+        ":metadata_consumer_for_metrics",
         ":output_store",
         ":package_error_function",
         ":package_error_message_function",
@@ -417,6 +418,7 @@ java_library(
     deps = [
         ":action_execution_value",
         ":aggregating_artifact_value",
+        ":metadata_consumer_for_metrics",
         ":runfiles_artifact_value",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -779,6 +781,7 @@ java_library(
         ":action_template_expansion_value",
         ":aggregating_artifact_value",
         ":coverage_report_value",
+        ":metadata_consumer_for_metrics",
         ":recursive_filesystem_traversal",
         ":runfiles_artifact_value",
         ":track_source_directories_flag",
@@ -1361,7 +1364,10 @@ java_library(
 java_library(
     name = "execution_finished_event",
     srcs = ["ExecutionFinishedEvent.java"],
-    deps = ["//third_party:auto_value"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:auto_value",
+    ],
 )
 
 java_library(
@@ -1665,6 +1671,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "metadata_consumer_for_metrics",
+    srcs = ["MetadataConsumerForMetrics.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//third_party:guava",
     ],
 )

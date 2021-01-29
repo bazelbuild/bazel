@@ -729,14 +729,16 @@ message BuildFinished {
 
 message BuildMetrics {
   message ActionSummary {
-    // The total number of actions created and registered during the build.
-    // This includes unused actions that were constructed but
-    // not executed during this build.
+    // The total number of actions created and registered during the build. This
+    // includes unused actions that were constructed but not executed during
+    // this build. It does not include actions that were created on prior builds
+    // that are still valid, even if those actions had to be re-executed on this
+    // build. For the total number of actions that would be created if this
+    // invocation were "clean", see BuildGraphMetrics below.
     int64 actions_created = 1;
 
-    // The total number of actions executed during the build.
-    // This includes any remote cache hits, but excludes
-    // local action cache hits.
+    // The total number of actions executed during the build. This includes any
+    // remote cache hits, but excludes local action cache hits.
     int64 actions_executed = 2;
   }
   ActionSummary action_summary = 1;
@@ -754,12 +756,14 @@ message BuildMetrics {
   MemoryMetrics memory_metrics = 2;
 
   message TargetMetrics {
-    // Number of targets loaded during this build.
+    // Number of targets loaded during this build. Does not include targets that
+    // were loaded on prior builds on this server and were cached.
     int64 targets_loaded = 1;
 
-    // Number of targets configured during this build. This can
-    // be greater than targets_loaded if the same target is configured
-    // multiple times.
+    // Number of targets configured during this build. This can be greater than
+    // targets_loaded if the same target is configured multiple times. Does not
+    // include targets that were configured on prior builds on this server and
+    // were cached. See BuildGraphMetrics below if you need that.
     int64 targets_configured = 2;
   }
   TargetMetrics target_metrics = 3;
@@ -794,9 +798,29 @@ message BuildMetrics {
   CumulativeMetrics cumulative_metrics = 6;
 
   message ArtifactMetrics {
-    // Total size of all source files newly read this build. Will not include
+    reserved 1;
+
+    message FilesMetric {
+      int64 size_in_bytes = 1;
+      int32 count = 2;
+    }
+
+    // Measures all source files newly read this build. Does not include
     // unchanged sources on incremental builds.
-    int64 source_artifact_bytes_read = 1;
+    FilesMetric source_artifacts_read = 2;
+    // Measures all output artifacts from executed actions. This includes
+    // actions that were cached locally (via the action cache) or remotely (via
+    // a remote cache or executor), but does *not* include outputs of actions
+    // that were cached internally in Skyframe.
+    FilesMetric output_artifacts_seen = 3;
+    // Measures all output artifacts from actions that were cached locally
+    // via the action cache. These artifacts were already present on disk at the
+    // start of the build. Does not include Skyframe-cached actions' outputs.
+    FilesMetric output_artifacts_from_action_cache = 4;
+    // Measures all artifacts that belong to a top-level output group. Does not
+    // deduplicate, so if there are two top-level targets in this build that
+    // share an artifact, it will be counted twice.
+    FilesMetric top_level_artifacts = 5;
   }
 
   ArtifactMetrics artifact_metrics = 7;
@@ -804,13 +828,16 @@ message BuildMetrics {
   // Information about the size and shape of the build graph. Some fields may
   // not be populated if Bazel was able to skip steps due to caching.
   message BuildGraphMetrics {
-    // How many configured targets/aspects were in this build.
+    // How many configured targets/aspects were in this build, including any
+    // that were analyzed on a prior build and are still valid. May not be
+    // populated if analysis phase was fully cached.
     int32 action_lookup_value_count = 1;
-    // How many actions belonged to those configured targets/aspects. It may not
-    // be necessary to execute all of these actions to build the requested
-    // targets.
+    // How many actions belonged to the configured targets/aspects above. It may
+    // not be necessary to execute all of these actions to build the requested
+    // targets. May not be populated if analysis phase was fully cached.
     int32 action_count = 2;
-    // How many artifacts are outputs of the above actions.
+    // How many artifacts are outputs of the above actions. May not be populated
+    // if analysis phase was fully cached.
     int32 output_artifact_count = 3;
     // How many Skyframe nodes there are in memory at the end of the build. This
     // may underestimate the number of nodes when running with memory-saving

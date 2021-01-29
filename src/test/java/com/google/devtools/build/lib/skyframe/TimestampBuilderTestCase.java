@@ -127,7 +127,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -241,6 +240,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     final SkyframeActionExecutor skyframeActionExecutor =
         new SkyframeActionExecutor(
             actionKeyContext,
+            MetadataConsumerForMetrics.NO_OP,
+            MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ () -> ImmutableList.of());
 
@@ -262,7 +263,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
-                .put(Artifact.ARTIFACT, new ArtifactFunction(() -> true, new AtomicLong()))
+                .put(
+                    Artifact.ARTIFACT,
+                    new ArtifactFunction(() -> true, MetadataConsumerForMetrics.NO_OP))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(skyframeActionExecutor, directories, tsgmRef))

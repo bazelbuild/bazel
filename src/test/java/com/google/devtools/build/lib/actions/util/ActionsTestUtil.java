@@ -966,6 +966,11 @@ public final class ActionsTestUtil {
     }
 
     @Override
+    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public FileArtifactValue constructMetadataForDigest(
         Artifact output, FileStatus statNoFollow, byte[] digest) {
       throw new UnsupportedOperationException();
