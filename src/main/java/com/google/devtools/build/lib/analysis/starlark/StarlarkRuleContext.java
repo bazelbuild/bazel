@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -61,11 +62,10 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -137,10 +137,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
    *
    * @param aspectDescriptor aspect for which the context is created, or <code>null</code> if it is
    *     for a rule.
-   * @throws InterruptedException
    */
   public StarlarkRuleContext(RuleContext ruleContext, @Nullable AspectDescriptor aspectDescriptor)
-      throws EvalException, InterruptedException, RuleErrorException {
+      throws RuleErrorException {
     // Init ruleContext first, we need it to obtain the StarlarkSemantics used by
     // StarlarkActionFactory (and possibly others).
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
@@ -150,40 +149,37 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     this.hostFragments = new FragmentCollection(ruleContext, HostTransition.INSTANCE);
     this.aspectDescriptor = aspectDescriptor;
 
+    Rule rule = ruleContext.getRule();
+
     if (aspectDescriptor == null) {
       this.isForAspect = false;
-      Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
+      Collection<Attribute> attributes = rule.getAttributes();
+
+      // Populate ctx.outputs.
       Outputs outputs = new Outputs(this);
-
-      ImplicitOutputsFunction implicitOutputsFunction =
-          ruleContext.getRule().getImplicitOutputsFunction();
-
-      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
-        StarlarkImplicitOutputsFunction func =
-            (StarlarkImplicitOutputsFunction) implicitOutputsFunction;
-        for (Map.Entry<String, String> entry :
-            func.calculateOutputs(
-                    ruleContext.getAnalysisEnvironment().getEventHandler(),
-                    RawAttributeMapper.of(ruleContext.getRule()))
-                .entrySet()) {
-          outputs.addOutput(
-              entry.getKey(),
-              ruleContext.getImplicitOutputArtifact(entry.getValue()));
-        }
-      }
-
+      // These getters do some computational work to return a view, so ensure we only do it once.
+      ImmutableListMultimap<String, OutputFile> explicitOutMap = rule.getExplicitOutputFileMap();
+      ImmutableMap<String, OutputFile> implicitOutMap = rule.getStarlarkImplicitOutputFileMap();
+      // Add the explicit outputs -- values of attributes of type OUTPUT or OUTPUT_LIST.
+      // We must iterate over the attribute definitions, and not just the entries in the
+      // explicitOutMap, because the latter omits empty output attributes, which must still
+      // generate None or [] fields in the struct.
       for (Attribute a : attributes) {
+        // Skip non-output attrs.
         String attrName = a.getName();
         Type<?> type = a.getType();
         if (type.getLabelClass() != LabelClass.OUTPUT) {
           continue;
         }
+
+        // Grab all associated outputs.
         ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
-        for (OutputFile outputFile : ruleContext.getRule().getOutputFileMap().get(attrName)) {
+        for (OutputFile outputFile : explicitOutMap.get(attrName)) {
           artifactsBuilder.add(ruleContext.createOutputArtifact(outputFile));
         }
         StarlarkList<Artifact> artifacts = StarlarkList.immutableCopyOf(artifactsBuilder.build());
 
+        // For singular output attributes, unwrap sole element or else use None for arity mismatch.
         if (type == BuildType.OUTPUT) {
           if (artifacts.size() == 1) {
             outputs.addOutput(attrName, Iterables.getOnlyElement(artifacts));
@@ -193,15 +189,23 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         } else if (type == BuildType.OUTPUT_LIST) {
           outputs.addOutput(attrName, artifacts);
         } else {
-          throw new IllegalArgumentException(
-              "Type of " + attrName + "(" + type + ") is not output type ");
+          throw new AssertionError(
+              String.format("Attribute %s has unexpected output type %s", attrName, type));
         }
+      }
+      // Add the implicit outputs. In the case where the rule has a native-defined implicit outputs
+      // function, nothing is added. Note that Rule ensures that Starlark-defined implicit output
+      // keys don't conflict with output attribute names.
+      // TODO(bazel-team): Also see about requiring the key to be a valid Starlark identifier.
+      for (Map.Entry<String, OutputFile> e : implicitOutMap.entrySet()) {
+        outputs.addOutput(e.getKey(), ruleContext.createOutputArtifact(e.getValue()));
       }
 
       this.outputsObject = outputs;
 
+      // Populate ctx.attr.
       StarlarkAttributesCollection.Builder builder = StarlarkAttributesCollection.builder(this);
-      for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
       }
@@ -212,13 +216,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     } else { // ASPECT
       this.isForAspect = true;
       this.outputsObject = null;
-
       ImmutableCollection<Attribute> attributes =
           ruleContext.getMainAspect().getDefinition().getAttributes().values();
+
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+        Object defaultValue = attribute.getDefaultValue(rule);
         if (defaultValue instanceof ComputedDefault) {
           defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
         }
@@ -229,7 +233,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       this.splitAttributes = null;
       StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
 
-      for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         ruleBuilder.addAttribute(attribute, value);
       }
@@ -239,7 +243,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+          Object defaultValue = attribute.getDefaultValue(rule);
           if (defaultValue instanceof ComputedDefault) {
             defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
           }
@@ -276,13 +280,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       this.context = context;
     }
 
-    private void addOutput(String key, Object value)
-        throws EvalException {
+    private void addOutput(String key, Object value) throws RuleErrorException {
       Preconditions.checkState(!context.isImmutable(),
           "Cannot add outputs to immutable Outputs object");
+      // TODO(bazel-team): We should reject outputs whose key is not an identifier. Today this is
+      // allowed, and the resulting ctx.outputs value can be retrieved using getattr().
       if (outputs.containsKey(key)
           || (context.isExecutable() && EXECUTABLE_OUTPUT_NAME.equals(key))) {
-        throw Starlark.errorf("Multiple outputs with the same key: %s", key);
+        context.getRuleContext().throwWithRuleError("Multiple outputs with the same key: " + key);
       }
       outputs.put(key, value);
     }

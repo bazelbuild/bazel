@@ -84,14 +84,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
-    StarlarkRuleContext starlarkRuleContext = null;
+    StarlarkRuleContext starlarkRuleContext = new StarlarkRuleContext(ruleContext, null);
     try {
-      // The StarlarkRuleContext constructor may throw EvalException due
-      // to StarlarkImplicitOutputsFunction, which shouldn't be called at
-      // analysis time anyway since all such targets should be created during loading.
-      // TODO(adonovan): clean it up.
-      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null);
-
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
       if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
         ruleContext.ruleError(

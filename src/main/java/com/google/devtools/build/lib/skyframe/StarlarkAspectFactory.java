@@ -50,14 +50,11 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       throws InterruptedException, ActionConflictException {
     StarlarkRuleContext starlarkRuleContext = null;
     // TODO(adonovan): simplify use of try/finally here.
+    AspectDescriptor aspectDescriptor =
+        new AspectDescriptor(starlarkAspect.getAspectClass(), parameters);
     try {
-      AspectDescriptor aspectDescriptor =
-          new AspectDescriptor(starlarkAspect.getAspectClass(), parameters);
       try {
         starlarkRuleContext = new StarlarkRuleContext(ruleContext, aspectDescriptor);
-      } catch (EvalException e) {
-        ruleContext.ruleError(e.getMessageWithStack());
-        return null;
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
