@@ -808,6 +808,7 @@ public final class Starlark {
     for (Map.Entry<String, MethodDescriptor> e :
         CallUtils.getAnnotatedMethods(semantics, cls).entrySet()) {
       String name = e.getKey();
+      MethodDescriptor desc = e.getValue();
 
       // We cannot accept fields, as they are inherently problematic:
       // what if the Java method call fails, or gets interrupted?
@@ -816,16 +817,22 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      // We use the 2-arg (desc=null) BuiltinFunction constructor instead of passing
-      // the descriptor that CallUtils.getAnnotatedMethod would return,
-      // because most calls to addMethods implicitly pass StarlarkSemantics.DEFAULT,
-      // which is probably the wrong semantics for the later call.
-      //
-      // The effect is that the default semantics determine which method names are
-      // statically available in the environment, but the thread's semantics determine
-      // the dynamic behavior of the method call; this includes a run-time check for
-      // whether the method was disabled by the semantics.
-      env.put(name, new BuiltinFunction(v, name));
+      BuiltinFunction builtinFunction;
+      if (!desc.isSemanticsDependent()) {
+        builtinFunction = new BuiltinFunction(v, name, desc);
+      } else {
+        // We use the 2-arg (desc=null) BuiltinFunction constructor instead of passing
+        // the descriptor that CallUtils.getAnnotatedMethod would return,
+        // because most calls to addMethods implicitly pass StarlarkSemantics.DEFAULT,
+        // which is probably the wrong semantics for the later call.
+        //
+        // The effect is that the default semantics determine which method names are
+        // statically available in the environment, but the thread's semantics determine
+        // the dynamic behavior of the method call; this includes a run-time check for
+        // whether the method was disabled by the semantics.
+        builtinFunction = new BuiltinFunction(v, name);
+      }
+      env.put(name, builtinFunction);
     }
   }
 
