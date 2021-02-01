@@ -291,7 +291,7 @@ public class WorkspaceFactory {
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw Starlark.errorf(
                 "%s's name field must be a legal workspace name; workspace names may contain only"
-                    + " A-Z, a-z, 0-9, '-', '_' and '.'",
+                    + " A-Z, a-z, 0-9, '-', '_', and '.', and must start with a letter",
                 rule);
           }
         } catch (RuleFactory.InvalidRuleException

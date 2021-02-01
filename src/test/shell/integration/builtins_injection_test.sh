@@ -138,7 +138,13 @@ EOF
       --experimental_builtins_bzl_path=alternate \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
-}
 
+  # Ensure builtins .bzl files aren't visible to bazel query the way normal .bzl
+  # files are.
+  bazel query 'buildfiles(//pkg:BUILD)' --experimental_builtins_dummy=true \
+      --experimental_builtins_bzl_path=alternate \
+      &>"$TEST_log" || fail "bazel query failed"
+  expect_not_log "exports.bzl"
+}
 
 run_suite "builtins_injection_test"
