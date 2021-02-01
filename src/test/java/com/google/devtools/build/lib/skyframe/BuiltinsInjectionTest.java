@@ -216,17 +216,30 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   /**
-   * Writes a pkg/dummy.bzl file that prints a marker phrase when it finishes evaluating, and an
-   * accompanying BUILD file that loads it.
+   * Writes a pkg/dummy.bzl file with the given content. Meant to be used in conjunction with {@link
+   * #writePkgBuild}.
+   *
+   * <p>The bzl prints a marker phrase when it finishes evaluating, and includes a dummy symbol for
+   * the BUILD file to load.
    */
   private void writePkgBzl(String... lines) throws Exception {
-    scratch.file("pkg/BUILD", "load(':dummy.bzl', 'dummy_symbol')");
-    scratch.file("pkg/dummy");
     List<String> modifiedLines = new ArrayList<>(Arrays.asList(lines));
     modifiedLines.add("dummy_symbol = None");
     // The marker phrase might not be needed, but I don't entirely trust BuildViewTestCase.
     modifiedLines.add("print('dummy.bzl evaluation completed')");
     scratch.file("pkg/dummy.bzl", modifiedLines.toArray(lines));
+  }
+
+  /**
+   * Writes a pkg/BUILD file with the given content. Meant to be used in conjunction with {@link
+   * #writePkgBzl}.
+   *
+   * <p>The BUILD file ensures the dummy.bzl file is loaded.
+   */
+  private void writePkgBuild(String... lines) throws Exception {
+    List<String> modifiedLines = new ArrayList<>(Arrays.asList(lines));
+    modifiedLines.add(0, "load(':dummy.bzl', 'dummy_symbol')");
+    scratch.file("pkg/BUILD", modifiedLines.toArray(lines));
   }
 
   /** Builds {@code //pkg} and asserts success, including that the marker print() event occurs. */
@@ -252,13 +265,30 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
         "exported_to_java = {}");
+    writePkgBuild("print('In BUILD: overridable_rule :: ' + str(overridable_rule))");
     writePkgBzl(
-        "print('overridable_symbol :: ' + str(overridable_symbol))",
-        "print('overridable_rule :: ' + str(native.overridable_rule))");
+        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))",
+        "print('In bzl: overridable_rule :: ' + str(native.overridable_rule))");
 
     buildAndAssertSuccess();
-    assertContainsEvent("overridable_symbol :: new_value");
-    assertContainsEvent("overridable_rule :: new_rule");
+    assertContainsEvent("In bzl: overridable_symbol :: new_value");
+    assertContainsEvent("In bzl: overridable_rule :: new_rule");
+    assertContainsEvent("In BUILD: overridable_rule :: new_rule");
+  }
+
+  @Test
+  public void injectedBzlToplevelsAreNotVisibleToBuild() throws Exception {
+    // The bzl toplevel symbols aren't toplevels for BUILD files. We test that injecting them
+    // doesn't somehow change that.
+    writeExportsBzl(
+        "exported_toplevels = {'overridable_symbol': 'new_value'}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild("overridable_symbol");
+    writePkgBzl();
+
+    buildAndAssertFailure();
+    assertContainsEvent("name 'overridable_symbol' is not defined");
   }
 
   @Test
@@ -298,6 +328,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {'overridable_symbol': a + b + c}",
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl("print('overridable_symbol :: ' + str(overridable_symbol))");
 
     buildAndAssertSuccess();
@@ -310,6 +341,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {}", //
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl("load('@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
@@ -329,6 +361,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = toplevels",
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl();
 
     buildAndAssertFailure();
@@ -346,6 +379,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = toplevels",
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl();
 
     buildAndAssertFailure();
@@ -353,8 +387,11 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void errorInEvaluatingBuiltinsDependency() throws Exception {
-    // Test case with a Starlark error in the @_builtins pseudo-repo itself.
+  public void errorInEvaluatingBuiltinsTransitiveDependency() throws Exception {
+    // Test case with a deep Starlark error in the @_builtins pseudo-repo itself.
+    // Note that BzlLoadFunctionTest and PackageLoadingFunctionTest already cover the general case
+    // of a failure in retrieving the StarlarkBuiltinsValue. Here we mainly want to make sure the
+    // stack trace is informative for errors that occur in dependencies of exports.bzl.
     scratch.file(
         "tools/builtins_staging/helper.bzl", //
         "toplevels = {'overridable_symbol': 1//0}  # <-- dynamic error");
@@ -363,6 +400,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = toplevels",
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl();
 
     buildAndAssertFailure();
@@ -388,6 +426,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = None", // should be dict
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl();
 
     buildAndAssertFailure();
@@ -408,14 +447,16 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
         "exported_to_java = {}");
+    writePkgBuild("print('In BUILD: overridable_rule :: ' + str(overridable_rule))");
     writePkgBzl(
-        "print('overridable_symbol :: ' + str(overridable_symbol))",
-        "print('overridable_rule :: ' + str(native.overridable_rule))");
+        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))",
+        "print('In bzl: overridable_rule :: ' + str(native.overridable_rule))");
     setBuildLanguageOptions("--experimental_builtins_bzl_path=");
 
     buildAndAssertSuccess();
-    assertContainsEvent("overridable_symbol :: original_value");
-    assertContainsEvent("overridable_rule :: <built-in rule overridable_rule>");
+    assertContainsEvent("In bzl: overridable_symbol :: original_value");
+    assertContainsEvent("In bzl: overridable_rule :: <built-in rule overridable_rule>");
+    assertContainsEvent("In BUILD: overridable_rule :: <built-in rule overridable_rule>");
   }
 
   // TODO(#11437): Remove once disabling is not allowed.
@@ -423,49 +464,52 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   public void exportsBzlMayBeInErrorWhenInjectionIsDisabled() throws Exception {
     writeExportsBzl( //
         "PARSE ERROR");
+    writePkgBuild("print('In BUILD: overridable_rule :: ' + str(overridable_rule))");
     writePkgBzl(
-        "print('overridable_symbol :: ' + str(overridable_symbol))",
-        "print('overridable_rule :: ' + str(native.overridable_rule))");
+        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))",
+        "print('In bzl: overridable_rule :: ' + str(native.overridable_rule))");
     setBuildLanguageOptions("--experimental_builtins_bzl_path=");
 
     buildAndAssertSuccess();
-    assertContainsEvent("overridable_symbol :: original_value");
-    assertContainsEvent("overridable_rule :: <built-in rule overridable_rule>");
+    assertContainsEvent("In bzl: overridable_symbol :: original_value");
+    assertContainsEvent("In bzl: overridable_rule :: <built-in rule overridable_rule>");
+    assertContainsEvent("In BUILD: overridable_rule :: <built-in rule overridable_rule>");
   }
 
   // TODO(#11954): Once WORKSPACE- and BUILD-loaded bzls use the exact same environments, we'll want
   // to apply injection to both. This is for uniformity, not because we actually care about builtins
   // injection for WORKSPACE bzls. In the meantime, assert the status quo: WORKSPACE bzls do not use
-  // injection.
+  // injection. WORKSPACE and BUILD files themselves probably won't be unified, so WORKSPACE will
+  // likely continue to not use injection.
   @Test
-  public void workspaceBzlDoesNotUseInjection() throws Exception {
+  public void workspaceAndWorkspaceBzlDoNotUseInjection() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl();
     scratch.appendFile(
         "WORKSPACE", //
         "load(':foo.bzl', 'dummy_symbol')",
+        "print('In WORKSPACE: overridable_rule :: ' + str(overridable_rule))",
         "print(dummy_symbol)");
     scratch.file("BUILD");
     scratch.file(
         "foo.bzl",
         "dummy_symbol = None",
-        "print('overridable_symbol :: ' + str(overridable_symbol))");
+        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))");
 
     buildAndAssertSuccess();
     // Builtins for WORKSPACE bzls are populated essentially the same as for BUILD bzls, except that
     // injection doesn't apply.
-    assertContainsEvent("overridable_symbol :: original_value");
+    assertContainsEvent("In bzl: overridable_symbol :: original_value");
     // We don't assert that the rule isn't injected because the workspace native object doesn't
     // contain our original mock rule. We can test this for WORKSPACE files at the top-level though.
+    assertContainsEvent("In WORKSPACE: overridable_rule :: <built-in function overridable_rule>");
   }
 
   // TODO(#11437): Add tests of the _internal symbol's usage within builtins bzls.
-
-  // TODO(#11437): Add test cases for BUILD file injection, and WORKSPACE file non-injection, when
-  // we add injection support to PackageFunction.
 
   @Test
   public void overriddenSymbolsAreStillFlagGuarded() throws Exception {
@@ -476,6 +520,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
         "exported_rules = {}",
         "exported_to_java = {}");
+    writePkgBuild();
     writePkgBzl("flag_guarded_symbol");
 
     buildAndAssertFailure();

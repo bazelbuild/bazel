@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -54,7 +53,6 @@ import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -149,6 +147,8 @@ public final class PackageFactory {
   private final ImmutableMap<String, Object> workspaceBzlEnv;
   /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
+  /** The top-level predeclared symbols for BUILD files, before builtins injection and prelude. */
+  private final ImmutableMap<String, Object> uninjectedBuildEnv;
 
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
@@ -220,6 +220,8 @@ public final class PackageFactory {
         createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
     this.workspaceBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
     this.builtinsBzlEnv = createBuiltinsBzlEnv(ruleClassProvider);
+    this.uninjectedBuildEnv =
+        createUninjectedBuildEnv(ruleFunctions, packageArguments, this.environmentExtensions);
   }
 
   /** Sets the syscalls cache used in globbing. */
@@ -314,6 +316,18 @@ public final class PackageFactory {
     return uninjectedBuildBzlEnv;
   }
 
+  /**
+   * Returns the original environment for BUILD files, not accounting for builtins injection or
+   * application of the prelude.
+   *
+   * <p>Applying builtins injection may update name bindings, but not add or remove them. I.e. some
+   * names may refer to different symbols but the static set of names remains the same. Applying the
+   * prelude file may update and add name bindings but not remove them.
+   */
+  public ImmutableMap<String, Object> getUninjectedBuildEnv() {
+    return uninjectedBuildEnv;
+  }
+
   /** Returns the environment for WORKSPACE-loaded bzl files. */
   public ImmutableMap<String, Object> getWorkspaceBzlEnv() {
     return workspaceBzlEnv;
@@ -346,7 +360,7 @@ public final class PackageFactory {
   // once for the native module) as it results in distinct objects. (Using
   // @StarlarkMethod may accomplish that.)
   private static StarlarkCallable newPackageFunction(
-      final ImmutableMap<String, PackageArgument<?>> packageArguments) {
+      final Map<String, PackageArgument<?>> packageArguments) {
     return new StarlarkCallable() {
       @Override
       public String getName() {
@@ -568,17 +582,17 @@ public final class PackageFactory {
    * injection didn't happen.
    */
   private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
-      ImmutableMap<String, BuiltinRuleFunction> ruleFunctions,
-      ImmutableMap<String, PackageArgument<?>> packageArguments,
-      ImmutableList<EnvironmentExtension> environmentExtensions) {
-    ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-    builder.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    builder.putAll(ruleFunctions);
-    builder.put("package", newPackageFunction(packageArguments));
+      Map<String, BuiltinRuleFunction> ruleFunctions,
+      Map<String, PackageArgument<?>> packageArguments,
+      List<EnvironmentExtension> environmentExtensions) {
+    ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
+    env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
+    env.putAll(ruleFunctions);
+    env.put("package", newPackageFunction(packageArguments));
     for (EnvironmentExtension ext : environmentExtensions) {
-      ext.updateNative(builder);
+      ext.updateNative(env);
     }
-    return builder.build();
+    return env.build();
   }
 
   /** Produces everything in the "native" object for WORKSPACE-loaded bzl files. */
@@ -587,9 +601,13 @@ public final class PackageFactory {
     return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider, version);
   }
 
+  /** Constructs a "native" module object with the given contents. */
+  private static Object createNativeModule(Map<String, Object> bindings) {
+    return StructProvider.STRUCT.create(bindings, "no native function or rule '%s'");
+  }
+
   private static ImmutableMap<String, Object> createUninjectedBuildBzlEnv(
-      RuleClassProvider ruleClassProvider,
-      ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings) {
+      RuleClassProvider ruleClassProvider, Map<String, Object> uninjectedBuildBzlNativeBindings) {
     Map<String, Object> env = new HashMap<>();
     env.putAll(ruleClassProvider.getEnvironment());
 
@@ -603,8 +621,7 @@ public final class PackageFactory {
   }
 
   private static ImmutableMap<String, Object> createWorkspaceBzlEnv(
-      RuleClassProvider ruleClassProvider,
-      ImmutableMap<String, Object> workspaceBzlNativeBindings) {
+      RuleClassProvider ruleClassProvider, Map<String, Object> workspaceBzlNativeBindings) {
     Map<String, Object> env = new HashMap<>();
     env.putAll(ruleClassProvider.getEnvironment());
 
@@ -633,9 +650,19 @@ public final class PackageFactory {
     return ImmutableMap.copyOf(env);
   }
 
-  /** Constructs a "native" module object with the given contents. */
-  private static Object createNativeModule(Map<String, Object> bindings) {
-    return StructProvider.STRUCT.create(bindings, "no native function or rule '%s'");
+  private static ImmutableMap<String, Object> createUninjectedBuildEnv(
+      Map<String, BuiltinRuleFunction> ruleFunctions,
+      Map<String, PackageArgument<?>> packageArguments,
+      List<EnvironmentExtension> environmentExtensions) {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
+    env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
+    env.put("package", newPackageFunction(packageArguments));
+    env.putAll(ruleFunctions);
+    for (EnvironmentExtension ext : environmentExtensions) {
+      ext.update(env);
+    }
+    return env.build();
   }
 
   /** Indicates a problem performing builtins injection. */
@@ -647,15 +674,17 @@ public final class PackageFactory {
 
   /**
    * Constructs an environment for a BUILD-loaded bzl file based on the default environment as well
-   * as the given injected top-level symbols and "native" bindings.
+   * as the given {@code @_builtins}-injected top-level symbols and "native" bindings.
    *
    * <p>Injected symbols must override an existing symbol of that name. Furthermore, the overridden
    * symbol must be a rule or a piece of a specific ruleset's logic (e.g., {@code CcInfo} or {@code
    * cc_library}), not a generic built-in (e.g., {@code provider} or {@code glob}). Throws
    * InjectionException if these conditions are not met.
+   *
+   * @see StarlarkBuiltinsFunction
    */
   public ImmutableMap<String, Object> createBuildBzlEnvUsingInjection(
-      ImmutableMap<String, Object> injectedToplevels, ImmutableMap<String, Object> injectedRules)
+      Map<String, Object> injectedToplevels, Map<String, Object> injectedRules)
       throws InjectionException {
     // TODO(#11437): Builtins injection should take into account StarlarkSemantics and
     // FlagGuardedValues. If a builtin is disabled by a flag, we can either:
@@ -694,9 +723,7 @@ public final class PackageFactory {
       Object preexisting = nativeBindings.put(name, symbol.getValue());
       if (preexisting == null) {
         throw new InjectionException(
-            String.format(
-                "Injected native module field '%s' must override an existing symbol by that name",
-                name));
+            String.format("Injected rule '%s' must override an existing rule by that name", name));
       } else if (!ruleFunctions.containsKey(name)) {
         throw new InjectionException(
             String.format("Cannot override native module field '%s' with an injected value", name));
@@ -707,26 +734,32 @@ public final class PackageFactory {
     return ImmutableMap.copyOf(env);
   }
 
-  /** Returns the predeclared environment of a BUILD file, with optional prelude. */
-  // TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this.
-  public ImmutableMap<String, Object> getEnvironment(@Nullable Module prelude) {
-    ImmutableMap.Builder<String, Object> b = ImmutableMap.builder();
-    b.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
-    b.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    b.put("package", newPackageFunction(packageArguments));
-    b.putAll(ruleFunctions);
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.update(b);
+  /**
+   * Constructs an environment for a BUILD file based on the default environment and the given
+   * {@code @_builtins}-injected rule symbols.
+   *
+   * <p>Injected rule symbols must override an existing native rule of that name. Only rules may be
+   * overridden in this manner, not generic built-ins such as {@code package} or {@code glob}.
+   * Throws InjectionException if these conditions are not met.
+   */
+  // TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this and
+  // the other env-building functions.
+  public ImmutableMap<String, Object> createBuildEnvUsingInjection(
+      Map<String, Object> injectedRules) throws InjectionException {
+    HashMap<String, Object> env = new HashMap<>(uninjectedBuildEnv);
+    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
+      String name = symbol.getKey();
+      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
+        throw new InjectionException(
+            String.format("Injected rule '%s' must override an existing rule by that name", name));
+      } else if (!ruleFunctions.containsKey(name)) {
+        throw new InjectionException(
+            String.format("Cannot override top-level builtin '%s' with an injected value", name));
+      } else {
+        env.put(name, symbol.getValue());
+      }
     }
-    ImmutableMap<String, Object> env = b.build();
-
-    if (prelude != null) {
-      // Use HashMap because of possibility of duplicate keys.
-      HashMap<String, Object> withPrelude = Maps.newHashMap(env);
-      withPrelude.putAll(prelude.getGlobals());
-      env = ImmutableMap.copyOf(withPrelude);
-    }
-    return env;
+    return ImmutableMap.copyOf(env);
   }
 
   /**
@@ -793,7 +826,7 @@ public final class PackageFactory {
       Program buildFileProgram,
       ImmutableList<String> globs,
       ImmutableList<String> globsWithDirs,
-      Module prelude,
+      ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
       Globber globber)
@@ -812,7 +845,7 @@ public final class PackageFactory {
 
     try {
       executeBuildFileImpl(
-          pkgBuilder, buildFileProgram, prelude, loadedModules, starlarkSemantics, globber);
+          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -824,7 +857,7 @@ public final class PackageFactory {
   private void executeBuildFileImpl(
       Package.Builder pkgBuilder,
       Program buildFileProgram,
-      Module prelude,
+      ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
       StarlarkSemantics semantics,
       Globber globber)
@@ -843,7 +876,7 @@ public final class PackageFactory {
     PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
-      Module module = Module.withPredeclared(semantics, getEnvironment(prelude));
+      Module module = Module.withPredeclared(semantics, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));

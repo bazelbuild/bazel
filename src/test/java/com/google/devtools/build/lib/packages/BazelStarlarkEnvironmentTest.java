@@ -83,8 +83,32 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertThat(pkgFactory.getBuiltinsBzlEnv()).doesNotContainKey("overridable_symbol");
   }
 
+  /**
+   * Asserts that injection for a BUILD-loaded .bzl file fails, using the given maps and expecting
+   * the given error substring.
+   */
+  private void assertBuildBzlInjectionFailure(
+      Map<String, Object> injectedToplevels, Map<String, Object> injectedRules, String message) {
+    InjectionException ex =
+        assertThrows(
+            InjectionException.class,
+            () -> pkgFactory.createBuildBzlEnvUsingInjection(injectedToplevels, injectedRules));
+    assertThat(ex).hasMessageThat().contains(message);
+  }
+
+  /**
+   * Asserts that injection for a BUILD file fails, using the given map and expecting the given
+   * error substring.
+   */
+  private void assertBuildInjectionFailure(Map<String, Object> injectedRules, String message) {
+    InjectionException ex =
+        assertThrows(
+            InjectionException.class, () -> pkgFactory.createBuildEnvUsingInjection(injectedRules));
+    assertThat(ex).hasMessageThat().contains(message);
+  }
+
   @Test
-  public void injection() throws Exception {
+  public void buildBzlInjection() throws Exception {
     Map<String, Object> env =
         pkgFactory.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("overridable_symbol", "new_value"),
@@ -93,21 +117,16 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
   }
 
-  /** Asserts that injection with the given maps fails with the given error substring. */
-  private void assertInjectionFailure(
-      ImmutableMap<String, Object> injectedToplevels,
-      ImmutableMap<String, Object> injectedRules,
-      String message) {
-    InjectionException ex =
-        assertThrows(
-            InjectionException.class,
-            () -> pkgFactory.createBuildBzlEnvUsingInjection(injectedToplevels, injectedRules));
-    assertThat(ex).hasMessageThat().contains(message);
+  @Test
+  public void buildInjection() throws Exception {
+    Map<String, Object> env =
+        pkgFactory.createBuildEnvUsingInjection(ImmutableMap.of("overridable_rule", "new_rule"));
+    assertThat(env).containsEntry("overridable_rule", "new_rule");
   }
 
   @Test
   public void injectedNameMustOverrideExistingName_toplevel() throws Exception {
-    assertInjectionFailure(
+    assertBuildBzlInjectionFailure(
         ImmutableMap.of("brand_new_toplevel", "foo"),
         ImmutableMap.of(),
         "Injected top-level symbol 'brand_new_toplevel' must override an existing symbol by"
@@ -115,17 +134,19 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void injectedNameMustOverrideExistingName_nativeField() throws Exception {
-    assertInjectionFailure(
+  public void injectedNameMustOverrideExistingName_rule() throws Exception {
+    assertBuildBzlInjectionFailure(
         ImmutableMap.of(),
-        ImmutableMap.of("brand_new_field", "foo"),
-        "Injected native module field 'brand_new_field' must override an existing symbol by "
-            + "that name");
+        ImmutableMap.of("brand_new_rule", "foo"),
+        "Injected rule 'brand_new_rule' must override an existing rule by that name");
+    assertBuildInjectionFailure(
+        ImmutableMap.of("brand_new_rule", "foo"),
+        "Injected rule 'brand_new_rule' must override an existing rule by that name");
   }
 
   @Test
   public void cannotInjectGeneralSymbol_toplevel() {
-    assertInjectionFailure(
+    assertBuildBzlInjectionFailure(
         ImmutableMap.of("provider", "new_builtin"),
         ImmutableMap.of(),
         "Cannot override top-level builtin 'provider' with an injected value");
@@ -133,15 +154,19 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   @Test
   public void cannotInjectGeneralSymbol_nativeField() {
-    assertInjectionFailure(
+    // (Native field for bzl files, toplevel for BUILD files.)
+    assertBuildBzlInjectionFailure(
         ImmutableMap.of(),
         ImmutableMap.of("glob", "new_builtin"),
         "Cannot override native module field 'glob' with an injected value");
+    assertBuildInjectionFailure(
+        ImmutableMap.of("glob", "new_builtin"),
+        "Cannot override top-level builtin 'glob' with an injected value");
   }
 
   @Test
   public void cannotInjectGeneralSymbol_nativeModuleItself() {
-    assertInjectionFailure(
+    assertBuildBzlInjectionFailure(
         ImmutableMap.of("native", "new_builtin"),
         ImmutableMap.of(),
         "Cannot override top-level builtin 'native' with an injected value");
@@ -149,9 +174,12 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   @Test
   public void cannotInjectGeneralSymbol_universe() {
-    assertInjectionFailure(
+    assertBuildBzlInjectionFailure(
         ImmutableMap.of("len", "new_builtin"),
         ImmutableMap.of(),
+        "Cannot override top-level builtin 'len' with an injected value");
+    assertBuildInjectionFailure(
+        ImmutableMap.of("len", "new_builtin"),
         "Cannot override top-level builtin 'len' with an injected value");
   }
 }

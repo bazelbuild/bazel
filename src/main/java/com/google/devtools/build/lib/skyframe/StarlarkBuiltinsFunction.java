@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 // TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
 
 // TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
-// @_builtins. Blocked on us actually loading files from @_builtins.
+// @_builtins.
 
 // TODO(#11437): Add tombstone feature: If a native symbol is a tombstone object, this signals to
 // StarlarkBuiltinsFunction that the corresponding symbol *must* be defined by @_builtins.
@@ -166,10 +166,16 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       ImmutableMap<String, Object> exportedToplevels = getDict(module, "exported_toplevels");
       ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
-      ImmutableMap<String, Object> predeclared =
+      ImmutableMap<String, Object> predeclaredForBuildBzl =
           packageFactory.createBuildBzlEnvUsingInjection(exportedToplevels, exportedRules);
+      ImmutableMap<String, Object> predeclaredForBuild =
+          packageFactory.createBuildEnvUsingInjection(exportedRules);
       return StarlarkBuiltinsValue.create(
-          predeclared, exportedToJava, transitiveDigest, starlarkSemantics);
+          predeclaredForBuildBzl,
+          predeclaredForBuild,
+          exportedToJava,
+          transitiveDigest,
+          starlarkSemantics);
     } catch (EvalException | InjectionException ex) {
       throw BuiltinsFailedException.errorApplyingExports(ex);
     }
