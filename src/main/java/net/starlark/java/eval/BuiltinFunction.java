@@ -81,7 +81,7 @@ public final class BuiltinFunction implements StarlarkCallable {
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
     MethodDescriptor desc = this.desc;
     if (desc == null) {
-      desc = CallUtils.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
+      desc = DescriptorCache.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
       Preconditions.checkArgument(
           !desc.isStructField(),
           "BuiltinFunction constructed for MethodDescriptor(structField=True)");

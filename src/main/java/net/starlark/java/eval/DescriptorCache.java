@@ -27,9 +27,9 @@ import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Helper functions for StarlarkMethod-annotated fields and methods. */
-final class CallUtils {
+final class DescriptorCache {
 
-  private CallUtils() {} // uninstantiable
+  private DescriptorCache() {} // uninstantiable
 
   private static CacheValue getCacheValue(Class<?> cls, StarlarkSemantics semantics) {
     if (cls == String.class) {
