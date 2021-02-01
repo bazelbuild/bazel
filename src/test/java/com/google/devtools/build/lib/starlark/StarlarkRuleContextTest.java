@@ -752,6 +752,33 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testGetExecutablePrerequisite_forNativeRuleWithLabelList() throws Exception {
+    // Starlark rules only support executable=True on LABEL attributes, but native rules support it
+    // for LABEL_LIST as well. This became a problem when we started creating StarlarkRuleContexts
+    // for native rules for builtins injection. We work around it by not populating the executable
+    // field for these rules.
+    scratch.file(
+        "pkg/BUILD",
+        "extra_action(",
+        "    name = 'foo',",
+        "    cmd = 'cmd',",
+        "    out_templates = ['foo.out'],",
+        "    tools = [':tool1', ':tool2']", // not allowed in Starlark-defined rules
+        ")",
+        "cc_binary(",
+        "    name = 'tool1',",
+        "    srcs = ['tool1.cc'],",
+        ")",
+        "cc_binary(",
+        "    name = 'tool2',",
+        "    srcs = ['tool2.cc'],",
+        ")");
+    StarlarkRuleContext ruleContext = createRuleContext("//pkg:foo");
+    setRuleContext(ruleContext);
+    assertThat((Boolean) ev.eval("hasattr(ruleContext.executable, 'tools')")).isFalse();
+  }
+
+  @Test
   public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);

@@ -1191,7 +1191,10 @@ public final class RuleContext extends TargetContext
 
   public void initConfigurationMakeVariableContext(
       Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
-    Preconditions.checkState(configurationMakeVariableContext == null);
+    Preconditions.checkState(
+        configurationMakeVariableContext == null,
+        "Attempted to init an already initialized Make var context (did you call"
+            + " initConfigurationMakeVariableContext() after accessing ctx.var?)");
     configurationMakeVariableContext =
         new ConfigurationMakeVariableContext(
             this, getRule().getPackage(), getConfiguration(), makeVariableSuppliers);
@@ -1222,6 +1225,10 @@ public final class RuleContext extends TargetContext
   /**
    * Returns a cached context that maps Make variable names (string) to values (string) without any
    * extra {@link MakeVariableSupplier}.
+   *
+   * <p>CAUTION: If there's no context, this will initialize the context with no
+   * MakeVariableSuppliers. Call {@link #initConfigurationMakeVariableContext} first if you want to
+   * register suppliers.
    */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {

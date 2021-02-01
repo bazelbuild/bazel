@@ -382,10 +382,6 @@ public final class ConfiguredTargetFactory {
         ruleContext.close();
       }
     } catch (RuleErrorException ruleErrorException) {
-      // Returning null in this method is an indication a rule error occurred. Exceptions are not
-      // propagated, as this would show a nasty stack trace to users, and only provide info
-      // on one specific failure with poor messaging. By returning null, the caller can
-      // inspect ruleContext for multiple errors and output thorough messaging on each.
       return erroredConfiguredTarget(ruleContext);
     }
   }
@@ -552,8 +548,8 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect;
-    try { // freezes starlark state when done
+    ConfiguredAspect configuredAspect = null;
+    try {
       configuredAspect =
           aspectFactory.create(
               associatedTarget,

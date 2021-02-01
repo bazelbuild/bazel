@@ -126,7 +126,30 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   private FragmentCollection hostFragments;
   @Nullable private AspectDescriptor aspectDescriptor;
 
-  private Dict<String, String> makeVariables;
+  /**
+   * This variable is used to expose the state of {@link
+   * RuleContext#configurationMakeVariableContext} to the user via {@code ctx.var}.
+   *
+   * <p>Computing this field causes a side-effect of initializing the Make var context with an empty
+   * list of additional MakeVariableSuppliers. Historically, this was fine for Starlark-defined
+   * rules, but became a problem when we started giving StarlarkRuleContexts to native rules (to
+   * sandwich them with {@code @_builtins}, for Starlarkification). The native rules would then
+   * compete with this default initialization for control over the Make var context.
+   *
+   * <p>To work around this, we now compute and cache the Dict of all Make vars lazily at the first
+   * call to {@code ctx.var}. If a native rule provides custom MakeVariableSuppliers (via {@link
+   * RuleContext#initConfigurationMakeVariableContext}) and also passes {@code ctx} to a
+   * Starlark-defined function that accesses {@code ctx.var}, then the call to {@code
+   * initConfigurationMakeVariableContext} must come first or else that call will throw a
+   * precondition exception.
+   *
+   * <p>Note that StarlarkRuleContext can (for pathological user-written rules) survive the analysis
+   * phase and be accessed concurrently. Nonetheless, it is still safe to initialize {@code ctx.var}
+   * lazily without synchronization, because {@code ctx.var} is inaccessible once {@code nullify()}
+   * has been called.
+   */
+  private Dict<String, String> cachedMakeVariables = null;
+
   private StarlarkAttributesCollection attributesCollection;
   private StarlarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
@@ -251,12 +274,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
 
       this.ruleAttributesCollection = ruleBuilder.build();
-    }
-
-    try {
-      makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
-    } catch (ExpansionException e) {
-      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -384,7 +401,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     fragments = null;
     hostFragments = null;
     aspectDescriptor = null;
-    makeVariables = null;
+    cachedMakeVariables = null;
     attributesCollection = null;
     ruleAttributesCollection = null;
     splitAttributes = null;
@@ -672,7 +689,15 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Override
   public Dict<String, String> var() throws EvalException {
     checkMutable("var");
-    return makeVariables;
+    if (cachedMakeVariables == null) {
+      try {
+        cachedMakeVariables =
+            ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+      } catch (ExpansionException e) {
+        throw Starlark.errorf("%s", e.getMessage());
+      }
+    }
+    return cachedMakeVariables;
   }
 
   @Override

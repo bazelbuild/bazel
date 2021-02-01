@@ -19,16 +19,27 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.io.IOException;
@@ -59,8 +70,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   private static final MockRule OVERRIDABLE_RULE = () -> MockRule.define("overridable_rule");
 
   /**
-   * A dummy native rule that reads from exported_to_java the symbol "builtins_defined_symbol", and
-   * prints its value to the event handler.
+   * A dummy native rule that reads a value from {@code @_builtins}.
+   *
+   * <p>It looks up the symbol "builtins_defined_symbol" in exported_to_java, and prints its value
+   * to the event handler.
    */
   private static final MockRule SANDWICH_RULE =
       () -> MockRule.factory(SandwichFactory.class).define("sandwich_rule");
@@ -81,9 +94,11 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   /**
-   * A dummy rule that dispatches to {@code @_builtins}-defined code. It looks up the function
-   * listed as "builtins_defined_logic" in exported_to_java, and calls it twice on an initially
-   * empty list. It prints both return values and the final value of the list.
+   * A dummy native rule that runs {@code @_builtins}-defined code.
+   *
+   * <p>It looks up the function listed as "builtins_defined_logic" in exported_to_java, and calls
+   * it twice on an initially empty list. It prints both return values and the final value of the
+   * list.
    */
   private static final MockRule SANDWICH_LOGIC_RULE =
       () -> MockRule.factory(SandwichLogicFactory.class).define("sandwich_logic_rule");
@@ -103,8 +118,12 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
       Object return1;
       Object return2;
       try {
-        return1 = Starlark.call(thread, func, ImmutableList.of(arg), ImmutableMap.of());
-        return2 = Starlark.call(thread, func, ImmutableList.of(arg), ImmutableMap.of());
+        return1 =
+            Starlark.call(
+                thread, func, /*args=*/ ImmutableList.of(arg), /*kwargs=*/ ImmutableMap.of());
+        return2 =
+            Starlark.call(
+                thread, func, /*args=*/ ImmutableList.of(arg), /*kwargs=*/ ImmutableMap.of());
       } catch (EvalException e) {
         throw new AssertionError("Failure during Starlark evaluation", e);
       }
@@ -114,6 +133,54 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
       handler.handle(Event.info("builtins_defined_logic call 2 :: " + return2.toString()));
       handler.handle(Event.info("final list value :: " + arg.toString()));
       return super.create(ruleContext);
+    }
+  }
+
+  /**
+   * A dummy native rule that passes a Starlark rule context ({@code ctx}) object to
+   * {@code @_builtins}-defined code.
+   *
+   * <p>It looks up "builtins_rule_impl_helper" in exported_to_java, and calls it with {@code ctx}
+   * as its sole arg. The rule has a "content" string attribute and "out" output label attribute.
+   * The Starlark helper function is responsible for registering an action to generate the output.
+   */
+  private static final MockRule SANDWICH_CTX_RULE =
+      () ->
+          MockRule.factory(SandwichCtxFactory.class)
+              .define(
+                  "sandwich_ctx_rule",
+                  Attribute.attr("content", Type.STRING),
+                  Attribute.attr("out", BuildType.OUTPUT));
+
+  // Must be public due to reflective construction of rule factories.
+  /** Factory for SANDWICH_CTX_RULE. (Javadoc'd to pacify linter.) */
+  public static class SandwichCtxFactory extends MockRuleDefaults.DefaultConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
+      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
+      StarlarkThread thread = ruleContext.getStarlarkThread();
+      ruleContext.initStarlarkRuleContext();
+
+      Object func = env.getStarlarkDefinedBuiltins().get("builtins_rule_impl_helper");
+      try {
+        Starlark.call(
+            thread,
+            func,
+            /*args=*/ ImmutableList.of(ruleContext.getStarlarkRuleContext()),
+            /*kwargs=*/ ImmutableMap.of());
+      } catch (EvalException e) {
+        throw new AssertionError("Failure during Starlark evaluation", e);
+      }
+
+      // Don't dispatch to super.create(), which would attempt to register an action to produce
+      // "out".
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .setFilesToBuild(
+              NestedSetBuilder.wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts()))
+          .setRunfilesSupport(null, null)
+          .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .build();
     }
   }
 
@@ -148,6 +215,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         .addRuleDefinition(OVERRIDABLE_RULE)
         .addRuleDefinition(SANDWICH_RULE)
         .addRuleDefinition(SANDWICH_LOGIC_RULE)
+        .addRuleDefinition(SANDWICH_CTX_RULE)
         .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
         .addStarlarkAccessibleTopLevels(
             "flag_guarded_symbol",
@@ -479,6 +547,25 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("got arg [\"blah\"]");
     assertContainsEvent("builtins_defined_logic call 2 :: 2");
     assertContainsEvent("final list value :: [\"blah\", \"blah\"]");
+  }
+
+  @Test
+  public void nativeRulesCanPassCtxToBuiltinsDefinedHelpers() throws Exception {
+    writeExportsBzl(
+        "def impl_helper(ctx):",
+        "  ctx.actions.write(output=ctx.outputs.out, content=ctx.attr.content)",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {'builtins_rule_impl_helper': impl_helper}");
+    scratch.file(
+        "pkg/BUILD", //
+        "sandwich_ctx_rule(name = 'sandwich_ctx', content='foo', out='bar.txt')");
+
+    ConfiguredTarget target = getConfiguredTarget("//pkg:sandwich_ctx");
+    Artifact output = getBinArtifact("bar.txt", target);
+    ActionAnalysisMetadata action = getGeneratingAction(output);
+    assertThat(action).isInstanceOf(FileWriteAction.class);
+    assertThat(((FileWriteAction) action).getFileContents()).isEqualTo("foo");
   }
 
   /**
