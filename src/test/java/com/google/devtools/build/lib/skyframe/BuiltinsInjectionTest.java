@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -46,12 +45,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -84,11 +80,9 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-
-      Object value = env.getStarlarkDefinedBuiltins().get("builtins_defined_symbol");
-
-      env.getEventHandler().handle(Event.info("builtins_defined_symbol :: " + value.toString()));
+      Object value = ruleContext.getStarlarkDefinedBuiltin("builtins_defined_symbol");
+      EventHandler handler = ruleContext.getAnalysisEnvironment().getEventHandler();
+      handler.handle(Event.info("builtins_defined_symbol :: " + value.toString()));
       return super.create(ruleContext);
     }
   }
@@ -98,7 +92,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
    *
    * <p>It looks up the function listed as "builtins_defined_logic" in exported_to_java, and calls
    * it twice on an initially empty list. It prints both return values and the final value of the
-   * list.
+   * list. On Starlark evaluation error, it reports a rule error.
    */
   private static final MockRule SANDWICH_LOGIC_RULE =
       () -> MockRule.factory(SandwichLogicFactory.class).define("sandwich_logic_rule");
@@ -109,26 +103,17 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-      StarlarkThread thread = ruleContext.getStarlarkThread();
-      Mutability mu = thread.mutability();
-
-      Object func = env.getStarlarkDefinedBuiltins().get("builtins_defined_logic");
+      Mutability mu = ruleContext.getStarlarkThread().mutability();
+      Object func = ruleContext.getStarlarkDefinedBuiltin("builtins_defined_logic");
       Object arg = StarlarkList.newList(mu);
-      Object return1;
-      Object return2;
-      try {
-        return1 =
-            Starlark.call(
-                thread, func, /*args=*/ ImmutableList.of(arg), /*kwargs=*/ ImmutableMap.of());
-        return2 =
-            Starlark.call(
-                thread, func, /*args=*/ ImmutableList.of(arg), /*kwargs=*/ ImmutableMap.of());
-      } catch (EvalException e) {
-        throw new AssertionError("Failure during Starlark evaluation", e);
-      }
+      Object return1 =
+          ruleContext.callStarlarkOrThrowRuleError(
+              func, /*args=*/ ImmutableList.of(arg), /*kwargs=*/ ImmutableMap.of());
+      Object return2 =
+          ruleContext.callStarlarkOrThrowRuleError(
+              func, /*args=*/ ImmutableList.of(arg), /*kwargs=*/ ImmutableMap.of());
 
-      EventHandler handler = env.getEventHandler();
+      EventHandler handler = ruleContext.getAnalysisEnvironment().getEventHandler();
       handler.handle(Event.info("builtins_defined_logic call 1 :: " + return1.toString()));
       handler.handle(Event.info("builtins_defined_logic call 2 :: " + return2.toString()));
       handler.handle(Event.info("final list value :: " + arg.toString()));
@@ -158,21 +143,11 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-      StarlarkThread thread = ruleContext.getStarlarkThread();
       ruleContext.initStarlarkRuleContext();
-
-      Object func = env.getStarlarkDefinedBuiltins().get("builtins_rule_impl_helper");
-      try {
-        Starlark.call(
-            thread,
-            func,
-            /*args=*/ ImmutableList.of(ruleContext.getStarlarkRuleContext()),
-            /*kwargs=*/ ImmutableMap.of());
-      } catch (EvalException e) {
-        throw new AssertionError("Failure during Starlark evaluation", e);
-      }
-
+      ruleContext.callStarlarkOrThrowRuleError(
+          ruleContext.getStarlarkDefinedBuiltin("builtins_rule_impl_helper"),
+          /*args=*/ ImmutableList.of(ruleContext.getStarlarkRuleContext()),
+          /*kwargs=*/ ImmutableMap.of());
       // Don't dispatch to super.create(), which would attempt to register an action to produce
       // "out".
       return new RuleConfiguredTargetBuilder(ruleContext)
@@ -524,6 +499,21 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("builtins_defined_symbol :: value_from_builtins");
   }
 
+  @Test
+  public void nativeRuleFailsToFindUnknownBuiltin() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    scratch.file(
+        "pkg/BUILD", //
+        "sandwich_rule(name = 'sandwich')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//pkg:sandwich");
+    assertContainsEvent("(Internal error) No symbol named 'builtins_defined_symbol'");
+  }
+
   // TODO(#11437): Verify whether this works for native-defined aspects as well.
 
   @Test
@@ -566,6 +556,26 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     ActionAnalysisMetadata action = getGeneratingAction(output);
     assertThat(action).isInstanceOf(FileWriteAction.class);
     assertThat(((FileWriteAction) action).getFileContents()).isEqualTo("foo");
+  }
+
+  @Test
+  public void nativeRulesCanDisplayUsefulStarlarkStackTrace() throws Exception {
+    writeExportsBzl(
+        // The driver rule calls this helper twice with a list. Doesn't matter, we fail immediately.
+        "def func(arg):",
+        "  1//0",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {'builtins_defined_logic': func}");
+    scratch.file(
+        "pkg/BUILD", //
+        "sandwich_logic_rule(name = 'sandwich_logic')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//pkg:sandwich_logic");
+    // Rule implementation uses callStarlarkOrThrowRuleError(), which includes the stack trace.
+    assertContainsEvent("line 2, column 4, in func");
+    assertContainsEvent("Error: integer division by zero");
   }
 
   /**

@@ -119,6 +119,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -1270,13 +1271,51 @@ public final class RuleContext extends TargetContext
     Preconditions.checkState(starlarkRuleContext == null);
     AspectDescriptor descriptor =
         aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
-    starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+    this.starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
     return starlarkRuleContext;
   }
 
   public StarlarkRuleContext getStarlarkRuleContext() {
     Preconditions.checkNotNull(starlarkRuleContext, "Must call initStarlarkRuleContext() first");
     return starlarkRuleContext;
+  }
+
+  /**
+   * Retrieves the {@code @_builtins}-defined Starlark object registered in the {@code
+   * exported_to_java} mapping under the given name.
+   *
+   * <p>Reports and raises a rule error if no symbol by that name is defined.
+   */
+  public Object getStarlarkDefinedBuiltin(String name)
+      throws RuleErrorException, InterruptedException {
+    Object result = getAnalysisEnvironment().getStarlarkDefinedBuiltins().get(name);
+    if (result == null) {
+      throwWithRuleError(
+          String.format(
+              "(Internal error) No symbol named '%s' defined in the @_builtins exported_to_java"
+                  + " dict",
+              name));
+    }
+    return result;
+  }
+
+  /**
+   * Calls a Starlark function in this rule's Starlark thread with the given positional and keyword
+   * arguments. On failure, calls {@link #throwWithRuleError} with the Starlark stack trace.
+   *
+   * <p>This convenience method avoids the need to catch EvalException when the failure would just
+   * immediately terminate rule analysis anyway.
+   */
+  public Object callStarlarkOrThrowRuleError(
+      Object func, List<Object> args, Map<String, Object> kwargs)
+      throws RuleErrorException, InterruptedException {
+    try {
+      return Starlark.call(starlarkThread, func, args, kwargs);
+    } catch (EvalException e) {
+      throwWithRuleError(e.getMessageWithStack());
+      // Pacify compiler.
+      return null;
+    }
   }
 
   /**
