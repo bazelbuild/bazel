@@ -302,7 +302,10 @@ u1 *JarCopierProcessor::AppendTargetLabelToManifest(
     const char *target_label, const char *injecting_rule_kind) {
   const char *line_start = (const char *)manifest_data;
   const char *data_end = (const char *)manifest_data + size;
-  while (line_start < data_end) {
+
+  // Write main attributes part
+  while (line_start < data_end && line_start[0] != '\r' &&
+         line_start[0] != '\n') {
     const char *line_end = strchr(line_start, '\n');
     // Go past return char to point to next line, or to end of data buffer
     line_end = line_end != nullptr ? line_end + 1 : data_end;
@@ -313,17 +316,23 @@ u1 *JarCopierProcessor::AppendTargetLabelToManifest(
         strncmp(line_start, INJECTING_RULE_KIND_KEY,
                 INJECTING_RULE_KIND_KEY_LENGTH) != 0) {
       size_t len = line_end - line_start;
-      // Skip empty lines
-      if (len > 0 && line_start[0] != '\r' && line_start[0] != '\n') {
-        memcpy(buf, line_start, len);
-        buf += len;
-      }
+      memcpy(buf, line_start, len);
+      buf += len;
     }
     line_start = line_end;
   }
+
+  // Append target label and, if given, rule kind
   buf = WriteManifestAttr(buf, TARGET_LABEL_KEY, target_label);
   if (injecting_rule_kind != nullptr) {
     buf = WriteManifestAttr(buf, INJECTING_RULE_KIND_KEY, injecting_rule_kind);
+  }
+
+  // Write the rest of the manifest file
+  size_t sections_len = data_end - line_start;
+  if (sections_len > 0) {
+    memcpy(buf, line_start, sections_len);
+    buf += sections_len;
   }
   return buf;
 }
