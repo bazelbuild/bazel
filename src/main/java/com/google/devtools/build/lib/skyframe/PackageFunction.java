@@ -1479,7 +1479,7 @@ public class PackageFunction implements SkyFunction {
     // TODO(#11437): Remove conditional once disabling injection is no longer allowed.
     Map<String, Object> predeclared =
         semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()
-            ? packageFactory.getUninjectedBuildEnv()
+            ? packageFactory.getBazelStarlarkEnvironment().getUninjectedBuildEnv()
             : starlarkBuiltinsValue.predeclaredForBuild;
     if (preludeBindings != null) {
       predeclared = new HashMap<>(predeclared);

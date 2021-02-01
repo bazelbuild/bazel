@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,30 +124,7 @@ public final class PackageFactory {
   private final PackageValidator packageValidator;
   private final PackageLoadingListener packageLoadingListener;
 
-  // PackageFactory is the source of truth for the predeclared environments of the various flavors
-  // of BUILD and bzl files, including the available fields on the "native" object. For BUILD files
-  // and BUILD-loaded .bzl files, these bindings may be modified by builtins injection; see also
-  // StarlarkBuiltinsFunction.
-  //
-  // We cache in PackageFactory all the predeclared environment information that can be known before
-  // builtins injection (i.e., before Skyframe evaluation). The singular StarlarkBuiltinsValue
-  // caches the result of performing builtins injection.
-  //
-  // TODO(#11954): Eventually the BUILD and WORKSPACE bzl dialects should converge. Right now they
-  // only differ on the "native" object.
-
-  /** The "native" module fields for a BUILD-loaded bzl module, before builtins injection. */
-  private final ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings;
-  /** The "native" module fields for a WORKSPACE-loaded bzl module. */
-  private final ImmutableMap<String, Object> workspaceBzlNativeBindings;
-  /** The top-level predeclared symbols for a BUILD-loaded bzl module, before builtins injection. */
-  private final ImmutableMap<String, Object> uninjectedBuildBzlEnv;
-  /** The top-level predeclared symbols for a WORKSPACE-loaded bzl module. */
-  private final ImmutableMap<String, Object> workspaceBzlEnv;
-  /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
-  private final ImmutableMap<String, Object> builtinsBzlEnv;
-  /** The top-level predeclared symbols for BUILD files, before builtins injection and prelude. */
-  private final ImmutableMap<String, Object> uninjectedBuildEnv;
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
@@ -207,21 +183,17 @@ public final class PackageFactory {
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
-    this.packageArguments = createPackageArguments();
+    this.packageArguments = createPackageArguments(this.environmentExtensions);
     this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
     this.packageLoadingListener = packageLoadingListener;
-
-    this.uninjectedBuildBzlNativeBindings =
-        createUninjectedBuildBzlNativeBindings(
-            ruleFunctions, packageArguments, this.environmentExtensions);
-    this.workspaceBzlNativeBindings = createWorkspaceBzlNativeBindings(ruleClassProvider, version);
-    this.uninjectedBuildBzlEnv =
-        createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
-    this.workspaceBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
-    this.builtinsBzlEnv = createBuiltinsBzlEnv(ruleClassProvider);
-    this.uninjectedBuildEnv =
-        createUninjectedBuildEnv(ruleFunctions, packageArguments, this.environmentExtensions);
+    this.bazelStarlarkEnvironment =
+        new BazelStarlarkEnvironment(
+            ruleClassProvider,
+            ruleFunctions,
+            this.environmentExtensions,
+            newPackageFunction(packageArguments),
+            version);
   }
 
   /** Sets the syscalls cache used in globbing. */
@@ -292,54 +264,13 @@ public final class PackageFactory {
     return environmentExtensions;
   }
 
-  /**
-   * Returns the contents of the "native" object for BUILD-loaded bzls, not accounting for builtins
-   * injection.
-   */
-  public ImmutableMap<String, Object> getUninjectedBuildBzlNativeBindings() {
-    return uninjectedBuildBzlNativeBindings;
-  }
-
-  /** Returns the contents of the "native" object for WORKSPACE-loaded bzls. */
-  public ImmutableMap<String, Object> getWorkspaceBzlNativeBindings() {
-    return workspaceBzlNativeBindings;
-  }
-
-  /**
-   * Returns the original environment for BUILD-loaded bzl files, not accounting for builtins
-   * injection.
-   *
-   * <p>The post-injection environment may differ from this one by what symbols a name is bound to,
-   * but the set of symbols remains the same.
-   */
-  public ImmutableMap<String, Object> getUninjectedBuildBzlEnv() {
-    return uninjectedBuildBzlEnv;
-  }
-
-  /**
-   * Returns the original environment for BUILD files, not accounting for builtins injection or
-   * application of the prelude.
-   *
-   * <p>Applying builtins injection may update name bindings, but not add or remove them. I.e. some
-   * names may refer to different symbols but the static set of names remains the same. Applying the
-   * prelude file may update and add name bindings but not remove them.
-   */
-  public ImmutableMap<String, Object> getUninjectedBuildEnv() {
-    return uninjectedBuildEnv;
-  }
-
-  /** Returns the environment for WORKSPACE-loaded bzl files. */
-  public ImmutableMap<String, Object> getWorkspaceBzlEnv() {
-    return workspaceBzlEnv;
-  }
-
-  /** Returns the environment for bzl files in the {@code @_builtins} pseudo-repository. */
-  public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
-    return builtinsBzlEnv;
+  public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
+    return bazelStarlarkEnvironment;
   }
 
   /** Creates the map of arguments for the 'package' function. */
-  private ImmutableMap<String, PackageArgument<?>> createPackageArguments() {
+  private static ImmutableMap<String, PackageArgument<?>> createPackageArguments(
+      List<EnvironmentExtension> environmentExtensions) {
     ImmutableList.Builder<PackageArgument<?>> arguments =
         ImmutableList.<PackageArgument<?>>builder().addAll(DefaultPackageArguments.get());
 
@@ -575,191 +506,6 @@ public final class PackageFactory {
     public Package.Builder getBuilder() {
       return pkgBuilder;
     }
-  }
-
-  /**
-   * Produces everything that would be in the "native" object for BUILD-loaded bzl files if builtins
-   * injection didn't happen.
-   */
-  private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
-      Map<String, BuiltinRuleFunction> ruleFunctions,
-      Map<String, PackageArgument<?>> packageArguments,
-      List<EnvironmentExtension> environmentExtensions) {
-    ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
-    env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    env.putAll(ruleFunctions);
-    env.put("package", newPackageFunction(packageArguments));
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.updateNative(env);
-    }
-    return env.build();
-  }
-
-  /** Produces everything in the "native" object for WORKSPACE-loaded bzl files. */
-  private static ImmutableMap<String, Object> createWorkspaceBzlNativeBindings(
-      RuleClassProvider ruleClassProvider, String version) {
-    return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider, version);
-  }
-
-  /** Constructs a "native" module object with the given contents. */
-  private static Object createNativeModule(Map<String, Object> bindings) {
-    return StructProvider.STRUCT.create(bindings, "no native function or rule '%s'");
-  }
-
-  private static ImmutableMap<String, Object> createUninjectedBuildBzlEnv(
-      RuleClassProvider ruleClassProvider, Map<String, Object> uninjectedBuildBzlNativeBindings) {
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-
-    // Determine the "native" module.
-    // TODO(#11954): Use the same "native" object for both BUILD- and WORKSPACE-loaded .bzls, and
-    // just have it be a dynamic error to call the wrong thing at the wrong time. This is a breaking
-    // change.
-    env.put("native", createNativeModule(uninjectedBuildBzlNativeBindings));
-
-    return ImmutableMap.copyOf(env);
-  }
-
-  private static ImmutableMap<String, Object> createWorkspaceBzlEnv(
-      RuleClassProvider ruleClassProvider, Map<String, Object> workspaceBzlNativeBindings) {
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-
-    // See above comments for native in BUILD bzls.
-    env.put("native", createNativeModule(workspaceBzlNativeBindings));
-
-    return ImmutableMap.copyOf(env);
-  }
-
-  private static ImmutableMap<String, Object> createBuiltinsBzlEnv(
-      RuleClassProvider ruleClassProvider) {
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-
-    // Clear out rule-specific symbols like CcInfo.
-    env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
-
-    // TODO(#11437): To support inspection of StarlarkSemantics via _internal, we'll have to let
-    // this method be parameterized by the StarlarkSemantics, which means it'll need to be computed
-    // on the fly and not initialized on PackageFactory construction. To avoid computing it
-    // redundantly for each builtins bzl evaluation, we can either 1) create a second
-    // StarlarkBuiltinsValue-like object (which sounds like a lot of work), or 2) create a cache
-    // from StarlarkSemantics to builtins predeclared envs (sounds preferable to me).
-    env.put("_internal", InternalModule.INSTANCE);
-
-    return ImmutableMap.copyOf(env);
-  }
-
-  private static ImmutableMap<String, Object> createUninjectedBuildEnv(
-      Map<String, BuiltinRuleFunction> ruleFunctions,
-      Map<String, PackageArgument<?>> packageArguments,
-      List<EnvironmentExtension> environmentExtensions) {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
-    env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    env.put("package", newPackageFunction(packageArguments));
-    env.putAll(ruleFunctions);
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.update(env);
-    }
-    return env.build();
-  }
-
-  /** Indicates a problem performing builtins injection. */
-  public static final class InjectionException extends Exception {
-    public InjectionException(String message) {
-      super(message);
-    }
-  }
-
-  /**
-   * Constructs an environment for a BUILD-loaded bzl file based on the default environment as well
-   * as the given {@code @_builtins}-injected top-level symbols and "native" bindings.
-   *
-   * <p>Injected symbols must override an existing symbol of that name. Furthermore, the overridden
-   * symbol must be a rule or a piece of a specific ruleset's logic (e.g., {@code CcInfo} or {@code
-   * cc_library}), not a generic built-in (e.g., {@code provider} or {@code glob}). Throws
-   * InjectionException if these conditions are not met.
-   *
-   * @see StarlarkBuiltinsFunction
-   */
-  public ImmutableMap<String, Object> createBuildBzlEnvUsingInjection(
-      Map<String, Object> injectedToplevels, Map<String, Object> injectedRules)
-      throws InjectionException {
-    // TODO(#11437): Builtins injection should take into account StarlarkSemantics and
-    // FlagGuardedValues. If a builtin is disabled by a flag, we can either:
-    //
-    //   1) Treat it as if it doesn't exist for the purposes of injection. In this case it's an
-    //      error to attempt to inject it, so exports.bzl is required to explicitly check the flag's
-    //      value (via the _internal module) before exporting it.
-    //
-    //   2) Allow it to be exported and automatically suppress/omit it from the final environment,
-    //      effectively rewrapping the injected builtin in the FlagGuardedValue.
-
-    // Determine top-level symbols.
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(uninjectedBuildBzlEnv);
-    for (Map.Entry<String, Object> symbol : injectedToplevels.entrySet()) {
-      String name = symbol.getKey();
-      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
-        throw new InjectionException(
-            String.format(
-                "Injected top-level symbol '%s' must override an existing symbol by that name",
-                name));
-      } else if (!ruleClassProvider.getNativeRuleSpecificBindings().containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override top-level builtin '%s' with an injected value", name));
-      } else {
-        env.put(name, symbol.getValue());
-      }
-    }
-
-    // Determine "native" bindings.
-    // See above comments for native in BUILD bzls.
-    Map<String, Object> nativeBindings = new HashMap<>();
-    nativeBindings.putAll(uninjectedBuildBzlNativeBindings);
-    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
-      String name = symbol.getKey();
-      Object preexisting = nativeBindings.put(name, symbol.getValue());
-      if (preexisting == null) {
-        throw new InjectionException(
-            String.format("Injected rule '%s' must override an existing rule by that name", name));
-      } else if (!ruleFunctions.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override native module field '%s' with an injected value", name));
-      }
-    }
-
-    env.put("native", createNativeModule(nativeBindings));
-    return ImmutableMap.copyOf(env);
-  }
-
-  /**
-   * Constructs an environment for a BUILD file based on the default environment and the given
-   * {@code @_builtins}-injected rule symbols.
-   *
-   * <p>Injected rule symbols must override an existing native rule of that name. Only rules may be
-   * overridden in this manner, not generic built-ins such as {@code package} or {@code glob}.
-   * Throws InjectionException if these conditions are not met.
-   */
-  // TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this and
-  // the other env-building functions.
-  public ImmutableMap<String, Object> createBuildEnvUsingInjection(
-      Map<String, Object> injectedRules) throws InjectionException {
-    HashMap<String, Object> env = new HashMap<>(uninjectedBuildEnv);
-    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
-      String name = symbol.getKey();
-      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Injected rule '%s' must override an existing rule by that name", name));
-      } else if (!ruleFunctions.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override top-level builtin '%s' with an injected value", name));
-      } else {
-        env.put(name, symbol.getValue());
-      }
-    }
-    return ImmutableMap.copyOf(env);
   }
 
   /**

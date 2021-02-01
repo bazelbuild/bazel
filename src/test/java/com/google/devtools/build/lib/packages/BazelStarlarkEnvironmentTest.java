@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.packages.PackageFactory.InjectionException;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.InjectionException;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,30 +57,33 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   // matching even if the symbols themselves differ.
   @Test
   public void buildAndWorkspaceBzlEnvsDeclareSameNames() throws Exception {
-    Set<String> buildBzlNames = pkgFactory.getUninjectedBuildBzlEnv().keySet();
-    Set<String> workspaceBzlNames = pkgFactory.getWorkspaceBzlEnv().keySet();
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Set<String> buildBzlNames = starlarkEnv.getUninjectedBuildBzlEnv().keySet();
+    Set<String> workspaceBzlNames = starlarkEnv.getWorkspaceBzlEnv().keySet();
     assertThat(buildBzlNames).isEqualTo(workspaceBzlNames);
   }
 
   @Test
   public void buildAndWorkspaceBzlEnvsAreSameExceptForNative() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     Map<String, Object> buildBzlEnv = new HashMap<>();
-    buildBzlEnv.putAll(pkgFactory.getUninjectedBuildBzlEnv());
+    buildBzlEnv.putAll(starlarkEnv.getUninjectedBuildBzlEnv());
     buildBzlEnv.remove("native");
     Map<String, Object> workspaceBzlEnv = new HashMap<>();
-    workspaceBzlEnv.putAll(pkgFactory.getWorkspaceBzlEnv());
+    workspaceBzlEnv.putAll(starlarkEnv.getWorkspaceBzlEnv());
     workspaceBzlEnv.remove("native");
     assertThat(buildBzlEnv).isEqualTo(workspaceBzlEnv);
   }
 
   @Test
   public void builtinsBzlEnvCanSeeGeneralToplevels() throws Exception {
-    assertThat(pkgFactory.getBuiltinsBzlEnv()).containsKey("rule");
+    assertThat(pkgFactory.getBazelStarlarkEnvironment().getBuiltinsBzlEnv()).containsKey("rule");
   }
 
   @Test
   public void builtinsBzlEnvCannotSeeRuleSpecificToplevels() throws Exception {
-    assertThat(pkgFactory.getBuiltinsBzlEnv()).doesNotContainKey("overridable_symbol");
+    assertThat(pkgFactory.getBazelStarlarkEnvironment().getBuiltinsBzlEnv())
+        .doesNotContainKey("overridable_symbol");
   }
 
   /**
@@ -89,10 +92,11 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
    */
   private void assertBuildBzlInjectionFailure(
       Map<String, Object> injectedToplevels, Map<String, Object> injectedRules, String message) {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     InjectionException ex =
         assertThrows(
             InjectionException.class,
-            () -> pkgFactory.createBuildBzlEnvUsingInjection(injectedToplevels, injectedRules));
+            () -> starlarkEnv.createBuildBzlEnvUsingInjection(injectedToplevels, injectedRules));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
@@ -101,16 +105,19 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
    * error substring.
    */
   private void assertBuildInjectionFailure(Map<String, Object> injectedRules, String message) {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     InjectionException ex =
         assertThrows(
-            InjectionException.class, () -> pkgFactory.createBuildEnvUsingInjection(injectedRules));
+            InjectionException.class,
+            () -> starlarkEnv.createBuildEnvUsingInjection(injectedRules));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
   @Test
   public void buildBzlInjection() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     Map<String, Object> env =
-        pkgFactory.createBuildBzlEnvUsingInjection(
+        starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("overridable_symbol", "new_value"),
             ImmutableMap.of("overridable_rule", "new_rule"));
     assertThat(env).containsEntry("overridable_symbol", "new_value");
@@ -119,8 +126,9 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   @Test
   public void buildInjection() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     Map<String, Object> env =
-        pkgFactory.createBuildEnvUsingInjection(ImmutableMap.of("overridable_rule", "new_rule"));
+        starlarkEnv.createBuildEnvUsingInjection(ImmutableMap.of("overridable_rule", "new_rule"));
     assertThat(env).containsEntry("overridable_rule", "new_rule");
   }
 

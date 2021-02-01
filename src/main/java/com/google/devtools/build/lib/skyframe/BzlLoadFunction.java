@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
@@ -1008,20 +1009,21 @@ public class BzlLoadFunction implements SkyFunction {
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
       BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp)
       throws BzlLoadFailedException, InterruptedException {
+    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
     if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
       if (builtins
           .starlarkSemantics
           .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
           .isEmpty()) {
-        return packageFactory.getUninjectedBuildBzlEnv();
+        return starlarkEnv.getUninjectedBuildBzlEnv();
       }
       fp.addBytes(builtins.transitiveDigest);
       return builtins.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
-      return packageFactory.getWorkspaceBzlEnv();
+      return starlarkEnv.getWorkspaceBzlEnv();
     } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-      return packageFactory.getBuiltinsBzlEnv();
+      return starlarkEnv.getBuiltinsBzlEnv();
     } else {
       throw new AssertionError("Unknown key type: " + key.getClass());
     }

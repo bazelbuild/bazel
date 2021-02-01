@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.InjectionException;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.InjectionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -162,14 +163,15 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     // Apply declarations of exports.bzl to the native predeclared symbols.
     byte[] transitiveDigest = exportsValue.getTransitiveDigest();
     Module module = exportsValue.getModule();
+    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
     try {
       ImmutableMap<String, Object> exportedToplevels = getDict(module, "exported_toplevels");
       ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
       ImmutableMap<String, Object> predeclaredForBuildBzl =
-          packageFactory.createBuildBzlEnvUsingInjection(exportedToplevels, exportedRules);
+          starlarkEnv.createBuildBzlEnvUsingInjection(exportedToplevels, exportedRules);
       ImmutableMap<String, Object> predeclaredForBuild =
-          packageFactory.createBuildEnvUsingInjection(exportedRules);
+          starlarkEnv.createBuildEnvUsingInjection(exportedRules);
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
           predeclaredForBuild,
