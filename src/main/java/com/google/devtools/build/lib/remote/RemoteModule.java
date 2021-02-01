@@ -321,6 +321,10 @@ public final class RemoteModule extends BlazeModule {
       // number of required channels is calculated as: ceil(jobs / 100).
       poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 100.0);
     }
+    if (remoteOptions.remoteGrpcMaxChannels > 0) {
+      poolSize = remoteOptions.remoteGrpcMaxChannels;
+    }
+
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
       interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));

@@ -89,6 +89,16 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteExecutionKeepalive;
 
   @Option(
+      name = "experimental_remote_grpc_max_channels",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "The number of gRPC channels to the remote cache/executor. By default Bazel chooses the"
+              + " number based on --jobs.")
+  public int remoteGrpcMaxChannels;
+
+  @Option(
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",
