@@ -182,7 +182,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     GenQueryResult result;
     try (SilentCloseable c =
-        Profiler.instance().profile("GenQuery.executeQuery/" + ruleContext.getLabel())) {
+        Profiler.instance().profile("GenQuery.executeQuery " + ruleContext.getLabel())) {
       result =
           executeQuery(
               ruleContext,
