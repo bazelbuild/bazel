@@ -757,13 +757,13 @@ public class PackageFunction implements SkyFunction {
     // modules. This ensures that each .bzl is loaded only once, regardless of diamond dependencies
     // or cache eviction. (Multiple loads of the same .bzl would screw up identity equality of some
     // Starlark symbols -- see comments in BzlLoadFunction#computeInline.)
-    BzlLoadFunction.InliningState inliningState = BzlLoadFunction.InliningState.create();
+    BzlLoadFunction.InliningState inliningState = BzlLoadFunction.InliningState.create(env);
     for (BzlLoadValue.Key key : keys) {
       SkyValue skyValue;
       try {
         // Will complete right away if this key has been seen before in inliningState -- regardless
         // of whether it was evaluated successfully, had missing deps, or was found to be in error.
-        skyValue = bzlLoadFunctionForInlining.computeInline(key, env, inliningState);
+        skyValue = bzlLoadFunctionForInlining.computeInline(key, inliningState);
       } catch (BzlLoadFailedException e) {
         if (deferredException == null) {
           deferredException = e;

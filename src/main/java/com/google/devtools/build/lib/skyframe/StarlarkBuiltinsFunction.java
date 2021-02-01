@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -114,26 +113,15 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   @Nullable
   public static StarlarkBuiltinsValue computeInline(
       StarlarkBuiltinsValue.Key key, // singleton value, unused
-      Environment env,
       BzlLoadFunction.InliningState inliningState,
       PackageFactory packageFactory,
       BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
-    Preconditions.checkState(
-        env instanceof RecordingSkyFunctionEnvironment,
-        "Expected to be recording dep requests when inlining StarlarkBuiltinsFunction");
-    // Any direct Skyframe calls we make, outside of evaluating exports.bzl, will use the original
-    // recording environment (env), so that they're properly registered in the CachedBzlLoadData
-    // object of the .bzl that is requesting the builtins.
-    //
-    // We unwrap the environment before calling computeInternal() (and indirectly,
-    // BzlLoadFunction#computeInternal). Any Skyframe deps needed to evaluate exports.bzl and its
-    // transitive deps will be reported by their CachedBzlLoadData objects.
-    //
-    // TODO(#11437): Update these comments for when we can also inline builtins computations for
-    // BUILD files.
-    Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
-    return computeInternal(strippedEnv, packageFactory, inliningState, bzlLoadFunction);
+    // See BzlLoadFunction#computeInline and BzlLoadFunction.InliningState for an explanation of the
+    // inlining mechanism and its invariants. For our purposes, the Skyframe environment to use
+    // comes from inliningState.
+    return computeInternal(
+        inliningState.getEnvironment(), packageFactory, inliningState, bzlLoadFunction);
   }
 
   // bzlLoadFunction and inliningState are non-null iff using inlining code path.
@@ -162,7 +150,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
             (BzlLoadValue)
                 env.getValueOrThrow(EXPORTS_ENTRYPOINT_KEY, BzlLoadFailedException.class);
       } else {
-        exportsValue = bzlLoadFunction.computeInline(EXPORTS_ENTRYPOINT_KEY, env, inliningState);
+        exportsValue = bzlLoadFunction.computeInline(EXPORTS_ENTRYPOINT_KEY, inliningState);
       }
     } catch (BzlLoadFailedException ex) {
       throw BuiltinsFailedException.errorEvaluatingBuiltinsBzls(ex);
