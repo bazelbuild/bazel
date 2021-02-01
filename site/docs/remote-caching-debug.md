@@ -58,7 +58,9 @@ the steps in this section.
 
    Such warnings will be followed by the error message detailing the connection
    problem that should help you debug: for example, mistyped endpoint name or
-   incorrectly set credentials. Find and address any such errors.
+   incorrectly set credentials. Find and address any such errors. If the error
+   message you see does not give you enough information, try adding
+   `--verbose_failures`.
 
 2. Follow the steps from [Troubleshooting cache hits for remote
    execution](/remote-execution-caching-debug.html#troubleshooting-cache-hits) to
