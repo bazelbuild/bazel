@@ -205,6 +205,9 @@ public final class StarlarkThread {
   /** The semantics options that affect how Starlark code is evaluated. */
   private final StarlarkSemantics semantics;
 
+  /** Caches for current thread semantics. */
+  final DescriptorCache cache;
+
   /** Whether recursive calls are allowed (cached from semantics). */
   private final boolean allowRecursion;
 
@@ -385,6 +388,7 @@ public final class StarlarkThread {
     this.mutability = mu;
     this.semantics = semantics;
     this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
+    this.cache = DescriptorCache.forSemantics(semantics);
   }
 
   /**

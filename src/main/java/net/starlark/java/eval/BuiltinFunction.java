@@ -72,16 +72,16 @@ public final class BuiltinFunction implements StarlarkCallable {
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
+    MethodDescriptor desc = getMethodDescriptor(thread.cache);
     Object[] vector = getArgumentVector(thread, desc, positional, named);
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
   }
 
-  private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
+  private MethodDescriptor getMethodDescriptor(DescriptorCache caches) {
     MethodDescriptor desc = this.desc;
     if (desc == null) {
-      desc = DescriptorCache.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
+      desc = caches.getAnnotatedMethods(obj.getClass()).get(methodName);
       Preconditions.checkArgument(
           !desc.isStructField(),
           "BuiltinFunction constructed for MethodDescriptor(structField=True)");
@@ -93,7 +93,7 @@ public final class BuiltinFunction implements StarlarkCallable {
    * Returns the StarlarkMethod annotation of this Starlark-callable Java method.
    */
   public StarlarkMethod getAnnotation() {
-    return getMethodDescriptor(StarlarkSemantics.DEFAULT).getAnnotation();
+    return getMethodDescriptor(DescriptorCache.forSemantics(StarlarkSemantics.DEFAULT)).getAnnotation();
   }
 
   @Override

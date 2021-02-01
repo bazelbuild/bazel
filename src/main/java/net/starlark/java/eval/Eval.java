@@ -426,7 +426,7 @@ final class Eval {
         Object x =
             Starlark.getattr(
                 fr.thread.mutability(),
-                fr.thread.getSemantics(),
+                fr.thread.cache,
                 object,
                 field,
                 /*defaultValue=*/ null);
@@ -574,7 +574,7 @@ final class Eval {
     String name = dot.getField().getName();
     try {
       return Starlark.getattr(
-          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /*defaultValue=*/ null);
+          fr.thread.mutability(), fr.thread.cache, object, name, /*defaultValue=*/ null);
     } catch (EvalException ex) {
       fr.setErrorLocation(dot.getDotLocation());
       throw ex;
