@@ -230,11 +230,6 @@ alias(
 )
 
 alias(
-    name = "bazel-singlejar_deploy.jar",
-    actual = "@remote_java_tools//:SingleJar",
-)
-
-alias(
     name = "turbine",
     actual = "@remote_java_tools//:Turbine",
 )

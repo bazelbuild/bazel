@@ -51,11 +51,6 @@ filegroup(
 )
 
 filegroup(
-    name = "SingleJar",
-    srcs = ["java_tools/bazel-singlejar_deploy.jar"],
-)
-
-filegroup(
     name = "Turbine",
     srcs = ["java_tools/turbine_deploy.jar"],
 )
