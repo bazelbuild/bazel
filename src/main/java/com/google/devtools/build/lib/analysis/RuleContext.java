@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -87,6 +88,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -191,13 +193,13 @@ public final class RuleContext extends TargetContext
 
   private final Rule rule;
   /**
-   * A list of all aspects applied to the target. If this <code>RuleContext</code>
-   * is for a rule implementation, <code>aspects</code> is an empty list.
+   * A list of all aspects applied to the target. If this {@code RuleContext} is for a rule
+   * implementation, {@code aspects} is an empty list.
    *
-   * Otherwise, the last aspect in <code>aspects</code> list is the aspect which
-   * this <code>RuleCointext</code> is for.
+   * <p>Otherwise, the last aspect in the list is the one that this {@code RuleContext} is for.
    */
   private final ImmutableList<Aspect> aspects;
+
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
   private final ListMultimap<String, ConfiguredTargetAndData> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
@@ -237,6 +239,15 @@ public final class RuleContext extends TargetContext
    * partially migrated to {@code @_builtins}.
    */
   private final StarlarkThread starlarkThread;
+  /**
+   * The {@code ctx} object passed to a Starlark-defined rule's or aspect's implementation function.
+   * This object may outlive the analysis phase, e.g. if it is returned in a provider.
+   *
+   * <p>Initialized explicitly by calling {@link #initStarlarkRuleContext}. Native rules that do not
+   * pass this object to {@code @_builtins} might avoid the cost of initializing this object, but
+   * for everyone else it's mandatory.
+   */
+  @Nullable private StarlarkRuleContext starlarkRuleContext;
 
   private RuleContext(
       Builder builder,
@@ -400,7 +411,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public Aspect getMainAspect() {
-    return aspects.isEmpty() ? null : aspects.get(aspects.size() - 1);
+    return aspects.isEmpty() ? null : Iterables.getLast(aspects);
   }
 
   /**
@@ -1244,13 +1255,33 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Initializes the StarlarkRuleContext for use and returns it.
+   *
+   * <p>Throws RuleErrorException on failure.
+   */
+  public StarlarkRuleContext initStarlarkRuleContext() throws RuleErrorException {
+    Preconditions.checkState(starlarkRuleContext == null);
+    AspectDescriptor descriptor =
+        aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
+    starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+    return starlarkRuleContext;
+  }
+
+  public StarlarkRuleContext getStarlarkRuleContext() {
+    Preconditions.checkNotNull(starlarkRuleContext, "Must call initStarlarkRuleContext() first");
+    return starlarkRuleContext;
+  }
+
+  /**
    * Prepares Starlark objects created during this target's analysis for use by others. Freezes
    * mutability, clears expensive references.
    */
   @Override
   public void close() {
     starlarkThread.mutability().freeze();
-    // TODO(#11437): Once we own the StarlarkRuleContext in this class, nullify() it here as well.
+    if (starlarkRuleContext != null) {
+      starlarkRuleContext.nullify();
+    }
   }
 
   @Nullable
