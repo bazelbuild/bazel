@@ -287,28 +287,24 @@ public class RuleClass {
 
   /**
    * Name of the attribute that stores all {@link
-   * com.google.devtools.build.lib.rules.config.ConfigRuleClasses} labels this rule references (i.e.
-   * select() keys). This is specially populated in {@link #populateRuleAttributeValues}.
+   * com.google.devtools.build.lib.rules.config.ConfigRuleClasses} labels in a <code></code>
+   * select(). This is specially populated in {@link #populateRuleAttributeValues}.
    *
-   * <p>This isn't technically necessary for builds: select() keys are evaluated in {@link
-   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} instead of
-   * normal dependency resolution because they're needed to determine other dependencies. So there's
-   * no intrinsic reason why we need an extra attribute to store them.
+   * <p>We don't technically need this attribute. This info is only needed for {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions}, which
+   * could also retrieve it by iterating over every attribute with a <code>select()</code>
    *
-   * <p>There are three reasons why we still create this attribute:
+   * <p>We keep it for these reasons:
    *
    * <ol>
-   *   <li>Collecting them once in {@link #populateRuleAttributeValues} instead of multiple times in
-   *       ConfiguredTargetFunction saves extra looping over the rule's attributes.
+   *   <li>Collecting conditions once in {@link #populateRuleAttributeValues} instead of multiple
+   *       times in ConfiguredTargetFunction saves extra looping over the rule's attributes.
    *   <li>Query's dependency resolution has no equivalent of {@link
    *       com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} and
    *       we need to make sure its coverage remains complete.
-   *   <li>Manual configuration trimming uses the normal dependency resolution process to work
-   *       correctly and config_setting keys are subject to this trimming.
+   *   <li>Storing it as an attribute guarantees <code>select()</code> conditions are validity
+   *       checked in {@link RuleContext.Builder#validateDirectPrerequisite}.
    * </ol>
-   *
-   * <p>It should be possible to clean up these issues if we decide we don't want an artificial
-   * attribute dependency. But care has to be taken to do that safely.
    */
   public static final String CONFIG_SETTING_DEPS_ATTRIBUTE = "$config_dependencies";
 
