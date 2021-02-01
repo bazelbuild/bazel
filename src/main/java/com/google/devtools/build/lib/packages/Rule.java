@@ -849,9 +849,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // conditional should be removed.
     if (ruleClass.getName().equals("config_setting")) {
       ConfigSettingVisibilityPolicy policy = getPackage().getConfigSettingVisibilityPolicy();
-      if (policy == ConfigSettingVisibilityPolicy.LEGACY_OFF) {
-        return ConstantRuleVisibility.PUBLIC; // Always public, no matter what.
-      } else if (visibility != null) {
+      if (visibility != null) {
         return visibility; // Use explicitly set visibility
       } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
         return ConstantRuleVisibility.PUBLIC; // Default: //visibility:public.
