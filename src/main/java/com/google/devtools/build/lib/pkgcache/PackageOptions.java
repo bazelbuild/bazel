@@ -30,6 +30,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
@@ -120,6 +121,38 @@ public class PackageOptions extends OptionsBase {
         "Default visibility for packages that don't set it explicitly ('public' or " + "'private')."
   )
   public RuleVisibility defaultVisibility;
+
+
+  @Option(
+      name = "incompatible_enforce_config_setting_visibility",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, enforce config_setting visibility restrictions. If false, every "
+       + "config_setting is visible to every target. See "
+       + "https://github.com/bazelbuild/bazel/issues/12932."
+  )
+  public boolean enforceConfigSettingVisibility;
+
+  @Option(
+      name = "incompatible_config_setting_private_default_visibility",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If incompatible_enforce_config_setting_visibility=false, this is a noop. Else, if "
+          + "this flag is false, any config_setting without an explicit visibility attribute is "
+          + "//visibility:public. If this flag is true, config_setting follows the same visibility "
+          + "logic as all other rules. See https://github.com/bazelbuild/bazel/issues/12933."
+  )
+  public boolean configSettingPrivateDefaultVisibility;
 
   @Option(
       name = "legacy_globbing_threads",
