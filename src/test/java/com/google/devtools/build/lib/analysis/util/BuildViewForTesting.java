@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -566,7 +567,7 @@ public class BuildViewForTesting {
         .setPrerequisites(
             ConfiguredTargetFactory.transformPrerequisiteMap(
                 prerequisiteMap, target.getAssociatedRule()))
-        .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
+        .setConfigConditions(ConfigConditions.EMPTY)
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(execGroupCollectionBuilder)

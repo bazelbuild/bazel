@@ -842,7 +842,8 @@ public final class PackageFactory {
             // and can be derived from Package.loads (if available) on demand.
             .setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules))
             .setThirdPartyLicenceExistencePolicy(
-                ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+                ruleClassProvider.getThirdPartyLicenseExistencePolicy())
+            .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
     if (packageSettings.recordLoadedModules()) {
       pkgBuilder.setLoads(loadedModules);
     }
