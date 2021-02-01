@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -1131,6 +1132,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
+  private void setConfigSettingVisibilityPolicty(ConfigSettingVisibilityPolicy policy) {
+    PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(injectable(), policy);
+  }
+
   private void setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
@@ -1370,6 +1375,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     setShowLoadingProgress(packageOptions.showLoadingProgress);
     setDefaultVisibility(packageOptions.defaultVisibility);
+    if (!packageOptions.enforceConfigSettingVisibility) {
+      setConfigSettingVisibilityPolicty(ConfigSettingVisibilityPolicy.LEGACY_OFF);
+    } else {
+      setConfigSettingVisibilityPolicty(packageOptions.configSettingPrivateDefaultVisibility
+          ? ConfigSettingVisibilityPolicy.DEFAULT_STANDARD
+          : ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC);
+    }
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);

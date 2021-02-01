@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -477,6 +478,8 @@ public class PackageFunction implements SkyFunction {
 
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
+    ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+        PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
         (IgnoredPackagePrefixesValue)
@@ -520,6 +523,7 @@ public class PackageFunction implements SkyFunction {
               buildFileRootedPath,
               buildFileValue,
               defaultVisibility,
+              configSettingVisibilityPolicy,
               starlarkSemantics,
               preludeLabel,
               packageLookupValue.getRoot(),
@@ -1187,6 +1191,7 @@ public class PackageFunction implements SkyFunction {
       RootedPath buildFilePath,
       FileValue buildFileValue,
       RuleVisibility defaultVisibility,
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       StarlarkSemantics starlarkSemantics,
       @Nullable Label preludeLabel,
       Root packageRoot,
@@ -1289,7 +1294,8 @@ public class PackageFunction implements SkyFunction {
               // "defaultVisibility" comes from the command line.
               // Let's give the BUILD file a chance to set default_visibility once,
               // by resetting the PackageBuilder.defaultVisibilitySet flag.
-              .setDefaultVisibilitySet(false);
+              .setDefaultVisibilitySet(false)
+          .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
 
       Set<SkyKey> globDepKeys = ImmutableSet.of();
 

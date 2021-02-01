@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.Collection;
 import java.util.HashSet;
@@ -842,10 +843,27 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Override
   public RuleVisibility getVisibility() {
+    // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
+    // visibility settings properly (legacy code may have visibility settings that would break if
+    // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
+    // conditional should be removed.
+    if (ruleClass.getName().equals("config_setting")) {
+      ConfigSettingVisibilityPolicy policy = getPackage().getConfigSettingVisibilityPolicy();
+      if (policy == ConfigSettingVisibilityPolicy.LEGACY_OFF) {
+        return ConstantRuleVisibility.PUBLIC; // Always public, no matter what.
+      } else if (visibility != null) {
+        return visibility; // Use explicitly set visibility
+      } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+        return ConstantRuleVisibility.PUBLIC; // Default: //visibility:public.
+      } else {
+        return pkg.getDefaultVisibility(); // Default: same as all other rules.
+      }
+    }
+
+    // All other rules.
     if (visibility != null) {
       return visibility;
     }
-
     return pkg.getDefaultVisibility();
   }
 
