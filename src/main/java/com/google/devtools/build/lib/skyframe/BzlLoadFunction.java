@@ -291,7 +291,9 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
 
-    // See if we've already unsuccessfully visited the bzl.
+    // See if we've already unsuccessfully visited the bzl. "Unsuccessfully" includes getting null
+    // for a missing Skyframe dep; the top-level caller will use a fresh InliningState when it does
+    // its Skyframe restart.
     if (inliningState.unsuccessfulLoads.contains(key)) {
       return null;
     }
@@ -332,35 +334,22 @@ public class BzlLoadFunction implements SkyFunction {
     // *all* the transitive skyframe deps needed for its computation, but the bzl-level granularity
     // allows for sharing of cached results for portions of the bzl load graph.
     //
-    // Here we are at the boundary between one CachedBzlLoadData and the next. Unwrap the recording
-    // env and start a new one.
-    CachedBzlLoadData.Builder cachedDataBuilder = cachedBzlLoadDataManager.cachedDataBuilder();
-    RecordingSkyFunctionEnvironment recordingEnv =
-        new RecordingSkyFunctionEnvironment(
-            inliningState.recordingEnv.getDelegate(),
-            cachedDataBuilder::addDep,
-            cachedDataBuilder::addDeps,
-            cachedDataBuilder::noteException);
+    // Here we are at the boundary between one CachedBzlLoadData and the next. createChildState()
+    // unwraps the old recording env and starts a new one for a new node.
 
-    inliningState.beginLoad(key); // track for cyclic load() detection
+    InliningState childState = inliningState.createChildState(cachedBzlLoadDataManager);
+    childState.beginLoad(key); // track for cyclic load() detection
     BzlLoadValue value;
     try {
-      value =
-          computeInternal(
-              key,
-              recordingEnv,
-              inliningState.createChildState(
-                  recordingEnv, /*childCachedDataHandler=*/ cachedDataBuilder::addTransitiveDeps));
+      value = computeInternal(key, childState.recordingEnv, childState);
     } finally {
-      inliningState.finishLoad(key);
+      childState.finishLoad(key);
     }
     if (value == null) {
       return null;
     }
 
-    cachedDataBuilder.setValue(value);
-    cachedDataBuilder.setKey(key);
-    return cachedDataBuilder.build();
+    return childState.buildCachedData(key, value);
   }
 
   public void resetInliningCache() {
@@ -383,16 +372,25 @@ public class BzlLoadFunction implements SkyFunction {
    * properly recorded as dependencies of all .bzl files that use builtins injection, and 2) the
    * builtins .bzls are not reevaluated.
    */
+  // TODO(brandjon): Consider making this even more opaque and encapsulating more of the details of
+  // inlining. E.g., merge beginLoad/finishLoad with child state tracking, and encapsulate
+  // management of [un]successfulLoads.
   static class InliningState {
 
     /**
      * The Skyframe environment, instrumented to record dependencies inside CachedBzlLoadData
      * objects. A new CachedBzlLoadData, and therefore a new recording environment, is started in
-     * each call to computeInlineForCacheMiss(). The initial recording environment of an
-     * InliningState doesn't instrument anything since it represents the piece of the work that will
-     * not be saved in any CachedBzlLoadData.
+     * each call to computeInlineForCacheMiss(). The initial InliningState's recording environment
+     * doesn't instrument anything since it represents the piece of the work that will not be saved
+     * in any CachedBzlLoadData.
      */
     private final RecordingSkyFunctionEnvironment recordingEnv;
+
+    /**
+     * The builder of the CachedBzlLoadData node that we are currently working on, if any. Null iff
+     * we're the initial InliningState, where recordingEnv doesn't instrument anything.
+     */
+    private final CachedBzlLoadData.Builder cachedDataBuilder;
 
     /**
      * The set of bzls we're currently in the process of loading but haven't fully visited yet. This
@@ -432,11 +430,13 @@ public class BzlLoadFunction implements SkyFunction {
 
     private InliningState(
         RecordingSkyFunctionEnvironment recordingEnv,
+        CachedBzlLoadData.Builder cachedDataBuilder,
         LinkedHashSet<BzlLoadValue.Key> loadStack,
         Map<BzlLoadValue.Key, CachedBzlLoadData> successfulLoads,
         HashSet<BzlLoadValue.Key> unsuccessfulLoads,
         Consumer<CachedBzlLoadData> childCachedDataHandler) {
       this.recordingEnv = recordingEnv;
+      this.cachedDataBuilder = cachedDataBuilder;
       this.loadStack = loadStack;
       this.successfulLoads = successfulLoads;
       this.unsuccessfulLoads = unsuccessfulLoads;
@@ -450,6 +450,7 @@ public class BzlLoadFunction implements SkyFunction {
     static InliningState create(Environment env) {
       return new InliningState(
           new RecordingSkyFunctionEnvironment(env, x -> {}, x -> {}, x -> {}),
+          /*cachedDataBuilder=*/ null,
           /*loadStack=*/ new LinkedHashSet<>(),
           /*successfulLoads=*/ new HashMap<>(),
           /*unsuccessfulLoads=*/ new HashSet<>(),
@@ -457,11 +458,36 @@ public class BzlLoadFunction implements SkyFunction {
           /*childCachedDataHandler=*/ x -> {});
     }
 
-    private InliningState createChildState(
-        RecordingSkyFunctionEnvironment recordingEnv,
-        Consumer<CachedBzlLoadData> childCachedDataHandler) {
+    /**
+     * Creates another InliningState from this one, but with the recording Skyframe environment set
+     * up to log dependency metadata into a CachedBzlLoadData node that is a child of this
+     * InliningState's node.
+     */
+    private InliningState createChildState(CachedBzlLoadDataManager cachedBzlLoadDataManager) {
+      CachedBzlLoadData.Builder newBuilder = cachedBzlLoadDataManager.cachedDataBuilder();
+      RecordingSkyFunctionEnvironment newRecordingEnv =
+          new RecordingSkyFunctionEnvironment(
+              recordingEnv.getDelegate(),
+              newBuilder::addDep,
+              newBuilder::addDeps,
+              newBuilder::noteException);
       return new InliningState(
-          recordingEnv, loadStack, successfulLoads, unsuccessfulLoads, childCachedDataHandler);
+          newRecordingEnv,
+          newBuilder,
+          loadStack,
+          successfulLoads,
+          unsuccessfulLoads,
+          newBuilder::addTransitiveDeps);
+    }
+
+    /**
+     * Finishes construction of the current CachedBzlLoadData node. This InliningState object should
+     * not be used after calling this method.
+     */
+    private CachedBzlLoadData buildCachedData(BzlLoadValue.Key key, BzlLoadValue value) {
+      cachedDataBuilder.setValue(value);
+      cachedDataBuilder.setKey(key);
+      return cachedDataBuilder.build();
     }
 
     /** Records entry to a {@code load()}, throwing an exception if a cycle is detected. */
@@ -565,10 +591,7 @@ public class BzlLoadFunction implements SkyFunction {
             env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
       } else {
         return StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(),
-            inliningState,
-            packageFactory,
-            /*bzlLoadFunction=*/ this);
+            StarlarkBuiltinsValue.key(), inliningState, packageFactory, /*bzlLoadFunction=*/ this);
       }
     } catch (BuiltinsFailedException e) {
       throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
