@@ -29,9 +29,8 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
-// TODO(bazel-team): Consider renaming to SingleRunfilesSupplierImpl.
 @AutoCodec
-public class RunfilesSupplierImpl implements RunfilesSupplier {
+public class SingleRunfilesSupplier implements RunfilesSupplier {
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
   @Nullable private final Artifact manifest;
@@ -46,12 +45,12 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
    * @param buildRunfileLinks whether runfile symlinks are created during build
    * @param runfileLinksEnabled whether it's allowed to create runfile symlinks
    */
-  public RunfilesSupplierImpl(
+  public SingleRunfilesSupplier(
       PathFragment runfilesDir,
       Runfiles runfiles,
       boolean buildRunfileLinks,
       boolean runfileLinksEnabled) {
-    this(runfilesDir, runfiles, /* manifest= */ null, buildRunfileLinks, runfileLinksEnabled);
+    this(runfilesDir, runfiles, /*manifest=*/ null, buildRunfileLinks, runfileLinksEnabled);
   }
 
   /**
@@ -66,7 +65,7 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
    * @param runfileLinksEnabled whether it's allowed to create runfile symlinks
    */
   @AutoCodec.Instantiator
-  public RunfilesSupplierImpl(
+  public SingleRunfilesSupplier(
       PathFragment runfilesDir,
       Runfiles runfiles,
       @Nullable Artifact manifest,
@@ -82,18 +81,18 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
 
   /** Use this constructor in tests only. */
   @VisibleForTesting
-  public RunfilesSupplierImpl(PathFragment runfilesDir, Runfiles runfiles) {
+  public SingleRunfilesSupplier(PathFragment runfilesDir, Runfiles runfiles) {
     this(
         runfilesDir,
         runfiles,
-        /* manifest= */ null,
-        /* buildRunfileLinks= */ false,
-        /* runfileLinksEnabled= */ false);
+        /*manifest=*/ null,
+        /*buildRunfileLinks=*/ false,
+        /*runfileLinksEnabled=*/ false);
   }
 
   /** Creates a runfiles supplier */
-  public static RunfilesSupplier create(RunfilesSupport runfilesSupport) {
-    return new RunfilesSupplierImpl(
+  public static SingleRunfilesSupplier create(RunfilesSupport runfilesSupport) {
+    return new SingleRunfilesSupplier(
         runfilesSupport.getRunfilesDirectoryExecPath(),
         runfilesSupport.getRunfiles(),
         runfilesSupport.isBuildRunfileLinks(),
@@ -106,7 +105,7 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
       Runfiles runfiles,
       @Nullable Artifact manifest,
       BuildConfiguration configuration) {
-    return new RunfilesSupplierImpl(
+    return new SingleRunfilesSupplier(
         runfilesDir,
         runfiles,
         manifest,
@@ -132,7 +131,7 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
 
   @Override
   public ImmutableList<Artifact> getManifests() {
-    return manifest != null ? ImmutableList.of(manifest) : ImmutableList.<Artifact>of();
+    return manifest != null ? ImmutableList.of(manifest) : ImmutableList.of();
   }
 
   @Override
@@ -143,5 +142,16 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
   @Override
   public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
     return runfileLinksEnabled && this.runfilesDir.equals(runfilesDir);
+  }
+
+  /**
+   * Returns a {@link SingleRunfilesSupplier} identical to this one, but with the given runfiles
+   * directory.
+   */
+  public SingleRunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
+    return newRunfilesDir.equals(runfilesDir)
+        ? this
+        : new SingleRunfilesSupplier(
+            newRunfilesDir, runfiles, manifest, buildRunfileLinks, runfileLinksEnabled);
   }
 }

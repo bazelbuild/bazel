@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -72,7 +72,7 @@ public final class TestActionBuilder {
   private ExecutionInfo executionRequirements;
   private InstrumentedFilesInfo instrumentedFiles;
   private int explicitShardCount;
-  private Map<String, String> extraEnv;
+  private final Map<String, String> extraEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -368,18 +368,18 @@ public final class TestActionBuilder {
         boolean cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
-        RunfilesSupplier testRunfilesSupplier;
+        SingleRunfilesSupplier testRunfilesSupplier;
         if (isPersistentTestRunner()) {
           // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the
           // test runner's runfiles to avoid using a different worker for every test run.
           testRunfilesSupplier =
-              new RunfilesSupplierImpl(
-                  /* runfilesDir= */ persistentTestRunnerRunfiles.getSuffix(),
-                  /* runfiles= */ persistentTestRunnerRunfiles,
-                  /* buildRunfileLinks= */ false,
-                  /* runfileLinksEnabled= */ false);
+              new SingleRunfilesSupplier(
+                  /*runfilesDir=*/ persistentTestRunnerRunfiles.getSuffix(),
+                  /*runfiles=*/ persistentTestRunnerRunfiles,
+                  /*buildRunfileLinks=*/ false,
+                  /*runfileLinksEnabled=*/ false);
         } else {
-          testRunfilesSupplier = RunfilesSupplierImpl.create(runfilesSupport);
+          testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
         }
 
         ImmutableList.Builder<Artifact> tools = new ImmutableList.Builder<>();

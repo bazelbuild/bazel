@@ -17,39 +17,39 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for RunfilesSupplierImpl */
+/** Tests for {@link SingleRunfilesSupplier}. */
 @RunWith(JUnit4.class)
-public class RunfilesSupplierImplTest {
-  private ArtifactRoot rootDir;
+public final class SingleRunfilesSupplierTest {
 
-  @Before
-  public final void setRoot() {
-    Scratch scratch = new Scratch();
-    Path execRoot = scratch.getFileSystem().getPath("/");
-    rootDir =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake", "root", "dont", "matter");
-  }
+  private final ArtifactRoot rootDir =
+      ArtifactRoot.asDerivedRoot(
+          new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/"),
+          RootType.Output,
+          "fake",
+          "root",
+          "dont",
+          "matter");
 
   @Test
   public void testGetArtifactsWithSingleMapping() {
     List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
 
-    RunfilesSupplierImpl underTest =
-        new RunfilesSupplierImpl(PathFragment.create("notimportant"), mkRunfiles(artifacts));
+    SingleRunfilesSupplier underTest =
+        new SingleRunfilesSupplier(PathFragment.create("notimportant"), mkRunfiles(artifacts));
 
     assertThat(underTest.getArtifacts().toList()).containsExactlyElementsIn(artifacts);
   }
@@ -57,7 +57,7 @@ public class RunfilesSupplierImplTest {
   @Test
   public void testGetManifestsWhenNone() {
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(PathFragment.create("ignored"), Runfiles.EMPTY);
+        new SingleRunfilesSupplier(PathFragment.create("ignored"), Runfiles.EMPTY);
     assertThat(underTest.getManifests()).isEmpty();
   }
 
@@ -65,20 +65,53 @@ public class RunfilesSupplierImplTest {
   public void testGetManifestsWhenSupplied() {
     Artifact manifest = ActionsTestUtil.createArtifact(rootDir, "manifest");
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(
+        new SingleRunfilesSupplier(
             PathFragment.create("ignored"),
             Runfiles.EMPTY,
             manifest,
-            /* buildRunfileLinks= */ false,
-            /* runfileLinksEnabled= */ false);
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
     assertThat(underTest.getManifests()).containsExactly(manifest);
+  }
+
+  @Test
+  public void withOverriddenRunfilesDir() {
+    SingleRunfilesSupplier original =
+        new SingleRunfilesSupplier(
+            PathFragment.create("old"),
+            Runfiles.EMPTY,
+            ActionsTestUtil.createArtifact(rootDir, "manifest"),
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
+    PathFragment newDir = PathFragment.create("new");
+
+    RunfilesSupplier overridden = original.withOverriddenRunfilesDir(newDir);
+
+    assertThat(overridden.getRunfilesDirs()).containsExactly(newDir);
+    assertThat(overridden.getMappings())
+        .containsExactly(newDir, Iterables.getOnlyElement(original.getMappings().values()));
+    assertThat(overridden.getArtifacts()).isEqualTo(original.getArtifacts());
+    assertThat(overridden.getManifests()).isEqualTo(original.getManifests());
+  }
+
+  @Test
+  public void withOverriddenRunfilesDir_noChange_sameObject() {
+    PathFragment dir = PathFragment.create("dir");
+    SingleRunfilesSupplier original =
+        new SingleRunfilesSupplier(
+            dir,
+            Runfiles.EMPTY,
+            ActionsTestUtil.createArtifact(rootDir, "manifest"),
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
+    assertThat(original.withOverriddenRunfilesDir(dir)).isSameInstanceAs(original);
   }
 
   private static Runfiles mkRunfiles(Iterable<Artifact> artifacts) {
     return new Runfiles.Builder("TESTING", false).addArtifacts(artifacts).build();
   }
 
-  private static List<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {
+  private static ImmutableList<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (String path : paths) {
       builder.add(ActionsTestUtil.createArtifact(rootDir, path));

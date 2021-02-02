@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
@@ -171,7 +172,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
+      SingleRunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -410,6 +411,10 @@ public class TestRunnerAction extends AbstractAction
     return unconditionalExecution;
   }
 
+  @Override // Tighten return type.
+  public SingleRunfilesSupplier getRunfilesSupplier() {
+    return (SingleRunfilesSupplier) super.getRunfilesSupplier();
+  }
 
   @Override
   public boolean isVolatile() {
