@@ -582,11 +582,12 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns precomputed workspace information or null.
+   * Returns workspace information obtained from the {@linkplain
+   * com.google.devtools.build.lib.skyframe.DiffAwareness.View#getWorkspaceInfo() diff} or null.
    *
-   * <p>Precomputed workspace info is an optimization allowing to share information about the
-   * workspace if it was derived at the time of synchronizing the workspace. This way we can make it
-   * available earlier during the build and avoid retrieving it again.
+   * <p>We store workspace info as an optimization to allow sharing of information about the
+   * workspace if it was derived from the diff at the time of synchronizing the workspace. This way
+   * we can make it available earlier during the build and avoid retrieving it again.
    */
   @Nullable
   public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
