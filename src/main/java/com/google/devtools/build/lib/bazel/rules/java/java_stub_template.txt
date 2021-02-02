@@ -313,7 +313,7 @@ function create_and_run_classpath_jar() {
       path="file:${path}" # e.g. "file:/usr/local/foo.jar"
     fi
 
-    path=$(sed "s/ /%20/g" <<< "${path}")
+    path=$(sed "s/ /%20/g; s/%/%25/g" <<< "${path}")
     MANIFEST_CLASSPATH+=("${path}")
   done
   IFS="$OLDIFS"
