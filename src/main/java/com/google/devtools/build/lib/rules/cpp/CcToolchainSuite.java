@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import java.util.Map;
 
 /**
@@ -60,6 +61,9 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       ccToolchainProvider =
           selectCcToolchain(
               CcToolchainProvider.class,
+              // TOOD(b/17906781): Change this to CcToolchainProvider when CcToolchainProvider isn't
+              // a subclass of ToolchainInfo.
+              ToolchainInfo.PROVIDER,
               ruleContext,
               transformedCpu,
               compiler,
@@ -70,6 +74,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       CcToolchainAttributesProvider selectedAttributes =
           selectCcToolchain(
               CcToolchainAttributesProvider.class,
+              CcToolchainAttributesProvider.PROVIDER,
               ruleContext,
               transformedCpu,
               compiler,
@@ -107,6 +112,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
 
   private <T extends HasCcToolchainLabel> T selectCcToolchain(
       Class<T> clazz,
+      // TOOD(b/17906781): Change the type to T when CcToolchainprovider has its own provider type.
+      BuiltinProvider<?> providerType,
       RuleContext ruleContext,
       String cpu,
       String compiler,
@@ -114,7 +121,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       throws RuleErrorException {
     T selectedAttributes = null;
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-      T attributes = clazz.cast(dep.get(ToolchainInfo.PROVIDER));
+      T attributes = clazz.cast(dep.get(providerType));
       if (attributes != null && attributes.getCcToolchainLabel().equals(selectedCcToolchain)) {
         selectedAttributes = attributes;
         break;
