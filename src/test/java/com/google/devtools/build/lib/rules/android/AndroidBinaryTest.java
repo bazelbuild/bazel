@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -91,6 +92,11 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     @Override
     protected boolean platformBasedToolchains() {
       return true;
+    }
+
+    @Override
+    protected String defaultPlatformFlag() {
+      return String.format("--android_platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
     }
   }
 

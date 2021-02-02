@@ -27,12 +27,19 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -40,6 +47,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -457,6 +465,43 @@ public final class AndroidRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
+    }
+  }
+
+  public static TransitionFactory<Rule> androidBinarySelfTransition() {
+    return TransitionFactories.of(new AndroidBinarySelfTransition());
+  }
+
+  /**
+   * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag
+   * to match the first value from "--android_platforms". This will enable the application to select
+   * a valid Android SDK via toolchain resolution. Aandroid_binary itself should only need the SDK,
+   * not an NDK, so in theory every platform passed to "--android_platforms" should be equivalent.
+   */
+  private static final class AndroidBinarySelfTransition implements PatchTransition {
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(AndroidConfiguration.Options.class, PlatformOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
+      if (androidOptions.androidPlatforms.isEmpty()) {
+        // No change.
+        return options.underlying();
+      }
+
+      BuildOptionsView newOptions = options.clone();
+      PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
+      newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+      return newOptions.underlying();
+    }
+
+    @Override
+    public String reasonForOverride() {
+      return "properly set the target platform for Android binaries";
     }
   }
 

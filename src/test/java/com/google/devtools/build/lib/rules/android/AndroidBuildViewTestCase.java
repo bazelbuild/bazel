@@ -62,6 +62,10 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return false;
   }
 
+  protected String defaultPlatformFlag() {
+    return String.format("--platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
+  }
+
   @Override
   protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
@@ -96,12 +100,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         fullArgs.add(arg);
       }
 
-      if (arg.startsWith("--platforms=")) {
+      if (arg.startsWith("--platforms=") || arg.startsWith("--android_platforms=")) {
         hasPlatform = true;
       }
     }
     if (!hasPlatform) {
-      fullArgs.add(String.format("--platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT));
+      fullArgs.add(defaultPlatformFlag());
     }
     super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
   }
