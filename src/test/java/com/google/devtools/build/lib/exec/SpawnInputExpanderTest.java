@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -89,7 +89,7 @@ public class SpawnInputExpanderTest {
             fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
@@ -107,7 +107,7 @@ public class SpawnInputExpanderTest {
     Artifact artifact = createFilesetArtifact("foo/biz/fs_out");
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
@@ -147,7 +147,7 @@ public class SpawnInputExpanderTest {
             fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(artifact, FileArtifactValue.createForDirectoryWithMtime(-1));
 
@@ -168,7 +168,7 @@ public class SpawnInputExpanderTest {
             fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(artifact, FileArtifactValue.createForDirectoryWithMtime(-1));
 
@@ -192,7 +192,7 @@ public class SpawnInputExpanderTest {
     Runfiles runfiles =
         new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact1,
@@ -222,7 +222,7 @@ public class SpawnInputExpanderTest {
             .addSymlink(PathFragment.create("symlink"), artifact)
             .build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
@@ -246,7 +246,7 @@ public class SpawnInputExpanderTest {
             .addRootSymlink(PathFragment.create("symlink"), artifact)
             .build();
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
@@ -280,7 +280,7 @@ public class SpawnInputExpanderTest {
           }
         };
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
     fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
@@ -313,7 +313,7 @@ public class SpawnInputExpanderTest {
           }
         };
     RunfilesSupplier supplier =
-        new SingleRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
     fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));

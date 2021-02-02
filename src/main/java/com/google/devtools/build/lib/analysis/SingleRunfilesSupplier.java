@@ -14,22 +14,18 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
-@AutoCodec
 public class SingleRunfilesSupplier implements RunfilesSupplier {
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
@@ -38,19 +34,15 @@ public class SingleRunfilesSupplier implements RunfilesSupplier {
   private final boolean runfileLinksEnabled;
 
   /**
-   * Create an instance for runfiles directory.
-   *
-   * @param runfilesDir the path of the runfiles directory relative to the exec root
-   * @param runfiles the associated runfiles
-   * @param buildRunfileLinks whether runfile symlinks are created during build
-   * @param runfileLinksEnabled whether it's allowed to create runfile symlinks
+   * Creates a no-manifest {@link SingleRunfilesSupplier} from the given {@link RunfilesSupport}.
    */
-  public SingleRunfilesSupplier(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      boolean buildRunfileLinks,
-      boolean runfileLinksEnabled) {
-    this(runfilesDir, runfiles, /*manifest=*/ null, buildRunfileLinks, runfileLinksEnabled);
+  public static SingleRunfilesSupplier create(RunfilesSupport runfilesSupport) {
+    return new SingleRunfilesSupplier(
+        runfilesSupport.getRunfilesDirectoryExecPath(),
+        runfilesSupport.getRunfiles(),
+        /*manifest=*/ null,
+        runfilesSupport.isBuildRunfileLinks(),
+        runfilesSupport.isRunfilesEnabled());
   }
 
   /**
@@ -64,7 +56,6 @@ public class SingleRunfilesSupplier implements RunfilesSupplier {
    * @param buildRunfileLinks whether runfile symlinks are created during build
    * @param runfileLinksEnabled whether it's allowed to create runfile symlinks
    */
-  @AutoCodec.Instantiator
   public SingleRunfilesSupplier(
       PathFragment runfilesDir,
       Runfiles runfiles,
@@ -77,40 +68,6 @@ public class SingleRunfilesSupplier implements RunfilesSupplier {
     this.manifest = manifest;
     this.buildRunfileLinks = buildRunfileLinks;
     this.runfileLinksEnabled = runfileLinksEnabled;
-  }
-
-  /** Use this constructor in tests only. */
-  @VisibleForTesting
-  public SingleRunfilesSupplier(PathFragment runfilesDir, Runfiles runfiles) {
-    this(
-        runfilesDir,
-        runfiles,
-        /*manifest=*/ null,
-        /*buildRunfileLinks=*/ false,
-        /*runfileLinksEnabled=*/ false);
-  }
-
-  /** Creates a runfiles supplier */
-  public static SingleRunfilesSupplier create(RunfilesSupport runfilesSupport) {
-    return new SingleRunfilesSupplier(
-        runfilesSupport.getRunfilesDirectoryExecPath(),
-        runfilesSupport.getRunfiles(),
-        runfilesSupport.isBuildRunfileLinks(),
-        runfilesSupport.isRunfilesEnabled());
-  }
-
-  /** creates a runfiles supplier */
-  public static RunfilesSupplier create(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      @Nullable Artifact manifest,
-      BuildConfiguration configuration) {
-    return new SingleRunfilesSupplier(
-        runfilesDir,
-        runfiles,
-        manifest,
-        configuration.buildRunfileLinks(),
-        configuration.buildRunfilesManifests());
   }
 
   @Override

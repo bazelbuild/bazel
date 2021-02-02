@@ -376,6 +376,7 @@ public final class TestActionBuilder {
               new SingleRunfilesSupplier(
                   /*runfilesDir=*/ persistentTestRunnerRunfiles.getSuffix(),
                   /*runfiles=*/ persistentTestRunnerRunfiles,
+                  /*manifest=*/ null,
                   /*buildRunfileLinks=*/ false,
                   /*runfileLinksEnabled=*/ false);
         } else {

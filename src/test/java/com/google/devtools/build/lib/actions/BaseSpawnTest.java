@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import org.junit.Test;
@@ -45,7 +45,8 @@ public class BaseSpawnTest {
     BaseSpawn underTest =
         minimalBaseSpawn(
             baseEnviron,
-            new SingleRunfilesSupplier(PathFragment.create(runfilesDir), Runfiles.EMPTY));
+            AnalysisTestUtil.createRunfilesSupplier(
+                PathFragment.create(runfilesDir), Runfiles.EMPTY));
 
     Map<String, String> expected = ImmutableMap.<String, String>builder()
         .putAll(baseEnviron)
@@ -63,8 +64,10 @@ public class BaseSpawnTest {
         minimalBaseSpawn(
             baseEnviron,
             CompositeRunfilesSupplier.of(
-                new SingleRunfilesSupplier(PathFragment.create("rfdir1"), Runfiles.EMPTY),
-                new SingleRunfilesSupplier(PathFragment.create("rfdir2"), Runfiles.EMPTY)));
+                AnalysisTestUtil.createRunfilesSupplier(
+                    PathFragment.create("rfdir1"), Runfiles.EMPTY),
+                AnalysisTestUtil.createRunfilesSupplier(
+                    PathFragment.create("rfdir2"), Runfiles.EMPTY)));
 
     assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
   }

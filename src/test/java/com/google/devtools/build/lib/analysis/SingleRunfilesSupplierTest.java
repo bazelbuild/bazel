@@ -49,7 +49,12 @@ public final class SingleRunfilesSupplierTest {
     List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
 
     SingleRunfilesSupplier underTest =
-        new SingleRunfilesSupplier(PathFragment.create("notimportant"), mkRunfiles(artifacts));
+        new SingleRunfilesSupplier(
+            PathFragment.create("notimportant"),
+            mkRunfiles(artifacts),
+            /*manifest=*/ null,
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
 
     assertThat(underTest.getArtifacts().toList()).containsExactlyElementsIn(artifacts);
   }
@@ -57,7 +62,12 @@ public final class SingleRunfilesSupplierTest {
   @Test
   public void testGetManifestsWhenNone() {
     RunfilesSupplier underTest =
-        new SingleRunfilesSupplier(PathFragment.create("ignored"), Runfiles.EMPTY);
+        new SingleRunfilesSupplier(
+            PathFragment.create("ignored"),
+            Runfiles.EMPTY,
+            /*manifest=*/ null,
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
     assertThat(underTest.getManifests()).isEmpty();
   }
 
