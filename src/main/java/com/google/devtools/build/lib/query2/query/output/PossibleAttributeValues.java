@@ -51,10 +51,16 @@ public class PossibleAttributeValues {
    * an <code>attr = select(...) + select(...) + select(...) + ...</code> expression. Query
    * operations generally don't care about specific attribute values - they just care which labels
    * are possible.
+   *
+   * @param mayTreatMultipleAsNone signals if attribute-value computation <b>may</b> be aborted if
+   *     more than one possible value is encountered. Useful when the caller needs a single value or
+   *     none at all, as is the use case of this method for many attribute types. This parameter is
+   *     respected on a best-effort basis - multiple values may still be returned if an unoptimized
+   *     code path is visited.
    */
-  static Iterable<Object> forRuleAndAttribute(Rule rule, Attribute attr) {
+  static Iterable<Object> forRuleAndAttribute(
+      Rule rule, Attribute attr, boolean mayTreatMultipleAsNone) {
     AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
-    Iterable<?> list;
     if (attr.getType().equals(BuildType.LABEL_LIST)
         && attributeMap.isConfigurable(attr.getName())) {
       // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
@@ -63,17 +69,19 @@ public class PossibleAttributeValues {
       // directly into Type.
       return ImmutableList.<Object>of(
           attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/ false));
-    } else if ((list =
-            attributeMap.getConcatenatedSelectorListsOfListType(
-                attr.getName(), attr.getType()))
-        != null) {
-      return Lists.newArrayList(list);
-    } else {
-      // The call to visitAttributes below is especially slow with selector lists.
-      @SuppressWarnings("unchecked") // Casting Iterable<T> -> Iterable<Object>
-      Iterable<Object> possibleValues =
-          (Iterable<Object>) attributeMap.visitAttribute(attr.getName(), attr.getType());
-      return possibleValues;
     }
+
+    Iterable<?> concatenatedSelectsValue =
+        attributeMap.getConcatenatedSelectorListsOfListType(attr.getName(), attr.getType());
+    if (concatenatedSelectsValue != null) {
+      return Lists.newArrayList(concatenatedSelectsValue);
+    }
+
+    // The call to visitAttributes below is especially slow with selector lists.
+    @SuppressWarnings("unchecked") // Casting Iterable<T> -> Iterable<Object>
+    Iterable<Object> possibleValues =
+        (Iterable<Object>)
+            attributeMap.visitAttribute(attr.getName(), attr.getType(), mayTreatMultipleAsNone);
+    return possibleValues;
   }
 }

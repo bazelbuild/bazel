@@ -248,7 +248,11 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
         targetOutputter.output(
-            target, (rule, attr) -> PossibleAttributeValues.forRuleAndAttribute(rule, attr));
+            target,
+            // Multiple possible values are ignored by the outputter.
+            (rule, attr) ->
+                PossibleAttributeValues.forRuleAndAttribute(
+                    rule, attr, /*mayTreatMultipleAsNone=*/ true));
       }
     }
   }

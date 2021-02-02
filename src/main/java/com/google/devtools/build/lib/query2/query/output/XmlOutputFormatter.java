@@ -163,7 +163,11 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
             AttributeValueSource.forRuleAndAttribute(rule, attr);
         if (attributeValueSource == AttributeValueSource.RULE
             || queryOptions.xmlShowDefaultValues) {
-          Iterable<Object> values = PossibleAttributeValues.forRuleAndAttribute(rule, attr);
+          // TODO(b/162524370): mayTreatMultipleAsNone should be true for types that drop multiple
+          //  values.
+          Iterable<Object> values =
+              PossibleAttributeValues.forRuleAndAttribute(
+                  rule, attr, /*mayTreatMultipleAsNone=*/ false);
           Element attrElem = createValueElement(doc, attr.getType(), values);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
