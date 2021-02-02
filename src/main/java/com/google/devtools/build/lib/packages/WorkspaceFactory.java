@@ -263,7 +263,7 @@ public class WorkspaceFactory {
         }
         try {
           Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-          // TODO(adonovan): this doesn't look safe!
+          // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
               && externalRepoName != null

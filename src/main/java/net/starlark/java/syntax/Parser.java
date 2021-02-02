@@ -38,7 +38,7 @@ final class Parser {
     final ImmutableList<Statement> statements;
 
     /** The comments from the parsed file. */
-    final List<Comment> comments;
+    final ImmutableList<Comment> comments;
 
     // Errors encountered during scanning or parsing.
     // These lists are ultimately owned by StarlarkFile.
@@ -47,7 +47,7 @@ final class Parser {
     private ParseResult(
         FileLocations locs,
         ImmutableList<Statement> statements,
-        List<Comment> comments,
+        ImmutableList<Comment> comments,
         List<SyntaxError> errors) {
       this.locs = locs;
       // No need to copy here; when the object is created, the parser instance is just about to go

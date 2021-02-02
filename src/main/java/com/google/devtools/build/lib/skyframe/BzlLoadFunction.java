@@ -891,12 +891,14 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /** Extracts load statements from file syntax (see {@link #getLoadLabels}). */
-  static ImmutableList<Pair<String, Location>> getLoadsFromStarlarkFile(StarlarkFile file) {
+  static ImmutableList<Pair<String, Location>> getLoadsFromStarlarkFiles(List<StarlarkFile> files) {
     ImmutableList.Builder<Pair<String, Location>> loads = ImmutableList.builder();
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        StringLiteral module = ((LoadStatement) stmt).getImport();
-        loads.add(Pair.of(module.getValue(), module.getStartLocation()));
+    for (StarlarkFile file : files) {
+      for (Statement stmt : file.getStatements()) {
+        if (stmt instanceof LoadStatement) {
+          StringLiteral module = ((LoadStatement) stmt).getImport();
+          loads.add(Pair.of(module.getValue(), module.getStartLocation()));
+        }
       }
     }
     return loads.build();
