@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,19 +13,5 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-/**
- * Thrown on {@link DiffAwareness#getDiff} to indicate that something is wrong with the
- * {@link DiffAwareness} instance and it should not be used again.
- */
-public class BrokenDiffAwarenessException extends Exception {
-
-  public BrokenDiffAwarenessException(String msg) {
-    super(checkNotNull(msg));
-  }
-
-  public BrokenDiffAwarenessException(String msg, Throwable cause) {
-    super(checkNotNull(msg), cause);
-  }
-}
+/** Information for a workspace computed at the time of collecting diff. */
+public interface WorkspaceInfoFromDiff {}

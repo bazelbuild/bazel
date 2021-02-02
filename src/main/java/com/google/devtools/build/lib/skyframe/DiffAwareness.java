@@ -45,6 +45,11 @@ public interface DiffAwareness extends Closeable {
 
   /** Opaque view of the filesystem under a package path entry at a specific point in time. */
   interface View {
+    /** Returns workspace info unanimously associated with the package path or null. */
+    @Nullable
+    default WorkspaceInfoFromDiff getWorkspaceInfo() {
+      return null;
+    }
   }
 
   /**

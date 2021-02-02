@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
@@ -40,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
+import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -100,6 +103,7 @@ public class CommandEnvironment {
   private TopDownActionCache topDownActionCache;
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
+  @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
 
   // This AtomicReference is set to:
   //   - null, if neither BlazeModuleEnvironment#exit nor #precompleteCommand have been called
@@ -515,7 +519,7 @@ public class CommandEnvironment {
   }
 
   public void setWorkspaceName(String workspaceName) {
-    Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
+    checkState(this.workspaceName == null, "workspace name can only be set once");
     this.workspaceName = workspaceName;
     eventBus.post(new ExecRootEvent(getExecRoot()));
   }
@@ -577,6 +581,18 @@ public class CommandEnvironment {
   @VisibleForTesting
   public void setOutputServiceForTesting(@Nullable OutputService outputService) {
     this.outputService = outputService;
+  }
+
+  /**
+   * Returns precomputed workspace information or null.
+   *
+   * <p>Precomputed workspace info is an optimization allowing to share information about the
+   * workspace if it was derived at the time of synchronizing the workspace. This way we can make it
+   * available earlier during the build and avoid retrieving it again.
+   */
+  @Nullable
+  public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
+    return workspaceInfoFromDiff;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
@@ -677,16 +693,17 @@ public class CommandEnvironment {
           "We should never call this method more than once over the course of a single command");
     }
     hasSyncedPackageLoading = true;
-    getSkyframeExecutor()
-        .sync(
-            reporter,
-            options.getOptions(PackageOptions.class),
-            packageLocator,
-            options.getOptions(BuildLanguageOptions.class),
-            getCommandId(),
-            clientEnv,
-            timestampGranularityMonitor,
-            options);
+    workspaceInfoFromDiff =
+        getSkyframeExecutor()
+            .sync(
+                reporter,
+                options.getOptions(PackageOptions.class),
+                packageLocator,
+                options.getOptions(BuildLanguageOptions.class),
+                getCommandId(),
+                clientEnv,
+                timestampGranularityMonitor,
+                options);
   }
 
   public void recordLastExecutionTime() {
