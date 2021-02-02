@@ -157,6 +157,9 @@ public final class AndroidSdkProvider extends NativeInfo
         for (Label toolchain : resolvedToolchains) {
           if (dummyToochains.contains(toolchain)) {
             ruleContext.ruleError(
+                // TODO(jcater): Decide whether to rewrite message to refer to --android_platforms.
+                // It's unclear if we should always tell users to use --android_platforms, or if
+                // there are still cases where --platforms is preferred.
                 String.format(
                     "'%s' rule '%s' requested sdk toolchain resolution via"
                         + " --incompatible_enable_android_toolchain_resolution but hasn't set an"

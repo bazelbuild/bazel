@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -203,6 +204,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
 
+    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_crosstool_top",
         defaultValue = "//external:android/crosstool",
@@ -217,6 +219,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "The location of the C++ compiler used for Android builds.")
     public Label androidCrosstoolTop;
 
+    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_cpu",
         defaultValue = "armeabi-v7a",
@@ -229,6 +232,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "The Android target CPU.")
     public String cpu;
 
+    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_compiler",
         defaultValue = "null",
@@ -241,6 +245,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "The Android target compiler.")
     public String cppCompiler;
 
+    // TODO(blaze-configurability): Mark this as deprecated in favor of the new min_sdk feature.
     @Option(
         name = "android_grte_top",
         defaultValue = "null",
@@ -273,6 +278,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
     // android_* rules
+    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_sdk",
         defaultValue = "@bazel_tools//tools/android:sdk",
@@ -287,6 +293,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public Label sdk;
 
     // TODO(bazel-team): Maybe merge this with --android_cpu above.
+    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "fat_apk_cpu",
         converter = Converters.CommaSeparatedOptionListConverter.class,
@@ -303,6 +310,22 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "flag is specified, then --android_cpu is ignored for dependencies of "
                 + "android_binary rules.")
     public List<String> fatApkCpus;
+
+    @Option(
+        name = "android_platforms",
+        converter = LabelListConverter.class,
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        defaultValue = "",
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "Sets the platforms that android_binary targets use. If multiple platforms are"
+                + " specified, then the binary is a fat APKs, which contains native binaries for"
+                + " each specified target platform.")
+    public List<Label> androidPlatforms;
 
     @Option(
         name = "fat_apk_hwasan",
