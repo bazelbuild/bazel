@@ -2099,7 +2099,6 @@ function test_disable_download_should_allow_distdir() {
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
   sha256=$(sha256sum x.tar | head -c 64)
-  serve_file x.tar
 
   mkdir main
   cp x.tar main
@@ -2108,7 +2107,7 @@ function test_disable_download_should_allow_distdir() {
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
-  url = "http://127.0.0.1:$nc_port/x.tar",
+  url = "http://127.0.0.1/x.tar",
   sha256="$sha256",
 )
 EOF
