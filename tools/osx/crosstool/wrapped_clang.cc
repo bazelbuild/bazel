@@ -318,6 +318,9 @@ void ProcessArgument(const std::string arg, const std::string developer_dir,
   }
 
   std::string dest_dir, bitcode_symbol_map;
+  if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
+    new_arg = "-fdebug-prefix-map=" + cwd + "=" + dest_dir;
+  }
   if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
     new_arg = "-Wl,-oso_prefix," + cwd + "/";
   }
