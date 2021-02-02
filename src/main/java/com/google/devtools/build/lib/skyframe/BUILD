@@ -214,6 +214,7 @@ java_library(
         ":tree_artifact_value",
         ":unloaded_toolchain_context",
         ":unloaded_toolchain_context_impl",
+        ":workspace_info",
         ":workspace_name_function",
         ":workspace_name_value",
         ":workspace_status_function",
@@ -1286,6 +1287,7 @@ java_library(
     deps = [
         ":broken_diff_awareness_exception",
         ":incompatible_view_exception",
+        ":workspace_info",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:jsr305",
@@ -1299,6 +1301,7 @@ java_library(
         ":broken_diff_awareness_exception",
         ":diff_awareness",
         ":incompatible_view_exception",
+        ":workspace_info",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -2796,6 +2799,11 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "workspace_info",
+    srcs = ["WorkspaceInfoFromDiff.java"],
 )
 
 java_library(

@@ -2668,8 +2668,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
+   *
+   * <p>Returns precomputed information about the workspace if it is available at this stage. This
+   * is an optimization allowing implementations which have such information to make it available
+   * early in the build.
    */
-  public void sync(
+  @Nullable
+  public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
@@ -2696,6 +2701,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
+    return null;
   }
 
   protected void syncPackageLoading(

@@ -226,8 +226,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return recordingDiffer;
   }
 
+  @Nullable
   @Override
-  public void sync(
+  public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator packageLocator,
@@ -262,11 +263,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         tsgm,
         options);
     long startTime = System.nanoTime();
-    handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
+    WorkspaceInfoFromDiff workspaceInfo =
+        handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
     long stopTime = System.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
+    return workspaceInfo;
   }
 
   /**
@@ -341,7 +344,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsProvider.EMPTY);
   }
 
-  private void handleDiffs(
+  @Nullable
+  private WorkspaceInfoFromDiff handleDiffs(
       ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
@@ -354,13 +358,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       invalidateCachedWorkspacePathsStates();
     }
 
+    WorkspaceInfoFromDiff workspaceInfo = null;
     Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
         Maps.newHashMap();
     Set<Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet>>
         pathEntriesWithoutDiffInformation = Sets.newHashSet();
-    for (Root pathEntry : pkgLocator.get().getPathEntries()) {
+    ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
+    for (Root pathEntry : pkgRoots) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
           diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
+      if (pkgRoots.size() == 1) {
+        workspaceInfo = modifiedFileSet.getWorkspaceInfo();
+      }
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {
@@ -381,6 +390,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         managedDirectoriesChanged,
         fsvcThreads);
     handleClientEnvironmentChanges();
+    return workspaceInfo;
   }
 
   /**

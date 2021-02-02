@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
+import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -42,6 +43,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * An action writing the workspace status files.
@@ -175,6 +177,10 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
    */
   public interface DummyEnvironment {
     Path getWorkspace();
+
+    /** Returns optional precomputed workspace info to include in the build info event. */
+    @Nullable
+    WorkspaceInfoFromDiff getWorkspaceInfoFromDiff();
 
     String getBuildRequestId();
 
