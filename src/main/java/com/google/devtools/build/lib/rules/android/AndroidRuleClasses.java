@@ -475,7 +475,7 @@ public final class AndroidRuleClasses {
   /**
    * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag
    * to match the first value from "--android_platforms". This will enable the application to select
-   * a valid Android SDK via toolchain resolution. Aandroid_binary itself should only need the SDK,
+   * a valid Android SDK via toolchain resolution. android_binary itself should only need the SDK,
    * not an NDK, so in theory every platform passed to "--android_platforms" should be equivalent.
    */
   private static final class AndroidBinarySelfTransition implements PatchTransition {
