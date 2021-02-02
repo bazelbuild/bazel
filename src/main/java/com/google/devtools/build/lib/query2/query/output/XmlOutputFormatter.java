@@ -159,8 +159,11 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        PossibleAttributeValues values = PossibleAttributeValues.forRuleAndAttribute(rule, attr);
-        if (values.getSource() == AttributeValueSource.RULE || queryOptions.xmlShowDefaultValues) {
+        AttributeValueSource attributeValueSource =
+            AttributeValueSource.forRuleAndAttribute(rule, attr);
+        if (attributeValueSource == AttributeValueSource.RULE
+            || queryOptions.xmlShowDefaultValues) {
+          Iterable<Object> values = PossibleAttributeValues.forRuleAndAttribute(rule, attr);
           Element attrElem = createValueElement(doc, attr.getType(), values);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
