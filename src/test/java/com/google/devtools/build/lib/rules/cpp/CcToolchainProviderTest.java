@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -263,8 +262,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--cpu=banana");
     ConfiguredTarget target = getConfiguredTarget("//suite");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(
             toolchainProvider
@@ -321,7 +319,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
-        (CcToolchainProvider) getConfiguredTarget("//a:a").get(ToolchainInfo.PROVIDER);
+        getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     ccToolchainProvider.addGlobalMakeVariables(builder);
     assertThat(builder.build().get("GCOVTOOL")).isNull();
@@ -372,7 +370,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
-        (CcToolchainProvider) getConfiguredTarget("//a:a").get(ToolchainInfo.PROVIDER);
+        getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     ccToolchainProvider.addGlobalMakeVariables(builder);
     assertThat(builder.build().get("GCOVTOOL")).isNotNull();

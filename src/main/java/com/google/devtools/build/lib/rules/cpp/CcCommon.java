@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -978,8 +977,7 @@ public final class CcCommon {
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
       throws RuleErrorException {
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
+    CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.PROVIDER);
 
     // Determine the original value of CC_FLAGS.
     String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
