@@ -2117,4 +2117,92 @@ EOF
       || fail "Expected success despite needing a file behind basic auth"
 }
 
+function test_disable_download_should_prevent_downloading() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file x.tar
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256="$sha256",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build --experimental_repository_disable_download //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+  expect_log "Failed to download repo ext: download is disabled"
+}
+
+function test_disable_download_should_allow_distdir() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+
+  mkdir main
+  cp x.tar main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1/x.tar",
+  sha256="$sha256",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build --distdir="." --experimental_repository_disable_download //:it || fail "Failed to build"
+}
+
+function test_disable_download_should_allow_local_repository() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  touch x/WORKSPACE
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+local_repository(
+  name="ext",
+  path="../x",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build --experimental_repository_disable_download //:it || fail "Failed to build"
+}
+
 run_suite "local repository tests"
