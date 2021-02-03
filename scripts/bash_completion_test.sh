@@ -392,6 +392,11 @@ test_complete_pattern() {
       '' 'video/streamer2:ta'
   assert_expansion_function "complete_pattern" "video/" label \
       'with_special+_,=-.@~chars ' 'streamer2:with_s'
+
+  # Path expansion
+  assert_expansion_function "complete_pattern" "" path \
+      "video/streamer2/names/\nvideo/streamer2/stuff/\n"\
+"video/streamer2/testing/\nvideo/streamer2/BUILD " "video/streamer2/"
 }
 
 #### TESTS #############################################################
@@ -705,6 +710,22 @@ test_target_expansion_in_package() {
     # (no expansion)
     assert_expansion 'build :s' \
                      'build :s'
+}
+
+test_filename_expansion_after_double_dash() {
+    make_packages
+    assert_expansion 'run :target -- vid' \
+                     'run :target -- video/'
+    assert_expansion 'run :target -- video/st' \
+                     'run :target -- video/streamer2/'
+    assert_expansion 'run :target -- video/streamer2/B' \
+                     'run :target -- video/streamer2/BUILD '
+    assert_expansion 'run :target -- video/streamer2/n' \
+                     'run :target -- video/streamer2/names/'
+
+    # Autocomplete arguments as well.
+    assert_expansion 'run :target -- --arg=video/streamer2/n' \
+                     'run :target -- --arg=video/streamer2/names/'
 }
 
 test_help() {

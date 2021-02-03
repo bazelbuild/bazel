@@ -350,7 +350,13 @@ _bazel__complete_pattern() {
     compgen -S " " -W "${commands}" -- "$current"
         ;;
       path)
-        compgen -f -- "$current"
+        for file in $(compgen -f -- "$current"); do
+          if [[ -d "$file" ]]; then
+            echo "$file/"
+          else
+            echo "$file "
+          fi
+        done
         ;;
       *)
         compgen -S " " -W "$type" -- "$current"
@@ -571,6 +577,15 @@ _bazel__expand_config() {
   compgen -S " " -W "$all_configs" -- "$cur"
 }
 
+_bazel__is_after_doubledash() {
+  for word in "${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
+    if [[ "$word" == "--" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 _bazel__complete_stdout() {
   local cur=$(_bazel__get_cword) word command displacement workspace
 
@@ -580,41 +595,45 @@ _bazel__complete_stdout() {
   workspace="$(_bazel__get_workspace_path)"
   displacement="$(_bazel__get_displacement ${workspace})"
 
-  case "$command" in
-    "") # Expand startup-options or commands
-      local commands=$(echo "${BAZEL_COMMAND_LIST}" \
-        | tr " " "\n" | "grep" -v "^${BAZEL_IGNORED_COMMAND_REGEX}$")
-      _bazel__expand_options  "$workspace" "$displacement" "$cur" \
-          "${commands}\
-          ${BAZEL_STARTUP_OPTIONS}"
-      ;;
+  if _bazel__is_after_doubledash && [[ "$command" == "run" ]]; then
+    _bazel__complete_pattern "$workspace" "$displacement" "${cur#*=}" "path"
+  else
+    case "$command" in
+      "") # Expand startup-options or commands
+        local commands=$(echo "${BAZEL_COMMAND_LIST}" \
+          | tr " " "\n" | "grep" -v "^${BAZEL_IGNORED_COMMAND_REGEX}$")
+        _bazel__expand_options  "$workspace" "$displacement" "$cur" \
+            "${commands}\
+            ${BAZEL_STARTUP_OPTIONS}"
+        ;;
 
-    *)
-      case "$cur" in
-        --config=*) # Expand options:
-          _bazel__expand_config  "$workspace" "$command" "${cur#"--config="}"
-          ;;
-        -*) # Expand options:
-          _bazel__expand_options  "$workspace" "$displacement" "$cur" \
-              "$(_bazel__options_for $command)"
-          ;;
-        *)  # Expand target pattern
-      expansion_pattern="$(_bazel__expansion_for $command)"
-          NON_QUOTE_REGEX="^[\"']"
-          if [[ $command = query && $cur =~ $NON_QUOTE_REGEX ]]; then
-            : # Ideally we would expand query expressions---it's not
-              # that hard, conceptually---but readline is just too
-              # damn complex when it comes to quotation.  Instead,
-              # for query, we just expand target patterns, unless
-              # the first char is a quote.
-          elif [ -n "$expansion_pattern" ]; then
-            _bazel__complete_pattern \
-        "$workspace" "$displacement" "$cur" "$expansion_pattern"
-          fi
-          ;;
-      esac
-      ;;
-  esac
+      *)
+        case "$cur" in
+          --config=*) # Expand options:
+            _bazel__expand_config  "$workspace" "$command" "${cur#"--config="}"
+            ;;
+          -*) # Expand options:
+            _bazel__expand_options  "$workspace" "$displacement" "$cur" \
+                "$(_bazel__options_for $command)"
+            ;;
+          *)  # Expand target pattern
+        expansion_pattern="$(_bazel__expansion_for $command)"
+            NON_QUOTE_REGEX="^[\"']"
+            if [[ $command = query && $cur =~ $NON_QUOTE_REGEX ]]; then
+              : # Ideally we would expand query expressions---it's not
+                # that hard, conceptually---but readline is just too
+                # damn complex when it comes to quotation.  Instead,
+                # for query, we just expand target patterns, unless
+                # the first char is a quote.
+            elif [ -n "$expansion_pattern" ]; then
+              _bazel__complete_pattern \
+          "$workspace" "$displacement" "$cur" "$expansion_pattern"
+            fi
+            ;;
+        esac
+        ;;
+    esac
+  fi
 }
 
 _bazel__to_compreply() {
