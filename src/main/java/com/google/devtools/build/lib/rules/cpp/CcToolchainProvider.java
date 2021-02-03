@@ -23,13 +23,14 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -46,15 +47,17 @@ import net.starlark.java.eval.StarlarkThread;
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
 @AutoCodec
-public final class CcToolchainProvider extends ToolchainInfo
+public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
             FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
         HasCcToolchainLabel {
 
+  public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
+      new BuiltinProvider<CcToolchainProvider>("CcToolchainInfo", CcToolchainProvider.class) {};
+
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
-          /* values= */ ImmutableMap.of(),
           /* cppConfiguration= */ null,
           /* toolchainFeatures= */ null,
           /* crosstoolTopPathFragment= */ null,
@@ -193,7 +196,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final String gcovExecutable;
 
   public CcToolchainProvider(
-      ImmutableMap<String, Object> values,
       @Nullable CppConfiguration cppConfiguration,
       CcToolchainFeatures toolchainFeatures,
       PathFragment crosstoolTopPathFragment,
@@ -257,7 +259,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       String stripExecutable,
       String ldExecutable,
       String gcovExecutable) {
-    super(values);
+    super();
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.allFiles = Preconditions.checkNotNull(allFiles);
@@ -325,6 +327,11 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.stripExecutable = stripExecutable;
     this.ldExecutable = ldExecutable;
     this.gcovExecutable = gcovExecutable;
+  }
+
+  @Override
+  public BuiltinProvider<CcToolchainProvider> getProvider() {
+    return PROVIDER;
   }
 
   /**

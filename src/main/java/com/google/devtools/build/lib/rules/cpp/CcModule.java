@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -149,7 +148,7 @@ public abstract class CcModule
 
   @Override
   public Provider getCcToolchainProvider() {
-    return ToolchainInfo.PROVIDER;
+    return CcToolchainProvider.PROVIDER;
   }
 
   @Override

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -60,10 +59,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       // toolchains and provide it here as well.
       ccToolchainProvider =
           selectCcToolchain(
-              CcToolchainProvider.class,
-              // TOOD(b/17906781): Change this to CcToolchainProvider when CcToolchainProvider isn't
-              // a subclass of ToolchainInfo.
-              ToolchainInfo.PROVIDER,
+              CcToolchainProvider.PROVIDER,
               ruleContext,
               transformedCpu,
               compiler,
@@ -73,7 +69,6 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       // and providing CcToolchainInfo.
       CcToolchainAttributesProvider selectedAttributes =
           selectCcToolchain(
-              CcToolchainAttributesProvider.class,
               CcToolchainAttributesProvider.PROVIDER,
               ruleContext,
               transformedCpu,
@@ -111,9 +106,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
   }
 
   private <T extends HasCcToolchainLabel> T selectCcToolchain(
-      Class<T> clazz,
-      // TOOD(b/17906781): Change the type to T when CcToolchainprovider has its own provider type.
-      BuiltinProvider<?> providerType,
+      BuiltinProvider<T> providerType,
       RuleContext ruleContext,
       String cpu,
       String compiler,
@@ -121,14 +114,14 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       throws RuleErrorException {
     T selectedAttributes = null;
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-      T attributes = clazz.cast(dep.get(providerType));
+      T attributes = dep.get(providerType);
       if (attributes != null && attributes.getCcToolchainLabel().equals(selectedCcToolchain)) {
         selectedAttributes = attributes;
         break;
       }
     }
     if (selectedAttributes != null) {
-      return clazz.cast(selectedAttributes);
+      return selectedAttributes;
     }
 
     String errorMessage =

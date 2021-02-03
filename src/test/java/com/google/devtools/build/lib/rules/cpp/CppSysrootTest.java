@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -62,10 +61,8 @@ public final class CppSysrootTest extends BuildViewTestCase {
   CcToolchainProvider getCcToolchainProvider(BuildConfiguration configuration) throws Exception {
     CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
     return Preconditions.checkNotNull(
-        (CcToolchainProvider)
-            getConfiguredTarget(
-                    cppConfiguration.getRuleProvidingCcToolchainProvider(), configuration)
-                .get(ToolchainInfo.PROVIDER));
+        getConfiguredTarget(cppConfiguration.getRuleProvidingCcToolchainProvider(), configuration)
+            .get(CcToolchainProvider.PROVIDER));
   }
 
   @Test

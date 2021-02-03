@@ -349,17 +349,24 @@ public class CppHelper {
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) {
-    return (CcToolchainProvider) ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    try {
+      return (CcToolchainProvider) toolchainInfo.getValue("cc");
+    } catch (EvalException e) {
+      // There is not actually any reason for toolchainInfo.getValue to throw an exception.
+      ruleContext.ruleError("Unexpected eval exception from toolchainInfo.getValue('cc')");
+      return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
+    }
   }
 
   private static CcToolchainProvider getToolchainFromCrosstoolTop(
       RuleContext ruleContext, TransitiveInfoCollection dep) {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
-    if ((dep == null) || (dep.get(ToolchainInfo.PROVIDER) == null)) {
+    if ((dep == null) || (dep.get(CcToolchainProvider.PROVIDER) == null)) {
       ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
       return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
     }
-    return (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
+    return dep.get(CcToolchainProvider.PROVIDER);
   }
 
   /** Returns the directory where object files are created. */

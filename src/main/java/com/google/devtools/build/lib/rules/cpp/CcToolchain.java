@@ -103,8 +103,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             ccToolchainProvider,
             ruleContext.getRule().getLocation());
 
+    ToolchainInfo toolchain =
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder()
+                .put("cc", ccToolchainProvider)
+                .put("cc_provider_in_toolchain", true)
+                .build());
     ruleConfiguredTargetBuilder
         .addNativeDeclaredProvider(ccToolchainProvider)
+        .addNativeDeclaredProvider(toolchain)
         .addNativeDeclaredProvider(templateVariableInfo)
         .setFilesToBuild(ccToolchainProvider.getAllFiles())
         .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));

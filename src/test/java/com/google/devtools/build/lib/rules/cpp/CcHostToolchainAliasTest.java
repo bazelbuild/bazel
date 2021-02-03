@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -34,8 +33,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(toolchainProvider.isToolConfiguration()).isTrue();
   }
