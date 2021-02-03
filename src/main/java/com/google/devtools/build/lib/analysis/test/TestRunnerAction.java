@@ -83,6 +83,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -449,7 +450,7 @@ public class TestRunnerAction extends AbstractAction
   private boolean computeExecuteUnconditionallyFromTestStatus() {
     return !canBeCached(
         testConfiguration.cacheTestResults(),
-        maybeReadCacheStatus(),
+        this::maybeReadCacheStatus,
         testProperties.isExternal(),
         executionSettings.getTotalRuns());
   }
@@ -457,23 +458,23 @@ public class TestRunnerAction extends AbstractAction
   @VisibleForTesting
   static boolean canBeCached(
       TriState cacheTestResults,
-      @Nullable TestResultData prevStatus,
+      Supplier<TestResultData> prevStatus, // Lazy evaluation to avoid a disk read if possible.
       boolean isExternal,
       int runsPerTest) {
-    if (cacheTestResults == TriState.NO) {
+    if (isExternal || cacheTestResults == TriState.NO) {
       return false;
     }
-    if (isExternal) {
+    if (cacheTestResults == TriState.AUTO && runsPerTest > 1) {
       return false;
     }
-    if (cacheTestResults == TriState.AUTO && (runsPerTest > 1)) {
-      return false;
-    }
-    if (cacheTestResults == TriState.AUTO && prevStatus != null && !prevStatus.getTestPassed()) {
-      return false;
-    }
-    if (prevStatus != null && !prevStatus.getCachable()) {
-      return false;
+    TestResultData status = prevStatus.get();
+    if (status != null) {
+      if (!status.getCachable()) {
+        return false;
+      }
+      if (cacheTestResults == TriState.AUTO && !status.getTestPassed()) {
+        return false;
+      }
     }
     return true;
   }
