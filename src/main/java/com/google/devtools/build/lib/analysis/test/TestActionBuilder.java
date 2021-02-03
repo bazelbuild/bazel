@@ -303,7 +303,7 @@ public final class TestActionBuilder {
       }
     } else {
       Artifact flagFile = null;
-      // The worker spawn runner expects a flag file containg the worker's flags.
+      // The worker spawn runner expects a flag file containing the worker's flags.
       if (isPersistentTestRunner()) {
         flagFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + "_flag_file.txt");
         inputsBuilder.add(flagFile);
@@ -329,6 +329,30 @@ public final class TestActionBuilder {
         Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
+
+    SingleRunfilesSupplier testRunfilesSupplier;
+    if (isPersistentTestRunner()) {
+      // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the test
+      // runner's runfiles to avoid using a different worker for every test run.
+      testRunfilesSupplier =
+          new SingleRunfilesSupplier(
+              /*runfilesDir=*/ persistentTestRunnerRunfiles.getSuffix(),
+              /*runfiles=*/ persistentTestRunnerRunfiles,
+              /*manifest=*/ null,
+              /*buildRunfileLinks=*/ false,
+              /*runfileLinksEnabled=*/ false);
+    } else if (shardRuns > 1 || runsPerTest > 1) {
+      // When creating multiple test actions, cache the runfiles mappings across test actions. This
+      // saves a lot of garbage when shard_count and/or runs_per_test is high.
+      testRunfilesSupplier =
+          SingleRunfilesSupplier.createCaching(
+              runfilesSupport.getRunfilesDirectoryExecPath(),
+              runfilesSupport.getRunfiles(),
+              runfilesSupport.isBuildRunfileLinks(),
+              runfilesSupport.isRunfilesEnabled());
+    } else {
+      testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
+    }
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
@@ -368,20 +392,7 @@ public final class TestActionBuilder {
         boolean cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
-        SingleRunfilesSupplier testRunfilesSupplier;
-        if (isPersistentTestRunner()) {
-          // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the
-          // test runner's runfiles to avoid using a different worker for every test run.
-          testRunfilesSupplier =
-              new SingleRunfilesSupplier(
-                  /*runfilesDir=*/ persistentTestRunnerRunfiles.getSuffix(),
-                  /*runfiles=*/ persistentTestRunnerRunfiles,
-                  /*manifest=*/ null,
-                  /*buildRunfileLinks=*/ false,
-                  /*runfileLinksEnabled=*/ false);
-        } else {
-          testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
-        }
+
 
         ImmutableList.Builder<Artifact> tools = new ImmutableList.Builder<>();
         if (isPersistentTestRunner()) {

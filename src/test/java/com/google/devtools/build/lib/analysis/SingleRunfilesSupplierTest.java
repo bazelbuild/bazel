@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,7 +49,7 @@ public final class SingleRunfilesSupplierTest {
 
   @Test
   public void testGetArtifactsWithSingleMapping() {
-    List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
+    List<Artifact> artifacts = mkArtifacts("thing1", "thing2");
 
     SingleRunfilesSupplier underTest =
         new SingleRunfilesSupplier(
@@ -117,15 +120,47 @@ public final class SingleRunfilesSupplierTest {
     assertThat(original.withOverriddenRunfilesDir(dir)).isSameInstanceAs(original);
   }
 
+  @Test
+  public void cachedMappings() {
+    PathFragment dir = PathFragment.create("dir");
+    Runfiles runfiles = mkRunfiles(mkArtifacts("a", "b", "c"));
+    SingleRunfilesSupplier underTest =
+        SingleRunfilesSupplier.createCaching(
+            dir, runfiles, /*buildRunfileLinks=*/ false, /*runfileLinksEnabled=*/ false);
+
+    Map<PathFragment, Map<PathFragment, Artifact>> mappings1 = underTest.getMappings();
+    Map<PathFragment, Map<PathFragment, Artifact>> mappings2 = underTest.getMappings();
+
+    assertThat(mappings1).containsExactly(dir, runfiles.getRunfilesInputs(null, null));
+    assertThat(mappings1).isEqualTo(mappings2);
+    assertThat(mappings1.get(dir)).isSameInstanceAs(mappings2.get(dir));
+  }
+
+  @Test
+  public void cachedMappings_sharedAcrossDirOverrides() {
+    PathFragment oldDir = PathFragment.create("old");
+    PathFragment newDir = PathFragment.create("new");
+    Runfiles runfiles = mkRunfiles(mkArtifacts("a", "b", "c"));
+    SingleRunfilesSupplier original =
+        SingleRunfilesSupplier.createCaching(
+            oldDir, runfiles, /*buildRunfileLinks=*/ false, /*runfileLinksEnabled=*/ false);
+    SingleRunfilesSupplier overriden = original.withOverriddenRunfilesDir(newDir);
+
+    Map<PathFragment, Map<PathFragment, Artifact>> mappingsOld = original.getMappings();
+    Map<PathFragment, Map<PathFragment, Artifact>> mappingsNew = overriden.getMappings();
+
+    assertThat(mappingsOld).containsExactly(oldDir, runfiles.getRunfilesInputs(null, null));
+    assertThat(mappingsNew).containsExactly(newDir, runfiles.getRunfilesInputs(null, null));
+    assertThat(mappingsOld.get(newDir)).isSameInstanceAs(mappingsNew.get(oldDir));
+  }
+
   private static Runfiles mkRunfiles(Iterable<Artifact> artifacts) {
     return new Runfiles.Builder("TESTING", false).addArtifacts(artifacts).build();
   }
 
-  private static ImmutableList<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (String path : paths) {
-      builder.add(ActionsTestUtil.createArtifact(rootDir, path));
-    }
-    return builder.build();
+  private ImmutableList<Artifact> mkArtifacts(String... paths) {
+    return stream(paths)
+        .map(path -> ActionsTestUtil.createArtifact(rootDir, path))
+        .collect(toImmutableList());
   }
 }
