@@ -74,8 +74,7 @@ public final class InstrumentedFilesCollector {
     return instrumentedFilesInfoBuilder.build();
   }
 
-  public static InstrumentedFilesInfo collectTransitive(
-      RuleContext ruleContext, InstrumentationSpec spec) {
+  public static InstrumentedFilesInfo collect(RuleContext ruleContext, InstrumentationSpec spec) {
     return collect(
         ruleContext,
         spec,
@@ -85,7 +84,7 @@ public final class InstrumentedFilesCollector {
             Order.STABLE_ORDER));
   }
 
-  public static InstrumentedFilesInfo collectTransitive(
+  public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       NestedSet<Pair<String, String>> reportedToActualSources) {

@@ -838,7 +838,7 @@ public final class PyCommon {
 
     builder
         .addNativeDeclaredProvider(
-            InstrumentedFilesCollector.collectTransitive(
+            InstrumentedFilesCollector.collect(
                 ruleContext, semantics.getCoverageInstrumentationSpec()))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
