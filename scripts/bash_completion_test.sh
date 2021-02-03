@@ -171,7 +171,7 @@ assert_expansion_function() {
   local ws=${PWD}
   local function="$1" displacement="$2" type="$3" expected="$4" current="$5"
   disable_errexit
-  local actual_result=$(eval "_bazel__${function} \"${ws}\" \"${displacement}\" \"${current}\" \"${type}\"")
+  local actual_result=$(eval "_bazel__${function} \"${ws}\" \"${displacement}\" \"${current}\" \"${type}\"" | sort)
   enable_errexit
   assert_equals "$(echo -ne "${expected}")" "${actual_result}"
 }
@@ -196,7 +196,7 @@ test_expand_rules_in_package() {
 
     # label should match test and non-test rules
     assert_expansion_function "expand_rules_in_package" "" label \
-    'token_bucket_test \ntoken_bucket_binary ' \
+    'token_bucket_binary \ntoken_bucket_test ' \
     'video/streamer2:token_bucket_'
     assert_expansion_function "expand_rules_in_package" "" label \
     'stuff ' 'video/streamer2/stuff:s'
@@ -234,7 +234,7 @@ test_expand_rules_in_package() {
     # with BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN set.
     BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=true \
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'token_bucket_test \ntoken_bucket_binary ' 'video/streamer2:to'
+    'token_bucket_binary \ntoken_bucket_test ' 'video/streamer2:to'
 
     # Test the label-bin expands for test rules, with
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN set.
@@ -303,7 +303,7 @@ test_expand_package_name() {
 
     # label-package
     assert_expansion_function "expand_package_name" "" "label-package" \
-    "//video/streamer2/stuff/\n//video/streamer2/stuff " \
+    "//video/streamer2/stuff \n//video/streamer2/stuff/" \
     "//video/streamer2/stu"
     assert_expansion_function "expand_package_name" "" "label-package" \
     "//video/notapackage/" \
@@ -357,7 +357,7 @@ test_complete_pattern() {
       "//video/streamer2/stu"
 
   assert_expansion_function "complete_pattern" "" label-package \
-      "//video/streamer2/stuff/\n//video/streamer2/stuff " \
+      "//video/streamer2/stuff \n//video/streamer2/stuff/" \
       "//video/streamer2/stu"
 
   assert_expansion_function "complete_pattern" "" command \
@@ -395,8 +395,8 @@ test_complete_pattern() {
 
   # Path expansion
   assert_expansion_function "complete_pattern" "" path \
-      "video/streamer2/names/\nvideo/streamer2/stuff/\n"\
-"video/streamer2/testing/\nvideo/streamer2/BUILD " "video/streamer2/"
+      "video/streamer2/BUILD \nvideo/streamer2/names/\n"\
+"video/streamer2/stuff/\nvideo/streamer2/testing/" "video/streamer2/"
 }
 
 #### TESTS #############################################################
