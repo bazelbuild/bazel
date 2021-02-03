@@ -17,7 +17,6 @@ package com.google.devtools.build.skydoc.fakebuildapi.apple;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSplitTransitionProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAspect;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleStaticLibraryInfo.FakeAppleStaticLibraryInfoProvider;
 import net.starlark.java.eval.Dict;
@@ -142,11 +140,6 @@ public class FakeAppleCommon
   @Override
   public DottedVersionApi<?> dottedVersion(String version) {
     return new FakeDottedVersion();
-  }
-
-  @Override
-  public StarlarkAspectApi getObjcProtoAspect() {
-    return new FakeStarlarkAspect();
   }
 
   @Override

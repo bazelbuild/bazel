@@ -41,11 +41,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -53,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkInt;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -63,14 +59,6 @@ import org.junit.runners.JUnit4;
 public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   protected boolean keepGoing() {
     return false;
-  }
-
-  @Before
-  public final void initializeToolsConfigMock() throws Exception {
-    // Required for tests including the objc_library rule.
-    MockObjcSupport.setup(mockToolsConfig);
-    // Required for tests including the proto_library rule.
-    MockProtoSupport.setup(mockToolsConfig);
   }
 
   @Test
@@ -2589,63 +2577,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             Label.parseAbsolute("//test:referenced_from_aspect_only", ImmutableMap.of()),
             Label.parseAbsolute("//test:bar", ImmutableMap.of()),
             Label.parseAbsolute("//test:baz", ImmutableMap.of()));
-  }
-
-  @Test
-  // This test verifies that aspects which are defined natively and exported for use in Starlark
-  // can be referenced at the top level using the --aspects flag. For ease of testing,
-  // apple_common.objc_proto_aspect is used as an example.
-  public void testTopLevelStarlarkObjcProtoAspect() throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("test_starlark/BUILD");
-    scratch.file("x/data_filter.pbascii");
-    scratch.file(
-        "test_starlark/top_level_stub.bzl",
-        "top_level_aspect = apple_common.objc_proto_aspect",
-        "",
-        "def top_level_stub_impl(ctx):",
-        "  return struct()",
-        "top_level_stub = rule(",
-        "    top_level_stub_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")");
-
-    scratch.file(
-        "x/BUILD",
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "  name = 'protos',",
-        "  srcs = ['data.proto'],",
-        MockProtoSupport.MIGRATION_TAG,
-        ")",
-        "objc_proto_library(",
-        "  name = 'x',",
-        "  deps = [':protos'],",
-        "  portable_proto_filters = ['data_filter.pbascii'],",
-        ")");
-
-    scratch.file(
-        "bin/BUILD",
-        "load('//test_starlark:top_level_stub.bzl', 'top_level_stub')",
-        "top_level_stub(",
-        "  name = 'link_target',",
-        "  deps = ['//x:x'],",
-        ")");
-
-    useConfiguration(MockObjcSupport.requiredObjcCrosstoolFlags().toArray(new String[1]));
-    AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("test_starlark/top_level_stub.bzl%top_level_aspect"),
-            "//bin:link_target");
-    ConfiguredAspect configuredAspect =
-        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-
-    ObjcProtoProvider objcProtoProvider =
-        (ObjcProtoProvider) configuredAspect.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR.getKey());
-    assertThat(objcProtoProvider).isNotNull();
   }
 
   @Test

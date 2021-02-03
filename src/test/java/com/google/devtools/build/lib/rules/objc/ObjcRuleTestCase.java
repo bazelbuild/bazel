@@ -25,7 +25,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -46,10 +45,8 @@ import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -210,7 +207,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void initializeMockClient() throws IOException {
     super.initializeMockClient();
     MockObjcSupport.setup(mockToolsConfig);
-    MockProtoSupport.setup(mockToolsConfig);
   }
 
   /**
@@ -566,89 +562,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains(getSourceArtifact("x/a.h"));
   }
 
-  // This checks that the proto bundling and grouping behavior works as expected. Grouping is based
-  // on the proto_library targets, given that each proto_library is complete in its closure (all
-  // the required deps are captured inside a proto_library).
-  //
-  // This particular tests sets up 3 proto groups, defined as [A, B], [B, C], [A, C, D]. The proto
-  // grouping support detects that, for example, since A doesn't appear in all groups with B or C,
-  // then it doesn't need any dependencies other than itself to be built. The same applies for B and
-  // C, The same cannot be said about D, which only appears with A and C, so we have to assume that
-  // D depends on A and C.
-  //
-  // These dependencies describe what the inputs will be to each of the generation/compilation
-  // actions. Denoting {[in] -> [out]} as an action with "in" being the required inputs, and "out"
-  // being the expected outputs, given the layout of the groups for this test, the actions should
-  // be:
-  //
-  // {[A]       -> [A]}
-  // {[B]       -> [B]}
-  // {[C]       -> [C]}
-  // {[A, C, D] -> [D]}
-  //
-  // This test ensures that, for example, to generate DataA.pbobjc.{h,m}, only data_a.proto should
-  // be provided as an input, while the inputs to generate DataD.pbobjc.{h,m} should be
-  // data_a.proto, data_c.proto and data_d.proto. The same applies for the compilation actions,
-  // where the inputs are interpreted as .pbobjc.h files, and the output is a .pbobjc.o file.
-  protected void checkProtoBundlingAndLinking(RuleType ruleType) throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_a.pbascii");
-    scratch.file("x/filter_b.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos_1',",
-        "    srcs = ['data_a.proto', 'data_b.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_2',",
-        "    srcs = ['data_b.proto', 'data_c.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_3',",
-        "    srcs = ['data_c.proto', 'data_a.proto', 'data_d.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_a',",
-        "    portable_proto_filters = ['filter_a.pbascii'],",
-        "    deps = [':protos_1'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_b',",
-        "    portable_proto_filters = ['filter_b.pbascii'],",
-        "    deps = [':protos_2', ':protos_3'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_a', '//protos:objc_protos_b'],",
-        "    defines = ['SHOULDNOTBEINPROTOS'],",
-        "    copts = ['-ISHOULDNOTBEINPROTOS']",
-        ")");
-
-    ruleType.scratchTarget(
-        scratch,
-        "deps", "['//libs:objc_lib']");
-
-    BuildConfiguration childConfig =
-        Iterables.getOnlyElement(
-            getSplitConfigurations(
-                targetConfig,
-                new MultiArchSplitTransitionProvider.AppleBinaryTransition(
-                    PlatformType.IOS, Optional.absent())));
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//x:x", childConfig);
-
-    assertObjcProtoProviderArtifactsArePropagated(topTarget);
-    assertBundledGenerationActions(topTarget);
-    assertCoptsAndDefinesNotPropagatedToProtos(topTarget);
-    assertBundledGroupsGetCreatedAndLinked(topTarget);
-  }
-
   protected ImmutableList<Artifact> getAllObjectFilesLinkedInBin(Artifact bin) {
     ImmutableList.Builder<Artifact> objects = ImmutableList.builder();
     CommandAction binAction = (CommandAction) getGeneratingAction(bin);
@@ -665,45 +578,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return objects.build();
   }
 
-  private void assertObjcProtoProviderArtifactsArePropagated(ConfiguredTarget topTarget)
-      throws Exception {
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
-
-    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
-    assertThat(protoProvider).isNotNull();
-    assertThat(
-            Artifact.asExecPaths(
-                ImmutableSet.copyOf(Iterables.concat(protoProvider.getProtoFiles().toList()))))
-        .containsExactly(
-            "protos/data_a.proto",
-            "protos/data_b.proto",
-            "protos/data_c.proto",
-            "protos/data_d.proto");
-    assertThat(Artifact.asExecPaths(protoProvider.getPortableProtoFilters()))
-        .containsExactly("protos/filter_a.pbascii", "protos/filter_b.pbascii");
-  }
-
-  private void assertBundledGenerationActions(ConfiguredTarget topTarget) {
-    Artifact protoHeaderA =
-        getBinArtifact("_generated_objc_protos/x/protos/DataA.pbobjc.h", topTarget);
-    Artifact protoHeaderB =
-        getBinArtifact("_generated_objc_protos/x/protos/DataB.pbobjc.h", topTarget);
-    Artifact protoHeaderC =
-        getBinArtifact("_generated_objc_protos/x/protos/DataC.pbobjc.h", topTarget);
-    Artifact protoHeaderD =
-        getBinArtifact("_generated_objc_protos/x/protos/DataD.pbobjc.h", topTarget);
-    CommandAction protoActionA = (CommandAction) getGeneratingAction(protoHeaderA);
-    CommandAction protoActionB = (CommandAction) getGeneratingAction(protoHeaderB);
-    CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
-    CommandAction protoActionD = (CommandAction) getGeneratingAction(protoHeaderD);
-    assertThat(protoActionA).isNotNull();
-    assertThat(protoActionB).isNotNull();
-    assertThat(protoActionC).isNotNull();
-    assertThat(protoActionD).isNotNull();
-  }
-
   /**
    * Ensures that all middleman artifacts in the action input are expanded so that the real inputs
    * are also included.
@@ -718,101 +592,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       containedArtifacts.add(input);
     }
     return containedArtifacts;
-  }
-
-  private void assertCoptsAndDefinesNotPropagatedToProtos(ConfiguredTarget topTarget)
-      throws Exception {
-    Artifact protoObject =
-        getBinArtifact("_objs/x/non_arc/DataA.pbobjc.o", topTarget);
-    CommandAction protoObjectAction = (CommandAction) getGeneratingAction(protoObject);
-    assertThat(protoObjectAction).isNotNull();
-    assertThat(protoObjectAction.getArguments())
-        .containsNoneOf("-DSHOULDNOTBEINPROTOS", "-ISHOULDNOTBEINPROTOS");
-  }
-
-  private void assertBundledGroupsGetCreatedAndLinked(ConfiguredTarget topTarget) {
-    Artifact protosGroupLib = getBinArtifact("libx_BundledProtos.a", topTarget);
-
-    CommandAction protosLibAction = (CommandAction) getGeneratingAction(protosGroupLib);
-    assertThat(protosLibAction).isNotNull();
-
-    Artifact bin = getBinArtifact("x_bin", topTarget);
-    CommandAction binAction = (CommandAction) getGeneratingAction(bin);
-    assertThat(binAction.getInputs().toList()).contains(protosGroupLib);
-  }
-
-  protected void checkProtoBundlingDoesNotHappen(RuleType ruleType) throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_b.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos',",
-        "    srcs = ['data_a.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos',",
-        "    portable_proto_filters = ['filter_b.pbascii'],",
-        "    deps = [':protos'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos']",
-        ")");
-
-    ruleType.scratchTarget(
-        scratch,
-        "deps", "['//libs:objc_lib']");
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//x:x");
-    Artifact protoHeader = getBinArtifact("_generated_protos/x/protos/DataA.pbobjc.h", topTarget);
-    CommandAction protoAction = (CommandAction) getGeneratingAction(protoHeader);
-    assertThat(protoAction).isNull();
-  }
-
-  protected void checkProtoBundlingWithTargetsWithNoDeps(RuleType ruleType) throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_a.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos_a',",
-        "    srcs = ['data_a.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_a',",
-        "    portable_proto_filters = ['filter_a.pbascii'],",
-        "    deps = [':protos_a'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_a', ':no_deps_target'],",
-        ")",
-        "objc_library(",
-        "    name = 'no_deps_target',",
-        "    srcs = ['b.m'],",
-        ")");
-
-    ruleType.scratchTarget(scratch, "deps", "['//libs:objc_lib']");
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//x:x");
-
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
-
-    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
-    assertThat(protoProvider).isNotNull();
   }
 
   protected void checkFrameworkDepLinkFlags(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
@@ -1652,11 +1431,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "  return struct(providers = [my_provider])",
         "framework_stub_rule = rule(",
         "    framework_stub_impl,",
-        // Both 'binary' and 'deps' are needed because ObjcProtoAspect is applied transitively
-        // along attribute 'deps' only.
         "    attrs = {'binary': attr.label(mandatory=True,",
-        "                                  providers=[apple_common.AppleDylibBinary]),",
-        "             'deps': attr.label_list(providers=[apple_common.AppleDylibBinary])},",
+        "                                  providers=[apple_common.AppleDylibBinary])},",
         "    fragments = ['apple', 'objc'],",
         ")");
   }

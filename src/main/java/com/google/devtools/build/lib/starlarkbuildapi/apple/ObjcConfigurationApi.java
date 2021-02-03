@@ -126,10 +126,4 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
           "Returns whether device debug entitlements should be included when signing an "
               + "application.")
   boolean useDeviceDebugEntitlements();
-
-  @StarlarkMethod(
-      name = "enable_apple_binary_native_protos",
-      structField = true,
-      doc = "Returns whether apple_binary should generate and link protos natively.")
-  boolean enableAppleBinaryNativeProtos();
 }
