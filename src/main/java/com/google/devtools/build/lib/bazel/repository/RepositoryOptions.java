@@ -57,6 +57,15 @@ public class RepositoryOptions extends OptionsBase {
   public boolean useHardlinks;
 
   @Option(
+      name = "experimental_repository_disable_download",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If set, downloading external repositories is not allowed.")
+  public boolean disableDownload;
+
+  @Option(
       name = "distdir",
       oldName = "experimental_distdir",
       defaultValue = "null",
