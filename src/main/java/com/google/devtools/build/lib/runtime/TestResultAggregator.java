@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -69,7 +67,7 @@ final class TestResultAggregator {
   private final Set<Artifact> remainingRuns;
   private final Map<Artifact, TestResult> statusMap = new HashMap<>();
 
-  public TestResultAggregator(
+  TestResultAggregator(
       ConfiguredTarget target,
       BuildConfiguration configuration,
       AggregationPolicy policy,
@@ -169,22 +167,6 @@ final class TestResultAggregator {
     policy.eventBus.post(summary.build());
   }
 
-  /** Returns the known aggregate results for the given target at the current moment. */
-  synchronized TestSummary.Builder getCurrentSummaryForTesting() {
-    return summary;
-  }
-
-  /**
-   * Returns all test status artifacts associated with a given target whose runs have yet to finish.
-   */
-  synchronized Collection<Artifact> getIncompleteRunsForTesting() {
-    return ImmutableSet.copyOf(remainingRuns);
-  }
-
-  synchronized Map<Artifact, TestResult> getStatusMapForTesting() {
-    return ImmutableMap.copyOf(statusMap);
-  }
-
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
     return ConfiguredTargetKey.builder()
         .setLabel(AliasProvider.getDependencyLabel(target))
@@ -236,6 +218,7 @@ final class TestResultAggregator {
    *
    * @param result New test result to aggregate into the summary.
    */
+  @VisibleForTesting
   synchronized void incrementalAnalyze(TestResult result) {
     // Cache retrieval should have been performed already.
     Preconditions.checkNotNull(result);
