@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -47,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * An options parser for starlark defined options. Takes a mutable {@link OptionsParser} that has
@@ -60,6 +62,11 @@ public class StarlarkOptionsParser {
   private final PathFragment relativeWorkingDirectory;
   private final ExtendedEventHandler reporter;
   private final OptionsParser nativeOptionsParser;
+
+  // Result of #parse, store the parsed options and their values.
+  private final Map<String, Object> starlarkOptions = new TreeMap<>();
+  // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
+  private final Map<String, BuildSetting> parsedBuildSettings = new HashMap<>();
 
   /**
    * {@link ExtendedEventHandler} override that passes through "normal" events but not events that
@@ -193,12 +200,10 @@ public class StarlarkOptionsParser {
       Pair<Target, Object> buildSettingAndFinalValue =
           buildSettingWithTargetAndValue.get(buildSetting);
       Target buildSettingTarget = buildSettingAndFinalValue.getFirst();
-      boolean allowsMultiple =
-          buildSettingTarget
-              .getAssociatedRule()
-              .getRuleClassObject()
-              .getBuildSetting()
-              .allowsMultiple();
+      BuildSetting buildSettingObject =
+          buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
+      boolean allowsMultiple = buildSettingObject.allowsMultiple();
+      parsedBuildSettings.put(buildSetting, buildSettingObject);
       Object value = buildSettingAndFinalValue.getSecond();
       if (allowsMultiple) {
         List<?> defaultValue =
@@ -221,6 +226,7 @@ public class StarlarkOptionsParser {
       }
     }
     nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
+    this.starlarkOptions.putAll(parsedOptions);
   }
 
   private void parseArg(
@@ -361,5 +367,38 @@ public class StarlarkOptionsParser {
   @VisibleForTesting
   public OptionsParser getNativeOptionsParserFortesting() {
     return nativeOptionsParser;
+  }
+
+  public boolean checkIfParsedOptionAllowsMultiple(String option) {
+    return parsedBuildSettings.get(option).allowsMultiple();
+  }
+
+  public Type<?> getParsedOptionType(String option) {
+    return parsedBuildSettings.get(option).getType();
+  }
+
+  /** Return a canoncalized list of the starlark options and values that this parser has parsed. */
+  @SuppressWarnings("unchecked")
+  public List<String> canonicalize() {
+    ImmutableList.Builder<String> result = new ImmutableList.Builder<>();
+    for (Map.Entry<String, Object> starlarkOption : starlarkOptions.entrySet()) {
+      String starlarkOptionName = starlarkOption.getKey();
+      Object starlarkOptionValue = starlarkOption.getValue();
+      String starlarkOptionString = "--" + starlarkOptionName + "=";
+      if (checkIfParsedOptionAllowsMultiple(starlarkOptionName)) {
+        Preconditions.checkState(
+            starlarkOption.getValue() instanceof List,
+            "Found a starlark option value that isn't a list for an allow multiple option.");
+        for (Object singleValue : (List) starlarkOptionValue) {
+          result.add(starlarkOptionString + singleValue);
+        }
+      } else if (getParsedOptionType(starlarkOptionName).equals(Type.STRING_LIST)) {
+        result.add(
+            starlarkOptionString + String.join(",", ((Iterable<String>) starlarkOptionValue)));
+      } else {
+        result.add(starlarkOptionString + starlarkOptionValue);
+      }
+    }
+    return result.build();
   }
 }
