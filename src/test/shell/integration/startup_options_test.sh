@@ -84,19 +84,19 @@ function test_autodetect_server_javabase() {
 
 # Below are the regression tests for Issue #7489
 function test_multiple_bazelrc_later_overwrites_earlier() {
-  plain_expected_output="INFO: Build completed successfully, 1 total action"
+  plain_expected_output="INFO: Invocation ID"
 
   echo "common --color=yes" > 1.rc
   echo "common --color=no" > 2.rc
-  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" build &> $TEST_log || fail "Should pass"
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info &> $TEST_log || fail "Should pass"
   expect_log "$plain_expected_output"
 
   echo "common --color=no" > 3.rc
   echo "common --color=yes" > 4.rc
-  bazel "--${PRODUCT_NAME}rc=3.rc" "--${PRODUCT_NAME}rc=4.rc" build &> $TEST_log || fail "Should pass"
+  bazel "--${PRODUCT_NAME}rc=3.rc" "--${PRODUCT_NAME}rc=4.rc" info &> $TEST_log || fail "Should pass"
   # The final value for color should be yes, therefore the colored output would not contain
   # the plain string, but rather something like
-  # "^[[32mINFO:^[[0m Build completed successfully, 1 total action"
+  # "^[[32mINFO: ^[[0mInvocation ID: d636c789-7350-4283-92d5-240d44a4e291"
   expect_not_log "$plain_expected_output"
 }
 
