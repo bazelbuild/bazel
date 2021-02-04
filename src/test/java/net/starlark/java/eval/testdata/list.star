@@ -56,3 +56,10 @@ assert_eq([1, 2, 3, 4], [1, 2] + [3, 4])
 assert_([1, 2, 3, 4] != (1, 2, 3, 4))
 assert_([1, 2] != [1, 2, 3])
 assert_eq([], [])
+
+# repeat
+assert_eq([1, 2, 3] * 3, [1, 2, 3, 1, 2, 3, 1, 2, 3])
+assert_eq(3 * [1, 2, 3], [1, 2, 3, 1, 2, 3, 1, 2, 3])
+assert_eq([1, 2, 3] * -1, [])
+assert_eq([1, 2, 3] * 0, [])
+assert_fails(lambda: [1] * (1 << 35), "got 34359738368 for repeat, want value in signed 32-bit range")

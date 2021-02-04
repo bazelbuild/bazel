@@ -300,17 +300,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testMult() throws Exception {
-    ev.new Scenario()
-        .testExpression("6 * 7", StarlarkInt.of(42))
-        .testExpression("3 * 'ab'", "ababab")
-        .testExpression("0 * 'ab'", "")
-        .testExpression("'1' + '0' * 5", "100000")
-        .testExpression("'ab' * -4", "")
-        .testExpression("-1 * ''", "");
-  }
-
-  @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
         .testExpression("6 // 2", StarlarkInt.of(3))
@@ -514,40 +503,6 @@ public final class EvaluationTest {
         .testEval("(1, 2) + (3, 4)", "(1, 2, 3, 4)")
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
         .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
-  }
-
-  @Test
-  public void testListMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("[1, 2, 3] * 1", "[1, 2, 3]")
-        .testEval("[1, 2] * 2", "[1, 2, 1, 2]")
-        .testEval("[1, 2] * 3", "[1, 2, 1, 2, 1, 2]")
-        .testEval("[1, 2] * 4", "[1, 2, 1, 2, 1, 2, 1, 2]")
-        .testEval("[8] * 5", "[8, 8, 8, 8, 8]")
-        .testEval("[    ] * 10", "[]")
-        .testEval("[1, 2] * 0", "[]")
-        .testEval("[1, 2] * -4", "[]")
-        .testEval("2 * [1, 2]", "[1, 2, 1, 2]")
-        .testEval("10 * []", "[]")
-        .testEval("0 * [1, 2]", "[]")
-        .testEval("-4 * [1, 2]", "[]");
-  }
-
-  @Test
-  public void testTupleMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("(1, 2, 3) * 1", "(1, 2, 3)")
-        .testEval("(1, 2) * 2", "(1, 2, 1, 2)")
-        .testEval("(1, 2) * 3", "(1, 2, 1, 2, 1, 2)")
-        .testEval("(1, 2) * 4", "(1, 2, 1, 2, 1, 2, 1, 2)")
-        .testEval("(8,) * 5", "(8, 8, 8, 8, 8)")
-        .testEval("(    ) * 10", "()")
-        .testEval("(1, 2) * 0", "()")
-        .testEval("(1, 2) * -4", "()")
-        .testEval("2 * (1, 2)", "(1, 2, 1, 2)")
-        .testEval("10 * ()", "()")
-        .testEval("0 * (1, 2)", "()")
-        .testEval("-4 * (1, 2)", "()");
   }
 
   @Test

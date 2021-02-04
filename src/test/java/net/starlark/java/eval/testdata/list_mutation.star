@@ -51,8 +51,9 @@ assert_eq(foo, ["a", "b", "c", "d", "e", "f", "g"])
 
 assert_fails(lambda: (1, 2).extend([3, 4]), "'tuple' value has no field or method 'extend'")
 assert_fails(lambda: [1, 2].extend(3), "type 'int' is not iterable")
----
+assert_fails(lambda: [].extend(range((1 << 31) - 1)), "excessive capacity requested")
 
+---
 # remove
 
 foo = ["a", "b", "c", "b"]
