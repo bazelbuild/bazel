@@ -256,7 +256,7 @@ public final class Profiler {
   private final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
 
   /** Thread that collects local cpu usage data (if enabled). */
-  private CollectLocalCpuUsage cpuUsageThread;
+  private CollectLocalResourceUsage cpuUsageThread;
 
   private TimeSeries actionCountTimeSeries;
   private long actionCountStartTime;
@@ -419,7 +419,7 @@ public final class Profiler {
     profileCpuStartTime = getProcessCpuTime();
 
     if (enabledCpuUsageProfiling) {
-      cpuUsageThread = new CollectLocalCpuUsage();
+      cpuUsageThread = new CollectLocalResourceUsage();
       cpuUsageThread.setDaemon(true);
       cpuUsageThread.start();
     }
@@ -1097,6 +1097,7 @@ public final class Profiler {
             }
 
             if (data.type == ProfilerTask.LOCAL_CPU_USAGE
+                || data.type == ProfilerTask.LOCAL_MEMORY_USAGE
                 || data.type == ProfilerTask.ACTION_COUNTS) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
@@ -1106,6 +1107,10 @@ public final class Profiler {
               writer.beginObject();
               writer.setIndent("");
               writer.name("name").value(data.type.description);
+              if (data.type == ProfilerTask.LOCAL_MEMORY_USAGE) {
+                // Make this more distinct in comparison to other counter colors.
+                writer.name("cname").value("olive");
+              }
               writer.name("ph").value("C");
               writer
                   .name("ts")
@@ -1116,12 +1121,19 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              if (data.type == ProfilerTask.LOCAL_CPU_USAGE) {
-                writer.name("cpu").value(data.description);
-              } else {
-                writer.name("action").value(data.description);
+              switch (data.type) {
+                case LOCAL_CPU_USAGE:
+                  writer.name("cpu").value(data.description);
+                  break;
+                case LOCAL_MEMORY_USAGE:
+                  writer.name("memory").value(data.description);
+                  break;
+                case ACTION_COUNTS:
+                  writer.name("action").value(data.description);
+                  break;
+                default:
+                  // won't happen
               }
-
               writer.endObject();
 
               writer.endObject();
