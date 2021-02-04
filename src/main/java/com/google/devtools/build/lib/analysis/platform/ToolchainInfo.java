@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -109,7 +108,4 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     }
     return fieldNames;
   }
-
-  /** Add make variables to be exported to dependers. */
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {}
 }

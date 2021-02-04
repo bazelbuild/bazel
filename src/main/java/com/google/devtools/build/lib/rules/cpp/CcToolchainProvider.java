@@ -345,7 +345,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
 
-  @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
 
