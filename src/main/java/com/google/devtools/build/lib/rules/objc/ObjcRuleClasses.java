@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -538,6 +539,14 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Protocol buffer related implicit attributes.
+   */
+  static final String PROTO_COMPILER_ATTR = "$googlemac_proto_compiler";
+  static final String PROTO_COMPILER_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
+  static final String PROTO_LIB_ATTR = "$lib_protobuf";
+  static final String PROTOBUF_WELL_KNOWN_TYPES = "$protobuf_well_known_types";
+
+  /**
    * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of multiple
    * architectures).
    */
@@ -547,6 +556,13 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that link sources and dependencies.
    */
   public static class LinkingRule implements RuleDefinition {
+
+    private final ObjcProtoAspect objcProtoAspect;
+
+    public LinkingRule(ObjcProtoAspect objcProtoAspect) {
+      this.objcProtoAspect = objcProtoAspect;
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -558,6 +574,22 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
+          .add(
+              attr(PROTO_COMPILER_ATTR, LABEL)
+                  .allowedFileTypes(FileType.of(".sh"))
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler_wrapper")))
+          .add(
+              attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
+                  .legacyAllowAnyFileType()
+                  .cfg(HostTransition.createFactory())
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler_support")))
+          .add(
+              ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+                  PROTOBUF_WELL_KNOWN_TYPES,
+                  ImmutableList.of(env.getToolsLabel("//tools/objc:protobuf_well_known_types"))))
+          .override(builder.copy("deps").aspect(objcProtoAspect))
           /* <!-- #BLAZE_RULE($objc_linking_rule).ATTRIBUTE(linkopts) -->
           Extra flags to pass to the linker.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -644,6 +676,13 @@ public class ObjcRuleClasses {
    * type (such as ios or watchos).
    */
   public static class MultiArchPlatformRule implements RuleDefinition {
+
+    private final ObjcProtoAspect objcProtoAspect;
+
+    public MultiArchPlatformRule(ObjcProtoAspect objcProtoAspect) {
+      this.objcProtoAspect = objcProtoAspect;
+    }
+
     /**
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
@@ -672,6 +711,7 @@ public class ObjcRuleClasses {
                   .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
                   .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                   .cfg(splitTransitionProvider)
+                  .aspect(objcProtoAspect)
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(linkopts) -->
           Extra flags to pass to the linker.
@@ -685,6 +725,21 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
+          .add(
+              attr(PROTO_COMPILER_ATTR, LABEL)
+                  .allowedFileTypes(FileType.of(".sh"))
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler_wrapper")))
+          .add(
+              attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
+                  .legacyAllowAnyFileType()
+                  .cfg(HostTransition.createFactory())
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler_support")))
+          .add(
+              ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+                  PROTOBUF_WELL_KNOWN_TYPES,
+                  ImmutableList.of(env.getToolsLabel("//tools/objc:protobuf_well_known_types"))))
           .build();
     }
 
@@ -708,6 +763,13 @@ public class ObjcRuleClasses {
    * Common attributes for apple rules that can depend on one or more dynamic libraries.
    */
   public static class DylibDependingRule implements RuleDefinition {
+
+    private final ObjcProtoAspect objcProtoAspect;
+
+    public DylibDependingRule(ObjcProtoAspect objcProtoAspect) {
+      this.objcProtoAspect = objcProtoAspect;
+    }
+
     /**
      * Attribute name for dylib dependencies.
      */
@@ -729,7 +791,8 @@ public class ObjcRuleClasses {
                       ImmutableList.of(
                           StarlarkProviderIdentifier.forKey(
                               AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.getKey())))
-                  .allowedFileTypes())
+                  .allowedFileTypes()
+                  .aspect(objcProtoAspect))
           .build();
     }
 

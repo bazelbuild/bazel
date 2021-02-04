@@ -37,6 +37,10 @@ public abstract class AbstractObjcRuleSet implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     String toolsRepository = checkNotNull(builder.getToolsRepository());
 
+    // objc_proto_library should go into a separate RuleSet!
+    // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
+    ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
+
     builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
 
     builder.addConfigurationFragment(ObjcConfiguration.class);
@@ -45,19 +49,20 @@ public abstract class AbstractObjcRuleSet implements RuleSet {
     // j2objc shouldn't be here!
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
 
-    builder.addRuleDefinition(new AppleBinaryRule());
-    builder.addRuleDefinition(new AppleStaticLibraryRule());
+    builder.addNativeAspectClass(objcProtoAspect);
+    builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
+    builder.addRuleDefinition(new AppleStaticLibraryRule(objcProtoAspect));
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new ObjcImportRule());
     builder.addRuleDefinition(new ObjcLibraryRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule());
+    builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule(objcProtoAspect));
     builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule());
+    builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
     builder.addRuleDefinition(new ObjcRuleClasses.PlatformRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
+    builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule(objcProtoAspect));
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
@@ -68,6 +73,6 @@ public abstract class AbstractObjcRuleSet implements RuleSet {
     builder.addRuleDefinition(new AvailableXcodesRule());
     builder.addRuleDefinition(new XcodeVersionRule());
 
-    builder.addStarlarkBootstrap(new AppleBootstrap(new AppleStarlarkCommon()));
+    builder.addStarlarkBootstrap(new AppleBootstrap(new AppleStarlarkCommon(objcProtoAspect)));
   }
 }

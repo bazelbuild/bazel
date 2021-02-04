@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -84,6 +85,12 @@ public class AppleStarlarkCommon
 
   @Nullable private StructImpl platformType;
   @Nullable private StructImpl platform;
+
+  private ObjcProtoAspect objcProtoAspect;
+
+  public AppleStarlarkCommon(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
 
   @Override
   public AppleToolchain getAppleToolchain() {
@@ -242,6 +249,11 @@ public class AppleStarlarkCommon
     } catch (DottedVersion.InvalidDottedVersionException e) {
       throw new EvalException(e.getMessage());
     }
+  }
+
+  @Override
+  public StarlarkAspect getObjcProtoAspect() {
+    return objcProtoAspect;
   }
 
   /**

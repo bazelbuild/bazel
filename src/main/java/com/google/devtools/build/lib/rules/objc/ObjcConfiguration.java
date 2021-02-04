@@ -65,6 +65,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
+  private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
   private final boolean avoidHardcodedCompilationFlags;
@@ -94,6 +95,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
+    this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
@@ -243,6 +245,12 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
+  }
+
+  /** Returns true if apple_binary targets should generate and link Objc protos. */
+  @Override
+  public boolean enableAppleBinaryNativeProtos() {
+    return enableAppleBinaryNativeProtos;
   }
 
   /** Returns the DotdPruningPlan for compiles in this build. */

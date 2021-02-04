@@ -203,14 +203,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + "objc compiles.")
   public boolean useDotdPruning;
 
-  // TODO(b/63112347): Remove all references to this flag and delete it.
   @Option(
-      name = "enable_apple_binary_native_protos",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "This flag is a no-op and will soon be deleted.")
+    name = "enable_apple_binary_native_protos",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set, apple_binary will generate and link objc protos into the output binary."
+  )
   public boolean enableAppleBinaryNativeProtos;
 
   @Option(

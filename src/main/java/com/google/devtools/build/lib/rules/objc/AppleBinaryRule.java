@@ -46,6 +46,15 @@ public class AppleBinaryRule implements RuleDefinition {
   public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
   public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
 
+  private final ObjcProtoAspect objcProtoAspect;
+
+  /**
+   * Constructor that returns a newly configured AppleBinaryRule object.
+   */
+  public AppleBinaryRule(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
+
   /**
    * There are 3 classes of fully linked binaries in Mach: executable, dynamic library, and loadable
    * bundle.
@@ -124,7 +133,8 @@ public class AppleBinaryRule implements RuleDefinition {
                         StarlarkProviderIdentifier.forKey(
                             AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR.getKey())))
                 .allowedFileTypes()
-                .singleArtifact())
+                .singleArtifact()
+                .aspect(objcProtoAspect))
         /*<!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(stamp) -->
         Enable link stamping.
         Whether to encode build information into the binary. Possible values:
