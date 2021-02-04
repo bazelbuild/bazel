@@ -47,16 +47,18 @@ public class CustomExitCodePublisher {
     abruptExitCodeFilePath = null;
   }
 
-  public static void maybeWriteExitStatusFile(int exitCode) {
+  public static boolean maybeWriteExitStatusFile(int exitCode) {
     Path path = CustomExitCodePublisher.abruptExitCodeFilePath;
     if (path != null) {
       try {
         Files.write(path, String.valueOf(exitCode).getBytes(StandardCharsets.UTF_8));
+        return true;
       } catch (IOException ioe) {
         System.err.printf(
             "io error writing %d to abrupt exit status file %s: %s\n",
             exitCode, path, ioe.getMessage());
       }
     }
+    return false;
   }
 }
