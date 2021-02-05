@@ -114,6 +114,7 @@ genrule(
     srcs = select({
         ":arm_cpu": ["g_arm.src"],
         ":x86_cpu": ["g_x86.src"],
+    }),
     tools = select({
         ":arm_cpu": [":tool1"],
         ":x86_cpu": [":tool2"],
