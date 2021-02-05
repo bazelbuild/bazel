@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -56,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -70,9 +69,6 @@ import java.util.concurrent.ExecutorService;
  * </pre>
  */
 public class LegacyIncludeScanner implements IncludeScanner {
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   private static final class ArtifactWithInclusionContext {
     private final Artifact artifact;
     private final Kind contextKind;
@@ -769,48 +765,37 @@ public class LegacyIncludeScanner implements IncludeScanner {
         throws IOException, ExecException, InterruptedException {
       checkForInterrupt("processing", source);
 
-      Collection<Inclusion> inclusions;
-      try {
-        inclusions =
-            fileParseCache
-                .computeIfAbsent(
+      Collection<Inclusion> inclusions = null;
+      while (inclusions == null) {
+        SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
+        Future<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
+        if (previous == null) {
+          previous = future;
+          try {
+            future.set(
+                parser.extractInclusions(
                     source,
-                    file -> {
-                      try {
-                        return Futures.immediateFuture(
-                            parser.extractInclusions(
-                                file,
-                                actionExecutionMetadata,
-                                actionExecutionContext,
-                                grepIncludes,
-                                spawnIncludeScannerSupplier.get(),
-                                isRealOutputFile(source.getExecPath())));
-                      } catch (IOException e) {
-                        throw new IORuntimeException(e);
-                      } catch (ExecException e) {
-                        throw new ExecRuntimeException(e);
-                      } catch (InterruptedException e) {
-                        throw new InterruptedRuntimeException(e);
-                      }
-                    })
-                .get();
-      } catch (ExecutionException ee) {
-        try {
-          Throwables.throwIfInstanceOf(ee.getCause(), RuntimeException.class);
-          throw new IllegalStateException(ee.getCause());
-        } catch (IORuntimeException e) {
-          throw e.getCauseIOException();
-        } catch (ExecRuntimeException e) {
-          throw e.getRealCause();
-        } catch (InterruptedRuntimeException e) {
-          throw e.getRealCause();
+                    actionExecutionMetadata,
+                    actionExecutionContext,
+                    grepIncludes,
+                    spawnIncludeScannerSupplier.get(),
+                    isRealOutputFile(source.getExecPath())));
+          } catch (Throwable t) {
+            fileParseCache.remove(source);
+            future.setException(t);
+            throw t;
+          }
         }
-      } catch (RuntimeException e) {
-        // TODO(b/175294870): Remove after diagnosing the bug.
-        logger.atSevere().withCause(e).log("Uncaught exception in call to extractInclusions");
-        throw e;
+        try {
+          inclusions = Preconditions.checkNotNull(previous.get(), source);
+        } catch (ExecutionException e) {
+          // An exception occured when some other thread tried to load the same file that we are
+          // waiting for. If this is a MissingDepExecException, we have to simply retry as otherwise
+          // we'd end up in an unexpected state (not requesting any deps, but claiming that there
+          // are missing ones). For other exceptions, this might not be necessary but is safe to do
+          // and reduces complexity.
+        }
       }
-      Preconditions.checkNotNull(inclusions, source);
 
       // Shuffle the inclusions to get better parallelism. See b/62200470.
       List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
