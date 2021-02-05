@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
@@ -53,39 +54,45 @@ public class RemoteExecutionCache extends RemoteCache {
    * However, remote execution uses a cache to store input files, and that may be a separate
    * end-point from the executor itself, so the functionality lives here.
    */
-  public void ensureInputsPresent(MerkleTree merkleTree, Map<Digest, Message> additionalInputs)
+  public void ensureInputsPresent(
+      RemoteActionExecutionContext context,
+      MerkleTree merkleTree,
+      Map<Digest, Message> additionalInputs)
       throws IOException, InterruptedException {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
-        getFromFuture(cacheProtocol.findMissingDigests(allDigests));
+        getFromFuture(cacheProtocol.findMissingDigests(context, allDigests));
 
     List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
     for (Digest missingDigest : missingDigests) {
-      uploadFutures.add(uploadBlob(missingDigest, merkleTree, additionalInputs));
+      uploadFutures.add(uploadBlob(context, missingDigest, merkleTree, additionalInputs));
     }
 
     waitForBulkTransfer(uploadFutures, /* cancelRemainingOnInterrupt=*/ false);
   }
 
   private ListenableFuture<Void> uploadBlob(
-      Digest digest, MerkleTree merkleTree, Map<Digest, Message> additionalInputs) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      MerkleTree merkleTree,
+      Map<Digest, Message> additionalInputs) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
-      return cacheProtocol.uploadBlob(digest, node.toByteString());
+      return cacheProtocol.uploadBlob(context, digest, node.toByteString());
     }
 
     PathOrBytes file = merkleTree.getFileByDigest(digest);
     if (file != null) {
       if (file.getBytes() != null) {
-        return cacheProtocol.uploadBlob(digest, file.getBytes());
+        return cacheProtocol.uploadBlob(context, digest, file.getBytes());
       }
-      return cacheProtocol.uploadFile(digest, file.getPath());
+      return cacheProtocol.uploadFile(context, digest, file.getPath());
     }
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return cacheProtocol.uploadBlob(digest, message.toByteString());
+      return cacheProtocol.uploadBlob(context, digest, message.toByteString());
     }
 
     return Futures.immediateFailedFuture(

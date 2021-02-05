@@ -23,7 +23,7 @@ import javax.annotation.Nullable;
  * An exception indication that the execution of an action has failed OR could not be attempted OR
  * could not be finished OR had something else wrong.
  *
- * <p>The five main kinds of failure are broadly defined as follows:
+ * <p>The six main kinds of failure are broadly defined as follows:
  *
  * <p>USER_INPUT which means it had something to do with what the user told us to do. This failure
  * should satisfy the invariant that it would happen identically again if all other things are
@@ -41,6 +41,8 @@ import javax.annotation.Nullable;
  * <p>LOST_INPUT which means the failure occurred because the action expected to consume some input
  * that went missing. Although this seems similar to ENVIRONMENT, Blaze may know how to fix this
  * problem.
+ *
+ * <p>MISSING_DEP which means that a skyframe restart is necessary because a dependency was missing.
  *
  * <p>The class is a catch-all for both failures of actions and failures to evaluate actions
  * properly.

@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.remote.common;
 
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * A {@link RemoteFileArtifactValue} with additional data only available when using Remote Execution
@@ -31,5 +33,31 @@ public class RemoteActionFileArtifactValue extends RemoteFileArtifactValue {
 
   public boolean isExecutable() {
     return isExecutable;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof RemoteActionFileArtifactValue)) {
+      return false;
+    }
+
+    RemoteActionFileArtifactValue that = (RemoteActionFileArtifactValue) o;
+    return Arrays.equals(getDigest(), that.getDigest())
+        && getSize() == that.getSize()
+        && getLocationIndex() == that.getLocationIndex()
+        && Objects.equals(getActionId(), that.getActionId())
+        && isExecutable == that.isExecutable
+        && dataIsShareable() == that.dataIsShareable();
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        Arrays.hashCode(getDigest()),
+        getSize(),
+        getLocationIndex(),
+        getActionId(),
+        isExecutable,
+        dataIsShareable());
   }
 }

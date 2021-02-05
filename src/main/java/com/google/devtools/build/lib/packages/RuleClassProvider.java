@@ -87,7 +87,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    *
    * <p>Does not account for builtins injection. Excludes universal bindings (e.g. True, len).
    *
-   * <p>See {@link PackageFactory#getUninjectedBuildBzlNativeBindings} for the canonical
+   * <p>See {@link BazelStarlarkEnvironment#getUninjectedBuildBzlNativeBindings} for the canonical
    * determination of the bzl environment (before injection).
    */
   ImmutableMap<String, Object> getEnvironment();

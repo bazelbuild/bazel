@@ -395,6 +395,11 @@ class OptionsParserImpl {
       }
 
       if (arg.equals("--")) { // "--" means all remaining args aren't options
+        // Before adding the remaining args to residue, unalias any aliased starlark options.
+        while (argsIterator.hasNext()) {
+          String postDoubleDashArg = swapShorthandAlias(argsIterator.next());
+          unparsedPostDoubleDashArgs.add(postDoubleDashArg);
+        }
         Iterators.addAll(unparsedPostDoubleDashArgs, argsIterator);
         break;
       }

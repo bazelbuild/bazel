@@ -48,7 +48,7 @@ public final class BazelCcImportRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("cc_import")
-        .ancestors(BaseRuleClasses.BaseRule.class, CcImportRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class, CcImportRule.class)
         .factoryClass(BazelCcImport.class)
         .build();
   }

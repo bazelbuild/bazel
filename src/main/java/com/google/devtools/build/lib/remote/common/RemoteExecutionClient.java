@@ -25,7 +25,8 @@ import java.io.IOException;
 public interface RemoteExecutionClient {
 
   /** Execute an action remotely using Remote Execution API. */
-  ExecuteResponse executeRemotely(ExecuteRequest request, OperationObserver observer)
+  ExecuteResponse executeRemotely(
+      RemoteActionExecutionContext context, ExecuteRequest request, OperationObserver observer)
       throws IOException, InterruptedException;
 
   /** Close resources associated with the remote execution client. */

@@ -132,8 +132,10 @@ abstract class FileTransport implements BuildEventTransport {
             != CLOSE_EVENT_FUTURE) {
           if (buildEventF != null) {
             BuildEventStreamProtos.BuildEvent buildEvent = buildEventF.get();
-            byte[] serialized = serializeFunc.apply(buildEvent);
-            out.write(serialized);
+            if (buildEvent != null) {
+              byte[] serialized = serializeFunc.apply(buildEvent);
+              out.write(serialized);
+            }
           }
           Instant now = Instant.now();
           if (buildEventF == null || now.compareTo(prevFlush.plus(FLUSH_INTERVAL)) > 0) {

@@ -313,8 +313,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "%package(//a:@@a)%", "The package '//a:@@a' is not valid");
     assertInvalidIncludeDirectoryMessage(
         "%package(//a)%foo", "The path in the package.*is not valid");
-    assertInvalidIncludeDirectoryMessage(
-        "%package(//a)%/../bar", "The include path.*is not normalized");
   }
 
   @Test

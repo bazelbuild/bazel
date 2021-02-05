@@ -69,6 +69,9 @@ public final class DiffAwarenessManager {
   public interface ProcessableModifiedFileSet {
     ModifiedFileSet getModifiedFileSet();
 
+    @Nullable
+    WorkspaceInfoFromDiff getWorkspaceInfo();
+
     /**
      * This should be called when the changes have been noted. Otherwise, the result from the next
      * call to {@link #getDiff} will be from the baseline of the old, unprocessed, diff.
@@ -99,7 +102,7 @@ public final class DiffAwarenessManager {
     if (baselineView == null) {
       logger.atInfo().log("Initial baseline view for %s is %s", pathEntry, newView);
       diffAwarenessState.baselineView = newView;
-      return BrokenProcessableModifiedFileSet.INSTANCE;
+      return new InitialModifiedFileSet(newView.getWorkspaceInfo());
     }
 
     ModifiedFileSet diff;
@@ -172,6 +175,12 @@ public final class DiffAwarenessManager {
       return modifiedFileSet;
     }
 
+    @Nullable
+    @Override
+    public WorkspaceInfoFromDiff getWorkspaceInfo() {
+      return nextView.getWorkspaceInfo();
+    }
+
     @Override
     public void markProcessed() {
       DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
@@ -189,6 +198,36 @@ public final class DiffAwarenessManager {
     @Override
     public ModifiedFileSet getModifiedFileSet() {
       return ModifiedFileSet.EVERYTHING_MODIFIED;
+    }
+
+    @Nullable
+    @Override
+    public WorkspaceInfoFromDiff getWorkspaceInfo() {
+      return null;
+    }
+
+    @Override
+    public void markProcessed() {}
+  }
+
+  /** Modified file set for a clean build. */
+  private static class InitialModifiedFileSet implements ProcessableModifiedFileSet {
+
+    @Nullable private final WorkspaceInfoFromDiff workspaceInfo;
+
+    InitialModifiedFileSet(@Nullable WorkspaceInfoFromDiff workspaceInfo) {
+      this.workspaceInfo = workspaceInfo;
+    }
+
+    @Override
+    public ModifiedFileSet getModifiedFileSet() {
+      return ModifiedFileSet.EVERYTHING_MODIFIED;
+    }
+
+    @Nullable
+    @Override
+    public WorkspaceInfoFromDiff getWorkspaceInfo() {
+      return workspaceInfo;
     }
 
     @Override

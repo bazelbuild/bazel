@@ -102,6 +102,23 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
+    name = "remotejdk11_macos_aarch64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    sha256 = "3dcc636e64ae58b922269c2dc9f20f6f967bee90e3f6847d643c4a566f1e8d8a",
+    strip_prefix = "zulu11.45.27-ca-jdk11.0.10-macosx_aarch64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
+    ],
+    version = "11",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
     name = "remotejdk11_win",
     exec_compatible_with = [
         "@platforms//os:windows",
@@ -113,50 +130,6 @@ maybe(
         "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
     ],
     version = "11",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    name = "remotejdk14_linux",
-    exec_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-    sha256 = "48bb8947034cd079ad1ef83335e7634db4b12a26743a0dc314b6b861480777aa",
-    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-linux_x64",
-    urls = [
-        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-linux_x64.tar.gz",
-    ],
-    version = "14",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    name = "remotejdk14_macos",
-    exec_compatible_with = [
-        "@platforms//os:macos",
-        "@platforms//cpu:x86_64",
-    ],
-    sha256 = "088bd4d0890acc9f032b738283bf0f26b2a55c50b02d1c8a12c451d8ddf080dd",
-    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-macosx_x64",
-    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-macosx_x64.tar.gz"],
-    version = "14",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    name = "remotejdk14_win",
-    exec_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
-    ],
-    sha256 = "9cb078b5026a900d61239c866161f0d9558ec759aa15c5b4c7e905370e868284",
-    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-win_x64",
-    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-win_x64.zip"],
-    version = "14",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
@@ -189,6 +162,23 @@ maybe(
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
+    ],
+    version = "15",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
+    name = "remotejdk15_macos_aarch64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    sha256 = "2613c3f15eef6b6ecd0fd102da92282b985e4573905dc902f1783d8059c1efc5",
+    strip_prefix = "zulu15.29.15-ca-jdk15.0.2-macosx_aarch64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.29.15-ca-jdk15.0.2-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu15.29.15-ca-jdk15.0.2-macosx_aarch64.tar.gz",
     ],
     version = "15",
 )

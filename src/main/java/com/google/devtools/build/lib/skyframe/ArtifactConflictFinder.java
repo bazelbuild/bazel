@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -62,18 +62,19 @@ class ArtifactConflictFinder {
    * new configured target was analyzed this build. It is somewhat expensive (~1s range for a medium
    * build as of 2014), so it should only be called when necessary.
    */
-  static ImmutableMap<ActionAnalysisMetadata, ConflictException> findAndStoreArtifactConflicts(
+  static ActionConflictsAndStats findAndStoreArtifactConflicts(
       Iterable<ActionLookupValue> actionLookupValues,
       boolean strictConflictChecks,
       ActionKeyContext actionKeyContext)
       throws InterruptedException {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
-    Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
-    result =
-        constructActionGraphAndPathMap(actionKeyContext, actionLookupValues, temporaryBadActionMap);
-    ActionGraph actionGraph = result.first;
-    SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
+    MapBasedActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
+    ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap =
+        new ConcurrentSkipListMap<>(Actions.comparatorForPrefixConflicts());
+    Pair<Integer, Integer> counts =
+        constructActionGraphAndPathMap(
+            actionGraph, artifactPathMap, actionLookupValues, temporaryBadActionMap);
 
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionsWithArtifactPrefixConflict =
         Actions.findArtifactPrefixConflicts(actionGraph, artifactPathMap, strictConflictChecks);
@@ -82,7 +83,11 @@ class ArtifactConflictFinder {
       temporaryBadActionMap.put(
           actionExceptionPair.getKey(), new ConflictException(actionExceptionPair.getValue()));
     }
-    return ImmutableMap.copyOf(temporaryBadActionMap);
+    return ActionConflictsAndStats.create(
+        ImmutableMap.copyOf(temporaryBadActionMap),
+        counts.first,
+        counts.second,
+        actionGraph.getSize());
   }
 
   /**
@@ -90,22 +95,23 @@ class ArtifactConflictFinder {
    * PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save around
    * 1.5 seconds on a mid-sized build versus a single-threaded operation.
    */
-  private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
-      constructActionGraphAndPathMap(
-          ActionKeyContext actionKeyContext,
-          Iterable<ActionLookupValue> values,
-          ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
-          throws InterruptedException {
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap =
-        new ConcurrentSkipListMap<>(Actions.comparatorForPrefixConflicts());
+  private static Pair<Integer, Integer> constructActionGraphAndPathMap(
+      MutableActionGraph actionGraph,
+      ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap,
+      Iterable<ActionLookupValue> values,
+      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
+      throws InterruptedException {
     // Action graph construction is CPU-bound.
     int numJobs = Runtime.getRuntime().availableProcessors();
     // No great reason for expecting 5000 action lookup values, but not worth counting size of
     // values.
     Sharder<ActionLookupValue> actionShards = new Sharder<>(numJobs, 5000);
+    int actionLookupValueCount = 0;
+    int actionCount = 0;
     for (ActionLookupValue value : values) {
       actionShards.add(value);
+      actionLookupValueCount++;
+      actionCount += value.getNumActions();
     }
 
     ThrowableRecordingRunnableWrapper wrapper =
@@ -125,7 +131,7 @@ class ArtifactConflictFinder {
     if (interrupted) {
       throw new InterruptedException();
     }
-    return Pair.of(actionGraph, artifactPathMap);
+    return Pair.of(actionLookupValueCount, actionCount);
   }
 
   private static Runnable actionRegistration(
@@ -189,6 +195,22 @@ class ArtifactConflictFinder {
         throw Preconditions.checkNotNull(ace);
       }
       throw new IllegalStateException();
+    }
+  }
+
+  @AutoValue
+  abstract static class ActionConflictsAndStats {
+    abstract ImmutableMap<ActionAnalysisMetadata, ConflictException> getConflicts();
+
+    abstract AnalysisGraphStatsEvent getStats();
+
+    private static ActionConflictsAndStats create(
+        ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts,
+        int actionValueCount,
+        int actionCount,
+        int artifactCount) {
+      return new AutoValue_ArtifactConflictFinder_ActionConflictsAndStats(
+          conflicts, new AnalysisGraphStatsEvent(actionValueCount, actionCount, artifactCount));
     }
   }
 }

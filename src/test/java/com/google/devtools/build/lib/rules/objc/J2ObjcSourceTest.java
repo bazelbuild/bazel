@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -42,7 +43,7 @@ public class J2ObjcSourceTest {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
     String outSegment = "root";
     execRoot.getChild(outSegment).createDirectoryAndParents();
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
   }
 
   @Test

@@ -145,6 +145,24 @@ genrule(
 )
 
 genrule(
+    name = "jar_with_manifest_sections_nostrip",
+    testonly = 1,
+    srcs = [":jar_with_manifest_sections"],
+    outs = ["jar-with-manifest-sections-nostrip.jar"],
+    cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+genrule(
+    name = "jar_with_target_label_and_manifest_sections_nostrip",
+    testonly = 1,
+    srcs = [":jar_with_target_label_and_manifest_sections"],
+    outs = ["jar-with-target-label-and-manifest-sections-nostrip.jar"],
+    cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+genrule(
     name = "jar_without_manifest_nostrip_idempotence",
     srcs = ["jar-without-manifest-nostrip.jar"],
     outs = ["jar-without-manifest-nostrip-idempotence.jar"],
@@ -292,6 +310,30 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+java_binary(
+    name = "GenJarWithManifestSections",
+    testonly = 1,
+    srcs = ["GenJarWithManifestSections.java"],
+    main_class = "GenJarWithManifestSections",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "jar_with_manifest_sections",
+    testonly = 1,
+    outs = ["jar-with-manifest-sections.jar"],
+    cmd = "$(location :GenJarWithManifestSections) $@",
+    tools = [":GenJarWithManifestSections"],
+)
+
+genrule(
+    name = "jar_with_target_label_and_manifest_sections",
+    testonly = 1,
+    outs = ["jar-with-target-label-and-manifest-sections.jar"],
+    cmd = "$(location :GenJarWithManifestSections) $@ //not:this",
+    tools = [":GenJarWithManifestSections"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -305,6 +347,7 @@ java_test(
         "UseRestrictedAnnotation.java",
         "jar-with-manifest.jar",
         "jar-with-manifest-and-target-label.jar",
+        "jar-with-manifest-sections.jar",
         "jar-without-manifest.jar",
         "package-info.java",
         ":empty_with_target_label",
@@ -314,6 +357,8 @@ java_test(
         ":interface_ijar_testlib_with_target_label",
         ":jar_with_manifest_and_target_label_nostrip",
         ":jar_with_manifest_nostrip",
+        ":jar_with_manifest_sections_nostrip",
+        ":jar_with_target_label_and_manifest_sections_nostrip",
         ":jar_without_manifest_nostrip",
         ":jar_without_manifest_nostrip_idempotence",
         ":kotlin_module-interface.jar",

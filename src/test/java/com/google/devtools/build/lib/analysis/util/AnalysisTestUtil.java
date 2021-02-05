@@ -32,9 +32,12 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
@@ -526,4 +529,14 @@ public final class AnalysisTestUtil {
     return files;
   }
 
+  /** Creates a {@link RunfilesSupplier} for use in tests. */
+  public static RunfilesSupplier createRunfilesSupplier(
+      PathFragment runfilesDir, Runfiles runfiles) {
+    return new SingleRunfilesSupplier(
+        runfilesDir,
+        runfiles,
+        /*manifest=*/ null,
+        /*buildRunfileLinks=*/ false,
+        /*runfileLinksEnabled=*/ false);
+  }
 }

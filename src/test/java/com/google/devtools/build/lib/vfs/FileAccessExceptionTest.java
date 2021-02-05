@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,7 +28,8 @@ public class FileAccessExceptionTest {
   public void testCodec() throws Exception {
     new SerializationTester(new FileAccessException("message"))
         .<FileAccessException>setVerificationFunction(
-            (original, deserialized) -> original.getMessage().equals(deserialized.getMessage()))
+            (original, deserialized) ->
+                assertThat(original).hasMessageThat().isEqualTo(deserialized.getMessage()))
         .runTests();
   }
 }

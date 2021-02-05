@@ -122,6 +122,15 @@ public interface AndroidSdkProviderApi<
   @StarlarkMethod(name = "zip_align", structField = true, doc = "", documented = false)
   FilesToRunProviderT getZipalign();
 
+  @StarlarkMethod(
+      name = "legacy_main_dex_list_generator",
+      structField = true,
+      doc = "",
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
+  FilesToRunProviderT getLegacyMainDexListGenerator();
+
   /** The provider implementing this can construct the AndroidSdkInfo provider. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -243,6 +252,15 @@ public interface AndroidSdkProviderApi<
               defaultValue = "None",
               positional = true,
               named = false),
+          @Param(
+              name = "legacy_main_dex_list_generator",
+              defaultValue = "None",
+              positional = true,
+              named = false,
+              allowedTypes = {
+                @ParamType(type = FilesToRunProviderApi.class),
+                @ParamType(type = NoneType.class),
+              }),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -264,7 +282,8 @@ public interface AndroidSdkProviderApi<
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,
         FilesToRunProviderT zipalign,
-        Object system)
+        Object system,
+        Object legacyMainDexListGenerator)
         throws EvalException;
   }
 }

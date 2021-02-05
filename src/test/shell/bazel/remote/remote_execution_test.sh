@@ -2311,10 +2311,6 @@ EOF
 function test_rbe_coverage_produces_report() {
   mkdir -p java/factorial
 
-  if is_darwin; then
-      add_to_bazelrc "build --java_runtime_version=14"
-      add_to_bazelrc "build --tool_java_runtime_version=14"
-  fi
   JAVA_TOOLS_ZIP="released"
   COVERAGE_GENERATOR_DIR="released"
 

@@ -144,7 +144,7 @@ public final class BazelPyRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$base_py")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
     }
   }

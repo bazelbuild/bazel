@@ -63,7 +63,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_package_configuration")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(JavaPackageConfiguration.class)
         .build();
   }

@@ -77,7 +77,8 @@ public class XcodeConfigAlias implements RuleConfiguredTargetFactory {
     public Metadata getMetadata() {
       return Metadata.builder()
           .name("xcode_config_alias")
-          .ancestors(BaseRuleClasses.BaseRule.class, AppleToolchain.RequiresXcodeConfigRule.class)
+          .ancestors(
+              BaseRuleClasses.NativeBuildRule.class, AppleToolchain.RequiresXcodeConfigRule.class)
           .factoryClass(XcodeConfigAlias.class)
           .build();
     }

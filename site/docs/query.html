@@ -46,8 +46,8 @@ describes the output formats <code>bazel query</code> supports.
   <ul>
     <li>
       <p>
-        <b>Keywords</b>, such as <code>let</code>.  Keywords are the reserved words of the
-        language, and each of them is described below.  The complete set
+        <b>Keywords</b>, such as <code>let</code>. Keywords are the reserved words of the
+        language, and each of them is described below. The complete set
         of keywords is:
       </p>
 
@@ -128,7 +128,7 @@ describes the output formats <code>bazel query</code> supports.
       </p>
 
     <li><b>Punctuation</b>, such as parens <code>()</code>, period
-    <code>.</code> and comma <code>,</code>, etc.  Words containing
+    <code>.</code> and comma <code>,</code>, etc. Words containing
     punctuation (other than the exceptions listed above) must be quoted.
   </ul>
 
@@ -138,16 +138,16 @@ describes the output formats <code>bazel query</code> supports.
 
 <h2 id='concepts'>Bazel query language concepts</h2>
 <p>
-  The Bazel query language is a language of expressions.  Every
+  The Bazel query language is a language of expressions. Every
   expression evaluates to a <b>partially-ordered set</b> of targets,
-  or equivalently, a <b>graph</b> (DAG) of targets.  This is the only
+  or equivalently, a <b>graph</b> (DAG) of targets. This is the only
   datatype.
 </p>
 <p>
   In some expressions, the partial order of the graph is
   not interesting; In this case, we call the values
   "sets". In cases where the partial order of elements
-  is significant, we call values "graphs".  Note
+  is significant, we call values "graphs". Note
   that both terms refer to the same datatype, but merely emphasize
   different aspects of it.
 </p>
@@ -157,7 +157,7 @@ describes the output formats <code>bazel query</code> supports.
   Build dependency graphs should be acyclic.
 
   The algorithms used by the query language are intended for use in
-  acyclic graphs, but are robust against cycles.  The details of how
+  acyclic graphs, but are robust against cycles. The details of how
   cycles are treated are not specified and should not be relied upon.
 </p>
 
@@ -183,9 +183,9 @@ describes the output formats <code>bazel query</code> supports.
 <p>
   Bazel query language expressions operate over the build
   dependency graph, which is the graph implicitly defined by all
-  rule declarations in all BUILD files.  It is important to understand
+  rule declarations in all BUILD files. It is important to understand
   that this graph is somewhat abstract, and does not constitute a
-  complete description of how to perform all the steps of a build.  In
+  complete description of how to perform all the steps of a build. In
   order to perform a build, a <em>configuration</em> is required too;
   see the <a href='user-manual.html#configurations'>configurations</a>
   section of the User's Guide for more detail.
@@ -194,7 +194,7 @@ describes the output formats <code>bazel query</code> supports.
 <p>
   The result of evaluating an expression in the Bazel query language
   is true <em>for all configurations</em>, which means that it may be
-  a conservative over-approximation, and not exactly precise.  If you
+  a conservative over-approximation, and not exactly precise. If you
   use the query tool to compute the set of all source files needed
   during a build, it may report more than are actually necessary
   because, for example, the query tool will include all the files
@@ -206,11 +206,11 @@ describes the output formats <code>bazel query</code> supports.
 
 <p>
   Operations preserve any ordering
-  constraints inherited from their subexpressions.  You can think of
-  this as "the law of conservation of partial order".  Consider an
+  constraints inherited from their subexpressions. You can think of
+  this as "the law of conservation of partial order". Consider an
   example: if you issue a query to determine the transitive closure of
   dependencies of a particular target, the resulting set is ordered
-  according to the dependency graph.  If you filter that set to
+  according to the dependency graph. If you filter that set to
   include only the targets of <code>file</code> kind, the same
   <em>transitive</em> partial ordering relation holds between every
   pair of targets in the resulting subset&mdash;even though none of
@@ -231,7 +231,7 @@ describes the output formats <code>bazel query</code> supports.
   The order of the final result set is guaranteed to preserve all the
   ordering constraints of its subexpressions, namely, that all the
   transitive dependencies of <code>x</code> are correctly ordered with
-  respect to each other.  However, the query guarantees nothing about
+  respect to each other. However, the query guarantees nothing about
   the ordering of the targets in <code>y</code>, nor about the
   ordering of the targets in <code>deps(x)</code> relative to those in
   <code>y</code> (except for those targets in
@@ -337,9 +337,9 @@ describes the output formats <code>bazel query</code> supports.
 <pre>expr ::= <var>word</var></pre>
 <p>
   Syntactically, a <em>target pattern</em> is just a word. It
-  is interpreted as an (unordered) set of targets.  The simplest
+  is interpreted as an (unordered) set of targets. The simplest
   target pattern is a label,
-  which identifies a single target (file or rule).  For example, the
+  which identifies a single target (file or rule). For example, the
   target pattern <code>//foo:bar</code> evaluates to a set
   containing one element, the target, the <code>bar</code>
   rule.
@@ -347,7 +347,7 @@ describes the output formats <code>bazel query</code> supports.
 
 <p>
   Target patterns generalize labels to include wildcards over packages
-  and targets.  For example, <code>foo/...:all</code> (or
+  and targets. For example, <code>foo/...:all</code> (or
   just <code>foo/...</code>) is a target pattern that evaluates to a
   set containing all <em>rules</em> in every package recursively
   beneath the <code>foo</code> directory;
@@ -394,8 +394,8 @@ describes the output formats <code>bazel query</code> supports.
   ordered relative to each other according to the dependency relation.
   So, the result of <code>foo:*</code> is not just the set of targets
   in package <code>foo</code>, it is also the <em>graph</em> over
-  those targets.  (No guarantees are made about the relative ordering
-  of the result nodes against other nodes.)  See the section
+  those targets. (No guarantees are made about the relative ordering
+  of the result nodes against other nodes.) See the section
   on <a href='#graph-order'>graph order</a> for more details.
 </p>
 
@@ -404,7 +404,7 @@ describes the output formats <code>bazel query</code> supports.
        | <var>$name</var></pre>
 <p>
   The Bazel query language allows definitions of and references to
-  variables.  The
+  variables. The
   result of evaluation of a <code>let</code> expression is the same as
   that of <var>expr</var><sub>2</sub>, with all free occurrences of
   variable <var>name</var> replaced by the value of
@@ -420,7 +420,7 @@ describes the output formats <code>bazel query</code> supports.
 <p>
   An occurrence of a variable reference <code>name</code> other than in
   an enclosing <code>let <var>name</var> = ...</code> expression is an
-  error.  In other words, toplevel query expressions cannot have free
+  error. In other words, toplevel query expressions cannot have free
   variables.
 </p>
 
@@ -440,7 +440,7 @@ describes the output formats <code>bazel query</code> supports.
   (Both <a
   href='#target-patterns'>target patterns</a> and variable references
   consist of just a single token, a word, creating a syntactic
-  ambiguity.  However, there is no semantic ambiguity, because the
+  ambiguity. However, there is no semantic ambiguity, because the
   subset of words that are legal variable names is disjoint from the
   subset of words that are legal target patterns.)
 </p>
@@ -448,7 +448,7 @@ describes the output formats <code>bazel query</code> supports.
 <p>
   (Technically speaking, <code>let</code> expressions do not increase
   the expressiveness of the query language: any query expressible in
-  the language can also be expressed without them.  However, they
+  the language can also be expressed without them. However, they
   improve the conciseness of many queries, and may also lead to more
   efficient query evaluation.)
 </p>
@@ -476,10 +476,10 @@ describes the output formats <code>bazel query</code> supports.
 
 <p>
   These three operators compute the usual set operations over their
-  arguments.  Each operator has two forms, a nominal form such
+  arguments. Each operator has two forms, a nominal form such
   as <code>intersect</code> and a symbolic form such
-  as <code>^</code>.  Both forms are equivalent;
-  the symbolic forms are quicker to type.  (For clarity, the rest of
+  as <code>^</code>. Both forms are equivalent;
+  the symbolic forms are quicker to type. (For clarity, the rest of
   this manual uses the nominal forms.)  For example,
 </p>
 
@@ -487,14 +487,14 @@ describes the output formats <code>bazel query</code> supports.
 
   evaluates to the set of targets that match
   <code>foo/...</code> but not
-  <code>foo/bar/...</code>&nbsp;.  Equivalently:
+  <code>foo/bar/...</code>&nbsp;. Equivalently:
 
 <pre>foo/... - foo/bar/...</pre>
 
   The <code>intersect</code> (<code>^</code>)
   and <code>union</code> (<code>+</code>) operations are commutative
   (symmetric); <code>except</code> (<code>-</code>) is
-  asymmetric.  The parser treats all three operators as
+  asymmetric. The parser treats all three operators as
   left-associative and of equal precedence, so you might want parentheses.
   For example, the first two of these expressions are
   equivalent, but the third is not:
@@ -523,7 +523,7 @@ x intersect (y union z)</pre>
   of one query in a regular text file, manipulating that text file
   using other programs (e.g. standard UNIX shell tools), and then
   introducing the result back into the query tool as a value for
-  further processing.  For example:
+  further processing. For example:
 </p>
 <pre>
   bazel query deps(//my:target) --output=label | grep ... | sed ... | awk ... &gt; foo
@@ -550,7 +550,7 @@ x intersect (y union z)</pre>
 <p>
   Note, <code>set()</code> introduces no graph ordering constraints,
   so path information may be lost when saving and reloading sets of
-  nodes using it.  See the <a href='#graph-order'>graph order</a>
+  nodes using it. See the <a href='#graph-order'>graph order</a>
   section below for more detail.
 </p>
 
@@ -633,19 +633,19 @@ x intersect (y union z)</pre>
 </p>
 
 <p>
-  The resulting graph is ordered according to the dependency relation.  See the
+  The resulting graph is ordered according to the dependency relation. See the
   section on <a href='#graph-order'>graph order</a> for more details.
 </p>
 
 <p>
   The <code>rdeps</code> operator accepts an optional third argument,
   which is an integer literal specifying an upper bound on the depth of the
-  search.  The resulting graph will only include nodes within a distance of the
-  specified depth from any node in the argument set.  So
+  search. The resulting graph will only include nodes within a distance of the
+  specified depth from any node in the argument set. So
   <code>rdeps(//foo, //common, 1)</code> evaluates to all nodes in the
   transitive closure of <code>//foo</code> that directly depend on
-  <code>//common</code>.  (These numbers correspond to the ranks shown in the
-  <a href='#output-ranked'><code>minrank</code></a> output format.)  If the
+  <code>//common</code>. (These numbers correspond to the ranks shown in the
+  <a href='#output-ranked'><code>minrank</code></a> output format.) If the
   <var>depth</var> parameter is omitted, the search is unbounded.
 </p>
 
@@ -680,7 +680,7 @@ x intersect (y union z)</pre>
 <p>
   The <code>some(<var>x</var>)</code> operator selects one target
   arbitrarily from its argument set <var>x</var>, and evaluates to a
-  singleton set containing only that target.  For example, the
+  singleton set containing only that target. For example, the
   expression <code>some(//foo:main union //bar:baz)</code>
   evaluates to a set containing either <code>//foo:main</code> or
   <code>//bar:baz</code>&mdash;though which one is not defined.
@@ -701,9 +701,9 @@ x intersect (y union z)</pre>
 <p>
   The <code>somepath(<var>S</var>, <var>E</var>)</code> and
   <code>allpaths(<var>S</var>, <var>E</var>)</code> operators compute
-  paths between two sets of targets.  Both queries accept two
+  paths between two sets of targets. Both queries accept two
   arguments, a set <var>S</var> of starting points and a set
-  <var>E</var> of ending points.  <code>somepath</code> returns the
+  <var>E</var> of ending points. <code>somepath</code> returns the
   graph of nodes on <em>some</em> arbitrary path from a target in
   <var>S</var> to a target in <var>E</var>; <code>allpaths</code>
   returns the graph of nodes on <em>all</em> paths from any target in
@@ -827,7 +827,7 @@ x intersect (y union z)</pre>
   <ul>
     <li><code><var>ruletype</var> rule</code>
     <li><code><var>ruletype</var></code><br>
-    Where <var>ruletype</var> is a build rule.  The difference between these
+    Where <var>ruletype</var> is a build rule. The difference between these
     forms is that including "rule" causes the <a href="#regex">regular expression</a> match for
     <var>ruletype</var> to be anchored.
   </ul>
@@ -894,12 +894,12 @@ genrule(
 
 <p>
   The first argument, <var>pattern</var> is a word containing a
-  <a href="#regex">regular expression</a> over target names.  A <code>filter</code> expression
+  <a href="#regex">regular expression</a> over target names. A <code>filter</code> expression
   evaluates to the set containing all targets <var>x</var> such that
   <var>x</var> is a member of the set <var>input</var> and the
   label (in absolute form, e.g. <code>//foo:bar</code>)
   of <var>x</var> contains an (unanchored) match
-  for the regular expression <var>pattern</var>.  Since all
+  for the regular expression <var>pattern</var>. Since all
   target names start with <code>//</code>, it may be used as an alternative
   to the <code>^</code> regular expression anchor.
 </p>
@@ -971,7 +971,7 @@ genrule(
   starting with a <code>[</code> bracket, ending with a <code>]</code> bracket
   and using "<code>, </code>" (comma, space) to delimit multiple values.
   Labels are converted to strings by using the absolute form of the
-  label.  For example, an attribute <code>deps=[":foo",
+  label. For example, an attribute <code>deps=[":foo",
   "//otherpkg:bar", "wiz"]</code> would be converted to the
   string <code>[//thispkg:foo, //otherpkg:bar, //thispkg:wiz]</code>.
   Brackets
@@ -1023,7 +1023,7 @@ genrule(
 <p>
   For example, <code>labels(srcs, //foo)</code> returns the set of
   targets appearing in the <code>srcs</code> attribute of
-  the <code>//foo</code> rule.  If there are multiple rules
+  the <code>//foo</code> rule. If there are multiple rules
   with <code>srcs</code> attributes in the <var>inputs</var> set, the
   union of their <code>srcs</code> is returned.
 </p>
@@ -1044,8 +1044,8 @@ genrule(
 <p>
   For example, the query <code>kind(test, foo:*)</code> lists all
   the <code>*_test</code> and <code>test_suite</code> rules
-  in the <code>foo</code> package.  All the results are (by
-  definition) members of the <code>foo</code> package.  In contrast,
+  in the <code>foo</code> package. All the results are (by
+  definition) members of the <code>foo</code> package. In contrast,
   the query <code>tests(foo:*)</code> will return all of the
   individual tests that would be executed by <code>bazel test
   foo:*</code>: this may include tests belonging to other packages,
@@ -1060,7 +1060,7 @@ genrule(
   The <code>buildfiles(<var>x</var>)</code> operator returns the set
   of files that define the packages of each target in
   set <var>x</var>; in other words, for each package, its BUILD file,
-  plus any files it references via <code>load</code>.  Note that this also returns the BUILD files
+  plus any files it references via <code>load</code>. Note that this also returns the BUILD files
   of the packages containing these <code>load</code>ed files.
 </p>
 
@@ -1068,7 +1068,7 @@ genrule(
   This operator is typically used when determining what files or
   packages are required to build a specified target, often in conjunction with
   the <a href='#output-package'><code>--output package</code></a>
-  option, below).  For example,
+  option, below). For example,
 </p>
 <pre>bazel query 'buildfiles(deps(//foo))' --output package</pre>
 <p>
@@ -1143,7 +1143,7 @@ genrule(
 </p>
 
 <p>
-  Some of the output formats accept additional options.  The name of
+  Some of the output formats accept additional options. The name of
   each output option is prefixed with the output format to which it
   applies, so <code>--graph:factored</code> applies only
   when <code>--output=graph</code> is being used; it has no effect if
@@ -1233,9 +1233,9 @@ genrule(
   Caveat: in some corner cases, there may be two distinct targets with
   the same label; for example, a <code>sh_binary</code> rule and its
   sole (implicit) <code>srcs</code> file may both be called
-  <code>foo.sh</code>.  If the result of a query contains both of
+  <code>foo.sh</code>. If the result of a query contains both of
   these targets, the output (in <code>label</code> format) will appear
-  to contain a duplicate.  When using the <code>label_kind</code> (see
+  to contain a duplicate. When using the <code>label_kind</code> (see
   below) format, the distinction becomes clear: the two targets have
   the same name, but one has kind <code>sh_binary rule</code> and the
   other kind <code>source file</code>.
@@ -1267,19 +1267,19 @@ genrule(
   There are two variants of this format: <code>minrank</code> ranks
   each node by the length of the shortest path from a root node to it.
   "Root" nodes (those which have no incoming edges) are of rank 0,
-  their successors are of rank 1, etc.  (As always, edges point from a
+  their successors are of rank 1, etc. (As always, edges point from a
   target to its prerequisites: the targets it depends upon.)
 </p>
 
 <p>
   <code>maxrank</code> ranks each node by the length of the longest
-  path from a root node to it.  Again, "roots" have rank 0, all other
+  path from a root node to it. Again, "roots" have rank 0, all other
   nodes have a rank which is one greater than the maximum rank of all
   their predecessors.
 </p>
 
 <p>
-  All nodes in a cycle are considered of equal rank.  (Most graphs are
+  All nodes in a cycle are considered of equal rank. (Most graphs are
   acyclic, but cycles do occur
   simply because BUILD files contain erroneous cycles.)
 </p>
@@ -1290,7 +1290,7 @@ genrule(
   or <code>allpaths</code> query, then the rank number is equal to the
   length of the shortest (with <code>minrank</code>) or longest
   (with <code>maxrank</code>) path from <code>x</code> to a node in
-  that rank.  <code>maxrank</code> can be used to determine the
+  that rank. <code>maxrank</code> can be used to determine the
   longest sequence of build steps required to build a target.
 </p>
 
@@ -1346,7 +1346,7 @@ maxrank
   Like <code>label_kind</code>, this option prints out, for each
   target in the result, the target's kind and label, but it is
   prefixed by a string describing the location of that target, as a
-  filename and line number.  The format resembles the output of
+  filename and line number. The format resembles the output of
   <code>grep</code>. Thus, tools that can parse the latter (such as Emacs
   or vi) can also use the query output to step through a series of
   matches, allowing the Bazel query tool to be used as a
@@ -1355,11 +1355,11 @@ maxrank
 
 <p>
   The location information varies by target kind (see the <a
-  href='#kind'>kind</a> operator).  For rules, the
+  href='#kind'>kind</a> operator). For rules, the
   location of the rule's declaration within the BUILD file is printed.
   For source files, the location of line 1 of the actual file is
-  printed.  For a generated file, the location of the rule that
-  generates it is printed.  (The query tool does not have sufficient
+  printed. For a generated file, the location of the rule that
+  generates it is printed. (The query tool does not have sufficient
   information to find the actual location of the generated file, and
   in any case, it might not exist if a build has not yet been
   performed.)
@@ -1369,8 +1369,8 @@ maxrank
 <pre>--output package</pre>
 <p>
   This option prints the name of all packages to which
-  some target in the result set belongs.  The names are printed in
-  lexicographical order; duplicates are excluded.  Formally, this
+  some target in the result set belongs. The names are printed in
+  lexicographical order; duplicates are excluded. Formally, this
   is a <em>projection</em> from the set of labels (package, target) onto
   packages.
 </p>
@@ -1390,7 +1390,7 @@ maxrank
 <pre>--output graph</pre>
 <p>
   This option causes the query result to be printed as a directed
-  graph in the popular AT&amp;T GraphViz format.  Typically the
+  graph in the popular AT&amp;T GraphViz format. Typically the
   result is saved to a file, such as <code>.png</code> or <code>.svg</code>.
   (If the <code>dot</code> program is not installed on your workstation, you
   can install it using the command <code>sudo apt-get install graphviz</code>.)
@@ -1405,25 +1405,25 @@ maxrank
 </p>
 
 <p>
-  By default, the graph is rendered in a <em>factored</em> form.  That is,
+  By default, the graph is rendered in a <em>factored</em> form. That is,
   topologically-equivalent nodes are merged together into a single
-  node with multiple labels.  This makes the graph more compact
+  node with multiple labels. This makes the graph more compact
   and readable, because typical result graphs contain highly
-  repetitive patterns.  For example, a <code>java_library</code> rule
+  repetitive patterns. For example, a <code>java_library</code> rule
   may depend on hundreds of Java source files all generated by the
   same <code>genrule</code>; in the factored graph, all these files
-  are represented by a single node.  This behavior may be disabled
+  are represented by a single node. This behavior may be disabled
   with the <code>--nograph:factored</code> option.
 </p>
 
 <h4><code>--graph:node_limit <var>n</var></code></h4>
 <p>
   The option specifies the maximum length of the label string for a
-  graph node in the output.  Longer labels will be truncated; -1
-  disables truncation.  Due to the factored form in which graphs are
-  usually printed, the node labels may be very long.  GraphViz cannot
+  graph node in the output. Longer labels will be truncated; -1
+  disables truncation. Due to the factored form in which graphs are
+  usually printed, the node labels may be very long. GraphViz cannot
   handle labels exceeding 1024 characters, which is the default value
-  of this option.  This option has no effect unless
+  of this option. This option has no effect unless
   <code>--output=graph</code> is being used.
 </p>
 
@@ -1432,9 +1432,9 @@ maxrank
   By default, graphs are displayed in factored form, as explained
   <a href='#output-graph'>above</a>.
   When <code>--nograph:factored</code> is specified, graphs are
-  printed without factoring.  This makes visualization using GraphViz
+  printed without factoring. This makes visualization using GraphViz
   impractical, but the simpler format may ease processing by other
-  tools (e.g. grep).  This option has no effect
+  tools (e.g. grep). This option has no effect
   unless <code>--output=graph</code> is being used.
 </p>
 
@@ -1442,7 +1442,7 @@ maxrank
 <pre>--output xml</pre>
 <p>
   This option causes the resulting targets to be printed in an XML
-  form.  The output starts with an XML header such as this
+  form. The output starts with an XML header such as this
 </p>
 <pre>
   &lt;?xml version="1.0" encoding="UTF-8"?&gt;
@@ -1533,7 +1533,7 @@ maxrank
   By default, XML output does not include rule attribute whose value
   is the default value for that kind of attribute (e.g. because it
   were not specified in the BUILD file, or the default value was
-  provided explicitly).  This option causes such attribute values to
+  provided explicitly). This option causes such attribute values to
   be included in the XML output.
 </p>
 

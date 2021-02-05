@@ -34,7 +34,14 @@ public class AutoCpuConverter implements Converter<String> {
       // linux-x86_64, darwin includes the CPU architecture, ...).
       switch (OS.getCurrent()) {
         case DARWIN:
-          return "darwin";
+          switch (CPU.getCurrent()) {
+            case X86_64:
+              return "darwin";
+            case AARCH64:
+              return "darwin_arm64";
+            default:
+              return "unknown";
+          }
         case FREEBSD:
           return "freebsd";
         case OPENBSD:

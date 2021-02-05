@@ -43,7 +43,7 @@ You can find Starlark constructors for all structs you'll need in the process in
 When a C++ target enters the analysis phase, Bazel selects the appropriate
 `cc_toolchain` target based on the BUILD file, and obtains the
 `CcToolchainConfigInfo` provider from the target specified in the
-`cc_toolchain.toolchain_config` attribute.  The `cc_toolchain` target
+`cc_toolchain.toolchain_config` attribute. The `cc_toolchain` target
 passes this information to the C++ target through a `CcToolchainProvider`.
 
 For example, a compile or link action, instantiated by a rule such as
@@ -515,7 +515,7 @@ With Bazel, this process can instead be implemented as follows, with
 
 
 This same feature can be implemented entirely differently for Linux, which uses
-`fission`, or for Windows, which produces `.pdb` files.  For example, the
+`fission`, or for Windows, which produces `.pdb` files. For example, the
 implementation for `fission`-based debug symbol generation might look as
 follows:
 

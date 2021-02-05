@@ -70,7 +70,7 @@ public abstract class FileSystem {
 
   /** Returns an absolute path instance, given an absolute path fragment. */
   public Path getPath(PathFragment pathFragment) {
-    Preconditions.checkArgument(pathFragment.isAbsolute());
+    Preconditions.checkArgument(pathFragment.isAbsolute(), "Not absolute: %s", pathFragment);
     return Path.createAlreadyNormalized(
         pathFragment.getPathString(), pathFragment.getDriveStrLength(), this);
   }

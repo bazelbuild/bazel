@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.common.collect.Iterables;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -41,16 +43,16 @@ public class Toolchain implements RuleConfiguredTargetFactory {
     ToolchainTypeInfo toolchainType =
         PlatformProviderUtils.toolchainType(
             ruleContext.getPrerequisite(ToolchainRule.TOOLCHAIN_TYPE_ATTR));
-    Iterable<ConstraintValueInfo> execConstraints =
+    ImmutableList<ConstraintValueInfo> execConstraints =
         PlatformProviderUtils.constraintValues(
             ruleContext.getPrerequisites(ToolchainRule.EXEC_COMPATIBLE_WITH_ATTR));
-    Iterable<ConstraintValueInfo> targetConstraints =
+    ImmutableList<ConstraintValueInfo> targetConstraints =
         PlatformProviderUtils.constraintValues(
             ruleContext.getPrerequisites(ToolchainRule.TARGET_COMPATIBLE_WITH_ATTR));
-    Iterable<ConfigMatchingProvider> targetSettings =
-        Iterables.transform(
-            ruleContext.getPrerequisites(ToolchainRule.TARGET_SETTING_ATTR),
-            target -> target.getProvider(ConfigMatchingProvider.class));
+    ImmutableList<ConfigMatchingProvider> targetSettings =
+        ruleContext.getPrerequisites(ToolchainRule.TARGET_SETTING_ATTR).stream()
+            .map(target -> target.getProvider(ConfigMatchingProvider.class))
+            .collect(toImmutableList());
     Label toolchainLabel =
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
 

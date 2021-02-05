@@ -59,7 +59,7 @@ public class AndroidDeviceScriptFixtureRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_device_script_fixture")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(factoryClass)
         .build();
   }

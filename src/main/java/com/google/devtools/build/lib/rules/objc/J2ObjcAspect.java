@@ -770,13 +770,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
+    if (ruleContext.getConfiguration().isSiblingRepositoryLayout()) {
+      return ruleContext.getGenfilesFragment();
+    }
     return ruleContext
         .getGenfilesFragment()
-        .getRelative(
-            ruleContext
-                .getLabel()
-                .getRepository()
-                .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout()));
+        .getRelative(ruleContext.getLabel().getRepository().getExecPath(false));
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {

@@ -584,6 +584,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
    * into a single parameter so Starlark/native options don't have to be specified separately.
    *
+   * <p>NOTE: Build language options are not support by this method, for example
+   * --experimental_google_legacy_api. Use {@link #setBuildLanguageOptions} instead.
+   *
    * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
@@ -1881,6 +1884,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throw new RuntimeException(e);
     }
     return config;
+  }
+
+  protected final BuildConfiguration getConfiguration(
+      BuildConfigurationValue.Key configurationKey) {
+    return skyframeExecutor.getConfiguration(reporter, configurationKey);
   }
 
   protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {

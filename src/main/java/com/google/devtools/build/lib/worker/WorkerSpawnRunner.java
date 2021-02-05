@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -89,7 +88,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerPool workers;
   private final boolean multiplex;
   private final ExtendedEventHandler reporter;
-  private final SpawnRunner fallbackRunner;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
@@ -103,7 +101,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerPool workers,
       boolean multiplex,
       ExtendedEventHandler reporter,
-      SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ResourceManager resourceManager,
@@ -114,7 +111,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.workers = Preconditions.checkNotNull(workers);
     this.multiplex = multiplex;
     this.reporter = reporter;
-    this.fallbackRunner = fallbackRunner;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
@@ -125,24 +121,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   @Override
   public String getName() {
     return "worker";
-  }
-
-  @Override
-  public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
-    if (!Spawns.supportsWorkers(spawn) && !Spawns.supportsMultiplexWorkers(spawn)) {
-      // TODO(ulfjack): Don't circumvent SpawnExecutionPolicy. Either drop the warning here, or
-      // provide a mechanism in SpawnExecutionPolicy to report warnings.
-      reporter.handle(
-          Event.warn(
-              String.format(ERROR_MESSAGE_PREFIX + REASON_NO_EXECUTION_INFO, spawn.getMnemonic())));
-      return fallbackRunner.exec(spawn, context);
-    }
-
-    context.report(
-        ProgressStatus.SCHEDULING,
-        WorkerKey.makeWorkerTypeName(Spawns.supportsMultiplexWorkers(spawn)));
-    return actuallyExec(spawn, context);
   }
 
   @Override
@@ -161,8 +139,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return false;
   }
 
-  private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
+  @Override
+  public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
+    context.report(
+        ProgressStatus.SCHEDULING,
+        WorkerKey.makeWorkerTypeName(Spawns.supportsMultiplexWorkers(spawn)));
     if (spawn.getToolFiles().isEmpty()) {
       throw createUserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()),

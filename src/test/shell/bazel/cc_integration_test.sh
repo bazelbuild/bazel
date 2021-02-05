@@ -1135,4 +1135,70 @@ EOF
     || fail "expected build success"
 }
 
+# Test writing the exposed args of CPPCompileAction to parameters file
+# This is needed to avoid too long commands when the args of one of the target's
+# actions are used to run a new action from the aspect. Fixes b/168634763
+function test_using_compile_action_args_params_file() {
+  mkdir -p package
+
+  cat > "package/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+
+    for action in target.actions:
+      if action.mnemonic == "CppCompile":
+        compile_action = action
+
+    args = compile_action.args[0]
+    aspect_out = ctx.actions.declare_file('aspect_out')
+
+    # Passing compile_action.outputs as input to the aspect action to ensure
+    # it gets the modified args value after executing the compile action.
+    ctx.actions.run_shell(inputs = compile_action.outputs,
+                          outputs = [aspect_out],
+                          command = "for v in \$@; do echo \$v; done > " + aspect_out.path,
+                          arguments = [args])
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  cat > "package/x.cc" <<EOF
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+
+  cat > "package/BUILD" <<EOF
+cc_binary(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  # The args should not be written to a file if the experimental flag is not set
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" \
+      --output_groups=out
+
+  cat "bazel-bin/package/aspect_out" | grep ".params" \
+      && fail "CPPCompileAction Args should not have used a params file"
+
+  # Copy the args to be used for validating the params file contents
+  cp "bazel-bin/package/aspect_out" "package/expected_args"
+
+  # The args should be written to a file if the experimental flag is set
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" \
+      --output_groups=out \
+      --experimental_use_cpp_compile_action_args_params_file
+
+  cat "bazel-bin/package/aspect_out" | grep ".params" \
+      || fail "CPPCompileAction Args should have used a params file"
+
+  # Validate the contents of the params file (with unquoting)
+  assert_equals "$(sed 's/\\//g' bazel-bin/package/aspect_out-0.params)" \
+      "$(cat package/expected_args)"
+}
 run_suite "cc_integration_test"

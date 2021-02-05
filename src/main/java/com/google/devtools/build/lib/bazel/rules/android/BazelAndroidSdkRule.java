@@ -31,7 +31,7 @@ public class BazelAndroidSdkRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_sdk")
-        .ancestors(AndroidSdkBaseRule.class, BaseRuleClasses.BaseRule.class)
+        .ancestors(AndroidSdkBaseRule.class, BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(BazelAndroidSdk.class)
         .build();
   }

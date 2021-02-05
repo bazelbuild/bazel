@@ -200,7 +200,7 @@ java_library(
 )
 ```
 
-### <a name="3-build"></a>3. Create more BUILD files (Optional)
+### <a name="3-build"></a>3. Create more BUILD files (optional)
 
 Bazel does work with just one BUILD file, as you saw after completing your first
 build. You should still consider breaking the build into smaller chunks by

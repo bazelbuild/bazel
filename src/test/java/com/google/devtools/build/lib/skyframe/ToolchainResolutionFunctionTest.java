@@ -299,7 +299,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_invalidExecutionPlatform() throws Exception {
-    scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
+    // Have to use a rule that doesn't require a target platform, or else there will be a cycle.
+    scratch.file("invalid/BUILD", "toolchain_type(name = 'not_a_platform')");
     useConfiguration("--extra_execution_platforms=//invalid:not_a_platform");
     ToolchainContextKey key =
         ToolchainContextKey.key()

@@ -688,7 +688,10 @@ java_import(
 
 java_import(
     name = "truth_proto",
-    jars = ["truth_proto/truth-proto-extension-1.0.1.jar"],
+    jars = [
+        "truth_proto/truth-liteproto-extension-1.0.1.jar",
+        "truth_proto/truth-proto-extension-1.0.1.jar",
+    ],
 )
 
 distrib_java_import(

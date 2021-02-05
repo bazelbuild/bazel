@@ -52,7 +52,7 @@ public class PlatformBaseRule implements RuleDefinition{
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
         .type(RuleClass.Builder.RuleClassType.ABSTRACT)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .build();
   }
 

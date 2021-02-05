@@ -361,7 +361,7 @@ Bazel comes with a built-in memory profiler that can help you check your rule's
 memory use. If there is a problem you can dump the heap to find the
 exact line of code that is causing the problem.
 
-### Enabling Memory Tracking
+### Enabling memory tracking
 
 You must pass these two startup flags to *every* Bazel invocation:
 

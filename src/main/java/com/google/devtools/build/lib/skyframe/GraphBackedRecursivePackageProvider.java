@@ -159,14 +159,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   }
 
   private ImmutableList<Root> checkValidDirectoryAndGetRoots(
-      RepositoryName repository,
-      PathFragment directory,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException {
-    if (ignoredSubdirectories.contains(directory) || excludedSubdirectories.contains(directory)) {
-      return ImmutableList.of();
-    }
+      RepositoryName repository, PathFragment directory) throws InterruptedException {
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
@@ -209,9 +202,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException, QueryException {
-    ImmutableList<Root> roots =
-        checkValidDirectoryAndGetRoots(
-            repository, directory, ignoredSubdirectories, excludedSubdirectories);
+    ImmutableList<Root> roots = checkValidDirectoryAndGetRoots(repository, directory);
 
     rootPackageExtractor.streamPackagesFromRoots(
         results,

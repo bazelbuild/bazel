@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.buildinfo;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 
@@ -50,11 +49,12 @@ public interface BuildInfoFactory extends Serializable {
         PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type);
   }
 
-  /**
-   * Create actions and artifacts for language-specific build-info files.
-   */
-  BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,
-      Artifact buildInfo, Artifact buildChangelist, RepositoryName repositoryName);
+  /** Create actions and artifacts for language-specific build-info files. */
+  BuildInfoCollection create(
+      BuildInfoContext context,
+      BuildConfiguration config,
+      Artifact buildInfo,
+      Artifact buildChangelist);
 
   /**
    * Returns the key for the information created by this factory.

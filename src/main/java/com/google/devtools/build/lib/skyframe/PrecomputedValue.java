@@ -19,6 +19,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -74,6 +75,9 @@ public class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
       new Precomputed<>("default_visibility");
+
+  public static final Precomputed<ConfigSettingVisibilityPolicy> CONFIG_SETTING_VISIBILITY_POLICY =
+      new Precomputed<>("config_setting_visibility_policy");
 
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>("starlark_semantics");

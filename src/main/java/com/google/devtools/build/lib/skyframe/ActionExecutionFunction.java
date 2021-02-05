@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -772,9 +771,6 @@ public class ActionExecutionFunction implements SkyFunction {
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
                   action, actionLookupData, metadataHandler, env, state.actionFileSystem);
-        } catch (MissingDepException e) {
-          Preconditions.checkState(env.valuesMissing(), action);
-          return null;
         }
         discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
         if (env.valuesMissing()) {

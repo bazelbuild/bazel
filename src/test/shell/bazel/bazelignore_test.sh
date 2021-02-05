@@ -90,12 +90,55 @@ test_broken_BUILD_files_ignored() {
     echo This is a broken BUILD file > ignoreme/deep/reallydep/BUILD
     echo This is a broken BUILD file > ignoreme/deep/reallydep/stillignoreme/BUILD
     touch BUILD
-    bazel build ... && fail "Expected failure" || :
+    bazel build ... >& "$TEST_log" && fail "Expected failure" || :
 
-    echo; echo
     echo ignoreme > .bazelignore
-    bazel build ... \
+    bazel build ... >& "$TEST_log" \
         || fail "directory mentioned in .bazelignore not ignored as it should"
+}
+
+test_broken_BUILD_files_ignored_subdir() {
+    rm -rf work && mkdir work && cd work
+    create_workspace_with_default_repos WORKSPACE
+    mkdir -p ignoreme/deep || fail "Couldn't mkdir"
+    ln -s deeper ignoreme/deep/deeper || fail "Couldn't create cycle"
+    touch BUILD
+    bazel build //ignoreme/deep/... >& "$TEST_log" && fail "Expected failure" \
+        || :
+    expect_log "circular symlinks detected"
+    expect_log "ignoreme/deep/deeper"
+
+    echo ignoreme > .bazelignore
+    bazel build //ignoreme/deep/... >& "$TEST_log" || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+
+    bazel query //ignoreme/deep/... >& "$TEST_log" || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+    expect_log "Empty results"
+
+    bazel query //ignoreme/deep/... --universe_scope=//ignoreme/deep/... \
+        --order_output=no >& "$TEST_log" || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+    expect_log "Empty results"
+
+    # Test patterns with exclude.
+    bazel build -- //ignoreme/deep/... -//ignoreme/... >& "$TEST_log" \
+        || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+
+    bazel build -- //ignoreme/... -//ignoreme/deep/... >& "$TEST_log" \
+        || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
 }
 
 test_symlink_cycle_ignored() {

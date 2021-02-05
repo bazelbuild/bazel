@@ -62,6 +62,25 @@ specified in the [`package`](be/functions.html#package) statement of the
 target's BUILD file. If there is no such `default_visibility` declaration, the
 visibility is `//visibility:private`.
 
+`config_setting` visibility has historically not been enforced.
+`--incompatible_enforce_config_setting_visibility` and
+`--incompatible_config_setting_private_default_visibility` provide migration
+logic for converging with other rules.
+
+If `--incompatible_enforce_config_setting_visibility=false`, every
+`config_setting` is unconditionally visible to all targets.
+
+Else if `--incompatible_config_setting_private_default_visibility=false`, any
+`config_setting` that doesn't explicitly set visibility is `//visibility:public`
+(ignoring package [`default_visibility`](be/functions.html#package.default_visibility)).
+
+Else if `--incompatible_config_setting_private_default_visibility=true`,
+`config_setting` uses the same visibility logic as all other rules.
+
+Best practice is to treat all `config_setting` targets like other rules:
+explicitly set `visibility` on any `config_setting` used anywhere outside its
+package.
+
 ### Example
 
 File `//frobber/bin/BUILD`:

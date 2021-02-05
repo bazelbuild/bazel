@@ -74,4 +74,8 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   public void clear() {
     generatingActionMap.clear();
   }
+
+  public int getSize() {
+    return generatingActionMap.keySize();
+  }
 }

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
@@ -82,6 +83,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -171,7 +173,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
+      SingleRunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -410,6 +412,10 @@ public class TestRunnerAction extends AbstractAction
     return unconditionalExecution;
   }
 
+  @Override // Tighten return type.
+  public SingleRunfilesSupplier getRunfilesSupplier() {
+    return (SingleRunfilesSupplier) super.getRunfilesSupplier();
+  }
 
   @Override
   public boolean isVolatile() {
@@ -444,7 +450,7 @@ public class TestRunnerAction extends AbstractAction
   private boolean computeExecuteUnconditionallyFromTestStatus() {
     return !canBeCached(
         testConfiguration.cacheTestResults(),
-        maybeReadCacheStatus(),
+        this::maybeReadCacheStatus,
         testProperties.isExternal(),
         executionSettings.getTotalRuns());
   }
@@ -452,23 +458,23 @@ public class TestRunnerAction extends AbstractAction
   @VisibleForTesting
   static boolean canBeCached(
       TriState cacheTestResults,
-      @Nullable TestResultData prevStatus,
+      Supplier<TestResultData> prevStatus, // Lazy evaluation to avoid a disk read if possible.
       boolean isExternal,
       int runsPerTest) {
-    if (cacheTestResults == TriState.NO) {
+    if (isExternal || cacheTestResults == TriState.NO) {
       return false;
     }
-    if (isExternal) {
+    if (cacheTestResults == TriState.AUTO && runsPerTest > 1) {
       return false;
     }
-    if (cacheTestResults == TriState.AUTO && (runsPerTest > 1)) {
-      return false;
-    }
-    if (cacheTestResults == TriState.AUTO && prevStatus != null && !prevStatus.getTestPassed()) {
-      return false;
-    }
-    if (prevStatus != null && !prevStatus.getCachable()) {
-      return false;
+    TestResultData status = prevStatus.get();
+    if (status != null) {
+      if (!status.getCachable()) {
+        return false;
+      }
+      if (cacheTestResults == TriState.AUTO && !status.getTestPassed()) {
+        return false;
+      }
     }
     return true;
   }

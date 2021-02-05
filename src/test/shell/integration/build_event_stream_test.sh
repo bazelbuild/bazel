@@ -415,6 +415,9 @@ function test_suite() {
   expect_not_log 'aborted'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+  expect_log_once 'test_suite_expansions'
+  expect_log_once 'suite_label: "//pkg:suite"'
+  expect_log_once 'test_labels: "//pkg:true"'
 }
 
 function test_test_summary() {

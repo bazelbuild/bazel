@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -262,7 +263,7 @@ public final class ActionsTestUtil {
 
   public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
     return ArtifactRoot.asDerivedRoot(
-        root, execPath.relativeTo(root).getSegments().toArray(new String[0]));
+        root, RootType.Output, execPath.relativeTo(root).getSegments().toArray(new String[0]));
   }
 
   /**
@@ -961,6 +962,11 @@ public final class ActionsTestUtil {
 
     @Override
     public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
       throw new UnsupportedOperationException();
     }
 

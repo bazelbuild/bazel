@@ -80,7 +80,6 @@ public class WorkerMultiplexerManager {
     }
     instanceInfo.decreaseRefCount();
     if (instanceInfo.getRefCount() == 0) {
-      instanceInfo.getWorkerMultiplexer().interrupt();
       instanceInfo.getWorkerMultiplexer().destroyMultiplexer();
       multiplexerInstance.remove(key);
     }

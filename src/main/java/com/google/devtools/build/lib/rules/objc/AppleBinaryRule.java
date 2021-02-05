@@ -179,7 +179,9 @@ public class AppleBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_binary")
         .factoryClass(AppleBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class,
+        .ancestors(
+            BaseRuleClasses.NativeBuildRule.class,
+            ObjcRuleClasses.MultiArchPlatformRule.class,
             ObjcRuleClasses.DylibDependingRule.class)
         .build();
   }

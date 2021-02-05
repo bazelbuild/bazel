@@ -10,4 +10,4 @@ steps:
 - name: gcr.io/cloud-builders/gsutil
   args: ['web', 'set', '-m', 'index.html', '-e', '404.html', 'gs://docs.bazel.build']
 
-timeout: 3600s
+timeout: 7200s

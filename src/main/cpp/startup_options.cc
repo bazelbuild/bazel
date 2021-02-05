@@ -353,10 +353,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
-        connect_timeout_secs < 1 || connect_timeout_secs > 120) {
-      blaze_util::StringPrintf(error,
+        connect_timeout_secs < 1 || connect_timeout_secs > 3600) {
+      blaze_util::StringPrintf(
+          error,
           "Invalid argument to --connect_timeout_secs: '%s'.\n"
-          "Must be an integer between 1 and 120.\n",
+          "Must be an integer between 1 and 3600.\n",
           value);
       return blaze_exit_code::BAD_ARGV;
     }

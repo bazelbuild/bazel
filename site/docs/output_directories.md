@@ -123,7 +123,7 @@ The directories are laid out as follows:
                 foo/bartest.log               e.g. foo/bar.log might be an output of the //foo:bartest test with
                 foo/bartest.status            foo/bartest.status containing exit status of the test (e.g.
                                               PASSED or FAILED (Exit 1), etc)
-              include/                    <== a tree with include symlinks, generated as needed.  The
+              include/                    <== a tree with include symlinks, generated as needed. The
                                               bazel-include symlinks point to here. This is used for
                                               linkstamp stuff, etc.
             host/                         <== BuildConfiguration for build host (user's workstation), for
