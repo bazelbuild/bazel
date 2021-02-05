@@ -184,6 +184,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .skipStarlarkOptionPrefixes()
             .allowResidue(true)
             .withAliasFlag(BLAZE_ALIASING_FLAG)
+            .withAliases(options.getAliases())
             .build();
 
     try {
