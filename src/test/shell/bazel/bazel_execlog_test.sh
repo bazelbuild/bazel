@@ -119,6 +119,26 @@ EOF
   wc output || fail "no output produced"
 }
 
+function test_empty_file_in_runfiles() {
+  mkdir d
+  touch d/main.py
+  cat > BUILD <<'EOF'
+py_binary(
+    name = "py_tool",
+    main = "d/main.py",
+    srcs = ["d/main.py"],
+)
+genrule(
+    name = "rule",
+    outs = ["out.txt"],
+    tools = [":py_tool"],
+    cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:rule --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e output ]] || fail "no output produced"
+}
+
 function test_negating_flags() {
   cat > BUILD <<'EOF'
 genrule(
