@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -33,7 +34,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -77,6 +78,9 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private MiddlemanFactory middlemanFactory;
   private ExtendedEventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
+  // TODO(bazel-team): Should this be nulled out by disable()? Alternatively, does disable() even
+  // need to exist?
+  private final StarlarkBuiltinsValue starlarkBuiltinsValue;
   /**
    * Map of artifacts to either themselves or to {@code Pair<Artifact, String>} if
    * --experimental_extended_sanity_checks is enabled. In the latter case, the string will contain
@@ -101,7 +105,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       boolean extendedSanityChecks,
       boolean allowAnalysisFailures,
       ExtendedEventHandler errorEventListener,
-      SkyFunction.Environment env) {
+      SkyFunction.Environment env,
+      StarlarkBuiltinsValue starlarkBuiltinsValue) {
     this.artifactFactory = artifactFactory;
     this.actionKeyContext = actionKeyContext;
     this.owner = Preconditions.checkNotNull(owner);
@@ -110,6 +115,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.allowAnalysisFailures = allowAnalysisFailures;
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
+    this.starlarkBuiltinsValue = starlarkBuiltinsValue;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
     artifacts = new HashMap<>();
   }
@@ -359,7 +365,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
-    return PrecomputedValue.STARLARK_SEMANTICS.get(skyframeEnv);
+    return starlarkBuiltinsValue.starlarkSemantics;
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+    return starlarkBuiltinsValue.exportedToJava;
   }
 
   @Override

@@ -300,17 +300,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testMult() throws Exception {
-    ev.new Scenario()
-        .testExpression("6 * 7", StarlarkInt.of(42))
-        .testExpression("3 * 'ab'", "ababab")
-        .testExpression("0 * 'ab'", "")
-        .testExpression("'1' + '0' * 5", "100000")
-        .testExpression("'ab' * -4", "")
-        .testExpression("-1 * ''", "");
-  }
-
-  @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
         .testExpression("6 // 2", StarlarkInt.of(3))
@@ -517,40 +506,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testListMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("[1, 2, 3] * 1", "[1, 2, 3]")
-        .testEval("[1, 2] * 2", "[1, 2, 1, 2]")
-        .testEval("[1, 2] * 3", "[1, 2, 1, 2, 1, 2]")
-        .testEval("[1, 2] * 4", "[1, 2, 1, 2, 1, 2, 1, 2]")
-        .testEval("[8] * 5", "[8, 8, 8, 8, 8]")
-        .testEval("[    ] * 10", "[]")
-        .testEval("[1, 2] * 0", "[]")
-        .testEval("[1, 2] * -4", "[]")
-        .testEval("2 * [1, 2]", "[1, 2, 1, 2]")
-        .testEval("10 * []", "[]")
-        .testEval("0 * [1, 2]", "[]")
-        .testEval("-4 * [1, 2]", "[]");
-  }
-
-  @Test
-  public void testTupleMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("(1, 2, 3) * 1", "(1, 2, 3)")
-        .testEval("(1, 2) * 2", "(1, 2, 1, 2)")
-        .testEval("(1, 2) * 3", "(1, 2, 1, 2, 1, 2)")
-        .testEval("(1, 2) * 4", "(1, 2, 1, 2, 1, 2, 1, 2)")
-        .testEval("(8,) * 5", "(8, 8, 8, 8, 8)")
-        .testEval("(    ) * 10", "()")
-        .testEval("(1, 2) * 0", "()")
-        .testEval("(1, 2) * -4", "()")
-        .testEval("2 * (1, 2)", "(1, 2, 1, 2)")
-        .testEval("10 * ()", "()")
-        .testEval("0 * (1, 2)", "()")
-        .testEval("-4 * (1, 2)", "()");
-  }
-
-  @Test
   public void testListComprehensionFailsOnNonSequence() throws Exception {
     ev.new Scenario().testIfErrorContains("type 'int' is not iterable", "[x + 1 for x in 123]");
   }
@@ -665,20 +620,16 @@ public final class EvaluationTest {
     ev.new Scenario().testExpression("not 'a' in ['a'] or 0", StarlarkInt.of(0));
   }
 
-  private static StarlarkValue createObjWithStr() {
-    return new StarlarkValue() {
-      @Override
-      public void repr(Printer printer) {
-        printer.append("<str marker>");
-      }
-    };
-  }
-
   @Test
-  public void testPercentOnObjWithStr() throws Exception {
-    ev.new Scenario()
-        .update("obj", createObjWithStr())
-        .testExpression("'%s' % obj", "<str marker>");
+  public void testPercentOnValueWithRepr() throws Exception {
+    Object obj =
+        new StarlarkValue() {
+          @Override
+          public void repr(Printer printer) {
+            printer.append("<str marker>");
+          }
+        };
+    ev.new Scenario().update("obj", obj).testExpression("'%s' % obj", "<str marker>");
   }
 
   private static class Dummy implements StarlarkValue {}
@@ -697,8 +648,15 @@ public final class EvaluationTest {
 
   @Test
   public void testPercentOnTupleOfDummyValues() throws Exception {
+    Object obj =
+        new StarlarkValue() {
+          @Override
+          public void repr(Printer printer) {
+            printer.append("<str marker>");
+          }
+        };
     ev.new Scenario()
-        .update("obj", createObjWithStr())
+        .update("obj", obj)
         .testExpression("'%s %s' % (obj, obj)", "<str marker> <str marker>");
     ev.new Scenario()
         .update("unknown", new Dummy())
@@ -706,13 +664,6 @@ public final class EvaluationTest {
             "'%s %s' % (unknown, unknown)",
             "<unknown object net.starlark.java.eval.EvaluationTest$Dummy> <unknown"
                 + " object net.starlark.java.eval.EvaluationTest$Dummy>");
-  }
-
-  @Test
-  public void testPercOnObjectInvalidFormat() throws Exception {
-    ev.new Scenario()
-        .update("obj", createObjWithStr())
-        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
   }
 
   @Test

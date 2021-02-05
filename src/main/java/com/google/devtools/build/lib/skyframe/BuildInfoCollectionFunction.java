@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -65,9 +64,6 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     }
     WorkspaceStatusValue infoArtifactValue =
         (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
-    WorkspaceNameValue nameValue = (WorkspaceNameValue) result.get(WorkspaceNameValue.key());
-    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
-        nameValue.getName());
 
     BuildConfiguration config =
         ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
@@ -85,8 +81,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
             context,
             config,
             infoArtifactValue.getStableArtifact(),
-            infoArtifactValue.getVolatileArtifact(),
-            repositoryName);
+            infoArtifactValue.getVolatileArtifact());
     GeneratingActions generatingActions;
     try {
       generatingActions =

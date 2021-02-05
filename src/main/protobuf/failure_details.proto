@@ -1189,6 +1189,10 @@ message PackageLoading {
     LICENSE_PARSE_FAILURE = 26 [(metadata) = { exit_code: 1 }];
     DISTRIBUTIONS_PARSE_FAILURE = 27 [(metadata) = { exit_code: 1 }];
     LABEL_CROSSES_PACKAGE_BOUNDARY = 28 [(metadata) = { exit_code: 1 }];
+    // Failure while evaluating or applying @_builtins injection. Since the
+    // builtins .bzl files are always packaged with Blaze in production, a
+    // failure here generally indicates a bug in Blaze.
+    BUILTINS_INJECTION_FAILURE = 29 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

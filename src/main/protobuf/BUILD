@@ -89,10 +89,18 @@ java_library_srcs(
     deps = [":analysis_v2_java_proto"],
 )
 
+java_proto_library(
+    name = "any_java_proto",
+    deps = ["@com_google_protobuf//:any_proto"],
+)
+
 proto_library(
     name = "command_server_proto",
     srcs = ["command_server.proto"],
-    deps = [":failure_details_proto"],
+    deps = [
+        ":failure_details_proto",
+        "@com_google_protobuf//:any_proto",
+    ],
 )
 
 java_proto_library(

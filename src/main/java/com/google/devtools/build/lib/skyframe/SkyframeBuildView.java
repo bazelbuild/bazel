@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -55,7 +54,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -156,16 +155,13 @@ public final class SkyframeBuildView {
   private boolean foundActionConflict;
 
   public SkyframeBuildView(
-      BlazeDirectories directories,
+      ArtifactFactory artifactFactory,
       SkyframeExecutor skyframeExecutor,
       ConfiguredRuleClassProvider ruleClassProvider,
       ActionKeyContext actionKeyContext) {
     this.actionKeyContext = actionKeyContext;
     this.factory = new ConfiguredTargetFactory(ruleClassProvider);
-    this.artifactFactory =
-        new ArtifactFactory(
-            /* execRootParent= */ directories.getExecRootBase(),
-            directories.getRelativeOutputPath());
+    this.artifactFactory = artifactFactory;
     this.skyframeExecutor = skyframeExecutor;
     this.ruleClassProvider = ruleClassProvider;
   }
@@ -446,11 +442,13 @@ public final class SkyframeBuildView {
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
         // targets together that haven't been built before.
-        actionConflicts =
+        ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
                 skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys),
                 strictConflictChecks,
                 actionKeyContext);
+        eventBus.post(conflictsAndStats.getStats());
+        actionConflicts = conflictsAndStats.getConflicts();
         someConfiguredTargetEvaluated = false;
       }
     }
@@ -899,7 +897,8 @@ public final class SkyframeBuildView {
       boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,
-      BuildConfiguration config) {
+      BuildConfiguration config,
+      StarlarkBuiltinsValue starlarkBuiltinsValue) {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
     return new CachingAnalysisEnvironment(
@@ -910,7 +909,8 @@ public final class SkyframeBuildView {
         extendedSanityChecks,
         allowAnalysisFailures,
         eventHandler,
-        env);
+        env,
+        starlarkBuiltinsValue);
   }
 
   /**
@@ -927,7 +927,7 @@ public final class SkyframeBuildView {
       CachingAnalysisEnvironment analysisEnvironment,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     Preconditions.checkState(

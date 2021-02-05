@@ -1881,7 +1881,6 @@ grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_s
 
 _SINGLEJAR_IMPLS = {
     "singlejar": "//src/tools/singlejar:singlejar_local",
-    "JavaSingleJar": "//src/java_tools/singlejar:SingleJar",
 }
 
 [sh_test(
@@ -2152,6 +2151,9 @@ java_test(
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel:desugar_class_attr_java_proto",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/retarget",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/retarget:retarget_java_proto",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",

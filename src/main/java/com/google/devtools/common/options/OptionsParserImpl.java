@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
@@ -31,8 +32,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -51,6 +54,7 @@ class OptionsParserImpl {
     private final ArrayList<String> skippedPrefixes = new ArrayList<>();
     private boolean ignoreInternalOptions = true;
     @Nullable private String aliasFlag = null;
+    private final Map<String, String> aliases = new HashMap<>();
 
     /** Set the {@link OptionsData} to be used in this instance. */
     public Builder optionsData(OptionsData optionsData) {
@@ -87,6 +91,15 @@ class OptionsParserImpl {
       return this;
     }
 
+    /**
+     * Adds a map of flag aliases where the keys are the flags' alias names and the values are their
+     * actual names.
+     */
+    public Builder withAliases(Map<String, String> aliases) {
+      this.aliases.putAll(aliases);
+      return this;
+    }
+
     /** Returns a newly-initialized {@link OptionsParserImpl}. */
     public OptionsParserImpl build() {
       return new OptionsParserImpl(
@@ -94,7 +107,8 @@ class OptionsParserImpl {
           this.argsPreProcessor,
           this.skippedPrefixes,
           this.ignoreInternalOptions,
-          this.aliasFlag);
+          this.aliasFlag,
+          this.aliases);
     }
   }
 
@@ -139,8 +153,10 @@ class OptionsParserImpl {
    */
   private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
 
-  private final Map<String, String> flagAliasMappings = new HashMap<>();
-  private final List<String> warnings = new ArrayList<>();
+  private final Map<String, String> flagAliasMappings;
+  // We want to keep the invariant that warnings are produced as they are encountered, but only
+  // show each one once.
+  private final Set<String> warnings = new LinkedHashSet<>();
   private final ArgsPreProcessor argsPreProcessor;
   private final List<String> skippedPrefixes;
   private final boolean ignoreInternalOptions;
@@ -151,12 +167,14 @@ class OptionsParserImpl {
       ArgsPreProcessor argsPreProcessor,
       List<String> skippedPrefixes,
       boolean ignoreInternalOptions,
-      @Nullable String aliasFlag) {
+      @Nullable String aliasFlag,
+      Map<String, String> aliases) {
     this.optionsData = optionsData;
     this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefixes = skippedPrefixes;
     this.ignoreInternalOptions = ignoreInternalOptions;
     this.aliasFlag = aliasFlag;
+    this.flagAliasMappings = aliases;
   }
 
   /** Returns the {@link OptionsData} used in this instance. */
@@ -234,6 +252,19 @@ class OptionsParserImpl {
     String warning = optionDefinition.getDeprecationWarning();
     if (!warning.isEmpty() || optionDefinition.getField().isAnnotationPresent(Deprecated.class)) {
       addDeprecationWarning(optionDefinition.getOptionName(), warning);
+    }
+  }
+
+  private void maybeAddOldNameWarning(ParsedOptionDescription parsedOption) {
+    // Don't add a warning for old name options set by the invocation policy.
+    if (parsedOption.getPriority().getPriorityCategory().equals(INVOCATION_POLICY)) {
+      return;
+    }
+    String commandLineForm = parsedOption.getCommandLineForm();
+    String oldOptionName = parsedOption.getOptionDefinition().getOldOptionName();
+    String optionName = parsedOption.getOptionDefinition().getOptionName();
+    if (commandLineForm.startsWith(String.format("--%s=", oldOptionName))) {
+      addDeprecationWarning(oldOptionName, String.format("Use --%s instead", optionName));
     }
   }
 
@@ -332,15 +363,15 @@ class OptionsParserImpl {
    * values. Options that accumulate multiple values will track them in priority and appearance
    * order.
    */
-  ResidueAndPriority parse(
+  OptionsParserImplResult parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
       List<String> args)
       throws OptionsParsingException {
-    ResidueAndPriority residueAndPriority =
+    OptionsParserImplResult optionsParserImplResult =
         parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
-    nextPriorityPerPriorityCategory.put(priorityCat, residueAndPriority.nextPriority);
-    return residueAndPriority;
+    nextPriorityPerPriorityCategory.put(priorityCat, optionsParserImplResult.nextPriority);
+    return optionsParserImplResult;
   }
 
   /**
@@ -351,7 +382,7 @@ class OptionsParserImpl {
    * <p>The method treats options that have neither an implicitDependent nor an expandedFrom value
    * as explicitly set.
    */
-  private ResidueAndPriority parse(
+  private OptionsParserImplResult parse(
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
@@ -396,20 +427,26 @@ class OptionsParserImpl {
       valueDescription.getValue();
     }
 
-    return new ResidueAndPriority(unparsedArgs, unparsedPostDoubleDashArgs, priority);
+    return new OptionsParserImplResult(
+        unparsedArgs, unparsedPostDoubleDashArgs, priority, flagAliasMappings);
   }
 
   /** A class that stores residue and priority information. */
-  static final class ResidueAndPriority {
+  static final class OptionsParserImplResult {
     final List<String> postDoubleDashResidue;
     final List<String> preDoubleDashResidue;
     final OptionPriority nextPriority;
+    final ImmutableMap<String, String> aliases;
 
-    ResidueAndPriority(
-        List<String> preDashResidue, List<String> postDashResidue, OptionPriority nextPriority) {
+    OptionsParserImplResult(
+        List<String> preDashResidue,
+        List<String> postDashResidue,
+        OptionPriority nextPriority,
+        Map<String, String> aliases) {
       this.preDoubleDashResidue = preDashResidue;
       this.postDoubleDashResidue = postDashResidue;
       this.nextPriority = nextPriority;
+      this.aliases = ImmutableMap.copyOf(aliases);
     }
 
     public List<String> getResidue() {
@@ -422,7 +459,7 @@ class OptionsParserImpl {
   }
 
   /** Implements {@link OptionsParser#parseArgsAsExpansionOfOption} */
-  ResidueAndPriority parseArgsAsExpansionOfOption(
+  OptionsParserImplResult parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand,
       Function<OptionDefinition, String> sourceFunction,
       List<String> args)
@@ -476,6 +513,8 @@ class OptionsParserImpl {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     // All options can be deprecated; check and warn before doing any option-type specific work.
     maybeAddDeprecationWarning(optionDefinition, parsedOption.getPriority().getPriorityCategory());
+    // Check if the old option name is used and add a warning
+    maybeAddOldNameWarning(parsedOption);
     // Track the value, before any remaining option-type specific work that is done outside of
     // the OptionValueDescription.
     OptionValueDescription entry =
@@ -508,14 +547,14 @@ class OptionsParserImpl {
     }
 
     if (expansionBundle != null) {
-      ResidueAndPriority residueAndPriority =
+      OptionsParserImplResult optionsParserImplResult =
           parse(
               OptionPriority.getChildPriority(parsedOption.getPriority()),
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
               expansionBundle.expansionArgs);
-      if (!residueAndPriority.getResidue().isEmpty()) {
+      if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this
         // option's expansion or requirements, not with the input as provided by the user.
@@ -523,7 +562,7 @@ class OptionsParserImpl {
             "Unparsed options remain after processing "
                 + unconvertedValue
                 + ": "
-                + Joiner.on(' ').join(residueAndPriority.getResidue()));
+                + Joiner.on(' ').join(optionsParserImplResult.getResidue()));
       }
     }
   }
@@ -659,7 +698,7 @@ class OptionsParserImpl {
     return optionsInstance;
   }
 
-  List<String> getWarnings() {
+  ImmutableList<String> getWarnings() {
     return ImmutableList.copyOf(warnings);
   }
 

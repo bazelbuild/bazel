@@ -2,11 +2,11 @@
 layout: documentation
 title: Bazel query how-to
 ---
-<h1>Bazel query how-to</h1>
+<h1>Bazel Query How-To</h1>
 
 <p>
-  This is a quick tutorial to get you started using Bazel's query language to
-  trace dependencies in your code.
+  This page covers how to get started using Bazel's query language to trace
+  dependencies in your code.
 </p>
 
 <p>
@@ -106,16 +106,16 @@ $ bazel query "allpaths(//foo, third_party/...)"
 <p>Certain rules include implicit dependencies on additional libraries or tools.
 For example, to build a <code>genproto</code> rule, you need first to build the Protocol
 Compiler, so every <code>genproto</code> rule carries an implicit dependency on the
-protocol compiler.  These dependencies are not mentioned in the build file,
-but added in by the build tool.  The full set of implicit dependencies is
+protocol compiler. These dependencies are not mentioned in the build file,
+but added in by the build tool. The full set of implicit dependencies is
   currently undocumented. Using <code>--noimplicit_deps</code> allows you to filter out
   these deps from your query results.
 
 <h2 id="Reverse_Dependencies">Reverse dependencies</h2>
 
-<p>You might want to know the set of targets that depends on some target.  e.g.,
+<p>You might want to know the set of targets that depends on some target. e.g.,
 if you're going to change some code, you might want to know what other code
-you're about to break.  You can use <code>rdeps(u, x)</code> to find the reverse
+you're about to break. You can use <code>rdeps(u, x)</code> to find the reverse
 dependencies of the targets in <code>x</code> within the transitive closure of <code>u</code>.</p>
 
 Bazel's <a href="query.html#sky-query">Sky Query</a>
@@ -258,7 +258,7 @@ referenced by <code>subinclude</code>; see the reference manual for details.</p>
 
 <p>Once you have the results of this query, you will often find that a single
 target stands out as being an unexpected or egregious and undesirable
-dependency of <code>bar</code>.  The query can then be further refined to:</p>
+dependency of <code>bar</code>. The query can then be further refined to:</p>
 
 <h4 id="Show_me_a_path_from_docker_updater">Show me a path from <code>docker/updater:updater_systest</code> (a <code>py_test</code>) to some <code>cc_library</code> that it depends upon:</h4>
 
@@ -268,7 +268,7 @@ dependency of <code>bar</code>.  The query can then be further refined to:</p>
 <h4 id="Why_does_library_photos_frontend">Why does library <code>//photos/frontend:lib</code> depend on two variants of the same library <code>//third_party/jpeglib</code> and <code>//third_party/jpeg</code>?</h4>
 
 <p>This query boils down to: "show me the subgraph of <code>//photos/frontend:lib</code> that
-depends on both libraries".  When shown in topological order, the last element
+depends on both libraries". When shown in topological order, the last element
 of the result is the most likely culprit.</p>
 
 <pre>bazel query 'allpaths(//photos/frontend:lib, //third_party/jpeglib)
@@ -314,7 +314,7 @@ name to it using <code>let</code> to avoid duplication.</p>
 <p>Unfortunately, the query language can't currently give you the longest path
 from x to y, but it can find the (or rather <em>a</em>) most distant node from the
 starting point, or show you the <em>lengths</em> of the longest path from x to every
-y that it depends on.  Use <code>maxrank</code>:</p>
+y that it depends on. Use <code>maxrank</code>:</p>
 
 <pre>bazel query 'deps(//foo-tests)' --output maxrank | tail -1
 85 //third_party/zlib:zutil.c</pre>

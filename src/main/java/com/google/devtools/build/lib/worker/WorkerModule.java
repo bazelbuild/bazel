@@ -25,15 +25,11 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
-import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -67,6 +63,7 @@ public class WorkerModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
+    WorkerMultiplexerManager.beforeCommand(env);
   }
 
   @Subscribe
@@ -166,7 +163,6 @@ public class WorkerModule extends BlazeModule {
             workerPool,
             options.workerMultiplex,
             env.getReporter(),
-            createFallbackRunner(env, localEnvProvider),
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
@@ -180,21 +176,6 @@ public class WorkerModule extends BlazeModule {
         "worker");
   }
 
-  private static SpawnRunner createFallbackRunner(
-      CommandEnvironment env, LocalEnvProvider localEnvProvider) {
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
-    return new LocalSpawnRunner(
-        env.getExecRoot(),
-        localExecutionOptions,
-        env.getLocalResourceManager(),
-        localEnvProvider,
-        env.getBlazeWorkspace().getBinTools(),
-        ProcessWrapper.fromCommandEnvironment(env),
-        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-        RunfilesTreeUpdater.INSTANCE);
-  }
-
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     if (options != null && options.workerQuitAfterBuild) {
@@ -202,12 +183,20 @@ public class WorkerModule extends BlazeModule {
     }
   }
 
-  // Kill workers on Ctrl-C to quickly end the interrupted build.
-  // TODO(philwo) - make sure that this actually *kills* the workers and not just politely waits
-  // for them to finish.
+  /**
+   * Stops any workers that are still executing.
+   *
+   * <p>This currently kills off some amount of workers, losing the warmed-up state.
+   * TODO(b/119701157): Cancel running workers instead (requires some way to reach each worker).
+   */
   @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
-    shutdownPool("Build interrupted, shutting down worker pool...");
+    if (workerPool != null) {
+      if ((options != null && options.workerVerbose)) {
+        env.getReporter().handle(Event.info("Build interrupted, stopping active workers..."));
+      }
+      workerPool.stopWork();
+    }
   }
 
   /** Shuts down the worker pool and sets {#code workerPool} to null. */
@@ -236,6 +225,6 @@ public class WorkerModule extends BlazeModule {
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
     }
-    WorkerMultiplexerManager.afterCommandCleanup();
+    WorkerMultiplexerManager.afterCommand();
   }
 }

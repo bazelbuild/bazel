@@ -92,9 +92,12 @@ public final class RuleConfiguredTargetBuilder {
   private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
   private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
       new LinkedHashSet<>();
+  private boolean propagateValidationActionOutputGroup = true;
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
+    // Avoid building validations in analysis tests (b/143988346)
+    propagateValidationActionOutputGroup = !ruleContext.getRule().isAnalysisTest();
     add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
@@ -149,7 +152,9 @@ public final class RuleConfiguredTargetBuilder {
               .getAllArtifacts());
     }
 
-    collectTransitiveValidationOutputGroups();
+    if (propagateValidationActionOutputGroup) {
+      propagateTransitiveValidationOutputGroups();
+    }
 
     // Add a default provider that forwards InstrumentedFilesInfo from dependencies, even if this
     // rule doesn't configure InstrumentedFilesInfo. This needs to be done for non-test rules
@@ -304,15 +309,17 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Collects the validation action output groups from every dependency-type attribute on this rule.
-   * This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
+   * Collects the validation action output groups from every dependency-type attribute of this
+   * target and adds them to this target's output groups.
+   *
+   * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
    *
    * <p>Note that in addition to {@link LabelClass.DEPENDENCY}, there is also {@link
    * LabelClass.FILESET_ENTRY}, however the fileset implementation takes care of propagating the
    * validation action output group itself.
    */
-  private void collectTransitiveValidationOutputGroups() {
+  private void propagateTransitiveValidationOutputGroups() {
 
     for (String attributeName : ruleContext.attributes().getAttributeNames()) {
 
@@ -479,20 +486,17 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
-   * providers defined in Skyark.
+   * providers defined in Starlark. The provider symbol must be exported.
    *
    * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Starlark
    * directly, instead its output groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider)
-      throws EvalException {
+  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
-    if (!constructor.isExported()) {
-      throw new EvalException(constructor.getLocation(),
-          "All providers must be top level values");
-    }
+    // Starlark providers are already exported (enforced by SRCTU.getProviderKey).
+    Preconditions.checkArgument(constructor.isExported());
     if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
       OutputGroupInfo outputGroupInfo = (OutputGroupInfo) provider;
       for (String outputGroup : outputGroupInfo) {
@@ -577,6 +581,12 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
+    return this;
+  }
+
+  /** Sets whether to propagate the validation actions output group. This is true by default. */
+  public RuleConfiguredTargetBuilder setPropagateValidationActionOutputGroup(boolean propagate) {
+    this.propagateValidationActionOutputGroup = propagate;
     return this;
   }
 

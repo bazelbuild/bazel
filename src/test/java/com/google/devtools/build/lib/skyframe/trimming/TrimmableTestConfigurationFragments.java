@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses.BaseRule;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -192,7 +192,7 @@ public final class TrimmableTestConfigurationFragments {
         .addRuleDefinition(new WorkspaceBaseRule())
         .addRuleDefinition(new BindRule())
         // needed for our native rules
-        .addRuleDefinition(new BaseRule())
+        .addRuleDefinition(new BaseRuleClasses.NativeBuildRule())
         // needed to define toolchains
         .addRuleDefinition(new ToolchainTypeRule())
         // needs to be set to something
@@ -202,7 +202,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule transitionRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "with_configuration",
@@ -255,7 +255,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule alphaRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "alpha_native",
@@ -271,7 +271,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule bravoRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "bravo_native",
@@ -287,7 +287,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule charlieRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "charlie_native",
@@ -303,7 +303,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule deltaRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "delta_native",
@@ -319,7 +319,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule echoRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "echo_native",
@@ -335,7 +335,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule platformlessRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "platformless_native",
@@ -351,7 +351,7 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule platformerRule =
         () ->
-            MockRule.ancestor(BaseRule.class)
+            MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "platformer_native",
@@ -383,7 +383,7 @@ public final class TrimmableTestConfigurationFragments {
     if (toolchainTypeLabel != null) {
       MockRule usesToolchainsRule =
           () ->
-              MockRule.ancestor(BaseRule.class)
+              MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                   .factory(DepsCollectingFactory.class)
                   .define(
                       "uses_toolchains_native",

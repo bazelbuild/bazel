@@ -169,24 +169,29 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         return;
       }
       if (a.isExecutable()) {
-        // In Starlark only label (not label list) type attributes can have the Executable flag.
-        FilesToRunProvider provider =
-            context.getRuleContext().getExecutablePrerequisite(a.getName());
-        if (provider != null && provider.getExecutable() != null) {
-          Artifact executable = provider.getExecutable();
-          executableBuilder.put(skyname, executable);
-          if (!seenExecutables.contains(executable)) {
-            // todo(dslomov,laurentlb): In general, this is incorrect.
-            // We associate the first encountered FilesToRunProvider with
-            // the executable (this provider is later used to build the spawn).
-            // However ideally we should associate a provider with the attribute name,
-            // and pass the correct FilesToRunProvider to the spawn depending on
-            // what attribute is used to access the executable.
-            executableRunfilesbuilder.put(executable, provider);
-            seenExecutables.add(executable);
+        // In a Starlark-defined rule, only LABEL type attributes (not LABEL_LIST) can have the
+        // Executable flag. However, we could be here because we're creating a StarlarkRuleContext
+        // for a native rule for builtins injection, in which case we may see an executable
+        // LABEL_LIST. In that case omit the attribute as if it weren't executable.
+        if (type == BuildType.LABEL) {
+          FilesToRunProvider provider =
+              context.getRuleContext().getExecutablePrerequisite(a.getName());
+          if (provider != null && provider.getExecutable() != null) {
+            Artifact executable = provider.getExecutable();
+            executableBuilder.put(skyname, executable);
+            if (!seenExecutables.contains(executable)) {
+              // todo(dslomov,laurentlb): In general, this is incorrect.
+              // We associate the first encountered FilesToRunProvider with
+              // the executable (this provider is later used to build the spawn).
+              // However ideally we should associate a provider with the attribute name,
+              // and pass the correct FilesToRunProvider to the spawn depending on
+              // what attribute is used to access the executable.
+              executableRunfilesbuilder.put(executable, provider);
+              seenExecutables.add(executable);
+            }
+          } else {
+            executableBuilder.put(skyname, Starlark.NONE);
           }
-        } else {
-          executableBuilder.put(skyname, Starlark.NONE);
         }
       }
       if (a.isSingleArtifact()) {

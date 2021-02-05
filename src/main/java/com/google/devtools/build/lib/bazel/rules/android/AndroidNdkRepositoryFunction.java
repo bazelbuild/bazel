@@ -35,9 +35,11 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,6 +60,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Implementation of the {@code android_ndk_repository} rule. */
 public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
@@ -286,9 +290,8 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "Either the path attribute of android_ndk_repository or the ANDROID_NDK_HOME "
+          Starlark.errorf(
+              "Either the path attribute of android_ndk_repository or the ANDROID_NDK_HOME"
                   + " environment variable must be set."),
           Transience.PERSISTENT);
     }
@@ -336,10 +339,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
         // themselves.
         throwInvalidPathException(
             ndkHome,
-            new EvalException(
-                rule.getLocation(),
-                "android_ndk_repository requires that at least one Android platform is present in "
-                    + "the Android NDK platforms directory."));
+            Starlark.errorf(
+                "android_ndk_repository requires that at least one Android platform is present in"
+                    + " the Android NDK platforms directory."));
       }
       apiLevelString = apiLevels.first().toString();
     }
@@ -377,13 +379,22 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
           AndroidNdkCrosstools.KNOWN_NDK_MAJOR_REVISIONS.get(ndkRelease.majorRevision);
     }
 
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    boolean siblingRepositoryLayout =
+        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+
     ApiLevel apiLevel = ndkMajorRevision.apiLevel(env.getListener(), ruleName, apiLevelString);
 
     ImmutableList.Builder<CrosstoolStlPair> crosstoolsAndStls = ImmutableList.builder();
     try {
 
       String hostPlatform = AndroidNdkCrosstools.getHostPlatform(ndkRelease);
-      NdkPaths ndkPaths = new NdkPaths(ruleName, hostPlatform, apiLevel, ndkRelease.majorRevision);
+      NdkPaths ndkPaths =
+          new NdkPaths(
+              ruleName, hostPlatform, apiLevel, ndkRelease.majorRevision, siblingRepositoryLayout);
 
       for (StlImpl stlImpl : StlImpls.get(ndkPaths, ndkRelease.majorRevision)) {
         CrosstoolRelease crosstoolRelease =

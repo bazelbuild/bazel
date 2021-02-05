@@ -358,38 +358,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   Sequence<String> tokenize(String optionString) throws EvalException;
 
   @StarlarkMethod(
-      name = "expand",
-      doc =
-          "Expands all references to labels embedded within a string for all files using a mapping "
-              + "from definition labels (i.e. the label in the output type attribute) to files. "
-              + "Deprecated.",
-      // TODO(cparsons): Look into flipping this to true.
-      documented = false,
-      parameters = {
-        @Param(
-            name = "expression",
-            positional = true,
-            named = false,
-            doc = "The string expression to expand."),
-        @Param(
-            name = "files",
-            positional = true,
-            named = false,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
-            doc = "The list of files."),
-        @Param(
-            name = "label_resolver",
-            positional = true,
-            named = false,
-            doc = "The label resolver."),
-      })
-  String expand(
-      @Nullable String expression,
-      Sequence<?> artifacts, // <FileT>
-      Label labelResolver)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "new_file",
       doc =
           "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"

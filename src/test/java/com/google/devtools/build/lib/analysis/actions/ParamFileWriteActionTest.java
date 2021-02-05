@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -60,7 +61,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   @Before
   public void createArtifacts() throws Exception  {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, "out");
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     outputArtifact.getPath().getParentDirectory().createDirectoryAndParents();
     treeArtifact = createTreeArtifact("artifact/myTreeFileArtifact");

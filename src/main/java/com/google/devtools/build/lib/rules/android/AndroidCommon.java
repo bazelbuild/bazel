@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -81,10 +80,16 @@ public class AndroidCommon {
 
   public static final InstrumentationSpec ANDROID_COLLECTION_SPEC =
       JavaCommon.JAVA_COLLECTION_SPEC.withDependencyAttributes(
-          "deps", "data", "exports", "instruments", "runtime_deps", "binary_under_test");
+          "application_resources",
+          "deps",
+          "data",
+          "exports",
+          "instruments",
+          "runtime_deps",
+          "binary_under_test");
 
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
-      ImmutableSet.of("deps", "exports");
+      ImmutableSet.of("application_resources", "deps", "exports");
 
   private static final int DEX_THREADS = 5;
   private static final ResourceSet DEX_RESOURCE_SET =
@@ -808,12 +813,11 @@ public class AndroidCommon {
         ImmutableList.<CcInfo>builder()
             .add(linkoptsCcInfo)
             .addAll(
-                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
+                AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
                     .map(JavaCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
             .addAll(
-                Streams.stream(
-                        AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER))
+                AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER).stream()
                     .map(AndroidCcLinkParamsProvider::getLinkParams)
                     .collect(ImmutableList.toImmutableList()))
             .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
@@ -848,7 +852,24 @@ public class AndroidCommon {
       RuleContext ruleContext,
       JavaSemantics semantics,
       DataBindingContext dataBindingContext,
-      boolean isLibrary) {
+      boolean isLibrary,
+      boolean shouldCompileJavaSrcs) {
+
+    /**
+     * When within the context of an android_binary rule and shouldCompileJavaSrcs is False, the
+     * Java compilation happens within the Starlark rule.
+     */
+    if (!isLibrary && !shouldCompileJavaSrcs) {
+      ImmutableList<TransitiveInfoCollection> runtimeDeps =
+          ImmutableList.copyOf(ruleContext.getPrerequisites("application_resources"));
+      return new JavaCommon(
+          ruleContext,
+          semantics,
+          ImmutableList.of(),
+          runtimeDeps, /* compileDeps */
+          runtimeDeps,
+          runtimeDeps); /* bothDeps */
+    }
 
     ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
 
@@ -871,7 +892,11 @@ public class AndroidCommon {
       bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
     } else {
       // Binary:
-      compileDeps = ImmutableList.copyOf(ruleContext.getPrerequisites("deps"));
+      compileDeps =
+          ImmutableList.<TransitiveInfoCollection>builder()
+              .addAll(ruleContext.getPrerequisites("application_resources"))
+              .addAll(ruleContext.getPrerequisites("deps"))
+              .build();
       runtimeDeps = compileDeps;
       bothDeps = compileDeps;
     }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.DigestFunction;
-import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
@@ -68,7 +67,6 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -95,7 +93,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
-import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.HashSet;
@@ -330,7 +327,6 @@ public final class RemoteModule extends BlazeModule {
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
-      interceptors.add(new NetworkTime.Interceptor());
       try {
         execChannel =
             RemoteCacheClientFactory.createGrpcChannelPool(
@@ -357,7 +353,6 @@ public final class RemoteModule extends BlazeModule {
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
-      interceptors.add(new NetworkTime.Interceptor());
       try {
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannelPool(
@@ -505,18 +500,14 @@ public final class RemoteModule extends BlazeModule {
             digestUtil,
             uploader.retain());
     uploader.release();
-    Context requestContext =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
             uploader,
             cacheClient,
             cacheChannel.authority(),
-            requestContext,
+            buildRequestId,
+            invocationId,
             remoteOptions.remoteInstanceName));
-
-    Context repoContext =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "repository_rule");
 
     if (enableRemoteExecution) {
       RemoteExecutionClient remoteExecutor;
@@ -551,7 +542,8 @@ public final class RemoteModule extends BlazeModule {
               remoteCache,
               remoteExecutor,
               digestUtil,
-              repoContext,
+              buildRequestId,
+              invocationId,
               remoteOptions.remoteInstanceName,
               remoteOptions.remoteAcceptCached));
     } else {
@@ -580,10 +572,11 @@ public final class RemoteModule extends BlazeModule {
     if (enableRemoteDownloader) {
       remoteDownloaderSupplier.set(
           new GrpcRemoteDownloader(
+              buildRequestId,
+              invocationId,
               downloaderChannel.retain(),
               Optional.ofNullable(credentials),
               retrier,
-              repoContext,
               cacheClient,
               remoteOptions));
       downloaderChannel.release();
@@ -856,14 +849,12 @@ public final class RemoteModule extends BlazeModule {
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     if (!remoteOutputsMode.downloadAllOutputs()) {
-      RequestMetadata requestMetadata =
-          RequestMetadata.newBuilder()
-              .setCorrelatedInvocationsId(env.getBuildRequestId())
-              .setToolInvocationId(env.getCommandId().toString())
-              .build();
       actionInputFetcher =
           new RemoteActionInputFetcher(
-              actionContextProvider.getRemoteCache(), env.getExecRoot(), requestMetadata);
+              env.getBuildRequestId(),
+              env.getCommandId().toString(),
+              actionContextProvider.getRemoteCache(),
+              env.getExecRoot());
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
     }

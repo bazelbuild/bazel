@@ -300,7 +300,20 @@ function create_and_run_classpath_jar() {
   OLDIFS="$IFS"
   IFS="${CLASSPATH_SEPARATOR}" # Use a custom separator for the loop.
   for path in ${CLASSPATH}; do
-    # Convert spaces to %20
+    # Loop through the characters of the path and convert characters that are
+    # not alphanumeric nor -_.~/ to their 2-digit hexadecimal representation
+    local i c buff
+    local converted_path=""
+
+    for ((i=0; i<${#path}; i++)); do
+      c=${path:$i:1}
+      case ${c} in
+            [-_.~/a-zA-Z0-9] ) buff=${c} ;;
+            * )               printf -v buff '%%%02x' "'$c'"
+      esac
+      converted_path+="${buff}"
+    done
+    path=${converted_path}
 
     if is_windows; then
       path="file:/${path}" # e.g. "file:/C:/temp/foo.jar"
@@ -313,7 +326,6 @@ function create_and_run_classpath_jar() {
       path="file:${path}" # e.g. "file:/usr/local/foo.jar"
     fi
 
-    path=$(sed "s/ /%20/g" <<< "${path}")
     MANIFEST_CLASSPATH+=("${path}")
   done
   IFS="$OLDIFS"

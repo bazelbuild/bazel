@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -48,15 +49,14 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
-import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -93,8 +93,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   private Server server;
   private ManagedChannel channel;
-  private Context withEmptyMetadata;
-  private Context prevContext;
   private final FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
 
   private final Path execRoot = fs.getPath("/execroot");
@@ -111,14 +109,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             .build()
             .start();
     channel = InProcessChannelBuilder.forName(serverName).build();
-    withEmptyMetadata =
-        TracingMetadataUtils.contextWithMetadata(
-            "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
-    // Needs to be repeated in every test that uses the timeout setting, since the tests run
-    // on different threads than the setUp.
-    prevContext = withEmptyMetadata.attach();
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
@@ -126,9 +118,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   @After
   public void tearDown() throws Exception {
-    // Needs to be repeated in every test that uses the timeout setting, since the tests run
-    // on different threads than the tearDown.
-    withEmptyMetadata.detach(prevContext);
 
     retryService.shutdownNow();
     retryService.awaitTermination(
@@ -181,7 +170,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
     }
 
-    artifactUploader.shutdown();
+    artifactUploader.release();
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
@@ -198,7 +187,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
-    artifactUploader.shutdown();
+    artifactUploader.release();
   }
 
   @Test
@@ -267,7 +256,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     assertThat(e.getCause().getCause()).isInstanceOf(StatusRuntimeException.class);
     assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
 
-    artifactUploader.shutdown();
+    artifactUploader.release();
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
@@ -333,7 +322,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
     ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
-    when(uploader.uploadBlobAsync(any(Digest.class), any(), anyBoolean()))
+    when(uploader.uploadBlobAsync(any(), any(Digest.class), any(), anyBoolean()))
         .thenReturn(Futures.immediateFuture(null));
     ByteStreamBuildEventArtifactUploader artifactUploader =
         newArtifactUploader(uploader, digestQuerier);
@@ -348,8 +337,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     PathConverter pathConverter = artifactUploader.upload(files).get();
 
     // assert
-    verify(digestQuerier).findMissingDigests(any());
-    verify(uploader).uploadBlobAsync(eq(localDigest), any(), anyBoolean());
+    verify(digestQuerier).findMissingDigests(any(), any());
+    verify(uploader).uploadBlobAsync(any(), eq(localDigest), any(), anyBoolean());
     assertThat(pathConverter.apply(remoteFile)).contains(remoteDigest.getHash());
     assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
   }
@@ -373,7 +362,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         uploader,
         missingDigestsFinder,
         "localhost",
-        withEmptyMetadata,
+        "none",
+        "none",
         "instance",
         /* maxUploadThreads= */ 100);
   }
@@ -391,7 +381,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     }
 
     @Override
-    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+        RemoteActionExecutionContext context, Iterable<Digest> digests) {
       ImmutableSet.Builder<Digest> missingDigests = ImmutableSet.builder();
       for (Digest digest : digests) {
         if (!knownDigests.contains(digest)) {
@@ -407,7 +398,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     public static final AllMissingDigestsFinder INSTANCE = new AllMissingDigestsFinder();
 
     @Override
-    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+        RemoteActionExecutionContext context, Iterable<Digest> digests) {
       return Futures.immediateFuture(ImmutableSet.copyOf(digests));
     }
   }

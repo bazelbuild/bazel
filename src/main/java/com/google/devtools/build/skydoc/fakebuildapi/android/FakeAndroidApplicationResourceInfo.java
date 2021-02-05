@@ -54,7 +54,9 @@ public class FakeAndroidApplicationResourceInfo implements AndroidDeviceBrokerIn
         Object mainDexProguardConfig,
         Object rTxt,
         Object resourcesZip,
-        Object databindingLayoutInfoZip)
+        Object databindingLayoutInfoZip,
+        Object buildStampJar,
+        boolean shouldCompileJavaSrcs)
         throws EvalException {
       return null;
     }

@@ -44,8 +44,8 @@ public final class MockCppSemantics implements CppSemantics {
       RuleErrorConsumer ruleErrorConsumer) {}
 
   @Override
-  public IncludeProcessing getIncludeProcessing() {
-    return null;
+  public boolean allowIncludeScanning() {
+    return false;
   }
 
   @Override

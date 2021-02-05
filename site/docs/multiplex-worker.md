@@ -3,7 +3,10 @@ layout: documentation
 title: Multiplex workers
 ---
 
-# Multiplex workers (experimental feature)
+# Multiplex Workers (Experimental Feature)
+
+This page describes multiplex workers, how to write multiplex-compatible
+rules, and workarounds for certain limitations.
 
 **Caution:** Experimental features are subject to change at any time.
 
@@ -59,7 +62,7 @@ necessary, and `supports-multiplex-workers` takes precedence over
 `supports-workers`, if both are set. A ruleset is encouraged to use multiplex
 workers if possible, to improve performance.
 
-### WARNING
+### Warning about rare bug
 
 Due to a rare bug, multiplex workers are currently unstable. Occasionally,
 Bazel hangs indefinitely at the execution phase. If you see this behavior,

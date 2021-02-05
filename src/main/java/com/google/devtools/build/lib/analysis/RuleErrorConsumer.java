@@ -53,6 +53,9 @@ public interface RuleErrorConsumer {
    * invocation in a no-keep-going build. If multiple errors are present, invoke {@link #ruleError}
    * to collect additional error information before calling this method.
    */
+  // TODO(bazel-team): Consider not throwing and instead just returning the exception, thereby
+  // forcing the caller to use the throw statement instead of abstracting the control flow (which
+  // can hurt readability).
   default RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
     ruleError(message);
     throw new RuleErrorException(message);

@@ -742,7 +742,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction, "
               + "TestRunner. When specifying multiple values, order matters because "
               + "many regexes may apply to the same mnemonic.\n\n"
-              + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"
+              + "Syntax: \"regex=[+-]key,regex=[+-]key,...\".\n\n"
               + "Examples:\n"
               + "  '.*=+x,.*=-y,.*=+z' adds 'x' and 'z' to, and removes 'y' from, "
               + "the execution info for all actions.\n"
@@ -880,36 +880,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     }
   }
 
-  /** Used to specify which sanitizer is enabled in the current APK split. */
-  public enum FatApkSplitSanitizer {
-    NONE(null, ""),
-    HWASAN("hwasan", "-hwasan");
-
-    private FatApkSplitSanitizer(String feature, String androidLibDirSuffix) {
-      this.feature = feature;
-      this.androidLibDirSuffix = androidLibDirSuffix;
-    }
-
-    public final String feature;
-    public final String androidLibDirSuffix;
-  }
-
-  /** Converter for {@link FatApkSplitSanitizer}. */
-  public static class FatApkSplitSanitizerConverter extends EnumConverter<FatApkSplitSanitizer> {
-    public FatApkSplitSanitizerConverter() {
-      super(FatApkSplitSanitizer.class, "fat apk split sanitizer");
-    }
-  }
-
-  @Option(
-      name = "fat_apk_split_sanitizer",
-      defaultValue = "NONE",
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      converter = FatApkSplitSanitizerConverter.class)
-  public FatApkSplitSanitizer fatApkSplitSanitizer;
-
   @Override
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
@@ -963,6 +933,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // Pass host action environment variables
     host.actionEnvironment = hostActionEnvironment;
+    host.hostActionEnvironment = hostActionEnvironment;
 
     return host;
   }

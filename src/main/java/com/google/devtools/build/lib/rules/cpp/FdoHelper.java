@@ -72,7 +72,9 @@ public class FdoHelper {
               PropellerOptimizeInputFile.createAbsoluteArtifact(
                   ruleContext, cppConfiguration.getPropellerOptimizeAbsoluteLdProfile());
         }
-        propellerOptimizeInputFile = new PropellerOptimizeInputFile(ccArtifact, ldArtifact);
+        if (ccArtifact != null || ldArtifact != null) {
+          propellerOptimizeInputFile = new PropellerOptimizeInputFile(ccArtifact, ldArtifact);
+        }
       } else if (cppConfiguration
               .getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
           != null) {

@@ -3,14 +3,14 @@ layout: documentation
 title: External dependencies
 ---
 
-# Working with external dependencies
+# Working with External Dependencies
 
-Bazel can depend on targets from other projects.  Dependencies from these other
+Bazel can depend on targets from other projects. Dependencies from these other
 projects are called _external dependencies_.
 
 The `WORKSPACE` file (or `WORKSPACE.bazel` file) in the [workspace directory](build-ref.html#workspace)
-tells Bazel how to get other projects' sources.  These other projects can
-contain one or more `BUILD` files with their own targets.  `BUILD` files within
+tells Bazel how to get other projects' sources. These other projects can
+contain one or more `BUILD` files with their own targets. `BUILD` files within
 the main project can depend on these external targets by using their name from
 the `WORKSPACE` file.
 
@@ -363,7 +363,7 @@ Prefer [`http_archive`](repo/http.html#http_archive) to `git_repository` and
    [#5116](https://github.com/bazelbuild/bazel/issues/5116) for more information.
 
 
-Do not use `bind()`.  See "[Consider removing
+Do not use `bind()`. See "[Consider removing
 bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long discussion of its issues and
 alternatives.
 
@@ -376,6 +376,6 @@ A repository rule should generally be responsible for:
 -  Downloading resources from URLs.
 -  Generating or symlinking BUILD files into the external repository directory.
 
-Avoid using `repository_ctx.execute` when possible.  For example, when using a non-Bazel C++
+Avoid using `repository_ctx.execute` when possible. For example, when using a non-Bazel C++
 library that has a build using Make, it is preferable to use `repository_ctx.download()` and then
 write a BUILD file that builds it, instead of running `ctx.execute(["make"])`.

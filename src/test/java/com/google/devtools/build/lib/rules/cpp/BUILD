@@ -115,6 +115,21 @@ java_test(
 )
 
 java_test(
+    name = "CcBinarySplitFunctionsTest",
+    srcs = ["CcBinarySplitFunctionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "CcCommonTest",
     srcs = ["CcCommonTest.java"],
     deps = [

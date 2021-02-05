@@ -51,7 +51,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
    * </code> takes, while query doesn't.
    */
   public interface AttributeReader {
-    PossibleAttributeValues getPossibleValues(Rule rule, Attribute attr);
+    Iterable<Object> getPossibleValues(Rule rule, Attribute attr);
   }
 
   /**
@@ -119,10 +119,13 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
               .append(lineTerm);
           continue;
         }
-        PossibleAttributeValues values = attrReader.getPossibleValues(rule, attr);
-        if (values.getSource() != AttributeValueSource.RULE) {
+        AttributeValueSource attributeValueSource =
+            AttributeValueSource.forRuleAndAttribute(rule, attr);
+        if (attributeValueSource != AttributeValueSource.RULE) {
           continue; // Don't print default values.
         }
+
+        Iterable<Object> values = attrReader.getPossibleValues(rule, attr);
         if (Iterables.size(values) != 1) {
           // Computed defaults that depend on configurable attributes can have multiple values.
           continue;
@@ -245,7 +248,11 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
         targetOutputter.output(
-            target, (rule, attr) -> PossibleAttributeValues.forRuleAndAttribute(rule, attr));
+            target,
+            // Multiple possible values are ignored by the outputter.
+            (rule, attr) ->
+                PossibleAttributeValues.forRuleAndAttribute(
+                    rule, attr, /*mayTreatMultipleAsNone=*/ true));
       }
     }
   }

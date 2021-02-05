@@ -14,12 +14,16 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Settings;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
@@ -28,11 +32,13 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Implementation of {@link ConfigGlobalLibraryApi}.
@@ -59,8 +65,12 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         outputsList,
         Settings.OUTPUTS,
         semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS));
+    Label parentLabel =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
+    Location location = thread.getCallerLocation();
+    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
     return StarlarkDefinedConfigTransition.newRegularTransition(
-        implementation, inputsList, outputsList, semantics, thread);
+        implementation, inputsList, outputsList, semantics, parentLabel, location, context);
   }
 
   @Override
@@ -71,8 +81,13 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     Map<String, Object> changedSettingsMap =
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
     validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS, true);
+    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
+        BazelStarlarkContext.from(thread).getRepoMapping();
+    Label parentLabel =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
+    Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
-        changedSettingsMap, thread.getCallerLocation());
+        changedSettingsMap, repoMapping, parentLabel, location);
   }
 
   private void validateBuildSettingKeys(

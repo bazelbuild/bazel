@@ -1,9 +1,27 @@
+# Tests of list and tuple slices, x[a:b:c]
+
+abc = ["a", "b", "c"]
+
 # Without step
-assert_eq([0, 1, 2, 3][0:-1], [0, 1, 2])
-assert_eq([0, 1, 2, 3, 4, 5][2:4], [2, 3])
-assert_eq([0, 1, 2, 3, 4, 5][-2:-1], [4])
-assert_eq([][1:2], [])
-assert_eq([0, 1, 2, 3][-10:10], [0, 1, 2, 3])
+assert_eq(abc[1:2], ["b"])
+assert_eq(abc[1:1], [])
+assert_eq(abc[-10:10], abc)
+assert_eq(abc[:2], ["a", "b"])
+assert_eq(abc[:-1], ["a", "b"])
+assert_eq(abc[:], abc)
+assert_eq(abc[:2], ["a", "b"])
+assert_eq(abc[2:], ["c"])
+
+# Negative bounds
+assert_eq(abc[-2:-1], ["b"])
+assert_eq(abc[-2:], ["b", "c"])
+assert_eq(abc[0:-1], ["a", "b"])
+assert_eq(abc[-1:1], [])
+
+assert_eq(abc[0:5], abc)
+assert_eq(abc[-10:2], ["a", "b"])
+assert_eq(abc[3:10], [])
+assert_eq(abc[-10:-9], [])
 
 # With step
 assert_eq([1, 2, 3, 4, 5][::1], [1, 2, 3, 4, 5])
@@ -17,6 +35,8 @@ assert_eq([][::1], [])
 assert_eq([][::-1], [])
 assert_eq([1, 2, 3, 4, 5, 6, 7][::3], [1, 4, 7])
 assert_eq([1, 2, 3, 4, 5, 6, 7, 8, 9][1:7:3], [2, 5])
+assert_eq([1, 2, 3, 4, 5, 6, 7, 8, 9][-8:-3:2], [2, 4, 6])
+assert_eq([1, 2, 3, 4, 5, 6, 7, 8, 9][3:-3:2], [4, 6])
 assert_eq([1, 2, 3][3:1:1], [])
 assert_eq([1, 2, 3][1:3:-1], [])
 

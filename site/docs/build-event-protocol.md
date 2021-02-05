@@ -42,7 +42,7 @@ encoded as a protocol buffer message specific to that event. Note, that the
 payload might not be the expected type, but could be an `Aborted` message e.g.
 if the build aborted prematurely.
 
-### Build Event graph
+### Build event graph
 
 All build events form a directed acyclic graph through their parent and child
 relationship. Every build event except for the initial build event has one or
@@ -54,9 +54,7 @@ network transport, some announced build events may never be posted.
 ## Build Event Protocol example
 
 The full specification of the Build Event Protocol can be found in its protocol
-buffer definition and describing it here is beyond the scope of this document.
-However, it might be helpful to build up some intuition before looking at the
-specification.
+buffer definition. However, it might be helpful to build up some intuition before looking at the specification.
 
 Consider a simple Bazel workspace that consists of two empty shell scripts
 `foo.sh` and `foo_test.sh` and the following BUILD file:
@@ -225,7 +223,7 @@ The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server
 typically can't access these files as they are on different machines. A way to
 work around this issue is to use Bazel with [remote
-caching](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/remote/README.md).
+caching](remote-caching.html).
 Bazel will upload all output files to the remote cache (including files
 referenced in the BEP) and the BES server can then fetch the referenced files
 from the cache.

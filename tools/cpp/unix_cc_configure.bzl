@@ -171,15 +171,16 @@ def _is_linker_option_supported(repository_ctx, cc, option, pattern):
     ])
     return result.stderr.find(pattern) == -1
 
-def _find_gold_linker_path(repository_ctx, cc):
-    """Checks if `gold` is supported by the C compiler.
+def _find_linker_path(repository_ctx, cc, linker):
+    """Checks if a given linker is supported by the C compiler.
 
     Args:
       repository_ctx: repository_ctx.
       cc: path to the C compiler.
+      linker: linker to find
 
     Returns:
-      String to put as value to -fuse-ld= flag, or None if gold couldn't be found.
+      String to put as value to -fuse-ld= flag, or None if linker couldn't be found.
     """
     result = repository_ctx.execute([
         cc,
@@ -191,19 +192,19 @@ def _find_gold_linker_path(repository_ctx, cc):
         # gold when only a very old (year 2010 and older) is present.
         "-Wl,--start-lib",
         "-Wl,--end-lib",
-        "-fuse-ld=gold",
+        "-fuse-ld=" + linker,
         "-v",
     ])
     if result.return_code != 0:
         return None
 
     for line in result.stderr.splitlines():
-        if line.find("gold") == -1:
+        if line.find(linker) == -1:
             continue
         for flag in line.split(" "):
-            if flag.find("gold") == -1:
+            if flag.find(linker) == -1:
                 continue
-            if flag.find("--enable-gold") > -1 or flag.find("--with-plugin-ld") > -1:
+            if flag.find("--enable-" + linker) > -1 or flag.find("--with-plugin-ld") > -1:
                 # skip build configuration options of gcc itself
                 # TODO(hlopko): Add redhat-like worker on the CI (#9392)
                 continue
@@ -216,8 +217,8 @@ def _find_gold_linker_path(repository_ctx, cc):
             flag = flag.replace("-fuse-ld=", "")
             return flag
     auto_configure_warning(
-        "CC with -fuse-ld=gold returned 0, but its -v output " +
-        "didn't contain 'gold', falling back to the default linker.",
+        "CC with -fuse-ld=" + linker + " returned 0, but its -v output " +
+        "didn't contain '" + linker + "', falling back to the default linker.",
     )
     return None
 
@@ -357,6 +358,14 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         warn = True,
         silent = True,
     )
+    overriden_tools["ar"] = _find_generic(
+        repository_ctx,
+        "ar",
+        "AR",
+        overriden_tools,
+        warn = True,
+        silent = True,
+    )
     if darwin:
         overriden_tools["gcc"] = "cc_wrapper.sh"
         overriden_tools["ar"] = "/usr/bin/libtool"
@@ -405,7 +414,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         bazel_linklibs,
         False,
     ), ":")
-    gold_linker_path = _find_gold_linker_path(repository_ctx, cc)
+    gold_or_lld_linker_path = (
+        _find_linker_path(repository_ctx, cc, "lld") or
+        _find_linker_path(repository_ctx, cc, "gold")
+    )
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
         # cc is outside the repository, set -B
@@ -523,7 +535,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             ),
             "%{cxx_flags}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
             "%{link_flags}": get_starlark_list((
-                ["-fuse-ld=" + gold_linker_path] if gold_linker_path else []
+                ["-fuse-ld=" + gold_or_lld_linker_path] if gold_or_lld_linker_path else []
             ) + _add_linker_option_if_supported(
                 repository_ctx,
                 cc,
@@ -598,6 +610,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{dbg_compile_flags}": get_starlark_list(["-g"]),
             "%{coverage_compile_flags}": coverage_compile_flags,
             "%{coverage_link_flags}": coverage_link_flags,
-            "%{supports_start_end_lib}": "True" if gold_linker_path else "False",
+            "%{supports_start_end_lib}": "True" if gold_or_lld_linker_path else "False",
         },
     )

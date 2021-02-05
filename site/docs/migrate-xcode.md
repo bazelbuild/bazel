@@ -5,9 +5,10 @@ title: Migrating from Xcode to Bazel
 
 # Migrating from Xcode to Bazel
 
-This guide describes how to build or test an Xcode project with Bazel. It
-describes the differences between Xcode and Bazel, and provides the steps for
-converting an Xcode project to a Bazel project.
+This page describes how to build or test an Xcode project with Bazel. It
+describes the differences between Xcode and Bazel, and provides the steps
+for converting an Xcode project to a Bazel project. It also provides
+troubleshooting solutions to address common errors.
 
 ## Differences between Xcode and Bazel
 

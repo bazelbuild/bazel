@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -451,6 +453,7 @@ public final class CcCompilationHelper {
 
     if (shouldProcessHeaders
         && ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        && !shouldProvideHeaderModules()
         && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
@@ -509,7 +512,8 @@ public final class CcCompilationHelper {
     if (!shouldProcessHeaders
         || isTextualInclude
         || !isHeader
-        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)) {
+        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        || shouldProvideHeaderModules()) {
       return;
     }
 
@@ -1020,7 +1024,7 @@ public final class CcCompilationHelper {
     mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
 
     // But defines come after those inherited from deps.
-    ccCompilationContextBuilder.addDefines(NestedSetBuilder.wrap(Order.LINK_ORDER, defines));
+    ccCompilationContextBuilder.addDefines(defines);
 
     ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
 
@@ -1047,8 +1051,7 @@ public final class CcCompilationHelper {
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
       if (cppModuleMap == null) {
         cppModuleMap =
-            CppHelper.createDefaultCppModuleMap(
-                actionConstructionContext, configuration, label, /*suffix=*/ "");
+            CppHelper.createDefaultCppModuleMap(actionConstructionContext, configuration, label);
       }
 
       ccCompilationContextBuilder.setPropagateCppModuleMapAsActionInput(
@@ -1080,21 +1083,6 @@ public final class CcCompilationHelper {
       }
       if (getGeneratesNoPicHeaderModule()) {
         ccCompilationContextBuilder.setHeaderModule(getHeaderModule(cppModuleMap.getArtifact()));
-      }
-      if (!compiled
-          && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)
-          && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
-          && cppConfiguration.getParseHeadersVerifiesModules()) {
-        // Here, we are creating a compiled module to verify that headers are self-contained and
-        // modules ready, but we don't use the corresponding module map or compiled file anywhere
-        // else.
-        CppModuleMap verificationMap =
-            CppHelper.createDefaultCppModuleMap(
-                actionConstructionContext, configuration, label, /*suffix=*/ ".verify");
-        actionRegistry.registerAction(
-            createModuleMapAction(
-                verificationMap, publicHeaders, dependentModuleMaps, /*compiledModule=*/ true));
-        ccCompilationContextBuilder.setVerificationModuleMap(verificationMap);
       }
     }
     ccCompilationContextBuilder.setPurpose(purpose);
@@ -1227,7 +1215,8 @@ public final class CcCompilationHelper {
 
   /** @return whether we want to provide header modules for the current target. */
   private boolean shouldProvideHeaderModules() {
-    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+        && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
   }
 
   /** @return the no-PIC header module artifact for the current target. */
@@ -1349,12 +1338,6 @@ public final class CcCompilationHelper {
           createModuleCodegenAction(result, moduleMapLabel, module);
         }
       }
-    } else if (ccCompilationContext.getVerificationModuleMap() != null) {
-      Collection<Artifact> modules =
-          createModuleAction(result, ccCompilationContext.getVerificationModuleMap());
-      for (Artifact module : modules) {
-        result.addHeaderTokenFile(module);
-      }
     }
 
     ImmutableMap<Artifact, String> outputNameMap;
@@ -1367,8 +1350,15 @@ public final class CcCompilationHelper {
     }
     outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
+    Set<String> compiledBasenames = new HashSet<>();
     for (CppSource source : compilationUnitSources.values()) {
       Artifact sourceArtifact = source.getSource();
+
+      // Headers compilations will be created in the loop below.
+      if (!sourceArtifact.isTreeArtifact() && source.getType() == CppSource.Type.HEADER) {
+        continue;
+      }
+
       Label sourceLabel = source.getLabel();
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
@@ -1384,33 +1374,27 @@ public final class CcCompilationHelper {
       String outputName = outputNameMap.get(sourceArtifact);
 
       if (!sourceArtifact.isTreeArtifact()) {
-        switch (source.getType()) {
-          case HEADER:
-            createHeaderAction(sourceLabel, outputName, result, builder);
-            break;
-          default:
-            createSourceAction(
-                sourceLabel,
-                outputName,
-                result,
-                sourceArtifact,
-                builder,
-                // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
-                // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
-                // that could be instantiated with arbitrary values.
-                source.getType() == CppSource.Type.CLIF_INPUT_PROTO
-                    ? ArtifactCategory.CLIF_OUTPUT_PROTO
-                    : ArtifactCategory.OBJECT_FILE,
-                ccCompilationContext.getCppModuleMap(),
-                /* addObject= */ true,
-                isCodeCoverageEnabled,
-                // The source action does not generate dwo when it has bitcode
-                // output (since it isn't generating a native object with debug
-                // info). In that case the LtoBackendAction will generate the dwo.
-                ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
-                bitcodeOutput);
-            break;
-        }
+        compiledBasenames.add(Files.getNameWithoutExtension(sourceArtifact.getExecPathString()));
+        createSourceAction(
+            sourceLabel,
+            outputName,
+            result,
+            sourceArtifact,
+            builder,
+            // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
+            // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
+            // that could be instantiated with arbitrary values.
+            source.getType() == CppSource.Type.CLIF_INPUT_PROTO
+                ? ArtifactCategory.CLIF_OUTPUT_PROTO
+                : ArtifactCategory.OBJECT_FILE,
+            ccCompilationContext.getCppModuleMap(),
+            /* addObject= */ true,
+            isCodeCoverageEnabled,
+            // The source action does not generate dwo when it has bitcode
+            // output (since it isn't generating a native object with debug
+            // info). In that case the LtoBackendAction will generate the dwo.
+            ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
+            bitcodeOutput);
       } else {
         switch (source.getType()) {
           case HEADER:
@@ -1421,7 +1405,8 @@ public final class CcCompilationHelper {
                     builder,
                     ImmutableList.of(
                         ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
-                    false);
+                    // If we generate pic actions, we prefer the header actions to use the pic mode.
+                    generatePicAction);
             result.addHeaderTokenFile(headerTokenFile);
             break;
           case SOURCE:
@@ -1452,6 +1437,26 @@ public final class CcCompilationHelper {
                 "Encountered invalid source types when creating CppCompileActionTemplates");
         }
       }
+    }
+    for (CppSource source : compilationUnitSources.values()) {
+      Artifact artifact = source.getSource();
+      if (source.getType() != CppSource.Type.HEADER || artifact.isTreeArtifact()) {
+        // These are already handled above.
+        continue;
+      }
+      if (cppConfiguration.getParseHeadersSkippedIfCorrespondingSrcsFound()
+          && compiledBasenames.contains(
+              Files.getNameWithoutExtension(artifact.getExecPathString()))) {
+        continue;
+      }
+      CppCompileActionBuilder builder = initializeCompileAction(artifact);
+      builder
+          .setSemantics(semantics)
+          .addMandatoryInputs(additionalCompilationInputs)
+          .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+
+      String outputName = outputNameMap.get(artifact);
+      createHeaderAction(source.getLabel(), outputName, result, builder);
     }
 
     return result.build();

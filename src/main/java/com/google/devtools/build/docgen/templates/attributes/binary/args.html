@@ -7,7 +7,7 @@
 </p>
 
 <p>
-Command line arguments that bazel will pass to the target when it is executed
+Command line arguments that Bazel will passes to the target when it is executed
 either by the <code>run</code> command or as a test. These arguments are
 passed before the ones that are specified on the <code>bazel run</code> or
 <code>bazel test</code> command line.
@@ -15,12 +15,6 @@ passed before the ones that are specified on the <code>bazel run</code> or
 
 <p>
 <em class="harmful">NOTE: The arguments are not passed when you run the target
-outside of bazel (for example, by manually executing the binary in
+outside of Bazel (for example, by manually executing the binary in
 <code>bazel-bin/</code>).</em>
-</p>
-
-<p>
-Most binary rules permit an <code>args</code> attribute, but where
-this attribute is not allowed, this fact is documented under the
-specific rule.
 </p>

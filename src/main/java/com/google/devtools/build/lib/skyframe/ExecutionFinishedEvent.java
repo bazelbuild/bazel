@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import java.time.Duration;
 
 /**
@@ -22,14 +23,20 @@ import java.time.Duration;
  */
 @AutoValue
 public abstract class ExecutionFinishedEvent {
-  public static final ExecutionFinishedEvent EMPTY =
-      builder()
-          .setOutputDirtyFiles(0)
-          .setOutputModifiedFilesDuringPreviousBuild(0)
-          .setSourceDiffCheckingDuration(Duration.ZERO)
-          .setNumSourceFilesCheckedBecauseOfMissingDiffs(0)
-          .setOutputTreeDiffCheckingDuration(Duration.ZERO)
-          .build();
+  // AutoValue Builders require that all fields are populated, so we provide a default.
+  public static ExecutionFinishedEvent.Builder builderWithDefaults() {
+    ArtifactMetrics.FilesMetric emptyFilesMetric = ArtifactMetrics.FilesMetric.getDefaultInstance();
+    return builder()
+        .setOutputDirtyFiles(0)
+        .setOutputModifiedFilesDuringPreviousBuild(0)
+        .setSourceDiffCheckingDuration(Duration.ZERO)
+        .setNumSourceFilesCheckedBecauseOfMissingDiffs(0)
+        .setOutputTreeDiffCheckingDuration(Duration.ZERO)
+        .setSourceArtifactsRead(emptyFilesMetric)
+        .setOutputArtifactsSeen(emptyFilesMetric)
+        .setOutputArtifactsFromActionCache(emptyFilesMetric)
+        .setTopLevelArtifacts(emptyFilesMetric);
+  }
 
   public abstract int outputDirtyFiles();
 
@@ -40,6 +47,14 @@ public abstract class ExecutionFinishedEvent {
   public abstract int numSourceFilesCheckedBecauseOfMissingDiffs();
 
   public abstract Duration outputTreeDiffCheckingDuration();
+
+  public abstract ArtifactMetrics.FilesMetric sourceArtifactsRead();
+
+  public abstract ArtifactMetrics.FilesMetric outputArtifactsSeen();
+
+  public abstract ArtifactMetrics.FilesMetric outputArtifactsFromActionCache();
+
+  public abstract ArtifactMetrics.FilesMetric topLevelArtifacts();
 
   static Builder builder() {
     return new AutoValue_ExecutionFinishedEvent.Builder();
@@ -58,6 +73,14 @@ public abstract class ExecutionFinishedEvent {
         int numSourceFilesCheckedBecauseOfMissingDiffs);
 
     abstract Builder setOutputTreeDiffCheckingDuration(Duration outputTreeDiffCheckingDuration);
+
+    public abstract Builder setSourceArtifactsRead(ArtifactMetrics.FilesMetric value);
+
+    public abstract Builder setOutputArtifactsSeen(ArtifactMetrics.FilesMetric value);
+
+    public abstract Builder setOutputArtifactsFromActionCache(ArtifactMetrics.FilesMetric value);
+
+    public abstract Builder setTopLevelArtifacts(ArtifactMetrics.FilesMetric value);
 
     abstract ExecutionFinishedEvent build();
   }

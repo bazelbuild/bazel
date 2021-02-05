@@ -3,7 +3,7 @@ layout: documentation
 title: Apple apps and Bazel
 ---
 
-# Apple apps and Bazel
+# Apple Apps and Bazel
 
 This page contains resources that help you use Bazel to build macOS and iOS
 projects. It links to a tutorial, build rules, and other information specific to

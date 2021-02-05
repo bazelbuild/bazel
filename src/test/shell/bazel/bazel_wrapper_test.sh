@@ -103,6 +103,23 @@ test_bazelversion_file() {
   expect_log "My args: build //src:bazel"
 }
 
+test_workspace_with_extension() {
+  setup_mock
+  mv WORKSPACE WORKSPACE.bazel
+
+  echo "1.0.1" > .bazelversion
+
+  ../bin/bazel info &> "$TEST_log"
+  expect_log "Hello from bazel-1.0.1"
+  expect_log "My args: info"
+
+  cd subdir
+  ../../bin/bazel build //src:bazel &> "$TEST_log"
+  expect_log "Hello from bazel-1.0.1"
+  expect_log "My args: build //src:bazel"
+}
+
+
 test_empty_bazelversion_file() {
   setup_mock
 

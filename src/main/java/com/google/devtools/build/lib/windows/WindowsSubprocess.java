@@ -70,6 +70,20 @@ public class WindowsSubprocess implements Subprocess {
     }
 
     @Override
+    public int available() throws IOException {
+      if (nativeStream == WindowsProcesses.INVALID) {
+        throw new IllegalStateException("Stream already closed");
+      }
+
+      int result = WindowsProcesses.streamBytesAvailable(nativeStream);
+      if (result == -1) {
+        throw new IOException(WindowsProcesses.streamGetLastError(nativeStream));
+      }
+
+      return result;
+    }
+
+    @Override
     public int read() throws IOException {
       byte[] buf = new byte[1];
       if (read(buf, 0, 1) != 1) {

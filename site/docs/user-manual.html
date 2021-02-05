@@ -2,8 +2,12 @@
 layout: documentation
 title: User manual
 ---
-<h1>Commands and options</h1>
+<h1>Commands and Options</h1>
 
+This page covers the options that are available with various Bazel commands,
+such a `bazel build`, `bazel run`, and `bazel test`. This page is a companion
+to the <a href="https://docs.bazel.build/versions/master/guide.html">Bazel user guide</a>,
+which lists Bazel's commands.
 <h2 id='target-patterns'>Target syntax</h2>
 
 Some commands, like <code>build</code> or <code>test</code>, can operate
@@ -15,7 +19,7 @@ targets to build</a>" section of the User's Guide.
 
 <p>
   The following sections describe the options available during a
-  build.  When <code class='flag'>--long</code> is used on a help command, the on-line
+  build. When <code class='flag'>--long</code> is used on a help command, the on-line
   help messages provide summary information about the meaning, type and
   default value for each option.
 </p>
@@ -35,7 +39,7 @@ targets to build</a>" section of the User's Guide.
 </p>
 
 <p>
-  Bazel finds its packages by searching the package path.  This is a colon
+  Bazel finds its packages by searching the package path. This is a colon
   separated ordered list of bazel directories, each being the root of a
   partial source tree.
 </p>
@@ -167,7 +171,7 @@ Package path elements may be specified in three formats:
   This option takes an argument which is to be passed to the compiler.
   The argument will be passed to the compiler whenever it is invoked
   for preprocessing, compiling, and/or assembling C, C++, or
-  assembler code.  It will not be passed when linking.
+  assembler code. It will not be passed when linking.
 </p>
 <p>
   This option can be used multiple times.
@@ -189,7 +193,7 @@ Package path elements may be specified in three formats:
 <p>
   Warning: C++-specific options (such as <code>-fno-implicit-templates</code>)
   should be specified in <code class='flag'>--cxxopt</code>, not in
-  <code class='flag'>--copt</code>.  Likewise, C-specific options (such as -Wstrict-prototypes)
+  <code class='flag'>--copt</code>. Likewise, C-specific options (such as -Wstrict-prototypes)
   should be specified in <code class='flag'>--conlyopt</code>, not in <code>copt</code>.
   Similarly, compiler options that only have an
   effect at link time (such as <code>-l</code>) should be specified in
@@ -218,7 +222,7 @@ Package path elements may be specified in three formats:
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to C compilation,
-  not to C++ compilation or linking.  So you can pass C-specific options
+  not to C++ compilation or linking. So you can pass C-specific options
   (such as <code>-Wno-pointer-sign</code>) using <code class='flag'>--conlyopt</code>.
 </p>
 <p>
@@ -233,7 +237,7 @@ Package path elements may be specified in three formats:
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to C++ compilation,
-  not to C compilation or linking.  So you can pass C++-specific options
+  not to C compilation or linking. So you can pass C++-specific options
   (such as <code>-fpermissive</code> or <code>-fno-implicit-templates</code>) using <code class='flag'>--cxxopt</code>.
   For example:
 </p>
@@ -251,9 +255,9 @@ Package path elements may be specified in three formats:
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to linking,
-  not to compilation.  So you can pass compiler options that only make sense
+  not to compilation. So you can pass compiler options that only make sense
   at link time (such as <code>-lssp</code> or <code>-Wl,--wrap,abort</code>)
-  using <code class='flag'>--linkopt</code>.  For example:
+  using <code class='flag'>--linkopt</code>. For example:
 </p>
 <pre>
   % bazel build --copt="-fmudflap" --linkopt="-lmudflap" //foo/buggy_code
@@ -287,7 +291,7 @@ Package path elements may be specified in three formats:
 </p>
 <p>
   Note also that Bazel's <code class='flag'>--strip</code> option corresponds with ld's <code>--strip-debug</code> option:
-  it only strips debugging information.  If for some reason you want to strip <em>all</em> symbols,
+  it only strips debugging information. If for some reason you want to strip <em>all</em> symbols,
   not just <em>debug</em> symbols, you would need to use ld's <code>--strip-all</code> option,
   which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
   aware that setting Bazel's <code class='flag'>--strip</code> flag will override
@@ -372,8 +376,57 @@ Package path elements may be specified in three formats:
   <code>[targetname].sc</code>.
 </p>
 <p>
- This option is disabled by default.
+  This option is disabled by default.
 </p>
+
+<h4 id='flag--java_language_version'><code class='flag'>--java_language_version=<var>version</var></code></h4>
+<p>
+  This option specifies the version of Java sources. For example:
+</p>
+<pre>
+  % bazel build --java_language_version=8 java/com/example/common/foo:all
+</pre>
+<p>
+  compiles and allows only constructs compatible with Java 8 specification.
+   Default value is 11. -->
+  Possible values are: 8,  9, 10, --> 11 <!--begin-block:external , 14, and 15  and may be extended by registering custom Java
+  toolchains using <code>default_java_toolchain</code> macro-->.
+</p>
+
+<h4 id='flag--tool_java_language_version'><code class='flag'>--tool_java_language_version=<var>version</var></code>
+</h4>
+<p>
+  The Java language version used to build tools that are executed during a build.
+  Default value is 11.
+</p>
+
+<h4 id='flag--java_runtime_version'><code class='flag'>--java_runtime_version=<var>version</var></code></h4>
+<p>
+  This option specifies the version of JVM to use to execute the code and run the tests. For
+  example:
+</p>
+<pre>
+  % bazel run --java_runtime_version=remotejdk_11 java/com/example/common/foo:java_application
+</pre>
+<p>
+  downloads JDK 11 from a remote repository and run the Java application using it.
+</p>
+<p>
+  Default value is <code>localjdk</code>.
+  Possible values are: <code>localjdk</code>, <code>localjdk_<var>version</var></code>,
+  <code>remotejdk_11</code>,
+  <code>remotejdk_14</code>, and <code>remote_jdk15</code>.
+  You can extend the values by registering custom JVM using either
+  <code>local_java_repository</code> or
+  <code>remote_java_repostory</code> repository rules.
+</p>
+
+<h4 id='flag--tool_java_runtime_version'><code class='flag'>--tool_java_runtime_version=<var>version</var></code></h4>
+<p>
+  The version of JVM used to execute tools that are needed during a build.
+  Default value is <code>remotejdk_11</code>.
+</p>
+-->
 
 <h4 id='flag--jvmopt'><code class='flag'>--jvmopt <var>jvm-option</var></code></h4>
 <p>
@@ -461,14 +514,14 @@ Package path elements may be specified in three formats:
   especially <code>-c opt</code>) takes an argument of <code>fastbuild</code>, <code>dbg</code>
   or <code>opt</code>, and affects various C/C++ code-generation
   options, such as the level of optimization and the completeness of
-  debug tables.  Bazel uses a different output directory for each
+  debug tables. Bazel uses a different output directory for each
   different compilation mode, so you can switch between modes without
   needing to do a full rebuild <i>every</i> time.
 </p>
 <ul>
   <li> <code>fastbuild</code> means build as fast as possible:
     generate minimal debugging information (<code>-gmlt
-    -Wl,-S</code>), and don't optimize.  This is the
+    -Wl,-S</code>), and don't optimize. This is the
     default. Note: <code>-DNDEBUG</code> will <b>not</b> be set.
   </li>
   <li> <code>dbg</code> means build with debugging enabled (<code>-g</code>),
@@ -573,9 +626,16 @@ the compilation of binaries during the build.
   once for each CPU specified with <code class='flag'>--fat_apk_cpu</code> for the
   <code>android_binary</code> rule, and once for the CPU specified with
   <code class='flag'>--cpu</code> for the <code>cc_binary</code> rule.
+</p>
 
 <p>
-The default is <code>armeabi-v7a</code>.
+  The default is <code>armeabi-v7a</code>.
+</p>
+<p>
+  One <code>.so</code> file is created and packaged in the APK for
+  each CPU specified with <code class='flag'>--fat_apk_cpu</code>. The <code>.so</code> file's name
+  prefixes the name of the <code>android_binary</code> rule with "lib". For example, if the name of
+  the <code>android_binary</code> is "foo", then the file is <code>libfoo.so</code>.
 </p>
   <p>
     One <code>.so</code> file will be created and packaged in the APK for
@@ -592,6 +652,10 @@ The default is <code>armeabi-v7a</code>.
     <a href='#flag--android_crosstool_top'><code class='flag'>--android_crosstool_top</code></a>
     or <a href='#flag--crosstool_top'><code class='flag'>--crosstool_top</code></a> flags.
   </p>
+
+
+<h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
+    <var>[+-]regex[,[+-]regex]...@option[,option]...</var></code></h4>
 </p>
 
 <h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
@@ -659,7 +723,7 @@ The default is <code>armeabi-v7a</code>.
   <li><code>default</code>: Allows bazel to choose whether to link dynamically.
       See <a href='be/c-cpp.html#cc_binary.linkstatic'>linkstatic</a> for more
       information.</li>
-  <li><code>fully</code>: Links all targets dynamically.  This will speed up
+  <li><code>fully</code>: Links all targets dynamically. This will speed up
       linking time, and reduce the size of the resulting binaries.
 
   </li>
@@ -740,7 +804,7 @@ The default is <code>armeabi-v7a</code>.
 <h4 id='flag--apple_crosstool_top'><code class='flag'>--apple_crosstool_top <var>label</var></code></h4>
 <p>
   The crosstool to use for compiling C/C++ rules in the transitive <code>deps</code> of
-  objc_*, ios__*, and apple_* rules.  For those targets, this flag overwrites
+  objc_*, ios__*, and apple_* rules. For those targets, this flag overwrites
   <code class='flag'>--crosstool_top</code>.
 </p>
 
@@ -811,7 +875,7 @@ The default is <code>armeabi-v7a</code>.
 <p>
   These options affect how Bazel will execute the build.
   They should not have any significant effect on the output files
-  generated by the build.  Typically their main effect is on the
+  generated by the build. Typically their main effect is on the
   speed on the build.
 </p>
 
@@ -903,7 +967,7 @@ other flags for specifying strategy.
   by Bazel's scheduler, which tries to avoid running concurrent jobs
   that will use up more resources (RAM or CPU) than are available,
   based on some (very crude) estimates of the resource consumption
-  of each job.  The behavior of the scheduler can be controlled by
+  of each job. The behavior of the scheduler can be controlled by
   the <code class='flag'>--local_ram_resources</code> option.
 </p>
 
@@ -911,7 +975,7 @@ other flags for specifying strategy.
 <p>
 
   Bazel periodically prints a progress report on jobs that are not
-  finished yet (e.g. long running tests).  This option sets the
+  finished yet (e.g. long running tests). This option sets the
   reporting frequency, progress will be printed every <code>n</code>
   seconds.
 </p>
@@ -926,7 +990,7 @@ other flags for specifying strategy.
 <p>
   These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
   that Bazel can take into consideration when scheduling build and test activities. They take
-  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<float>float</float>]
+  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
   (for example, <code class='flag'>--local_cpu_resources=2</code>,
   <code class='flag'>--local_ram_resources=HOST_RAM*.5</code>,
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
@@ -946,15 +1010,15 @@ other flags for specifying strategy.
 
 <p>
   When tests (or applications) are executed, their run-time data
-  dependencies are gathered together in one place.  Within Bazel's
+  dependencies are gathered together in one place. Within Bazel's
   output tree, this "runfiles" tree is typically rooted as a sibling of
   the corresponding binary or test.
   During test execution, runfiles may be accessed using paths of the form
   <code>$TEST_SRCDIR/workspace/<var>packagename</var>/<var>filename</var></code>.
   The runfiles tree ensures that tests have access to all the files
-  upon which they have a declared dependence, and nothing more.  By
+  upon which they have a declared dependence, and nothing more. By
   default, the runfiles tree is implemented by constructing a set of
-  symbolic links to the required files.  As the set of links grows, so
+  symbolic links to the required files. As the set of links grows, so
   does the cost of this operation, and for some large builds it can
   contribute significantly to overall build time, particularly because
   each individual test (or application) requires its own runfiles tree.
@@ -983,8 +1047,8 @@ memory-saving mode</a>.
 <h4 id='flag--keep_going'><code class='flag'>--[no]keep_going</code>  (-k)</h4>
 <p>
   As in GNU Make, the execution phase of a build stops when the first
-  error is encountered.  Sometimes it is useful to try to build as
-  much as possible even in the face of errors.  This option enables
+  error is encountered. Sometimes it is useful to try to build as
+  much as possible even in the face of errors. This option enables
   that behavior, and when it is specified, the build will attempt to
   build every target whose prerequisites were successfully built, but
   will ignore errors.
@@ -1007,7 +1071,7 @@ memory-saving mode</a>.
   <code>java_library</code> targets, Bazel will create interface jars
   that contain only the signatures of non-private members (public,
   protected, and default (package) access methods and fields) and use
-  the interface jars to compile the dependent targets.  This makes it
+  the interface jars to compile the dependent targets. This makes it
   possible to avoid recompilation when changes are only made to
   method bodies or private members of a class.
 </p>
@@ -1041,7 +1105,7 @@ memory-saving mode</a>.
 <h4 id="nobuild"><code class='flag'>--[no]build</code></h4>
 <p>
   This option causes the execution phase of the build to occur; it is
-  on by default.  When it is switched off, the execution phase is
+  on by default. When it is switched off, the execution phase is
   skipped, and only the first two phases, loading and analysis, occur.
 </p>
 <p>
@@ -1068,10 +1132,10 @@ memory-saving mode</a>.
 <h4 id='flag--check_up_to_date'><code class='flag'>--[no]check_up_to_date</code></h4>
 <p>
   This option causes Bazel not to perform a build, but merely check
-  whether all specified targets are up-to-date.  If so, the build
-  completes successfully, as usual.  However, if any files are out of
+  whether all specified targets are up-to-date. If so, the build
+  completes successfully, as usual. However, if any files are out of
   date, instead of being built, an error is reported and the build
-  fails.  This option may be useful to determine whether a build has
+  fails. This option may be useful to determine whether a build has
   been performed more recently than a source edit (e.g. for pre-submit
   checks) without incurring the cost of a build.
 </p>
@@ -1081,10 +1145,10 @@ memory-saving mode</a>.
 
 <h4 id='flag--compile_one_dependency'><code class='flag'>--[no]compile_one_dependency</code></h4>
 <p>
-  Compile a single dependency of the argument files.  This is useful for
+  Compile a single dependency of the argument files. This is useful for
   syntax checking source files in IDEs, for example, by rebuilding a single
   target that depends on the source file to detect errors as early as
-  possible in the edit/build/test cycle.  This argument affects the way all
+  possible in the edit/build/test cycle. This argument affects the way all
   non-flag arguments are interpreted: for each source filename, one
   rule that depends on it will be built. For
 
@@ -1099,13 +1163,13 @@ memory-saving mode</a>.
 <p>
   The <code class='flag'>--save_temps</code> option causes temporary outputs from the compiler to be
   saved. These include .s files (assembler code), .i (preprocessed C) and .ii
-  (preprocessed C++) files.  These outputs are often useful for debugging. Temps will only be
+  (preprocessed C++) files. These outputs are often useful for debugging. Temps will only be
   generated for the set of targets specified on the command line.
 </p>
 <p>
   Note that our implementation of <code class='flag'>--save_temps</code> does not use the compiler's
-  <code>-save-temps</code> flag.  Instead, we do two passes, one with <code>-S</code>
-  and one with <code>-E</code>.  A consequence of this is that if your build fails,
+  <code>-save-temps</code> flag. Instead, we do two passes, one with <code>-S</code>
+  and one with <code>-E</code>. A consequence of this is that if your build fails,
   Bazel may not yet have produced the ".i" or ".ii" and ".s" files.
   If you're trying to use <code class='flag'>--save_temps</code> to debug a failed compilation,
   you may need to also use <code class='flag'>--keep_going</code> so that Bazel will still try to
@@ -1190,7 +1254,7 @@ memory-saving mode</a>.
   tag.
 </p>
 <p>
-  By default, test tag filtering is not applied.  Note that you can also filter
+  By default, test tag filtering is not applied. Note that you can also filter
   on test's <code>size</code> and <code>local</code> tags in
   this manner.
 </p>
@@ -1200,7 +1264,7 @@ memory-saving mode</a>.
   Specifies a comma-separated list of test languages for languages with an official <code>*_test</code> rule the
   (see <a href="be/overview.html">build encyclopedia</a> for a full list of these). Each
   language can be optionally preceded with '-' to specify excluded
-  languages.  The name used for each language should be the same as
+  languages. The name used for each language should be the same as
   the language prefix in the <code>*_test</code> rule, for example,
   <code>cc</code>, <code>java</code> or <code>sh</code>.
 </p>
@@ -1255,14 +1319,14 @@ either to the terminal, or to additional log files.
   This option, which requires a filename argument, causes the
   dependency checker in <code>bazel build</code>'s execution phase to
   explain, for each build step, either why it is being executed, or
-  that it is up-to-date.  The explanation is written
+  that it is up-to-date. The explanation is written
   to <i>logfile</i>.
 </p>
 <p>
   If you are encountering unexpected rebuilds, this option can help to
-  understand the reason.  Add it to your <code>.bazelrc</code> so that
+  understand the reason. Add it to your <code>.bazelrc</code> so that
   logging occurs for all subsequent builds, and then inspect the log
-  when you see an execution step executed unexpectedly.  This option
+  when you see an execution step executed unexpectedly. This option
   may carry a small performance penalty, so you might want to remove
   it when it is no longer needed.
 </p>
@@ -1300,13 +1364,13 @@ either to the terminal, or to additional log files.
 <h4 id='flag--show_loading_progress'><code class='flag'>--[no]show_loading_progress</code></h4>
 <p>
   This option causes Bazel to output package-loading progress
-  messages.  If it is disabled, the messages won't be shown.
+  messages. If it is disabled, the messages won't be shown.
 </p>
 
 <h4 id='flag--show_progress'><code class='flag'>--[no]show_progress</code></h4>
 <p>
   This option causes progress messages to be displayed; it is on by
-  default.  When disabled, progress messages are suppressed.
+  default. When disabled, progress messages are suppressed.
 </p>
 
 <h4 id='flag--show_progress_rate_limit'><code class='flag'>--show_progress_rate_limit
@@ -1322,21 +1386,21 @@ either to the terminal, or to additional log files.
 <h4 id='flag--show_result'><code class='flag'>--show_result <var>n</var></code></h4>
 <p>
   This option controls the printing of result information at the end
-  of a <code>bazel build</code> command.  By default, if a single
+  of a <code>bazel build</code> command. By default, if a single
   build target was specified, Bazel prints a message stating whether
   or not the target was successfully brought up-to-date, and if so,
-  the list of output files that the target created.  If multiple
+  the list of output files that the target created. If multiple
   targets were specified, result information is not displayed.
 </p>
 <p>
   While the result information may be useful for builds of a single
   target or a few targets, for large builds (e.g. an entire top-level
   project tree), this information can be overwhelming and distracting;
-  this option allows it to be controlled.  <code class='flag'>--show_result</code>
+  this option allows it to be controlled. <code class='flag'>--show_result</code>
   takes an integer argument, which is the maximum number of targets
-  for which full result information should be printed.  By default,
-  the value is 1.  Above this threshold, no result information is
-  shown for individual targets.  Thus zero causes the result
+  for which full result information should be printed. By default,
+  the value is 1. Above this threshold, no result information is
+  shown for individual targets. Thus zero causes the result
   information to be suppressed always, and a very large value causes
   the result to be printed always.
 </p>
@@ -1345,14 +1409,14 @@ either to the terminal, or to additional log files.
   alternate between building a small group of targets (for example,
   during the compile-edit-test cycle) and a large group of targets
   (for example, when establishing a new workspace or running
-  regression tests).  In the former case, the result information is
-  very useful whereas in the latter case it is less so.  As with all
+  regression tests). In the former case, the result information is
+  very useful whereas in the latter case it is less so. As with all
   options, this can be specified implicitly via
   the <a href='guide.html#bazelrc'><code>.bazelrc</code></a> file.
 </p>
 <p>
   The files are printed so as to make it easy to copy and paste the
-  filename to the shell, to run built executables.  The "up-to-date"
+  filename to the shell, to run built executables. The "up-to-date"
   or "failed" messages for each target can be easily parsed by scripts
   which drive a build.
 </p>
@@ -1392,7 +1456,7 @@ either to the terminal, or to additional log files.
 <h4 id='flag--verbose_failures'><code class='flag'>--verbose_failures</code></h4>
 <p>
   This option causes Bazel's execution phase to print the full command line
-  for commands that failed.  This can be invaluable for debugging a
+  for commands that failed. This can be invaluable for debugging a
   failing build.
 </p>
 <p>
@@ -1594,9 +1658,9 @@ echo "STABLE_USER_NAME $USER"
 </p>
 <p>
   If the symbolic links cannot be created for any reason, a warning is
-  issued but the build is still considered a success.  In particular,
+  issued but the build is still considered a success. In particular,
   this allows you to build in a read-only directory or one that you have no
-  permission to write into.  Any paths printed in informational
+  permission to write into. Any paths printed in informational
   messages at the conclusion of a build will only use the
   symlink-relative short form if the symlinks point to the expected
   location; in other words, you can rely on the correctness of those
@@ -1613,7 +1677,7 @@ echo "STABLE_USER_NAME $USER"
       create or update any symlinks, including the <code>bazel-out</code> and
 
       <code>bazel-&lt;workspace&gt;</code>
-      symlinks.  Use this option to suppress symlink creation entirely.
+      symlinks. Use this option to suppress symlink creation entirely.
     </p>
   </li>
   <li>
@@ -1635,13 +1699,13 @@ echo "STABLE_USER_NAME $USER"
 
 <h4 id='flag--default_visibility'><code class='flag'>--default_visibility=<var>(private|public)</var></code></h4>
 <p>
-  Temporary flag for testing bazel default visibility changes.  Not intended for general use
+  Temporary flag for testing bazel default visibility changes. Not intended for general use
   but documented for completeness' sake.
 </p>
 
 <h4 id='flag--use_action_cache'><code class='flag'>--[no]use_action_cache</code></h4>
 <p>
-    This option is enabled by default.  If disabled, Bazel will not use its local action cache.
+    This option is enabled by default. If disabled, Bazel will not use its local action cache.
     Disabling the local action cache saves memory and disk space for clean builds, but will make
     incremental builds slower.
 </p>
@@ -1682,7 +1746,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
 <p>
   Bazel is used both by software engineers during the development
   cycle, and by release engineers when preparing binaries for deployment
-  to production.  This section provides a list of tips for release
+  to production. This section provides a list of tips for release
   engineers using Bazel.
 
 </p>
@@ -1710,7 +1774,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
   <li><a href='#flag--symlink_prefix'><code class='flag'>--symlink_prefix</code></a>:
     for managing builds for multiple configurations,
     it may be convenient to distinguish each build
-    with a distinct identifier, e.g. "64bit" vs. "32bit".  This option
+    with a distinct identifier, e.g. "64bit" vs. "32bit". This option
     differentiates the <code>bazel-bin</code> (etc.) symlinks.
   </li>
 </ul>
@@ -1770,7 +1834,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
 <h4 id="flag--check_tests_up_to_date"><code class='flag'>--check_tests_up_to_date</code></h4>
 <p>
   This option tells Bazel not to run the tests, but to merely check and report
-  the cached test results.  If there are any tests which have not been
+  the cached test results. If there are any tests which have not been
   previously built and run, or whose tests results are out-of-date (e.g. because
   the source code or the build options have changed), then Bazel will report
   an error message ("test result is not up-to-date"), will record the test's
@@ -1788,7 +1852,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
 <h4 id="flag--test_verbose_timeout_warnings"><code class='flag'>--test_verbose_timeout_warnings</code></h4>
 <p>
   This option tells Bazel to explicitly warn the user if a test's timeout is
-significantly longer than the test's actual execution time.  While a test's
+significantly longer than the test's actual execution time. While a test's
 timeout should be set such that it is not flaky, a test that has a highly
 over-generous timeout can hide real problems that crop up unexpectedly.
 </p>
@@ -1801,7 +1865,7 @@ a timeout of ETERNAL or LONG as these are much, much too generous.
 </p>
 <p>
 Note that each test shard is allotted the timeout of the entire
-<code>XX_test</code> target.  Using this option does not affect a test's timeout
+<code>XX_test</code> target. Using this option does not affect a test's timeout
 value, merely warns if Bazel thinks the timeout could be restricted further.
 </p>
 
@@ -1964,7 +2028,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
 <p>
   Tests which explicitly state their timeout category as distinct from their
   size will receive the same value as if that timeout had been implicitly set by
-  the size tag.  So a test of size 'small' which declares a 'long' timeout will
+  the size tag. So a test of size 'small' which declares a 'long' timeout will
   have the same effective timeout that a 'large' tests has with no explicit
   timeout.
 </p>
@@ -1995,7 +2059,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
 <h4 id="flag--run_under"><code class='flag'>--run_under=<var>command-prefix</var></code></h4>
 <p>
   This specifies a prefix that the test runner will insert in front
-  of the test command before running it.  The
+  of the test command before running it. The
   <var>command-prefix</var> is split into words using Bourne shell
   tokenization rules, and then the list of words is prepended to the
   command that will be executed.
@@ -2097,7 +2161,7 @@ Examples:
 </p>
 <p>
   Bazel's design is such that these problems are fixable; we consider
-  such bugs a high priority, and will do our best fix them.  If you
+  such bugs a high priority, and will do our best fix them. If you
   ever find an incorrect incremental build, please file a bug report.
   We encourage developers to get out of the habit of
   using <code>clean</code> and into that of reporting bugs in the
@@ -2108,7 +2172,7 @@ Examples:
 <h2 id='run'>Running executables</h2>
 <p>
   The <code>bazel run</code> command is similar to <code>bazel build</code>, except
-  it is used to build <em>and run</em> a single target.  Here is a typical session:
+  it is used to build <em>and run</em> a single target. Here is a typical session:
 </p>
 <pre>
   % bazel run -- java/myapp:myapp --arg1 --arg2
@@ -2130,7 +2194,7 @@ Examples:
 </pre>
 
 <p>
-  Note the use of the <code>--</code>.  This is needed so that Bazel
+  Note the use of the <code>--</code>. This is needed so that Bazel
   does not interpret <code>--arg1</code> and <code>--arg2</code> as
   Bazel options, but rather as part of the command line for running the binary.
   (The program being run simply says hello and prints out its args.)
@@ -2190,7 +2254,7 @@ a user-friendly way.
 
 <p>
   Bazel includes a query language for asking questions about the
-  dependency graph used during the build.  The query language is used
+  dependency graph used during the build. The query language is used
   by two commands: query and cquery. The major difference between the
   two commands is that query runs after the <a href='guide.html#loading-phase'>loading phase</a>
   and cquery runs after the <a href='guide.html#analysis-phase'>analysis phase</a>. These tools are an
@@ -2207,7 +2271,7 @@ a user-friendly way.
 
 <p>
   The query tool accepts several command-line
-  option.  <code class='flag'>--output</code> selects the output format.
+  option. <code class='flag'>--output</code> selects the output format.
   <code class='flag'>--[no]keep_going</code> (disabled by default) causes the query
   tool to continue to make progress upon errors; this behavior may be
   disabled if an incomplete result is not acceptable in case of errors.
@@ -2266,11 +2330,11 @@ a user-friendly way.
 <h3 id='help'><code>help</code></h3>
 
 <p>
-  The <code>help</code> command provides on-line help.  By default, it
+  The <code>help</code> command provides on-line help. By default, it
   shows a summary of available commands and help topics, as shown in
   the <a href='guide.html#overview'><i>Bazel overview</i></a> section above.
   Specifying an argument displays detailed help for a particular
-  topic.  Most topics are Bazel commands, e.g. <code>build</code>
+  topic. Most topics are Bazel commands, e.g. <code>build</code>
   or <code>query</code>, but there are some additional help topics
   that do not correspond to commands.
 </p>
@@ -2278,7 +2342,7 @@ a user-friendly way.
 <h4 id='flag--long'><code class='flag'>--[no]long</code> (<code>-l</code>)</h4>
 <p>
   By default, <code>bazel help [<var>topic</var>]</code> prints only a
-  summary of the relevant options for a topic.  If
+  summary of the relevant options for a topic. If
   the <code class='flag'>--long</code> option is specified, the type, default value
   and full description of each option is also printed.
 </p>
@@ -2288,7 +2352,7 @@ a user-friendly way.
 <p>
   Bazel server processes (see <a href='guide.html#client/server'>Client/server
   implementation</a>) may be stopped by using the <code>shutdown</code>
-  command.  This command causes the Bazel server to exit as soon as it
+  command. This command causes the Bazel server to exit as soon as it
   becomes idle (i.e. after the completion of any builds or other
   commands that are currently in progress).
 
@@ -2299,8 +2363,8 @@ a user-friendly way.
 <p>
   <code>shutdown</code> accepts one
   option, <code class='flag'>--iff_heap_size_greater_than <i>n</i></code>, which
-  requires an integer argument (in MB).  If specified, this makes the shutdown
-  conditional on the amount of memory already consumed.  This is
+  requires an integer argument (in MB). If specified, this makes the shutdown
+  conditional on the amount of memory already consumed. This is
   useful for scripts that initiate a lot of builds, as any memory
   leaks in the Bazel server could cause it to crash spuriously on
   occasion; performing a conditional restart preempts this condition.
@@ -2318,7 +2382,7 @@ a user-friendly way.
   The <code>info</code> command also permits a single (optional)
   argument, which is the name of one of the keys in the list below.
   In this case, <code>bazel info <var>key</var></code> will print only
-  the value for that one key.  (This is especially convenient when
+  the value for that one key. (This is especially convenient when
   scripting Bazel, as it avoids the need to pipe the result
   through <code>sed -ne /key:/s/key://p</code>:
 </p>
@@ -2376,7 +2440,7 @@ a user-friendly way.
   <li><code>used-heap-size</code>,
       <code>committed-heap-size</code>,
       <code>max-heap-size</code>: reports various JVM heap size
-    parameters.  Respectively: memory currently used, memory currently
+    parameters. Respectively: memory currently used, memory currently
     guaranteed to be available to the JVM from the system, maximum
     possible allocation.
   </li>
@@ -2402,7 +2466,7 @@ a user-friendly way.
   These data may be affected by the configuration options passed
   to <code>bazel info</code>, for
   example <code class='flag'>--cpu</code>, <code class='flag'>--compilation_mode</code>,
-  etc.  The <code>info</code> command accepts all
+  etc. The <code>info</code> command accepts all
   the <a href='#analysis-options'>options that control dependency
   analysis</a>, since some of these determine the location of the
   output directory of a build, the choice of compiler, etc.
@@ -2443,7 +2507,7 @@ a user-friendly way.
 
 <p>
   Example: the <code>bazel-bin</code> output directory for the current
-  configuration.  This is guaranteed to be correct even in cases where
+  configuration. This is guaranteed to be correct even in cases where
   the <code>bazel-bin</code> symlink cannot be created for some reason
   (e.g. you are building from a read-only directory).
 </p>
@@ -2530,15 +2594,19 @@ a user-friendly way.
 <h4 id='flag--start'><code class='flag'>--start=<i>start_type</i></code></h4>
 <p>
   How the app should be started after installing it. Supported <i>start_type</i>s are:
-  <ul>
-    <li><code>NO</code> Does not start the app. This is the default.</li>
-    <li><code>COLD</code> Starts the app from a clean state after install.</li>
-    <li><code>WARM</code> Preserves and restores the application state on incremental installs.</li>
-    <li><code>DEBUG</code> Waits for the debugger before starting the app in a clean state after install.</li>
-  </ul>
+</p>
+<ul>
+  <li><code>NO</code> Does not start the app. This is the default.</li>
+  <li><code>COLD</code> Starts the app from a clean state after install.</li>
+  <li><code>WARM</code> Preserves and restores the application state on incremental installs.</li>
+  <li><code>DEBUG</code> Waits for the debugger before starting the app in a clean state after
+    install.
+  </li>
+</ul>
+<p>
   Note that if more than one of <code class='flag'>--start=<i>start_type</i></code>,
   <code class='flag'>--start_app</code> or
-  <code class='flag'>--debug_app</code> is set, the last value will be used.
+  <code class='flag'>--debug_app</code> is set, the last value is used.
 </p>
 <h4 id='flag--adb'><code class='flag'>--adb <var>path</var></code></h4>
 <p>
@@ -2548,18 +2616,20 @@ a user-friendly way.
   <a href='#flag--android_sdk'><code class='flag'>--android_sdk</code></a>.
 
 </p>
-<h4 id='flag--adb_arg'><code class='flag'>--adb_arg <var>arg</var></code></h4>
+<h4 id='flag--adb_arg'><code class='flag'>--adb_arg <var>serial</var></code></h4>
 <p>
   Extra arguments to <code>adb</code>. These come before the subcommand in the
   command line and are typically used to specify which device to install to.
   For example, to select the Android device or emulator to use:
+</p>
 <pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
 </pre>
-will invoke <code>adb</code> as
+<p>
+  invokes <code>adb</code> as
+</p>
 <pre>
 adb -s deadbeef install ...
 </pre>
-</p>
 <h4 id='flag--incremental_install_verbosity'><code class='flag'>--incremental_install_verbosity <var>number</var></code></h4>
 <p>
   The verbosity for incremental install. Set to 1 for debug logging to be
@@ -2571,7 +2641,7 @@ adb -s deadbeef install ...
 
 <p>
   The <code>dump</code> command prints to stdout a dump of the
-  internal state of the Bazel server.  This command is intended
+  internal state of the Bazel server. This command is intended
   primarily for use by Bazel developers, so the output of this command
   is not specified, and is subject to change.
 </p>
@@ -2592,8 +2662,9 @@ adb -s deadbeef install ...
     including counts and action counts. This includes both native and Starlark rules.
     If memory tracking is enabled, then the rules' memory consumption is also printed.</li>
   <li><code class='flag'>--skylark_memory</code> dumps a
-    <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
-    You must enable memory tracking for this to work.</li>
+    <a href=https://github.com/google/pprof>pprof</a> compatible .gz file to the specified path.
+    You must enable memory tracking for this to work.
+  </li>
   <li><code class='flag'>--action_graph=/path/to/file</code> dumps the state of
     the internal Bazel action graph in proto format to
     <code>/path/to/file</code>. You have to run (at least) the analysis phase
@@ -2713,9 +2784,9 @@ adb -s deadbeef install ...
 <h4 id='flag--output_base'><code class='flag'>--output_base=<var>dir</var></code></h4>
 <p>
   This option requires a path argument, which must specify a
-  writable directory.  Bazel will use this location to write all its
-  output.  The output base is also the key by which the client locates
-  the Bazel server.  By changing the output base, you change the server
+  writable directory. Bazel will use this location to write all its
+  output. The output base is also the key by which the client locates
+  the Bazel server. By changing the output base, you change the server
   which will handle the command.
 </p>
 <p>
@@ -2727,7 +2798,7 @@ adb -s deadbeef install ...
   Note that the client uses the output base to find the Bazel server
   instance, so if you specify a different output base in a Bazel
   command, a different server will be found (or started) to handle the
-  request.  It's possible to perform two concurrent builds in the same
+  request. It's possible to perform two concurrent builds in the same
   workspace directory by varying the output base.
 </p>
 
@@ -2801,7 +2872,7 @@ adb -s deadbeef install ...
 <h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>
 <p>
   Specifies a startup option to be passed to the Java virtual machine in which <i>Bazel itself</i>
-  runs.  This can be used to set the stack size, for example:
+  runs. This can be used to set the stack size, for example:
 </p>
 <pre>
   % bazel --host_jvm_args="-Xss256K" build //foo
@@ -2815,12 +2886,12 @@ adb -s deadbeef install ...
 </p>
 <p>
   That this does <i>not</i> affect any JVMs used by
-  subprocesses of Bazel: applications, tests, tools, and so on.  To pass
+  subprocesses of Bazel: applications, tests, tools, and so on. To pass
   JVM options to executable Java programs, whether run by <code>bazel
   run</code> or on the command-line, you should use
   the <code>--jvm_flags</code> argument which
   all <code>java_binary</code> and <code>java_test</code> programs
-  support.  Alternatively for tests, use <code>bazel
+  support. Alternatively for tests, use <code>bazel
   test --test_arg=--jvm_flags=foo ...</code>.
 </p>
 
@@ -2828,7 +2899,7 @@ adb -s deadbeef install ...
 <p>
   This option causes the Java virtual machine to wait for a connection
   from a JDWP-compliant debugger before
-  calling the main method of <i>Bazel itself</i>.  This is primarily
+  calling the main method of <i>Bazel itself</i>. This is primarily
   intended for use by Bazel developers.
 </p>
 <p>
@@ -2883,7 +2954,7 @@ adb -s deadbeef install ...
 <h4 id='flag--max_idle_secs'><code class='flag'>--max_idle_secs <var>n</var></code></h4>
 <p>
   This option specifies how long, in seconds, the Bazel server process
-  should wait after the last client request, before it exits.  The
+  should wait after the last client request, before it exits. The
   default value is 10800 (3 hours). <code class='flag'>--max_idle_secs=0</code> will cause the
   Bazel server process to persist indefinitely. <i>NOTE:</i> this flag is only read if Bazel needs
   to start a new server. Changing this option will not cause the server to restart.
@@ -2894,7 +2965,7 @@ adb -s deadbeef install ...
   would not be running otherwise.
   For example, a presubmit script might wish to
   invoke <code>bazel query</code> to ensure that a user's pending
-  change does not introduce unwanted dependencies.  However, if the
+  change does not introduce unwanted dependencies. However, if the
   user has not done a recent build in that workspace, it would be
   undesirable for the presubmit script to start a Bazel server just
   for it to remain idle for the rest of the day.
@@ -2902,7 +2973,7 @@ adb -s deadbeef install ...
   query request, the script can ensure that <i>if</i> it caused a new
   server to start, that server will exit promptly, but if instead
   there was already a server running, that server will continue to run
-  until it has been idle for the usual time.  Of course, the existing
+  until it has been idle for the usual time. Of course, the existing
   server's idle timer will be reset.
 </p>
 <h4 id='flag--shutdown_on_low_sys_mem'><code class='flag'>--[no]shutdown_on_low_sys_mem</code></h4>
@@ -2971,7 +3042,7 @@ adb -s deadbeef install ...
  Selects additional config section from the rc files; for the current
  <code>command</code>, it also pulls in the options from
  <code>command:name</code> if such a section exists. Can be specified multiple
- times to add flags from several config sections.  Expansions can refer to other
+ times to add flags from several config sections. Expansions can refer to other
  definitions (i.e. expansions can be chained).
 </p>
 

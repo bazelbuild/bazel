@@ -3,7 +3,9 @@ layout: documentation
 title: Memory-saving Mode
 ---
 
-# Running Bazel with limited RAM
+# Running Bazel with Limited RAM
+
+This page describes how to use flags to run Bazel with limited RAM.
 
 In certain situations, you may want Bazel to use minimal memory. You can set the
 maximum heap via the startup flag

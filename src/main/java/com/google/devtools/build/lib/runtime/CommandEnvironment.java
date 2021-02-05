@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
+import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -50,6 +54,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.protobuf.Any;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -95,11 +100,13 @@ public class CommandEnvironment {
   private final PathFragment relativeWorkingDirectory;
   private final Duration waitTime;
   private final long commandStartTime;
+  private final ImmutableList<Any> commandExtensions;
 
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
+  @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
 
   // This AtomicReference is set to:
   //   - null, if neither BlazeModuleEnvironment#exit nor #precompleteCommand have been called
@@ -151,7 +158,8 @@ public class CommandEnvironment {
       OptionsParsingResult options,
       List<String> warnings,
       long waitTimeInMs,
-      long commandStartTime) {
+      long commandStartTime,
+      List<Any> commandExtensions) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -192,6 +200,7 @@ public class CommandEnvironment {
 
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
+    this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     // If this command supports --package_path we initialize the package locator scoped
     // to the command environment
     if (commandHasPackageOptions(command) && workspacePath != null) {
@@ -508,7 +517,7 @@ public class CommandEnvironment {
   }
 
   public void setWorkspaceName(String workspaceName) {
-    Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
+    checkState(this.workspaceName == null, "workspace name can only be set once");
     this.workspaceName = workspaceName;
     eventBus.post(new ExecRootEvent(getExecRoot()));
   }
@@ -570,6 +579,19 @@ public class CommandEnvironment {
   @VisibleForTesting
   public void setOutputServiceForTesting(@Nullable OutputService outputService) {
     this.outputService = outputService;
+  }
+
+  /**
+   * Returns workspace information obtained from the {@linkplain
+   * com.google.devtools.build.lib.skyframe.DiffAwareness.View#getWorkspaceInfo() diff} or null.
+   *
+   * <p>We store workspace info as an optimization to allow sharing of information about the
+   * workspace if it was derived from the diff at the time of synchronizing the workspace. This way
+   * we can make it available earlier during the build and avoid retrieving it again.
+   */
+  @Nullable
+  public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
+    return workspaceInfoFromDiff;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
@@ -670,16 +692,17 @@ public class CommandEnvironment {
           "We should never call this method more than once over the course of a single command");
     }
     hasSyncedPackageLoading = true;
-    getSkyframeExecutor()
-        .sync(
-            reporter,
-            options.getOptions(PackageOptions.class),
-            packageLocator,
-            options.getOptions(BuildLanguageOptions.class),
-            getCommandId(),
-            clientEnv,
-            timestampGranularityMonitor,
-            options);
+    workspaceInfoFromDiff =
+        getSkyframeExecutor()
+            .sync(
+                reporter,
+                options.getOptions(PackageOptions.class),
+                packageLocator,
+                options.getOptions(BuildLanguageOptions.class),
+                getCommandId(),
+                clientEnv,
+                timestampGranularityMonitor,
+                options);
   }
 
   public void recordLastExecutionTime() {
@@ -786,5 +809,16 @@ public class CommandEnvironment {
       }
       return fileCache;
     }
+  }
+
+  /**
+   * Returns the {@linkplain
+   * com.google.devtools.build.lib.server.CommandProtos.RunRequest#getCommandExtensions extensions}
+   * passed to the server for this command.
+   *
+   * <p>Extensions are arbitrary messages containing additional per-command information.
+   */
+  public ImmutableList<Any> getCommandExtensions() {
+    return commandExtensions;
   }
 }

@@ -3,7 +3,7 @@ layout: documentation
 title: Building with platforms
 ---
 
-# Building with platforms
+# Building with Platforms
 
 
 Bazel has sophisticated support for modeling [platforms][Platforms] and
@@ -259,15 +259,17 @@ still configure C++ dependencies with `--cpu` and `--crosstool_top`
 it requires adding platform support for Android and iOS.
 
 ### Java
-Bazel's Java rules use platforms to select toolchains.
+
+Bazel's Java rules use platforms and configuration flags to select toolchains.
 
 This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
 `--javabase`, and `--host_javabase`.
 
-[PR #8](https://github.com/bazelbuild/rules_java/pull/8) defines the Java-specific
-`constraint_value`s, toolchains, and other settings that make migration
-practical. This mode will be enabled by default after those changes are
-committed.
+To learn how to use the configuration flags, see the [Bazel and Java](bazel-and-java.md) manual.
+For additional information, see the [Design document](https://docs.google.com/document/d/1MVbBxbKVKRJJY7DnkptHpvz7ROhyAYy4a-TZ-n7Q0r4).
+
+If you are still using legacy flags, follow the migration process in [Issue #7849](https://github.com/bazelbuild/bazel/issues/7849).
+-->
 
 ### Android
 Bazel's Android rules do not yet support platforms to select Android toolchains.

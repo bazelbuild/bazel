@@ -61,7 +61,6 @@ java_library(
         "SkyframeAnalysisResult.java",
         "SkyframeBuildView.java",
         "SkyframeDependencyResolver.java",
-        "SkyframeEvalWithOrderedListAEFDelegator.java",
         "SkyframeExecutor.java",
         "SkyframeExecutorFactory.java",
         "SkyframeExecutorWrappingWalkableGraph.java",
@@ -158,6 +157,7 @@ java_library(
         ":local_repository_lookup_value",
         ":managed_directories_knowledge",
         ":map_as_package_roots",
+        ":metadata_consumer_for_metrics",
         ":output_store",
         ":package_error_function",
         ":package_error_message_function",
@@ -189,7 +189,6 @@ java_library(
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":skyframe_aware_action",
-        ":skyframe_experimental_options",
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
         ":starlark_builtins_value",
@@ -215,6 +214,7 @@ java_library(
         ":tree_artifact_value",
         ":unloaded_toolchain_context",
         ":unloaded_toolchain_context_impl",
+        ":workspace_info",
         ":workspace_name_function",
         ":workspace_name_value",
         ":workspace_status_function",
@@ -227,6 +227,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -236,6 +237,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
@@ -418,6 +420,7 @@ java_library(
     deps = [
         ":action_execution_value",
         ":aggregating_artifact_value",
+        ":metadata_consumer_for_metrics",
         ":runfiles_artifact_value",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -766,6 +769,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -779,6 +783,7 @@ java_library(
         ":action_template_expansion_value",
         ":aggregating_artifact_value",
         ":coverage_report_value",
+        ":metadata_consumer_for_metrics",
         ":recursive_filesystem_traversal",
         ":runfiles_artifact_value",
         ":track_source_directories_flag",
@@ -809,7 +814,6 @@ java_library(
     deps = [
         ":artifact_nested_set_key",
         ":artifact_nested_set_value",
-        ":skyframe_experimental_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -1080,6 +1084,7 @@ java_library(
     name = "collect_packages_under_directory_value",
     srcs = ["CollectPackagesUnderDirectoryValue.java"],
     deps = [
+        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1282,6 +1287,7 @@ java_library(
     deps = [
         ":broken_diff_awareness_exception",
         ":incompatible_view_exception",
+        ":workspace_info",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:jsr305",
@@ -1295,6 +1301,7 @@ java_library(
         ":broken_diff_awareness_exception",
         ":diff_awareness",
         ":incompatible_view_exception",
+        ":workspace_info",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -1361,7 +1368,10 @@ java_library(
 java_library(
     name = "execution_finished_event",
     srcs = ["ExecutionFinishedEvent.java"],
-    deps = ["//third_party:auto_value"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:auto_value",
+    ],
 )
 
 java_library(
@@ -1575,6 +1585,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -1661,9 +1672,22 @@ java_library(
     name = "map_as_package_roots",
     srcs = ["MapAsPackageRoots.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "metadata_consumer_for_metrics",
+    srcs = ["MetadataConsumerForMetrics.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//third_party:guava",
     ],
 )
@@ -1802,7 +1826,7 @@ java_library(
     name = "package_roots_no_symlink_creation",
     srcs = ["PackageRootsNoSymlinkCreation.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
@@ -1891,7 +1915,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -2009,6 +2032,7 @@ java_library(
     name = "prepare_test_suites_under_directory_value",
     srcs = ["PrepareTestSuitesUnderDirectoryValue.java"],
     deps = [
+        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2140,6 +2164,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
@@ -2195,6 +2220,7 @@ java_library(
     name = "recursive_pkg_value",
     srcs = ["RecursivePkgValue.java"],
     deps = [
+        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2217,9 +2243,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )
@@ -2274,6 +2302,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -2373,6 +2402,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -2772,6 +2802,11 @@ java_library(
 )
 
 java_library(
+    name = "workspace_info",
+    srcs = ["WorkspaceInfoFromDiff.java"],
+)
+
+java_library(
     name = "workspace_name_function",
     srcs = ["WorkspaceNameFunction.java"],
     deps = [
@@ -2828,9 +2863,4 @@ java_library(
 java_library(
     name = "already_reported_exception",
     srcs = ["AlreadyReportedException.java"],
-)
-
-java_library(
-    name = "skyframe_experimental_options",
-    srcs = ["SkyframeExperimentalOptions.java"],
 )

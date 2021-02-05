@@ -55,14 +55,16 @@ EOF
   assert_contains "local:" output1
   assert_contains "no-cache:" output1
   assert_contains "no-remote:" output1
+  if [ "${PLATFORM}" != "darwin" ]; then
+    # Darwin does not support implicit "nodeps" shared libraries.
+    bazel aquery --experimental_allow_tags_propagation 'mnemonic("CppLink", outputs(".*/libtest.so", //test:test))' > output1 2> $TEST_log \
+        || fail "should have generated output successfully"
 
-  bazel aquery --experimental_allow_tags_propagation 'mnemonic("CppLink", outputs(".*/libtest.so", //test:test))' > output1 2> $TEST_log \
-      || fail "should have generated output successfully"
-
-  assert_contains "ExecutionInfo: {" output1
-  assert_contains "local:" output1
-  assert_contains "no-cache:" output1
-  assert_contains "no-remote:" output1
+    assert_contains "ExecutionInfo: {" output1
+    assert_contains "local:" output1
+    assert_contains "no-cache:" output1
+    assert_contains "no-remote:" output1
+  fi
 }
 
 function test_cc_binary_tags_propagated() {

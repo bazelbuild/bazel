@@ -3,7 +3,7 @@ layout: documentation
 title: Debugging remote cache hits for local execution
 ---
 
-# Debugging remote cache hits for local execution
+# Debugging Remote Cache Hits for Local Execution
 
 This page describes how to investigate cache misses in the context of local
 execution.

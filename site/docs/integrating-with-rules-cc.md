@@ -3,11 +3,11 @@ layout: documentation
 title: Integrating with C++ rules
 ---
 
-# Integrating with C++ rules
+# Integrating with C++ Rules
 
 This page describes how to integrate with C++ rules on various levels.
 
-# Accessing the C++ toolchain
+## Accessing the C++ toolchain
 
 Because of
 [ongoing migration of C++ rules](https://github.com/bazelbuild/bazel/issues/6516)
@@ -28,7 +28,7 @@ to get the
 A complete working example can be found
 [in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/write_cc_toolchain_cpu/write_cc_toolchain_cpu.bzl).
 
-# Generating command lines and environment variables using the C++ toolchain
+## Generating command lines and environment variables using the C++ toolchain
 
 Typically, you would integrate with the C++ toolchain to have the same
 command line flags as C++ rules do, but without using C++ actions directly.
@@ -56,7 +56,7 @@ eventually be removed.
 A complete working example can be found
 [in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/my_c_compile/my_c_compile.bzl).
 
-# Implementing Starlark rules that depend on C++ rules and/or that C++ rules can depend on
+## Implementing Starlark rules that depend on C++ rules and/or that C++ rules can depend on
 
 Most C++ rules provide
 [`CcInfo`](https://docs.bazel.build/versions/master/skylark/lib/CcInfo.html),
@@ -79,7 +79,7 @@ A complete working example can be found
 [in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/my_c_archive/my_c_archive.bzl).
 
 
-# Reusing logic and actions of C++ rules
+## Reusing logic and actions of C++ rules
 
 _Not stable yet, we will update this section once the API stabilizes. Follow
 [#4570](https://github.com/bazelbuild/bazel/issues/4570) for up to date

@@ -241,6 +241,11 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "this situation, the <code>DirectoryExpander</code> argument can be applied "
                     + "to manually obtain the files of a given directory."
                     + ""
+                    + "<p>To avoid unintended retention of large analysis-phase data structures "
+                    + "into the execution phase, the <code>map_each</code> function must be "
+                    + "declared by a top-level <code>def</code> statement; it may not be a "
+                    + "nested function closure."
+                    + ""
                     + "<p><i>Warning:</i> <a href='globals.html#print'><code>print()</code></a> "
                     + "statements that are executed during the call to <code>map_each</code> will "
                     + "not produce any visible output."),

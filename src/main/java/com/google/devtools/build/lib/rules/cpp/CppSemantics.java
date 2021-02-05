@@ -43,10 +43,14 @@ public interface CppSemantics {
 
   /** Determines the applicable mode of headers checking in Starlark. */
   HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContex, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
 
-  /** Returns the include processing closure, which handles include processing for this build */
-  IncludeProcessing getIncludeProcessing();
+  /**
+   * Returns if include scanning is allowed.
+   *
+   * <p>If false, {@link CppCompileActionBuilder#setShouldScanIncludes(boolean)} has no effect.
+   */
+  boolean allowIncludeScanning();
 
   /** Returns true iff this build should perform .d input pruning. */
   boolean needsDotdInputPruning(BuildConfiguration configuration);

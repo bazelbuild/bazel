@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>net.sf.proguard</groupId>
+    <artifactId>proguard-parent</artifactId>
+    <version>6.2.2</version>
+    <packaging>pom</packaging>
+    <name>[${project.groupId}] ${project.artifactId}</name>
+    <description>ProGuard is a free Java class file shrinker, optimizer, obfuscator, and preverifier.</description>
+    <url>https://www.guardsquare.com/proguard</url>
+
+    <prerequisites>
+        <maven>3</maven>
+    </prerequisites>
+
+    <developers>
+        <developer>
+            <id>lafortune</id>
+            <name>Eric Lafortune</name>
+            <url>https://www.guardsquare.com/proguard</url>
+            <organization>Guardsquare</organization>
+            <organizationUrl>https://www.guardsquare.com/</organizationUrl>
+            <roles>
+                <role>Project Administrator</role>
+                <role>Developer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <licenses>
+        <license>
+            <name>GNU General Public License, Version 2</name>
+            <url>https://www.gnu.org/licenses/gpl-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <issueManagement>
+        <system>SourceForge.net Tracker</system>
+        <url>https://sourceforge.net/p/proguard/bugs/</url>
+    </issueManagement>
+
+    <scm>
+        <url>https://hg.code.sf.net/p/proguard/code</url>
+        <connection>scm:hg:https://hg.code.sf.net/p/proguard/code</connection>
+    </scm>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.0.2</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.5.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.9.1</version>
+                <configuration>
+                    <links>
+                        <link>https://download.oracle.com/javase/1.5.0/docs/api/</link>
+                    </links>
+                    <quiet>true</quiet>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadoc</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <additionalparam>-Xdoclint:none</additionalparam>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <distributionManagement>
+        <repository>
+            <id>sonatype-nexus-staging</id>
+            <name>Nexus Release Repository</name>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
+    </distributionManagement>
+
+    <modules>
+        <module>../core</module>
+        <module>../retrace</module>
+        <module>../gui</module>
+        <module>../gradle</module>
+        <module>../ant</module>
+        <module>../annotations</module>
+    </modules>
+
+    <profiles>
+        <profile>
+            <id>__wtk_plugin_build__</id>
+            <activation>
+                <file>
+                    <exists>${wtk.home}/wtklib/kenv.zip</exists>
+                </file>
+            </activation>
+            <modules>
+                <module>../wtk</module>
+            </modules>
+        </profile>
+    </profiles>
+</project>

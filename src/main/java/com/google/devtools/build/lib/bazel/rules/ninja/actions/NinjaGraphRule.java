@@ -78,6 +78,15 @@ public class NinjaGraphRule implements RuleDefinition {
                         + " <execroot>/<output_root> will be a separate directory, not a"
                         + " symlink.</p>"))
         .add(
+            attr("output_root_input_dirs", STRING_LIST)
+                .value(ImmutableList.of())
+                .setDoc(
+                    "<p>Directory paths under output_root that contain files (and subdirectories"
+                        + " of files) to be used as inputs to the Ninja file.</p><p>For each child"
+                        + " path of an input directory which is referenced in the ninja file, an"
+                        + " action to symlink under <execroot>/<output_root> will be created by"
+                        + " this rule.</p>"))
+        .add(
             attr("working_directory", STRING)
                 .value("")
                 .setDoc(
@@ -92,7 +101,7 @@ public class NinjaGraphRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("ninja_graph")
         .type(RuleClassType.NORMAL)
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(NinjaGraph.class)
         .build();
   }

@@ -18,6 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -194,18 +194,14 @@ public class IncludeScanningModule extends BlazeModule {
               env.getDirectories(),
               env.getSkyframeBuildView().getArtifactFactory(),
               env.getExecRoot());
-      ImmutableMap.Builder<PathFragment, Artifact> pathToLegalOutputArtifact =
-          ImmutableMap.builder();
-      for (Artifact path : legalOutputPaths) {
-        pathToLegalOutputArtifact.put(path.getExecPath(), path);
-      }
       try {
         scanner.processAsync(
             source,
             ImmutableList.of(source),
             // For Swig include scanning just point to the output file in the map.
             new IncludeScanningHeaderData.Builder(
-                    pathToLegalOutputArtifact.build(), /*modularHeaders=*/ ImmutableSet.of())
+                    Maps.uniqueIndex(legalOutputPaths, Artifact::getExecPath),
+                    /*modularHeaders=*/ ImmutableSet.of())
                 .build(),
             ImmutableList.of(),
             includes,
@@ -219,17 +215,16 @@ public class IncludeScanningModule extends BlazeModule {
   }
 
   /**
-   * Lifecycle manager for the include scanner. Maintains a {@linkplain
-   * IncludeScanner.IncludeScannerSupplier supplier} which can be used to access the (potentially
-   * shared) scanners and exposes {@linkplain #getSwigActionContext() action} {@linkplain
-   * #getCppActionContext() contexts} based on them.
+   * Lifecycle manager for the include scanner. Maintains an {@linkplain IncludeScannerSupplier
+   * supplier} which can be used to access the (potentially shared) scanners and exposes {@linkplain
+   * #getSwigActionContext() action} {@linkplain #getCppActionContext() contexts} based on them.
    */
   private static class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
     private final BuildRequest buildRequest;
 
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
-    private IncludeScannerSupplierImpl includeScannerSupplier;
+    private IncludeScannerSupplier includeScannerSupplier;
     private ExecutorService includePool;
 
     public IncludeScannerLifecycleManager(
@@ -243,7 +238,8 @@ public class IncludeScanningModule extends BlazeModule {
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
               env.getExecRoot(),
-              options.experimentalRemoteExtractionThreshold));
+              options.experimentalRemoteExtractionThreshold,
+              env.getSkyframeExecutor().getSyscalls()));
       this.spawnScannerSupplier = spawnScannerSupplier;
       env.getEventBus().register(this);
     }
@@ -298,7 +294,7 @@ public class IncludeScanningModule extends BlazeModule {
         includePool = MoreExecutors.newDirectExecutorService();
       }
       includeScannerSupplier =
-          new IncludeScannerSupplierImpl(
+          new IncludeScannerSupplier(
               env.getDirectories(),
               includePool,
               env.getSkyframeBuildView().getArtifactFactory(),

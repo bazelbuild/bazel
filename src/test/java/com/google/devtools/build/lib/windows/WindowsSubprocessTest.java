@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
+import java.io.InputStream;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -123,6 +125,24 @@ public class WindowsSubprocessTest {
     byte[] buf = new byte[3];
     process.getInputStream().read(buf);
     assertThat(new String(buf, UTF_8).trim()).isEqualTo("X:");
+  }
+
+  @Test
+  public void testStreamAvailable_zeroAfterClose() throws Exception {
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    subprocessBuilder.setWorkingDirectory(new File("."));
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "OHELLO"));
+    process = subprocessBuilder.start();
+    InputStream inputStream = process.getInputStream();
+    // We don't know if the process has already written to the pipe
+    assertThat(inputStream.available()).isAnyOf(0, 5);
+    process.waitFor();
+    // Windows allows streams to be read after the process has died.
+    assertThat(inputStream.available()).isAnyOf(0, 5);
+    inputStream.close();
+    assertThat(assertThrows(IllegalStateException.class, inputStream::available))
+        .hasMessageThat()
+        .contains("Stream already closed");
   }
 
   /**

@@ -3,10 +3,10 @@ layout: documentation
 title: Deploying rules
 ---
 
-# Deploying rules
+# Deploying Rules
 
-This documentation is for rule writers who are planning to make their
-rules available to others.
+This page is for rule writers who are planning to make their rules available
+to others.
 
 ## Hosting and naming rules
 
@@ -160,7 +160,7 @@ in the form of a library target located at `//<LANG>/runfiles` (an abbreviation
 of `//<LANG>/runfiles:runfiles`). User targets that need to access their data
 dependencies will typically add this target to their `deps` attribute.
 
-### Repository Rules
+### Repository rules
 
 #### Dependencies
 
@@ -184,7 +184,7 @@ macro named `rules_<LANG>_dependencies`. Our directory will look as follows:
 ```
 
 
-#### Registering Toolchains
+#### Registering toolchains
 
 Your rules might also register toolchains. Please provide a separate WORKSPACE
 macro that registers these toolchains. This way users can decide to omit the
@@ -227,7 +227,7 @@ There should be tests that verify that the rules are working as expected. This
 can either be in the standard location for the language the rules are for or a
 `tests/` directory at the top level.
 
-### Optional: Examples
+### Examples (optional)
 
 It is useful to users to have an `examples/` directory that shows users a couple
 of basic ways that the rules can be used.

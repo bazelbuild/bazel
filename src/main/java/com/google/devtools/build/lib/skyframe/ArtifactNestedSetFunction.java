@@ -30,7 +30,6 @@ import com.google.devtools.build.skyframe.ValueOrException3;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -92,92 +91,15 @@ class ArtifactNestedSetFunction implements SkyFunction {
   private static ArtifactNestedSetFunction singleton = null;
 
   private static Integer sizeThreshold = null;
-  private final SkyframeExperimentalOptions skyframeExperimentalOptions;
 
-  private ArtifactNestedSetFunction(SkyframeExperimentalOptions skyframeExperimentalOptions) {
+  private ArtifactNestedSetFunction() {
     artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
     nestedSetToSkyKey = new MapMaker().weakValues().makeMap();
-    this.skyframeExperimentalOptions = skyframeExperimentalOptions;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
-    if (skyframeExperimentalOptions.skyframeEvalWithOrderedList()) {
-      return computeWithLists(skyKey, env);
-    }
-
-    List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
-    Map<
-            SkyKey,
-            ValueOrException3<
-                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
-        depsEvalResult =
-            env.getValuesOrThrow(
-                depKeys,
-                IOException.class,
-                ActionExecutionException.class,
-                ArtifactNestedSetEvalException.class);
-
-    NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
-        NestedSetBuilder.stableOrder();
-    boolean catastrophic = false;
-
-    // Throw a SkyFunctionException when a dep evaluation results in an exception.
-    // Only non-null values should be committed to
-    // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
-    for (Map.Entry<
-            SkyKey,
-            ValueOrException3<
-                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
-        entry : depsEvalResult.entrySet()) {
-      try {
-        // Trigger the exception, if any.
-        SkyValue value = entry.getValue().get();
-        if (entry.getKey() instanceof ArtifactNestedSetKey || value == null) {
-          continue;
-        }
-        artifactSkyKeyToSkyValue.put(entry.getKey(), value);
-      } catch (IOException e) {
-        // IOException is never catastrophic.
-        transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
-      } catch (ActionExecutionException e) {
-        transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
-        catastrophic |= e.isCatastrophe();
-      } catch (ArtifactNestedSetEvalException e) {
-        catastrophic |= e.isCatastrophic();
-        transitiveExceptionsBuilder.addTransitive(e.getNestedExceptions());
-      }
-    }
-
-    if (!transitiveExceptionsBuilder.isEmpty()) {
-      NestedSet<Pair<SkyKey, Exception>> transitiveExceptions = transitiveExceptionsBuilder.build();
-      // The NestedSet of exceptions is usually small, hence flattening won't be too costly.
-      Pair<SkyKey, Exception> firstSkyKeyAndException = transitiveExceptions.toList().get(0);
-      throw new ArtifactNestedSetFunctionException(
-          new ArtifactNestedSetEvalException(
-              "Error evaluating artifact nested set. First exception: "
-                  + firstSkyKeyAndException.getSecond()
-                  + ", SkyKey: "
-                  + firstSkyKeyAndException.getFirst(),
-              transitiveExceptions,
-              catastrophic));
-    }
-
-    // This should only happen when all error handling is done.
-    if (env.valuesMissing()) {
-      return null;
-    }
-    return new ArtifactNestedSetValue();
-  }
-
-  /**
-   * Similar to {@link #compute}, but uses Skyframe evaluations with a List instead of a Map.
-   * Details: b/172462551.
-   */
-  private SkyValue computeWithLists(SkyKey skyKey, Environment env)
-      throws InterruptedException, ArtifactNestedSetFunctionException {
-
     List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
     List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
         depsEvalResult =
@@ -262,9 +184,8 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * this method separated from {@code #getInstance} since sometimes we need to overwrite the
    * existing instance.
    */
-  static ArtifactNestedSetFunction createInstance(
-      SkyframeExperimentalOptions skyframeExperimentalOptions) {
-    singleton = new ArtifactNestedSetFunction(skyframeExperimentalOptions);
+  static ArtifactNestedSetFunction createInstance() {
+    singleton = new ArtifactNestedSetFunction();
     return singleton;
   }
 

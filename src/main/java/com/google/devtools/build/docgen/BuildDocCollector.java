@@ -246,6 +246,8 @@ public class BuildDocCollector {
                 ruleDoc.addAttribute(PredefinedAttributes.TEST_ATTRIBUTES.get(attrName));
               } else if (PredefinedAttributes.COMMON_ATTRIBUTES.containsKey(attrName)) {
                 ruleDoc.addAttribute(PredefinedAttributes.COMMON_ATTRIBUTES.get(attrName));
+              } else if (PredefinedAttributes.TYPICAL_ATTRIBUTES.containsKey(attrName)) {
+                ruleDoc.addAttribute(PredefinedAttributes.TYPICAL_ATTRIBUTES.get(attrName));
               }
             }
           }

@@ -105,8 +105,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -162,8 +161,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -220,8 +218,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     // TODO(b/129637690): the runtime shouldn't be resolved in the host config
     ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -296,6 +293,37 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(output.getIJar().getFilename()).isEqualTo("libdep-hjar.jar");
     assertThat(artifactFilesNames(output.getSrcJars())).containsExactly("libdep-src.jar");
     assertThat(outputs.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
+  }
+
+  @Test
+  public void javaToolchainInfo_jacocoRunnerAttribute() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file("java/test/B.jar");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'dep')");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jacoco = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner",
+        "  return [",
+        "      DefaultInfo(",
+        "          files = depset([jacoco.executable]),",
+        "      ),",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:dep");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(configuredTarget)))
+        .containsExactly("jacocorunner.jar");
   }
 
   @Test
@@ -1803,7 +1831,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_toolchain_alias(name='alias')",
         "myrule(name='myrule')");
     useConfiguration(
-        "--java_toolchain=//java/com/google/test:toolchain",
         "--extra_toolchains=//java/com/google/test:all",
         "--platforms=//java/com/google/test:platform");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
@@ -2194,8 +2221,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration(
-        "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     Depset files = (Depset) ct.get("files");
     assertThat(prettyArtifactNames(files.toList(Artifact.class))).containsExactly("a/a.txt");

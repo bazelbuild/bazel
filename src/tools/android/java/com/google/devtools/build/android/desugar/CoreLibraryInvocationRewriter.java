@@ -54,6 +54,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       Class<?> coreInterface =
           support.getCoreInterfaceRewritingTarget(opcode, owner, name, desc, itf);
+      String originalDesc = desc;
       if (coreInterface != null) {
         String coreInterfaceName = coreInterface.getName().replace('.', '/');
         if (opcode == Opcodes.INVOKESTATIC) {
@@ -75,7 +76,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
                 InterfaceDesugaring.normalizeInterfaceMethodName(
                     name, name.startsWith("lambda$"), opcode);
           } else {
-            owner = checkNotNull(support.getMoveTarget(coreInterfaceName, name));
+            owner = checkNotNull(support.getMoveTarget(coreInterfaceName, name, originalDesc));
           }
         } else {
           checkState(coreInterface.isInterface());
@@ -85,7 +86,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
         opcode = Opcodes.INVOKESTATIC;
         itf = false;
       } else {
-        String newOwner = support.getMoveTarget(owner, name);
+        String newOwner = support.getMoveTarget(owner, name, originalDesc);
         if (newOwner != null) {
           if (opcode != Opcodes.INVOKESTATIC) {
             // assuming a static method

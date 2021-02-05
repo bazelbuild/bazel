@@ -13,24 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.server.FailureDetails;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 
 /** An TestExecException that is related to the failure of a TestAction. */
 public final class TestExecException extends ExecException {
-  private final FailureDetails.TestAction.Code detailedCode;
+  private final FailureDetail failureDetail;
 
-  public TestExecException(String message, FailureDetails.TestAction.Code detailedCode) {
+  public TestExecException(String message, FailureDetail failureDetail) {
     super(message);
-    this.detailedCode = detailedCode;
+    this.failureDetail = checkNotNull(failureDetail);
   }
 
   @Override
   protected FailureDetail getFailureDetail(String message) {
-    return FailureDetail.newBuilder()
-        .setTestAction(TestAction.newBuilder().setCode(detailedCode))
-        .setMessage(message)
-        .build();
+    return failureDetail.toBuilder().setMessage(message).build();
   }
 }

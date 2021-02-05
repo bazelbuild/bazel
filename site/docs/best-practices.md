@@ -5,8 +5,8 @@ title: Best practices
 
 # Best Practices
 
-This document assumes that you are familiar with Bazel and provides advice on structuring your
-projects to take full advantage of Bazel's features.
+This page assumes you are familiar with Bazel and provides guidelines and
+advice on structuring your projects to take full advantage of Bazel's features.
 
 The overall goals are:
 
@@ -20,7 +20,7 @@ man page for lint says, "A special reward will be presented to the first person 
 program that produces no errors with strict checking." However, incorporating as many of these
 principles as possible should make a project more readable, less error-prone, and faster to build.
 
-This document uses the requirement levels described in
+This page uses the requirement levels described in
 [this RFC](https://www.ietf.org/rfc/rfc2119.txt).
 
 ## Running builds and tests

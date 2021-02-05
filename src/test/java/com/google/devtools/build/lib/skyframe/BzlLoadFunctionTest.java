@@ -408,6 +408,35 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuiltinsInjectionFailure() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
+    scratch.file(
+        "tools/builtins_staging/exports.bzl",
+        "1 // 0  # <-- dynamic error",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//pkg:foo.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+
+    assertContainsEvent(
+        "File \"/workspace/tools/builtins_staging/exports.bzl\", line 1, column 3, in <toplevel>");
+    assertContainsEvent("Error: integer division by zero");
+    Exception ex = result.getError(key).getException();
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "Internal error while loading Starlark builtins for //pkg:foo.bzl: Failed to load"
+                + " builtins sources: initialization of module 'exports.bzl' (internal) failed");
+  }
+
+  @Test
   public void testErrorReadingBzlFileIsTransientWhenUsingASTInlining() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
     scratch.file("a/BUILD");

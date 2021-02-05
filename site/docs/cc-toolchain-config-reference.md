@@ -3,7 +3,7 @@ layout: documentation
 title: C++ toolchain configuration
 ---
 
-# C++ toolchain configuration
+# C++ Toolchain Configuration
 
 ## Overview
 
@@ -43,7 +43,7 @@ You can find Starlark constructors for all structs you'll need in the process in
 When a C++ target enters the analysis phase, Bazel selects the appropriate
 `cc_toolchain` target based on the BUILD file, and obtains the
 `CcToolchainConfigInfo` provider from the target specified in the
-`cc_toolchain.toolchain_config` attribute.  The `cc_toolchain` target
+`cc_toolchain.toolchain_config` attribute. The `cc_toolchain` target
 passes this information to the C++ target through a `CcToolchainProvider`.
 
 For example, a compile or link action, instantiated by a rule such as
@@ -91,8 +91,8 @@ The toolchain selection logic operates as follows:
 
 Once a toolchain has been selected, corresponding `feature` and `action_config`
 objects in the Starlark rule govern the configuration of the build (that is,
-items described later in this document). These messages allow the
-implementation of fully fledged C++ features in Bazel without modifying the
+items described later). These messages allow the implementation of
+fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
 [in the Bazel source code](https://source.bazel.build/bazel/+/4f547a7ea86df80e4c76145ffdbb0c8b75ba3afa:tools/build_defs/cc/action_names.bzl).
 
@@ -459,7 +459,7 @@ For a given `action_config`, only a single `tool` applies
 its tool path and execution requirements to the Bazel action. A tool is selected
 by iterating through the `tools` attribute on an `action_config` until a tool
 with a `with_feature` set matching the feature configuration is found
-(see [Feature relationships](#feature-relationships) earlier in this document
+(see [Feature relationships](#feature-relationships) earlier on this page
 for more information). We recommend that you end your tool lists with a default
 tool that corresponds to an empty feature configuration.
 
@@ -515,7 +515,7 @@ With Bazel, this process can instead be implemented as follows, with
 
 
 This same feature can be implemented entirely differently for Linux, which uses
-`fission`, or for Windows, which produces `.pdb` files.  For example, the
+`fission`, or for Windows, which produces `.pdb` files. For example, the
 implementation for `fission`-based debug symbol generation might look as
 follows:
 

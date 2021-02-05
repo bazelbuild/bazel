@@ -218,6 +218,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   public static final Key<LibraryToLink> CC_LIBRARY =
       new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
 
+  /** Linkstamps from cc dependencies. */
+  // This key exists only to facilitate passing linkstamp data from ObjcLibrary's input CcInfos to
+  // its output CcInfo. Other consumers should look at ObjcLibrary's output CcInfo rather than the
+  // data behind this key.
+  static final Key<CcLinkingContext.Linkstamp> LINKSTAMP =
+      new Key<>(STABLE_ORDER, "linkstamp", CcLinkingContext.Linkstamp.class);
+
   /**
    * Linking options from dependencies.
    */
@@ -329,10 +336,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   public ImmutableList<PathFragment> getStrictDependencyIncludes() {
     return strictDependencyIncludes;
-  }
-
-  public NestedSet<String> define() {
-    return getCcCompilationContext().getDefines();
   }
 
   @Override
@@ -522,6 +525,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           CC_LIBRARY,
           // Flag enum is not exposed to Starlark.
           FLAG,
+          // Linkstamp is not exposed to Starlark. See commentary at its definition.
+          LINKSTAMP,
           // CppModuleMap is not exposed to Starlark.
           TOP_LEVEL_MODULE_MAP,
           // Strict include is handled specially.
@@ -541,6 +546,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           DYNAMIC_FRAMEWORK_FILE,
           FLAG,
           LINKOPT,
+          LINKSTAMP,
           LINK_INPUTS,
           SDK_DYLIB,
           SDK_FRAMEWORK,

@@ -67,7 +67,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("rule_class_default")
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }
@@ -1177,7 +1177,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " \n"
             + "  environment: //buildenv/foo:b\n"
             + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
-            + "    which has a select() that chooses dep: //deps:dep_a\n"
+            + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
 
@@ -1232,7 +1232,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " \n"
             + "  environment: //buildenv/foo:b\n"
             + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
-            + "    which has a select() that chooses dep: //deps:dep_a\n"
+            + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
 
@@ -1272,7 +1272,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " \n"
             + "  environment: //buildenv/foo:b\n"
             + "    removed by: //hello:lib2 (/workspace/hello/BUILD:1:11)\n"
-            + "    which has a select() that chooses dep: //deps:dep_a\n"
+            + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
 
@@ -1300,7 +1300,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " \n"
             + "  environment: //buildenv/foo:b\n"
             + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
-            + "    which has a select() that chooses dep: //deps:dep_a\n"
+            + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
 
@@ -1338,7 +1338,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " \n"
             + "  environment: //buildenv/bar:c\n"
             + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
-            + "    which has a select() that chooses dep: //deps:dep_a\n"
+            + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/bar:c");
   }
 
@@ -1379,14 +1379,15 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " \n"
             + "  environment: //buildenv/foo:a\n"
             + "    removed by: //hello:lib (/workspace/hello/BUILD:9:11)\n"
-            + "    which has a select() that chooses dep: //hello:all_groups_gone\n"
-            + "    which lacks: //buildenv/foo:a\n"
-            + " \n"
-            + "environment group: //buildenv/bar:bar:\n"
+            + "    because of a select() that chooses dep: //hello:all_groups_gone\n"
+            + "    which lacks: //buildenv/foo:a\n");
+
+    assertContainsEvent(
+        "environment group: //buildenv/bar:bar:\n"
             + " \n"
             + "  environment: //buildenv/bar:c\n"
             + "    removed by: //hello:lib (/workspace/hello/BUILD:9:11)\n"
-            + "    which has a select() that chooses dep: //hello:all_groups_gone\n"
+            + "    because of a select() that chooses dep: //hello:all_groups_gone\n"
             + "    which lacks: //buildenv/bar:c");
   }
 

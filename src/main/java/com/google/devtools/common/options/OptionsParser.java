@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
-import com.google.devtools.common.options.OptionsParserImpl.ResidueAndPriority;
+import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -220,6 +220,15 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    /**
+     * Adds a map of flag aliases for the OptionsParser to reference. The keys are the aliases and
+     * the values are the actual options.
+     */
+    public Builder withAliases(Map<String, String> aliases) {
+      this.implBuilder.withAliases(aliases);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue);
@@ -236,6 +245,7 @@ public class OptionsParser implements OptionsParsingResult {
   private final List<String> postDoubleDashResidue = new ArrayList<>();
   private final boolean allowResidue;
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
+  private final Map<String, String> aliases = new HashMap<>();
 
   private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
     this.impl = impl;
@@ -659,13 +669,14 @@ public class OptionsParser implements OptionsParsingResult {
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
-    ResidueAndPriority residueAndPriority = impl.parse(priority, sourceFunction, args);
-    residue.addAll(residueAndPriority.getResidue());
-    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
+    OptionsParserImplResult optionsParserImplResult = impl.parse(priority, sourceFunction, args);
+    residue.addAll(optionsParserImplResult.getResidue());
+    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
     }
+    aliases.putAll(optionsParserImplResult.aliases);
   }
 
   /**
@@ -687,10 +698,10 @@ public class OptionsParser implements OptionsParsingResult {
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
         "Priority cannot be default, which was specified for arglist " + args);
-    ResidueAndPriority residueAndPriority =
+    OptionsParserImplResult optionsParserImplResult =
         impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
-    residue.addAll(residueAndPriority.getResidue());
-    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
+    residue.addAll(optionsParserImplResult.getResidue());
+    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
@@ -726,6 +737,11 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
+  public Map<String, String> getAliases() {
+    return ImmutableMap.copyOf(aliases);
+  }
+
+  @Override
   public List<String> getResidue() {
     return ImmutableList.copyOf(residue);
   }
@@ -755,8 +771,8 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /** Returns a list of warnings about problems encountered by previous parse calls. */
-  public List<String> getWarnings() {
-    return ImmutableList.copyOf(impl.getWarnings());
+  public ImmutableList<String> getWarnings() {
+    return impl.getWarnings();
   }
 
   @Override

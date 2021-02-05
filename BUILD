@@ -113,7 +113,12 @@ filegroup(
 # be included in //src:derived_java_sources).
 filegroup(
     name = "generated_resources",
-    srcs = ["//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip"],
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
+    ],
 )
 
 pkg_tar(
@@ -180,15 +185,6 @@ genrule(
     tools = ["combine_distfiles_to_tar.sh"],
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
-)
-
-# This is a workaround for fetching Bazel toolchains, for remote execution.
-# See https://github.com/bazelbuild/bazel/issues/3246.
-# Will be removed once toolchain fetching is supported.
-filegroup(
-    name = "dummy_toolchain_reference",
-    srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.9.0:empty"],
-    visibility = ["//visibility:public"],
 )
 
 constraint_setting(name = "machine_size")

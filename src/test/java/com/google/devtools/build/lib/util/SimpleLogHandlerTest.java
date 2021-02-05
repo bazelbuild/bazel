@@ -517,7 +517,9 @@ public final class SimpleLogHandlerTest {
               handler.close();
               assertThat(Thread.currentThread().isInterrupted()).isTrue();
             });
-    t.run();
+    t.start();
     t.join();
+    // For b/176321271
+    assertThat(Thread.currentThread().isInterrupted()).isFalse();
   }
 }

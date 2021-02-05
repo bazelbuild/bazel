@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
@@ -23,16 +24,33 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestTest.WithoutPlatforms;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
-/** Tests for {@link AndroidInstrumentationTest}. */
-@RunWith(JUnit4.class)
-public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
+/** Tests for {@code android_instrumentation_test}. */
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidInstrumentationTestTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidInstrumentationTestTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
 
   @Before
   public void setupCcToolchain() throws Exception {
@@ -158,15 +176,18 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
                 .getDefaultRunfiles()
                 .getAllArtifacts()
                 .toList());
-    assertThat(runfiles)
+    assertThat(runfiles.stream().map(Artifact::toString).collect(toImmutableList()))
         .containsAtLeast(
-            getDeviceFixtureScript(getConfiguredTarget("//javatests/com/app:device_fixture")),
-            getInstrumentationApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")),
-            getTargetApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")),
+            getDeviceFixtureScript(getConfiguredTarget("//javatests/com/app:device_fixture"))
+                .toString(),
+            getInstrumentationApk(getConfiguredTarget("//javatests/com/app:instrumentation_app"))
+                .toString(),
+            getTargetApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")).toString(),
             getConfiguredTarget("//javatests/com/app/ait:foo.txt")
                 .getProvider(FileProvider.class)
                 .getFilesToBuild()
-                .getSingleton());
+                .getSingleton()
+                .toString());
   }
 
   @Test

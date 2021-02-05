@@ -50,6 +50,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Implementation of the {@code android_sdk_repository} rule. */
 public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
@@ -228,11 +229,10 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     ImmutableSortedSet<Integer> apiLevels = getApiLevels(platformsDirectoryValue.getDirents());
     if (apiLevels.isEmpty()) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "android_sdk_repository requires that at least one Android SDK Platform is installed "
-                  + "in the Android SDK. Please install an Android SDK Platform through the "
-                  + "Android SDK manager."),
+          Starlark.errorf(
+              "android_sdk_repository requires that at least one Android SDK Platform is"
+                  + " installed in the Android SDK. Please install an Android SDK Platform through"
+                  + " the Android SDK manager."),
           Transience.PERSISTENT);
     }
 
@@ -245,16 +245,11 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       }
       if (!apiLevels.contains(defaultApiLevel)) {
         throw new RepositoryFunctionException(
-            new EvalException(
-                rule.getLocation(),
-                String.format(
-                    "Android SDK api level %s was requested but it is not installed in the Android "
-                        + "SDK at %s. The api levels found were %s. Please choose an available api "
-                        + "level or install api level %s from the Android SDK Manager.",
-                    defaultApiLevel,
-                    androidSdkPath,
-                    apiLevels.toString(),
-                    defaultApiLevel)),
+            Starlark.errorf(
+                "Android SDK api level %s was requested but it is not installed in the"
+                    + " Android SDK at %s. The api levels found were %s. Please choose an"
+                    + " available api level or install api level %s from the Android SDK Manager.",
+                defaultApiLevel, androidSdkPath, apiLevels, defaultApiLevel),
             Transience.PERSISTENT);
       }
     } else {
@@ -278,7 +273,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       if (directoryValue == null) {
         return null;
       }
-      buildToolsDirectory = getNewestBuildToolsDirectory(rule, directoryValue.getDirents());
+      buildToolsDirectory = getNewestBuildToolsDirectory(directoryValue.getDirents());
     }
 
     // android_sdk_repository.build_tools_version is technically actually the name of the
@@ -302,7 +297,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     try {
-      assertValidBuildToolsVersion(rule, buildToolsVersion);
+      assertValidBuildToolsVersion(buildToolsVersion);
     } catch (EvalException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
@@ -371,7 +366,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
    * @throws RepositoryFunctionException if none of the buildToolsDirectories are directories and
    *     have names that are parsable as build tools version.
    */
-  private static String getNewestBuildToolsDirectory(Rule rule, Dirents buildToolsDirectories)
+  private static String getNewestBuildToolsDirectory(Dirents buildToolsDirectories)
       throws RepositoryFunctionException {
     String newestBuildToolsDirectory = null;
     AndroidRevision newestBuildToolsRevision = null;
@@ -392,12 +387,10 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
     if (newestBuildToolsDirectory == null) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              String.format(
-                  "Bazel requires Android build tools version %s or newer but none are installed. "
-                      + "Please install a recent version through the Android SDK manager.",
-                  MIN_BUILD_TOOLS_REVISION)),
+          Starlark.errorf(
+              "Bazel requires Android build tools version %s or newer but none are"
+                  + " installed. Please install a recent version through the Android SDK manager.",
+              MIN_BUILD_TOOLS_REVISION),
           Transience.PERSISTENT);
     }
     return newestBuildToolsDirectory;
@@ -428,23 +421,18 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
   }
 
-  private static void assertValidBuildToolsVersion(Rule rule, String buildToolsVersion)
-      throws EvalException {
+  private static void assertValidBuildToolsVersion(String buildToolsVersion) throws EvalException {
     try {
       AndroidRevision buildToolsRevision = AndroidRevision.parse(buildToolsVersion);
       if (buildToolsRevision.compareTo(MIN_BUILD_TOOLS_REVISION) < 0) {
-        throw new EvalException(
-            rule.getLocation(),
-            String.format(
-                "Bazel requires Android build tools version %s or newer, %s was provided",
-                MIN_BUILD_TOOLS_REVISION, buildToolsRevision));
+        throw Starlark.errorf(
+            "Bazel requires Android build tools version %s or newer, %s was provided",
+            MIN_BUILD_TOOLS_REVISION, buildToolsRevision);
       }
     } catch (NumberFormatException e) {
-      throw new EvalException(
-          rule.getLocation(),
-          String.format(
-              "Bazel does not recognize Android build tools version %s", buildToolsVersion),
-          e);
+      throw Starlark.errorf(
+          "Bazel does not recognize Android build tools version %s: %s",
+          buildToolsVersion, e.getMessage());
     }
   }
 

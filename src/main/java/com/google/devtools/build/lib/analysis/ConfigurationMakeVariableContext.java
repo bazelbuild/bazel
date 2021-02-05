@@ -47,8 +47,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
             // Get the TemplateVariableInfo providers from this attribute.
             .flatMap(
                 attrName ->
-                    Streams.stream(
-                        ruleContext.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER)))
+                    ruleContext.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER).stream())
             .collect(Collectors.toList());
     providers.addAll(fromAttributes);
 

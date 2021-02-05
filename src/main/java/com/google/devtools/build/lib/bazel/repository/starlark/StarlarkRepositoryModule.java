@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -85,7 +86,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       BaseRuleClasses.execPropertiesAttribute(builder);
     }
     builder.addAttribute(attr("$environ", STRING_LIST).defaultValue(environ).build());
-    BaseRuleClasses.nameAttribute(builder);
     BaseRuleClasses.commonCoreAndStarlarkAttributes(builder);
     builder.add(attr("expect_failure", STRING));
     if (attrs != Starlark.NONE) {
@@ -141,7 +141,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public void export(Label extensionLabel, String exportedName) {
+    public void export(EventHandler handler, Label extensionLabel, String exportedName) {
       this.extensionLabel = extensionLabel;
       this.exportedName = exportedName;
     }

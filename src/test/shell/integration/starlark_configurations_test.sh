@@ -621,4 +621,18 @@ EOF
   expect_log "is invalid as part of a path: must not contain /"
 }
 
+function test_rc_flag_alias_canonicalizes() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  add_to_bazelrc "build --flag_alias=drink=//$pkg:type"
+
+  write_build_setting_bzl
+
+  bazel canonicalize-flags -- --drink=coffee \
+    >& "$TEST_log" || fail "Expected success"
+
+  expect_log "--//$pkg:type=coffee"
+}
+
 run_suite "${PRODUCT_NAME} starlark configurations tests"

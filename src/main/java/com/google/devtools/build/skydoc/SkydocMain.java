@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionReg
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.javascript.JsModuleInfoApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
@@ -421,11 +422,18 @@ public class SkydocMain {
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       // We use the default print handler, which writes to stderr.
       thread.setLoader(imports::get);
+      // Fake Bazel's "export" hack, by which provider symbols
+      // bound to global variables take on the name of the global variable.
+      thread.setPostAssignHook(
+          (name, value) -> {
+            if (value instanceof FakeProviderApi) {
+              ((FakeProviderApi) value).setName(name);
+            }
+          });
 
       Starlark.execFileProgram(prog, module, thread);
-    } catch (EvalException | InterruptedException ex) {
-      // This exception class seems a bit unnecessary. Replace with EvalException?
-      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
+    } catch (EvalException ex) {
+      throw new StarlarkEvaluationException(ex.getMessageWithStack());
     }
 
     pending.remove(path);

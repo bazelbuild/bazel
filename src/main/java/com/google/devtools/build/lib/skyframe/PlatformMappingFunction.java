@@ -14,17 +14,19 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
@@ -37,11 +39,9 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -92,15 +92,14 @@ public class PlatformMappingFunction implements SkyFunction {
             SkyFunctionException.Transience.PERSISTENT);
       }
 
-      Iterable<String> lines;
+      List<String> lines;
       try {
-        lines =
-            FileSystemUtils.readLines(fileValue.realRootedPath().asPath(), StandardCharsets.UTF_8);
+        lines = FileSystemUtils.readLines(fileValue.realRootedPath().asPath(), UTF_8);
       } catch (IOException e) {
         throw new PlatformMappingException(e, SkyFunctionException.Transience.TRANSIENT);
       }
 
-      return new Parser(lines.iterator()).parse().toPlatformMappingValue();
+      return parse(lines).toPlatformMappingValue();
     }
 
     if (!platformMappingKey.wasExplicitlySetByUser()) {
@@ -134,174 +133,126 @@ public class PlatformMappingFunction implements SkyFunction {
   }
 
   @VisibleForTesting
-  static class PlatformMappingException extends SkyFunctionException {
+  static final class PlatformMappingException extends SkyFunctionException {
 
-    public PlatformMappingException(Exception cause, Transience transience) {
+    PlatformMappingException(Exception cause, Transience transience) {
       super(cause, transience);
     }
   }
 
   @VisibleForTesting
-  static class Parser {
+  static Mappings parse(List<String> lines) throws PlatformMappingException {
+    PeekingIterator<String> it =
+        Iterators.peekingIterator(
+            lines.stream()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                .iterator());
 
-    private final Iterator<String> lines;
-
-    /**
-     * Using an optional to represent the next line with contents, {@link Optional#empty()} if we
-     * reached end of file.
-     *
-     * <p>Stores the current non-comment, non-empty, non-whitespace line. Don't access the field
-     * directly, it can either be "used up" by calling {@link #consume()} or retrieved without
-     * moving on by calling {@link #peek()}.
-     */
-    private Optional<String> line;
-
-    Parser(Iterator<String> lines) {
-      this.lines = lines;
+    if (!it.hasNext()) {
+      return new Mappings(ImmutableMap.of(), ImmutableMap.of());
     }
 
-    Mappings parse() throws PlatformMappingException {
-      goToNextContentLine();
-
-      if (!line.isPresent()) {
-        return new Mappings(ImmutableMap.of(), ImmutableMap.of());
-      }
-
-      Map<Label, Collection<String>> platformsToFlags = ImmutableMap.of();
-      Map<Collection<String>, Label> flagsToPlatforms = ImmutableMap.of();
-
-      if (!peek().equalsIgnoreCase("platforms:") && !peek().equalsIgnoreCase("flags:")) {
-        throwParsingException("Expected 'platforms:' or 'flags:' but got " + peek());
-      }
-
-      if (peek().equalsIgnoreCase("platforms:")) {
-        consume();
-        platformsToFlags = platformsToFlags();
-      }
-
-      if (line.isPresent()) {
-        if (!peek().equalsIgnoreCase("flags:")) {
-          throwParsingException("Expected 'flags:' but got " + peek());
-        }
-        consume();
-        flagsToPlatforms = flagsToPlatforms();
-      }
-
-      if (line.isPresent()) {
-        throwParsingException("Expected end of file but got " + peek());
-      }
-      return new Mappings(platformsToFlags, flagsToPlatforms);
+    if (!it.peek().equalsIgnoreCase("platforms:") && !it.peek().equalsIgnoreCase("flags:")) {
+      throw parsingException("Expected 'platforms:' or 'flags:' but got " + it.peek());
     }
 
-    private Map<Label, Collection<String>> platformsToFlags() throws PlatformMappingException {
-      ImmutableMap.Builder<Label, Collection<String>> platformsToFlags = ImmutableMap.builder();
-      while (line.isPresent() && !peek().equalsIgnoreCase("flags:")) {
-        Label platform = platform();
-        Collection<String> flags = flags();
-        platformsToFlags.put(platform, flags);
+    Map<Label, Collection<String>> platformsToFlags = ImmutableMap.of();
+    Map<Collection<String>, Label> flagsToPlatforms = ImmutableMap.of();
+
+    if (it.peek().equalsIgnoreCase("platforms:")) {
+      it.next();
+      platformsToFlags = readPlatformsToFlags(it);
+    }
+
+    if (it.hasNext()) {
+      String line = it.next();
+      if (!line.equalsIgnoreCase("flags:")) {
+        throw parsingException("Expected 'flags:' but got " + line);
       }
-
-      try {
-        return platformsToFlags.build();
-      } catch (IllegalArgumentException e) {
-        throw throwParsingException(
-            e, "Got duplicate platform entries but each platform key must be unique");
-      }
+      flagsToPlatforms = readFlagsToPlatforms(it);
     }
 
-    private Label platform() throws PlatformMappingException {
-      if (!line.isPresent()) {
-        throwParsingException("Expected platform label but got end of file");
-      }
-      String label = consume();
+    if (it.hasNext()) {
+      throw parsingException("Expected end of file but got " + it.next());
+    }
+    return new Mappings(platformsToFlags, flagsToPlatforms);
+  }
 
-      Label platform;
-      try {
-        ImmutableMap<RepositoryName, RepositoryName> emptyRepositoryMapping = ImmutableMap.of();
-        // It is ok for us to use an empty repository mapping in this instance because all platform
-        // labels used in the mapping file should be relative to the root repository. Repository
-        // mappings however only apply within a repository imported by the root repository.
-        platform = Label.parseAbsolute(label, emptyRepositoryMapping);
-      } catch (LabelSyntaxException e) {
-        throw throwParsingException(e, "Expected platform label but got " + label);
-      }
-      return platform;
+  private static ImmutableMap<Label, Collection<String>> readPlatformsToFlags(
+      PeekingIterator<String> it) throws PlatformMappingException {
+    ImmutableMap.Builder<Label, Collection<String>> platformsToFlags = ImmutableMap.builder();
+    while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
+      Label platform = readPlatform(it);
+      Collection<String> flags = readFlags(it);
+      platformsToFlags.put(platform, flags);
     }
 
-    private Collection<String> flags() throws PlatformMappingException {
-      ImmutableSet.Builder<String> flags = ImmutableSet.builder();
-      // Note: Short form flags are not supported.
-      while (lineIsFlag()) {
-        flags.add(consume());
-      }
-      ImmutableSet<String> parsedFlags = flags.build();
-      if (parsedFlags.isEmpty()) {
-        if (!line.isPresent()) {
-          throwParsingException("Expected a flag but got end of file");
-        }
-        throwParsingException(
-            "Expected a standard format flag (starting with --) but got " + peek());
-      }
+    try {
+      return platformsToFlags.build();
+    } catch (IllegalArgumentException e) {
+      throw parsingException(
+          "Got duplicate platform entries but each platform key must be unique", e);
+    }
+  }
 
-      return parsedFlags;
+  private static ImmutableMap<Collection<String>, Label> readFlagsToPlatforms(
+      PeekingIterator<String> it) throws PlatformMappingException {
+    ImmutableMap.Builder<Collection<String>, Label> flagsToPlatforms = ImmutableMap.builder();
+    while (it.hasNext() && it.peek().startsWith("--")) {
+      Collection<String> flags = readFlags(it);
+      Label platform = readPlatform(it);
+      flagsToPlatforms.put(flags, platform);
     }
 
-    private Map<Collection<String>, Label> flagsToPlatforms() throws PlatformMappingException {
-      ImmutableMap.Builder<Collection<String>, Label> flagsToPlatforms = ImmutableMap.builder();
-      while (lineIsFlag()) {
-        Collection<String> flags = flags();
-        Label platform = platform();
-        flagsToPlatforms.put(flags, platform);
-      }
-      try {
-        return flagsToPlatforms.build();
-      } catch (IllegalArgumentException e) {
-        throw throwParsingException(
-            e, "Got duplicate flags entries but each flags key must be unique");
-      }
+    try {
+      return flagsToPlatforms.build();
+    } catch (IllegalArgumentException e) {
+      throw parsingException("Got duplicate flags entries but each flags key must be unique", e);
+    }
+  }
+
+  private static Label readPlatform(PeekingIterator<String> it) throws PlatformMappingException {
+    if (!it.hasNext()) {
+      throw parsingException("Expected platform label but got end of file");
     }
 
-    private String consume() {
-      Preconditions.checkState(
-          line.isPresent(), "Must make sure that a line exists before consuming.");
-      String value = line.get();
-      goToNextContentLine();
-      return value;
+    String line = it.next();
+    try {
+      // It is ok for us to use an empty repository mapping in this instance because all platform
+      // labels used in the mapping file should be relative to the root repository. Repository
+      // mappings however only apply within a repository imported by the root repository.
+      return Label.parseAbsolute(line, /*repositoryMapping=*/ ImmutableMap.of());
+    } catch (LabelSyntaxException e) {
+      throw parsingException("Expected platform label but got " + line, e);
     }
+  }
 
-    private String peek() {
-      Preconditions.checkState(
-          line.isPresent(), "Must make sure that a line exists before peeking.");
-      return line.get();
+  private static ImmutableSet<String> readFlags(PeekingIterator<String> it)
+      throws PlatformMappingException {
+    ImmutableSet.Builder<String> flags = ImmutableSet.builder();
+    // Note: Short form flags are not supported.
+    while (it.hasNext() && it.peek().startsWith("--")) {
+      flags.add(it.next());
     }
+    ImmutableSet<String> parsedFlags = flags.build();
+    if (parsedFlags.isEmpty()) {
+      throw parsingException(
+          it.hasNext()
+              ? "Expected a standard format flag (starting with --) but got " + it.peek()
+              : "Expected a flag but got end of file");
+    }
+    return parsedFlags;
+  }
 
-    private AssertionError throwParsingException(Exception e, String message)
-        throws PlatformMappingException {
-      throw new PlatformMappingException(
-          new PlatformMappingParsingException(message, e),
-          SkyFunctionException.Transience.PERSISTENT);
-    }
+  private static PlatformMappingException parsingException(String message) {
+    return parsingException(message, /*cause=*/ null);
+  }
 
-    private void throwParsingException(String message) throws PlatformMappingException {
-      throw new PlatformMappingException(
-          new PlatformMappingParsingException(message), SkyFunctionException.Transience.PERSISTENT);
-    }
-
-    private boolean lineIsFlag() {
-      return line.isPresent() && peek().startsWith("--");
-    }
-
-    private void goToNextContentLine() {
-      while (lines.hasNext()) {
-        String line = lines.next().trim();
-        if (line.isEmpty() || line.startsWith("#")) {
-          continue;
-        }
-        this.line = Optional.of(line);
-        return;
-      }
-      line = Optional.empty();
-    }
+  private static PlatformMappingException parsingException(String message, Exception cause) {
+    return new PlatformMappingException(
+        new PlatformMappingParsingException(message, cause),
+        SkyFunctionException.Transience.PERSISTENT);
   }
 
   /**
@@ -328,12 +279,9 @@ public class PlatformMappingFunction implements SkyFunction {
    * Inner wrapper exception to work around the fact that {@link SkyFunctionException} cannot carry
    * a message of its own.
    */
-  private static class PlatformMappingParsingException extends Exception {
-    public PlatformMappingParsingException(String message) {
-      super(message);
-    }
+  private static final class PlatformMappingParsingException extends Exception {
 
-    public PlatformMappingParsingException(String message, Throwable cause) {
+    PlatformMappingParsingException(String message, Throwable cause) {
       super(message, cause);
     }
   }

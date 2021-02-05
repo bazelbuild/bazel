@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Extra information about a configured target computed on request of a dependent.
@@ -191,8 +192,10 @@ public final class ConfiguredAspect implements ProviderCollection {
     public Builder addStarlarkDeclaredProvider(Info declaredProvider) throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
-        throw new EvalException(
-            constructor.getLocation(), "All providers must be top level values");
+        throw Starlark.errorf(
+            "aspect function returned an instance of a provider (defined at %s) that is not a"
+                + " global",
+            constructor.getLocation());
       }
       addDeclaredProvider(declaredProvider);
       return this;

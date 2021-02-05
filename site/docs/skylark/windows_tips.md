@@ -3,11 +3,10 @@ layout: documentation
 title: Writing rules on Windows
 ---
 
-# Writing rules on Windows
+# Writing Rules on Windows
 
-Common problems of writing portable rules, and some solutions.
-
-This document focuses on writing Windows-compatible rules.
+This page focuses on writing Windows-compatible rules, common problems of
+writing portable rules, and some solutions.
 
 ## Paths
 
@@ -150,7 +149,7 @@ Problems:
 
 - **Bash commands**: For sake of portability, avoid running Bash commands directly in actions.
 
-  Bash is widespread on Unix-like systems, but it's often unavailable on Windows.  Bazel itself is
+  Bash is widespread on Unix-like systems, but it's often unavailable on Windows. Bazel itself is
   relying less and less on Bash (MSYS2), so in the future users would be less likely to have MSYS2
   installed along with Bazel. To make rules easier to use on Windows, avoid running Bash commands in
   actions.
@@ -238,8 +237,9 @@ Problems:
 
 - **Files cannot be deleted while open.**
 
-  Open files cannot be deleted (by default), attempts result in "Access Denied" errors.  If you
-  cannot delete a file, maybe a running process still holds it open.
+  Open files cannot be deleted (by default), attempts result in "Access Denied"
+  errors. If you cannot delete a file, maybe a running process still holds it
+  open.
 
 - **Working directory of a running process cannot be deleted.**
 

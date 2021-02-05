@@ -120,16 +120,17 @@ public final class CppConfiguration extends Fragment
    * --dynamic_mode parses to DynamicModeFlag, but AUTO will be translated based on platform,
    * resulting in a DynamicMode value.
    */
-  public enum DynamicMode     { OFF, DEFAULT, FULLY }
+  public enum DynamicMode {
+    OFF,
+    DEFAULT,
+    FULLY
+  }
 
-  /**
-   * This enumeration is used for the --strip option.
-   */
+  /** This enumeration is used for the --strip option. */
   public enum StripMode {
-
-    ALWAYS("always"),       // Always strip.
+    ALWAYS("always"), // Always strip.
     SOMETIMES("sometimes"), // Strip iff compilationMode == FASTBUILD.
-    NEVER("never");         // Never strip.
+    NEVER("never"); // Never strip.
 
     private final String mode;
 
@@ -180,8 +181,6 @@ public final class CppConfiguration extends Fragment
   private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
-
-  private final CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer;
 
   public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -289,7 +288,6 @@ public final class CppConfiguration extends Fragment
     this.appleGenerateDsym =
         (cppOptions.appleGenerateDsym
             || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
-    this.fatApkSplitSanitizer = commonOptions.fatApkSplitSanitizer;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -306,7 +304,6 @@ public final class CppConfiguration extends Fragment
   public CompilationMode getCompilationMode() {
     return compilationMode;
   }
-
 
   public boolean hasSharedLinkOption() {
     return linkopts.contains("-shared");
@@ -344,31 +341,31 @@ public final class CppConfiguration extends Fragment
     return cppOptions.isCSFdo();
   }
 
-  /**
-   * Returns whether or not to strip the binaries.
-   */
+  public boolean useArgsParamsFile() {
+    return cppOptions.useArgsParamsFile;
+  }
+
+  /** Returns whether or not to strip the binaries. */
   public boolean shouldStripBinaries() {
     return stripBinaries;
   }
 
   /**
-   * Returns the additional options to pass to strip when generating a
-   * {@code <name>.stripped} binary by this build.
+   * Returns the additional options to pass to strip when generating a {@code <name>.stripped}
+   * binary by this build.
    */
   public ImmutableList<String> getStripOpts() {
     return ImmutableList.copyOf(cppOptions.stripoptList);
   }
 
-  /**
-   * Returns whether temporary outputs from gcc will be saved.
-   */
+  /** Returns whether temporary outputs from gcc will be saved. */
   public boolean getSaveTemps() {
     return cppOptions.saveTemps;
   }
 
   /**
-   * Returns the {@link PerLabelOptions} to apply to the gcc command line, if
-   * the label of the compiled file matches the regular expression.
+   * Returns the {@link PerLabelOptions} to apply to the gcc command line, if the label of the
+   * compiled file matches the regular expression.
    */
   public ImmutableList<PerLabelOptions> getPerFileCopts() {
     return ImmutableList.copyOf(cppOptions.perFileCopts);
@@ -391,9 +388,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.customMalloc;
   }
 
-  /**
-   * Returns whether we are processing headers in dependencies of built C++ targets.
-   */
+  /** Returns whether we are processing headers in dependencies of built C++ targets. */
   public boolean processHeadersInDependencies() {
     return cppOptions.processHeadersInDependencies;
   }
@@ -441,8 +436,8 @@ public final class CppConfiguration extends Fragment
     return cppOptions.inmemoryDotdFiles;
   }
 
-  public boolean getParseHeadersVerifiesModules() {
-    return cppOptions.parseHeadersVerifiesModules;
+  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
+    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
   }
 
   public boolean getUseInterfaceSharedLibraries() {
@@ -532,9 +527,6 @@ public final class CppConfiguration extends Fragment
   @Override
   public String getOutputDirectoryName() {
     String result = cpu;
-    if (fatApkSplitSanitizer.feature != null) {
-      result += "-" + fatApkSplitSanitizer.feature;
-    }
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       result += "-" + cppOptions.outputDirectoryTag;
     }
@@ -542,9 +534,7 @@ public final class CppConfiguration extends Fragment
     return result;
   }
 
-  /**
-   * Returns true if we should share identical native libraries between different targets.
-   */
+  /** Returns true if we should share identical native libraries between different targets. */
   public boolean shareNativeDeps() {
     return cppOptions.shareNativeDeps;
   }
@@ -672,10 +662,6 @@ public final class CppConfiguration extends Fragment
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
       return null;
-    }
-    if (!PathFragment.isNormalized(builtInSysroot)) {
-      throw new IllegalArgumentException(
-          "The built-in sysroot '" + builtInSysroot + "' is not normalized.");
     }
     return PathFragment.create(builtInSysroot);
   }
@@ -831,4 +817,3 @@ public final class CppConfiguration extends Fragment
     return fissionIsActiveForCurrentCompilationMode();
   }
 }
-

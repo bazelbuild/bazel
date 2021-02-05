@@ -551,7 +551,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /** Metadata for remotely stored files. */
-  public static final class RemoteFileArtifactValue extends FileArtifactValue {
+  public static class RemoteFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     private final long size;
     private final int locationIndex;
@@ -577,12 +577,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       RemoteFileArtifactValue that = (RemoteFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && size == that.size
-          && locationIndex == that.locationIndex;
+          && locationIndex == that.locationIndex
+          && Objects.equals(actionId, that.actionId)
+          && dataIsShareable() == that.dataIsShareable();
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, dataIsShareable());
+      return Objects.hash(
+          Arrays.hashCode(digest), size, locationIndex, actionId, dataIsShareable());
     }
 
     @Override

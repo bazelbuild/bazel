@@ -38,6 +38,9 @@ fail_if_no_android_ndk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+if [[ "$1" = '--with_platforms' ]]; then
+  resolve_android_toolchains_with_platforms
+fi
 
 function create_android_binary() {
   mkdir -p java/bazel
@@ -202,9 +205,38 @@ function test_android_binary() {
   setup_android_ndk_support
   create_android_binary
 
+  # TODO(b/161709111): enable platform-based toolchain resolution when
+  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
+  # out --platforms. The mapping in android_helper.sh re-enables a test Android
+  # platform for ARM but not x86. Enabling it for x86 requires an
+  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
+  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
+  check_num_sos
+  check_soname
+}
+
+function test_android_binary_sibling_repository_layout() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  create_android_binary
+
+  # TODO(b/161709111): enable platform-based toolchain resolution when
+  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
+  # out --platforms. The mapping in android_helper.sh re-enables a test Android
+  # platform for ARM but not x86. Enabling it for x86 requires an
+  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
+  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+
+  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+
+  bazel build --experimental_sibling_repository_layout -s \
+      //java/bazel:bin --fat_apk_cpu="$cpus" \
+      || fail "build failed"
   check_num_sos
   check_soname
 }
@@ -214,6 +246,13 @@ function test_android_binary_clang() {
   setup_android_sdk_support
   setup_android_ndk_support
   create_android_binary
+
+  # TODO(b/161709111): enable platform-based toolchain resolution when
+  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
+  # out --platforms. The mapping in android_helper.sh re-enables a test Android
+  # platform for ARM but not x86. Enabling it for x86 requires an
+  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
+  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
@@ -228,6 +267,7 @@ function test_android_binary_clang() {
 # Regression test for https://github.com/bazelbuild/bazel/issues/2601.
 function test_clang_include_paths() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > BUILD <<EOF
 cc_binary(
@@ -250,6 +290,7 @@ EOF
 
 function test_android_ndk_repository_path_from_environment() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > WORKSPACE <<EOF
 android_ndk_repository(
@@ -272,6 +313,10 @@ android_ndk_repository(
 EOF
   bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
   expect_log "Either the path attribute of android_ndk_repository"
+
+  # Ensure that the prefix identifies the errant rule.
+  # (All errors have this prefix, but we check only in this test.)
+  expect_log "WORKSPACE:1:23: fetching android_ndk_repository rule //external:androidndk: Either..."
 }
 
 function test_android_ndk_repository_wrong_path() {
@@ -291,6 +336,7 @@ EOF
 
 function test_stripped_cc_binary() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > BUILD <<EOF
 cc_binary(
@@ -310,6 +356,7 @@ EOF
 
 function test_crosstool_stlport() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > BUILD <<EOF
 cc_binary(
@@ -341,6 +388,7 @@ EOF
 
 function test_crosstool_libcpp() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > BUILD <<EOF
 cc_binary(
@@ -372,6 +420,7 @@ EOF
 
 function test_crosstool_gnu_libstdcpp() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > BUILD <<EOF
 cc_binary(
@@ -402,6 +451,7 @@ EOF
 
 function test_platforms_and_toolchains() {
   create_new_workspace
+  setup_android_sdk_support
   setup_android_ndk_support
   cat > BUILD <<EOF
 cc_binary(
@@ -444,6 +494,13 @@ function test_crosstool_libcpp_with_multiarch() {
   setup_android_sdk_support
   setup_android_ndk_support
   create_android_binary
+
+  # TODO(b/161709111): enable platform-based toolchain resolution when
+  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
+  # out --platforms. The mapping in android_helper.sh re-enables a test Android
+  # platform for ARM but not x86. Enabling it for x86 requires an
+  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
+  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 

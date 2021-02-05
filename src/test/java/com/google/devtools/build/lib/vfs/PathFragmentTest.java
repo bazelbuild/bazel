@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
 
@@ -599,5 +600,44 @@ public class PathFragmentTest {
     PathFragment a2 =
         (PathFragment) TestUtils.fromBytes(new DeserializationContext(ImmutableMap.of()), sa);
     assertThat(a2).isEqualTo(a);
+  }
+
+  @Test
+  public void containsUplevelReference_emptyPath_returnsFalse() {
+    assertThat(EMPTY_FRAGMENT.containsUplevelReferences()).isFalse();
+  }
+
+  @Test
+  public void containsUplevelReference_uplevelOnlyPath_returnsTrue() {
+    PathFragment pathFragment = create("..");
+    assertThat(pathFragment.containsUplevelReferences()).isTrue();
+  }
+
+  @Test
+  public void containsUplevelReferences_firstSegmentStartingWithDotDot_returnsFalse() {
+    PathFragment pathFragment = create("..file");
+    assertThat(pathFragment.containsUplevelReferences()).isFalse();
+  }
+
+  @Test
+  public void containsUplevelReferences_startsWithUplevelReference_returnsTrue() {
+    PathFragment pathFragment = create("../file");
+    assertThat(pathFragment.containsUplevelReferences()).isTrue();
+  }
+
+  @Test
+  public void containsUplevelReferences_uplevelReferenceMidPath_normalizesAndReturnsFalse() {
+    PathFragment pathFragment = create("a/../b");
+
+    assertThat(pathFragment.containsUplevelReferences()).isFalse();
+    assertThat(pathFragment.getPathString()).isEqualTo("b");
+  }
+
+  @Test
+  public void containsUplevelReferenes_uplevelReferenceMidGlobalPath_normalizesAndReturnsFalse() {
+    PathFragment pathFragment = create("/dir1/dir2/../file");
+
+    assertThat(pathFragment.containsUplevelReferences()).isFalse();
+    assertThat(pathFragment.getPathString()).isEqualTo("/dir1/file");
   }
 }

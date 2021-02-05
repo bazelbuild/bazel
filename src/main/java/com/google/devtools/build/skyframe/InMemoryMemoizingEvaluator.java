@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
@@ -283,6 +284,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
     Preconditions.checkState(evaluating.getAndSet(newValue) != newValue,
         "Re-entrant evaluation for request: %s", requestInfo);
+  }
+
+  @Override
+  public void postLoggingStats(ExtendedEventHandler eventHandler) {
+    eventHandler.post(new SkyframeGraphStatsEvent(graph.getValues().size()));
   }
 
   @Override

@@ -125,6 +125,25 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   @Nullable
   FileT getDatabindingLayoutInfoZip();
 
+  /** The build stamp jar file */
+  @StarlarkMethod(
+      name = "build_stamp_jar",
+      doc = "The build stamp jar file.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getBuildStampJar();
+
+  /** Whether to compile Java Srcs within the android_binary rule */
+  @StarlarkMethod(
+      name = "should_compile_java_srcs",
+      doc = "Whether to compile Java Srcs within the android_binary rule.",
+      documented = false,
+      allowReturnNones = false,
+      structField = true)
+  boolean shouldCompileJavaSrcs();
+
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -207,6 +226,16 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               named = true,
               doc = "",
               defaultValue = "None"),
+          @Param(
+              name = "build_stamp_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
+          @Param(name = "should_compile_java_srcs", named = true, doc = "", defaultValue = "True"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -219,7 +248,9 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         Object mainDexProguardConfig,
         Object rTxt,
         Object resourcesZip,
-        Object databindingLayoutInfoZip)
+        Object databindingLayoutInfoZip,
+        Object buildStampJar,
+        boolean shouldCompileJava)
         throws EvalException;
   }
 }

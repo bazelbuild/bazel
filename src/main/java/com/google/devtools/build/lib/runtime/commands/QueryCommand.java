@@ -106,6 +106,14 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
 
     expr = queryEnv.transformParsedQuery(expr);
 
+    // This only applies to --order_output=auto. Instead of being written directly to the stream
+    // by the callback, this option aggregates the results in the lexicographically sorted
+    // aggregator first before using the StreamedFormatter to write it to stream later.
+    // An exception to this is when somepath is used at the top level of the query expression.
+    boolean lexicographicallySortOutput =
+        QueryOutputUtils.lexicographicallySortOutput(queryOptions, formatter)
+            && !expr.isTopLevelSomePathFunction();
+
     OutputStream out;
     if (formatter.canBeBuffered()) {
       // There is no particular reason for the 16384 constant here, except its a multiple of the
@@ -127,7 +135,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
           hashFunction);
       streamedFormatter.setEventHandler(env.getReporter());
-      callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+      if (lexicographicallySortOutput) {
+        callback = QueryUtil.newLexicographicallySortedTargetAggregator();
+      } else {
+        callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+      }
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
@@ -166,7 +178,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           out.flush();
         }
       }
-      if (!streamResults) {
+      if (!streamResults || lexicographicallySortOutput) {
         disableAnsiCharactersFiltering(env);
         try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
           Set<Target> targets =

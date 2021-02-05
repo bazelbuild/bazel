@@ -189,7 +189,7 @@ public class CcToolchainProviderHelper {
         attributes.getAllowlistForLooseHeaderCheck();
 
     return new CcToolchainProvider(
-        getToolchainForStarlark(toolPaths),
+        /* values= */ ImmutableMap.of(),
         cppConfiguration,
         toolchainFeatures,
         toolsDirectory,
@@ -251,7 +251,16 @@ public class CcToolchainProviderHelper {
         computeAdditionalMakeVariables(toolchainConfigInfo),
         computeLegacyCcFlagsMakeVariable(toolchainConfigInfo),
         allowlistForLayeringCheck,
-        allowlistForLooseHeaderCheck);
+        allowlistForLooseHeaderCheck,
+        getStarlarkValueForTool(Tool.OBJCOPY, toolPaths),
+        getStarlarkValueForTool(Tool.GCC, toolPaths),
+        getStarlarkValueForTool(Tool.CPP, toolPaths),
+        getStarlarkValueForTool(Tool.NM, toolPaths),
+        getStarlarkValueForTool(Tool.OBJDUMP, toolPaths),
+        getStarlarkValueForTool(Tool.AR, toolPaths),
+        getStarlarkValueForTool(Tool.STRIP, toolPaths),
+        getStarlarkValueForTool(Tool.LD, toolPaths),
+        getStarlarkValueForTool(Tool.GCOV, toolPaths));
   }
 
   @Nullable
@@ -373,9 +382,6 @@ public class CcToolchainProviderHelper {
       }
     }
 
-    if (!PathFragment.isNormalized(pathString)) {
-      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
-    }
     PathFragment path = PathFragment.create(pathString);
     return pathPrefix.getRelative(path);
   }
@@ -384,20 +390,6 @@ public class CcToolchainProviderHelper {
       Tool tool, ImmutableMap<String, PathFragment> toolPaths) {
     PathFragment toolPath = getToolPathFragment(toolPaths, tool);
     return toolPath != null ? toolPath.getPathString() : "";
-  }
-
-  private static ImmutableMap<String, Object> getToolchainForStarlark(
-      ImmutableMap<String, PathFragment> toolPaths) {
-    return ImmutableMap.<String, Object>builder()
-        .put("objcopy_executable", getStarlarkValueForTool(Tool.OBJCOPY, toolPaths))
-        .put("compiler_executable", getStarlarkValueForTool(Tool.GCC, toolPaths))
-        .put("preprocessor_executable", getStarlarkValueForTool(Tool.CPP, toolPaths))
-        .put("nm_executable", getStarlarkValueForTool(Tool.NM, toolPaths))
-        .put("objdump_executable", getStarlarkValueForTool(Tool.OBJDUMP, toolPaths))
-        .put("ar_executable", getStarlarkValueForTool(Tool.AR, toolPaths))
-        .put("strip_executable", getStarlarkValueForTool(Tool.STRIP, toolPaths))
-        .put("ld_executable", getStarlarkValueForTool(Tool.LD, toolPaths))
-        .build();
   }
 
   private static PathFragment calculateSysroot(Label libcTopLabel, PathFragment defaultSysroot) {

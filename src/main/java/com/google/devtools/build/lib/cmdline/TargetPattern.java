@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -62,7 +66,6 @@ public abstract class TargetPattern implements Serializable {
 
   private static final Parser DEFAULT_PARSER = new Parser(PathFragment.EMPTY_FRAGMENT);
 
-  private final Type type;
   private final String originalPattern;
   private final PathFragment offset;
 
@@ -117,9 +120,8 @@ public abstract class TargetPattern implements Serializable {
     return SLASH_JOINER.join(pieces);
   }
 
-  private TargetPattern(Type type, String originalPattern, PathFragment offset) {
+  private TargetPattern(String originalPattern, PathFragment offset) {
     // Don't allow inheritance outside this class.
-    this.type = type;
     this.originalPattern = Preconditions.checkNotNull(originalPattern);
     this.offset = Preconditions.checkNotNull(offset);
   }
@@ -128,9 +130,7 @@ public abstract class TargetPattern implements Serializable {
    * Return the type of the pattern. Examples include "below directory" like "foo/..." and "single
    * target" like "//x:y".
    */
-  public Type getType() {
-    return type;
-  }
+  public abstract Type getType();
 
   /**
    * Return the string that was parsed into this pattern.
@@ -154,7 +154,7 @@ public abstract class TargetPattern implements Serializable {
    */
   public abstract <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass)
@@ -170,7 +170,7 @@ public abstract class TargetPattern implements Serializable {
    */
   public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass) {
@@ -180,7 +180,7 @@ public abstract class TargetPattern implements Serializable {
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
     } catch (InterruptedException e) {
-      return Futures.immediateCancelledFuture();
+      return immediateCancelledFuture();
     } catch (Exception e) {
       if (exceptionClass.isInstance(e)) {
         return Futures.immediateFailedFuture(exceptionClass.cast(e));
@@ -199,79 +199,13 @@ public abstract class TargetPattern implements Serializable {
    */
   public <T, E extends Exception> ListenableFuture<Void> evalAsync(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
     return evalAdaptedForAsync(
         resolver, ignoredSubdirectories, excludedSubdirectories, callback, exceptionClass);
-  }
-
-  /**
-   * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
-   * {@code directory} is contained by or equals this pattern's directory.
-   *
-   * <p>For example, returns {@code true} for {@code this = TargetPattern ("//...")} and
-   * {@code directory = "foo")}.
-   */
-  public abstract boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory);
-
-  /** A tristate return value for {@link #containsTBDForTBD}. */
-  public enum ContainsTBDForTBDResult {
-    /**
-     * Evaluating this TBD pattern with a directory exclusion of the other TBD pattern's directory
-     * would result in exactly the same set of targets as evaluating the subtraction of the other
-     * TBD pattern from this one.
-     */
-    DIRECTORY_EXCLUSION_WOULD_BE_EXACT,
-    /**
-     * A directory exclusion of the other TBD pattern's directory would be too broad because this
-     * TBD pattern is not "rules only" and the other one is, meaning that this TBD pattern
-     * potentially matches more targets underneath the directory in question than the other one
-     * does. Thus, a directory exclusion would incorrectly exclude non-rule targets.
-     */
-    DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD,
-    /**
-     * None of the above. Perhaps the other pattern isn't a TBD pattern or perhaps it's not
-     * contained by this pattern.
-     */
-    OTHER,
-  }
-
-  /**
-   * Determines how, if it all, the evaluation of this TBD pattern with a directory exclusion of the
-   * given TBD {@code containedPattern}'s directory relates to the evaluation of the subtraction of
-   * the given {@code containedPattern} from this one.
-   */
-  public ContainsTBDForTBDResult containsTBDForTBD(TargetPattern containedPattern) {
-    if (containedPattern.getType() != Type.TARGETS_BELOW_DIRECTORY) {
-      return ContainsTBDForTBDResult.OTHER;
-    } else if (containsAllTransitiveSubdirectoriesForTBD(
-        containedPattern.getDirectoryForTargetsUnderDirectory())) {
-      return !getRulesOnly() && containedPattern.getRulesOnly()
-          ? ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD
-          : ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT;
-    } else {
-      return ContainsTBDForTBDResult.OTHER;
-    }
-
-  }
-
-  /**
-   * For patterns of type {@link Type#TARGETS_BELOW_DIRECTORY}, returns a {@link PackageIdentifier}
-   * identifying the most specific containing directory of the patterns that could be matched by
-   * this pattern.
-   *
-   * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
-   * actually be a package corresponding to this directory!
-   *
-   * <p>This returns a {@link PackageIdentifier} that identifies the referred-to directory. For
-   * example, for a {@link Type#TARGETS_BELOW_DIRECTORY} corresponding to "//foo/bar/...", this
-   * method returns a {@link PackageIdentifier} for "foo/bar".
-   */
-  public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
-    throw new IllegalStateException();
   }
 
   /**
@@ -318,7 +252,7 @@ public abstract class TargetPattern implements Serializable {
         PackageIdentifier directory,
         String originalPattern,
         PathFragment offset) {
-      super(Type.SINGLE_TARGET, originalPattern, offset);
+      super(originalPattern, offset);
       this.targetName = Preconditions.checkNotNull(targetName);
       this.directory = Preconditions.checkNotNull(directory);
     }
@@ -326,17 +260,12 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
-    }
-
-    @Override
-    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
-      return false;
     }
 
     @Override
@@ -360,6 +289,11 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
+    public Type getType() {
+      return Type.SINGLE_TARGET;
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -378,18 +312,17 @@ public abstract class TargetPattern implements Serializable {
   }
 
   private static final class InterpretPathAsTarget extends TargetPattern {
-
     private final String path;
 
     private InterpretPathAsTarget(String path, String originalPattern, PathFragment offset) {
-      super(Type.PATH_AS_TARGET, originalPattern, offset);
+      super(originalPattern, offset);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
 
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
@@ -422,11 +355,6 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
-      return false;
-    }
-
-    @Override
     public String getPathForPathAsTarget() {
       return path;
     }
@@ -441,6 +369,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public boolean getRulesOnly() {
       return false;
+    }
+
+    @Override
+    public Type getType() {
+      return Type.PATH_AS_TARGET;
     }
 
     @Override
@@ -462,7 +395,6 @@ public abstract class TargetPattern implements Serializable {
   }
 
   private static final class TargetsInPackage extends TargetPattern {
-
     private final PackageIdentifier packageIdentifier;
     private final String suffix;
     private final boolean wasOriginallyAbsolute;
@@ -477,7 +409,7 @@ public abstract class TargetPattern implements Serializable {
         boolean wasOriginallyAbsolute,
         boolean rulesOnly,
         boolean checkWildcardConflict) {
-      super(Type.TARGETS_IN_PACKAGE, originalPattern, offset);
+      super(originalPattern, offset);
       Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
@@ -489,7 +421,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
@@ -507,11 +439,6 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
-      return false;
-    }
-
-    @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return packageIdentifier;
     }
@@ -524,6 +451,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public boolean getRulesOnly() {
       return rulesOnly;
+    }
+
+    @Override
+    public Type getType() {
+      return Type.TARGETS_IN_PACKAGE;
     }
 
     @Override
@@ -586,8 +518,13 @@ public abstract class TargetPattern implements Serializable {
     }
   }
 
-  private static final class TargetsBelowDirectory extends TargetPattern {
-
+  /**
+   * Specialization of {@link TargetPattern} for {@link Type#TARGETS_BELOW_DIRECTORY}. Exposed
+   * because it has a considerable number of specific methods. If {@link TargetPattern#getType}
+   * returns {@link Type#TARGETS_BELOW_DIRECTORY} the instance can safely be cast to {@code
+   * TargetsBelowDirectory}.
+   */
+  public static final class TargetsBelowDirectory extends TargetPattern {
     private final PackageIdentifier directory;
     private final boolean rulesOnly;
 
@@ -596,7 +533,7 @@ public abstract class TargetPattern implements Serializable {
         PathFragment offset,
         PackageIdentifier directory,
         boolean rulesOnly) {
-      super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset);
+      super(originalPattern, offset);
       Preconditions.checkArgument(!directory.getRepository().isDefault());
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
@@ -605,17 +542,27 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
+      Preconditions.checkState(
+          !excludedSubdirectories.contains(directory.getPackageFragment()),
+          "Fully excluded target pattern %s should have already been filtered out (%s)",
+          this,
+          excludedSubdirectories);
+      IgnoredPathFragmentsInScopeOrFilteringIgnorer ignoredIntersection =
+          getAllIgnoredSubdirectoriesToExclude(ignoredSubdirectories);
+      if (warnIfFiltered(ignoredIntersection, resolver)) {
+        return;
+      }
       resolver.findTargetsBeneathDirectory(
           directory.getRepository(),
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          ignoredSubdirectories,
+          ignoredIntersection.ignoredPathFragments(),
           excludedSubdirectories,
           callback,
           exceptionClass);
@@ -624,25 +571,156 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> ListenableFuture<Void> evalAsync(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass,
         ListeningExecutorService executor) {
+      Preconditions.checkState(
+          !excludedSubdirectories.contains(directory.getPackageFragment()),
+          "Fully excluded target pattern %s should have already been filtered out (%s)",
+          this,
+          excludedSubdirectories);
+      IgnoredPathFragmentsInScopeOrFilteringIgnorer ignoredIntersection;
+      try {
+        ignoredIntersection = getAllIgnoredSubdirectoriesToExclude(ignoredSubdirectories);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      if (warnIfFiltered(ignoredIntersection, resolver)) {
+        return immediateVoidFuture();
+      }
       return resolver.findTargetsBeneathDirectoryAsync(
           directory.getRepository(),
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          ignoredSubdirectories,
+          ignoredIntersection.ignoredPathFragments(),
           excludedSubdirectories,
           callback,
           exceptionClass,
           executor);
     }
 
-    @Override
-    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier containedDirectory) {
+    private boolean warnIfFiltered(
+        IgnoredPathFragmentsInScopeOrFilteringIgnorer ignoredIntersection,
+        TargetPatternResolver<?> resolver) {
+      if (ignoredIntersection.wasFiltered()) {
+        resolver.warn(
+            "Pattern '"
+                + getOriginalPattern()
+                + "' was filtered out by ignored directory '"
+                + ignoredIntersection.filteringIgnorer().getPathString()
+                + "'");
+        return true;
+      }
+      return false;
+    }
+
+    public IgnoredPathFragmentsInScopeOrFilteringIgnorer getAllIgnoredSubdirectoriesToExclude(
+        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredPackagePrefixes)
+        throws InterruptedException {
+      ImmutableSet.Builder<PathFragment> ignoredPathsBuilder =
+          ImmutableSet.builderWithExpectedSize(0);
+      for (PathFragment ignoredPackagePrefix : ignoredPackagePrefixes.get()) {
+        if (this.containedIn(ignoredPackagePrefix)) {
+          return new IgnoredPathFragmentsInScopeOrFilteringIgnorer.FilteringIgnorer(
+              ignoredPackagePrefix);
+        }
+        PackageIdentifier pkgIdForIgnoredDirectorPrefix =
+            PackageIdentifier.create(this.getDirectory().getRepository(), ignoredPackagePrefix);
+        if (this.containsAllTransitiveSubdirectories(pkgIdForIgnoredDirectorPrefix)) {
+          ignoredPathsBuilder.add(ignoredPackagePrefix);
+        }
+      }
+      return IgnoredPathFragmentsInScopeOrFilteringIgnorer.IgnoredPathFragments.of(
+          ignoredPathsBuilder.build());
+    }
+
+    /**
+     * Morally an {@code Either<ImmutableSet<PathFragment>, PathFragment>}, saying whether the given
+     * set of ignored directories intersected a directory (in which case the directories that were
+     * in the intersection are returned) or completely contained it (in which case a containing
+     * directory is returned).
+     */
+    public abstract static class IgnoredPathFragmentsInScopeOrFilteringIgnorer {
+      public abstract boolean wasFiltered();
+
+      public abstract ImmutableSet<PathFragment> ignoredPathFragments();
+
+      public abstract PathFragment filteringIgnorer();
+
+      private static class IgnoredPathFragments
+          extends IgnoredPathFragmentsInScopeOrFilteringIgnorer {
+        private static final IgnoredPathFragments EMPTYSET_IGNORED =
+            new IgnoredPathFragments(ImmutableSet.of());
+
+        private final ImmutableSet<PathFragment> ignoredPathFragments;
+
+        private IgnoredPathFragments(ImmutableSet<PathFragment> ignoredPathFragments) {
+          this.ignoredPathFragments = ignoredPathFragments;
+        }
+
+        static IgnoredPathFragments of(ImmutableSet<PathFragment> ignoredPathFragments) {
+          if (ignoredPathFragments.isEmpty()) {
+            return EMPTYSET_IGNORED;
+          }
+          return new IgnoredPathFragments(ignoredPathFragments);
+        }
+
+        @Override
+        public boolean wasFiltered() {
+          return false;
+        }
+
+        @Override
+        public ImmutableSet<PathFragment> ignoredPathFragments() {
+          return ignoredPathFragments;
+        }
+
+        @Override
+        public PathFragment filteringIgnorer() {
+          throw new UnsupportedOperationException("No filter: " + ignoredPathFragments);
+        }
+      }
+
+      private static class FilteringIgnorer extends IgnoredPathFragmentsInScopeOrFilteringIgnorer {
+        private final PathFragment filteringIgnorer;
+
+        FilteringIgnorer(PathFragment filteringIgnorer) {
+          this.filteringIgnorer = filteringIgnorer;
+        }
+
+        @Override
+        public boolean wasFiltered() {
+          return true;
+        }
+
+        @Override
+        public ImmutableSet<PathFragment> ignoredPathFragments() {
+          throw new UnsupportedOperationException("was filtered: " + filteringIgnorer);
+        }
+
+        @Override
+        public PathFragment filteringIgnorer() {
+          return filteringIgnorer;
+        }
+      }
+    }
+
+    /** Is {@code containingDirectory} an ancestor of or equal to this {@link #directory}? */
+    public boolean containedIn(PathFragment containingDirectory) {
+      return directory.getPackageFragment().startsWith(containingDirectory);
+    }
+
+    /**
+     * Returns true if {@code containedDirectory} is contained by or equals this pattern's
+     * directory.
+     *
+     * <p>For example, returns {@code true} for {@code this = TargetPattern ("//...")} and {@code
+     * directory = "foo")}.
+     */
+    public boolean containsAllTransitiveSubdirectories(PackageIdentifier containedDirectory) {
       // Note that merely checking to see if the directory startsWith the TargetsBelowDirectory's
       // directory is insufficient. "food" begins with "foo", but "//foo/..." does not contain
       // "//food/...".
@@ -650,8 +728,51 @@ public abstract class TargetPattern implements Serializable {
           && containedDirectory.getPackageFragment().startsWith(directory.getPackageFragment());
     }
 
-    @Override
-    public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
+    /**
+     * Determines how, if it all, the evaluation of this pattern with a directory exclusion of the
+     * given {@code containedPattern}'s directory relates to the evaluation of the subtraction of
+     * the given {@code containedPattern} from this one.
+     */
+    public ContainsResult contains(TargetsBelowDirectory containedPattern) {
+      if (containsAllTransitiveSubdirectories(containedPattern.getDirectory())) {
+        return !getRulesOnly() && containedPattern.getRulesOnly()
+            ? ContainsResult.DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD
+            : ContainsResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT;
+      } else {
+        return ContainsResult.NOT_CONTAINED;
+      }
+    }
+
+    /** A tristate return value for {@link #contains}. */
+    public enum ContainsResult {
+      /**
+       * Evaluating this pattern with a directory exclusion of the other pattern's directory would
+       * result in exactly the same set of targets as evaluating the subtraction of the other
+       * pattern from this one.
+       */
+      DIRECTORY_EXCLUSION_WOULD_BE_EXACT,
+      /**
+       * A directory exclusion of the other pattern's directory would be too broad because this
+       * pattern is not "rules only" and the other one is, meaning that this pattern potentially
+       * matches more targets underneath the directory in question than the other one does. Thus, a
+       * directory exclusion would incorrectly exclude non-rule targets.
+       */
+      DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD,
+      /** None of the above. The other pattern isn't contained by this pattern. */
+      NOT_CONTAINED,
+    }
+
+    /**
+     * Returns a {@link PackageIdentifier} identifying the most specific containing directory of the
+     * patterns that could be matched by this pattern.
+     *
+     * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
+     * actually be a package corresponding to this directory!
+     *
+     * <p>This returns a {@link PackageIdentifier} that identifies the referred-to directory. For
+     * example, for "//foo/bar/...", this method returns a {@link PackageIdentifier} for "foo/bar".
+     */
+    public PackageIdentifier getDirectory() {
       return directory;
     }
 
@@ -663,6 +784,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public boolean getRulesOnly() {
       return rulesOnly;
+    }
+
+    @Override
+    public Type getType() {
+      return Type.TARGETS_BELOW_DIRECTORY;
     }
 
     @Override

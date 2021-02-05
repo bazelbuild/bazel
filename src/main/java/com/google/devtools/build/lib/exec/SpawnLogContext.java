@@ -91,6 +91,9 @@ public class SpawnLogContext implements ActionContext {
     try {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
         ActionInput input = e.getValue();
+        if (input instanceof VirtualActionInput.EmptyActionInput) {
+          continue;
+        }
         Path inputPath = execRoot.getRelative(input.getExecPathString());
         if (inputPath.isDirectory()) {
           listDirectoryContents(inputPath, builder::addInputs, metadataProvider);

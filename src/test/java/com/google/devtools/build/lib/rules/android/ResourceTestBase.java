@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,11 +36,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -225,14 +228,16 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
    * AndroidConfiguration}.
    */
   public RuleContext getRuleContextForActionTesting(ConfiguredTarget dummyTarget) throws Exception {
-
     RuleContext dummy = getRuleContext(dummyTarget);
-
     ExtendedEventHandler eventHandler = new StoredEventHandler();
-    return view.getRuleContextForTesting(
-        eventHandler,
-        dummyTarget,
-        /* env= */ new CachingAnalysisEnvironment(
+
+    SkyFunction.Environment skyframeEnv =
+        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        (StarlarkBuiltinsValue)
+            Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
+    CachingAnalysisEnvironment analysisEnv =
+        new CachingAnalysisEnvironment(
             view.getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
             ConfiguredTargetKey.builder()
@@ -243,7 +248,13 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),
             eventHandler,
-            skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler)),
+            skyframeEnv,
+            starlarkBuiltinsValue);
+
+    return view.getRuleContextForTesting(
+        eventHandler,
+        dummyTarget,
+        analysisEnv,
         new BuildConfigurationCollection(
             ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
   }

@@ -29,9 +29,10 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.rules.android.AndroidDeviceTest.WithPlatforms;
+import com.google.devtools.build.lib.rules.android.AndroidDeviceTest.WithoutPlatforms;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,10 +41,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidDevice}. */
-@RunWith(JUnit4.class)
-public class AndroidDeviceTest extends BuildViewTestCase {
+@RunWith(Suite.class)
+@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+public abstract class AndroidDeviceTest extends AndroidBuildViewTestCase {
+  /** Use legacy toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithoutPlatforms extends AndroidDeviceTest {}
+
+  /** Use platform-based toolchain resolution. */
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends AndroidDeviceTest {
+    @Override
+    protected boolean platformBasedToolchains() {
+      return true;
+    }
+  }
+
   private static final String SYSTEM_IMAGE_LABEL =
       "//sdk/system_images:emulator_images_android_21_x86";
   private static final String SYSTEM_IMAGE_DIRECTORY = "sdk/system_images/android_21/x86/";

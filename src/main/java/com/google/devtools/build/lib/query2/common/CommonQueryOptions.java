@@ -128,7 +128,7 @@ public class CommonQueryOptions extends OptionsBase {
 
   @Option(
       name = "include_aspects",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
@@ -161,7 +161,7 @@ public class CommonQueryOptions extends OptionsBase {
   // TODO(tanzhengwei): Clean up in next major release
   @Option(
       name = "incompatible_display_source_file_location",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {

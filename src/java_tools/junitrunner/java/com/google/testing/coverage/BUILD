@@ -18,12 +18,26 @@ filegroup(
 java_binary(
     name = "JacocoCoverage",
     srcs = [
+        "JacocoCoverageRunner.java",
+    ],
+    deps = [
+        ":JacocoCoverageLib",
+        ":bitfield",
+        "//third_party:guava",
+        "//third_party/java/jacoco:blaze-agent-0.8.3",
+        "//third_party/java/jacoco:core-0.8.3",
+        "//third_party/java/jacoco:report-0.8.3",
+    ],
+)
+
+java_library(
+    name = "JacocoCoverageLib",
+    srcs = [
         "BranchCoverageDetail.java",
         "BranchDetailAnalyzer.java",
         "BranchExp.java",
         "ClassProbesMapper.java",
         "CovExp.java",
-        "JacocoCoverageRunner.java",
         "JacocoLCOVFormatter.java",
         "MethodProbesMapper.java",
         "ProbeExp.java",
@@ -55,13 +69,13 @@ genrule(
     cmd = "\n".join([
         "JARJAR=\"$$(mktemp -t bazel.XXXXXXXX)\"",
         "\"$(JAVA)\" -jar \"$(location //third_party/jarjar:jarjar_command_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$${JARJAR}\"",
-        "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
+        "\"$(location //src/tools/singlejar:singlejar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
         "rm -fr \"$${JARJAR}\"",
     ]),
     tags = ["manual"],
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = [
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//src/tools/singlejar",
         "//third_party/jarjar:jarjar_command_deploy.jar",
         "@bazel_tools//tools/jdk:current_host_java_runtime",
     ],

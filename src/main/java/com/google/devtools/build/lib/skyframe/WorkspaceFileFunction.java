@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -52,6 +53,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,7 +66,6 @@ import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
-import net.starlark.java.syntax.Statement;
 
 /**
  * A SkyFunction to read, parse, and resolve a WORKSPACE file, divide it into chunks, then execute a
@@ -139,10 +140,12 @@ public class WorkspaceFileFunction implements SkyFunction {
                     BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
 
-    Path repoWorkspace = workspaceFile.getRoot().getRelative(workspaceFile.getRootRelativePath());
-    StarlarkFile file;
-    try {
-      file =
+    // Accumulate workspace files (prefix + main + suffix).
+    ArrayList<StarlarkFile> files = new ArrayList<>();
+
+    // DEFAULT.WORKSPACE file
+    {
+      StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
                   ruleClassProvider.getDefaultWorkspacePrefix(), "/DEFAULT.WORKSPACE"),
@@ -151,60 +154,84 @@ public class WorkspaceFileFunction implements SkyFunction {
         Event.replayEventsOn(env.getListener(), file.errors());
         throw resolvedValueError("Failed to parse default WORKSPACE file");
       }
-      if (newWorkspaceFileContents != null) {
-        file =
-            StarlarkFile.parseWithPrelude(
-                ParserInput.fromString(
-                    newWorkspaceFileContents, resolvedFile.get().asPath().toString()),
-                file.getStatements(),
-                // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
-                options.toBuilder().allowLoadPrivateSymbols(true).build());
-      } else if (workspaceFileValue.exists()) {
-        byte[] bytes =
-            FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
-        file =
-            StarlarkFile.parseWithPrelude(
-                ParserInput.fromLatin1(bytes, repoWorkspace.toString()),
-                file.getStatements(),
-                options);
-        if (!file.ok()) {
-          Event.replayEventsOn(env.getListener(), file.errors());
-          throw resolvedValueError("Failed to parse WORKSPACE file");
-        }
-      }
+      files.add(file);
+    }
 
-      String suffix;
-      if (resolvedFile.isPresent()) {
-        suffix = "";
-      } else {
-        suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
-      }
+    if (newWorkspaceFileContents != null) {
+      // WORKSPACE.resolved file.
+      StarlarkFile file =
+          StarlarkFile.parse(
+              ParserInput.fromString(
+                  newWorkspaceFileContents, resolvedFile.get().asPath().toString()),
+              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
+              options.toBuilder().allowLoadPrivateSymbols(true).build());
+      files.add(file);
 
-      file =
-          StarlarkFile.parseWithPrelude(
-              ParserInput.fromString(suffix, "/DEFAULT.WORKSPACE.SUFFIX"),
-              file.getStatements(),
+    } else if (workspaceFileValue.exists()) {
+      // WORKSPACE file proper
+      Path workspacePath = workspaceFile.asPath();
+      byte[] bytes;
+      try {
+        bytes = FileSystemUtils.readWithKnownFileSize(workspacePath, workspacePath.getFileSize());
+      } catch (IOException ex) {
+        throw new WorkspaceFileFunctionException(ex, Transience.TRANSIENT);
+      }
+      StarlarkFile file =
+          StarlarkFile.parse(ParserInput.fromLatin1(bytes, workspacePath.toString()), options);
+      if (!file.ok()) {
+        Event.replayEventsOn(env.getListener(), file.errors());
+        throw resolvedValueError("Failed to parse WORKSPACE file");
+      }
+      files.add(file);
+    }
+
+    // DEFAULT.WORKSPACE.SUFFIX file
+    if (!resolvedFile.isPresent()) {
+      StarlarkFile file =
+          StarlarkFile.parse(
+              ParserInput.fromString(
+                  ruleClassProvider.getDefaultWorkspaceSuffix(), "/DEFAULT.WORKSPACE.SUFFIX"),
               // The DEFAULT.WORKSPACE.SUFFIX file breaks through the usual privacy mechanism.
               options.toBuilder().allowLoadPrivateSymbols(true).build());
       if (!file.ok()) {
         Event.replayEventsOn(env.getListener(), file.errors());
         throw resolvedValueError("Failed to parse default WORKSPACE file suffix");
       }
-    } catch (IOException ex) { // TODO(adonovan): reduce try scope
-      throw new WorkspaceFileFunctionException(ex, Transience.TRANSIENT);
+      files.add(file);
     }
+
+    // Split concatenated WORKSPACE files into chunks.
+    //
+    // A chunk is a sequence of statements in which loads precede non-loads.
+    // A chunk may span file boundaries, hence it is a list of partial files.
+    //
+    // The alternative, having chunks respect file boundaries, with a single
+    // call to 'execute' per WorkspaceFileValue, was investigated but found
+    // to require either (a) invasive changes to tests, or (b) user-visible
+    // changes to WORKSPACE semantics. This is because the lookup logic in
+    // repository.ExternalPackageHelper.processAndShouldContinue always
+    // returns the latest definition of a given name within the *first chunk
+    // that defines that name*. Consequently, adding a new chunk boundary
+    // between the prefix file and the main workspace file would break tests
+    // that exploit the current semantics to override the definitions of the
+    // prefix file. At the same time, changing it so the last definition wins
+    // would change the meaning of users' WORKSPACE files, which often rely on
+    // macro-like logic that may yield competing definitions for the same
+    // transitive dependency.
+    //
+    // (Within a chunk, before the first load statement, rules may be
+    // redefined, in which case they override earlier rules.)
+    List<List<StarlarkFile>> chunks = splitChunks(files);
 
     // -- end   of historical WorkspaceASTFunction --
     // -- start of historical WorkspaceFileFunction --
     // TODO(adonovan): reorganize and simplify.
 
-    ImmutableList<StarlarkFile> asts = splitAST(file);
-
     Package.Builder builder =
         packageFactory.newExternalPackageBuilder(
             workspaceFile, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
 
-    if (asts.isEmpty()) {
+    if (chunks.isEmpty()) {
       return new WorkspaceFileValue(
           buildAndReportEvents(builder, env),
           /* loadedModules = */ ImmutableMap.<String, Module>of(),
@@ -216,75 +243,93 @@ public class WorkspaceFileFunction implements SkyFunction {
           ImmutableMap.of(),
           ImmutableSortedSet.of());
     }
-    WorkspaceFactory parser;
+
+    // Get the state at the end of the previous chunk.
     WorkspaceFileValue prevValue = null;
-    try (Mutability mutability = Mutability.create("workspace", workspaceFile)) {
+    if (key.getIndex() > 0) {
+      prevValue =
+          (WorkspaceFileValue)
+              env.getValue(WorkspaceFileValue.key(workspaceFile, key.getIndex() - 1));
+      if (prevValue == null) {
+        return null;
+      }
+      if (prevValue.next() == null) {
+        return prevValue;
+      }
+    }
+
+    List<StarlarkFile> chunk = chunks.get(key.getIndex());
+
+    // Parse the labels in the chunk's load statements.
+    ImmutableList<Pair<String, Location>> programLoads =
+        BzlLoadFunction.getLoadsFromStarlarkFiles(chunk);
+    ImmutableList<Label> loadLabels =
+        BzlLoadFunction.getLoadLabels(
+            env.getListener(), programLoads, rootPackage, /*repoMapping=*/ ImmutableMap.of());
+    if (loadLabels == null) {
+      NoSuchPackageException e =
+          PackageFunction.PackageFunctionException.builder()
+              .setType(PackageFunction.PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+              .setPackageIdentifier(rootPackage)
+              .setMessage("malformed load statements")
+              .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
+              .buildCause();
+      throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
+    }
+
+    // Compute key for each load label.
+    ImmutableList.Builder<BzlLoadValue.Key> keys =
+        ImmutableList.builderWithExpectedSize(loadLabels.size());
+    for (Label loadLabel : loadLabels) {
+      keys.add(
+          BzlLoadValue.keyForWorkspace(
+              loadLabel,
+              getOriginalWorkspaceChunk(env, workspaceFile, key.getIndex(), loadLabel),
+              workspaceFile));
+    }
+
+    // Load .bzl modules in parallel.
+    ImmutableMap<String, Module> loadedModules;
+    try {
+      loadedModules =
+          PackageFunction.loadBzlModules(
+              env, rootPackage, programLoads, keys.build(), bzlLoadFunctionForInlining);
+    } catch (NoSuchPackageException e) {
+      throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
+    }
+    if (loadedModules == null) {
+      return null;
+    }
+
+    // Execute one workspace file chunk.
+    WorkspaceFactory parser;
+    try (Mutability mu = Mutability.create("workspace", workspaceFile)) {
       parser =
           new WorkspaceFactory(
               builder,
               ruleClassProvider,
               packageFactory.getEnvironmentExtensions(),
-              mutability,
+              mu,
               key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace(),
               directories.getLocalJavabase(),
               starlarkSemantics);
-      if (key.getIndex() > 0) {
-        prevValue =
-            (WorkspaceFileValue)
-                env.getValue(WorkspaceFileValue.key(workspaceFile, key.getIndex() - 1));
-        if (prevValue == null) {
-          return null;
+      if (prevValue != null) {
+        try {
+          parser.setParent(
+              prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
+        } catch (NameConflictException e) {
+          throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
         }
-        if (prevValue.next() == null) {
-          return prevValue;
-        }
-        parser.setParent(
-            prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
-      StarlarkFile ast = asts.get(key.getIndex());
-
-      // Parse the labels in the file's load statements.
-      ImmutableList<Pair<String, Location>> programLoads =
-          BzlLoadFunction.getLoadsFromStarlarkFile(ast);
-      ImmutableList<Label> loadLabels =
-          BzlLoadFunction.getLoadLabels(
-              env.getListener(), programLoads, rootPackage, /*repoMapping=*/ ImmutableMap.of());
-      if (loadLabels == null) {
-        throw PackageFunction.PackageFunctionException.builder()
-            .setType(PackageFunction.PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
-            .setPackageIdentifier(rootPackage)
-            .setMessage("malformed load statements")
-            .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
-            .buildCause();
+      // Execute the partial files that comprise this chunk.
+      for (StarlarkFile partialFile : chunk) {
+        parser.execute(partialFile, loadedModules, key);
       }
-
-      // Compute key for each load label.
-      ImmutableList.Builder<BzlLoadValue.Key> keys =
-          ImmutableList.builderWithExpectedSize(loadLabels.size());
-      for (Label loadLabel : loadLabels) {
-        keys.add(
-            BzlLoadValue.keyForWorkspace(
-                loadLabel,
-                getOriginalWorkspaceChunk(env, workspaceFile, key.getIndex(), loadLabel),
-                workspaceFile));
-      }
-
-      // Load .bzl modules in parallel.
-      ImmutableMap<String, Module> loadedModules =
-          PackageFunction.loadBzlModules(
-              env, rootPackage, programLoads, keys.build(), bzlLoadFunctionForInlining);
-      if (loadedModules == null) {
-        return null;
-      }
-      parser.execute(ast, loadedModules, key);
-    } catch (NoSuchPackageException e) {
-      throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
-    } catch (NameConflictException e) {
-      throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
 
+    // Return the Skyframe value for this workspace file chunk.
     return new WorkspaceFileValue(
         buildAndReportEvents(builder, env),
         parser.getLoadedModules(),
@@ -292,7 +337,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.getVariableBindings(),
         workspaceFile,
         key.getIndex(),
-        key.getIndex() < asts.size() - 1,
+        key.getIndex() < chunks.size() - 1,
         ImmutableMap.copyOf(parser.getManagedDirectories()),
         parser.getDoNotSymlinkInExecrootPaths());
   }
@@ -469,30 +514,58 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   /**
-   * Cut {@code ast} into a list of AST separated by load statements. We cut right before each load
-   * statement series.
+   * Given a list of files whose concatenation represents the logical WORKSPACE content, returns its
+   * partitioning into chunks.
+   *
+   * <p>Each chunk covers a piece of the WORKSPACE content in which all load statements precede
+   * non-loads. Chunks are maximal in the sense that 1) they begin either at the beginning of the
+   * logical WORKSPACE, or at a load statement that is preceded by a non-load; and 2) they extend up
+   * to the end of the logical WORKSPACE, or up to but not including the next load statement
+   * preceded by a non-load. Note that chunks may cross the boundaries of the files in the input
+   * list, and chunks may subdivide individual files within the input list.
+   *
+   * <p>The returned list of chunks, each chunk in it, and each file in each chunk, are all
+   * non-empty.
    */
-  // (visible to test)
-  static ImmutableList<StarlarkFile> splitAST(StarlarkFile ast) {
-    ImmutableList.Builder<StarlarkFile> asts = ImmutableList.builder();
-    int prevIdx = 0;
-    boolean lastIsLoad = true; // don't cut if the first statement is a load.
-    List<Statement> statements = ast.getStatements();
-    for (int idx = 0; idx < statements.size(); idx++) {
-      Statement st = statements.get(idx);
-      if (st instanceof LoadStatement) {
-        if (!lastIsLoad) {
-          asts.add(ast.subTree(prevIdx, idx));
-          prevIdx = idx;
+  @VisibleForTesting
+  static List<List<StarlarkFile>> splitChunks(List<StarlarkFile> files) {
+    ArrayList<List<StarlarkFile>> chunks = new ArrayList<>();
+    ArrayList<StarlarkFile> chunk = null; // allocated on demand
+    for (StarlarkFile file : files) {
+      int start = 0;
+      boolean prevIsLoad = false;
+      int nstmts = file.getStatements().size();
+      for (int i = 0; i < nstmts; i++) {
+        boolean isLoad = file.getStatements().get(i) instanceof LoadStatement;
+        if (isLoad && !prevIsLoad) {
+          // Load after non-load: finish current chunk and begin a new one.
+          if (i > start) {
+            if (chunk == null) {
+              chunk = new ArrayList<>();
+            }
+            chunk.add(file.subTree(start, i));
+          }
+          start = i;
+          if (chunk != null) {
+            chunks.add(chunk);
+          }
+          chunk = null;
         }
-        lastIsLoad = true;
-      } else {
-        lastIsLoad = false;
+        prevIsLoad = isLoad;
+      }
+      // End of file: add rest of file to current chunk but
+      // leave it open for the next file
+      if (nstmts > start) {
+        if (chunk == null) {
+          chunk = new ArrayList<>();
+        }
+        chunk.add(file.subTree(start, nstmts));
       }
     }
-    if (!statements.isEmpty()) {
-      asts.add(ast.subTree(prevIdx, statements.size()));
+    // End of last file: dispatch current chunk.
+    if (chunk != null) {
+      chunks.add(chunk);
     }
-    return asts.build();
+    return chunks;
   }
 }

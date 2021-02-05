@@ -25,13 +25,10 @@ java_library(
     name = "cpp",
     srcs = glob(
         ["*.java"],
-        exclude = INTERFACE_SOURCES + [
-            "DeniedImplicitOutputMarkerProvider.java",
-        ],
+        exclude = INTERFACE_SOURCES,
     ),
     deps = [
         ":cpp_interface",
-        ":denied_implicit_outputs_marker_provider",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -65,6 +62,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/per_label_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:denied_implicit_outputs_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:licenses_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:make_variable_supplier",
@@ -144,14 +142,5 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "denied_implicit_outputs_marker_provider",
-    srcs = ["DeniedImplicitOutputMarkerProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )

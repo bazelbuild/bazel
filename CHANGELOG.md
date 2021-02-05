@@ -1,3 +1,201 @@
+## Release 4.0.0 (2021-01-21)
+
+```
+Baseline: 37a429ad12b4c9e6a62dbae4881a1ff03b81ab40
+
+Cherry picks:
+
+   + a689d673abadf80f1efaf8ddaeee92d56fc2847b:
+     Use getRunfilesPath for run_under executable path generation.
+     getRootRelativePath doesn't return a valid runfiles path for
+     external source files anymore after the recent external source
+     root change. Also, it won't work for external labels either once
+     the --nolegacy_external_runfiles becomes default. This fixes
+     issue #12545.
+   + d90ec67fdab9710f649a3c1d374fb6b938b9271a:
+     Fix NPE when coveragerunner is not set on the toolchain.
+   + 8555789dd239a5ac229c1d9cee80b2a9f30b3bf7:
+     Fix the classic query package-loading cutoff optimization with
+     external workspaces.
+   + d113d7454127bba78aa618dac81e5d164920b662:
+     Update turbine
+   + 1489f0f4cae3e9247a70e4003ab76bef45c5b986:
+     Support Scala3 .tasty files
+   + 0d2d95cd7e34b4061c8e5fdfd21ba0ab8818c685:
+     Update to java_tools javac11 release 10.5 (#12647)
+   + a9419f38d5f29af31a6c8ebda09a6e0303a6ba54:
+     Fix common prefix for instrumentation filter
+   + 84fadcf81f81b2d7343ca4151a5639be7f2263ee:
+     Fix builds for filegroup targets with incompatible dependencies
+   + e43825d0bef359f645e1cabf2164fd2db6ee4a35:
+     Revert "Remove
+     --incompatible_blacklisted_protos_requires_proto_info"
+   + 082d58de852ebaa640bcf13cf419cbb94eec2b26:
+     Transform roots along with paths during output deletion.
+   + e8835c1c221d76a2d5532d18083eaa04401619b3:
+     AttributeContainer.Large now handles more than 127 attributes.
+   + e1e87349335ac59f9b3df47cee8b999faeaa6d11:
+     Add an env attribute to all test and binary rule classes
+   + a87d7ed2411d5382bac58a20b79e09c464ad13b9:
+     Take no action to prefetch empty artifacts.
+   + 3e969ff24a6a0e03139b9f288c88451a7dfa97cd:
+     Fix a couple of bugs with Incompatible Target Skipping
+   + e6670825b1e183f81f5c864aafd425d512fa9ff5:
+     Pass --host_action_env to host options hostActionEnvironment
+     attribute
+   + 07400c0392e7be163f8a3396fa5cf89ce6705412:
+     Add --{no,}autodetect_server_javabase.
+   + c83366064621d5a265eba14d93a03deff58fe6d8:
+     Only treat "env" and "env_inherit" attrs specially for native
+     rules
+   + 6a60b30cd0f22d0ab84b2ddd658d5ccb899a8a76:
+     Fix coverage support when using default_java_toolchain. (#12801)
+   + 4158a6f512e52516437e00f8d9609a91be7fc195:
+     Revert JacocoCoverage target to remote_java_tools_java_import
+     and add a new target for remore_java_tools_filegroup. (#12813)
+   + f6d30cf5ef9a8a39fea7072317f89a872387b790:
+     Add windows_msvc back to conditions in bazel_tools.
+```
+
+New features:
+
+  - Starlark-defined flags can now be shorthanded using --flag_alias.
+
+Important changes:
+
+  - Add --starlark:file option. This adds a capability to the
+    (cquery)[https://docs.bazel.build/versions/master/cquery.html]
+    feature in `--output=starlark` mode so that the expression to
+    format output may
+    be specified in a file.
+  - Error messages emitted when an action fails are reworked to be
+    more informative about the failing action. Some tooling may have
+    to be updated as a result.
+  - Querying with output=location now allows the relative_locations
+    flag to properly display relative locations instead of the full
+    path. Fixes https://github.com/bazelbuild/bazel/issues/3497.
+  - --flag_alias can now be used without
+    --experimental_enable_flag_alias
+  - Remove no-op `--deep_execroot` flag
+  - The BEP uses `AbortReason.OUT_OF_MEMORY` for abort events when
+    the build tool is crashing due to OOM.
+  - Added flag `incompatible_display_source_file_location` for `blaze
+    query location=output` to print the location of line 1 of the
+    actual source files instead of the source file targets. Provides
+    a solution to https://github.com/bazelbuild/bazel/issues/8900.
+  - The Starlark json module is now available.
+    Use json.encode(x) to encode a Starlark value as JSON.
+    struct.to_json(x) is deprecated and will be disabled by
+    the --incompatible_struct_has_no_methods flag.
+  - The flag `--incompatible_objc_compile_info_migration` is enabled
+    by default.  See #10854.
+  - The flag `--incompatible_objc_provider_remove_compile_info` is
+    enabled by default.  See #11359.
+  - Add `relative_ast_path` feature for darwin builds to relativize
+    swiftmodule paths for debugging
+  - Use proto.encode_text(x) to encode a Starlark value as textproto.
+    struct.to_proto() is deprecated and will be disabled by
+    the --incompatible_struct_has_no_methods flag.
+    Both functions now reject list/dict fields that contain list/dict
+    elements.
+  - Add --starlark:file option. This adds a capability to the
+    (cquery)[https://docs.bazel.build/versions/master/cquery.html]
+    feature in `--output=starlark` mode so that the expression to
+    format output may be specified in a file.
+    See [Configured Query Starlark
+    Output](//docs.google.com/document/d/1kL6Tdmp6uLBa9lq_DbUSjIC87glO
+    zKIyPoBeF95Rs4c/edit)
+  - Flipped --incompatble_proto_output_v2 for aquery.
+  - The --incompatible_load_java_rules_from_bzl flag is now a no-op.
+  - The --incompatible_load_proto_rules_from_bzl flag is now a no-op.
+  - Flipped --incompatible_force_strict_header_check_from_starlark
+  - --incompatible_string_replace_count is flipped and removed
+    (#11244)
+  - Bazel skips incompatible targets based on target platform
+    and `target_compatible_with` contents. See
+    https://docs.bazel.build/versions/master/platforms.html for more
+    details.
+  - Bazel returns exit code 36 (rather than 1) if it fails to start a
+    subprocess in a local sandbox due to environmental issues, for
+    example, if the argument list is too long.
+  - //tools/build_defs/pkg:pkg_rpm is no longer built in to Bazel.
+    See https://github.com/bazelbuild/bazel/issues/11218 for
+    instructions
+    on how to migrate to the replacement.
+  - Javac now supports multiplex workers.
+  - The `--default_ios_provisioning_profile` flag has been removed
+    (it was a no-op).
+  - Add support for using AndroidX dependencies in
+    data-binding-enabled targets.
+  - Fix data-binding generation for android_local_test.
+  - Enable debug_prefix_map_pwd_is_dot feature by default on macOS,
+    this passes `-fdebug-prefix-map=$PWD=.` for every compile to
+    remove absolute paths from debug info.
+  - --incompatible_run_shell_command_string is enabled by default
+    (#5903)
+  - py_binary now tolerates package paths that contain hyphens ('-').
+    Note that such paths might not be importable from within Python
+    code.
+  - C++ Starlark API requires linker_inputs wrapping library_to_link.
+    #10860
+  - Toolchain rule is extended with target_settings attribute.
+  - --incompatible_restrict_string_escapes=true is now the default.
+    Unnecessary backslashes such as "\." in string literals are now
+    an error, instead of being silently treated as "\\.".
+    To fix the error while preserving behavior, double the backlash.
+    However, the error is often a sign that the original code was
+    wrong.
+  - Propagate instrumented files for transitive sources of
+    `android_library` and `android_binary`
+  - --local_resources and --incompatible_remove_local_resources have
+    been removed. If you've been setting --local resources or
+    --incompatible_remove_local_resources=false, you must migrate to
+    using --local_ram_resources and --local_cpu_resources instead.
+  - Update rules_cc to commit b1c40e1de81913a3c40e5948f78719c28152486d
+  - --incompatible_avoid_conflict_dlls=true is now the default.
+  - Dynamic execution now uses the new scheduler by default.
+  - Dynamic execution now uses the new scheduler by default.
+  - The new dynamic scheduler is now the default.
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Akira Baruah, Alexander Grund, Alex Eagle, Andrew Z Allen, Austin Schuh, Benjamin Peterson, Benson Muite, Brentley Jones, Cristian Hancila, Dan Halperin, Daniel Wagner-Hall, Dmitry Ivankov, Dmitry Ivankov, erenon, Eric Cousineau, Greg Estren, Gregor Jasny, Grzegorz Lukasik, Grzegorz Lukasik, hollste, Joe Lencioni, johnjbarton, Jonathan Perry, Jonathon Belotti, Keith Smiley, Kevin Gessner, Matt Davis, Matt Mackay, Menny Even Danan, Neeraj Gupta, Philipp Schrader, Ricardo Delfin, Ryan Beasley, Samuel Giddins, Simon Bjorklen, Simon Stewart, Stiopa Koltsov, Thi Doan, ThomasCJY, Timothy Klim, Tom de Goede, vectoralpha, V Vn Ngha, William A Rowe Jr, Xavier Bonaventura, Yannic Bonenberger, Yannic.
+
+## Release 3.7.2 (2020-12-17)
+
+```
+Baseline: a991db7c2f66a354666388d888dcef9b0d0f70c0
+
+Cherry picks:
+
+   + 0d14ec84a06c4da628a7f6d9d1c5f9314392ab15:
+     Release 3.7.0 (2020-10-20)
+   + d563446a77b906807cea86f5c2abafa5900d901a:
+     Add `-XDcompilePolicy=simple` to default javacopts
+   + 6336264e4b0d8cc422ec73e1b923bf8014ace778:
+     Update rules_cc reference to head of rules_cc as of 2020-11-11.
+   + b3f934680554515aa312b5dd4453df5cd38f0aea:
+     Bump rules_cc to support llvm 11.0.0 clang-cl compiler on Windows
+   + e055b433efdccb28b9c21082e72d8e79d9b34e0f:
+     Remove accidentally re-added
+     tools/jdk/java_toolchain_default.bzl.
+   + 02838a1b2aa2f6d03980536ab2ac6840c3c98e84:
+     Avoid the spawn cache if executing dynamically.
+   + d0efd7b9e5109ff5ac6d13c91f58c3fc4dc3afd8:
+     Release 3.7.1 (2020-11-24)
+   + a689d673abadf80f1efaf8ddaeee92d56fc2847b:
+     Use getRunfilesPath for run_under executable path generation.
+     getRootRelativePath doesn't return a valid runfiles path for
+     external source files anymore after the recent external source
+     root change. Also, it won't work for external labels either once
+     the --nolegacy_external_runfiles becomes default. This fixes
+     issue #12545.
+```
+
+Important changes:
+
+  - Update rules_cc to commit b1c40e1de81913a3c40e5948f78719c28152486d
+
+This release contains contributions from many people at Google, as well as William A Rowe Jr.
+
 ## Release 3.7.1 (2020-11-24)
 
 ```

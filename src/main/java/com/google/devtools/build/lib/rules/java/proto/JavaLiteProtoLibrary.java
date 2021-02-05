@@ -48,6 +48,14 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+
+    if (ruleContext.getFragment(JavaConfiguration.class).isDisallowStrictDepsForJlpl()
+        && ruleContext.attributes().has("strict_deps")
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("strict_deps")) {
+      ruleContext.attributeError("strict_deps", "The strict_deps attribute has been removed.");
+      return null;
+    }
+
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
         ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
@@ -78,8 +86,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
-    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()
-        && !ruleContext.getDisabledFeatures().contains("jlpl_strict_deps")) {
+    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()) {
       JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
           new JavaStrictCompilationArgsProvider(
               constructJcapFromAspectDeps(

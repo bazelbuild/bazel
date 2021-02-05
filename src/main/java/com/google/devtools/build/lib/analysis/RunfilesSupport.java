@@ -464,8 +464,14 @@ public final class RunfilesSupport {
   }
 
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined("env", Type.STRING_DICT)
-        && !ruleContext.getRule().isAttrDefined("env_inherit", Type.STRING_LIST)) {
+    // Currently, "env" and "env_inherit" are not added to Starlark-defined rules (unlike "args"),
+    // in order to avoid breaking existing Starlark rules that use those attribute names.
+    // TODO(brandjon): Support "env" and "env_inherit" for Starlark-defined rules.
+    boolean isNativeRule =
+        ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
+    if (!isNativeRule
+        || (!ruleContext.getRule().isAttrDefined("env", Type.STRING_DICT)
+            && !ruleContext.getRule().isAttrDefined("env_inherit", Type.STRING_LIST))) {
       return ActionEnvironment.EMPTY;
     }
     TreeMap<String, String> fixedEnv = new TreeMap<>();

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -22,6 +21,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -41,29 +42,30 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       PathFragment directory,
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException {
+      throws InterruptedException, QueryException {
     ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
         ImmutableSet.copyOf(
-            Iterables.filter(
-                ignoredSubdirectories,
-                path -> !path.equals(directory) && path.startsWith(directory)));
+            Iterables.filter(ignoredSubdirectories, path -> path.startsWith(directory)));
 
     for (Root root : roots) {
-      // Note: no need to check if lookup == null because it will never be null.
-      // {@link RecursivePkgFunction} handles all errors in a keep_going build.
-      // In a nokeep_going build, we would never reach this part of the code.
+      RootedPath rootedPath = RootedPath.toRootedPath(root, directory);
       RecursivePkgValue lookup =
           (RecursivePkgValue)
               graph.getValue(
-                  RecursivePkgValue.key(
-                      repository,
-                      RootedPath.toRootedPath(root, directory),
-                      filteredIgnoredSubdirectories));
-      Preconditions.checkState(
-          lookup != null,
-          "Root %s in repository %s could not be found in the graph.",
-          root.asPath(),
-          repository.getName());
+                  RecursivePkgValue.key(repository, rootedPath, filteredIgnoredSubdirectories));
+      if (lookup == null) {
+        // A null lookup should only happen during post-analysis queries which have access to
+        // --universe_scope logic. For builds lookup should never be null because {@link
+        // RecursivePkgFunction} handles all errors in a --keep_going build. In a --nokeep_going
+        // build, we should never reach this part of the code.
+        throw new QueryException(
+            String.format(
+                "Unable to load package '%s' because package is not in scope. Check that all"
+                    + " target patterns in query expression are within the --universe_scope of this"
+                    + " query.",
+                rootedPath),
+            Code.TARGET_NOT_IN_UNIVERSE_SCOPE);
+      }
       ImmutableList.Builder<PackageIdentifier> packageIds = ImmutableList.builder();
       for (String packageName : lookup.getPackages().toList()) {
         // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform

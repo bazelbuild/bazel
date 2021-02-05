@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.worker;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -31,9 +31,12 @@ import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import javax.annotation.Nullable;
 
 /**
  * An intermediate worker that sends requests and receives responses from the worker processes.
@@ -42,35 +45,37 @@ import java.util.concurrent.Semaphore;
  * into them to send requests. When a worker process returns a {@code WorkResponse}, {@code
  * WorkerMultiplexer} wakes up the relevant {@code WorkerProxy} to retrieve the response.
  */
-public class WorkerMultiplexer extends Thread {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+public class WorkerMultiplexer {
+  /**
+   * A queue of {@link WorkRequest} instances that need to be sent to the worker. {@link
+   * WorkerProxy} instances add to this queue, while the requestSender subthread remove requests and
+   * send them to the worker. This prevents dynamic execution interrupts from corrupting the {@code
+   * stdin} of the worker process.
+   */
+  private final BlockingQueue<WorkRequest> pendingRequests = new LinkedBlockingQueue<>();
   /**
    * A map of {@code WorkResponse}s received from the worker process. They are stored in this map
    * keyed by the request id until the corresponding {@code WorkerProxy} picks them up.
    */
-  private final ConcurrentMap<Integer, WorkResponse> workerProcessResponse;
+  private final ConcurrentMap<Integer, WorkResponse> workerProcessResponse =
+      new ConcurrentHashMap<>();
   /**
    * A map of semaphores corresponding to {@code WorkRequest}s. After sending the {@code
    * WorkRequest}, {@code WorkerProxy} will wait on a semaphore to be released. {@code
    * WorkerMultiplexer} is responsible for releasing the corresponding semaphore in order to signal
    * {@code WorkerProxy} that the {@code WorkerResponse} has been received.
    */
-  private final ConcurrentMap<Integer, Semaphore> responseChecker;
-  /** The worker process that this WorkerMultiplexer should be talking to. */
-  private Subprocess process;
+  private final ConcurrentMap<Integer, Semaphore> responseChecker = new ConcurrentHashMap<>();
   /**
-   * Set to true if one of the worker processes returns an unparseable response, or for other
-   * reasons we can't properly handle the remaining responses. We then discard all the responses
-   * from other work requests and abort.
+   * The worker process that this WorkerMultiplexer should be talking to. This should only be set
+   * once, when creating a new process. If the process dies or its stdio streams get corrupted, the
+   * {@code WorkerMultiplexer} gets discarded as well and a new one gets created as needed.
    */
-  private boolean isWorkerStreamCorrupted;
+  private Subprocess process;
+  /** The implementation of the worker protocol (JSON or Proto). */
+  private WorkerProtocolImpl workerProtocol;
   /** InputStream from the worker process. */
   private RecordingInputStream recordingStream;
-  /**
-   * True if we have received EOF on the stream from the worker process. We then stop processing,
-   * and all workers still waiting for responses will fail.
-   */
-  private boolean isWorkerStreamClosed;
   /** True if this multiplexer was explicitly destroyed. */
   private boolean wasDestroyed;
   /**
@@ -85,42 +90,44 @@ public class WorkerMultiplexer extends Thread {
   /** For testing only, allow a way to fake subprocesses. */
   private SubprocessFactory subprocessFactory;
 
+  /** A separate thread that sends requests. */
+  private Thread requestSender;
+
+  /** A separate thread that receives responses. */
+  private Thread responseReceiver;
+
   /**
    * The active Reporter object, non-null if {@code --worker_verbose} is set. This must be cleared
    * at the end of a command execution.
    */
-  public EventHandler reporter;
+  private EventHandler reporter;
 
   WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
     this.logFile = logFile;
     this.workerKey = workerKey;
-    responseChecker = new ConcurrentHashMap<>();
-    workerProcessResponse = new ConcurrentHashMap<>();
-    isWorkerStreamCorrupted = false;
-    isWorkerStreamClosed = false;
-    wasDestroyed = false;
   }
 
   /** Sets or clears the reporter for outputting verbose info. */
-  void setReporter(EventHandler reporter) {
+  synchronized void setReporter(@Nullable EventHandler reporter) {
     this.reporter = reporter;
   }
 
   /** Reports a string to the user if reporting is enabled. */
-  private void report(String s) {
-    EventHandler r = this.reporter; // Protect against race condition with setReporter().
-    if (r != null && s != null) {
-      r.handle(Event.info(s));
+  private synchronized void report(@Nullable String s) {
+    if (this.reporter != null && s != null) {
+      this.reporter.handle(Event.info(s));
     }
   }
 
   /**
    * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
-   * exist. Also makes sure this {@code WorkerMultiplexer} runs as a separate thread.
+   * exist. Also starts up the subthreads handling reading and writing requests and responses.
    */
   public synchronized void createProcess(Path workDir) throws IOException {
-    // The process may have died in the meanwhile (e.g. between builds).
-    if (this.process == null || !this.process.isAlive()) {
+    if (this.process == null) {
+      if (this.wasDestroyed) {
+        throw new IOException("Multiplexer destroyed before created process");
+      }
       ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
       if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -128,8 +135,6 @@ public class WorkerMultiplexer extends Thread {
         newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
         args = ImmutableList.copyOf(newArgs);
       }
-      isWorkerStreamCorrupted = false;
-      isWorkerStreamClosed = false;
       SubprocessBuilder processBuilder =
           subprocessFactory != null
               ? new SubprocessBuilder(subprocessFactory)
@@ -139,9 +144,36 @@ public class WorkerMultiplexer extends Thread {
       processBuilder.setStderr(logFile.getPathFile());
       processBuilder.setEnv(workerKey.getEnv());
       this.process = processBuilder.start();
-    }
-    if (!this.isAlive()) {
-      this.start();
+      recordingStream = new RecordingInputStream(process.getInputStream());
+      recordingStream.startRecording(4096);
+      if (workerProtocol == null) {
+        switch (workerKey.getProtocolFormat()) {
+          case JSON:
+            workerProtocol = new JsonWorkerProtocol(process.getOutputStream(), recordingStream);
+            break;
+          case PROTO:
+            workerProtocol = new ProtoWorkerProtocol(process.getOutputStream(), recordingStream);
+            break;
+        }
+      }
+      String id = workerKey.getMnemonic() + "-" + workerKey.hashCode();
+      // TODO(larsrc): Consider moving sender/receiver threads into separate classes.
+      this.requestSender =
+          new Thread(
+              () -> {
+                while (process.isAlive() && sendRequest()) {}
+              });
+      this.requestSender.setName("multiplexer-request-sender-" + id);
+      this.requestSender.start();
+      this.responseReceiver =
+          new Thread(
+              () -> {
+                while (process.isAlive() && readResponse()) {}
+              });
+      this.responseReceiver.setName("multiplexer-response-receiver-" + id);
+      this.responseReceiver.start();
+    } else if (!this.process.isAlive()) {
+      throw new IOException("Process is dead");
     }
   }
 
@@ -155,35 +187,48 @@ public class WorkerMultiplexer extends Thread {
 
   /**
    * Signals this object to destroy itself, including the worker process. The object might not be
-   * fully destroyed at the end of this call, but will terminate soon.
+   * fully destroyed at the end of this call, but will terminate soon. This is considered a
+   * deliberate destruction.
    */
   public synchronized void destroyMultiplexer() {
     if (this.process != null) {
-      destroyProcess(this.process);
-      this.process = null;
+      destroyProcess();
     }
     wasDestroyed = true;
   }
 
-  /** Destroys the worker subprocess. This might block forever if the subprocess refuses to die. */
-  private void destroyProcess(Subprocess process) {
+  /**
+   * Destroys the worker subprocess. This might block forever if the subprocess refuses to die. It
+   * is safe to call this multiple times.
+   */
+  private synchronized void destroyProcess() {
     boolean wasInterrupted = false;
     try {
-      process.destroy();
+      this.process.destroy();
       while (true) {
         try {
-          process.waitFor();
+          this.process.waitFor();
           return;
         } catch (InterruptedException ie) {
           wasInterrupted = true;
         }
       }
     } finally {
+      // Stop the subthreads only when the process is dead, or their loops will go on.
+      if (this.requestSender != null) {
+        this.requestSender.interrupt();
+      }
+      if (this.responseReceiver != null) {
+        this.responseReceiver.interrupt();
+      }
+      // Might as well release any waiting workers
+      for (Semaphore semaphore : responseChecker.values()) {
+        semaphore.release();
+      }
       // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
       if (wasInterrupted) {
         Thread.currentThread().interrupt(); // preserve interrupted status
       }
-      isWorkerStreamClosed = true;
     }
   }
 
@@ -192,21 +237,12 @@ public class WorkerMultiplexer extends Thread {
    * WorkerProxy}, and so is subject to interrupts by dynamic execution.
    */
   public synchronized void putRequest(WorkRequest request) throws IOException {
-    responseChecker.put(request.getRequestId(), new Semaphore(0));
-    try {
-      request.writeDelimitedTo(process.getOutputStream());
-      process.getOutputStream().flush();
-    } catch (IOException e) {
-      // We can't know how much of the request was sent, so we have to assume the worker's input
-      // now contains garbage.
-      // TODO(b/151767359): Avoid causing garbage! Maybe by sending in a separate thread?
-      isWorkerStreamCorrupted = true;
-      if (e instanceof InterruptedIOException) {
-        Thread.currentThread().interrupt();
-      }
-      responseChecker.remove(request.getRequestId());
-      throw e;
+    if (!process.isAlive()) {
+      throw new IOException(
+          "Attempting to send request " + request.getRequestId() + " to dead process");
     }
+    responseChecker.put(request.getRequestId(), new Semaphore(0));
+    pendingRequests.add(request);
   }
 
   /**
@@ -216,23 +252,25 @@ public class WorkerMultiplexer extends Thread {
    */
   public WorkResponse getResponse(Integer requestId) throws InterruptedException {
     try {
+      if (!process.isAlive()) {
+        // If the process has died, all we can do is return what may already have been returned.
+        return workerProcessResponse.get(requestId);
+      }
+
       Semaphore waitForResponse = responseChecker.get(requestId);
 
       if (waitForResponse == null) {
         report("Null response semaphore for " + requestId);
-        // If the multiplexer is interrupted when a {@code WorkerProxy} is trying to send a request,
-        // the request is not sent, so there is no need to wait for a response.
-        return null;
+        // If there is no semaphore for this request, it probably failed to send, so we just return
+        // what we got, probably nothing.
+        return workerProcessResponse.get(requestId);
       }
 
       // Wait for the multiplexer to get our response and release this semaphore. The semaphore will
       // throw {@code InterruptedException} when the multiplexer is terminated.
       waitForResponse.acquire();
-      report("Acquired response semaphore for " + requestId);
 
-      WorkResponse workResponse = workerProcessResponse.get(requestId);
-      report("Response for " + requestId + " is " + workResponse);
-      return workResponse;
+      return workerProcessResponse.get(requestId);
     } finally {
       responseChecker.remove(requestId);
       workerProcessResponse.remove(requestId);
@@ -240,36 +278,71 @@ public class WorkerMultiplexer extends Thread {
   }
 
   /**
-   * Waits to read a {@code WorkResponse} from worker process, put that {@code WorkResponse} in
-   * {@code workerProcessResponse} and release the semaphore for the {@code WorkerProxy}.
+   * Sends a single pending request, if there are any. Blocks until a request is available.
    *
-   * <p>This is only called on the WorkerMultiplexer thread and so cannot be interrupted by dynamic
-   * execution cancellation.
+   * <p>This is only called by the {@code requestSender} thread and so cannot be interrupted by
+   * dynamic execution cancellation, but only by a call to {@link #destroyProcess()}.
    */
-  private void waitResponse() throws InterruptedException, IOException {
-    Subprocess p = this.process;
-    if (p == null || !p.isAlive()) {
-      // Avoid busy-wait for a new process.
-      Thread.sleep(1);
-      return;
+  private boolean sendRequest() {
+    WorkRequest request;
+    try {
+      request = pendingRequests.take();
+    } catch (InterruptedException e) {
+      return false;
     }
-    recordingStream = new RecordingInputStream(p.getInputStream());
-    recordingStream.startRecording(4096);
-    WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(recordingStream);
+    try {
+      workerProtocol.putRequest(request);
+    } catch (IOException e) {
+      // We can't know how much of the request was sent, so we have to assume the worker's input
+      // now contains garbage, and this request is lost.
+      // TODO(b/177637516): Signal that this action failed for presumably transient reasons.
+      report("Failed to send request " + request.getRequestId());
+      Semaphore s = responseChecker.remove(request.getRequestId());
+      if (s != null) {
+        s.release();
+      }
+      // TODO(b/177637516): Leave process in a moribound state so pending responses can be returned.
+      destroyProcess();
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Reads a {@code WorkResponse} from worker process, puts that {@code WorkResponse} in {@code
+   * workerProcessResponse}, and releases the semaphore for the {@code WorkerProxy}.
+   *
+   * <p>This is only called on the readResponses subthread and so cannot be interrupted by dynamic
+   * execution cancellation, but only by a call to {@link #destroyProcess()}.
+   */
+  private boolean readResponse() {
+    WorkResponse parsedResponse;
+    try {
+      parsedResponse = workerProtocol.getResponse();
+    } catch (IOException e) {
+      if (!(e instanceof InterruptedIOException)) {
+        report(
+            String.format(
+                "Error while reading response from multiplexer process for %s: %s",
+                workerKey.getMnemonic(), e));
+      }
+      // We can't know how much of the response was read, so we have to assume the worker's output
+      // now contains garbage, and we can't reliably read any further responses.
+      destroyProcess();
+      return false;
+    }
 
     // A null parsedResponse can only happen if the input stream is closed, in which case we
     // drop everything.
     if (parsedResponse == null) {
-      isWorkerStreamClosed = true;
       report(
           String.format(
-              "Multiplexer process for %s has closed its output, aborting multiplexer",
-              workerKey.getMnemonic()));
-      return;
+              "Multiplexer process for %s has closed its output stream", workerKey.getMnemonic()));
+      destroyProcess();
+      return false;
     }
 
     int requestId = parsedResponse.getRequestId();
-
     workerProcessResponse.put(requestId, parsedResponse);
 
     // TODO(b/151767359): When allowing cancellation, just remove responses that have no matching
@@ -282,64 +355,7 @@ public class WorkerMultiplexer extends Thread {
       report(String.format("Multiplexer for %s found no semaphore", workerKey.getMnemonic()));
       workerProcessResponse.remove(requestId);
     }
-  }
-
-  /** The multiplexer thread that listens to the WorkResponse from worker process. */
-  @Override
-  public void run() {
-    while (!isWorkerStreamClosed && !isWorkerStreamCorrupted) {
-      try {
-        waitResponse();
-      } catch (IOException e) {
-        // We got this exception while reading from the worker's stdout. We can't trust the
-        // output any more at that point.
-        isWorkerStreamCorrupted = true;
-        if (e instanceof InterruptedIOException) {
-          report(
-              String.format(
-                  "Multiplexer process for %s was interrupted during I/O, aborting multiplexer",
-                  workerKey.getMnemonic()));
-        } else {
-          // TODO(larsrc): Output the recorded message.
-          report(
-              String.format(
-                  "Multiplexer for %s got IOException reading a response, aborting multiplexer",
-                  workerKey.getMnemonic()));
-          logger.atWarning().withCause(e).log(
-              "Caught IOException while waiting for worker response. "
-                  + "It could be because the worker returned an unparseable response.");
-        }
-      } catch (InterruptedException e) {
-        // This should only happen when the Blaze build has been aborted (failed or cancelled). In
-        // that case, there may still be some outstanding requests in the worker process, which we
-        // will let fall on the floor, but we still want to leave the process running for the next
-        // build.
-        // TODO(b/151767359): Cancel all outstanding requests when cancellation is implemented.
-        releaseAllSemaphores();
-      }
-    }
-    // If we get here, the worker process is either dead or corrupted. We could attempt to restart
-    // it, but the outstanding requests will have failed already. Until we have a way to signal
-    // transient failures, we have to just reject all further requests and make sure the process
-    // is really dead
-    synchronized (this) {
-      if (process != null && process.isAlive()) {
-        destroyMultiplexer();
-      }
-      releaseAllSemaphores();
-    }
-  }
-
-  /**
-   * Release all the semaphores and clear the related maps. Must only be called when we are shutting
-   * down the multiplexer.
-   */
-  private void releaseAllSemaphores() {
-    for (Semaphore semaphore : responseChecker.values()) {
-      semaphore.release();
-    }
-    responseChecker.clear();
-    workerProcessResponse.clear();
+    return true;
   }
 
   String getRecordingStreamMessage() {
@@ -350,14 +366,14 @@ public class WorkerMultiplexer extends Thread {
 
   /** Returns true if this process has died for other reasons than a call to {@code #destroy()}. */
   boolean diedUnexpectedly() {
-    Subprocess p = this.process; // Protects against this.process getting null.
-    return p != null && !p.isAlive() && !wasDestroyed;
+    return this.process != null && !this.process.isAlive() && !wasDestroyed;
   }
 
   /** Returns the exit value of multiplexer's process, if it has exited. */
   Optional<Integer> getExitValue() {
-    Subprocess p = this.process; // Protects against this.process getting null.
-    return p != null && !p.isAlive() ? Optional.of(p.exitValue()) : Optional.empty();
+    return this.process != null && !this.process.isAlive()
+        ? Optional.of(this.process.exitValue())
+        : Optional.empty();
   }
 
   /** For testing only, to verify that maps are cleared after responses are reaped. */

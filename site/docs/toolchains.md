@@ -6,7 +6,7 @@ title: Toolchains
 # Toolchains
 
 
-This page describes the toolchain framework -- a way for rule authors to
+This page describes the toolchain framework, which is a way for rule authors to
 decouple their rule logic from platform-based selection of tools. It is
 recommended to read the
 [rules](skylark/rules.html)
@@ -217,8 +217,12 @@ To define some toolchains for a given toolchain type, we need three things:
    suite for different platforms.
 
 3. For each such target, an associated target of the generic
-[`toolchain`](be/platform.html#toolchain)
-rule, to provide metadata used by the toolchain framework.
+  [`toolchain`](be/platform.html#toolchain)
+   rule, to provide metadata used by the toolchain framework. This `toolchain`
+   target also refers to the `toolchain_type` associated with this toolchain.
+   This means that a given `\_toolchain` rule could be associated with any
+   `toolchain_type`, and that only in a `toolchain` instance that uses
+   this `\_toolchain` rule that the rule is associated with a `toolchain_type`.
 
 For our running example, here's a definition for a `bar_toolchain` rule. Our
 example has only a compiler, but other tools such as a linker could also be

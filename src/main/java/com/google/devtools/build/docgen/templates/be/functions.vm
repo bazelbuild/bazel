@@ -77,7 +77,7 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_testonly"><code>default_testonly</code></td>
       <td>
-        <p><code>Boolean; optional; default is 0 except as noted</code></p>
+        <p><code>Boolean; optional; default is False except as noted</code></p>
         <p>Sets the default <a href="common-definitions.html#common.testonly">
         <code>testonly</code></a> property for all rules in this package.</p>
         <p>In packages under <code>javatests</code> the default value is 1.</p>
@@ -307,8 +307,9 @@ exports_files(["golden.txt"])
 
 <p>
 Glob is a helper function that finds all files that match certain path patterns,
-and returns a list of their paths. Glob only searches files in its own package,
-and looks only for source files (not generated files nor other targets).
+and returns a new, mutable, sorted list of their paths. Glob only searches files
+in its own package, and looks only for source files (not generated files nor
+other targets).
 </p>
 
 <p>

@@ -92,8 +92,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   @Rule public ExpectedException thrown = ExpectedException.none();
@@ -345,7 +344,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateSpawnActionShellCommandList() throws Exception {
-    ev.setSemantics("--incompatible_run_shell_command_string=false");
+    setBuildLanguageOptions("--incompatible_run_shell_command_string=false");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
@@ -445,7 +444,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRunShellArgumentsWithCommandSequence() throws Exception {
-    ev.setSemantics("--incompatible_run_shell_command_string=false");
+    setBuildLanguageOptions("--incompatible_run_shell_command_string=false");
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
         "'arguments' must be empty if 'command' is a sequence of strings",
@@ -1778,12 +1777,12 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         ")");
     scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
-    AssertionError expected =
+    AssertionError ex =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "cannot return a non-exported provider instance from a rule implementation function.");
+    String msg = ex.getMessage();
+    assertThat(msg)
+        .contains("rule implementation function returned an instance of an unnamed provider");
+    assertThat(msg).contains("Provider defined at /workspace/test/my_rule.bzl:2:28");
   }
 
   @Test

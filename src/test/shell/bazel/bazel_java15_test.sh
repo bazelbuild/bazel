@@ -54,10 +54,8 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-JAVA_TOOLCHAIN="$1"; shift
 JAVA_TOOLS_ZIP="$1"; shift
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
-JAVA_RUNTIME="$1"; shift
 
 echo "JAVA_TOOLS_ZIP=$JAVA_TOOLS_ZIP"
 
@@ -74,10 +72,6 @@ fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --javabase=${JAVA_RUNTIME}"
-add_to_bazelrc "build --host_javabase=${JAVA_RUNTIME}"
 
 function set_up() {
     cat >>WORKSPACE <<EOF
@@ -104,6 +98,7 @@ EOF
     cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
+# Java source files version shall match --java_language_version_flag version.
 function test_java15_text_block() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -125,9 +120,156 @@ public class Javac15Example {
   }
 }
 EOF
-  bazel run java/main:Javac15Example --java_language_version=15 --java_runtime_version=15 --test_output=all --verbose_failures &>"${TEST_log}"
+  bazel run java/main:Javac15Example --java_language_version=14 --java_runtime_version=14 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+     && fail "Running with --java_language_version=14 unexpectedly succeeded."
+
+  bazel run java/main:Javac15Example --java_language_version=11 --java_runtime_version=11 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+     && fail "Running with --java_language_version=11 unexpectedly succeeded."
+
+  bazel run java/main:Javac15Example --java_language_version=15 --java_runtime_version=15 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+     || fail "Running with --java_language_version=15 failed"
   expect_log "^Hello,\$"
   expect_log "^World\$"
 }
+
+# Java source files version shall match --java_language_version_flag version.
+function test_java14_record_type() {
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_binary(
+    name = 'Javac14Example',
+    srcs = ['Javac14Example.java'],
+    main_class = 'Javac14Example',
+    javacopts = ["--enable-preview"],
+    jvm_flags = ["--enable-preview"],
+)
+EOF
+
+  cat >java/main/Javac14Example.java <<EOF
+public class Javac14Example {
+  record Point(int x, int y) {}
+  public static void main(String[] args) {
+    Point point = new Point(0, 1);
+    System.out.println(point.x);
+  }
+}
+EOF
+  bazel run java/main:Javac14Example --java_language_version=15 --java_runtime_version=15 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      || fail "Running with --java_language_version=15 failed"
+
+  expect_log "0"
+
+  bazel run java/main:Javac14Example --java_language_version=11 --java_runtime_version=11 \
+     --test_output=all --verbose_failures &>"${TEST_log}" \
+      && fail "Running with --java_language_version=11 unexpectedly succeeded."
+
+  expect_log "0"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/12605
+function test_java15_plugins() {
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_library(
+    name = "Anno",
+    srcs = ["Anno.java"],
+)
+
+java_plugin(
+    name = "Proc",
+    srcs = ["Proc.java"],
+    deps = [":Anno"],
+    processor_class = "ex.Proc",
+    generates_api = True,
+)
+
+java_library(
+    name = "C1",
+    srcs = ["C1.java"],
+    deps = [":Anno"],
+    plugins = [":Proc"],
+)
+
+java_library(
+    name = "C2",
+    srcs = ["C2.java"],
+    deps = [":C1"],
+)
+EOF
+
+  cat >java/main/C1.java <<EOF
+package ex;
+
+public class C1 {
+    @Anno
+    @Deprecated
+    public void m() {}
+}
+EOF
+
+
+  cat >java/main/C2.java <<EOF
+package ex;
+
+public class C2 {
+    public void m() {
+        new C1().m();
+    }
+}
+
+EOF
+
+  cat >java/main/Anno.java <<EOF
+package ex;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD})
+public @interface Anno {}
+EOF
+
+  cat >java/main/Proc.java <<EOF
+package ex;
+
+import java.util.Set;
+
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.tools.Diagnostic.Kind;
+
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
+@SupportedAnnotationTypes("ex.Anno")
+public class Proc extends AbstractProcessor {
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        Elements els = processingEnv.getElementUtils();
+        for (Element el : roundEnv.getElementsAnnotatedWith(Anno.class)) {
+            if (els.isDeprecated(el)) {
+                processingEnv.getMessager().printMessage(Kind.WARNING, "deprecated");
+            }
+        }
+        return true;
+    }
+}
+EOF
+
+  bazel build //java/main:C2 &>"${TEST_log}" || fail "Expected to build"
+}
+
+
 
 run_suite "Tests new Java 15 language features"

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
@@ -248,6 +249,14 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public Clock getClock() {
     return executor.getClock();
+  }
+
+  /**
+   * Returns {@link BugReporter} to use when reporting bugs, instead of {@link
+   * com.google.devtools.build.lib.bugreport.BugReport#sendBugReport}.
+   */
+  public BugReporter getBugReporter() {
+    return executor.getBugReporter();
   }
 
   public ExtendedEventHandler getEventHandler() {

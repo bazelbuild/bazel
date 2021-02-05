@@ -71,7 +71,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("$j2objc_library_base")
         .type(RuleClassType.ABSTRACT)
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .build();
   }
 }

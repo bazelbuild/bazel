@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
@@ -25,6 +25,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.OptionInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -59,28 +60,20 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public static final String ALIAS_RULE_NAME = "alias";
   public static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
 
-  /** The two groups of build settings that are relevant for a {@link StarlarkTransition} */
-  public enum Settings {
-    /** Build settings that are read by a {@link StarlarkTransition} */
-    INPUTS,
-    /** Build settings that are written by a {@link StarlarkTransition} */
-    OUTPUTS,
-    /** Build settings that are read and/or written by a {@link StarlarkTransition } */
-    INPUTS_AND_OUTPUTS
-  }
-
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   public StarlarkTransition(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }
 
+  // Get the inputs of the starlark transition as a list of canonicalized labels strings.
   private List<String> getInputs() {
-    return starlarkDefinedConfigTransition.getInputs();
+    return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet().asList();
   }
 
+  // Get the outputs of the starlark transition as a list of canonicalized labels strings.
   private List<String> getOutputs() {
-    return starlarkDefinedConfigTransition.getOutputs();
+    return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet().asList();
   }
 
   @Override

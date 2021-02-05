@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -43,9 +44,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
   /** Returns a callback to be used in this build for reporting analysis errors. */
   ExtendedEventHandler getEventHandler();
 
-  /**
-   * Returns whether any errors were reported to this instance.
-   */
+  /** Returns whether any errors were reported to this instance. */
   boolean hasErrors();
 
   /**
@@ -118,16 +117,14 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
-  /**
-   * Returns the middleman factory associated with the build.
-   */
+  /** Returns the middleman factory associated with the build. */
   // TODO(bazel-team): remove this method and replace it with delegate methods.
   MiddlemanFactory getMiddlemanFactory();
 
   /**
    * Returns the generating action for the given local artifact.
    *
-   * If the artifact was created in another analysis environment (e.g. by a different configured
+   * <p>If the artifact was created in another analysis environment (e.g. by a different configured
    * target instance) or the artifact is a source artifact, it returns null.
    */
   ActionAnalysisMetadata getLocalGeneratingAction(Artifact artifact);
@@ -141,8 +138,8 @@ public interface AnalysisEnvironment extends ActionRegistry {
   /**
    * Returns the Skyframe SkyFunction.Environment if available. Otherwise, null.
    *
-   * <p>If you need to use this for something other than genquery, please think long and hard
-   * about that.
+   * <p>If you need to use this for something other than genquery, please think long and hard about
+   * that.
    */
   SkyFunction.Environment getSkyframeEnv();
 
@@ -151,6 +148,17 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * implementation functions.
    */
   StarlarkSemantics getStarlarkSemantics() throws InterruptedException;
+
+  /**
+   * Returns the {@code exported_to_java} map defined by the Starlark {@code @_builtins}
+   * pseudo-repo.
+   *
+   * <p>If builtins injection is disabled, this map is empty.
+   *
+   * @see StarlarkBuiltinsFunction
+   */
+  // TODO(#11437): Update docstring once injection can no longer be disabled.
+  ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException;
 
   /**
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current

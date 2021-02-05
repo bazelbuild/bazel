@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
+import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -156,14 +157,17 @@ public final class CompletionFunction<
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT, FailureT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
+  private final FilesMetricConsumer topLevelArtifactsMetric;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
       Completor<ValueT, ResultT, KeyT, FailureT> completor,
-      SkyframeActionExecutor skyframeActionExecutor) {
+      SkyframeActionExecutor skyframeActionExecutor,
+      FilesMetricConsumer topLevelArtifactsMetric) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
     this.skyframeActionExecutor = skyframeActionExecutor;
+    this.topLevelArtifactsMetric = topLevelArtifactsMetric;
   }
 
   @SuppressWarnings("unchecked") // Cast to KeyT
@@ -202,6 +206,8 @@ public final class CompletionFunction<
     MissingInputFileException missingInputException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     ImmutableSet.Builder<Artifact> builtArtifactsBuilder = ImmutableSet.builder();
+    // Don't double-count files due to Skyframe restarts.
+    FilesMetricConsumer currentConsumer = new FilesMetricConsumer();
     for (Artifact input : allArtifacts) {
       try {
         SkyValue artifactValue = inputDeps.get(Artifact.key(input)).get();
@@ -225,7 +231,8 @@ public final class CompletionFunction<
                 topLevelFilesets,
                 input,
                 artifactValue,
-                env);
+                env,
+                currentConsumer);
           }
         }
       } catch (ActionExecutionException e) {
@@ -312,6 +319,7 @@ public final class CompletionFunction<
       return null;
     }
     env.getListener().post(postable);
+    topLevelArtifactsMetric.mergeIn(currentConsumer);
     return completor.getResult();
   }
 

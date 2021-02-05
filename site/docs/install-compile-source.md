@@ -3,7 +3,10 @@ layout: documentation
 title: Compiling Bazel from source
 ---
 
-<h1 id="compiling-from-source">Compiling Bazel from source</h1>
+<h1 id="compiling-from-source">Compiling Bazel from Source</h1>
+
+This page describes how to install Bazel from source and provides
+troubleshooting tips for common issues.
 
 To build Bazel from source, you can do one of the following:
 
@@ -14,7 +17,7 @@ To build Bazel from source, you can do one of the following:
 
 <h2 id="build-bazel-using-bazel">Build Bazel using Bazel</h2>
 
-TL;DR:
+<h3 id="summary">Summary</h3>
 
 1.  Get the latest Bazel release from the
     [GitHub release page](https://github.com/bazelbuild/bazel/releases) or with

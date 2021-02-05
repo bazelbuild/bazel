@@ -17,16 +17,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,7 +50,9 @@ public final class NativeLibs {
   private static String getLibDirName(ConfiguredTargetAndData dep) {
     BuildConfiguration configuration = dep.getConfiguration();
     String name = configuration.getFragment(AndroidConfiguration.class).getCpu();
-    name += configuration.getFatApkSplitSanitizer().androidLibDirSuffix;
+    if (configuration.getFragment(AndroidConfiguration.class).isHwasan()) {
+      name += "-hwasan";
+    }
     return name;
   }
 
@@ -151,70 +147,6 @@ public final class NativeLibs {
    */
   public Map<String, NestedSet<Artifact>> getMap() {
     return nativeLibs;
-  }
-
-  public ImmutableSet<Artifact> getAllNativeLibs() {
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
-
-    for (NestedSet<Artifact> libs : nativeLibs.values()) {
-      result.addAll(libs.toList());
-    }
-
-    return result.build();
-  }
-
-  static class ManifestAndRunfiles {
-    @Nullable public final Artifact manifest;
-    public final Runfiles runfiles;
-
-    private ManifestAndRunfiles(@Nullable Artifact manifest, Runfiles runfiles) {
-      this.manifest = manifest;
-      this.runfiles = runfiles;
-    }
-  }
-
-  ManifestAndRunfiles createApkBuilderSymlinks(RuleContext ruleContext) {
-    Map<PathFragment, Artifact> symlinks = new LinkedHashMap<>();
-    for (Map.Entry<String, NestedSet<Artifact>> entry : nativeLibs.entrySet()) {
-      String arch = entry.getKey();
-      for (Artifact lib : entry.getValue().toList()) {
-        symlinks.put(PathFragment.create(arch + "/" + lib.getExecPath().getBaseName()), lib);
-      }
-    }
-
-    if (symlinks.isEmpty()) {
-      return null;
-    }
-
-    Runfiles runfiles =
-        new Runfiles.Builder(
-                ruleContext.getWorkspaceName(),
-                ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addRootSymlinks(symlinks)
-            .build();
-    if (!ruleContext.getConfiguration().buildRunfilesManifests()) {
-      return new ManifestAndRunfiles(/*manifest=*/ null, runfiles);
-    }
-
-    Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
-    ruleContext.registerAction(
-        new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
-            ruleContext.getActionOwner(),
-            inputManifest,
-            runfiles,
-            ruleContext.getConfiguration().remotableSourceManifestActions()));
-
-    Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
-    ruleContext.registerAction(
-        new SymlinkTreeAction(
-            ruleContext.getActionOwner(),
-            ruleContext.getConfiguration(),
-            inputManifest,
-            runfiles,
-            outputManifest,
-            /* filesetRoot = */ null));
-    return new ManifestAndRunfiles(outputManifest, runfiles);
   }
 
   /**

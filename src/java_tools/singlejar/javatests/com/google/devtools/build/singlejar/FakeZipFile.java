@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.devtools.build.singlejar.SingleJarTest.EntryMode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,6 +35,12 @@ import java.util.zip.ZipInputStream;
  * specified entries in a specified order. Just for unit testing.
  */
 public final class FakeZipFile {
+
+  private enum EntryMode {
+    DONT_CARE,
+    EXPECT_DEFLATE,
+    EXPECT_STORED;
+  }
 
   /**
    * Validates an input provided as a byte array.

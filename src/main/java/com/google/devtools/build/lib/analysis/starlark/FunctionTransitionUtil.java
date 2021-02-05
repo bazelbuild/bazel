@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -25,7 +26,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -33,7 +36,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -52,8 +55,6 @@ import net.starlark.java.eval.Starlark;
  * StarlarkRuleTransitionProvider}.
  */
 public class FunctionTransitionUtil {
-
-  public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
   // The length of the hash of the config tacked onto the end of the output path.
   // Limited for ergonomics and MAX_PATH reasons.
@@ -69,34 +70,45 @@ public class FunctionTransitionUtil {
    * @param buildOptions the pre-transition build options
    * @param starlarkTransition the transition to apply
    * @param attrObject the attributes of the rule to which this transition is attached
-   * @return the post-transition build options.
+   * @return the post-transition build options, or null if errors were reported to handler.
    */
+  @Nullable
   static Map<String, BuildOptions> applyAndValidate(
       BuildOptions buildOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
       StructImpl attrObject,
-      EventHandler eventHandler)
-      throws EvalException, InterruptedException {
-    checkForDenylistedOptions(starlarkTransition);
+      EventHandler handler)
+      throws InterruptedException {
+    try {
+      checkForDenylistedOptions(starlarkTransition);
 
-    // TODO(waltl): consider building this once and use it across different split
-    // transitions.
-    Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
-    Dict<String, Object> settings = buildSettings(buildOptions, optionInfoMap, starlarkTransition);
+      // TODO(waltl): consider building this once and use it across different split
+      // transitions.
+      Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
+      Dict<String, Object> settings =
+          buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
-    ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
+      ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
 
-    ImmutableMap<String, Map<String, Object>> transitions =
-        starlarkTransition.evaluate(settings, attrObject, eventHandler);
-    validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
+      ImmutableMap<String, Map<String, Object>> transitions =
+          starlarkTransition.evaluate(settings, attrObject, handler);
+      if (transitions == null) {
+        return null; // errors reported to handler
+      }
 
-    for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
-      Map<String, Object> newValues = handleImplicitPlatformChange(entry.getValue());
-      BuildOptions transitionedOptions =
-          applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
-      splitBuildOptions.put(entry.getKey(), transitionedOptions);
+      for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
+        Map<String, Object> newValues = handleImplicitPlatformChange(entry.getValue());
+        BuildOptions transitionedOptions =
+            applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
+        splitBuildOptions.put(entry.getKey(), transitionedOptions);
+      }
+      return splitBuildOptions.build();
+
+    } catch (ValidationException ex) {
+      handler.handle(
+          Event.error(starlarkTransition.getLocationForErrorReporting(), ex.getMessage()));
+      return null;
     }
-    return splitBuildOptions.build();
   }
 
   /**
@@ -111,7 +123,7 @@ public class FunctionTransitionUtil {
    *   <li>Result: the mapping accidentally overrides the transition
    * </ol>
    *
-   * <p>Transitions can alo explicitly set --platforms to be clear what platform they set.
+   * <p>Transitions can also explicitly set --platforms to be clear what platform they set.
    *
    * <p>Platform mappings:
    * https://docs.bazel.build/versions/master/platforms-intro.html#platform-mappings.
@@ -133,37 +145,11 @@ public class FunctionTransitionUtil {
   }
 
   private static void checkForDenylistedOptions(StarlarkDefinedConfigTransition transition)
-      throws EvalException {
+      throws ValidationException {
     if (transition.getOutputs().contains("//command_line_option:define")) {
-      throw Starlark.errorf(
+      throw new ValidationException(
           "Starlark transition on --define not supported - try using build settings"
               + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
-    }
-  }
-
-  /**
-   * Validates that function outputs exactly the set of outputs it declares. More thorough checking
-   * (like type checking of output values) is done elsewhere because it requires loading. see {@link
-   * StarlarkTransition#validate}
-   */
-  private static void validateFunctionOutputsMatchesDeclaredOutputs(
-      Collection<Map<String, Object>> transitions,
-      StarlarkDefinedConfigTransition starlarkTransition)
-      throws EvalException {
-    for (Map<String, Object> transition : transitions) {
-      LinkedHashSet<String> remainingOutputs =
-          Sets.newLinkedHashSet(starlarkTransition.getOutputs());
-      for (String outputKey : transition.keySet()) {
-        if (!remainingOutputs.remove(outputKey)) {
-          throw Starlark.errorf("transition function returned undeclared output '%s'", outputKey);
-        }
-      }
-
-      if (!remainingOutputs.isEmpty()) {
-        throw Starlark.errorf(
-            "transition outputs [%s] were not defined by transition function",
-            Joiner.on(", ").join(remainingOutputs));
-      }
     }
   }
 
@@ -196,15 +182,18 @@ public class FunctionTransitionUtil {
    * @throws RuntimeException If the field corresponding to an option value in buildOptions is
    *     inaccessible due to Java language access control, or if an option name is an invalid key to
    *     the Starlark dictionary
-   * @throws EvalException if any of the specified transition inputs do not correspond to a valid
-   *     build setting
+   * @throws ValidationException if any of the specified transition inputs do not correspond to a
+   *     valid build setting
    */
   static Dict<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
-      throws EvalException {
-    LinkedHashSet<String> remainingInputs = Sets.newLinkedHashSet(starlarkTransition.getInputs());
+      throws ValidationException {
+    Map<String, String> inputsCanonicalizedToGiven =
+        starlarkTransition.getInputsCanonicalizedToGiven();
+    LinkedHashSet<String> remainingInputs =
+        Sets.newLinkedHashSet(inputsCanonicalizedToGiven.keySet());
 
     try (Mutability mutability = Mutability.create("build_settings")) {
       Dict<String, Object> dict = Dict.of(mutability);
@@ -220,28 +209,37 @@ public class FunctionTransitionUtil {
         }
         OptionInfo optionInfo = entry.getValue();
 
+        Field field = optionInfo.getDefinition().getField();
+        FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
         try {
-          Field field = optionInfo.getDefinition().getField();
-          FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
-
           dict.putEntry(optionKey, optionValue == null ? Starlark.NONE : optionValue);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
+        } catch (EvalException ex) {
+          throw new IllegalStateException(ex); // can't happen
         }
       }
 
       // Add Starlark options
       for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
-        if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
+        String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
+        if (!remainingInputs.remove(canonicalLabelForm)) {
           continue;
         }
-        dict.putEntry(starlarkOption.getKey().toString(), starlarkOption.getValue());
+        // Convert the canonical form to the user requested form that they expect to see in this
+        // dict.
+        String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
+        try {
+          dict.putEntry(userRequestedLabelForm, starlarkOption.getValue());
+        } catch (EvalException ex) {
+          throw new IllegalStateException(ex); // can't happen
+        }
       }
 
       if (!remainingInputs.isEmpty()) {
-        throw Starlark.errorf(
+        throw ValidationException.format(
             "transition inputs [%s] do not correspond to valid settings",
             Joiner.on(", ").join(remainingInputs));
       }
@@ -262,14 +260,14 @@ public class FunctionTransitionUtil {
    * @param starlarkTransition transition object that is being applied. Used for error reporting and
    *     checking for analysis testing
    * @return the post-transition build options
-   * @throws EvalException If a requested option field is inaccessible
+   * @throws ValidationException If a requested option field is inaccessible
    */
   private static BuildOptions applyTransition(
       BuildOptions buildOptionsToTransition,
       Map<String, Object> newValues,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
-      throws EvalException {
+      throws ValidationException {
     BuildOptions buildOptions = buildOptionsToTransition.clone();
     // The names and values of options that are different after this transition.
     Set<String> convertedNewValues = new HashSet<>();
@@ -302,7 +300,7 @@ public class FunctionTransitionUtil {
         }
         try {
           if (!optionInfoMap.containsKey(optionName)) {
-            throw Starlark.errorf(
+            throw ValidationException.format(
                 "transition output '%s' does not correspond to a valid setting", entry.getKey());
           }
 
@@ -341,7 +339,7 @@ public class FunctionTransitionUtil {
           } else if (optionValue instanceof String) {
             convertedValue = def.getConverter().convert((String) optionValue);
           } else {
-            throw Starlark.errorf("Invalid value type for option '%s'", optionName);
+            throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
           Object oldValue = field.get(options);
@@ -353,13 +351,13 @@ public class FunctionTransitionUtil {
           }
 
         } catch (IllegalArgumentException e) {
-          throw Starlark.errorf(
+          throw ValidationException.format(
               "IllegalArgumentError for option '%s': %s", optionName, e.getMessage());
         } catch (IllegalAccessException e) {
           throw new RuntimeException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
-          throw Starlark.errorf(
+          throw ValidationException.format(
               "OptionsParsingError for option '%s': %s", optionName, e.getMessage());
         }
       }

@@ -1122,6 +1122,8 @@ EOF
 
   if "$is_windows"; then
     assert_contains "cclib.lib" output
+  elif is_darwin; then
+    assert_contains "libcclib.a" output
   else
     assert_contains "libcclib.a" output
     assert_contains "libcclib.so" output

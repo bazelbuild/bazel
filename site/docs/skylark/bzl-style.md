@@ -6,12 +6,12 @@ title: .bzl style guide
 # .bzl style guide
 
 
+This page covers basic style guidelines for Starlark and also includes
+information on macros and rules.
+
 [Starlark](https://docs.bazel.build/versions/master/skylark/language.html) is a
 language that defines how software is built, and as such it is both a
 programming and a configuration language.
-
-<!-- [Starlark](language.md) is a language that defines how software is built, and as
-such it is both a programming and a configuration language.
 
 You will use Starlark to write BUILD files, macros, and build rules. Macros and
 rules are essentially meta-languages - they define how BUILD files are written.

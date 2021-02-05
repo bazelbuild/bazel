@@ -58,7 +58,7 @@ public class AndroidHostServiceFixtureRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_host_service_fixture")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(factoryClass)
         .build();
   }

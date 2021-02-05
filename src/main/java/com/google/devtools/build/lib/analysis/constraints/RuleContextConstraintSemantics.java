@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
@@ -571,7 +570,10 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
             ? ImmutableSet.of()
             : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
     if (!newlyEmptyGroups.isEmpty()) {
-      ruleError(ruleContext, getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
+      ruleError(
+          ruleContext,
+          getOverRefinementError(
+              ruleContext.getLabel(), newlyEmptyGroups, removedEnvironmentCulprits));
     }
   }
 
@@ -579,7 +581,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * Constructs an error message for when all environments have been pruned out of one or more
    * environment groups due to refining.
    */
-  private static String getOverRefinementError(
+  private String getOverRefinementError(
+      Label currentTarget,
       Set<EnvironmentLabels> newlyEmptyGroups,
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
     StringJoiner message = new StringJoiner("\n")
@@ -597,21 +600,31 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         if (culprit != null) {
           message
               .add(" ")
-              .add(getMissingEnvironmentCulpritMessage(prunedEnvironment, culprit));
+              .add(getMissingEnvironmentCulpritMessage(currentTarget, prunedEnvironment, culprit));
         }
       }
     }
     return message.toString();
   }
 
-  static String getMissingEnvironmentCulpritMessage(Label environment,
-      RemovedEnvironmentCulprit reason) {
+  public String getMissingEnvironmentCulpritMessage(
+      Label currentTarget, Label environment, RemovedEnvironmentCulprit reason) {
     LabelAndLocation culprit = reason.culprit();
+    Label targetToExplore =
+        currentTarget.equals(culprit.getLabel())
+            ? reason.selectedDepForCulprit()
+            : culprit.getLabel();
+
     return new StringJoiner("\n")
         .add("  environment: " + environment)
         .add("    removed by: " + culprit.getLabel() + " (" + culprit.getLocation() + ")")
-        .add("    which has a select() that chooses dep: " + reason.selectedDepForCulprit())
+        .add("    because of a select() that chooses dep: " + reason.selectedDepForCulprit())
         .add("    which lacks: " + environment)
+        .add("")
+        .add(
+            String.format(
+                "To see why, run: blaze build --target_environment=%s %s",
+                environment, targetToExplore))
         .toString();
   }
 
@@ -727,8 +740,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
   }
 
   /**
-   * Returns all dependencies that should be constraint-checked against the current rule,
-   * including both "uncoditional" deps (outside selects) and deps that only appear in selects.
+   * Returns all dependencies that should be constraint-checked against the current rule, including
+   * both "unconditional" deps (outside selects) and deps that only appear in selects.
    */
   private static DepsToCheck getConstraintCheckedDependencies(RuleContext ruleContext) {
     Set<TransitiveInfoCollection> depsToCheck = new LinkedHashSet<>();
@@ -898,9 +911,9 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     if (ruleContext.getRule().getRuleClassObject().useToolchainResolution()
         && ruleContext.attributes().has("target_compatible_with")) {
       ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-          stream(
-                  PlatformProviderUtils.constraintValues(
-                      ruleContext.getPrerequisites("target_compatible_with")))
+          PlatformProviderUtils.constraintValues(
+                  ruleContext.getPrerequisites("target_compatible_with"))
+              .stream()
               .filter(cv -> !ruleContext.targetPlatformHasConstraint(cv))
               .collect(toImmutableList());
 

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -57,7 +60,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -141,7 +143,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final boolean usePic;
   private final boolean useHeaderModules;
   protected final boolean needsIncludeValidation;
-  private final IncludeProcessing includeProcessing;
 
   private final CcCompilationContext ccCompilationContext;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -275,7 +276,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
-    this.shouldScanIncludes = shouldScanIncludes;
+    this.shouldScanIncludes = shouldScanIncludes && cppSemantics.allowIncludeScanning();
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.ccCompilationContext = ccCompilationContext;
@@ -289,7 +290,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
-    this.includeProcessing = cppSemantics.getIncludeProcessing();
     this.actionClassId = actionClassId;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.additionalInputs = null;
@@ -398,6 +398,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /** Returns the results of include scanning. */
+  @Nullable
   private NestedSet<Artifact> findUsedHeaders(
       ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
@@ -408,7 +409,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         List<Artifact> includes =
             actionExecutionContext
                 .getContext(CppIncludeScanningContext.class)
-                .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData);
+                .findAdditionalInputs(this, actionExecutionContext, headerData);
+        if (includes == null) {
+          return null;
+        }
+
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
       } catch (IORuntimeException e) {
         throw new EnvironmentalExecException(
@@ -463,14 +468,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         }
         return additionalInputs;
       }
-      List<CcCompilationContext.HeaderInfo> headerInfo =
-          ccCompilationContext.getTransitiveHeaderInfos();
       IncludeScanningHeaderData.Builder includeScanningHeaderDataBuilder =
           ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
-              useHeaderModules,
-              headerInfo);
+              useHeaderModules);
       if (includeScanningHeaderDataBuilder == null) {
         return null;
       }
@@ -486,10 +488,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate(actionExecutionContext))
               .build();
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
+      if (additionalInputs == null) {
+        return null;
+      }
 
       if (useHeaderModules) {
-        usedModules =
-            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), headerInfo);
+        usedModules = ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet());
       }
     }
 
@@ -549,7 +553,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           // If rewinding is enabled, this error is recoverable.
           throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
         }
-        BugReport.sendBugReport(e);
+        actionExecutionContext.getBugReporter().sendBugReport(e);
         throw new ActionExecutionException(
             code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
       }
@@ -814,7 +818,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   public ImmutableCollection<String> getDefines() {
-    return ccCompilationContext.getDefines().toList();
+    return ccCompilationContext.getDefines();
   }
 
   @Override
@@ -861,9 +865,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .collect(ImmutableSet.toImmutableSet());
 
     CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine(this);
-
+    ParamFileInfo paramFileInfo = null;
+    if (cppConfiguration.useArgsParamsFile()) {
+      paramFileInfo =
+          ParamFileInfo.builder(ParameterFileType.GCC_QUOTED)
+              .setCharset(ISO_8859_1)
+              .setUseAlways(true)
+              .build();
+    }
     CommandLineAndParamFileInfo commandLineAndParamFileInfo =
-        new CommandLineAndParamFileInfo(commandLine, /* paramFileInfo= */ null);
+        new CommandLineAndParamFileInfo(commandLine, paramFileInfo);
 
     Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
 
@@ -1597,8 +1608,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
-              useHeaderModules,
-              ccCompilationContext.getTransitiveHeaderInfos());
+              useHeaderModules);
       if (includeScanningHeaderData == null) {
         return null;
       }
@@ -1788,8 +1798,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
-        throw e.toActionExecutionException(
-            CppCompileAction.this);
+        throw e.toActionExecutionException(CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
         throw e;

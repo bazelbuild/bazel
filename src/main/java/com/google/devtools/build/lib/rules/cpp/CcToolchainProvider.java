@@ -42,7 +42,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
@@ -109,7 +108,16 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* additionalMakeVariables= */ ImmutableMap.of(),
           /* legacyCcFlagsMakeVariable= */ "",
           /* allowlistForLayeringCheck= */ null,
-          /* allowListForLooseHeaderCheck= */ null);
+          /* allowListForLooseHeaderCheck= */ null,
+          /* objcopyExecutable= */ "",
+          /* compilerExecutable= */ "",
+          /* preprocessorExecutable= */ "",
+          /* nmExecutable= */ "",
+          /* objdumpExecutable= */ "",
+          /* arExecutable= */ "",
+          /* stripExecutable= */ "",
+          /* ldExecutable= */ "",
+          /* gcovExecutable= */ "");
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
@@ -174,6 +182,16 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final PackageSpecificationProvider allowlistForLayeringCheck;
   private final PackageSpecificationProvider allowListForLooseHeaderCheck;
 
+  private final String objcopyExecutable;
+  private final String compilerExecutable;
+  private final String preprocessorExecutable;
+  private final String nmExecutable;
+  private final String objdumpExecutable;
+  private final String arExecutable;
+  private final String stripExecutable;
+  private final String ldExecutable;
+  private final String gcovExecutable;
+
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
       @Nullable CppConfiguration cppConfiguration,
@@ -229,8 +247,17 @@ public final class CcToolchainProvider extends ToolchainInfo
       ImmutableMap<String, String> additionalMakeVariables,
       String legacyCcFlagsMakeVariable,
       PackageSpecificationProvider allowlistForLayeringCheck,
-      PackageSpecificationProvider allowListForLooseHeaderCheck) {
-    super(values, Location.BUILTIN);
+      PackageSpecificationProvider allowListForLooseHeaderCheck,
+      String objcopyExecutable,
+      String compilerExecutable,
+      String preprocessorExecutable,
+      String nmExecutable,
+      String objdumpExecutable,
+      String arExecutable,
+      String stripExecutable,
+      String ldExecutable,
+      String gcovExecutable) {
+    super(values);
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.allFiles = Preconditions.checkNotNull(allFiles);
@@ -288,6 +315,16 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
     this.allowlistForLayeringCheck = allowlistForLayeringCheck;
     this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
+
+    this.objcopyExecutable = objcopyExecutable;
+    this.compilerExecutable = compilerExecutable;
+    this.preprocessorExecutable = preprocessorExecutable;
+    this.nmExecutable = nmExecutable;
+    this.objdumpExecutable = objdumpExecutable;
+    this.arExecutable = arExecutable;
+    this.stripExecutable = stripExecutable;
+    this.ldExecutable = ldExecutable;
+    this.gcovExecutable = gcovExecutable;
   }
 
   /**
@@ -342,13 +379,9 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   public boolean shouldProcessHeaders(
       FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
-    // If parse_headers_verifies_modules is switched on, we verify that headers are
-    // self-contained by building the module instead.
-    return !cppConfiguration.getParseHeadersVerifiesModules()
-        && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
+    return featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
 
-  @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
 
@@ -510,6 +543,12 @@ public final class CcToolchainProvider extends ToolchainInfo
   /** Returns the files necessary for a 'strip' invocation. */
   public NestedSet<Artifact> getStripFiles() {
     return stripFiles;
+  }
+
+  @Override
+  public Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getStripFiles());
   }
 
   /** Returns the files necessary for an 'objcopy' invocation. */
@@ -897,6 +936,51 @@ public final class CcToolchainProvider extends ToolchainInfo
   public FdoContext getFdoContextForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return fdoContext;
+  }
+
+  @Override
+  public String objcopyExecutable() {
+    return objcopyExecutable;
+  }
+
+  @Override
+  public String compilerExecutable() {
+    return compilerExecutable;
+  }
+
+  @Override
+  public String preprocessorExecutable() {
+    return preprocessorExecutable;
+  }
+
+  @Override
+  public String nmExecutable() {
+    return nmExecutable;
+  }
+
+  @Override
+  public String objdumpExecutable() {
+    return objdumpExecutable;
+  }
+
+  @Override
+  public String arExecutable() {
+    return arExecutable;
+  }
+
+  @Override
+  public String stripExecutable() {
+    return stripExecutable;
+  }
+
+  @Override
+  public String ldExecutable() {
+    return ldExecutable;
+  }
+
+  @Override
+  public String gcovExecutable() {
+    return gcovExecutable;
   }
 
   /**

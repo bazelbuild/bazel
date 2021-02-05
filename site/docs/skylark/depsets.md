@@ -5,6 +5,8 @@ title: Depsets
 
 # Depsets
 
+This page covers the benefits and examples of using depsets.
+
 [Depsets](lib/depset.html) are a specialized data structure for efficiently
 collecting data across a target’s transitive dependencies. Since this use case
 concerns the [analysis phase](concepts.md#evaluation-model), depsets are useful

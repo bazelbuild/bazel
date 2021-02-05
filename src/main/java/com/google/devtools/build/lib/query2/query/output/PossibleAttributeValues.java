@@ -20,26 +20,11 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import java.util.Iterator;
 
-/** Encapsulates possible values for an attribute. */
-public class PossibleAttributeValues implements Iterable<Object> {
-  private final Iterable<Object> values;
-  private final AttributeValueSource source;
+/** Logic for retrieving possible values for an attribute. */
+public class PossibleAttributeValues {
 
-  public PossibleAttributeValues(Iterable<Object> values, AttributeValueSource source) {
-    this.values = values;
-    this.source = source;
-  }
-
-  AttributeValueSource getSource() {
-    return source;
-  }
-
-  @Override
-  public Iterator<Object> iterator() {
-    return values.iterator();
-  }
+  private PossibleAttributeValues() {}
 
   /**
    * Returns the possible values of the specified attribute in the specified rule. For simple
@@ -66,32 +51,37 @@ public class PossibleAttributeValues implements Iterable<Object> {
    * an <code>attr = select(...) + select(...) + select(...) + ...</code> expression. Query
    * operations generally don't care about specific attribute values - they just care which labels
    * are possible.
+   *
+   * @param mayTreatMultipleAsNone signals if attribute-value computation <b>may</b> be aborted if
+   *     more than one possible value is encountered. Useful when the caller needs a single value or
+   *     none at all, as is the use case of this method for many attribute types. This parameter is
+   *     respected on a best-effort basis - multiple values may still be returned if an unoptimized
+   *     code path is visited.
    */
-  static PossibleAttributeValues forRuleAndAttribute(Rule rule, Attribute attr) {
-    AttributeValueSource source = AttributeValueSource.forRuleAndAttribute(rule, attr);
+  static Iterable<Object> forRuleAndAttribute(
+      Rule rule, Attribute attr, boolean mayTreatMultipleAsNone) {
     AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
-    Iterable<?> list;
     if (attr.getType().equals(BuildType.LABEL_LIST)
         && attributeMap.isConfigurable(attr.getName())) {
       // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
       // there's currently no syntax for expressing multiple scalar values). This unfortunately
       // isn't trivial because Bazel's label visitation logic includes special methods built
       // directly into Type.
-      return new PossibleAttributeValues(
-          ImmutableList.<Object>of(
-              attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/ false)),
-          source);
-    } else if ((list =
-            attributeMap.getConcatenatedSelectorListsOfListType(
-                attr.getName(), attr.getType()))
-        != null) {
-      return new PossibleAttributeValues(Lists.newArrayList(list), source);
-    } else {
-      // The call to visitAttributes below is especially slow with selector lists.
-      @SuppressWarnings("unchecked") // Casting Iterable<T> -> Iterable<Object>
-      Iterable<Object> possibleValues =
-          (Iterable<Object>) attributeMap.visitAttribute(attr.getName(), attr.getType());
-      return new PossibleAttributeValues(possibleValues, source);
+      return ImmutableList.<Object>of(
+          attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/ false));
     }
+
+    Iterable<?> concatenatedSelectsValue =
+        attributeMap.getConcatenatedSelectorListsOfListType(attr.getName(), attr.getType());
+    if (concatenatedSelectsValue != null) {
+      return Lists.newArrayList(concatenatedSelectsValue);
+    }
+
+    // The call to visitAttributes below is especially slow with selector lists.
+    @SuppressWarnings("unchecked") // Casting Iterable<T> -> Iterable<Object>
+    Iterable<Object> possibleValues =
+        (Iterable<Object>)
+            attributeMap.visitAttribute(attr.getName(), attr.getType(), mayTreatMultipleAsNone);
+    return possibleValues;
   }
 }

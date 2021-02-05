@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,14 +32,26 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.function.Function;
+import javax.annotation.Nullable;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,10 +66,21 @@ public class SandboxHelpersTest {
 
   private final Scratch scratch = new Scratch();
   private Path execRoot;
+  @Nullable private ExecutorService executorToCleanup;
 
   @Before
   public void createExecRoot() throws IOException {
     execRoot = scratch.dir("/execRoot");
+  }
+
+  @After
+  public void shutdownExecutor() throws InterruptedException {
+    if (executorToCleanup == null) {
+      return;
+    }
+
+    executorToCleanup.shutdown();
+    executorToCleanup.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
   }
 
   @Test
@@ -148,6 +172,56 @@ public class SandboxHelpersTest {
     Path sandboxToolFile = scratch.resolve("/sandbox/tools/tool");
     assertThat(FileSystemUtils.readLines(sandboxToolFile, UTF_8)).containsExactly("tool_code");
     assertThat(sandboxToolFile.isExecutable()).isTrue();
+  }
+
+  /**
+   * Test simulating a scenario when 2 parallel writes of the same virtual input both complete write
+   * of the temp file and then proceed with post-processing steps one-by-one.
+   */
+  @Test
+  public void sandboxInputMaterializeVirtualInput_parallelWritesForSameInput_writesCorrectFile()
+      throws Exception {
+    VirtualActionInput input = ActionsTestUtil.createVirtualActionInput("file", "hello");
+    executorToCleanup = Executors.newSingleThreadExecutor();
+    CyclicBarrier bothWroteTempFile = new CyclicBarrier(2);
+    Semaphore finishProcessingSemaphore = new Semaphore(1);
+    FileSystem customFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA1) {
+          @Override
+          protected void setExecutable(Path path, boolean executable) throws IOException {
+            try {
+              bothWroteTempFile.await();
+              finishProcessingSemaphore.acquire();
+            } catch (BrokenBarrierException | InterruptedException e) {
+              throw new IllegalArgumentException(e);
+            }
+            super.setExecutable(path, executable);
+          }
+        };
+    Scratch customScratch = new Scratch(customFs);
+    Path customExecRoot = customScratch.dir("/execroot");
+    SandboxHelpers sandboxHelpers = new SandboxHelpers(/*delayVirtualInputMaterialization=*/ false);
+
+    Future<?> future =
+        executorToCleanup.submit(
+            () -> {
+              try {
+                sandboxHelpers.processInputFiles(
+                    inputMap(input), SPAWN, EMPTY_EXPANDER, customExecRoot);
+                finishProcessingSemaphore.release();
+              } catch (IOException e) {
+                throw new IllegalArgumentException(e);
+              }
+            });
+    sandboxHelpers.processInputFiles(inputMap(input), SPAWN, EMPTY_EXPANDER, customExecRoot);
+    finishProcessingSemaphore.release();
+    future.get();
+
+    assertThat(customExecRoot.readdir(Symlinks.NOFOLLOW))
+        .containsExactly(new Dirent("file", Dirent.Type.FILE));
+    Path outputFile = customExecRoot.getChild("file");
+    assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
+    assertThat(outputFile.isExecutable()).isTrue();
   }
 
   private static ImmutableMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {

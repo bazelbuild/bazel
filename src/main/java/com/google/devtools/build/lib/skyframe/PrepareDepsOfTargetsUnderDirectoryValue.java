@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -74,7 +73,6 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   /**
    * The argument value for {@link SkyKey}s of {@link PrepareDepsOfTargetsUnderDirectoryFunction}.
    */
-  @VisibleForTesting
   @AutoCodec
   public static final class PrepareDepsOfTargetsUnderDirectoryKey implements SkyKey {
     private static final Interner<PrepareDepsOfTargetsUnderDirectoryKey> interners =
@@ -89,9 +87,8 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
       this.filteringPolicy = Preconditions.checkNotNull(filteringPolicy);
     }
 
-    @VisibleForTesting
     @AutoCodec.Instantiator
-    static PrepareDepsOfTargetsUnderDirectoryKey create(
+    public static PrepareDepsOfTargetsUnderDirectoryKey create(
         RecursivePkgKey recursivePkgKey, FilteringPolicy filteringPolicy) {
       return interners.intern(
           new PrepareDepsOfTargetsUnderDirectoryKey(recursivePkgKey, filteringPolicy));

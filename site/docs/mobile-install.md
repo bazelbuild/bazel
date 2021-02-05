@@ -7,7 +7,11 @@ title: mobile-install
 
 <p class="lead">Fast iterative development for Android</p>
 
-## TL;DR
+This page describes how `bazel mobile-install` makes iterative development
+for Android much faster. It describes the benefits of this approach versus the
+challenges of the traditional app install method.
+
+## Summary
 
 To install small changes to an Android app very quickly, do the following:
 
@@ -61,7 +65,7 @@ know how to reuse work from previous builds: it dexes every method again, even
 though only one method was changed.
 
 - Uploading data to the device. adb does not use the full bandwidth of a USB 2.0
-connection, and larger apps can take a lot of time to upload.  The entire app is
+connection, and larger apps can take a lot of time to upload. The entire app is
 uploaded, even if only small parts have changed, for example, a resource or a
 single method, so this can be a major bottleneck.
 
@@ -121,7 +125,7 @@ app. Generally speaking, the more shards, the faster the build and the
 installation will be, but the slower app startup becomes, because the dynamic
 linker has to do more work. The sweet spot is usually between 10 and 50 shards.
 
-### Incremental File Transfer
+### Incremental file transfer
 
 After building the app, the next step is to install it, preferably with the
 least effort possible. Installation consists of the following steps:
@@ -147,7 +151,7 @@ changing a file on the device, but not its checksum in the manifest. We could
 have safeguarded against this by computing the checksum of the files on the
 device, but this was deemed to be not worth the increase in installation time.
 
-### The Stub Application
+### The Stub application
 
 The stub application is where the magic to load the dexes, native code and
 Android resources from the on-device `mobile-install` directory happens.
