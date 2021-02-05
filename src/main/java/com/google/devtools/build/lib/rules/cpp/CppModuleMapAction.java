@@ -65,7 +65,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   private final ImmutableList<Artifact> publicHeaders;
   private final ImmutableList<CppModuleMap> dependencies;
   private final ImmutableList<PathFragment> additionalExportedHeaders;
-  private final ImmutableList<Artifact> separateModuleHeaders;
   private final boolean compiledModule;
   private final boolean generateSubmodules;
   private final boolean externDependencies;
@@ -77,7 +76,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       Iterable<Artifact> publicHeaders,
       Iterable<CppModuleMap> dependencies,
       Iterable<PathFragment> additionalExportedHeaders,
-      Iterable<Artifact> separateModuleHeaders,
       boolean compiledModule,
       boolean moduleMapHomeIsCwd,
       boolean generateSubmodules,
@@ -99,7 +97,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.dependencies = ImmutableList.copyOf(dependencies);
     this.additionalExportedHeaders = ImmutableList.copyOf(additionalExportedHeaders);
-    this.separateModuleHeaders = ImmutableList.copyOf(separateModuleHeaders);
     this.compiledModule = compiledModule;
     this.generateSubmodules = generateSubmodules;
     this.externDependencies = externDependencies;
@@ -115,13 +112,10 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
         int segmentsToExecPath = fragment.segmentCount() - 1;
         Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-        String leadingPeriods = moduleMapHomeIsCwd ? "" : Strings.repeat("../", segmentsToExecPath);
-
-        Iterable<Artifact> separateModuleHdrs =
-            expandedHeaders(artifactExpander, separateModuleHeaders);
 
         // For details about the different header types, see:
         // http://clang.llvm.org/docs/Modules.html#header-declaration
+        String leadingPeriods = moduleMapHomeIsCwd ? "" : Strings.repeat("../", segmentsToExecPath);
         content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
         content.append("  export *\n");
 
@@ -156,16 +150,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 deduper,
                 /*isUmbrellaHeader*/ false);
           }
-          for (Artifact artifact : separateModuleHdrs) {
-            appendHeader(
-                content,
-                "",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ false,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
           for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
             appendHeader(
                 content,
@@ -180,30 +164,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
         }
-
-        if (!Iterables.isEmpty(separateModuleHdrs)) {
-          String separateName = cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX;
-          content.append("  use \"").append(separateName).append("\"\n");
-          content.append("}\n");
-          content.append("module \"").append(separateName).append("\" {\n");
-          content.append("  export *\n");
-          deduper = new HashSet<>();
-          for (Artifact artifact : separateModuleHdrs) {
-            appendHeader(
-                content,
-                "",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ true,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (CppModuleMap dep : dependencies) {
-            content.append("  use \"").append(dep.getName()).append("\"\n");
-          }
-        }
         content.append("}");
-
         if (externDependencies) {
           for (CppModuleMap dep : dependencies) {
             content
@@ -286,10 +247,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     for (Artifact artifact : publicHeaders) {
       fp.addPath(artifact.getExecPath());
     }
-    fp.addInt(separateModuleHeaders.size());
-    for (Artifact artifact : separateModuleHeaders) {
-      fp.addPath(artifact.getExecPath());
-    }
     fp.addInt(dependencies.size());
     for (CppModuleMap dep : dependencies) {
       fp.addPath(dep.getArtifact().getExecPath());
@@ -316,23 +273,18 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public ImmutableList<Artifact> getPublicHeaders() {
+  public Collection<Artifact> getPublicHeaders() {
     return publicHeaders;
   }
 
   @VisibleForTesting
-  public ImmutableList<Artifact> getPrivateHeaders() {
+  public Collection<Artifact> getPrivateHeaders() {
     return privateHeaders;
   }
 
   @VisibleForTesting
   public ImmutableList<PathFragment> getAdditionalExportedHeaders() {
     return additionalExportedHeaders;
-  }
-
-  @VisibleForTesting
-  public ImmutableList<Artifact> getSeparateModuleHeaders() {
-    return separateModuleHeaders;
   }
 
   @VisibleForTesting
