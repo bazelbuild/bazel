@@ -1811,7 +1811,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact mainDexProguardSpec,
       @Nullable Artifact proguardOutputMap)
       throws InterruptedException {
-    AndroidConfiguration config = AndroidCommon.getAndroidConfig(ruleContext);
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     // Create the main dex classes list.
     Artifact mainDexList = AndroidBinary.getDxArtifact(ruleContext, "main_dex_list.txt");
@@ -1825,11 +1824,18 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       proguardSpecs.add(mainDexProguardSpec);
     }
 
-    // If --legacy_main_dex_list_generator is not set, use ProGuard and the main dext list creator
-    // specified by the android_sdk rule. If --legacy_main_dex_list_generator is provided, use that
-    // tool instead.
+    // Use the legacy_main_dex_list_generator provided by the --legacy_main_dex_list_generator flag
+    // if present. If not, fall back to the one provided by the SDK.
+    FilesToRunProvider legacyMainDexListGenerator =
+        ruleContext.getExecutablePrerequisite(":legacy_main_dex_list_generator");
+    if (legacyMainDexListGenerator == null) {
+      legacyMainDexListGenerator = sdk.getLegacyMainDexListGenerator();
+    }
+    // If legacy_main_dex_list_generator is not set by either the SDK or the flag, use ProGuard and
+    // the main dext list creator specified by the android_sdk rule. If
+    // legacy_main_dex_list_generator is provided, use that tool instead.
     // TODO(b/147692286): Remove the old main-dex list generation that relied on ProGuard.
-    if (config.getLegacyMainDexListGenerator() == null) {
+    if (legacyMainDexListGenerator == null) {
       // Process the input jar through Proguard into an intermediate, streamlined jar.
       Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
       SpawnAction.Builder streamlinedBuilder =
@@ -1887,8 +1893,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                       .build())
               .build(ruleContext));
     } else {
-      FilesToRunProvider legacyMainDexListGenerator =
-          ruleContext.getExecutablePrerequisite(":legacy_main_dex_list_generator");
       // Use the newer legacy multidex main-dex list generation.
       SpawnAction.Builder actionBuilder =
           new SpawnAction.Builder()

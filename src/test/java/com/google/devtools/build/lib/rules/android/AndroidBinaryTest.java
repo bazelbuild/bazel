@@ -2494,6 +2494,56 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testLegacyMainDexListWithAndroidSdk() throws Exception {
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'generate_main_dex_list',",
+        "    srcs = ['main.cc'])");
+
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign',",
+        "    legacy_main_dex_list_generator = '//tools/fake:generate_main_dex_list',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'])");
+
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'legacy')");
+
+    useConfiguration("--android_sdk=//sdk:sdk");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    Artifact mainDexList =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(a)), "main_dex_list.txt");
+    List<String> args = getGeneratingSpawnActionArgs(mainDexList);
+    NestedSet<Artifact> mainDexInputs = getGeneratingAction(mainDexList).getInputs();
+
+    MoreAsserts.assertContainsSublist(args, "--lib", "sdk/android.jar");
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains("generate_main_dex_list");
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains("a_deploy.jar");
+    assertThat(getFirstArtifactEndingWith(mainDexInputs, "main_dex_list_creator")).isNull();
+  }
+
+  @Test
   public void testMainDexAaptGenerationSupported() throws Exception {
     useConfiguration("--android_sdk=//sdk:sdk", "--noincremental_dexing");
     scratch.file(

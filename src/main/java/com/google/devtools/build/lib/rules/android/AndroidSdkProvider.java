@@ -67,6 +67,7 @@ public final class AndroidSdkProvider extends NativeInfo
   private final FilesToRunProvider proguard;
   private final FilesToRunProvider zipalign;
   @Nullable private final BootClassPathInfo system;
+  @Nullable private final FilesToRunProvider legacyMainDexListGenerator;
 
   public AndroidSdkProvider(
       String buildToolsVersion,
@@ -86,7 +87,8 @@ public final class AndroidSdkProvider extends NativeInfo
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
-      @Nullable BootClassPathInfo system) {
+      @Nullable BootClassPathInfo system,
+      @Nullable FilesToRunProvider legacyMainDexListGenerator) {
     this.buildToolsVersion = buildToolsVersion;
     this.frameworkAidl = frameworkAidl;
     this.aidlLib = aidlLib;
@@ -105,6 +107,7 @@ public final class AndroidSdkProvider extends NativeInfo
     this.proguard = proguard;
     this.zipalign = zipalign;
     this.system = system;
+    this.legacyMainDexListGenerator = legacyMainDexListGenerator;
   }
 
   @Override
@@ -295,6 +298,12 @@ public final class AndroidSdkProvider extends NativeInfo
     return system;
   }
 
+  @Override
+  @Nullable
+  public FilesToRunProvider getLegacyMainDexListGenerator() {
+    return legacyMainDexListGenerator;
+  }
+
   /** The provider can construct the Android SDK provider. */
   public static class Provider extends BuiltinProvider<AndroidSdkProvider>
       implements AndroidSdkProviderApi.Provider<
@@ -323,7 +332,8 @@ public final class AndroidSdkProvider extends NativeInfo
         FilesToRunProvider apkSigner,
         FilesToRunProvider proguard,
         FilesToRunProvider zipalign,
-        Object system)
+        Object system,
+        Object legacyMainDexListGenerator)
         throws EvalException {
       return new AndroidSdkProvider(
           buildToolsVersion,
@@ -343,7 +353,8 @@ public final class AndroidSdkProvider extends NativeInfo
           apkSigner,
           proguard,
           zipalign,
-          fromNoneable(system, BootClassPathInfo.class));
+          fromNoneable(system, BootClassPathInfo.class),
+          fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class));
     }
   }
 }

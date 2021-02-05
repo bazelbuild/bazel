@@ -114,6 +114,12 @@ public class FakeAndroidSdkProvider
     return null;
   }
 
+  @Nullable
+  @Override
+  public FilesToRunProviderApi<FileApi> getLegacyMainDexListGenerator() {
+    return null;
+  }
+
   @Override
   public String toProto() throws EvalException {
     return null;
@@ -150,7 +156,8 @@ public class FakeAndroidSdkProvider
             FilesToRunProviderApi<FileApi> apkSigner,
             FilesToRunProviderApi<FileApi> proguard,
             FilesToRunProviderApi<FileApi> zipalign,
-            Object system)
+            Object system,
+            Object legacyMainDexListGenerator)
             throws EvalException {
       return new FakeAndroidSdkProvider();
     }
