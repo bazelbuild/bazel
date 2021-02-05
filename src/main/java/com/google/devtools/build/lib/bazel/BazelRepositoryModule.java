@@ -237,6 +237,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
+      downloadManager.setDisableDownload(repoOptions.disableDownload);
+
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
         starlarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);

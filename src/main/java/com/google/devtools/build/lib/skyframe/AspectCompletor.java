@@ -42,9 +42,14 @@ class AspectCompletor
     implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey, BuildEventId> {
 
   static SkyFunction aspectCompletionFunction(
-      PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
+      PathResolverFactory pathResolverFactory,
+      SkyframeActionExecutor skyframeActionExecutor,
+      MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric) {
     return new CompletionFunction<>(
-        pathResolverFactory, new AspectCompletor(), skyframeActionExecutor);
+        pathResolverFactory,
+        new AspectCompletor(),
+        skyframeActionExecutor,
+        topLevelArtifactsMetric);
   }
 
   @Override

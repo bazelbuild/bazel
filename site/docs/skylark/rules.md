@@ -173,7 +173,7 @@ relationship between a rule and a tool (such as a compiler), since most of the
 time a user is not interested in specifying what tool the rule uses. Inside the
 rule's implementation function, this is treated the same as other dependencies.
 
-If you want to provide an implcit dependency without allowing the user to
+If you want to provide an implicit dependency without allowing the user to
 override that value, you can make the attribute *private* by giving it a name
 that begins with an underscore (`_`). Private attributes must have default
 values. It generally only makes sense to use private attributes for implicit
@@ -675,7 +675,7 @@ the first binary called and look for an adjacent runfiles directory.
 Normally, the relative path of a file in the runfiles tree is the same as the
 relative path of that file in the source tree or generated output tree. If these
 need to be different for some reason, you can specify the `root_symlinks` or
-`symlinks` arguments.  The `root_symlinks` is a dictionary mapping paths to
+`symlinks` arguments. The `root_symlinks` is a dictionary mapping paths to
 files, where the paths are relative to the root of the runfiles directory. The
 `symlinks` dictionary is the same, but paths are implicitly prefixed with the
 name of the workspace.

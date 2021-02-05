@@ -15,20 +15,18 @@ package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MissingDepException;
+import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -56,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -70,9 +69,6 @@ import java.util.concurrent.ExecutorService;
  * </pre>
  */
 public class LegacyIncludeScanner implements IncludeScanner {
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   private static final class ArtifactWithInclusionContext {
     private final Artifact artifact;
     private final Kind contextKind;
@@ -589,7 +585,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   @Override
-  public void processAsync(
+  public final void processAsync(
       Artifact mainSource,
       Collection<Artifact> sources,
       IncludeScanningHeaderData includeScanningHeaderData,
@@ -599,31 +595,34 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException {
-    ImmutableSet<Artifact> pathHints =
-        prepare(actionExecutionContext.getEnvironmentForDiscoveringInputs());
-    IncludeVisitor visitor;
-    visitor =
+    SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
+    ImmutableSet<Artifact> pathHints;
+    if (parser.getHints() == null) {
+      pathHints = ImmutableSet.of();
+    } else {
+      pathHints = parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
+      if (env.valuesMissing()) {
+        return;
+      }
+      Preconditions.checkNotNull(pathHints, "Null path hints for %s", quoteIncludePaths);
+    }
+
+    IncludeVisitor visitor =
         new IncludeVisitor(
             actionExecutionMetadata,
             actionExecutionContext,
             grepIncludes,
             includeScanningHeaderData);
-    visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
-  }
 
-  private ImmutableSet<Artifact> prepare(SkyFunction.Environment env) throws InterruptedException {
-    if (parser.getHints() != null) {
-      Collection<Artifact> artifacts =
-          parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
-      if (env.valuesMissing()) {
-        throw new MissingDepException();
+    try {
+      visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
+    } catch (MissingDepExecException e) {
+      // This happens when a skyframe restart is necessary. Callers are responsible for checking
+      // env.valuesMissing() as per this method's contract, so we can just ignore the exception.
+      if (!env.valuesMissing()) {
+        throw new IllegalStateException("Missing dep without skyframe request", e);
       }
-      ImmutableSet.Builder<Artifact> pathHints;
-      pathHints = ImmutableSet.builderWithExpectedSize(quoteIncludePaths.size());
-      pathHints.addAll(Preconditions.checkNotNull(artifacts, quoteIncludePaths));
-      return pathHints.build();
     }
-    return ImmutableSet.of();
   }
 
   private static void checkForInterrupt(String operation, Object source)
@@ -727,7 +726,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             frontier = adjacent;
           }
         }
-      } catch (IOException | InterruptedException | ExecException | MissingDepException e) {
+      } catch (IOException | InterruptedException | ExecException e) {
         // Careful: Do not leak visitation threads if we have an exception in the initial thread.
         sync();
         throw e;
@@ -766,48 +765,37 @@ public class LegacyIncludeScanner implements IncludeScanner {
         throws IOException, ExecException, InterruptedException {
       checkForInterrupt("processing", source);
 
-      Collection<Inclusion> inclusions;
-      try {
-        inclusions =
-            fileParseCache
-                .computeIfAbsent(
+      Collection<Inclusion> inclusions = null;
+      while (inclusions == null) {
+        SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
+        Future<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
+        if (previous == null) {
+          previous = future;
+          try {
+            future.set(
+                parser.extractInclusions(
                     source,
-                    file -> {
-                      try {
-                        return Futures.immediateFuture(
-                            parser.extractInclusions(
-                                file,
-                                actionExecutionMetadata,
-                                actionExecutionContext,
-                                grepIncludes,
-                                spawnIncludeScannerSupplier.get(),
-                                isRealOutputFile(source.getExecPath())));
-                      } catch (IOException e) {
-                        throw new IORuntimeException(e);
-                      } catch (ExecException e) {
-                        throw new ExecRuntimeException(e);
-                      } catch (InterruptedException e) {
-                        throw new InterruptedRuntimeException(e);
-                      }
-                    })
-                .get();
-      } catch (ExecutionException ee) {
-        try {
-          Throwables.throwIfInstanceOf(ee.getCause(), RuntimeException.class);
-          throw new IllegalStateException(ee.getCause());
-        } catch (IORuntimeException e) {
-          throw e.getCauseIOException();
-        } catch (ExecRuntimeException e) {
-          throw e.getRealCause();
-        } catch (InterruptedRuntimeException e) {
-          throw e.getRealCause();
+                    actionExecutionMetadata,
+                    actionExecutionContext,
+                    grepIncludes,
+                    spawnIncludeScannerSupplier.get(),
+                    isRealOutputFile(source.getExecPath())));
+          } catch (Throwable t) {
+            fileParseCache.remove(source);
+            future.setException(t);
+            throw t;
+          }
         }
-      } catch (RuntimeException e) {
-        // TODO(b/175294870): Remove after diagnosing the bug.
-        logger.atSevere().withCause(e).log("Uncaught exception in call to extractInclusions");
-        throw e;
+        try {
+          inclusions = Preconditions.checkNotNull(previous.get(), source);
+        } catch (ExecutionException e) {
+          // An exception occured when some other thread tried to load the same file that we are
+          // waiting for. If this is a MissingDepExecException, we have to simply retry as otherwise
+          // we'd end up in an unexpected state (not requesting any deps, but claiming that there
+          // are missing ones). For other exceptions, this might not be necessary but is safe to do
+          // and reduces complexity.
+        }
       }
-      Preconditions.checkNotNull(inclusions, source);
 
       // Shuffle the inclusions to get better parallelism. See b/62200470.
       List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);

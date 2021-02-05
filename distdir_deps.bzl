@@ -20,11 +20,11 @@ DIST_DEPS = {
     #
     ########################################
     "platforms": {
-        "archive": "platforms-0.0.2.tar.gz",
-        "sha256": "48a2d8d343863989c232843e01afc8a986eb8738766bfd8611420a7db8f6f0c3",
+        "archive": "platforms-0.0.3.tar.gz",
+        "sha256": "460caee0fa583b908c622913334ec3c1b842572b9c23cf0d3da0c2543a1a157d",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.2/platforms-0.0.2.tar.gz",
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.2/platforms-0.0.2.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.3/platforms-0.0.3.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.3/platforms-0.0.3.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -32,12 +32,12 @@ DIST_DEPS = {
         ],
     },
     "bazel_toolchains": {
-        "archive": "bazel-toolchains-3.1.0.tar.gz",
-        "sha256": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
-        "strip_prefix": "bazel-toolchains-3.1.0",
+        "archive": "b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0.tar.gz",
+        "sha256": "0fe656c3503ee318ba21e3147186b0959ddb8514e4826174e5c178cd1968bdb9",
+        "strip_prefix": "bazel-toolchains-b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
+            #TODO(ilist): mirror and update to 4.0.0 version once it is released
+            "https://github.com/bazelbuild/bazel-toolchains/archive/b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",

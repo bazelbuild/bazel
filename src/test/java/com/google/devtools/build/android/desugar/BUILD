@@ -1881,7 +1881,6 @@ grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_s
 
 _SINGLEJAR_IMPLS = {
     "singlejar": "//src/tools/singlejar:singlejar_local",
-    "JavaSingleJar": "//src/java_tools/singlejar:SingleJar",
 }
 
 [sh_test(

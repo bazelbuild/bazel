@@ -51,7 +51,7 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(
-            InstrumentedFilesCollector.collectTransitive(
+            InstrumentedFilesCollector.collect(
                 ruleContext,
                 ShCoverage.INSTRUMENTATION_SPEC,
                 /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))

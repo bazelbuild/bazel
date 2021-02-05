@@ -108,7 +108,7 @@ final class DirectoryTree {
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), path, data, digest);
+      return Objects.hash(super.hashCode(), path, data, digest, isExecutable);
     }
 
     @Override
@@ -118,7 +118,8 @@ final class DirectoryTree {
         return super.equals(other)
             && Objects.equals(path, other.path)
             && Objects.equals(data, other.data)
-            && Objects.equals(digest, other.digest);
+            && Objects.equals(digest, other.digest)
+            && isExecutable == other.isExecutable;
       }
       return false;
     }

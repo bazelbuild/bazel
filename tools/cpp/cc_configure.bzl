@@ -56,7 +56,7 @@ def cc_autoconf_toolchains_impl(repository_ctx):
 
     if not should_detect_cpp_toolchain:
         repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
-    elif cpu_value == "darwin" and not should_use_cpp_only_toolchain:
+    elif cpu_value.startswith("darwin") and not should_use_cpp_only_toolchain:
         xcode_toolchains = []
 
         # Only detect xcode if the user didn't tell us it will be there.
@@ -120,7 +120,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
         # We might want to add that to Windows too(at least for msys toolchain).
         configure_windows_toolchain(repository_ctx)
-    elif (cpu_value == "darwin" and
+    elif (cpu_value.startswith("darwin") and
           ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
         configure_osx_toolchain(repository_ctx, overriden_tools)
     else:

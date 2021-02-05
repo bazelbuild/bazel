@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -58,7 +59,7 @@ public class MerkleTreeTest {
   public void setup() {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "srcs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
     digestUtil = new DigestUtil(fs.getDigestFunction());
   }
 

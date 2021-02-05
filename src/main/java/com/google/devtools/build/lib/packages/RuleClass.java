@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -749,6 +750,9 @@ public class RuleClass {
       this.type = type;
       Preconditions.checkState(starlark || type != RuleClassType.PLACEHOLDER, name);
       this.documented = type != RuleClassType.ABSTRACT;
+      add(
+          attr("name", STRING)
+              .nonconfigurable("All rules have a non-customizable \"name\" attribute"));
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
           setValidityPredicate(parent.getValidityPredicate());

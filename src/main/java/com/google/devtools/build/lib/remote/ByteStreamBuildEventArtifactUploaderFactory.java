@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import io.grpc.Context;
 import javax.annotation.Nullable;
 
 /**
@@ -29,7 +28,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
 
   private final ByteStreamUploader uploader;
   private final String remoteServerName;
-  private final Context ctx;
+  private final String buildRequestId;
+  private final String commandId;
   private final MissingDigestsFinder missingDigestsFinder;
   @Nullable private final String remoteInstanceName;
 
@@ -37,12 +37,14 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
       ByteStreamUploader uploader,
       MissingDigestsFinder missingDigestsFinder,
       String remoteServerName,
-      Context ctx,
+      String buildRequestId,
+      String commandId,
       @Nullable String remoteInstanceName) {
     this.uploader = uploader;
     this.missingDigestsFinder = missingDigestsFinder;
     this.remoteServerName = remoteServerName;
-    this.ctx = ctx;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
     this.remoteInstanceName = remoteInstanceName;
   }
 
@@ -52,7 +54,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
         uploader.retain(),
         missingDigestsFinder,
         remoteServerName,
-        ctx,
+        buildRequestId,
+        commandId,
         remoteInstanceName,
         env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads);
   }

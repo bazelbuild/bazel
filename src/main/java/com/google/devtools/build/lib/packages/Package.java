@@ -144,6 +144,24 @@ public class Package {
   private boolean defaultVisibilitySet;
 
   /**
+   * How to enforce config_setting visibility settings.
+   *
+   * <p>This is a temporary setting in service of https://github.com/bazelbuild/bazel/issues/12669.
+   * After enough depot cleanup, config_setting will have the same visibility enforcement as all
+   * other rules.
+   */
+  public enum ConfigSettingVisibilityPolicy {
+    /** Don't enforce visibility for any config_setting. */
+    LEGACY_OFF,
+    /** Honor explicit visibility settings on config_setting, else  use //visibility:public. */
+    DEFAULT_PUBLIC,
+    /** Enforce config_setting visibility exactly the same as all other rules. */
+    DEFAULT_STANDARD
+  }
+
+  private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
+
+  /**
    * Default package-level 'testonly' value for rules that do not specify it.
    */
   private boolean defaultTestOnly = false;
@@ -436,6 +454,7 @@ public class Package {
     this.targets = ImmutableSortedKeyMap.copyOf(builder.targets);
     this.defaultVisibility = builder.defaultVisibility;
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
+    this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
     if (builder.defaultCopts == null) {
       this.defaultCopts = ImmutableList.of();
     } else {
@@ -701,6 +720,14 @@ public class Package {
   }
 
   /**
+   * How to enforce visibility on <code>config_setting</code> See
+   * {@link ConfigSettingVisibilityPolicy} for details.
+   */
+  public ConfigSettingVisibilityPolicy getConfigSettingVisibilityPolicy() {
+    return configSettingVisibilityPolicy;
+  }
+
+  /**
    * Returns the default testonly value.
    */
   public Boolean getDefaultTestOnly() {
@@ -920,6 +947,7 @@ public class Package {
     // serialized representation is deterministic.
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
     private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
+    private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
     private boolean defaultVisibilitySet;
     private List<String> defaultCopts = null;
     private final List<String> features = new ArrayList<>();
@@ -1160,6 +1188,12 @@ public class Package {
     /** Sets whether the default visibility is set in the BUILD file. */
     public Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
       this.defaultVisibilitySet = defaultVisibilitySet;
+      return this;
+    }
+
+    /** Sets visibility enforcement policy for <code>config_setting</code>. */
+    public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
+      this.configSettingVisibilityPolicy = policy;
       return this;
     }
 

@@ -215,7 +215,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("rule_that_attaches_aspect")
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .factoryClass(RuleThatAttachesAspect.class)
           .build();
     }

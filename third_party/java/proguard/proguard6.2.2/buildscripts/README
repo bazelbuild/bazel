@@ -1,0 +1,30 @@
+ProGuard, Java class file shrinker, optimizer, obfuscator, and preverifier
+==========================================================================
+
+This directory contains a number of alternative ways to build ProGuard:
+
+- build.sh: a shell script for GNU/Linux
+
+      ./build.sh
+
+- makefile: a makefile for GNU/Linux
+
+      make clean all
+
+- build.gradle : a Gradle build file for all platforms
+
+      gradle clean assemble
+
+- build.xml: an Ant build file for all platforms
+
+      ant clean all
+
+- pom.xml: a Maven POM for building the Maven artifacts
+
+      mvn clean package
+
+Pick your favorite build tool and enjoy!
+
+https://www.guardsquare.com/proguard
+
+Copyright (c) 2002-2019 Guardsquare

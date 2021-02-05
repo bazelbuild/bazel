@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -303,7 +304,8 @@ final class ActionMetadataHandler implements MetadataHandler {
     store.putArtifactData(artifact, FileArtifactValue.createProxy(digest));
   }
 
-  private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
+  @Override
+  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
     checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
 
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
@@ -468,6 +470,15 @@ final class ActionMetadataHandler implements MetadataHandler {
    */
   OutputStore getOutputStore() {
     return store;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("outputs", outputs)
+        .add("store", store)
+        .add("inputArtifactDataSize", inputArtifactData.size())
+        .toString();
   }
 
   /** Constructs a new {@link FileArtifactValue} by reading from the file system. */

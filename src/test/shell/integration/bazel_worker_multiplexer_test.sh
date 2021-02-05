@@ -205,10 +205,13 @@ EOF
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
 
-  bazel build :hello_world_2 &> $TEST_log \
-    && fail "expected build to failed" || true
+  bazel build --worker_verbose :hello_world_2 >> $TEST_log 2>&1 \
+    && fail "expected build to fail" || true
 
-  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
+  error_msgs=$(egrep -o -- 'Worker process (did not return a|returned an unparseable) WorkResponse' "$TEST_log")
+
+  [ -n "$error_msgs" ] \
+    || fail "expected error message not found"
 }
 
 function test_worker_restarts_when_worker_binary_changes() {

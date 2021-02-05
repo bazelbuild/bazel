@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
@@ -293,6 +294,7 @@ public class FakeCcModule
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
       Object variablesExtension,
+      Object language,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;
@@ -333,12 +335,18 @@ public class FakeCcModule
       String outputType,
       boolean linkDepsStatically,
       StarlarkInt stamp,
-      Sequence<?> additionalInputs,
+      Object additionalInputs,
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
+      Object alwaysLink,
       Object testOnlyTarget,
       Object variablesExtension,
+      Object nativeDeps,
+      Object wholeArchive,
+      Object additionalLinkstampDefines,
+      Object onlyForDynamicLibs,
+      Object linkerOutputs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
@@ -403,6 +411,12 @@ public class FakeCcModule
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
+      throws EvalException {
+    return null;
+  }
+
+  @Override
+  public CcNativeLibraryProviderApi getCcNativeLibraryProvider(StarlarkThread thread)
       throws EvalException {
     return null;
   }

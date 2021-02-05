@@ -88,7 +88,7 @@ Depending on which languages you want to build, you will need:
 
 *   Common MSYS2 packages
 
-    You will likely need these to build and run targets that depend on Bash.  MSYS2 does not install
+    You will likely need these to build and run targets that depend on Bash. MSYS2 does not install
     these tools by default, so you need to install them manually. Projects that depend on Bash tools in `PATH` need this step (for example TensorFlow).
 
     Open the MSYS2 terminal and run this command:

@@ -82,7 +82,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   private static final RuleDefinition NATIVE_TEST_RULE =
       (MockRule)
           () ->
-              MockRule.ancestor(BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.BaseRule.class)
+              MockRule.ancestor(
+                      BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.NativeBuildRule.class)
                   .factory(NativeTest.class)
                   .type(RuleClassType.TEST)
                   .define(
@@ -95,7 +96,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   private static final RuleDefinition NATIVE_LIB_RULE =
       (MockRule)
           () ->
-              MockRule.ancestor(BaseRuleClasses.BaseRule.class)
+              MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                   .define(
                       "native_lib",
                       attr("deps", LABEL_LIST).allowedFileTypes(),

@@ -2,10 +2,8 @@
 layout: documentation
 title: Aquery (action graph query)
 ---
-<h1>Aquery (Action Graph Query)</h1>
+<h1>Action Graph Query (aquery)</h1>
 
-
-<h2 id='overview'>Overview</h2>
 
 <p>
   The <code>aquery</code> command allows you to query for actions in your build graph.
@@ -79,7 +77,7 @@ $ bazel aquery 'deps(//src/target_a)'
 $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 </pre>
 
-<h2 id='functions'>Aquery functions</h2>
+<h2 id='functions'>Using aquery functions</h2>
 
 <p>There are currently 3 <code>aquery</code> functions:</p>
 <ul>
@@ -372,7 +370,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h2 id='known-issues'>Known issues</h2>
 
-<h3 id='shared-actions'>Handling Shared Actions</h3>
+<h3 id='shared-actions'>Handling shared actions</h3>
 
 <p>
   Sometimes actions are

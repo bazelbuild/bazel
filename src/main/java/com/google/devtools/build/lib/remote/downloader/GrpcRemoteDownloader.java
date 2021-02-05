@@ -20,6 +20,7 @@ import build.bazel.remote.asset.v1.FetchGrpc;
 import build.bazel.remote.asset.v1.FetchGrpc.FetchBlockingStub;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStrea
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -36,7 +38,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.grpc.CallCredentials;
-import io.grpc.Context;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -58,10 +59,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
+  private final String buildRequestId;
+  private final String commandId;
   private final ReferenceCountedChannel channel;
   private final Optional<CallCredentials> credentials;
   private final RemoteRetrier retrier;
-  private final Context requestCtx;
   private final RemoteCacheClient cacheClient;
   private final RemoteOptions options;
 
@@ -75,17 +77,19 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
 
   public GrpcRemoteDownloader(
+      String buildRequestId,
+      String commandId,
       ReferenceCountedChannel channel,
       Optional<CallCredentials> credentials,
       RemoteRetrier retrier,
-      Context requestCtx,
       RemoteCacheClient cacheClient,
       RemoteOptions options) {
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
     this.channel = channel;
     this.credentials = credentials;
     this.retrier = retrier;
     this.cacheClient = cacheClient;
-    this.requestCtx = requestCtx;
     this.options = options;
   }
 
@@ -109,22 +113,26 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Map<String, String> clientEnv,
       com.google.common.base.Optional<String> type)
       throws IOException, InterruptedException {
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader");
+    RemoteActionExecutionContext remoteActionExecutionContext =
+        RemoteActionExecutionContext.create(metadata);
+
     final FetchBlobRequest request =
         newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);
     try {
       FetchBlobResponse response =
-          retrier.execute(() -> requestCtx.call(() -> fetchBlockingStub().fetchBlob(request)));
+          retrier.execute(() -> fetchBlockingStub(remoteActionExecutionContext).fetchBlob(request));
       final Digest blobDigest = response.getBlobDigest();
 
       retrier.execute(
-          () ->
-              requestCtx.call(
-                  () -> {
-                    try (OutputStream out = newOutputStream(destination, checksum)) {
-                      Utils.getFromFuture(cacheClient.downloadBlob(blobDigest, out));
-                    }
-                    return null;
-                  }));
+          () -> {
+            try (OutputStream out = newOutputStream(destination, checksum)) {
+              Utils.getFromFuture(
+                  cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+            }
+            return null;
+          });
     } catch (StatusRuntimeException e) {
       throw new IOException(e);
     }
@@ -164,9 +172,10 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return requestBuilder.build();
   }
 
-  private FetchBlockingStub fetchBlockingStub() {
+  private FetchBlockingStub fetchBlockingStub(RemoteActionExecutionContext context) {
     return FetchGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);

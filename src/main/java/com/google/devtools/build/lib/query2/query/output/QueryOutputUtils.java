@@ -34,10 +34,21 @@ public class QueryOutputUtils {
   // Utility class cannot be instantiated.
   private QueryOutputUtils() {}
 
-  public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {
-    return (queryOptions.orderOutput == OrderOutput.NO
-            || (queryOptions.orderOutput == OrderOutput.AUTO && queryOptions.preferUnorderedOutput))
+  public static boolean lexicographicallySortOutput(
+      QueryOptions queryOptions, OutputFormatter formatter) {
+    return queryOptions.orderOutput == OrderOutput.AUTO
+        && queryOptions.lexicographicalOutput
         && formatter instanceof StreamedFormatter;
+  }
+
+  public static boolean shouldStreamUnorderedOutput(
+      QueryOptions queryOptions, OutputFormatter formatter) {
+    return queryOptions.orderOutput == OrderOutput.NO && formatter instanceof StreamedFormatter;
+  }
+
+  public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {
+    return shouldStreamUnorderedOutput(queryOptions, formatter)
+        || lexicographicallySortOutput(queryOptions, formatter);
   }
 
   public static void output(

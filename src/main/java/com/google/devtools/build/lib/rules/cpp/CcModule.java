@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -1824,6 +1825,12 @@ public abstract class CcModule
         Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
   }
 
+  @Override
+  public Object getCcNativeLibraryProvider(StarlarkThread thread) throws EvalException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    return CcNativeLibraryProvider.PROVIDER;
+  }
+
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
     String rulePackage =
@@ -1917,6 +1924,7 @@ public abstract class CcModule
       Object codeCoverageEnabledObject,
       Object hdrsCheckingModeObject,
       Object variablesExtension,
+      Object languageObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -1928,7 +1936,8 @@ public abstract class CcModule
         doNotGenerateModuleMapObject,
         codeCoverageEnabledObject,
         hdrsCheckingModeObject,
-        variablesExtension)) {
+        variablesExtension,
+        languageObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -1993,6 +2002,17 @@ public abstract class CcModule
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
     }
 
+    String language = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
+    validateLanguage(language);
+    SourceCategory sourceCategory;
+    if (language.equals(Language.CPP.getRepresentation())) {
+      sourceCategory = SourceCategory.CC;
+    } else if (language.equals(Language.OBJC.getRepresentation())
+        || language.equals(Language.OBJCPP.getRepresentation())) {
+      sourceCategory = SourceCategory.CC_AND_OBJC;
+    } else {
+      throw Starlark.errorf("Language '%s' is not supported", language);
+    }
     CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
     CcCompilationHelper helper =
         new CcCompilationHelper(
@@ -2002,8 +2022,10 @@ public abstract class CcModule
                 grepIncludes,
                 getSemantics(),
                 featureConfiguration.getFeatureConfiguration(),
+                sourceCategory,
                 ccToolchainProvider,
                 fdoContext,
+                actions.getActionConstructionContext().getConfiguration(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()),
@@ -2100,19 +2122,30 @@ public abstract class CcModule
       String outputType,
       boolean linkDepsStatically,
       StarlarkInt stamp,
-      Sequence<?> additionalInputs,
+      Object additionalInputs,
       Object grepIncludes,
       Object linkedArtifactNameSuffixObject,
       Object neverLinkObject,
+      Object alwaysLinkObject,
       Object testOnlyTargetObject,
       Object variablesExtension,
+      Object nativeDepsObject,
+      Object wholeArchiveObject,
+      Object additionalLinkstampDefines,
+      Object onlyForDynamicLibsObject,
+      Object linkerOutputsObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     if (checkObjectsBound(
         linkedArtifactNameSuffixObject,
         neverLinkObject,
+        alwaysLinkObject,
         testOnlyTargetObject,
-        variablesExtension)) {
+        variablesExtension,
+        nativeDepsObject,
+        wholeArchiveObject,
+        additionalLinkstampDefines,
+        onlyForDynamicLibsObject)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     validateLanguage(language);
@@ -2141,6 +2174,12 @@ public abstract class CcModule
     } else {
       throw Starlark.errorf("Language '%s' does not support %s", language, outputType);
     }
+    NestedSet<Artifact> additionalInputsSet =
+        additionalInputs instanceof Depset
+            ? Depset.cast(additionalInputs, Artifact.class, "additional_inputs")
+            : NestedSetBuilder.<Artifact>compileOrder()
+                .addAll(Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+                .build();
     FeatureConfiguration actualFeatureConfiguration =
         featureConfiguration.getFeatureConfiguration();
     CppConfiguration cppConfiguration =
@@ -2148,6 +2187,7 @@ public abstract class CcModule
             .getActionConstructionContext()
             .getConfiguration()
             .getFragment(CppConfiguration.class);
+    ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 actions.getActionConstructionContext().getRuleErrorConsumer(),
@@ -2167,8 +2207,7 @@ public abstract class CcModule
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
-            .addNonCodeLinkerInputs(
-                Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+            .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
             .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(
                 Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
@@ -2176,12 +2215,21 @@ public abstract class CcModule
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
             .setLinkedArtifactNameSuffix(convertFromNoneable(linkedArtifactNameSuffixObject, ""))
             .setNeverLink(convertFromNoneable(neverLinkObject, false))
+            // setAlwayslink may be deprecated but we're trying to replicate CcBinary as closely as
+            // possible for the moment.
+            .setAlwayslink(convertFromNoneable(alwaysLinkObject, false))
             .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
+            .setNativeDeps(convertFromNoneable(nativeDepsObject, false))
+            .setWholeArchive(convertFromNoneable(wholeArchiveObject, false))
+            .addAdditionalLinkstampDefines(asStringImmutableList(additionalLinkstampDefines))
+            .setWillOnlyBeLinkedIntoDynamicLibraries(
+                convertFromNoneable(onlyForDynamicLibsObject, false))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                     && CppHelper.useInterfaceSharedLibraries(
-                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration));
+                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
+            .addLinkerOutputs(linkerOutputs);
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }

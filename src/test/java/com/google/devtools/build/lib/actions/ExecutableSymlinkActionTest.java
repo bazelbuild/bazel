@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -53,10 +54,12 @@ public class ExecutableSymlinkActionTest {
   public final void createExecutor() throws Exception  {
     final Path inputDir = scratch.dir("/in");
     execRoot = scratch.getFileSystem().getPath("/");
-    inputRoot = ArtifactRoot.asDerivedRoot(execRoot, inputDir.relativeTo(execRoot).getPathString());
+    inputRoot =
+        ArtifactRoot.asDerivedRoot(
+            execRoot, RootType.Output, inputDir.relativeTo(execRoot).getPathString());
     String outSegment = "out";
     execRoot.getChild(outSegment).createDirectoryAndParents();
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
     outErr = new TestFileOutErr();
     executor = new DummyExecutor(scratch.getFileSystem(), inputDir);
   }

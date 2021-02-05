@@ -107,7 +107,7 @@ public final class CcImportRule implements RuleDefinition {
   public  Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("$cc_import")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .type(RuleClassType.ABSTRACT)
         .build();
   }

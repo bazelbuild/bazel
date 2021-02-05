@@ -155,7 +155,7 @@ $ bazel build //my/target --//example:roasts=blonde \
 The above will be parsed to {//example:roasts:["blonde", "medium,dark"]} and
 `ctx.build_setting_value` will return a list ["blonde", "medium,dark"].
 
-#### Instantiating Build Settings
+#### Instantiating build settings
 
 Rules defined with the `build_setting` parameter have an implicit mandatory
 `build_setting_default` attribute. This attribute takes on the same type as

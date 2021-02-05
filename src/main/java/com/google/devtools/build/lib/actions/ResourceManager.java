@@ -200,7 +200,8 @@ public class ResourceManager {
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
-    AutoProfiler p = profiled(owner.describe(), ProfilerTask.ACTION_LOCK);
+    AutoProfiler p =
+        profiled("Aquiring resources for: " + owner.describe(), ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
       latch = acquire(resources);

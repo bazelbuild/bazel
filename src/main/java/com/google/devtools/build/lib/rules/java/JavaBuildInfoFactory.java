@@ -73,8 +73,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       BuildInfoContext context,
       BuildConfiguration config,
       Artifact stableStatus,
-      Artifact volatileStatus,
-      RepositoryName repositoryName) {
+      Artifact volatileStatus) {
     WriteBuildInfoPropertiesAction redactedInfo =
         getHeader(
             context,
@@ -83,8 +82,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createRedactedTranslator(),
             true,
-            true,
-            repositoryName);
+            true);
     WriteBuildInfoPropertiesAction nonvolatileInfo =
         getHeader(
             context,
@@ -93,8 +91,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             NestedSetBuilder.create(Order.STABLE_ORDER, stableStatus),
             createNonVolatileTranslator(),
             false,
-            true,
-            repositoryName);
+            true);
     WriteBuildInfoPropertiesAction volatileInfo =
         getHeader(
             context,
@@ -103,8 +100,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             NestedSetBuilder.create(Order.STABLE_ORDER, volatileStatus),
             createVolatileTranslator(),
             true,
-            false,
-            repositoryName);
+            false);
     List<Action> actions = new ArrayList<>(3);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
@@ -139,9 +135,8 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       NestedSet<Artifact> inputs,
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
-      boolean includeNonVolatile,
-      RepositoryName repositoryName) {
-    ArtifactRoot outputPath = config.getIncludeDirectory(repositoryName);
+      boolean includeNonVolatile) {
+    ArtifactRoot outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
     final Artifact output =
         context.getBuildInfoArtifact(
             propertyFileName,

@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -344,7 +344,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         builder()
             .addInput(manifest)
             .addRunfilesSupplier(
-                new RunfilesSupplierImpl(
+                new SingleRunfilesSupplier(
                     PathFragment.create("destination"),
                     Runfiles.EMPTY,
                     manifest,
@@ -570,7 +570,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
-    return new RunfilesSupplierImpl(
+    return new SingleRunfilesSupplier(
         dir,
         Runfiles.EMPTY,
         manifest,

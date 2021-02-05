@@ -18,7 +18,6 @@ import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
@@ -46,51 +45,26 @@ public class TracingMetadataUtils {
   public static final Metadata.Key<RequestMetadata> METADATA_KEY =
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
-  /**
-   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
-   * accessible by the {@link fromCurrentContext()} method.
-   *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
-   * version.
-   */
-  public static Context contextWithMetadata(
-      String buildRequestId, String commandId, ActionKey actionKey) {
-    return contextWithMetadata(buildRequestId, commandId, actionKey.getDigest().getHash());
-  }
-
-  /**
-   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
-   * accessible by the {@link fromCurrentContext()} method.
-   *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
-   * version.
-   */
-  public static Context contextWithMetadata(
+  public static RequestMetadata buildMetadata(
       String buildRequestId, String commandId, String actionId) {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
-    RequestMetadata metadata =
-        RequestMetadata.newBuilder()
-            .setCorrelatedInvocationsId(buildRequestId)
-            .setToolInvocationId(commandId)
-            .setActionId(actionId)
-            .setToolDetails(
-                ToolDetails.newBuilder()
-                    .setToolName("bazel")
-                    .setToolVersion(BlazeVersionInfo.instance().getVersion()))
-            .build();
-    return contextWithMetadata(metadata);
-  }
-
-  public static Context contextWithMetadata(RequestMetadata metadata) {
-    return Context.current().withValue(CONTEXT_KEY, metadata);
+    return RequestMetadata.newBuilder()
+        .setCorrelatedInvocationsId(buildRequestId)
+        .setToolInvocationId(commandId)
+        .setActionId(actionId)
+        .setToolDetails(
+            ToolDetails.newBuilder()
+                .setToolName("bazel")
+                .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+        .build();
   }
 
   /**
    * Fetches a {@link RequestMetadata} defined on the current context.
    *
-   * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
+   * @throws IllegalStateException when the metadata is not defined in the current context.
    */
   public static RequestMetadata fromCurrentContext() {
     RequestMetadata metadata = CONTEXT_KEY.get();
@@ -100,15 +74,10 @@ public class TracingMetadataUtils {
     return metadata;
   }
 
-  /**
-   * Creates a {@link Metadata} containing the {@link RequestMetadata} defined on the current
-   * context.
-   *
-   * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
-   */
-  public static Metadata headersFromCurrentContext() {
+  /** Creates a {@link Metadata} containing the {@link RequestMetadata}. */
+  public static Metadata headersFromRequestMetadata(RequestMetadata requestMetadata) {
     Metadata headers = new Metadata();
-    headers.put(METADATA_KEY, fromCurrentContext());
+    headers.put(METADATA_KEY, requestMetadata);
     return headers;
   }
 
@@ -120,8 +89,8 @@ public class TracingMetadataUtils {
     return headers.get(METADATA_KEY);
   }
 
-  public static ClientInterceptor attachMetadataFromContextInterceptor() {
-    return MetadataUtils.newAttachHeadersInterceptor(headersFromCurrentContext());
+  public static ClientInterceptor attachMetadataInterceptor(RequestMetadata requestMetadata) {
+    return MetadataUtils.newAttachHeadersInterceptor(headersFromRequestMetadata(requestMetadata));
   }
 
   private static Metadata newMetadataForHeaders(List<Entry<String, String>> headers) {
@@ -169,5 +138,4 @@ public class TracingMetadataUtils {
       return Contexts.interceptCall(ctx, call, headers, next);
     }
   }
-
 }

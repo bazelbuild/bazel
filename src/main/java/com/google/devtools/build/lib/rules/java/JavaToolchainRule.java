@@ -334,7 +334,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_toolchain")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(ruleClass)
         .build();
   }

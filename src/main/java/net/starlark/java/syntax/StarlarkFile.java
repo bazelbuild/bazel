@@ -57,26 +57,22 @@ public final class StarlarkFile extends Node {
     this.errors = errors;
   }
 
-  // Creates a StarlarkFile from the given effective list of statements,
-  // which may include the prelude.
-  private static StarlarkFile create(
-      FileLocations locs,
-      ImmutableList<Statement> statements,
-      FileOptions options,
-      Parser.ParseResult result) {
-    return new StarlarkFile(
-        locs, statements, options, ImmutableList.copyOf(result.comments), result.errors);
-  }
-
-  /** Extract a subtree containing only statements from i (included) to j (excluded). */
-  public StarlarkFile subTree(int i, int j) {
+  /**
+   * Returns a new StarlarkFile whose statements are {@code getStatements().subList(start, end)},
+   * and no comments.
+   *
+   * @deprecated This is a hack to support Bazel WORKSPACE files.
+   */
+  @Deprecated
+  public StarlarkFile subTree(int start, int end) {
     return new StarlarkFile(
         this.locs,
-        this.statements.subList(i, j),
+        this.statements.subList(start, end),
         this.options,
         /*comments=*/ ImmutableList.of(),
         errors);
   }
+
   /**
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
    * accumulated in this Starlark file.
@@ -124,21 +120,6 @@ public final class StarlarkFile extends Node {
   }
 
   /**
-   * Parse the specified file, returning its syntax tree with the prelude statements inserted at the
-   * front of its statement list.
-   */
-  public static StarlarkFile parseWithPrelude(
-      ParserInput input, List<Statement> prelude, FileOptions options) {
-    Parser.ParseResult result = Parser.parseFile(input, options);
-
-    ImmutableList.Builder<Statement> stmts = ImmutableList.builder();
-    stmts.addAll(prelude);
-    stmts.addAll(result.statements);
-
-    return create(result.locs, stmts.build(), options, result);
-  }
-
-  /**
    * Parse a Starlark file.
    *
    * <p>A syntax tree is always returned, even in case of error. Errors are recorded in the tree.
@@ -154,7 +135,8 @@ public final class StarlarkFile extends Node {
    */
   public static StarlarkFile parse(ParserInput input, FileOptions options) {
     Parser.ParseResult result = Parser.parseFile(input, options);
-    return create(result.locs, ImmutableList.copyOf(result.statements), options, result);
+    return new StarlarkFile(
+        result.locs, result.statements, options, result.comments, result.errors);
   }
 
   /** Parse a Starlark file with default options. */

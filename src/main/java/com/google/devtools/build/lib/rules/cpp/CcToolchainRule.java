@@ -427,7 +427,7 @@ public final class CcToolchainRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("cc_toolchain")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(CcToolchain.class)
         .build();
   }

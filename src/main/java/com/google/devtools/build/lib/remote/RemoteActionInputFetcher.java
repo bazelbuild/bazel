@@ -33,12 +33,12 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
-import io.grpc.Context;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -66,15 +66,17 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
   @GuardedBy("lock")
   final Map<Path, ListenableFuture<Void>> downloadsInProgress = new HashMap<>();
 
+  private final String buildRequestId;
+  private final String commandId;
   private final RemoteCache remoteCache;
   private final Path execRoot;
-  private final RequestMetadata requestMetadata;
 
   RemoteActionInputFetcher(
-      RemoteCache remoteCache, Path execRoot, RequestMetadata requestMetadata) {
+      String buildRequestId, String commandId, RemoteCache remoteCache, Path execRoot) {
+    this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
+    this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
     this.execRoot = Preconditions.checkNotNull(execRoot);
-    this.requestMetadata = Preconditions.checkNotNull(requestMetadata);
   }
 
   /**
@@ -160,48 +162,44 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
       ListenableFuture<Void> download = downloadsInProgress.get(path);
       if (download == null) {
-        Context ctx =
-            TracingMetadataUtils.contextWithMetadata(
-                requestMetadata.toBuilder().setActionId(metadata.getActionId()).build());
-        Context prevCtx = ctx.attach();
-        try {
-          Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-          download = remoteCache.downloadFile(path, digest);
-          downloadsInProgress.put(path, download);
-          Futures.addCallback(
-              download,
-              new FutureCallback<Void>() {
-                @Override
-                public void onSuccess(Void v) {
-                  synchronized (lock) {
-                    downloadsInProgress.remove(path);
-                    downloadedPaths.add(path);
-                  }
+        RequestMetadata requestMetadata =
+            TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId());
+        RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
-                  try {
-                    path.chmod(0755);
-                  } catch (IOException e) {
-                    logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
-                  }
+        Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+        download = remoteCache.downloadFile(context, path, digest);
+        downloadsInProgress.put(path, download);
+        Futures.addCallback(
+            download,
+            new FutureCallback<Void>() {
+              @Override
+              public void onSuccess(Void v) {
+                synchronized (lock) {
+                  downloadsInProgress.remove(path);
+                  downloadedPaths.add(path);
                 }
 
-                @Override
-                public void onFailure(Throwable t) {
-                  synchronized (lock) {
-                    downloadsInProgress.remove(path);
-                  }
-                  try {
-                    path.delete();
-                  } catch (IOException e) {
-                    logger.atWarning().withCause(e).log(
-                        "Failed to delete output file after incomplete download: %s", path);
-                  }
+                try {
+                  path.chmod(0755);
+                } catch (IOException e) {
+                  logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
                 }
-              },
-              MoreExecutors.directExecutor());
-        } finally {
-          ctx.detach(prevCtx);
-        }
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                synchronized (lock) {
+                  downloadsInProgress.remove(path);
+                }
+                try {
+                  path.delete();
+                } catch (IOException e) {
+                  logger.atWarning().withCause(e).log(
+                      "Failed to delete output file after incomplete download: %s", path);
+                }
+              }
+            },
+            MoreExecutors.directExecutor());
       }
       return download;
     }

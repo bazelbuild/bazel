@@ -48,7 +48,7 @@ import net.starlark.java.eval.StarlarkThread;
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
-  // Must start with a letter and can contain letters, numbers, underscores and hyphens.
+  // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
   private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[-.\\w]*$");
 
   private final boolean allowOverride;

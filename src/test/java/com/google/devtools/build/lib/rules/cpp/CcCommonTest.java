@@ -248,6 +248,34 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExpandedDefinesAgainstDeps() throws Exception {
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_deps",
+            "cc_library(name = 'expand_deps',",
+            "           srcs = ['defines.cc'],",
+            "           deps = ['//foo'],",
+            "           defines = ['FOO=$(location //foo)'])");
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly(
+            String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
+  }
+
+  @Test
+  public void testExpandedDefinesAgainstSrcs() throws Exception {
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_srcs",
+            "cc_library(name = 'expand_srcs',",
+            "           srcs = ['defines.cc'],",
+            "           defines = ['FOO=$(location defines.cc)'])");
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly("FOO=expanded_defines/defines.cc");
+  }
+
+  @Test
   public void testStartEndLib() throws Exception {
     getAnalysisMock()
         .ccSupport()

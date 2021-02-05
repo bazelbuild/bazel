@@ -1015,7 +1015,11 @@ static jbyteArray getxattr_common(JNIEnv *env,
     }
   } else {
     result = env->NewByteArray(size);
-    env->SetByteArrayRegion(result, 0, size, value);
+    // Result may be NULL if allocation failed. In that case, we'll return the
+    // NULL and an OOME will be thrown when we are back in Java.
+    if (result != NULL) {
+      env->SetByteArrayRegion(result, 0, size, value);
+    }
   }
   ReleaseStringLatin1Chars(path_chars);
   ReleaseStringLatin1Chars(name_chars);

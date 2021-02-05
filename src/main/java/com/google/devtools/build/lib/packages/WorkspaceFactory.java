@@ -263,7 +263,7 @@ public class WorkspaceFactory {
         }
         try {
           Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-          // TODO(adonovan): this doesn't look safe!
+          // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
               && externalRepoName != null
@@ -291,7 +291,7 @@ public class WorkspaceFactory {
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw Starlark.errorf(
                 "%s's name field must be a legal workspace name; workspace names may contain only"
-                    + " A-Z, a-z, 0-9, '-', '_' and '.'",
+                    + " A-Z, a-z, 0-9, '-', '_', and '.', and must start with a letter",
                 rule);
           }
         } catch (RuleFactory.InvalidRuleException

@@ -296,32 +296,28 @@ public class ActionGraphQueryEnvironment
           handleError(owner, exn.getMessage(), exn.getDetailedExitCode());
           return Futures.immediateFuture(null);
         };
-    try {
-      return QueryTaskFutureImpl.ofDelegate(
-          Futures.catchingAsync(
-              patternToEval.evalAdaptedForAsync(
-                  resolver,
-                  getIgnoredPackagePrefixesPathFragments(),
-                  /* excludedSubdirectories= */ ImmutableSet.of(),
-                  (Callback<Target>)
-                      partialResult -> {
-                        List<ConfiguredTargetValue> transformedResult = new ArrayList<>();
-                        for (Target target : partialResult) {
-                          ConfiguredTargetValue configuredTargetValue =
-                              getConfiguredTargetValue(target.getLabel());
-                          if (configuredTargetValue != null) {
-                            transformedResult.add(configuredTargetValue);
-                          }
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.catchingAsync(
+            patternToEval.evalAdaptedForAsync(
+                resolver,
+                getIgnoredPackagePrefixesPathFragments(),
+                /*excludedSubdirectories=*/ ImmutableSet.of(),
+                (Callback<Target>)
+                    partialResult -> {
+                      List<ConfiguredTargetValue> transformedResult = new ArrayList<>();
+                      for (Target target : partialResult) {
+                        ConfiguredTargetValue configuredTargetValue =
+                            getConfiguredTargetValue(target.getLabel());
+                        if (configuredTargetValue != null) {
+                          transformedResult.add(configuredTargetValue);
                         }
-                        callback.process(transformedResult);
-                      },
-                  QueryException.class),
-              TargetParsingException.class,
-              reportBuildFileErrorAsyncFunction,
-              MoreExecutors.directExecutor()));
-    } catch (InterruptedException e) {
-      return immediateCancelledFuture();
-    }
+                      }
+                      callback.process(transformedResult);
+                    },
+                QueryException.class),
+            TargetParsingException.class,
+            reportBuildFileErrorAsyncFunction,
+            MoreExecutors.directExecutor()));
   }
 
   private ConfiguredTargetValue getConfiguredTargetValue(Label label) throws InterruptedException {

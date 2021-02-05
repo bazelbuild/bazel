@@ -8,17 +8,26 @@ title: Challenges of Writing Rules
 This page gives a high-level overview of the specific issues and challenges
 of writing efficient Bazel rules.
 
+## Summary
+
 * Assumption: Aim for Correctness, Throughput, Ease of Use & Latency
 * Assumption: Large Scale Repositories
 * Assumption: BUILD-like Description Language
-* Intrinsic: Remote Execution and Caching are Hard
 * Historic: Hard Separation between Loading, Analysis, and Execution is
   Outdated, but still affects the API
+* Intrinsic: Remote Execution and Caching are Hard
 * Intrinsic: Using Change Information for Correct and Fast Incremental Builds
   requires Unusual Coding Patterns
 * Intrinsic: Avoiding Quadratic Time and Memory Consumption is Hard
 
-## Assumption: Aim for Correctness, Throughput, Ease of Use & Latency
+## Assumptions
+
+Here are some assumptions made about the build system, such as need for
+correctness, ease of use, throughput, and large scale repositories. The
+following sections address these assumptions and offer guidelines to ensure
+rules are written in an effective manner.
+
+### Aim for correctness, throughput, ease of use & latency
 
 We assume that the build system needs to be first and foremost correct with
 respect to incremental builds, i.e., for a given source tree, the output of the
@@ -27,11 +36,11 @@ like. In the first approximation, this means Bazel needs to know every single
 input that goes into a given build step, such that it can rerun that step if any
 of the inputs change. There are limits to how correct Bazel can get, as it leaks
 some information such as date / time of the build, and ignores certain types of
-changes such as changes to file attributes. Sandboxing helps ensure correctness
-by preventing reads to undeclared input files. Besides the intrinsic limits of
-the system, there are a few known correctness issues, most of which are related
-to Fileset or the C++ rules, which are both hard problems. We have long-term
-efforts to fix these.
+changes such as changes to file attributes. [Sandboxing](sandboxing.md)
+helps ensure correctness by preventing reads to undeclared input files. Besides
+the intrinsic limits of the system, there are a few known correctness issues,
+most of which are related to Fileset or the C++ rules, which are both hard
+problems. We have long-term efforts to fix these.
 
 The second goal of the build system is to have high throughput; we are
 permanently pushing the boundaries of what can be done within the current
@@ -42,16 +51,14 @@ Ease of use comes next, i.e., of multiple correct approaches with the same (or
 similar) footprint of the remote execution service, we choose the one that is
 easier to use.
 
-For the purpose of this document, latency denotes the time it takes from
-starting a build to getting the intended result, whether that is a test log from
-a passing or failing test, or an error message that a BUILD file has a
-typo.
+Latency denotes the time it takes from starting a build to getting the intended
+result, whether that is a test log from a passing or failing test, or an error
+message that a BUILD file has a typo.
 
 Note that these goals often overlap; latency is as much a function of throughput
 of the remote execution service as is correctness relevant for ease of use.
 
-
-## Assumption: Large Scale Repositories
+### Large scale repositories
 
 The build system needs to operate at the scale of large repositories where large
 scale means that it does not fit on a single hard drive, so it is impossible to
@@ -62,34 +69,20 @@ BUILD files on a single machine, we have not yet been able to do so within a
 reasonable amount of time and memory. As such, it is critical that BUILD files
 can be loaded and parsed independently.
 
+### BUILD-like description language
 
-## Assumption: BUILD-like Description Language
-
-For the purpose of this document, we assume a configuration language that is
+In this context, we assume a configuration language that is
 roughly similar to BUILD files, i.e., declaration of library and binary rules
 and their interdependencies. BUILD files can be read and parsed independently,
 and we avoid even looking at source files whenever we can (except for
 existence).
 
+## Historic
 
-## Intrinsic: Remote Execution and Caching are Hard
+There are differences between Bazel versions that cause challenges and some
+of these are outlined in the following sections.
 
-Remote execution and caching improve build times in large repositories by
-roughly two orders of magnitude compared to running the build on a single
-machine. However, the scale at which it needs to perform is staggering: Google's
-remote execution service is designed to handle a huge number of requests per
-second, and the protocol carefully avoids unnecessary roundtrips as well as
-unnecessary work on the service side.
-
-At this time, the protocol requires that the build system knows all inputs to a
-given action ahead of time; the build system then computes a unique action
-fingerprint, and asks the scheduler for a cache hit. If a cache hit is found,
-the scheduler replies with the digests of the output files; the files itself are
-addressed by digest later on. However, this imposes restrictions on the Bazel
-rules, which need to declare all input files ahead of time.
-
-
-## Historic: Hard Separation between Loading, Analysis, and Execution is Outdated, but still affects the API
+### Hard separation between loading, analysis, and execution is outdated but still affects the API
 
 Technically, it is sufficient for a rule to know the input and output files of
 an action just before the action is sent to remote execution. However, the
@@ -110,8 +103,28 @@ output of an action; instead, it needs to generate a partial directed bipartite
 graph of build steps and output file names that is only determined from the rule
 itself and its dependencies.
 
+## Intrinsic
 
-## Intrinsic: Using Change Information for Correct and Fast Incremental Builds requires Unusual Coding Patterns
+There are some intrinsic properties that make writing rules challenging and
+some of the most common ones are described in the following sections.
+
+### Remote execution and caching are hard
+
+Remote execution and caching improve build times in large repositories by
+roughly two orders of magnitude compared to running the build on a single
+machine. However, the scale at which it needs to perform is staggering: Google's
+remote execution service is designed to handle a huge number of requests per
+second, and the protocol carefully avoids unnecessary roundtrips as well as
+unnecessary work on the service side.
+
+At this time, the protocol requires that the build system knows all inputs to a
+given action ahead of time; the build system then computes a unique action
+fingerprint, and asks the scheduler for a cache hit. If a cache hit is found,
+the scheduler replies with the digests of the output files; the files itself are
+addressed by digest later on. However, this imposes restrictions on the Bazel
+rules, which need to declare all input files ahead of time.
+
+### Using change information for correct and fast incremental builds requires unusual coding patterns
 
 Above, we argued that in order to be correct, Bazel needs to know all the input
 files that go into a build step in order to detect whether that build step is
@@ -164,8 +177,7 @@ in the first place. The danger of accidental use of such APIs is just too big -
 several Bazel bugs in the past were caused by rules using unsafe APIs, even
 though the rules were written by the Bazel team, i.e., by the domain experts.
 
-
-## Intrinsic: Avoiding Quadratic Time and Memory Consumption is Hard
+### Avoiding quadratic time and memory consumption is hard
 
 To make matters worse, apart from the requirements imposed by Skyframe, the
 historical constraints of using Java, and the outdatedness of the rules API,
@@ -193,8 +205,7 @@ the Java runtime classpath, or the C++ linker command line. For example, it
 could expand the command line string representation of the C++ link action. N/2
 copies of N/2 elements is O(N^2) memory.
 
-
-### Custom Collections Classes to Avoid Quadratic Complexity
+#### Custom collections classes to avoid quadratic complexity
 
 Bazel is heavily affected by both of these scenarios, so we introduced a set of
 custom collection classes that effectively compress the information in memory by

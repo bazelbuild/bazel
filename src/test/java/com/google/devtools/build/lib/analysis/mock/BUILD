@@ -34,6 +34,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/analysis/util:util_internal",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "@bazel_tools//tools/java/runfiles",
     ],

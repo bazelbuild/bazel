@@ -62,9 +62,14 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return false;
   }
 
+  protected String defaultPlatformFlag() {
+    return String.format("--platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
+  }
+
   @Override
   protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
+
     if (!platformBasedToolchains()) {
       super.useConfiguration(starlarkOptions, args);
       return;
@@ -75,6 +80,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     fullArgs.add("--incompatible_enable_android_toolchain_resolution");
     // Uncomment the below to get more info when tests fail because of toolchain resolution.
     //  fullArgs.add("--toolchain_resolution_debug");
+    boolean hasPlatform = false;
     for (String arg : args) {
       if (arg.startsWith("--android_sdk=")) {
         // --android_sdk is a legacy toolchain resolution flag. Remap it to the platform-equivalent:
@@ -93,6 +99,13 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       } else {
         fullArgs.add(arg);
       }
+
+      if (arg.startsWith("--platforms=") || arg.startsWith("--android_platforms=")) {
+        hasPlatform = true;
+      }
+    }
+    if (!hasPlatform) {
+      fullArgs.add(defaultPlatformFlag());
     }
     super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
   }

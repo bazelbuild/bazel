@@ -31,13 +31,12 @@ public interface CppIncludeScanningContext extends ActionContext {
   /**
    * Does include scanning to find the list of files needed to execute the action.
    *
-   * <p>Returns null if additional inputs will only be found during action execution, not before.
+   * <p>Returns {@code null} if a skyframe restart is necessary.
    */
   @Nullable
   List<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing,
       IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException, ActionExecutionException;
 }

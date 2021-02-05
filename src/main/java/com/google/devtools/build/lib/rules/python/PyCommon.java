@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.PythonInfo;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -88,17 +86,6 @@ public final class PyCommon {
         PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
     return pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL ? pythonVersionAttr : null;
   }
-
-  private static final LocalMetadataCollector METADATA_COLLECTOR =
-      new LocalMetadataCollector() {
-        @Override
-        public void collectMetadataArtifacts(
-            Iterable<Artifact> artifacts,
-            AnalysisEnvironment analysisEnvironment,
-            NestedSetBuilder<Artifact> metadataFilesBuilder) {
-          // Python doesn't do any compilation, so we simply return the empty set.
-        }
-      };
 
   /** The context for the target this {@code PyCommon} is helping to analyze. */
   private final RuleContext ruleContext;
@@ -569,15 +556,6 @@ public final class PyCommon {
     }
   }
 
-
-  /** Checks that the package name of this Python rule does not contain a '-'. */
-  private void validatePackageName() {
-    if (semantics.prohibitHyphensInPackagePaths()
-        && Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
-      ruleContext.ruleError("paths to Python packages may not contain '-'");
-    }
-  }
-
   /**
    * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
@@ -861,11 +839,7 @@ public final class PyCommon {
     builder
         .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collect(
-                ruleContext,
-                semantics.getCoverageInstrumentationSpec(),
-                METADATA_COLLECTOR,
-                filesToBuild.toList(),
-                /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
+                ruleContext, semantics.getCoverageInstrumentationSpec()))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)

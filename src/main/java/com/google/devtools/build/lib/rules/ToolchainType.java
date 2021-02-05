@@ -61,7 +61,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
       return Metadata.builder()
           .name("toolchain_type")
           .factoryClass(ToolchainType.class)
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .build();
     }
   }

@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -59,7 +60,7 @@ public class RemoteActionFileSystemTest {
     MockitoAnnotations.initMocks(this);
     fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
     execRoot = fs.getPath("/exec");
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
   }
 

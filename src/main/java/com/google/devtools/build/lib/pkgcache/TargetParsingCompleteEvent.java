@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.PatternExpanded;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -79,12 +81,8 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
   private final ImmutableSet<ThinTarget> testFilteredTargets;
   private final ImmutableSet<ThinTarget> expandedTargets;
   private final ImmutableSetMultimap<String, Label> originalPatternsToLabels;
+  private final ImmutableMap<Label, ImmutableSet<Label>> testSuiteExpansions;
 
-  /**
-   * Construct the event.
-   *
-   * @param targets The targets that were parsed from the command-line pattern.
-   */
   public TargetParsingCompleteEvent(
       Collection<Target> targets,
       Collection<Target> filteredTargets,
@@ -92,26 +90,16 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
       ImmutableList<String> originalTargetPattern,
       Collection<Target> expandedTargets,
       ImmutableList<String> failedTargetPatterns,
-      ImmutableSetMultimap<String, Label> originalPatternsToLabels) {
+      ImmutableSetMultimap<String, Label> originalPatternsToLabels,
+      ImmutableMap<Label, ImmutableSet<Label>> testSuiteExpansions) {
     this.targets = asThinTargets(targets);
     this.filteredTargets = asThinTargets(filteredTargets);
     this.testFilteredTargets = asThinTargets(testFilteredTargets);
     this.originalTargetPattern = Preconditions.checkNotNull(originalTargetPattern);
     this.expandedTargets = asThinTargets(expandedTargets);
     this.failedTargetPatterns = Preconditions.checkNotNull(failedTargetPatterns);
-    this.originalPatternsToLabels = originalPatternsToLabels;
-  }
-
-  @VisibleForTesting
-  public TargetParsingCompleteEvent(Collection<Target> targets) {
-    this(
-        targets,
-        ImmutableSet.of(),
-        ImmutableSet.of(),
-        ImmutableList.of(),
-        targets,
-        ImmutableList.of(),
-        ImmutableSetMultimap.of());
+    this.originalPatternsToLabels = Preconditions.checkNotNull(originalPatternsToLabels);
+    this.testSuiteExpansions = Preconditions.checkNotNull(testSuiteExpansions);
   }
 
   public ImmutableList<String> getOriginalTargetPattern() {
@@ -181,7 +169,7 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
           BuildEventIdUtil.targetPatternExpanded(ImmutableList.of(failedTargetPattern)));
     }
     for (ThinTarget target : expandedTargets) {
-      // Test suits won't produce target configuration and  target-complete events, so do not
+      // Test suites won't produce target configuration and target-complete events, so do not
       // announce here completion as children.
       if (!target.isTestSuiteRule()) {
         childrenBuilder.add(BuildEventIdUtil.targetConfigured(target.getLabel()));
@@ -192,9 +180,15 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
-    return GenericBuildEvent.protoChaining(this)
-        .setExpanded(BuildEventStreamProtos.PatternExpanded.newBuilder().build())
-        .build();
+    PatternExpanded.Builder expanded = PatternExpanded.newBuilder();
+    testSuiteExpansions.forEach(
+        (suite, tests) ->
+            expanded
+                .addTestSuiteExpansionsBuilder()
+                .setSuiteLabel(suite.toString())
+                .addAllTestLabels(Collections2.transform(tests, Label::toString)));
+
+    return GenericBuildEvent.protoChaining(this).setExpanded(expanded).build();
   }
 
   private static ImmutableSet<ThinTarget> asThinTargets(Collection<Target> targets) {

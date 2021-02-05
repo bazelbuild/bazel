@@ -169,3 +169,10 @@ assert_eq(enumerate({"a": 0, 2: 1, "ab": 3}), [(0, "a"), (1, 2), (2, "ab")])
 assert_eq(enumerate({}), [])
 assert_eq(enumerate([False, True, None], 42), [(42, False), (43, True), (44, None)])
 assert_fails(lambda: enumerate("ab"), "type 'string' is not iterable")
+
+# repeat
+assert_eq("abc" * 3, "abcabcabc")
+assert_eq(3 * "abc", "abcabcabc")
+assert_eq("abc" * 0, "")
+assert_eq("abc" * -1, "")
+assert_fails(lambda: "abc" * (1 << 35), "got 34359738368 for repeat, want value in signed 32-bit range")

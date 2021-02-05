@@ -67,7 +67,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("rule_class_default")
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }

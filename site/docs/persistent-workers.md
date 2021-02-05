@@ -132,8 +132,8 @@ other workers are prevented from running. This flag can be used multiple times.
 Passing the
 [`--worker_sandboxing`](command-line-reference.html#flag--worker_sandboxing)
 flag makes each worker request use a separate sandbox directory for all its
-inputs. Setting up the sandbox takes some extra time, especially on MacOS, but
-gives a better correctness guarantee.
+inputs. Setting up the [sandbox](sandboxing.md) takes some extra time,
+especially on macOS, but gives a better correctness guarantee.
 
 You can use the `--experimental_worker_allow_json_protocol` flag to allow
 workers to communicate with Bazel through JSON instead of protocol buffers
@@ -229,13 +229,12 @@ might be helpful.
 
 ## How do workers affect sandboxing? <a name="sandboxing"></a>
 
-Using the `worker` strategy by default does not run the action in a sandbox,
-similar to the `local` strategy. You can set the `--worker_sandboxing` flag to
-run all workers inside sandboxes, making sure each execution of the tool only
-sees the input files it's supposed to have. The tool may still leak information
-between requests internally, for instance through a cache. Using `dynamic`
-strategy
-[requires workers to be sandboxed](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/exec/SpawnStrategyRegistry.java).
+Using the `worker` strategy by default does not run the action in a
+[sandbox](sandboxing.md), similar to the `local` strategy. You can set
+the `--worker_sandboxing` flag to run all workers inside sandboxes, making sure
+each execution of the tool only sees the input files it's supposed to have. The
+tool may still leak information between requests internally, for instance
+through a cache. Using `dynamic` strategy [requires workers to be sandboxed](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/exec/SpawnStrategyRegistry.java).
 
 To allow correct use of compiler caches with workers, a digest is passed along
 with each input file. Thus the compiler or the wrapper can check if the input is

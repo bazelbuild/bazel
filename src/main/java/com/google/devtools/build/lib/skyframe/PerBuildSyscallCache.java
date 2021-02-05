@@ -106,11 +106,20 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-    Object result = statCache.getUnchecked(Pair.of(path, symlinks));
+    // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
+    // cache for all non-symlink paths.
+    Object result = statCache.getUnchecked(Pair.of(path, Symlinks.NOFOLLOW));
     if (result instanceof IOException) {
       throw (IOException) result;
     }
     FileStatus status = (FileStatus) result;
+    if (status != NO_STATUS && symlinks == Symlinks.FOLLOW && status.isSymbolicLink()) {
+      result = statCache.getUnchecked(Pair.of(path, Symlinks.FOLLOW));
+      if (result instanceof IOException) {
+        throw (IOException) result;
+      }
+      status = (FileStatus) result;
+    }
     return (status == NO_STATUS) ? null : status;
   }
 

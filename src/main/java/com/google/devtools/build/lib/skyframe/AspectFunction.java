@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
@@ -403,7 +403,7 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Get the configuration targets that trigger this rule's configurable attributes.
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+      ConfigConditions configConditions =
           ConfiguredTargetFunction.getConfigConditions(
               env,
               originalTargetAndAspectConfiguration,
@@ -423,7 +423,7 @@ public final class AspectFunction implements SkyFunction {
                 resolver,
                 originalTargetAndAspectConfiguration,
                 aspectPath,
-                configConditions,
+                configConditions.asProviders(),
                 unloadedToolchainContext == null
                     ? null
                     : ToolchainCollection.builder()
@@ -640,7 +640,7 @@ public final class AspectFunction implements SkyFunction {
       ConfiguredAspectFactory aspectFactory,
       ConfiguredTargetAndData associatedTarget,
       BuildConfiguration aspectConfiguration,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       ResolvedToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)

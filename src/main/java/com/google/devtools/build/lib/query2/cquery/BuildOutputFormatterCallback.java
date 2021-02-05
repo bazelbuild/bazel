@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.query2.query.output.AttributeValueSource;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
-import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -60,11 +58,9 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
      * that null values are also possible - these are represented as an empty value list.
      */
     @Override
-    public PossibleAttributeValues getPossibleValues(Rule rule, Attribute attr) {
+    public Iterable<Object> getPossibleValues(Rule rule, Attribute attr) {
       Object actualValue = attributeMap.get(attr.getName(), attr.getType());
-      return new PossibleAttributeValues(
-          actualValue == null ? ImmutableList.of() : ImmutableList.of(actualValue),
-          AttributeValueSource.forRuleAndAttribute(rule, attr));
+      return actualValue == null ? ImmutableList.of() : ImmutableList.of(actualValue);
     }
   }
 

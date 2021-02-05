@@ -143,7 +143,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         stringBuilder
             .append("  AspectDescriptors: [")
             .append(
-                Streams.stream(aspectDescriptors)
+                aspectDescriptors.stream()
                     .map(
                         aspectDescriptor -> {
                           StringBuilder aspectDescription = new StringBuilder();
@@ -151,11 +151,11 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                               .append(aspectDescriptor.getAspectClass().getName())
                               .append('(')
                               .append(
-                                  Streams.stream(
-                                          aspectDescriptor
-                                              .getParameters()
-                                              .getAttributes()
-                                              .entries())
+                                  aspectDescriptor
+                                      .getParameters()
+                                      .getAttributes()
+                                      .entries()
+                                      .stream()
                                       .map(
                                           parameter ->
                                               parameter.getKey()
@@ -190,7 +190,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("]\n")
           .append("  Outputs: [")
           .append(
-              Streams.stream(action.getOutputs())
+              action.getOutputs().stream()
                   .map(
                       output ->
                           output.isTreeArtifact()

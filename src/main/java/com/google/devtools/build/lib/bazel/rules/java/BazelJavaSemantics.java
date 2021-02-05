@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -519,7 +518,7 @@ public class BazelJavaSemantics implements JavaSemantics {
         ImmutableList.<CcInfo>builder()
             .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
             .addAll(
-                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
+                AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
                     .map(JavaCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
             .build();

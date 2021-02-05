@@ -46,16 +46,20 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @param eventHandler any errors emitted during package lookup and loading for {@code directory}
    *     and non-excluded directories beneath it will be reported here
    * @param directory a {@link RootedPath} specifying the directory to search
-   * @param blacklistedSubdirectories a set of {@link PathFragment}s specifying transitive
-   *     subdirectories that have been blacklisted
+   * @param ignoredSubdirectories a set of {@link PathFragment}s specifying transitive
+   *     subdirectories that are ignored. {@code directory} must not be a subdirectory of any of
+   *     these
    * @param excludedSubdirectories a set of {@link PathFragment}s specifying transitive
+   *     subdirectories that are excluded from this traversal. Different from {@code
+   *     ignoredSubdirectories} only in that these directories should not be embedded in any {@code
+   *     SkyKey}s that are created during the traversal, instead filtered out later
    */
   void streamPackagesUnderDirectory(
       BatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException, QueryException;
 
@@ -121,7 +125,7 @@ public interface RecursivePackageProvider extends PackageProvider {
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       throw new UnsupportedOperationException();
     }
