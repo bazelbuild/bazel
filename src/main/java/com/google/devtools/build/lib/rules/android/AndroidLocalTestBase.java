@@ -108,7 +108,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaCommon javaCommon =
         AndroidCommon.createJavaCommonWithAndroidDataBinding(
-            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary= */ false);
+            ruleContext,
+            javaSemantics,
+            resourceApk.asDataBindingContext(),
+            /* isLibrary */ false,
+            /* shouldCompileJavaSrcs */ true);
     javaSemantics.checkRule(ruleContext, javaCommon);
 
     // Use the regular Java javacopts, plus any extra needed for databinding. Enforcing

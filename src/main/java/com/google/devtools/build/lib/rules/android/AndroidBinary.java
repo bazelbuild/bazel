@@ -214,7 +214,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     NativeLibs nativeLibs =
         NativeLibs.fromLinkedNativeDeps(
             ruleContext,
-            ImmutableList.of("deps"),
+            ImmutableList.of("application_resources", "deps"),
             androidSemantics.getNativeDepsFileName(),
             cppSemantics);
 
@@ -268,6 +268,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             AndroidApplicationResourceInfo.PROVIDER);
 
     final ResourceApk resourceApk;
+    boolean shouldCompileJavaSrcs = true;
     if (androidApplicationResourceInfo == null) {
       resourceApk =
           new RClassGeneratorActionBuilder()
@@ -280,6 +281,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       resourceApk =
           ResourceApk.fromAndroidApplicationResourceInfo(
               ruleContext, dataContext.getAndroidConfig(), androidApplicationResourceInfo);
+      shouldCompileJavaSrcs = androidApplicationResourceInfo.shouldCompileJavaSrcs();
     }
 
     if (dataContext.useResourcePathShortening()) {
@@ -292,7 +294,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     JavaCommon javaCommon =
         AndroidCommon.createJavaCommonWithAndroidDataBinding(
-            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary */ false);
+            ruleContext,
+            javaSemantics,
+            resourceApk.asDataBindingContext(),
+            /* isLibrary */ false,
+            shouldCompileJavaSrcs);
     javaSemantics.checkRule(ruleContext, javaCommon);
     javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
 
@@ -408,6 +414,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
     Iterables.addAll(
         proguardDeps, ruleContext.getPrerequisites("deps", ProguardSpecProvider.PROVIDER));
+    Iterables.addAll(
+        proguardDeps,
+        ruleContext.getPrerequisites("application_resources", ProguardSpecProvider.PROVIDER));
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
         && ruleContext.attributes().has("$jacoco_runtime", BuildType.LABEL)) {
       proguardDeps.add(
