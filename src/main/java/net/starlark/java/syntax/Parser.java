@@ -422,6 +422,7 @@ final class Parser {
     expr = parseTest();
     if (expr instanceof Identifier) {
       Identifier id = (Identifier) expr;
+      id = new Identifier(locs, internGlobally(id.getName()), id.getStartOffset());
       // parse a named argument
       if (token.kind == TokenKind.EQUALS) {
         nextToken();
@@ -455,7 +456,7 @@ final class Parser {
     }
 
     // name=default
-    Identifier id = parseIdent(false);
+    Identifier id = parseIdent(true);
     if (token.kind == TokenKind.EQUALS) {
       nextToken(); // TODO: save token pos?
       Expression expr = parseTest();
