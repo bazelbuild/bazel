@@ -116,7 +116,7 @@ public class QueryOptions extends CommonQueryOptions {
   public OrderOutput orderOutput;
 
   @Option(
-      name = "incompatible_prefer_unordered_output",
+      name = "incompatible_lexicographical_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
@@ -124,22 +124,8 @@ public class QueryOptions extends CommonQueryOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "If this option is set together with --order_output=auto (default) and if the output "
-              + "formatter supports streaming output, then the results will be unordered.")
-  public boolean preferUnorderedOutput;
-
-  @Option(
-      name = "incompatible_use_lexicographical_unordered_output",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If this option is set, sorts unordered output in lexicographical order.")
-  public boolean useLexicographicalUnorderedOutput;
+      help = "If this option is set, sorts --order_output=auto output in lexicographical order.")
+  public boolean lexicographicalOutput;
 
   @Option(
       name = "graph:conditional_edges_limit",

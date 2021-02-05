@@ -25,7 +25,7 @@ documentation](https://developer.android.com/training/testing/unit-testing/instr
 
 Please file issues in the [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
 
-# How it works
+## How it works
 
 When you run `bazel test` on an `android_instrumentation_test` target for the
 first time, Bazel performs the following steps:
@@ -42,7 +42,7 @@ In subsequent test runs, Bazel boots the emulator from the clean, cached state
 created in step 2, so there are no leftover states from previous runs. Caching
 emulator state also speeds up test runs.
 
-# Prerequisites
+## Prerequisites
 
 Ensure your environment satisfies the following prerequisites:
 
@@ -80,13 +80,13 @@ $ which Xvfb
 /usr/bin/Xvfb
 ```
 
-# Getting started
+## Getting started
 
 Here is a typical target dependency graph of an `android_instrumentation_test`:
 
 ![The target dependency graph on an Android instrumentation test](/assets/android_instrumentation_test.png)
 
-## `BUILD` file
+### `BUILD` file
 
 The graph translates into a `BUILD` file like this:
 
@@ -179,7 +179,7 @@ Here is an example `AndroidTestManifest.xml` for the test app:
 </manifest>
 ```
 
-## `WORKSPACE` dependencies
+### `WORKSPACE` dependencies
 
 In order to use this rule, your project needs to depend on these external
 repositories:
@@ -211,7 +211,7 @@ load("@android_test_support//:repo.bzl", "android_test_repositories")
 android_test_repositories()
 ```
 
-# Maven dependencies
+## Maven dependencies
 
 For managing dependencies on Maven artifacts from repositories like [Google
 Maven](https://maven.google.com) or [Maven Central](https://central.maven.org),
@@ -221,7 +221,7 @@ we recommend using a Maven resolver like
 The rest of this page shows how to use `rules_jvm_external` to
 resolve and fetch dependencies from Maven repositories.
 
-# Choosing an android_device target
+## Choosing an android_device target
 
 `android_instrumentation_test.target_device` specifies which Android device to
 run the tests on. These `android_device` targets are defined in
@@ -270,7 +270,7 @@ bazel query 'filter("x86_qemu2$", kind(android_device, @android_test_support//to
 Bazel currently supports x86-based emulators only. For better performance, we
 also recommend using `QEMU2` `android_device` targets instead of `QEMU` ones.
 
-# Running tests
+## Running tests
 
 To run tests, add these lines to your project's `<project root>/.bazelrc` file.
 
@@ -304,7 +304,7 @@ Then, use one of the configurations to run tests:
 
 Use __only one configuration__ or tests will fail.
 
-## Headless testing
+### Headless testing
 
 With `Xvfb`, it is possible to test with emulators without the graphical
 interface, also known as headless testing. To disable the graphical interface
@@ -314,7 +314,7 @@ when running tests, pass the test argument `--enable_display=false` to Bazel:
 bazel test //my/test:target --test_arg=--enable_display=false
 ```
 
-## GUI testing
+### GUI testing
 
 If the `$DISPLAY` environment variable is set, it's possible to enable the
 graphical interface of the emulator while the test is running. To do this, pass
@@ -324,7 +324,7 @@ these test arguments to Bazel:
 bazel test //my/test:target --test_arg=--enable_display --test_env=DISPLAY
 ```
 
-## Testing with a local emulator or device
+### Testing with a local emulator or device
 
 Bazel also supports testing directly on a locally launched emulator or connected
 device. Pass the flags
@@ -334,13 +334,13 @@ If there is more than one connected device, pass the flag
 `--test_arg=--device_serial_number=$device_id` where `$device_id` is the id of
 the device/emulator listed in `adb devices`.
 
-# Sample projects
+## Sample projects
 
 If you are looking for canonical project samples, see the [Android testing
 samples](https://github.com/googlesamples/android-testing#experimental-bazel-support)
 for projects using Espresso and UIAutomator.
 
-# Espresso setup
+## Espresso setup
 
 If you write UI tests with [Espresso](https://developer.android.com/training/testing/espresso/)
 (`androidx.test.espresso`), you can use the following snippets to set up your
@@ -425,9 +425,9 @@ android_binary(
 )
 ```
 
-# Tips
+## Tips
 
-## Reading test logs
+### Reading test logs
 
 Use `--test_output=errors` to print logs for failing tests, or
 `--test_output=all` to print all test output. If you're looking for an
@@ -489,7 +489,7 @@ $ tree bazel-testlogs/ui/espresso/BasicSample/BasicSampleInstrumentationTest
 4 directories, 41 files
 ```
 
-## Reading emulator logs
+### Reading emulator logs
 
 The emulator logs for `android_device` targets are stored in the `/tmp/`
 directory with the name `emulator_xxxxx.log`, where `xxxxx` is a
@@ -501,7 +501,7 @@ Use this command to find the latest emulator log:
 ls -1t /tmp/emulator_*.log | head -n 1
 ```
 
-## Testing against multiple API levels
+### Testing against multiple API levels
 
 If you would like to test against multiple API levels, you can use a list
 comprehension to create test targets for each API level. For example:
@@ -521,7 +521,7 @@ API_LEVELS = [
 ) for API_LEVEL in API_LEVELS]
 ```
 
-# Known issues
+## Known issues
 
 - [Forked adb server processes are not terminated after
   tests](https://github.com/bazelbuild/bazel/issues/4853)
@@ -533,16 +533,3 @@ API_LEVELS = [
   the test. Clean the packages by running this command: `adb shell pm list
   packages com.example.android.testing | cut -d ':' -f 2 | tr -d '\r' | xargs
   -L1 -t adb uninstall`
-
-# Planned features
-
-- Code coverage collection
-- macOS support
-- Windows support
-- Improved external dependency management
-- Remote test caching and execution
-
-We are currently rewriting the Android rules in
-[Starlark](skylark/concepts.html). The `android_instrumentation_test` rule will
-be part of the rewrite, however, its usage will remain unchanged from the
-end-user perspective.

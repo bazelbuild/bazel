@@ -48,7 +48,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 3. Run the build(s) and test(s) that you are investigating again (on the same
    machine).
 
-4. Check the `INFO` line for cache hit rate.  If you see no processes except
+4. Check the `INFO` line for cache hit rate. If you see no processes except
    `remote cache hit`, then your cache is being correctly populated and
    accessed. In that case, skip to the next section.
 

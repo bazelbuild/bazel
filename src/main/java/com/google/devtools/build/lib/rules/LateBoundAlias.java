@@ -123,7 +123,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
     public Metadata getMetadata() {
       return Metadata.builder()
           .name(ruleName)
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .factoryClass(LateBoundAlias.class)
           .build();
     }

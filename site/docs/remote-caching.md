@@ -179,7 +179,7 @@ syntax is `https://username:password@hostname.com:port/path`. Please note that
 HTTP Basic Authentication transmits username and password in plaintext over the
 network and it's thus critical to always use it with HTTPS.
 
-## HTTP Caching Protocol
+## HTTP caching protocol
 
 Bazel supports remote caching via HTTP/1.1. The protocol is conceptually simple:
 Binary data (BLOB) is uploaded via PUT requests and downloaded via GET requests.
@@ -342,7 +342,7 @@ On server side Bazel maintain in-memory state which speed up builds so when runn
 builds inside docker containers e.g. in CI, in-memory state is lost so Bazel
 must rebuild it before using remote cache.
 
-## External Links
+## External links
 
 * **Your Build in a Datacenter:** The Bazel team gave a [talk](https://fosdem.org/2018/schedule/event/datacenter_build/) about remote caching and execution at FOSDEM 2018.
 

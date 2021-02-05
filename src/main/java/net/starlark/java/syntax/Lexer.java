@@ -15,8 +15,8 @@
 package net.starlark.java.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +53,7 @@ final class Lexer {
   // The first (outermost) element is always zero.
   private final Stack<Integer> indentStack = new Stack<>();
 
-  private final List<Comment> comments;
+  private final ImmutableList.Builder<Comment> comments = ImmutableList.builder();
 
   // The number of unclosed open-parens ("(", '{', '[') at the current point in
   // the stream. Whitespace is handled differently when this is nonzero.
@@ -93,14 +93,13 @@ final class Lexer {
     this.pos = 0;
     this.errors = errors;
     this.checkIndentation = true;
-    this.comments = new ArrayList<>();
     this.dents = 0;
 
     indentStack.push(0);
   }
 
-  List<Comment> getComments() {
-    return comments;
+  ImmutableList<Comment> getComments() {
+    return comments.build();
   }
 
   /**

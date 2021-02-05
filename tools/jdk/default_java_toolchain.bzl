@@ -98,7 +98,6 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
 # It does not provide any of the following features:
 #   * Error Prone
 #   * Strict Java Deps
-#   * Header Compilation
 #   * Reduced Classpath Optimization
 #
 # It uses the version of internal javac from the `--host_javabase` JDK instead
@@ -108,7 +107,6 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
 # However it does allow using a wider range of `--host_javabase`s, including
 # versions newer than the current JDK.
 VANILLA_TOOLCHAIN_CONFIGURATION = dict(
-    forcibly_disable_header_compilation = True,
     javabuilder = ["@remote_java_tools//:VanillaJavaBuilder"],
     jvm_opts = [],
 )

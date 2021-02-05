@@ -54,7 +54,6 @@ msys*|mingw*|cygwin*)
   declare -r is_windows=false
   ;;
 esac
-
 if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
@@ -137,6 +136,107 @@ function test_set_flag_with_workspace_name() {
     > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=coffee"
+}
+
+function test_reference_inner_repository_flags() {
+  local -r pkg=$FUNCNAME
+  local -r subpkg="$pkg/sub"
+  mkdir -p $subpkg
+
+  ## set up outer repo
+  cat > $pkg/WORKSPACE <<EOF
+local_repository(
+  name = "sub",
+  path = "./sub")
+EOF
+
+  ## set up inner repo
+  cat > $subpkg/BUILD <<EOF
+load(":rules.bzl", "rule_with_transition", "my_flag")
+
+my_flag(
+    name = "my_flag",
+    build_setting_default = "saguaro",
+)
+
+rule_with_transition(
+    name = "my_target",
+    src = ":my_flag",
+)
+EOF
+
+  cat > $subpkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+
+def _flag_impl(ctx):
+ return BuildSettingInfo(value = ctx.build_setting_value)
+
+my_flag = rule(
+  implementation = _flag_impl,
+  build_setting = config.string(flag = True),
+)
+
+def _my_transition_impl(settings, attr):
+    print("value before transition: " + settings["@sub//:my_flag"])
+    return {"@sub//:my_flag": "prickly-pear"}
+
+my_transition = transition(
+    implementation = _my_transition_impl,
+    inputs = ["@sub//:my_flag"],
+    outputs = ["@sub//:my_flag"],
+)
+
+def _rule_impl(ctx):
+    print("value after transition: " + ctx.attr.src[BuildSettingInfo].value)
+
+rule_with_transition = rule(
+    implementation = _rule_impl,
+    cfg = my_transition,
+    attrs = {
+        "src": attr.label(allow_files = True),
+        "_whitelist_function_transition":
+            attr.label(default = "@bazel_tools//tools/whitelists/function_transition_whitelist"),
+    },
+)
+EOF
+
+  cat > $subpkg/WORKSPACE <<EOF
+workspace(name = "sub")
+EOF
+
+  # from the outer repo
+  cd $pkg
+  bazel build @sub//:my_target \
+      > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value before transition: saguaro"
+  expect_log "value after transition: prickly-pear"
+
+  bazel build @sub//:my_target --@sub//:my_flag=prickly-pear \
+       > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value before transition: prickly-pear"
+  expect_log "value after transition: prickly-pear"
+
+  # from the inner repo
+  cd sub
+  bazel build :my_target \
+      > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value before transition: saguaro"
+  expect_log "value after transition: prickly-pear"
+
+  bazel build :my_target --//:my_flag=prickly-pear \
+      > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value before transition: prickly-pear"
+  expect_log "value after transition: prickly-pear"
+
+  bazel build :my_target --@sub//:my_flag=prickly-pear \
+      > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value before transition: prickly-pear"
+  expect_log "value after transition: prickly-pear"
+
+  bazel build :my_target --@//:my_flag=prickly-pear \
+      > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value before transition: prickly-pear"
+  expect_log "value after transition: prickly-pear"
 }
 
 

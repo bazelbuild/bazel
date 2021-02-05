@@ -75,7 +75,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   }
 
   private final ImmutableMap<String, String> inputsCanonicalizedToGiven;
-  private final ImmutableList<String> outputs;
+  private final ImmutableMap<String, String> outputsCanonicalizedToGiven;
   private final Location location;
 
   private StarlarkDefinedConfigTransition(
@@ -87,12 +87,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       throws EvalException {
     this.location = location;
 
-    // Though we only need the given forms of the outputs, run it through #getCanonicalizedSettings
-    // in order to get the validity checking that method provides.
-    this.outputs =
-        getCanonicalizedSettings(repoMapping, parentLabel, outputs, Settings.OUTPUTS)
-            .values()
-            .asList();
+    this.outputsCanonicalizedToGiven =
+        getCanonicalizedSettings(repoMapping, parentLabel, outputs, Settings.OUTPUTS);
     this.inputsCanonicalizedToGiven =
         getCanonicalizedSettings(repoMapping, parentLabel, inputs, Settings.INPUTS);
   }
@@ -172,7 +168,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * function must return a dictionary where the options exactly match the elements of this list.
    */
   public ImmutableList<String> getOutputs() {
-    return outputs;
+    return outputsCanonicalizedToGiven.values().asList();
+  }
+
+  public ImmutableMap<String, String> getOutputsCanonicalizedToGiven() {
+    return outputsCanonicalizedToGiven;
   }
 
   /**

@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -152,6 +153,7 @@ import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction.NonexistentFileReceiver;
+import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
 import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCacheEntry;
@@ -249,6 +251,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final BlazeDirectories directories;
   protected final ExternalFilesHelper externalFilesHelper;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
+  /**
+   * Measures source artifacts read this build. Does not include cached artifacts, so is less useful
+   * on incremental builds.
+   */
+  private final FilesMetricConsumer sourceArtifactsSeen = new FilesMetricConsumer();
+
+  private final FilesMetricConsumer outputArtifactsSeen = new FilesMetricConsumer();
+  private final FilesMetricConsumer outputArtifactsFromActionCache = new FilesMetricConsumer();
+  private final FilesMetricConsumer topLevelArtifactsMetric = new FilesMetricConsumer();
+
   @Nullable protected OutputService outputService;
 
   // TODO(bazel-team): Figure out how to handle value builders that block internally. Blocking
@@ -434,10 +446,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeActionExecutor =
-        new SkyframeActionExecutor(actionKeyContext, statusReporterRef, this::getPathEntries);
+        new SkyframeActionExecutor(
+            actionKeyContext,
+            outputArtifactsSeen,
+            outputArtifactsFromActionCache,
+            statusReporterRef,
+            this::getPathEntries);
+    this.artifactFactory =
+        new ArtifactFactory(
+            /* execRootParent= */ directories.getExecRootBase(),
+            directories.getRelativeOutputPath());
     this.skyframeBuildView =
-        new SkyframeBuildView(directories, this, ruleClassProvider, actionKeyContext);
-    this.artifactFactory = skyframeBuildView.getArtifactFactory();
+        new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
         ExternalFilesHelper.create(
             pkgLocator,
@@ -576,15 +596,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
     map.put(
         SkyFunctions.TARGET_COMPLETION,
-        TargetCompletor.targetCompletionFunction(pathResolverFactory, skyframeActionExecutor));
+        TargetCompletor.targetCompletionFunction(
+            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric));
     map.put(
         SkyFunctions.ASPECT_COMPLETION,
-        AspectCompletor.aspectCompletionFunction(pathResolverFactory, skyframeActionExecutor));
+        AspectCompletor.aspectCompletionFunction(
+            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
         Artifact.ARTIFACT,
         new ArtifactFunction(
-            () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem()));
+            () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
+            sourceArtifactsSeen));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
@@ -670,6 +693,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     lastConcurrencyLevel = concurrencyLevel;
     perBuildSyscallCache = newPerBuildSyscallCache(concurrencyLevel);
     return perBuildSyscallCache;
+  }
+
+  public AtomicReference<UnixGlob.FilesystemCalls> getSyscalls() {
+    return syscalls;
   }
 
   @ThreadCompatible
@@ -1105,6 +1132,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
+  private void setConfigSettingVisibilityPolicty(ConfigSettingVisibilityPolicy policy) {
+    PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(injectable(), policy);
+  }
+
   private void setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
@@ -1344,6 +1375,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     setShowLoadingProgress(packageOptions.showLoadingProgress);
     setDefaultVisibility(packageOptions.defaultVisibility);
+    if (!packageOptions.enforceConfigSettingVisibility) {
+      setConfigSettingVisibilityPolicty(ConfigSettingVisibilityPolicy.LEGACY_OFF);
+    } else {
+      setConfigSettingVisibilityPolicty(packageOptions.configSettingPrivateDefaultVisibility
+          ? ConfigSettingVisibilityPolicy.DEFAULT_STANDARD
+          : ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC);
+    }
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
@@ -2630,8 +2668,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
+   *
+   * <p>Returns precomputed information about the workspace if it is available at this stage. This
+   * is an optimization allowing implementations which have such information to make it available
+   * early in the build.
    */
-  public void sync(
+  @Nullable
+  public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
@@ -2658,6 +2701,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
+    return null;
   }
 
   protected void syncPackageLoading(
@@ -2690,6 +2734,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
+    sourceArtifactsSeen.reset();
+    outputArtifactsSeen.reset();
+    outputArtifactsFromActionCache.reset();
+    topLevelArtifactsMetric.reset();
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {
@@ -3010,7 +3058,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  public abstract ExecutionFinishedEvent createExecutionFinishedEvent();
+  public final ExecutionFinishedEvent createExecutionFinishedEvent() {
+    return createExecutionFinishedEventInternal()
+        .setSourceArtifactsRead(sourceArtifactsSeen.toFilesMetricAndReset())
+        .setOutputArtifactsSeen(outputArtifactsSeen.toFilesMetricAndReset())
+        .setOutputArtifactsFromActionCache(outputArtifactsFromActionCache.toFilesMetricAndReset())
+        .setTopLevelArtifacts(topLevelArtifactsMetric.toFilesMetricAndReset())
+        .build();
+  }
+
+  @ForOverride
+  protected ExecutionFinishedEvent.Builder createExecutionFinishedEventInternal() {
+    return ExecutionFinishedEvent.builderWithDefaults();
+  }
 
   protected Iterable<ActionLookupValue> getActionLookupValuesInBuild(
       List<ConfiguredTargetKey> topLevelCtKeys, List<AspectValueKey> aspectKeys)

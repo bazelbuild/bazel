@@ -62,7 +62,7 @@ necessary, and `supports-multiplex-workers` takes precedence over
 `supports-workers`, if both are set. A ruleset is encouraged to use multiplex
 workers if possible, to improve performance.
 
-### WARNING
+### Warning about rare bug
 
 Due to a rare bug, multiplex workers are currently unstable. Occasionally,
 Bazel hangs indefinitely at the execution phase. If you see this behavior,

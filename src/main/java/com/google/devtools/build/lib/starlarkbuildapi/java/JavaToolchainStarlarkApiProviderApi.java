@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -56,6 +58,14 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
   Sequence<String> getStarlarkJvmOptions();
+
+  @StarlarkMethod(
+      name = "jacocorunner",
+      doc = "The jacocorunner used by the toolchain.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FilesToRunProviderApi<?> getJacocoRunner();
 
   @StarlarkMethod(name = "tools", doc = "The compilation tools.", structField = true)
   Depset getStarlarkTools();

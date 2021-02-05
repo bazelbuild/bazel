@@ -1255,4 +1255,10 @@ public interface CcModuleApi<
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_CcNativeLibraryProvider",
+      documented = false,
+      useStarlarkThread = true)
+  Object getCcNativeLibraryProvider(StarlarkThread thread) throws EvalException;
 }

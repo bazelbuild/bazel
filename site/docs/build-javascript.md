@@ -36,7 +36,7 @@ following:
 
 You can either [Install Bazel](install.html) following the same steps that you
 would for backend development, or you can install NodeJS with npm and run
-`npm install -g @bazel/bazel`.
+`npm install -g @bazel/bazelisk`.
 
 ### Installing iBazel
 
@@ -148,8 +148,6 @@ this list.
 ```
 
 > The Bazel team is aware that this configuration is not ergonomic. Follow https://github.com/bazelbuild/buildtools/issues/479
-
-> Also the Buildifier tool is not available on Windows. Follow https://github.com/bazelbuild/buildtools/issues/375
 
 ## Building JavaScript
 

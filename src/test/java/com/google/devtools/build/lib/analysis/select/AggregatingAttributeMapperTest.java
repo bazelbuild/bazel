@@ -285,7 +285,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("rule_with_computed_defaults")
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }

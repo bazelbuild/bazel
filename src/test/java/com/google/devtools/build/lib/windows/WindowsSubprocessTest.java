@@ -140,8 +140,8 @@ public class WindowsSubprocessTest {
     // Windows allows streams to be read after the process has died.
     assertThat(inputStream.available()).isAnyOf(0, 5);
     inputStream.close();
-    assertThrows(IllegalStateException.class, inputStream::available)
-        .getMessage()
+    assertThat(assertThrows(IllegalStateException.class, inputStream::available))
+        .hasMessageThat()
         .contains("Stream already closed");
   }
 

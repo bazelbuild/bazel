@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -90,5 +91,13 @@ final class OutputStore {
     } else {
       artifactData.remove(artifact);
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("artifactData", artifactData)
+        .add("treeArtifactData", treeArtifactData)
+        .toString();
   }
 }

@@ -12,7 +12,7 @@ java_library(
     name = "profiler",
     srcs = [
         "AutoProfiler.java",
-        "CollectLocalCpuUsage.java",
+        "CollectLocalResourceUsage.java",
         "MemoryProfiler.java",
         "MetricData.java",
         "PredicateBasedStatRecorder.java",

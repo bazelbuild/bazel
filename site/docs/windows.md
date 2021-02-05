@@ -24,7 +24,7 @@ For example, add the following line to your bazelrc file:
 startup --output_user_root=C:/tmp
 ```
 
-### Enable 8.3 Filename Support
+### Enable 8.3 filename support
 Bazel attempts to create a short name version for long file paths. But to do so the [8.3 filename support](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-8dot3name) needs to be enabled for the volume in which the file with the long path resides. You can enable 8.3 name creation in all volumes by running the following command:
 ```
 fsutil 8dot3name set 0

@@ -296,6 +296,37 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void javaToolchainInfo_jacocoRunnerAttribute() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file("java/test/B.jar");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'dep')");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jacoco = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner",
+        "  return [",
+        "      DefaultInfo(",
+        "          files = depset([jacoco.executable]),",
+        "      ),",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:dep");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(configuredTarget)))
+        .containsExactly("jacocorunner.jar");
+  }
+
+  @Test
   public void testJavaCommonCompileExposesOutputJarProvider() throws Exception {
     writeBuildFileForJavaToolchain();
     scratch.file("java/test/B.jar");

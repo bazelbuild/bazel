@@ -73,7 +73,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("java_lite_proto_library")
         .factoryClass(JavaLiteProtoLibrary.class)
-        .ancestors(BaseRuleClasses.RuleBase.class, JavaToolchainBaseRule.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class, JavaToolchainBaseRule.class)
         .build();
   }
 }

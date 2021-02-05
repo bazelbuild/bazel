@@ -22,13 +22,14 @@ import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
-import io.grpc.Context;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.List;
@@ -57,31 +58,30 @@ class RemoteServerCapabilities {
     this.retrier = retrier;
   }
 
-  private CapabilitiesBlockingStub capabilitiesBlockingStub() {
+  private CapabilitiesBlockingStub capabilitiesBlockingStub(RemoteActionExecutionContext context) {
     return CapabilitiesGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withCallCredentials(callCredentials)
         .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
   }
 
   public ServerCapabilities get(String buildRequestId, String commandId)
       throws IOException, InterruptedException {
-    Context withMetadata =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, "capabilities");
-    Context previous = withMetadata.attach();
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities");
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
     try {
       GetCapabilitiesRequest request =
           instanceName == null
               ? GetCapabilitiesRequest.getDefaultInstance()
               : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
-      return retrier.execute(() -> capabilitiesBlockingStub().getCapabilities(request));
+      return retrier.execute(() -> capabilitiesBlockingStub(context).getCapabilities(request));
     } catch (StatusRuntimeException e) {
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();
       }
       throw new IOException(e);
-    } finally {
-      withMetadata.detach(previous);
     }
   }
 

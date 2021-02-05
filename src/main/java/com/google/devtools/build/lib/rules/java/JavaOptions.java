@@ -153,6 +153,18 @@ public class JavaOptions extends FragmentOptions {
   public List<String> jvmOpts;
 
   @Option(
+      name = "host_jvmopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Additional options to pass to the Java VM when building tools that are executed during "
+              + " the build. These options will get added to the VM startup options of each "
+              + " java_binary target.")
+  public List<String> hostJvmOpts;
+
+  @Option(
       name = "use_ijars",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -482,6 +494,20 @@ public class JavaOptions extends FragmentOptions {
   public boolean isDisallowStrictDepsForJpl;
 
   @Option(
+      name = "incompatible_disallow_strict_deps_for_jlpl",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set, any java_lite_proto_library which sets the strict_deps attribute explicitly will"
+              + "fail to build.")
+  public boolean isDisallowStrictDepsForJlpl;
+
+  @Option(
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
@@ -688,7 +714,11 @@ public class JavaOptions extends FragmentOptions {
     JavaOptions host = (JavaOptions) getDefault();
 
     host.javaBase = getHostJavaBase();
-    host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
+    if (hostJvmOpts == null || hostJvmOpts.isEmpty()) {
+      host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
+    } else {
+      host.jvmOpts = hostJvmOpts;
+    }
 
     host.javacOpts = hostJavacOpts;
     host.javaToolchain = hostJavaToolchain;

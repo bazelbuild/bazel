@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
@@ -273,6 +274,12 @@ public class BuildTool {
                               @Override
                               public OptionsProvider getOptions() {
                                 return env.getOptions();
+                              }
+
+                              @Nullable
+                              @Override
+                              public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
+                                return env.getWorkspaceInfoFromDiff();
                               }
                             })));
       }

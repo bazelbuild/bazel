@@ -1346,7 +1346,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/starlark",
         "cr",
-        "Multiple outputs with the same key: o",
+        "Implicit output key 'o' collides with output attribute name",
         "load('//test/starlark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', o = [':bar.txt'])");

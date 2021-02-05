@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -29,9 +30,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import io.grpc.Context;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
@@ -50,7 +52,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
 
   private final ListeningExecutorService uploadExecutor;
-  private final Context ctx;
+  private final String buildRequestId;
+  private final String commandId;
   private final ByteStreamUploader uploader;
   private final String remoteServerInstanceName;
   private final MissingDigestsFinder missingDigestsFinder;
@@ -61,7 +64,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       ByteStreamUploader uploader,
       MissingDigestsFinder missingDigestsFinder,
       String remoteServerName,
-      Context ctx,
+      String buildRequestId,
+      String commandId,
       @Nullable String remoteInstanceName,
       int maxUploadThreads) {
     this.uploader = Preconditions.checkNotNull(uploader);
@@ -69,7 +73,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     if (!Strings.isNullOrEmpty(remoteInstanceName)) {
       remoteServerInstanceName += "/" + remoteInstanceName;
     }
-    this.ctx = ctx;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
     this.remoteServerInstanceName = remoteServerInstanceName;
     // Limit the maximum threads number to 1000 (chosen arbitrarily)
     this.uploadExecutor =
@@ -153,6 +158,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    */
   private ListenableFuture<ImmutableIterable<PathMetadata>> queryRemoteCache(
       ImmutableList<ListenableFuture<PathMetadata>> allPaths) throws Exception {
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
+
     List<PathMetadata> knownRemotePaths = new ArrayList<>(allPaths.size());
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
@@ -171,7 +180,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return Futures.immediateFuture(ImmutableIterable.from(knownRemotePaths));
     }
     return Futures.transform(
-        ctx.call(() -> missingDigestsFinder.findMissingDigests(digestsToQuery)),
+        missingDigestsFinder.findMissingDigests(context, digestsToQuery),
         (missingDigests) -> {
           List<PathMetadata> filesToQueryUpdated = processQueryResult(missingDigests, filesToQuery);
           return ImmutableIterable.from(Iterables.concat(knownRemotePaths, filesToQueryUpdated));
@@ -185,6 +194,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    */
   private ListenableFuture<List<PathMetadata>> uploadLocalFiles(
       ImmutableIterable<PathMetadata> allPaths) {
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
+
     ImmutableList.Builder<ListenableFuture<PathMetadata>> allPathsUploaded =
         ImmutableList.builder();
     for (PathMetadata path : allPaths) {
@@ -192,12 +205,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         Chunker chunker =
             Chunker.builder().setInput(path.getDigest().getSizeBytes(), path.getPath()).build();
         final ListenableFuture<Void> upload;
-        Context prevCtx = ctx.attach();
-        try {
-          upload = uploader.uploadBlobAsync(path.getDigest(), chunker, /* forceUpload=*/ false);
-        } finally {
-          ctx.detach(prevCtx);
-        }
+        upload =
+            uploader.uploadBlobAsync(context, path.getDigest(), chunker, /* forceUpload= */ false);
         allPathsUploaded.add(Futures.transform(upload, unused -> path, uploadExecutor));
       } else {
         allPathsUploaded.add(Futures.immediateFuture(path));

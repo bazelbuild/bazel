@@ -78,7 +78,9 @@ EOF
   mkdir -p override || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
   cat > override/BUILD <<EOF
-filegroup(name = 'yolo')
+# Have to use a rule that doesn't require a target platform, or else there will
+# be a cycle.
+toolchain_type(name = 'yolo')
 EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"

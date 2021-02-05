@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
@@ -51,7 +52,8 @@ public class MapBasedActionGraphTest {
     Path root = execRoot.getChild(outSegment);
     Path path = root.getRelative("foo");
     Artifact output =
-        ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, outSegment), path);
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment), path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -60,7 +62,9 @@ public class MapBasedActionGraphTest {
     actionGraph.registerAction(action);
     actionGraph.unregisterAction(action);
     path = root.getRelative("bar");
-    output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, outSegment), path);
+    output =
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment), path);
     Action action2 =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -79,7 +83,9 @@ public class MapBasedActionGraphTest {
     Path path = root.getRelative("foo");
     Artifact output =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, root.relativeTo(execRoot).getPathString()), path);
+            ArtifactRoot.asDerivedRoot(
+                execRoot, RootType.Output, root.relativeTo(execRoot).getPathString()),
+            path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -115,7 +121,8 @@ public class MapBasedActionGraphTest {
       Path root = execRoot.getChild(rootSegment);
       Path path = root.getChild("foo");
       output =
-          ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, rootSegment), path);
+          ActionsTestUtil.createArtifact(
+              ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, rootSegment), path);
       allActions.add(
           new TestAction(
               TestAction.NO_EFFECT,

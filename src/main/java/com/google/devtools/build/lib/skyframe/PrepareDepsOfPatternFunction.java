@@ -88,18 +88,24 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     if (repositoryIgnoredPrefixes == null) {
       return null;
     }
-    ImmutableSet<PathFragment> repositoryIgnoredPatterns = repositoryIgnoredPrefixes.getPatterns();
-
-    // This SkyFunction is used to load the universe, so we want both the
-    // ignored directories from the global list of exclusions (set with
-    // .bazelignore in Bazel and set staticly in other binaries) and the
-    // excluded directories from the TargetPatternKey itself to be embedded in
-    // the SkyKeys created and used by the DepsOfPatternPreparer. The
-    // DepsOfPatternPreparer ignores excludedSubdirectories and embeds
-    // repositoryIgnoredSubdirectories in the SkyKeys it creates and uses.
-    ImmutableSet<PathFragment> repositoryIgnoredSubdirectories =
-        patternKey.getAllSubdirectoriesToExclude(repositoryIgnoredPatterns);
-    ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
+    // This SkyFunction is used to load the universe, so we want both the ignored directories from
+    // the global list of exclusions (set with .bazelignore in Bazel and set statically in other
+    // binaries) and the excluded directories from the TargetPatternKey itself to be embedded in the
+    // SkyKeys created and used by the DepsOfPatternPreparer. The DepsOfPatternPreparer ignores
+    // excludedSubdirectories and embeds repositoryIgnoredPatterns in SkyKeys it creates and uses.
+    //
+    // This consolidation of excluded into ignored means that parsedPattern.eval below does a bit of
+    // extra work when parsePattern is a TargetsBelowDirectory and there are excluded directories,
+    // since it has to iterate over those exclusions to see if they fully exclude the directory even
+    // though TargetPatternKey guarantees that the exclusions will not fully exclude the directory.
+    ImmutableSet<PathFragment> excludedPatterns = patternKey.getExcludedSubdirectories();
+    ImmutableSet<PathFragment> ignoredPatterns = repositoryIgnoredPrefixes.getPatterns();
+    ImmutableSet<PathFragment> repositoryIgnoredPatterns =
+        ImmutableSet.<PathFragment>builderWithExpectedSize(
+                excludedPatterns.size() + ignoredPatterns.size())
+            .addAll(excludedPatterns)
+            .addAll(ignoredPatterns)
+            .build();
 
     DepsOfPatternPreparer preparer =
         new DepsOfPatternPreparer(env, pkgPath.get(), traverseTestSuites);
@@ -107,9 +113,9 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     try {
       parsedPattern.eval(
           preparer,
-          repositoryIgnoredSubdirectories,
-          excludedSubdirectories,
-          NullCallback.<Void>instance(),
+          () -> repositoryIgnoredPatterns,
+          ImmutableSet.of(),
+          NullCallback.instance(),
           RuntimeException.class);
     } catch (TargetParsingException e) {
       throw new PrepareDepsOfPatternFunctionException(e);
@@ -254,9 +260,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      if (repositoryIgnoredSubdirectories.contains(directoryPathFragment)) {
-        return;
-      }
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;

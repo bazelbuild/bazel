@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
@@ -175,15 +176,18 @@ public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTes
                 .getDefaultRunfiles()
                 .getAllArtifacts()
                 .toList());
-    assertThat(runfiles)
+    assertThat(runfiles.stream().map(Artifact::toString).collect(toImmutableList()))
         .containsAtLeast(
-            getDeviceFixtureScript(getConfiguredTarget("//javatests/com/app:device_fixture")),
-            getInstrumentationApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")),
-            getTargetApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")),
+            getDeviceFixtureScript(getConfiguredTarget("//javatests/com/app:device_fixture"))
+                .toString(),
+            getInstrumentationApk(getConfiguredTarget("//javatests/com/app:instrumentation_app"))
+                .toString(),
+            getTargetApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")).toString(),
             getConfiguredTarget("//javatests/com/app/ait:foo.txt")
                 .getProvider(FileProvider.class)
                 .getFilesToBuild()
-                .getSingleton());
+                .getSingleton()
+                .toString());
   }
 
   @Test

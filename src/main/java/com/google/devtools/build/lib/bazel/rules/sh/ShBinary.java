@@ -91,7 +91,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .setRunfilesSupport(runfilesSupport, mainExecutable)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(
-            InstrumentedFilesCollector.collectTransitive(
+            InstrumentedFilesCollector.collect(
                 ruleContext,
                 ShCoverage.INSTRUMENTATION_SPEC,
                 /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))

@@ -34,9 +34,8 @@ public final class CoreRules implements RuleSet {
         TestConfiguration.SHOULD_INVALIDATE_FOR_OPTION_DIFF);
     builder.addConfigurationFragment(TestConfiguration.class);
     builder.addTrimmingTransitionFactory(new TestTrimmingTransitionFactory());
-    builder.addRuleDefinition(new BaseRuleClasses.RootRule());
-    builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
-    builder.addRuleDefinition(new BaseRuleClasses.RuleBase());
+    builder.addRuleDefinition(new BaseRuleClasses.NativeBuildRule());
+    builder.addRuleDefinition(new BaseRuleClasses.NativeActionCreatingRule());
     builder.addRuleDefinition(new BaseRuleClasses.MakeVariableExpandingRule());
     builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());

@@ -383,7 +383,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
     }
 
-    // In this test we are allowed to ommit the beforeCommand; so force setting of a command
+    // In this test we are allowed to omit the beforeCommand; so force setting of a command
     // id in the CommandEnvironment, as we will need it in a moment even though we deviate from
     // normal calling order.
     try {

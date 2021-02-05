@@ -140,28 +140,40 @@ alias(
     actual = "@local_jdk//:javadoc",
 )
 
-config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
-)
+[
+    (
+        alias(
+            name = "ijar_prebuilt_binary_%s" % OS,
+            actual = "@remote_java_tools_%s//:ijar_prebuilt_binary" % OS,
+            visibility = ["//visibility:private"],
+        ),
+        alias(
+            name = "prebuilt_singlejar_%s" % OS,
+            actual = "@remote_java_tools_%s//:prebuilt_singlejar" % OS,
+            visibility = ["//visibility:private"],
+        ),
+    )
+    for OS in [
+        "linux",
+        "darwin",
+        "windows",
+    ]
+]
 
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
 alias(
     name = "ijar",
-    actual = select({
-        ":remote": "@remote_java_tools//:ijar_cc_binary",
-        "//conditions:default": ":ijar_prebuilt_binary_or_cc_binary",
-    }),
+    actual = ":ijar_prebuilt_binary_or_cc_binary",
 )
 
 alias(
     name = "ijar_prebuilt_binary_or_cc_binary",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:ijar_prebuilt_binary",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:ijar_prebuilt_binary",
-        "//src/conditions:windows": "@remote_java_tools_windows//:ijar_prebuilt_binary",
+        "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
+        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
         "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
     }),
 )
@@ -169,9 +181,9 @@ alias(
 alias(
     name = "ijar_prebuilt_binary",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:ijar_prebuilt_binary",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:ijar_prebuilt_binary",
-        "//src/conditions:windows": "@remote_java_tools_windows//:ijar_prebuilt_binary",
+        "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
+        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
     }),
 )
 
@@ -183,18 +195,15 @@ alias(
 # must be platform-independent.
 alias(
     name = "singlejar",
-    actual = select({
-        ":remote": "@remote_java_tools//:singlejar_cc_bin",
-        "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
-    }),
+    actual = ":singlejar_prebuilt_or_cc_binary",
 )
 
 alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
-        "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
+        "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
+        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:windows": ":prebuilt_singlejar_windows",
         "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
 )
@@ -202,9 +211,9 @@ alias(
 alias(
     name = "prebuilt_singlejar",
     actual = select({
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:prebuilt_singlejar",
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:prebuilt_singlejar",
-        "//src/conditions:windows": "@remote_java_tools_windows//:prebuilt_singlejar",
+        "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
+        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:windows": ":prebuilt_singlejar_windows",
     }),
 )
 
@@ -218,11 +227,6 @@ alias(
 alias(
     name = "GenClass_deploy.jar",
     actual = "@remote_java_tools//:GenClass",
-)
-
-alias(
-    name = "bazel-singlejar_deploy.jar",
-    actual = "@remote_java_tools//:SingleJar",
 )
 
 alias(
@@ -419,33 +423,43 @@ py_test(
     ],
 )
 
+# Aliases for JDKs, so that they are only downloaded when needed.
+_JDKS = [
+    "remotejdk11_macos",
+    "remotejdk11_macos_aarch64",
+    "remotejdk11_win",
+    "remotejdk11_linux_aarch64",
+    "remotejdk11_linux",
+    "remotejdk11_linux_ppc64le",
+    "remotejdk11_linux_s390x",
+    "remotejdk15_macos",
+    "remotejdk15_macos_aarch64",
+    "remotejdk15_win",
+    "remotejdk15_linux",
+]
+
+[
+    alias(
+        name = JDK,
+        actual = "@%s//:jdk" % JDK,
+        visibility = ["//visibility:private"],
+    )
+    for JDK in _JDKS
+]
+
 # A JDK 11 for use as a --host_javabase.
 java_runtime_version_alias(
     name = "remote_jdk11",
     runtime_version = "remotejdk_11",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk11_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
-            "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
-            "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_14",
-    runtime_version = "remotejdk_14",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk14_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk14_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk14_linux//:jdk",
+            "//src/conditions:darwin_x86_64": ":remotejdk11_macos",
+            "//src/conditions:darwin_arm64": ":remotejdk11_macos_aarch64",
+            "//src/conditions:windows": ":remotejdk11_win",
+            "//src/conditions:linux_aarch64": ":remotejdk11_linux_aarch64",
+            "//src/conditions:linux_x86_64": ":remotejdk11_linux",
+            "//src/conditions:linux_ppc64le": ":remotejdk11_linux_ppc64le",
+            "//src/conditions:linux_s390x": ":remotejdk11_linux_s390x",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
@@ -458,9 +472,10 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_15",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": "@remotejdk15_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk15_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk15_linux//:jdk",
+            "//src/conditions:darwin_x86_64": ":remotejdk15_macos",
+            "//src/conditions:darwin_arm64": ":remotejdk15_macos_aarch64",
+            "//src/conditions:windows": ":remotejdk15_win",
+            "//src/conditions:linux_x86_64": ":remotejdk15_linux",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

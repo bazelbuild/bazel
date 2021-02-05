@@ -24,8 +24,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A Skyframe value representing the Starlark symbols defined by the {@code @_builtins}
- * pseudo-repository.
+ * A Skyframe value representing the result of evaluating the {@code @_builtins} pseudo-repository.
  *
  * <p>To avoid unnecessary Skyframe edges, the {@code StarlarkSemantics} are included in this value,
  * so that a caller who obtains a StarlarkBuiltinsValue can also access the StarlarkSemantics
@@ -64,12 +63,20 @@ public final class StarlarkBuiltinsValue implements SkyValue {
     }
   }
 
-  // These are all deeply immutable (the Starlark values are already frozen), so let's skip the
-  // accessors and mutators.
+  // These are all (except transitiveDigest) deeply immutable since the Starlark values are already
+  // frozen, so let's skip the accessors and mutators.
 
-  /** Top-level predeclared symbols for a .bzl file (loaded on behalf of a BUILD file). */
-  // TODO(#11437): Corresponding predeclaredForBuild for BUILD files
+  /**
+   * Top-level predeclared symbols for a .bzl file loaded on behalf of a BUILD file, after builtins
+   * injection has been applied.
+   */
   public final ImmutableMap<String, Object> predeclaredForBuildBzl;
+
+  /**
+   * Top-level predeclared symbols for a BUILD file, after builtins injection but before any prelude
+   * file has been applied.
+   */
+  public final ImmutableMap<String, Object> predeclaredForBuild;
 
   /** Contents of the {@code exported_to_java} dict. */
   public final ImmutableMap<String, Object> exportedToJava;
@@ -82,10 +89,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   private StarlarkBuiltinsValue(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     this.predeclaredForBuildBzl = predeclaredForBuildBzl;
+    this.predeclaredForBuild = predeclaredForBuild;
     this.exportedToJava = exportedToJava;
     this.transitiveDigest = transitiveDigest;
     this.starlarkSemantics = starlarkSemantics;
@@ -93,11 +102,16 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   public static StarlarkBuiltinsValue create(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
-        predeclaredForBuildBzl, exportedToJava, transitiveDigest, starlarkSemantics);
+        predeclaredForBuildBzl,
+        predeclaredForBuild,
+        exportedToJava,
+        transitiveDigest,
+        starlarkSemantics);
   }
 
   /**
@@ -105,11 +119,13 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    * use within builtins evaluation itself.
    *
    * <p>The placeholder simply wraps the StarlarkSemantics object. This lets code paths that don't
-   * use injection still access the semantics without incurring a separate Skyframe edge.
+   * use injection still conveniently access the semantics without incurring a separate Skyframe
+   * edge.
    */
   public static StarlarkBuiltinsValue createEmpty(StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         /*predeclaredForBuildBzl=*/ ImmutableMap.of(),
+        /*predeclaredForBuild=*/ ImmutableMap.of(),
         /*exportedToJava=*/ ImmutableMap.of(),
         /*transitiveDigest=*/ new byte[] {},
         starlarkSemantics);

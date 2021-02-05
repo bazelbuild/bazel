@@ -138,6 +138,11 @@ public class AndroidSdkBaseRule implements RuleDefinition {
             attr("system", LABEL)
                 .allowedFileTypes()
                 .mandatoryProviders(BootClassPathInfo.PROVIDER.id()))
+        .add(
+            attr("legacy_main_dex_list_generator", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(ANY_FILE)
+                .exec())
         .advertiseStarlarkProvider(
             StarlarkProviderIdentifier.forKey(AndroidSdkProvider.PROVIDER.getKey()))
         .build();

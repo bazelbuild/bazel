@@ -733,15 +733,13 @@ public final class NestedSet<E> {
   private static <E> int replay(
       ImmutableList.Builder<E> output, Object[] children, byte[] memo, int pos) {
     for (Object child : children) {
-      if ((memo[pos >> 3] & (1 << (pos & 7))) != 0) {
-        if (child instanceof Object[]) {
-          pos = replay(output, (Object[]) child, memo, pos + 1);
-        } else {
-          output.add((E) child);
-          ++pos;
-        }
+      if ((memo[pos >> 3] & (1 << (pos & 7))) == 0) {
+        pos++;
+      } else if (child instanceof Object[]) {
+        pos = replay(output, (Object[]) child, memo, pos + 1);
       } else {
-        ++pos;
+        output.add((E) child);
+        pos++;
       }
     }
     return pos;

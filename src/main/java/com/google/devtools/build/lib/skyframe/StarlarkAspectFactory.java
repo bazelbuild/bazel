@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -48,53 +47,43 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       AspectParameters parameters,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    StarlarkRuleContext starlarkRuleContext = null;
-    // TODO(adonovan): simplify use of try/finally here.
+    StarlarkRuleContext ctx;
     try {
-      AspectDescriptor aspectDescriptor =
-          new AspectDescriptor(starlarkAspect.getAspectClass(), parameters);
-      try {
-        starlarkRuleContext = new StarlarkRuleContext(ruleContext, aspectDescriptor);
-      } catch (EvalException e) {
-        ruleContext.ruleError(e.getMessageWithStack());
-        return null;
-      } catch (RuleErrorException e) {
-        ruleContext.ruleError(e.getMessage());
-        return null;
-      }
-      try {
-        Object aspectStarlarkObject =
-            Starlark.fastcall(
-                ruleContext.getStarlarkThread(),
-                starlarkAspect.getImplementation(),
-                /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), starlarkRuleContext},
-                /*named=*/ new Object[0]);
+      ctx = ruleContext.initStarlarkRuleContext();
+    } catch (RuleErrorException e) {
+      // TODO(bazel-team): Doesn't this double-log the message, if the exception was created by
+      // RuleContext#throwWithRuleError?
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
+    try {
+      Object aspectStarlarkObject =
+          Starlark.fastcall(
+              ruleContext.getStarlarkThread(),
+              starlarkAspect.getImplementation(),
+              /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), ctx},
+              /*named=*/ new Object[0]);
 
-        // If allowing analysis failures, targets should be created somewhat normally, and errors
-        // will be propagated via a hook elsewhere as AnalysisFailureInfo.
-        boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+      // If allowing analysis failures, targets should be created somewhat normally, and errors
+      // will be propagated via a hook elsewhere as AnalysisFailureInfo.
+      boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
 
-        if (ruleContext.hasErrors() && !allowAnalysisFailures) {
-          return null;
-        } else if (!(aspectStarlarkObject instanceof StructImpl)
-            && !(aspectStarlarkObject instanceof Iterable)
-            && !(aspectStarlarkObject instanceof Info)) {
-          ruleContext.ruleError(
-              String.format(
-                  "Aspect implementation should return a struct, a list, or a provider "
-                      + "instance, but got %s",
-                  Starlark.type(aspectStarlarkObject)));
-          return null;
-        }
-        return createAspect(aspectStarlarkObject, ruleContext);
-      } catch (EvalException e) {
-        ruleContext.ruleError("\n" + e.getMessageWithStack());
+      if (ruleContext.hasErrors() && !allowAnalysisFailures) {
+        return null;
+      } else if (!(aspectStarlarkObject instanceof StructImpl)
+          && !(aspectStarlarkObject instanceof Iterable)
+          && !(aspectStarlarkObject instanceof Info)) {
+        ruleContext.ruleError(
+            String.format(
+                "Aspect implementation should return a struct, a list, or a provider "
+                    + "instance, but got %s",
+                Starlark.type(aspectStarlarkObject)));
         return null;
       }
-    } finally {
-      if (starlarkRuleContext != null) {
-        starlarkRuleContext.nullify();
-      }
+      return createAspect(aspectStarlarkObject, ruleContext);
+    } catch (EvalException e) {
+      ruleContext.ruleError("\n" + e.getMessageWithStack());
+      return null;
     }
   }
 

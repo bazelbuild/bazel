@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -71,9 +73,9 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
     this.retrier = retrier;
   }
 
-  private ExecutionBlockingStub executionBlockingStub() {
+  private ExecutionBlockingStub executionBlockingStub(RequestMetadata metadata) {
     return ExecutionGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
         .withDeadlineAfter(remoteOptions.remoteTimeout.getSeconds(), SECONDS);
   }
@@ -310,11 +312,16 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
   }
 
   @Override
-  public ExecuteResponse executeRemotely(ExecuteRequest request, OperationObserver observer)
+  public ExecuteResponse executeRemotely(
+      RemoteActionExecutionContext context, ExecuteRequest request, OperationObserver observer)
       throws IOException, InterruptedException {
     Execution execution =
         new Execution(
-            request, observer, retrier, callCredentialsProvider, this::executionBlockingStub);
+            request,
+            observer,
+            retrier,
+            callCredentialsProvider,
+            () -> this.executionBlockingStub(context.getRequestMetadata()));
     return execution.start();
   }
 

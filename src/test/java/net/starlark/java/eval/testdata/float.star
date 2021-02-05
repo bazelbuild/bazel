@@ -190,6 +190,39 @@ assert_fails(lambda: "%d" % float("NaN"), "got nan, want a finite number")
 assert_fails(lambda: "%d" % float("+Inf"), "got [+]inf, want a finite number")
 assert_fails(lambda: "%d" % float("-Inf"), "got -inf, want a finite number")
 
+# %x
+assert_eq("%x" % 0, "0")
+assert_eq("%x" % 0.0, "0")
+assert_eq("%x" % 123, "7b")
+assert_eq("%x" % 123.0, "7b")
+assert_eq("%x" % 1.23e45, "3727b520f7a148000000000000000000000000")
+assert_eq("%x" % negzero, "0")
+assert_fails(lambda: "%x" % float("NaN"), "got nan, want a finite number")
+assert_fails(lambda: "%x" % float("+Inf"), "got [+]inf, want a finite number")
+assert_fails(lambda: "%x" % float("-Inf"), "got -inf, want a finite number")
+
+# %X
+assert_eq("%X" % 0, "0")
+assert_eq("%X" % 0.0, "0")
+assert_eq("%X" % 123, "7B")
+assert_eq("%X" % 123.0, "7B")
+assert_eq("%X" % 1.23e45, "3727B520F7A148000000000000000000000000")
+assert_eq("%X" % negzero, "0")
+assert_fails(lambda: "%X" % float("NaN"), "got nan, want a finite number")
+assert_fails(lambda: "%X" % float("+Inf"), "got [+]inf, want a finite number")
+assert_fails(lambda: "%X" % float("-Inf"), "got -inf, want a finite number")
+
+# %o
+assert_eq("%o" % 0, "0")
+assert_eq("%o" % 0.0, "0")
+assert_eq("%o" % 123, "173")
+assert_eq("%o" % 123.0, "173")
+assert_eq("%o" % 1.23e45, "67117324407572051000000000000000000000000000000000")
+assert_eq("%o" % negzero, "0")
+assert_fails(lambda: "%o" % float("NaN"), "got nan, want a finite number")
+assert_fails(lambda: "%o" % float("+Inf"), "got [+]inf, want a finite number")
+assert_fails(lambda: "%o" % float("-Inf"), "got -inf, want a finite number")
+
 # %e
 assert_eq("%e" % 0, "0.000000e+00")
 assert_eq("%e" % 0.0, "0.000000e+00")

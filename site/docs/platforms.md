@@ -139,7 +139,7 @@ cc_library(
 ```
 
 When building for anything but 64-bit Windows we say that `:win_driver_lib` is
-incompatible.  Incompatibility is transitive. Any targets that transitively
+incompatible. Incompatibility is transitive. Any targets that transitively
 depend on an incompatible target are themselves considered incompatible.
 
 ### When are targets skipped?
@@ -156,6 +156,13 @@ $ bazel build --platforms=//:myplatform //...`
 $ bazel build --platforms=//:myplatform //:all`
 ```
 
+Incompatible tests in a [`test_suite`](be/general.html#test_suite) are
+similarly skipped if the `test_suite` is specified on the command line with
+[`--expand_test_suites`](command-line-reference.html#flag--expand_test_suites).
+In other words, `test_suite` targets on the command line behave like `:all` and
+`...`. Using `--noexpand_test_suites` prevents expansion and causes
+`test_suite` targets with incompatible tests to also be incompatible.
+
 Explicitly specifying an incompatible target on the command line results in an
 error message and a failed build.
 
@@ -171,7 +178,7 @@ FAILED: Build did NOT complete successfully
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
-[`constraint_value`](platform.html#constraint_value) that no platform
+[`constraint_value`](be/platform.html#constraint_value) that no platform
 satisfies.
 
 Use [`select()`](functions.html#select) in combination with
@@ -188,7 +195,7 @@ cc_library(
         "@platforms//os:osx": [],
         "@platforms//os:linux": [],
         "//conditions:default": ["@platforms//:incompatible"],
-    ],
+    }),
 )
 ```
 

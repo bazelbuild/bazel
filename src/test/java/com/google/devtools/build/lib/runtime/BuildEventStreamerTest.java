@@ -20,6 +20,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -91,7 +92,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import javax.annotation.Nullable;
-import org.apache.commons.lang.time.StopWatch;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -565,8 +565,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   public void concurrencyBenchmark() throws Exception {
     long time = 0;
     for (int iteration = 0; iteration < 3; iteration++) {
-      StopWatch watch = new StopWatch();
-      watch.start();
+      Stopwatch watch = Stopwatch.createStarted();
 
       BuildEvent startEvent =
           new GenericBuildEvent(
@@ -600,7 +599,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
       pool.awaitTermination(1, TimeUnit.DAYS);
       watch.stop();
 
-      time += watch.getTime();
+      time += watch.elapsed().toMillis();
 
       BuildEventId lateId = testId("late event");
       streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId)));

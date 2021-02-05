@@ -46,6 +46,7 @@ public class DownloadManager {
   private List<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
+  private boolean disableDownload = false;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -58,6 +59,10 @@ public class DownloadManager {
 
   public void setUrlRewriter(UrlRewriter rewriter) {
     this.rewriter = rewriter;
+  }
+
+  public void setDisableDownload(boolean disableDownload) {
+    this.disableDownload = disableDownload;
   }
 
   /**
@@ -192,6 +197,11 @@ public class DownloadManager {
           }
         }
       }
+    }
+
+    if (disableDownload) {
+      throw new IOException(
+          String.format("Failed to download repo %s: download is disabled.", repo));
     }
 
     try {

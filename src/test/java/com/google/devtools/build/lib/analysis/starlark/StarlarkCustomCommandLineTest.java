@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.HasDigest;
@@ -59,7 +60,7 @@ public class StarlarkCustomCommandLineTest {
   @Before
   public void createArtifactRoot() throws IOException {
     execRoot = scratch.dir("execroot");
-    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, "bin");
+    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
   }
 
   @Test

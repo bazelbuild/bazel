@@ -109,7 +109,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /**
    * Returns all labels reachable via the given attribute, with duplicate instances removed.
    *
-   * <p>Use this interface over @link #visitAttribute} whenever possible, since the latter has
+   * <p>Use this interface over {@link #visitAttribute} whenever possible, since the latter has
    * efficiency problems discussed in that method's documentation.
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
@@ -248,10 +248,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * whenever possible.
    */
   public <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
+    return visitAttribute(attributeName, type, /*mayTreatMultipleAsNone=*/ false);
+  }
+
+  /**
+   * Specialization of {@link #visitAttribute(String, Type)} for query output formatters which need
+   * one attribute value or none at all. Should be used with the same care as its sibling method.
+   *
+   * @param mayTreatMultipleAsNone signals if attribute-value computation <b>may</b> be aborted if
+   *     more than one possible value is encountered. This parameter is respected on a best-effort
+   *     basis - multiple values may still be returned if an unoptimized code path is visited.
+   */
+  public <T> Iterable<T> visitAttribute(
+      String attributeName, Type<T> type, boolean mayTreatMultipleAsNone) {
     // If this attribute value is configurable, visit all possible values.
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList != null) {
-      return getAllValues(selectorList.getSelectors(), type);
+      return getAllValues(selectorList.getSelectors(), type, mayTreatMultipleAsNone);
     }
 
     // If this attribute is a computed default, feed it all possible value combinations of
@@ -528,7 +541,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   // might reference, but it doesn't need to know the exact combination of labels that make
   // up a value. This may be even less important for non-label values (e.g. strings), which
   // have no impact on the dependency structure.
-  private static <T> ImmutableList<T> getAllValues(List<Selector<T>> selectors, Type<T> type) {
+  private static <T> ImmutableList<T> getAllValues(
+      List<Selector<T>> selectors, Type<T> type, boolean mayTreatMultipleAsNone) {
     if (selectors.isEmpty()) {
       return ImmutableList.of();
     }
@@ -550,13 +564,20 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       nodes.push(new ConfigurableAttrVisitationNode<>(0, root.getKey(), root.getValue()));
     }
 
+    boolean foundResults = false;
     while (!nodes.isEmpty()) {
       ConfigurableAttrVisitationNode<T> node = nodes.pop();
       int nextOffset = node.offset + 1;
       if (nextOffset >= selectors.size()) {
+        // Null values arise when a None is used as the value of a Selector for a type without a
+        // default value.
         if (node.valueSoFar != null) {
-          // Null values arise when a None is used as the value of a Selector for a type without a
-          // default value.
+          if (foundResults && mayTreatMultipleAsNone) {
+            // Caller wanted one value or none at all, this is the second, so bail.
+            return ImmutableList.of();
+          }
+          foundResults = true;
+
           // TODO(gregce): visitAttribute should probably convey that an unset attribute is
           //  possible. Therefore we need to actually handle null values here.
           result.add(node.valueSoFar);

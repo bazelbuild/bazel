@@ -153,8 +153,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       return reportAndCreateFailureResult(
           env,
           String.format(
-              "--experimental_graphless_query requires --order_output=no and an --output"
-                  + " option that supports streaming; valid values are: %s",
+              "--experimental_graphless_query requires --order_output=no or --order_output=auto and"
+                  + " an --output option that supports streaming; valid values are: %s",
               OutputFormatters.streamingFormatterNames(formatters)),
           Query.Code.GRAPHLESS_PREREQ_UNMET);
     }
