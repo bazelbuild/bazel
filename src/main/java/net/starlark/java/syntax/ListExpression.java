@@ -34,7 +34,7 @@ public final class ListExpression extends Expression {
       int lbracketOffset,
       List<Expression> elements,
       int rbracketOffset) {
-    super(locs);
+    super(locs, Kind.LIST_EXPR);
     // An unparenthesized tuple must be non-empty.
     Preconditions.checkArgument(
         !elements.isEmpty() || (lbracketOffset >= 0 && rbracketOffset >= 0));
@@ -102,10 +102,5 @@ public final class ListExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Expression.Kind kind() {
-    return Expression.Kind.LIST_EXPR;
   }
 }

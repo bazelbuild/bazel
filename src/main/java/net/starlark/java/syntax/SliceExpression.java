@@ -33,7 +33,7 @@ public final class SliceExpression extends Expression {
       Expression stop,
       Expression step,
       int rbracketOffset) {
-    super(locs);
+    super(locs, Kind.SLICE);
     this.object = object;
     this.lbracketOffset = lbracketOffset;
     this.start = start;
@@ -78,10 +78,5 @@ public final class SliceExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.SLICE;
   }
 }

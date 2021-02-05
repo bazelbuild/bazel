@@ -34,7 +34,7 @@ public final class ConditionalExpression extends Expression {
 
   /** Constructor for a conditional expression */
   ConditionalExpression(FileLocations locs, Expression t, Expression cond, Expression f) {
-    super(locs);
+    super(locs, Kind.CONDITIONAL);
     this.t = t;
     this.cond = cond;
     this.f = f;
@@ -53,10 +53,5 @@ public final class ConditionalExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.CONDITIONAL;
   }
 }

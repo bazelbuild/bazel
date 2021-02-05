@@ -31,7 +31,7 @@ public final class IndexExpression extends Expression {
       int lbracketOffset,
       Expression key,
       int rbracketOffset) {
-    super(locs);
+    super(locs, Kind.INDEX);
     this.object = object;
     this.lbracketOffset = lbracketOffset;
     this.key = key;
@@ -63,10 +63,5 @@ public final class IndexExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.INDEX;
   }
 }

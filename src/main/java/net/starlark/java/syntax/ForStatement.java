@@ -31,7 +31,7 @@ public final class ForStatement extends Statement {
       Expression vars,
       Expression iterable,
       ImmutableList<Statement> body) {
-    super(locs);
+    super(locs, Kind.FOR);
     this.forOffset = forOffset;
     this.vars = Preconditions.checkNotNull(vars);
     this.iterable = Preconditions.checkNotNull(iterable);
@@ -77,10 +77,5 @@ public final class ForStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.FOR;
   }
 }

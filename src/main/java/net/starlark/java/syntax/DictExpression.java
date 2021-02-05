@@ -66,7 +66,7 @@ public final class DictExpression extends Expression {
   private final int rbraceOffset;
 
   DictExpression(FileLocations locs, int lbraceOffset, List<Entry> entries, int rbraceOffset) {
-    super(locs);
+    super(locs, Kind.DICT_EXPR);
     this.lbraceOffset = lbraceOffset;
     this.entries = ImmutableList.copyOf(entries);
     this.rbraceOffset = rbraceOffset;
@@ -85,11 +85,6 @@ public final class DictExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.DICT_EXPR;
   }
 
   public ImmutableList<Entry> getEntries() {

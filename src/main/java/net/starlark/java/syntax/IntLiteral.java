@@ -22,7 +22,7 @@ public final class IntLiteral extends Expression {
   private final Number value; // = Integer | Long | BigInteger
 
   IntLiteral(FileLocations locs, String raw, int tokenOffset, Number value) {
-    super(locs);
+    super(locs, Kind.INT_LITERAL);
     this.raw = raw;
     this.tokenOffset = tokenOffset;
     this.value = value;
@@ -54,11 +54,6 @@ public final class IntLiteral extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.INT_LITERAL;
   }
 
   /**
