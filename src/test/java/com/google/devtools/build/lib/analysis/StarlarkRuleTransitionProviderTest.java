@@ -1087,7 +1087,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         .containsExactly("post-transition");
   }
 
-  // TODO(juliexxia): flip this test when this isn't allowed anymore.
+  // TODO(blaze-configurability): We probably want to eventually turn this off. Flip this test when
+  // this isn't allowed anymore.
   @Test
   public void testAllowlistOnTargetsStillWorks() throws Exception {
     // allowlists //test/...

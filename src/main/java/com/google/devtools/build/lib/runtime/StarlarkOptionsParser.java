@@ -55,7 +55,6 @@ import java.util.TreeMap;
  * already parsed all native options (including those needed for loading). This class is in charge
  * of parsing and setting the starlark options for this {@link OptionsParser}.
  */
-// TODO(juliexxia): confront the spectre of aliased build settings
 public class StarlarkOptionsParser {
 
   private final SkyframeExecutor skyframeExecutor;
@@ -127,7 +126,7 @@ public class StarlarkOptionsParser {
   }
 
   /** Parses all pre "--" residue for Starlark options. */
-  // TODO(juliexxia): This method somewhat reinvents the wheel of
+  // TODO(blaze-configurability): This method somewhat reinvents the wheel of
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting

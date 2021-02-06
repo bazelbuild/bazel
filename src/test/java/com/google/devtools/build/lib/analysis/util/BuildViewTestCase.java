@@ -433,7 +433,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsParser.parse(allArgs);
     optionsParser.parse(args);
 
-    // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
+    // TODO(blaze-configurability): It would be nice to be able to do some starlark options loading
+    // to ensure that the values given in this map are the right types for their keys.
     optionsParser.setStarlarkOptions(starlarkOptions);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
