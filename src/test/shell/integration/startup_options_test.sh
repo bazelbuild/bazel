@@ -84,20 +84,18 @@ function test_autodetect_server_javabase() {
 
 # Below are the regression tests for Issue #7489
 function test_multiple_bazelrc_later_overwrites_earlier() {
-  plain_expected_output="INFO: Invocation ID"
+  # Help message only visible with --help_verbosity=medium
+  help_message_in_description="--${PRODUCT_NAME}rc (a string; default: see description)"
 
-  echo "common --color=yes" > 1.rc
-  echo "common --color=no" > 2.rc
-  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info &> $TEST_log || fail "Should pass"
-  expect_log "$plain_expected_output"
+  echo "help --help_verbosity=short" > 1.rc
+  echo "help --help_verbosity=medium" > 2.rc
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" help startup_options &> $TEST_log || fail "Should pass"
+  expect_log "$help_message_in_description"
 
-  echo "common --color=no" > 3.rc
-  echo "common --color=yes" > 4.rc
-  bazel "--${PRODUCT_NAME}rc=3.rc" "--${PRODUCT_NAME}rc=4.rc" info &> $TEST_log || fail "Should pass"
-  # The final value for color should be yes, therefore the colored output would not contain
-  # the plain string, but rather something like
-  # "^[[32mINFO: ^[[0mInvocation ID: d636c789-7350-4283-92d5-240d44a4e291"
-  expect_not_log "$plain_expected_output"
+  echo "help --help_verbosity=medium" > 1.rc
+  echo "help --help_verbosity=short" > 2.rc
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" help startup_options &> $TEST_log || fail "Should pass"
+  expect_not_log "$help_message_in_description"
 }
 
 function test_multiple_bazelrc_set_different_options() {
