@@ -17,7 +17,9 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
@@ -46,19 +48,24 @@ public class TracingMetadataUtils {
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
   public static RequestMetadata buildMetadata(
-      String buildRequestId, String commandId, String actionId) {
+      String buildRequestId, String commandId, String actionId, @Nullable ActionExecutionMetadata actionMetadata) {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
-    return RequestMetadata.newBuilder()
+    RequestMetadata.Builder builder = RequestMetadata.newBuilder()
         .setCorrelatedInvocationsId(buildRequestId)
         .setToolInvocationId(commandId)
         .setActionId(actionId)
         .setToolDetails(
             ToolDetails.newBuilder()
                 .setToolName("bazel")
-                .setToolVersion(BlazeVersionInfo.instance().getVersion()))
-        .build();
+                .setToolVersion(BlazeVersionInfo.instance().getVersion()));
+    if (actionMetadata != null) {
+      builder.setActionMnemonic(actionMetadata.getMnemonic());
+      builder.setTargetId(actionMetadata.getOwner().getLabel().getCanonicalForm());
+      builder.setConfigurationId(actionMetadata.getOwner().getConfigurationChecksum());
+    }
+    return builder.build();
   }
 
   /**

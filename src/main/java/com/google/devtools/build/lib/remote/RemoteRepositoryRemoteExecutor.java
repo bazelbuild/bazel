@@ -106,7 +106,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       Duration timeout)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "repository_rule");
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "repository_rule", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     Platform platform = PlatformUtils.buildPlatformProto(executionProperties);

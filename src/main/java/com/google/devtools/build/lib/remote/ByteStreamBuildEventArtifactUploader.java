@@ -152,7 +152,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private ListenableFuture<ImmutableIterable<PathMetadata>> queryRemoteCache(
       ImmutableList<ListenableFuture<PathMetadata>> allPaths) throws Exception {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     List<PathMetadata> knownRemotePaths = new ArrayList<>(allPaths.size());
@@ -188,7 +188,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private ListenableFuture<List<PathMetadata>> uploadLocalFiles(
       ImmutableIterable<PathMetadata> allPaths) {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     ImmutableList.Builder<ListenableFuture<PathMetadata>> allPathsUploaded =

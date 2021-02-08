@@ -115,7 +115,7 @@ public class RemoteCacheTests {
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", Digest.getDefaultInstance().getHash());
+        TracingMetadataUtils.buildMetadata("none", "none", Digest.getDefaultInstance().getHash(), null);
     context = RemoteActionExecutionContext.create(metadata);
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");

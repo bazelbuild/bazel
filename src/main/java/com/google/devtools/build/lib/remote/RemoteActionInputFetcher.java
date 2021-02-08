@@ -154,7 +154,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
                 () -> {
                   RequestMetadata requestMetadata =
                       TracingMetadataUtils.buildMetadata(
-                          buildRequestId, commandId, metadata.getActionId());
+                          buildRequestId, commandId, metadata.getActionId(), null);
                   RemoteActionExecutionContext context =
                       RemoteActionExecutionContext.create(requestMetadata);
 
