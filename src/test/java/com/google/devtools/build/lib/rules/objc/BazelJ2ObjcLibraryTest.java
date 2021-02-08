@@ -712,7 +712,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjCCustomModuleMap() throws Exception {
-    useConfiguration("--experimental_objc_enable_module_maps");
     scratch.file("java/com/google/transpile/dummy.java");
     scratch.file(
         "java/com/google/transpile/BUILD",
