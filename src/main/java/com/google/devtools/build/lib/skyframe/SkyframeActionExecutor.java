@@ -322,7 +322,7 @@ public final class SkyframeActionExecutor {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      boolean trackFailedRemoteReads) {
+      boolean rewindingEnabled) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
         executorEngine.getExecRoot().asFragment(),
@@ -330,7 +330,7 @@ public final class SkyframeActionExecutor {
         sourceRootSupplier.get(),
         inputArtifactData,
         outputArtifacts,
-        trackFailedRemoteReads);
+        rewindingEnabled);
   }
 
   private void updateActionFileSystemContext(

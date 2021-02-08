@@ -60,7 +60,7 @@ public class RemoteOutputService implements OutputService {
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      boolean trackFailedRemoteReads) {
+      boolean rewindingEnabled) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
         sourceDelegate,
