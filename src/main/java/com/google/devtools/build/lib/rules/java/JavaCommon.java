@@ -331,7 +331,7 @@ public class JavaCommon {
    * @see JavaNativeLibraryInfo
    */
   protected NestedSet<LibraryToLink> collectTransitiveJavaNativeLibraries() {
-    NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder();
+    NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder(ruleContext);
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
