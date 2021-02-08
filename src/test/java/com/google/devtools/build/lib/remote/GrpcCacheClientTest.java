@@ -143,7 +143,7 @@ public class GrpcCacheClientTest {
             .start();
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
-    execRoot = fs.getPath("/exec/root");
+    execRoot = fs.getPath("/execroot/main");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
 
@@ -196,7 +196,7 @@ public class GrpcCacheClientTest {
       throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.useGoogleDefaultCredentials = true;
-    authTlsOptions.googleCredentials = "/exec/root/creds.json";
+    authTlsOptions.googleCredentials = "/execroot/main/creds.json";
     authTlsOptions.googleAuthScopes = ImmutableList.of("dummy.scope");
 
     GenericJson json = new GenericJson();
@@ -367,9 +367,9 @@ public class GrpcCacheClientTest {
         new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
-    result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
+    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
+    result.addOutputFilesBuilder().setPath("main/b/empty").setDigest(emptyDigest);
+    result.addOutputFilesBuilder().setPath("main/a/bar").setDigest(barDigest).setIsExecutable(true);
     remoteCache.download(
         context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -405,8 +405,8 @@ public class GrpcCacheClientTest {
                 quxDigest, "qux-contents")));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
         context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
@@ -428,7 +428,7 @@ public class GrpcCacheClientTest {
             ImmutableMap.of(barTreeDigest, barTreeMessage.toByteString())));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
         context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
@@ -470,8 +470,8 @@ public class GrpcCacheClientTest {
                 quxDigest, "qux-contents")));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
         context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
