@@ -181,7 +181,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
-    execRoot = fs.getPath("/exec/root");
+    execRoot = fs.getPath("/execroot/main");
     logDir = fs.getPath("/server-logs");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -207,7 +207,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
                   @Override
                   public PathFragment getExecPath() {
-                    return null; // unused here.
+                    return PathFragment.create("foo");
                   }
                 },
                 new ActionInput() {
@@ -223,7 +223,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
                   @Override
                   public PathFragment getExecPath() {
-                    return null; // unused here.
+                    return PathFragment.create("bar");
                   }
                 }),
             ResourceSet.ZERO);
@@ -321,7 +321,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
+            .addAllOutputFiles(ImmutableList.of("main/bar", "main/foo"))
+            .setWorkingDirectory("main")
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
     channel.release();

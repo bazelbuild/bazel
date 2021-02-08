@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import javax.annotation.Nullable;
@@ -109,7 +110,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            spawn,
+            context.getArtifactExpander(),
+            execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     if (sandboxfsProcess != null) {

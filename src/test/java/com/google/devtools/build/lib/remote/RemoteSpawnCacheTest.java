@@ -155,9 +155,10 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
-        public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+        public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+            throws IOException {
           return new SpawnInputExpander(execRoot, /*strict*/ false)
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, fakeFileCache);
+              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);
         }
 
         @Override

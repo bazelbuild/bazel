@@ -259,7 +259,7 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping() {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
       return inputMapping;
     }
 

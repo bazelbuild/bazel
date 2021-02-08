@@ -125,7 +125,8 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Stopwatch totalTime = Stopwatch.createStarted();
 
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
+    SortedMap<PathFragment, ActionInput> inputMap =
+        context.getInputMapping(PathFragment.create(execRoot.getBaseName()));
     MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =
@@ -143,7 +144,7 @@ final class RemoteSpawnCache implements SpawnCache {
             spawn.getArguments(),
             spawn.getEnvironment(),
             platform,
-            /* workingDirectory= */ null);
+            execRoot.getBaseName());
     RemoteOutputsMode remoteOutputsMode = options.remoteOutputsMode;
     Action action =
         RemoteSpawnRunner.buildAction(
@@ -290,7 +291,7 @@ final class RemoteSpawnCache implements SpawnCache {
                 actionKey,
                 action,
                 command,
-                execRoot,
+                execRoot.getParentDirectory(),
                 files,
                 context.getFileOutErr());
           } catch (IOException e) {

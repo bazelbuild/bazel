@@ -172,7 +172,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getMetadataProvider(),
-            context.getInputMapping(),
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
             context.getTimeout(),
             spawnResult);
       } catch (IOException e) {
@@ -213,6 +213,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     // Memoize the input mapping so that prefetchInputs can reuse it instead of recomputing it.
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
+    private PathFragment inputMappingBaseDirectory;
 
     SpawnExecutionContextImpl(
         Spawn spawn,
@@ -235,7 +236,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         actionExecutionContext
             .getActionInputPrefetcher()
-            .prefetchFiles(getInputMapping().values(), getMetadataProvider());
+            .prefetchFiles(
+                getInputMapping(PathFragment.EMPTY_FRAGMENT).values(), getMetadataProvider());
       }
     }
 
@@ -287,17 +289,21 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
-      if (lazyInputMapping == null) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+        throws IOException {
+      if (lazyInputMapping == null || !inputMappingBaseDirectory.equals(baseDirectory)) {
         try (SilentCloseable c =
             Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
+          inputMappingBaseDirectory = baseDirectory;
           lazyInputMapping =
               spawnInputExpander.getInputMapping(
                   spawn,
                   actionExecutionContext.getArtifactExpander(),
+                  baseDirectory,
                   actionExecutionContext.getMetadataProvider());
         }
       }
+
       return lazyInputMapping;
     }
 
