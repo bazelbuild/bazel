@@ -78,8 +78,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
     Path outputsDir = testRoot.getRelative("outputs");
     outputsDir.createDirectory();
     outputsDir.getRelative("very").createDirectory();
-    AbstractContainerizingSandboxedSpawn.moveOutputs(
-        SandboxOutputs.create(outputs, outputDirs), execRoot, outputsDir);
+    SandboxHelpers.moveOutputs(SandboxOutputs.create(outputs, outputDirs), execRoot, outputsDir);
 
     assertThat(outputsDir.getRelative("very/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.link").isSymbolicLink()).isTrue();
@@ -130,7 +129,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
     testRoot.createDirectoryAndParents();
 
     FileCopyWarningTracker tracker = new FileCopyWarningTracker();
-    Logger logger = Logger.getLogger(AbstractContainerizingSandboxedSpawn.class.getName());
+    Logger logger = Logger.getLogger(SandboxHelpers.class.getName());
     logger.setUseParentHandlers(false);
     logger.addHandler(tracker);
 
@@ -153,7 +152,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
     outputsDir.createDirectory();
     outputsDir.getRelative("very").createDirectory();
     outputsDir.getRelative("much").createDirectory();
-    AbstractContainerizingSandboxedSpawn.moveOutputs(
+    SandboxHelpers.moveOutputs(
         SandboxOutputs.create(outputs, ImmutableSet.of()), execRoot, outputsDir);
 
     assertThat(outputsDir.getRelative("very/output1.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
