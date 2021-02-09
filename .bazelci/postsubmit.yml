@@ -290,8 +290,6 @@ tasks:
       # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
-      # See https://github.com/bazelbuild/bazel/issues/12685
-      - "-//src/test/shell/bazel:jdeps_test"
     include_json_profile:
       - build
       - test
