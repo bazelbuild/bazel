@@ -1109,10 +1109,7 @@ public abstract class CcModule
               featureNames,
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
-              /* supportsInterfaceSharedLibraries= */ false,
-              starlarkRuleContext
-                  .getStarlarkSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
+              /* supportsInterfaceSharedLibraries= */ false)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -1121,11 +1118,7 @@ public abstract class CcModule
               .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
               .collect(ImmutableList.toImmutableList()));
       for (CToolchain.Feature feature :
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
-              featureNames,
-              starlarkRuleContext
-                  .getStarlarkSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 
