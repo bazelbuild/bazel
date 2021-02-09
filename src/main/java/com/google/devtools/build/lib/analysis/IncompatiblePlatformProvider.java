@@ -18,6 +18,10 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.IncompatiblePlatformProviderApi;
 import javax.annotation.Nullable;
 
 /**
@@ -34,8 +38,23 @@ import javax.annotation.Nullable;
  * target is incompatible because one of its dependencies is incompatible, then all the incompatible
  * dependencies are available via {@code getTargetResponsibleForIncompatibility()}.
  */
+@Immutable
 @AutoValue
-public abstract class IncompatiblePlatformProvider implements TransitiveInfoProvider {
+public abstract class IncompatiblePlatformProvider
+    implements Info, IncompatiblePlatformProviderApi {
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "IncompatiblePlatformProvider";
+
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<IncompatiblePlatformProvider> PROVIDER =
+      new BuiltinProvider<IncompatiblePlatformProvider>(
+          STARLARK_NAME, IncompatiblePlatformProvider.class) {};
+
+  @Override
+  public BuiltinProvider<IncompatiblePlatformProvider> getProvider() {
+    return PROVIDER;
+  }
+
   public static IncompatiblePlatformProvider incompatibleDueToTargets(
       ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility) {
     Preconditions.checkNotNull(targetsResponsibleForIncompatibility);
@@ -48,6 +67,11 @@ public abstract class IncompatiblePlatformProvider implements TransitiveInfoProv
     Preconditions.checkNotNull(constraints);
     Preconditions.checkArgument(!constraints.isEmpty());
     return new AutoValue_IncompatiblePlatformProvider(null, constraints);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /**
