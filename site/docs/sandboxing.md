@@ -142,4 +142,4 @@ created and run the command again to see how it behaves.
 
 Note that Bazel does not delete the sandbox directory when you use
 `--sandbox_debug`. Unless you are actively debugging, you should disable
-`--sandbox-debug` because it fills up your disk over time.
+`--sandbox_debug` because it fills up your disk over time.
