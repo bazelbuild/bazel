@@ -493,9 +493,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
 
       if (useHeaderModules) {
-        boolean separate = outputFile.equals(ccCompilationContext.getSeparateHeaderModule(usePic));
-        usedModules =
-            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), separate);
+        usedModules = ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet());
       }
     }
 
@@ -796,23 +794,17 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public Artifact getMainIncludeScannerSource() {
-    // getIncludeScannerSources() needs to return the main file first. This is used for determining
-    // what file command line includes should be interpreted relative to.
-    return getIncludeScannerSources().get(0);
+    return getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)
+        ? Iterables.getFirst(ccCompilationContext.getHeaderModuleSrcs(), null)
+        : getSourceFile();
   }
 
   @Override
-  public ImmutableList<Artifact> getIncludeScannerSources() {
+  public Collection<Artifact> getIncludeScannerSources() {
     if (getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)) {
-      boolean isSeparate = outputFile.equals(ccCompilationContext.getSeparateHeaderModule(usePic));
-      Preconditions.checkState(
-          outputFile.equals(ccCompilationContext.getHeaderModule(usePic)) || isSeparate,
-          "Trying to build unknown module",
-          outputFile);
-
       // If this is an action that compiles the header module itself, the source we build is the
       // module map, and we need to include-scan all headers that are referenced in the module map.
-      return ccCompilationContext.getHeaderModuleSrcs(isSeparate);
+      return ccCompilationContext.getHeaderModuleSrcs();
     }
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     builder.add(getSourceFile());

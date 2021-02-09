@@ -1671,11 +1671,10 @@ public class CompilationSupport {
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            ImmutableList.of(),
+            ImmutableList.<Artifact>of(),
             publicHeaders,
             attributes.moduleMapsForDirectDeps().toList(),
-            ImmutableList.of(),
-            ImmutableList.of(),
+            ImmutableList.<PathFragment>of(),
             /* compiledModule= */ true,
             /* moduleMapHomeIsCwd= */ false,
             /* generateSubmodules= */ false,
