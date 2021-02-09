@@ -216,7 +216,10 @@ to specify alternative URLs to fetch from.
             """A list of URLs to a file that will be made available to Bazel.
 
 Each entry must be a file, http or https URL. Redirections are followed.
-Authentication is not supported.""",
+Authentication is not supported.
+
+URLs are tried in order until one succeeds, so you should list local mirrors first.
+If all downloads fail, the rule will fail.""",
     ),
     "sha256": attr.string(
         doc = """The expected SHA-256 of the file downloaded.
