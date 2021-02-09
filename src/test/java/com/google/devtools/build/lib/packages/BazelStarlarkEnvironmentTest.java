@@ -76,14 +76,14 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   }
 
   @Test
-  public void builtinsBzlEnvCanSeeGeneralToplevels() throws Exception {
-    assertThat(pkgFactory.getBazelStarlarkEnvironment().getBuiltinsBzlEnv()).containsKey("rule");
-  }
-
-  @Test
-  public void builtinsBzlEnvCannotSeeRuleSpecificToplevels() throws Exception {
-    assertThat(pkgFactory.getBazelStarlarkEnvironment().getBuiltinsBzlEnv())
-        .doesNotContainKey("overridable_symbol");
+  public void builtinsBzlEnv() throws Exception {
+    ImmutableMap<String, Object> env = pkgFactory.getBazelStarlarkEnvironment().getBuiltinsBzlEnv();
+    // Can see general toplevel symbols.
+    assertThat(env).containsKey("rule");
+    // Cannot see rule-specific toplevel symbols.
+    assertThat(env).doesNotContainKey("overridable_symbol");
+    // Has the special builtins-internal module.
+    assertThat(env).containsKey("_builtins");
   }
 
   /**

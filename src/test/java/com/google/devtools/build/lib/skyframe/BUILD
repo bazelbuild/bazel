@@ -18,6 +18,11 @@ CROSS_PLATFORM_WINDOWS_TESTS = [
     "PathCasingLookupFunctionTest.java",
 ]
 
+# Tests that are broken out from the SkyframeTests target into separate targets.
+EXCLUDED_FROM_SKYFRAME_TESTS = [
+    "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
+] + CROSS_PLATFORM_WINDOWS_TESTS
+
 java_library(
     name = "testutil",
     srcs = glob([
@@ -71,11 +76,11 @@ java_test(
     srcs = select({
         "//src/conditions:darwin": glob(
             ["*.java"],
-            exclude = CROSS_PLATFORM_WINDOWS_TESTS,
+            exclude = EXCLUDED_FROM_SKYFRAME_TESTS,
         ),
         "//conditions:default": glob(
             ["*.java"],
-            exclude = ["MacOSXFsEventsDiffAwarenessTest.java"] + CROSS_PLATFORM_WINDOWS_TESTS,
+            exclude = ["MacOSXFsEventsDiffAwarenessTest.java"] + EXCLUDED_FROM_SKYFRAME_TESTS,
         ),
     }),
     exec_compatible_with = ["//:highcpu_machine"],
@@ -350,4 +355,28 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:all_windows_tests",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+# TODO(b/179148968): This used to be part of SkyframeTests but was broken off because it has some
+# non-hermetic interaction with another test, depending on how the tests get sharded.
+java_test(
+    name = "PrepareDepsOfTargetsUnderDirectoryFunctionTest",
+    srcs = ["PrepareDepsOfTargetsUnderDirectoryFunctionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:collect_packages_under_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_targets_under_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
 )

@@ -216,30 +216,30 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void builtinsBzlCanAccessInternal() throws Exception {
+  public void builtinsBzlCanAccessBuiltinsInternalModule() throws Exception {
     EvaluationResult<StarlarkBuiltinsValue> result =
         evalBuiltins(
-            "print(_internal)",
+            "print(_builtins)",
             "",
             "exported_toplevels = {}",
             "exported_rules = {}",
             "exported_to_java = {}");
     assertThatEvaluationResult(result).hasNoError();
-    assertContainsEvent("<_internal module>");
+    assertContainsEvent("<_builtins module>");
   }
 
   @Test
-  public void regularBzlCannotAccessInternal() throws Exception {
+  public void regularBzlCannotAccessBuiltinsInternalModule() throws Exception {
     scratch.file(
         "pkg/BUILD", //
         "load(':dummy.bzl', 'dummy_symbol')");
     scratch.file(
         "pkg/dummy.bzl", //
-        "_internal",
+        "_builtins",
         "dummy_symbol = None");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//pkg:BUILD");
-    assertContainsEvent("name '_internal' is not defined");
+    assertContainsEvent("name '_builtins' is not defined");
   }
 }

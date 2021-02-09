@@ -197,7 +197,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
             // For this mock symbol, we reuse the same flag that guards the production
             // _builtins_dummy symbol.
             FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-                BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, "original value"));
+                BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, "original_value"))
+        .addStarlarkBuiltinsInternal("internal_symbol", "internal_value");
     return builder.build();
   }
 
@@ -206,13 +207,19 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
   }
 
+  public void setBuiltinsDummyFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_builtins_bzl_path=tools/builtins_staging",
+        "--experimental_builtins_dummy=true");
+  }
+
   /**
    * Writes an exports.bzl file with the given content, in the builtins location.
    *
    * <p>See {@link StarlarkBuiltinsFunction#EXPORTS_ENTRYPOINT} for the significance of exports.bzl.
    */
   private void writeExportsBzl(String... lines) throws Exception {
-    scratch.file("tools/builtins_staging/exports.bzl", lines);
+    scratch.overwriteFile("tools/builtins_staging/exports.bzl", lines);
   }
 
   /**
@@ -227,7 +234,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     modifiedLines.add("dummy_symbol = None");
     // The marker phrase might not be needed, but I don't entirely trust BuildViewTestCase.
     modifiedLines.add("print('dummy.bzl evaluation completed')");
-    scratch.file("pkg/dummy.bzl", modifiedLines.toArray(lines));
+    scratch.overwriteFile("pkg/dummy.bzl", modifiedLines.toArray(lines));
   }
 
   /**
@@ -239,7 +246,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   private void writePkgBuild(String... lines) throws Exception {
     List<String> modifiedLines = new ArrayList<>(Arrays.asList(lines));
     modifiedLines.add(0, "load(':dummy.bzl', 'dummy_symbol')");
-    scratch.file("pkg/BUILD", modifiedLines.toArray(lines));
+    scratch.overwriteFile("pkg/BUILD", modifiedLines.toArray(lines));
   }
 
   /** Builds {@code //pkg} and asserts success, including that the marker print() event occurs. */
@@ -265,10 +272,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
         "exported_to_java = {}");
-    writePkgBuild("print('In BUILD: overridable_rule :: ' + str(overridable_rule))");
+    writePkgBuild("print('In BUILD: overridable_rule :: %s' % overridable_rule)");
     writePkgBzl(
-        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))",
-        "print('In bzl: overridable_rule :: ' + str(native.overridable_rule))");
+        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
+        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
 
     buildAndAssertSuccess();
     assertContainsEvent("In bzl: overridable_symbol :: new_value");
@@ -294,14 +301,14 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   @Test
   public void builtinsCanLoadFromBuiltins() throws Exception {
     // Define a few files that we can load with different kinds of label syntax. In each case,
-    // access the `_internal` symbol to demonstrate that we're being loaded as a builtins bzl.
+    // access the `_builtins` symbol to demonstrate that we're being loaded as a builtins bzl.
     scratch.file(
         "tools/builtins_staging/absolute.bzl", //
-        "_internal",
+        "_builtins",
         "a = 'A'");
     scratch.file(
         "tools/builtins_staging/repo_relative.bzl", //
-        "_internal",
+        "_builtins",
         "b = 'B'");
     scratch.file(
         "tools/builtins_staging/subdir/pkg_relative1.bzl", //
@@ -309,11 +316,11 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         // root, and not relative to the file. That is, we specify 'subdir/pkg_relative2.bzl', not
         // just 'pkg_relative2.bzl'.
         "load('subdir/pkg_relative2.bzl', 'c2')",
-        "_internal",
+        "_builtins",
         "c = c2");
     scratch.file(
         "tools/builtins_staging/subdir/pkg_relative2.bzl", //
-        "_internal",
+        "_builtins",
         "c2 = 'C'");
 
     // Also create a file in the main repo whose package path coincides with a file in the builtins
@@ -329,7 +336,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_rules = {}",
         "exported_to_java = {}");
     writePkgBuild();
-    writePkgBzl("print('overridable_symbol :: ' + str(overridable_symbol))");
+    writePkgBzl("print('overridable_symbol :: %s' % overridable_symbol)");
 
     buildAndAssertSuccess();
     assertContainsEvent("overridable_symbol :: ABC");
@@ -447,10 +454,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
         "exported_to_java = {}");
-    writePkgBuild("print('In BUILD: overridable_rule :: ' + str(overridable_rule))");
+    writePkgBuild("print('In BUILD: overridable_rule :: %s' % overridable_rule)");
     writePkgBzl(
-        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))",
-        "print('In bzl: overridable_rule :: ' + str(native.overridable_rule))");
+        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
+        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
     setBuildLanguageOptions("--experimental_builtins_bzl_path=");
 
     buildAndAssertSuccess();
@@ -464,10 +471,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   public void exportsBzlMayBeInErrorWhenInjectionIsDisabled() throws Exception {
     writeExportsBzl( //
         "PARSE ERROR");
-    writePkgBuild("print('In BUILD: overridable_rule :: ' + str(overridable_rule))");
+    writePkgBuild("print('In BUILD: overridable_rule :: %s' % overridable_rule)");
     writePkgBzl(
-        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))",
-        "print('In bzl: overridable_rule :: ' + str(native.overridable_rule))");
+        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
+        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
     setBuildLanguageOptions("--experimental_builtins_bzl_path=");
 
     buildAndAssertSuccess();
@@ -492,13 +499,13 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     scratch.appendFile(
         "WORKSPACE", //
         "load(':foo.bzl', 'dummy_symbol')",
-        "print('In WORKSPACE: overridable_rule :: ' + str(overridable_rule))",
+        "print('In WORKSPACE: overridable_rule :: %s' % overridable_rule)",
         "print(dummy_symbol)");
     scratch.file("BUILD");
     scratch.file(
         "foo.bzl",
         "dummy_symbol = None",
-        "print('In bzl: overridable_symbol :: ' + str(overridable_symbol))");
+        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)");
 
     buildAndAssertSuccess();
     // Builtins for WORKSPACE bzls are populated essentially the same as for BUILD bzls, except that
@@ -509,26 +516,168 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("In WORKSPACE: overridable_rule :: <built-in function overridable_rule>");
   }
 
-  // TODO(#11437): Add tests of the _internal symbol's usage within builtins bzls.
+  @Test
+  public void builtinsCanSeeOriginalNativeToplevels() throws Exception {
+    writeExportsBzl(
+        "print('In builtins: overridable_symbol :: %s' % _builtins.toplevel.overridable_symbol)",
+        "exported_toplevels = {'overridable_symbol': 'new_value'}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("print('In bzl: overridable_symbol :: %s' % overridable_symbol)");
+
+    buildAndAssertSuccess();
+    assertContainsEvent("In builtins: overridable_symbol :: original_value");
+    assertContainsEvent("In bzl: overridable_symbol :: new_value");
+  }
 
   @Test
-  public void overriddenSymbolsAreStillFlagGuarded() throws Exception {
-    // Implementation note: This works not because of any special handling in the builtins logic,
-    // but rather because flag guarding is implemented at name resolution time, before builtins
+  public void builtinsCanSeeOriginalNativeRules() throws Exception {
+    writeExportsBzl(
+        "print('In builtins: overridable_rule :: %s' % _builtins.native.overridable_rule)",
+        "exported_toplevels = {}",
+        "exported_rules = {'overridable_rule': 'new_rule'}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
+
+    buildAndAssertSuccess();
+    assertContainsEvent("In builtins: overridable_rule :: <built-in rule overridable_rule>");
+    assertContainsEvent("In bzl: overridable_rule :: new_rule");
+  }
+
+  @Test
+  public void builtinsCanSeeBuiltinsInternalSymbol() throws Exception {
+    writeExportsBzl(
+        "print('internal_symbol :: %s' % _builtins.internal.internal_symbol)",
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    buildAndAssertSuccess();
+    assertContainsEvent("internal_symbol :: internal_value");
+  }
+
+  @Test
+  public void otherBzlsCannotSeeBuiltinsInternalSymbol() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("internal_symbol");
+
+    buildAndAssertFailure();
+    assertContainsEvent("name 'internal_symbol' is not defined");
+  }
+
+  @Test
+  public void builtinsCanSeeFlags_unset() throws Exception {
+    writeExportsBzl(
+        // We use a None default here, but note that that's brittle if any machinery explicitly sets
+        // flags to their default values. In practice the flag's real default value should be used.
+        "print('experimental_builtins_dummy :: %s' % ",
+        "      _builtins.get_flag('experimental_builtins_dummy', None))",
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    buildAndAssertSuccess();
+    assertContainsEvent("experimental_builtins_dummy :: None");
+  }
+
+  @Test
+  public void builtinsCanSeeFlags_set() throws Exception {
+    writeExportsBzl(
+        "print('experimental_builtins_dummy :: %s' % ",
+        "      _builtins.get_flag('experimental_builtins_dummy', None))",
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    setBuiltinsDummyFlag();
+    buildAndAssertSuccess();
+    assertContainsEvent("experimental_builtins_dummy :: True");
+  }
+
+  @Test
+  public void builtinsCanSeeFlags_doesNotExist() throws Exception {
+    writeExportsBzl(
+        // We use a None default here, but note that that's brittle if any machinery explicitly sets
+        // flags to their default values. In practice the flag's real default value should be used.
+        "print('experimental_does_not_exist :: %s' % ",
+        "      _builtins.get_flag('experimental_does_not_exist', None))",
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    buildAndAssertSuccess();
+    assertContainsEvent("experimental_does_not_exist :: None");
+  }
+
+  @Test
+  public void flagGuarding_canExportEvenWhenDisabled() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    // Default value of --experimental_builtins_dummy is false.
+    buildAndAssertSuccess();
+  }
+
+  @Test
+  public void flagGuarding_cannotUseWhenDisabledEvenIfInjected() throws Exception {
+    // Implementation note: Flag guarding is implemented at name resolution time, before builtins
     // injection is applied.
     writeExportsBzl(
         "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
         "exported_rules = {}",
         "exported_to_java = {}");
     writePkgBuild();
-    writePkgBzl("flag_guarded_symbol");
+    writePkgBzl("print('flag_guarded_symbol :: %s' % flag_guarded_symbol)");
 
     buildAndAssertFailure();
     assertContainsEvent("flag_guarded_symbol is experimental");
   }
 
-  // TODO(#11437): Once we allow access to native symbols via _internal, verify that flag guarding
-  // works correctly within builtins.
+  @Test
+  public void flagGuarding_injectedValueIsSeenWhenFlagIsEnabled() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("print('flag_guarded_symbol :: %s' % flag_guarded_symbol)");
+
+    setBuiltinsDummyFlag();
+    buildAndAssertSuccess();
+    assertContainsEvent("flag_guarded_symbol :: overridden value");
+  }
+
+  @Test
+  public void flagGuarding_unconditionallyAccessibleToBuiltins() throws Exception {
+    writeExportsBzl(
+        "print('flag_guarded_symbol :: %s' % _builtins.toplevel.flag_guarded_symbol)",
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    buildAndAssertSuccess();
+    assertContainsEvent("flag_guarded_symbol :: original_value");
+  }
 
   @Test
   public void nativeRulesCanUseSymbolsFromBuiltins() throws Exception {
