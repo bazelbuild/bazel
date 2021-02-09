@@ -74,7 +74,8 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
 
   @Test
   public void filesToBuild() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD", //
         "py_library(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -85,7 +86,9 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
 
   @Test
   public void srcsCanContainRuleGeneratingPyAndNonpyFiles() throws Exception {
-    scratchConfiguredTarget("pkg", "foo",
+    scratchConfiguredTarget(
+        "pkg",
+        "foo",
         // build file:
         "py_binary(",
         "    name = 'foo',",
@@ -95,27 +98,32 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "    outs = ['bar.cc', 'bar.py'],",
         "    cmd = 'touch $(OUTS)')");
     assertNoEvents();
-    }
+  }
 
   @Test
   public void whatIfSrcsContainsRuleGeneratingNoPyFiles() throws Exception {
     // In Bazel it's an error, in Blaze it's a warning.
     String[] lines = {
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', ':bar'])",
-        "genrule(",
-        "    name = 'bar',",
-        "    outs = ['bar.cc'],",
-        "    cmd = 'touch $(OUTS)')"};
+      "py_binary(",
+      "    name = 'foo',",
+      "    srcs = ['foo.py', ':bar'])",
+      "genrule(",
+      "    name = 'bar',",
+      "    outs = ['bar.cc'],",
+      "    cmd = 'touch $(OUTS)')"
+    };
     if (analysisMock.isThisBazel()) {
-      checkError("pkg", "foo",
+      checkError(
+          "pkg",
+          "foo",
           // error:
           "'//pkg:bar' does not produce any py_binary srcs files",
           // build file:
           lines);
     } else {
-      checkWarning("pkg", "foo",
+      checkWarning(
+          "pkg",
+          "foo",
           // warning:
           "rule '//pkg:bar' does not produce any Python source files",
           // build file:
@@ -125,21 +133,36 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
 
   @Test
   public void filesToCompile() throws Exception {
-    ConfiguredTarget lib = scratchConfiguredTarget("pkg", "lib",
-        // build file:
-        "py_library(name = 'lib', srcs = ['lib.py'], deps = [':bar'])",
-        "py_library(name = 'bar', srcs = ['bar.py'], deps = [':baz'])",
-        "py_library(name = 'baz', srcs = ['baz.py'])");
+    ConfiguredTarget lib =
+        scratchConfiguredTarget(
+            "pkg",
+            "lib",
+            // build file:
+            "py_library(name = 'lib', srcs = ['lib.py'], deps = [':bar'])",
+            "py_library(name = 'bar', srcs = ['bar.py'], deps = [':baz'])",
+            "py_library(name = 'baz', srcs = ['baz.py'])");
 
     assertThat(
-        ActionsTestUtil.baseNamesOf(
-            getOutputGroup(lib, OutputGroupInfo.COMPILATION_PREREQUISITES)))
+            ActionsTestUtil.baseNamesOf(
+                getOutputGroup(lib, OutputGroupInfo.COMPILATION_PREREQUISITES)))
         .isEqualTo("baz.py bar.py lib.py");
 
     // compilationPrerequisites should be included in filesToCompile.
-    assertThat(
-        ActionsTestUtil.baseNamesOf(getOutputGroup(lib, OutputGroupInfo.FILES_TO_COMPILE)))
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(lib, OutputGroupInfo.FILES_TO_COMPILE)))
         .isEqualTo("baz.py bar.py lib.py");
   }
-}
 
+  @Test
+  public void libraryTargetCanBeInPackageWithHyphensIfSourcesAreRemote() throws Exception {
+    scratch.file(
+        "pkg/BUILD", //
+        "exports_files(['foo.py'])");
+    scratchConfiguredTarget(
+        "pkg-with-hyphens", //
+        "foo",
+        "py_library(",
+        "    name = 'foo',",
+        "    srcs = ['//pkg:foo.py'])");
+    assertNoEvents();
+  }
+}
