@@ -130,7 +130,6 @@ public final class Resolver extends NodeVisitor {
     private final ImmutableList<Binding> locals;
     private final int[] cellIndices;
     private final ImmutableList<Binding> freevars;
-    private final ImmutableList<String> globals; // TODO(adonovan): move to Program.
 
     private Function(
         String name,
@@ -141,8 +140,7 @@ public final class Resolver extends NodeVisitor {
         boolean hasKwargs,
         int numKeywordOnlyParams,
         List<Binding> locals,
-        List<Binding> freevars,
-        List<String> globals) {
+        List<Binding> freevars) {
       this.name = name;
       this.location = loc;
       this.params = params;
@@ -160,7 +158,6 @@ public final class Resolver extends NodeVisitor {
       this.isToplevel = name.equals("<toplevel>");
       this.locals = ImmutableList.copyOf(locals);
       this.freevars = ImmutableList.copyOf(freevars);
-      this.globals = ImmutableList.copyOf(globals);
 
       // Create an index of the locals that are cells.
       int ncells = 0;
@@ -198,14 +195,6 @@ public final class Resolver extends NodeVisitor {
      */
     public int[] getCellIndices() {
       return cellIndices;
-    }
-
-    /**
-     * Returns the list of names of globals referenced by this function. The order matches the
-     * indices used in compiled code.
-     */
-    public ImmutableList<String> getGlobals() {
-      return globals;
     }
 
     /**
@@ -285,12 +274,40 @@ public final class Resolver extends NodeVisitor {
    */
   public interface Module {
 
+    /** Name resolve result. */
+    class ResolvedName {
+      private final Scope scope;
+      private final int nameIndex;
+
+      private ResolvedName(Scope scope, int nameIndex) {
+        this.scope = scope;
+        this.nameIndex = nameIndex;
+      }
+
+      /** Binding is non-local and occurs outside any function or comprehension. */
+      public static final ResolvedName UNIVERSAL = new ResolvedName(Scope.UNIVERSAL, -1);
+      /** Binding is predeclared by the application (e.g. glob in Bazel). */
+      public static final ResolvedName PREDECLARED = new ResolvedName(Scope.PREDECLARED, -1);
+
+      /** Binding is predeclared by the core (e.g. None). */
+      public static ResolvedName global(int nameIndex) {
+        Preconditions.checkArgument(nameIndex >= 0);
+        return new ResolvedName(Scope.GLOBAL, nameIndex);
+      }
+    }
+
     /**
      * Resolves a name to a GLOBAL, PREDECLARED, or UNIVERSAL binding.
      *
      * @throws Undefined if the name is not defined.
      */
-    Scope resolve(String name) throws Undefined;
+    ResolvedName resolve(String name) throws Undefined;
+
+    /**
+     * Returns the index within this Module of a global variable, given its name, creating a new slot
+     * for it if needed.
+     */
+    int getIndexOfGlobal(String name);
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}
@@ -314,12 +331,26 @@ public final class Resolver extends NodeVisitor {
   // TODO(adonovan): move into test/ tree.
   public static Module moduleWithPredeclared(String... names) {
     ImmutableSet<String> predeclared = ImmutableSet.copyOf(names);
-    return (name) -> {
-      if (predeclared.contains(name)) {
-        return Scope.PREDECLARED;
+    return new Module() {
+      private HashMap<String, Integer> globals = new HashMap<>();
+
+      @Override
+      public ResolvedName resolve(String name) throws Undefined {
+        if (predeclared.contains(name)) {
+          return Module.ResolvedName.PREDECLARED;
+        }
+        Integer globalIndex = globals.get(name);
+        if (globalIndex != null) {
+          return ResolvedName.global(globalIndex);
+        }
+        throw new Resolver.Module.Undefined(
+            String.format("name '%s' is not defined", name), predeclared);
       }
-      throw new Resolver.Module.Undefined(
-          String.format("name '%s' is not defined", name), predeclared);
+
+      @Override
+      public int getIndexOfGlobal(String name) {
+        return globals.computeIfAbsent(name, k -> globals.size());
+      }
     };
   }
 
@@ -351,8 +382,6 @@ public final class Resolver extends NodeVisitor {
   private final List<SyntaxError> errors;
   private final FileOptions options;
   private final Module module;
-  // List whose order defines the numbering of global variables in this program.
-  private final List<String> globals = new ArrayList<>();
   // A cache of PREDECLARED, UNIVERSAL, and GLOBAL bindings queried from the module.
   private final Map<String, Binding> toplevel = new HashMap<>();
   // Linked list of blocks, innermost first, for functions and comprehensions and (finally) file.
@@ -484,7 +513,7 @@ public final class Resolver extends NodeVisitor {
     if (bind != null) {
       return bind;
     }
-    Scope scope;
+    Module.ResolvedName scope;
     try {
       scope = module.resolve(name);
     } catch (Resolver.Module.Undefined ex) {
@@ -502,15 +531,13 @@ public final class Resolver extends NodeVisitor {
       }
       return null;
     }
-    switch (scope) {
+    switch (scope.scope) {
       case GLOBAL:
-        bind = new Binding(scope, globals.size(), id);
-        // Accumulate globals in module.
-        globals.add(name);
+        bind = new Binding(scope.scope, scope.nameIndex, id);
         break;
       case PREDECLARED:
       case UNIVERSAL:
-        bind = new Binding(scope, 0, id); // index not used
+        bind = new Binding(scope.scope, 0, id); // index not used
         break;
       default:
         throw new IllegalStateException("bad scope: " + scope);
@@ -822,8 +849,7 @@ public final class Resolver extends NodeVisitor {
         starStar != null,
         numKeywordOnlyParams,
         frame,
-        freevars,
-        globals);
+        freevars);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -877,8 +903,7 @@ public final class Resolver extends NodeVisitor {
       if (bind == null) {
         // New global binding: add to module and to toplevel cache.
         isNew = true;
-        bind = new Binding(Scope.GLOBAL, globals.size(), id);
-        globals.add(name);
+        bind = new Binding(Scope.GLOBAL, module.getIndexOfGlobal(name), id);
         toplevel.put(name, bind);
 
         // Does this new global binding conflict with a file-local load binding?
@@ -1023,8 +1048,7 @@ public final class Resolver extends NodeVisitor {
             /*hasKwargs=*/ false,
             /*numKeywordOnlyParams=*/ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
-            r.globals));
+            /*freevars=*/ ImmutableList.of()));
   }
 
   /**
@@ -1056,8 +1080,7 @@ public final class Resolver extends NodeVisitor {
         /*hasKwargs=*/ false,
         /*numKeywordOnlyParams=*/ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
-        r.globals);
+        /*freevars=*/ ImmutableList.of());
   }
 
   private void pushLocalBlock(

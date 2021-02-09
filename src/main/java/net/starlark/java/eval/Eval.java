@@ -91,7 +91,7 @@ final class Eval {
         if (stmt instanceof AssignmentStatement) {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
-            Object value = fn(fr).getGlobal(id.getBinding().getIndex());
+            Object value = fn(fr).getModule().getGlobalByIndex(id.getBinding().getIndex());
             fr.thread.postAssignHook.assign(id.getName(), value);
           }
         }
@@ -196,7 +196,7 @@ final class Eval {
     // since both were compiled from the same Program.
     StarlarkFunction fn = fn(fr);
     return new StarlarkFunction(
-        rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars));
+        rfn, fn.getModule(), Tuple.wrap(defaults), Tuple.wrap(freevars));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -340,7 +340,7 @@ final class Eval {
         ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
         break;
       case GLOBAL:
-        fn(fr).setGlobal(bind.getIndex(), value);
+        fn(fr).getModule().setGlobalByIndex(bind.getIndex(), value);
         break;
       default:
         throw new IllegalStateException(bind.getScope().toString());
@@ -693,7 +693,7 @@ final class Eval {
         result = fn(fr).getFreeVar(bind.getIndex()).x;
         break;
       case GLOBAL:
-        result = fn(fr).getGlobal(bind.getIndex());
+        result = fn(fr).getModule().getGlobalByIndex(bind.getIndex());
         break;
       case PREDECLARED:
         result = fn(fr).getModule().getPredeclared(id.getName());

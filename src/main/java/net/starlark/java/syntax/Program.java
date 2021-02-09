@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -25,13 +26,15 @@ public final class Program {
   private final Resolver.Function body;
   private final ImmutableList<String> loads;
   private final ImmutableList<Location> loadLocations;
+  private final Resolver.Module module;
 
   private Program(
-      Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations) {
+      Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations, Resolver.Module module) {
     // TODO(adonovan): compile here.
     this.body = body;
     this.loads = loads;
     this.loadLocations = loadLocations;
+    this.module = module;
   }
 
   // TODO(adonovan): eliminate once Eval no longer needs access to syntax.
@@ -52,6 +55,11 @@ public final class Program {
   /*** Returns the location of the ith load (see {@link #getLoads}). */
   public Location getLoadLocation(int i) {
     return loadLocations.get(i);
+  }
+
+  /** Check this program was resolved with given module. */
+  public void assertResolvedInModuleModule(Resolver.Module module) {
+    Preconditions.checkState(this.module == module, "Program must be resolved and executed with the same module");
   }
 
   /**
@@ -81,7 +89,7 @@ public final class Program {
       }
     }
 
-    return new Program(file.getResolvedFunction(), loads.build(), loadLocations.build());
+    return new Program(file.getResolvedFunction(), loads.build(), loadLocations.build(), env);
   }
 
   /**
@@ -94,6 +102,6 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    return new Program(body, /*loads=*/ ImmutableList.of(), /*loadLocations=*/ ImmutableList.of());
+    return new Program(body, /*loads=*/ ImmutableList.of(), /*loadLocations=*/ ImmutableList.of(), module);
   }
 }

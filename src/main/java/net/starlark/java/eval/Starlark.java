@@ -871,22 +871,14 @@ public final class Starlark {
     Resolver.Function rfn = prog.getResolvedFunction();
 
     // A given Module may be passed to execFileProgram multiple times in sequence,
-    // for different compiled Programs. (This happens in the REPL, and in
-    // EvaluationTestCase scenarios. It is not true of the go.starlark.net
-    // implementation, and it complicates things significantly.
-    // It would be nice to stop doing that.)
-    //
-    // Therefore StarlarkFunctions from different Programs (files) but initializing
-    // the same Module need different mappings from the Program's numbering of
-    // globals to the Module's numbering of globals, and to access a global requires
-    // two array lookups.
-    int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals());
+    // for different compiled Programs.
+
+    prog.assertResolvedInModuleModule(module);
 
     StarlarkFunction toplevel =
         new StarlarkFunction(
             rfn,
             module,
-            globalIndex,
             /*defaultValues=*/ Tuple.empty(),
             /*freevars=*/ Tuple.empty());
     return Starlark.fastcall(thread, toplevel, EMPTY, EMPTY);
@@ -933,9 +925,8 @@ public final class Starlark {
     Expression expr = Expression.parse(input, options);
     Program prog = Program.compileExpr(expr, module, options);
     Resolver.Function rfn = prog.getResolvedFunction();
-    int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
     return new StarlarkFunction(
-        rfn, module, globalIndex, /*defaultValues=*/ Tuple.empty(), /*freevars=*/ Tuple.empty());
+        rfn, module, /*defaultValues=*/ Tuple.empty(), /*freevars=*/ Tuple.empty());
   }
 
   /**

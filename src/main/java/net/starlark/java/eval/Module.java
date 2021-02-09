@@ -171,10 +171,11 @@ public final class Module implements Resolver.Module {
 
   /** Implements the resolver's module interface. */
   @Override
-  public Resolver.Scope resolve(String name) throws Undefined {
+  public ResolvedName resolve(String name) throws Undefined {
+    Integer globalNameIndex = globalIndex.get(name);
     // global?
-    if (globalIndex.containsKey(name)) {
-      return Resolver.Scope.GLOBAL;
+    if (globalNameIndex != null) {
+      return ResolvedName.global(globalNameIndex);
     }
 
     // predeclared?
@@ -184,12 +185,12 @@ public final class Module implements Resolver.Module {
         // Name is correctly spelled, but access is disabled by a flag.
         throw new Undefined(((FlagGuardedValue) v).getErrorFromAttemptingAccess(name), null);
       }
-      return Resolver.Scope.PREDECLARED;
+      return ResolvedName.PREDECLARED;
     }
 
     // universal?
     if (Starlark.UNIVERSE.containsKey(name)) {
-      return Resolver.Scope.UNIVERSAL;
+      return ResolvedName.UNIVERSAL;
     }
 
     // undefined
@@ -228,13 +229,8 @@ public final class Module implements Resolver.Module {
     return this.globals[i];
   }
 
-  /**
-   * Returns the index within this Module of a global variable, given its name, creating a new slot
-   * for it if needed. The numbering of globals used by these functions is not the same as the
-   * numbering within any compiled Program. Thus each StarlarkFunction must contain a secondary
-   * index mapping Program indices (from Binding.index) to Module indices.
-   */
-  int getIndexOfGlobal(String name) {
+  @Override
+  public int getIndexOfGlobal(String name) {
     int i = globalIndex.size();
     Integer prev = globalIndex.putIfAbsent(name, i);
     if (prev != null) {
@@ -244,16 +240,6 @@ public final class Module implements Resolver.Module {
       globals = Arrays.copyOf(globals, globals.length << 1); // grow by doubling
     }
     return i;
-  }
-
-  /** Returns a list of indices of a list of globals; {@see getIndexOfGlobal}. */
-  int[] getIndicesOfGlobals(List<String> globals) {
-    int n = globals.size();
-    int[] array = new int[n];
-    for (int i = 0; i < n; i++) {
-      array[i] = getIndexOfGlobal(globals.get(i));
-    }
-    return array;
   }
 
   /** Updates a global binding in the module environment. */
