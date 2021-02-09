@@ -25,31 +25,27 @@ import java.util.Set;
 /** A {@link SingleplexWorker} that runs inside a sandboxed execution root. */
 final class SandboxedWorker extends SingleplexWorker {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private WorkerExecRoot workerExecRoot;
+  private final WorkerExecRoot workerExecRoot;
 
   SandboxedWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
     super(workerKey, workerId, workDir, logFile);
+    workerExecRoot = new WorkerExecRoot(workDir);
   }
 
   @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
-    // Note that workerExecRoot isn't necessarily null at this point, so we can't do a Preconditions
-    // check for it: If a WorkerSpawnStrategy gets interrupted, finishExecution is not guaranteed to
-    // be called.
-    workerExecRoot = new WorkerExecRoot(workDir, inputFiles, outputs, workerFiles);
-    workerExecRoot.createFileSystem();
+    workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs);
 
     super.prepareExecution(inputFiles, outputs, workerFiles);
   }
 
   @Override
-  public void finishExecution(Path execRoot) throws IOException {
-    super.finishExecution(execRoot);
+  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
+    super.finishExecution(execRoot, outputs);
 
-    workerExecRoot.copyOutputs(execRoot);
-    workerExecRoot = null;
+    workerExecRoot.copyOutputs(execRoot, outputs);
   }
 
   @Override
