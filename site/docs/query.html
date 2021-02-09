@@ -1166,10 +1166,9 @@ genrule(
   of the <code>--order_output</code> flag and is deprecated.)
 </p>
 <p>
-  The default value of this flag is <code>auto</code>, which is equivalent to
-  <code>full</code> for every output format except for <code>proto</code>,
-  <code>graph</code>, <code>minrank</code>, and <code>maxrank</code>, for which
-  it is equivalent to <code>deps</code>.
+  The default value of this flag is <code>auto</code>, which prints results in <b>lexicographical
+  order</b>. However, when <code>somepath(a,b)</code> is used, the results will be printed in
+  <code>deps</code> order instead.
 </p>
 <p>
   When this flag is <code>no</code> and <code>--output</code> is one of

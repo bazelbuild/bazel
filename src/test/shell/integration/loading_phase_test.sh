@@ -100,8 +100,8 @@ function test_query_buildfiles_with_load() {
 
     # null terminated:
     bazel query --noshow_progress --null "buildfiles(//$pkg/x)" >$pkg/null.log ||
-        fail "Expected null success"
-    printf "//$pkg/y:rules.bzl\0//$pkg/y:BUILD\0//$pkg/x:BUILD\0" >$pkg/null.ref.log
+        fail "Expected null success"§
+    printf "//$pkg/x:BUILD\0//$pkg/y:BUILD\0//$pkg/y:rules.bzl\0" >$pkg/null.ref.log
     cmp $pkg/null.ref.log $pkg/null.log || fail "Expected match"
 
     # Missing Starlark file:
