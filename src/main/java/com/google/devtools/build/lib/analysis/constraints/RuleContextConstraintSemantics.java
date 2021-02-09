@@ -880,7 +880,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       target = ((OutputFileConfiguredTarget) target).getGeneratingRule();
     }
     return IncompatibleCheckResult.create(
-        target.getProvider(IncompatiblePlatformProvider.class) != null, target);
+        target.get(IncompatiblePlatformProvider.PROVIDER) != null, target);
   }
 
   /**
@@ -996,13 +996,11 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     builder.setFilesToBuild(filesToBuild);
 
     if (targetsResponsibleForIncompatibility != null) {
-      builder.add(
-          IncompatiblePlatformProvider.class,
+      builder.addNativeDeclaredProvider(
           IncompatiblePlatformProvider.incompatibleDueToTargets(
               targetsResponsibleForIncompatibility));
     } else if (violatedConstraints != null) {
-      builder.add(
-          IncompatiblePlatformProvider.class,
+      builder.addNativeDeclaredProvider(
           IncompatiblePlatformProvider.incompatibleDueToConstraints(violatedConstraints));
     } else {
       throw new IllegalArgumentException(

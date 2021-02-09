@@ -797,8 +797,10 @@ java_library(
     srcs = ["IncompatiblePlatformProvider.java"],
     deps = [
         ":configured_target",
-        ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

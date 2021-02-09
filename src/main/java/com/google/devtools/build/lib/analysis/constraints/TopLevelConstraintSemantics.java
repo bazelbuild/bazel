@@ -195,7 +195,7 @@ public class TopLevelConstraintSemantics {
     // save the user bazel round trips.
     while (target != null) {
       message += "\n    " + target.getLabel();
-      provider = target.getProvider(IncompatiblePlatformProvider.class);
+      provider = target.get(IncompatiblePlatformProvider.PROVIDER);
       ImmutableList<ConfiguredTarget> targetList = provider.targetsResponsibleForIncompatibility();
       if (targetList == null) {
         target = null;
