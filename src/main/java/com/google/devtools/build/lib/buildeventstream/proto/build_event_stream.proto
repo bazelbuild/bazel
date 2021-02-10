@@ -200,6 +200,12 @@ message BuildEventId {
     ConfigurationId configuration = 2;
   }
 
+  // Identifier of an event reporting the summary of a target.
+  message TargetSummaryId {
+    string label = 1;
+    ConfigurationId configuration = 2;
+  }
+
   // Identifier of the BuildFinished event, indicating the end of a build.
   message BuildFinishedId {}
 
@@ -234,6 +240,7 @@ message BuildEventId {
     ConfiguredLabelId configured_label = 21;
     TestResultId test_result = 8;
     TestSummaryId test_summary = 7;
+    TargetSummaryId target_summary = 26;
     BuildFinishedId build_finished = 9;
     BuildToolLogsId build_tool_logs = 20;
     BuildMetricsId build_metrics = 22;
@@ -687,6 +694,15 @@ message TestSummary {
   int64 total_run_duration_millis = 9;
 }
 
+// Payload of the event summarizing a target (test or non-test).
+message TargetSummary {
+  // Conjunction of TargetComplete events for this target, including aspects.
+  bool overall_build_success = 1;
+
+  // Repeats TestSummary's overall_status if available.
+  TestStatus overall_test_status = 2;
+}
+
 // Event indicating the end of a build.
 message BuildFinished {
   // Exit code of a build. The possible values correspond to the predefined
@@ -922,6 +938,7 @@ message BuildEvent {
     TargetComplete completed = 8;
     TestResult test_result = 10;
     TestSummary test_summary = 9;
+    TargetSummary target_summary = 28;
     BuildFinished finished = 14;
     BuildToolLogs build_tool_logs = 23;
     BuildMetrics build_metrics = 24;
