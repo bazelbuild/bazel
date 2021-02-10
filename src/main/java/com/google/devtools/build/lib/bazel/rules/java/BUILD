@@ -13,6 +13,11 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+exports_files(
+    ["java_stub_template.txt"],
+    visibility = ["//tools/java:__pkg__"]
+)
+
 java_library(
     name = "java",
     srcs = glob(
