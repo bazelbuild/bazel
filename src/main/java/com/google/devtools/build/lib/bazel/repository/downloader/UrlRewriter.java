@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import net.starlark.java.syntax.Location;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -57,10 +59,10 @@ public class UrlRewriter {
   private final Consumer<String> log;
 
   @VisibleForTesting
-  UrlRewriter(Consumer<String> log, Reader reader) {
+  UrlRewriter(Consumer<String> log, String filePathForErrorReporting, Reader reader) throws UrlRewriterParseException {
     this.log = Preconditions.checkNotNull(log);
     Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
-    this.config = new UrlRewriterConfig(reader);
+    this.config = new UrlRewriterConfig(filePathForErrorReporting, reader);
 
     this.rewriter = this::rewrite;
   }
@@ -68,18 +70,18 @@ public class UrlRewriter {
   /**
    * Obtain a new {@code UrlRewriter} configured with the specified config file.
    *
-   * @param downloaderConfig Path to the config file to use. May be null.
+   * @param configPath Path to the config file to use. May be null.
    * @param reporter Used for logging when URLs are rewritten.
    */
-  public static UrlRewriter getDownloaderUrlRewriter(String downloaderConfig, Reporter reporter) {
+  public static UrlRewriter getDownloaderUrlRewriter(String configPath, Reporter reporter) throws UrlRewriterParseException {
     Consumer<String> log = str -> reporter.handle(Event.info(str));
 
-    if (Strings.isNullOrEmpty(downloaderConfig)) {
-      return new UrlRewriter(log, new StringReader(""));
+    if (Strings.isNullOrEmpty(configPath)) {
+      return new UrlRewriter(log, "", new StringReader(""));
     }
 
-    try (BufferedReader reader = Files.newBufferedReader(Paths.get(downloaderConfig))) {
-      return new UrlRewriter(log, reader);
+    try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
+      return new UrlRewriter(log, configPath, reader);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
