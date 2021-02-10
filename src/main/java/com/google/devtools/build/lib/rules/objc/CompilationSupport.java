@@ -172,7 +172,6 @@ public class CompilationSupport {
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 
-  private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
@@ -525,10 +524,6 @@ public class CompilationSupport {
             .add(isTool ? "host" : "nonhost")
             .add(configuration.getCompilationMode().toString());
 
-    if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()
-        && !getCustomModuleMap(ruleContext).isPresent()) {
-      activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
-    }
     if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
     }
@@ -1671,10 +1666,10 @@ public class CompilationSupport {
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            ImmutableList.<Artifact>of(),
+            ImmutableList.of(),
             publicHeaders,
-            attributes.moduleMapsForDirectDeps().toList(),
-            ImmutableList.<PathFragment>of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
             /* compiledModule= */ true,
             /* moduleMapHomeIsCwd= */ false,
             /* generateSubmodules= */ false,

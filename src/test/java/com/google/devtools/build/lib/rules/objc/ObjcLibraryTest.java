@@ -583,26 +583,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionsWithModuleMapsEnabled() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_enable_module_maps");
-    String target = "//objc/library:lib@a-foo_foobar";
-    createLibraryTargetWriter(target)
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction(target, "a.o");
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(
-            moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
-    assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
-    assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
-        .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
-  }
-
-  @Test
   public void testCompilationActionsWithEmbeddedBitcode() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=embedded");
