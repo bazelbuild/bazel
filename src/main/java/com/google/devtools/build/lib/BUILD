@@ -215,6 +215,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",

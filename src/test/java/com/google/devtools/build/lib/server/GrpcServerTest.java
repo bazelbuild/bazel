@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
@@ -43,6 +44,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
+import com.google.protobuf.StringValue;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -236,7 +239,11 @@ public final class GrpcServerTest {
             } catch (IOException e) {
               throw new IllegalStateException(e);
             }
-            return BlazeCommandResult.success();
+            return BlazeCommandResult.withResponseExtensions(
+                BlazeCommandResult.success(),
+                ImmutableList.of(
+                    Any.pack(StringValue.of("foo")),
+                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
           }
         };
     createServer(dispatcher);
@@ -255,10 +262,15 @@ public final class GrpcServerTest {
     for (int i = 1; i < 11; i++) {
       assertThat(responses.get(i).getFinished()).isFalse();
       assertThat(responses.get(i).getStandardOutput().toByteArray()).isEqualTo(new byte[1024]);
+      assertThat(responses.get(i).getCommandExtensionsList()).isEmpty();
     }
     assertThat(responses.get(11).getFinished()).isTrue();
     assertThat(responses.get(11).getExitCode()).isEqualTo(0);
     assertThat(responses.get(11).hasFailureDetail()).isFalse();
+    assertThat(responses.get(11).getCommandExtensionsList())
+        .containsExactly(
+            Any.pack(StringValue.of("foo")),
+            Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar"))));
   }
 
   @Test

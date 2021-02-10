@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.protobuf.Any;
 import javax.annotation.Nullable;
 
 /**
@@ -34,13 +36,23 @@ public final class BlazeCommandResult {
   private final DetailedExitCode detailedExitCode;
 
   @Nullable private final ExecRequest execDescription;
+  private final ImmutableList<Any> responseExtensions;
   private final boolean shutdown;
 
   private BlazeCommandResult(
-      DetailedExitCode detailedExitCode, @Nullable ExecRequest execDescription, boolean shutdown) {
+      DetailedExitCode detailedExitCode,
+      @Nullable ExecRequest execDescription,
+      boolean shutdown,
+      ImmutableList<Any> responseExtensions) {
     this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     this.execDescription = execDescription;
     this.shutdown = shutdown;
+    this.responseExtensions = responseExtensions;
+  }
+
+  private BlazeCommandResult(
+      DetailedExitCode detailedExitCode, @Nullable ExecRequest execDescription, boolean shutdown) {
+    this(detailedExitCode, execDescription, shutdown, ImmutableList.of());
   }
 
   public ExitCode getExitCode() {
@@ -67,6 +79,10 @@ public final class BlazeCommandResult {
 
   public boolean isSuccess() {
     return detailedExitCode.isSuccess();
+  }
+
+  public ImmutableList<Any> getResponseExtensions() {
+    return responseExtensions;
   }
 
   @Override
@@ -97,6 +113,12 @@ public final class BlazeCommandResult {
 
   public static BlazeCommandResult detailedExitCode(DetailedExitCode detailedExitCode) {
     return new BlazeCommandResult(detailedExitCode, null, false);
+  }
+
+  public static BlazeCommandResult withResponseExtensions(
+      BlazeCommandResult result, ImmutableList<Any> responseExtensions) {
+    return new BlazeCommandResult(
+        result.detailedExitCode, result.execDescription, result.shutdown, responseExtensions);
   }
 
   public static BlazeCommandResult execute(ExecRequest execDescription) {

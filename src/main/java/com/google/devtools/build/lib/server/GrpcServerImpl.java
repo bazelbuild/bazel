@@ -589,7 +589,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     }
 
     try {
-      observer.onNext(response.build());
+      observer.onNext(response.addAllCommandExtensions(result.getResponseExtensions()).build());
       observer.onCompleted();
     } catch (StatusRuntimeException e) {
       logger.atInfo().withCause(e).log(
