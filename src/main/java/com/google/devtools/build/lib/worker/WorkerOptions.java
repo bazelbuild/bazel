@@ -175,7 +175,7 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Currently a no-op. Future: If enabled, workers that support the experimental"
-              + " multiplexing feature will use that feature.")
+          "If enabled, workers that support the experimental multiplexing feature will use that"
+              + " feature.")
   public boolean workerMultiplex;
 }
