@@ -185,4 +185,29 @@ public class UrlRewriterTest {
       assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/some/file", 2, 0));
     }
   }
+
+  @Test
+  public void noAllBlockedMessage() throws Exception {
+    String config = "";
+    UrlRewriterConfig munger = new UrlRewriterConfig("/some/file", new StringReader(config));
+    assertThat(munger.getAllBlockedMessage()).isNull();
+  }
+
+  @Test
+  public void singleAllBlockedMessage() throws Exception {
+    String config = "all_blocked_message I'm sorry Dave, I'm afraid I can't do that.\n" + "allow *\n";
+    UrlRewriterConfig munger = new UrlRewriterConfig("/some/file", new StringReader(config));
+    assertThat(munger.getAllBlockedMessage()).isEqualTo("I'm sorry Dave, I'm afraid I can't do that.");
+  }
+
+  @Test
+  public void multipleAllBlockedMessage() throws Exception {
+    String config = "all_blocked_message one\n" + "block *\n" + "all_blocked_message two\n";
+    try {
+      new UrlRewriterConfig("/some/file", new StringReader(config));
+      fail();
+    } catch (UrlRewriterParseException e) {
+      assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/some/file", 3, 0));
+    }
+  }
 }
