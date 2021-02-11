@@ -826,4 +826,30 @@ EOF
   expect_log "cannot run local tests with --nobuild_runfile_manifests"
 }
 
+function test_run_from_external_repo_sibling_repository_layout() {
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "a",
+    path = "./a",
+)
+EOF
+
+  mkdir -p a
+  touch a/WORKSPACE
+  cat <<'EOF' > a/BUILD
+py_test(
+    name = 'x',
+    srcs = ['x.py'],
+)
+EOF
+  touch a/x.py
+
+  bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
+      || fail "expected success"
+
+  cp $(testlogs_dir a)/x/test.xml $TEST_log
+  expect_log "<testsuite name=\"a/x\""
+  expect_log "<testcase name=\"a/x\""
+}
+
 run_suite "bazel test tests"

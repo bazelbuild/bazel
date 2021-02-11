@@ -656,19 +656,26 @@ class TestWrapperTest(test_base.TestBase):
     self.ScratchFile('a/x.py')
 
     for flag in ['--legacy_external_runfiles', '--nolegacy_external_runfiles']:
-      for target in ['//:x', '@a//:x']:
-        exit_code, _, stderr = self.RunBazel([
-            'test',
-            '-t-',
-            '--shell_executable=',
-            '--test_output=errors',
-            '--verbose_failures',
-            flag,
-            target,
-        ])
-        self.AssertExitCode(
-            exit_code, 0,
-            ['flag=%s' % flag, 'target=%s' % target] + stderr)
+      for layout in [
+          '--experimental_sibling_repository_layout',
+          '--noexperimental_sibling_repository_layout',
+      ]:
+        for target in ['//:x', '@a//:x']:
+          exit_code, _, stderr = self.RunBazel([
+              'test',
+              '-t-',
+              '--shell_executable=',
+              '--test_output=errors',
+              '--verbose_failures',
+              flag,
+              layout,
+              target,
+          ])
+          self.AssertExitCode(exit_code, 0, [
+              'flag=%s' % flag,
+              'layout=%s' % layout,
+              'target=%s' % target,
+          ] + stderr)
 
   def _AssertAddCurrentDirectoryToPathTest(self, flags):
     exit_code, _, stderr = self.RunBazel([
