@@ -894,9 +894,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(NO_FILE)
                   .undocumented(
                       "Do not use this attribute. It's for the migration of "
-                          + "Android resource processing to Starlark only.")
-                  .aspect(androidNeverlinkAspect)
-                  .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
+                          + "Android resource processing to Starlark only."))
           // Nothing in the native rule reads this. This is only for facilitating the Starlark
           // migration of the android rules.
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))

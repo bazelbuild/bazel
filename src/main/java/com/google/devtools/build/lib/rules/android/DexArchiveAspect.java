@@ -273,11 +273,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         jars.add(rJar);
       }
 
-      Artifact buildStampJar = getAndroidBuildStampJar(base);
-      if (buildStampJar != null) {
-        jars.add(buildStampJar);
-      }
-
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       NestedSet<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
@@ -326,11 +321,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           jars.add(rJar);
       }
 
-      Artifact buildStampJar = getAndroidBuildStampJar(base);
-      if (buildStampJar != null) {
-        jars.add(buildStampJar);
-      }
-
       return jars.build();
     }
     return null;
@@ -355,15 +345,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
     if (provider != null && provider.getResourceJar() != null) {
       return provider.getResourceJar().getClassJar();
-    }
-    return null;
-  }
-
-  private static Artifact getAndroidBuildStampJar(ConfiguredTarget base) {
-    AndroidApplicationResourceInfo provider =
-        (AndroidApplicationResourceInfo) base.get(AndroidApplicationResourceInfo.PROVIDER.getKey());
-    if (provider != null && provider.getBuildStampJar() != null) {
-      return provider.getBuildStampJar();
     }
     return null;
   }
