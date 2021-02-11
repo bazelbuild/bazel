@@ -175,6 +175,7 @@ tasks:
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
   macos:
+    xcode_version: "11.7"
     shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#

@@ -29,6 +29,7 @@ platforms:
       - "-c"
       - "opt"
   macos:
+    xcode_version: "11.7"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
