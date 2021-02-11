@@ -590,7 +590,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_jlpl_enforce_strict_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
