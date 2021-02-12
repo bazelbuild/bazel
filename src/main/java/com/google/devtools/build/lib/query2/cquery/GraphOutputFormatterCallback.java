@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.query.output.GraphOutputWriter.NodeR
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
 import java.util.Comparator;
+import java.util.Objects;
 
 /** cquery output formatter that prints the result as factored graph in AT&amp;T GraphViz format. */
 class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -50,9 +51,20 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
               // Order graph output first by target label, then by configuration hash.
               Label label1 = ct1.getLabel();
               Label label2 = ct2.getLabel();
-              return label1.equals(label2)
-                  ? ct1.getConfigurationChecksum().compareTo(ct2.getConfigurationChecksum())
-                  : label1.compareTo(label2);
+              if (!label1.equals(label2)) {
+                return label1.compareTo(label2);
+              }
+              String checksum1 = ct1.getConfigurationChecksum();
+              String checksum2 = ct2.getConfigurationChecksum();
+              if (Objects.equals(checksum1, checksum2)) {
+                return 0;
+              } else if (checksum1 == null) {
+                return -1;
+              } else if (checksum2 == null) {
+                return 1;
+              } else {
+                return checksum1.compareTo(checksum2);
+              }
             };
 
         @Override
