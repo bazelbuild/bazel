@@ -2681,12 +2681,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
-      Map<String, String> repoEnv,
+      Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
-    PrecomputedValue.REPO_ENV.set(injectable(), repoEnv);
+    PrecomputedValue.REPO_ENV.set(injectable(), repoEnvOption);
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
