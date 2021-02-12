@@ -690,12 +690,12 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_dont_collect_so_artifacts",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
           "Disables collection of .so libraries as artifact (produced by filegroup or genrule); "
@@ -785,7 +785,7 @@ public class JavaOptions extends FragmentOptions {
     host.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
-
+    host.dontCollectSoArtifacts = dontCollectSoArtifacts;
     return host;
   }
 
