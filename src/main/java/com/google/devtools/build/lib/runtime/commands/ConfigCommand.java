@@ -495,7 +495,7 @@ public class ConfigCommand implements BlazeCommand {
       throws InvalidConfigurationException {
     ImmutableList<ConfigurationForOutput> matches =
         configurations.stream()
-            .filter(config -> config.checksum().startsWith(configPrefix))
+            .filter(config -> doesConfigMatch(config, configPrefix))
             .collect(toImmutableList());
     if (matches.isEmpty()) {
       throw new InvalidConfigurationException(
@@ -512,6 +512,13 @@ public class ConfigCommand implements BlazeCommand {
               configPrefix));
     }
     return Iterables.getOnlyElement(matches);
+  }
+
+  private static boolean doesConfigMatch(ConfigurationForOutput config, String configPrefix) {
+    if (configPrefix.toLowerCase().equals("host")) {
+      return config.isHost;
+    }
+    return config.checksum().startsWith(configPrefix);
   }
 
   /**
