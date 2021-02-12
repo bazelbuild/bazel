@@ -40,6 +40,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   private final Artifact rTxt;
   private final Artifact resourcesZip;
   private final Artifact databindingLayoutInfoZip;
+  private final Artifact buildStampJar;
+  private final boolean shouldCompileJavaSrcs;
 
   AndroidApplicationResourceInfo(
       Artifact resourceApk,
@@ -50,7 +52,9 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact mainDexProguardConfig,
       Artifact rTxt,
       Artifact resourcesZip,
-      Artifact databindingLayoutInfoZip) {
+      Artifact databindingLayoutInfoZip,
+      Artifact buildStampJar,
+      boolean shouldCompileJavaSrcs) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -60,6 +64,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.rTxt = rTxt;
     this.resourcesZip = resourcesZip;
     this.databindingLayoutInfoZip = databindingLayoutInfoZip;
+    this.buildStampJar = buildStampJar;
+    this.shouldCompileJavaSrcs = shouldCompileJavaSrcs;
   }
 
   @Override
@@ -112,6 +118,22 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     return databindingLayoutInfoZip;
   }
 
+  @Override
+  public Artifact getBuildStampJar() {
+    return buildStampJar;
+  }
+
+  /**
+   * A signal that indicates whether the android_binary rule should compile its Java sources in
+   * android_binary.srcs. When false, android_binary.application_resources will provide a JavaInfo
+   * that contains the compiled sources of the android_binary target. This step allows
+   * android_binary Java compilation to be offloaded to a Starlark rule.
+   */
+  @Override
+  public boolean shouldCompileJavaSrcs() {
+    return shouldCompileJavaSrcs;
+  }
+
   /** Provider for {@link AndroidApplicationResourceInfo}. */
   public static class AndroidApplicationResourceInfoProvider
       extends BuiltinProvider<AndroidApplicationResourceInfo>
@@ -131,7 +153,9 @@ public class AndroidApplicationResourceInfo extends NativeInfo
         Object mainDexProguardConfig,
         Object rTxt,
         Object resourcesZip,
-        Object databindingLayoutInfoZip)
+        Object databindingLayoutInfoZip,
+        Object buildStampJar,
+        boolean shouldCompileJavaSrcs)
         throws EvalException {
 
       return new AndroidApplicationResourceInfo(
@@ -143,7 +167,9 @@ public class AndroidApplicationResourceInfo extends NativeInfo
           fromNoneable(mainDexProguardConfig, Artifact.class),
           fromNoneable(rTxt, Artifact.class),
           fromNoneable(resourcesZip, Artifact.class),
-          fromNoneable(databindingLayoutInfoZip, Artifact.class));
+          fromNoneable(databindingLayoutInfoZip, Artifact.class),
+          fromNoneable(buildStampJar, Artifact.class),
+          shouldCompileJavaSrcs);
     }
   }
 }
