@@ -56,9 +56,7 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
               }
               String checksum1 = ct1.getConfigurationChecksum();
               String checksum2 = ct2.getConfigurationChecksum();
-              if (Objects.equals(checksum1, checksum2)) {
-                return 0;
-              } else if (checksum1 == null) {
+              if (checksum1 == null) {
                 return -1;
               } else if (checksum2 == null) {
                 return 1;
