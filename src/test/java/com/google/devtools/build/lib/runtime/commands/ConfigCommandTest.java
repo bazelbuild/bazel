@@ -146,6 +146,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     JsonObject fullJson =
         JsonParser.parseString(callConfigCommand().outAsLatin1()).getAsJsonObject();
     // Should be one ID for the target configuration and one for the host.
+    assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
     assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
   }
@@ -163,6 +164,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     ConfigurationForOutput config =
         new Gson()
             .fromJson(callConfigCommand(configHash1).outAsLatin1(), ConfigurationForOutput.class);
+    assertThat(config).isNotNull();
     // Verify config metadata:
     assertThat(config.configHash).isEqualTo(configHash1);
     assertThat(config.skyKey)
@@ -206,6 +208,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     ConfigurationForOutput config =
         new Gson()
             .fromJson(callConfigCommand(hashPrefix).outAsLatin1(), ConfigurationForOutput.class);
+    assertThat(config).isNotNull();
     assertThat(config.configHash).startsWith(hashPrefix);
   }
 
@@ -269,11 +272,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(targetConfig2Hash).isNotNull();
 
     // Get their diff.
-    ConfigurationDiffForOutput diff =
-        new Gson()
-            .fromJson(
-                callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1(),
-                ConfigurationDiffForOutput.class);
+    String result = callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1();
+    ConfigurationDiffForOutput diff = new Gson().fromJson(result, ConfigurationDiffForOutput.class);
+    assertThat(diff).isNotNull();
     assertThat(diff.configHash1).isEqualTo(targetConfig1Hash);
     assertThat(diff.configHash2).isEqualTo(targetConfig2Hash);
     FragmentDiffForOutput fragmentDiff = Iterables.getOnlyElement(diff.fragmentsDiff);
@@ -323,6 +324,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
             .fromJson(
                 callConfigCommand(hashPrefix1, hashPrefix2).outAsLatin1(),
                 ConfigurationDiffForOutput.class);
+    assertThat(diff).isNotNull();
     assertThat(diff.configHash1).startsWith(hashPrefix1);
     assertThat(diff.configHash2).startsWith(hashPrefix2);
   }
