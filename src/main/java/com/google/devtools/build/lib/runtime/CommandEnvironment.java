@@ -245,11 +245,8 @@ public class CommandEnvironment {
       }
     }
 
-    CoreOptions configOpts = options.getOptions(CoreOptions.class);
-    if (configOpts != null) {
-      for (Map.Entry<String, String> entry : configOpts.repositoryEnvironment) {
-        repoEnv.put(entry.getKey(), entry.getValue());
-      }
+    for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
+      repoEnv.put(entry.getKey(), entry.getValue());
     }
   }
 
@@ -702,6 +699,7 @@ public class CommandEnvironment {
                 options.getOptions(BuildLanguageOptions.class),
                 getCommandId(),
                 clientEnv,
+                repoEnv,
                 timestampGranularityMonitor,
                 options);
   }
