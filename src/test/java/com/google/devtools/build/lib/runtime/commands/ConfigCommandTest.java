@@ -144,7 +144,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void showConfigIds() throws Exception {
     analyzeTarget();
     JsonObject fullJson =
-        new JsonParser().parse(callConfigCommand().outAsLatin1()).getAsJsonObject();
+        JsonParser.parseString(callConfigCommand().outAsLatin1()).getAsJsonObject();
     // Should be one ID for the target configuration and one for the host.
     assertThat(fullJson.has("configuration-IDs")).isTrue();
     assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
@@ -154,8 +154,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void showSingleConfig() throws Exception {
     analyzeTarget();
     String configHash1 =
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()
@@ -197,8 +196,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void showSingleConfigHashPrefix() throws Exception {
     analyzeTarget();
     String configHash =
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()
@@ -215,8 +213,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void unknownHashPrefix() throws Exception {
     analyzeTarget();
     String configHash =
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()
@@ -234,7 +231,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     int numConfigs = 0;
     for (JsonElement configJson :
-        new JsonParser().parse(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+        JsonParser.parseString(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
       ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
       assertThat(config).isNotNull();
       numConfigs++;
@@ -251,8 +248,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     // Find the two target configuration hashes.
     for (JsonElement element :
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()) {
@@ -301,8 +297,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     // Find the two target configuration hashes.
     for (JsonElement element :
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()) {
@@ -356,8 +351,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     analyzeTarget("--//custom_flags:my_flag=hello");
 
     ConfigurationForOutput targetConfig = null;
-    for (JsonElement configJson :
-        new JsonParser().parse(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+    String result = callConfigCommand("--dump_all").outAsLatin1();
+    for (JsonElement configJson : JsonParser.parseString(result).getAsJsonArray()) {
       ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
       if (isTargetConfig(config)) {
         targetConfig = config;
@@ -376,7 +371,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     ConfigurationForOutput targetConfig = null;
     for (JsonElement configJson :
-        new JsonParser().parse(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+        JsonParser.parseString(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
       ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
       if (isTargetConfig(config)) {
         targetConfig = config;
