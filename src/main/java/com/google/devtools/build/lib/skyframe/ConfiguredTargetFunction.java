@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -39,12 +42,19 @@ import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -54,7 +64,12 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -67,15 +82,23 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
+import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -315,6 +338,84 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
+      Rule rule = null;
+      if (target instanceof Rule) {
+        rule = (Rule) target;
+      }
+      if (unloadedToolchainContexts != null) {
+        PlatformInfo platformInfo = unloadedToolchainContexts.getTargetPlatform();
+        if (platformInfo != null && rule != null) {
+          if (!rule.getRuleClass().equals("toolchain")) {
+            ConfiguredAttributeMapper attrs = ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), "");
+            if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
+              List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST).stream().collect(Collectors.toList());
+
+              ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
+              for (Label configurabilityLabel : labels) {
+                Dependency configurabilityDependency =
+                    Dependency.builder()
+                        .setLabel(configurabilityLabel)
+                        .setConfiguration(ctgValue.getConfiguration())
+                        .build();
+                depsBuilder.add(configurabilityDependency);
+              }
+              ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
+
+              Map<SkyKey, ConfiguredTargetAndData> configValues;
+              try {
+                configValues =
+                    resolveConfiguredTargetDependencies(
+                        env,
+                        ctgValue,
+                        configConditionDeps,
+                        transitivePackagesForPackageRootResolution,
+                        transitiveRootCauses);
+                if (configValues == null) {
+                  return null;
+                }
+              } catch (DependencyEvaluationException e) {
+                // One of the config dependencies doesn't exist, and we need to report that. Unfortunately,
+                // there's not enough information to know which configurable attribute has the problem.
+                env.getListener()
+                    .handle(
+                        Event.error(
+                            String.format(
+                                "While resolving configuration keys for %s: %s",
+                                target.getLabel(), e.getCause().getMessage())));
+
+                // Re-throw the exception so it is handled by compute().
+                throw e;
+              }
+              List<TransitiveInfoCollection> transitive_info_collections = configValues.values().stream()
+                  .map(targetAndData -> targetAndData.getConfiguredTarget())
+                  .collect(Collectors.toList());
+
+              ImmutableList<ConstraintValueInfo> invalidConstraintValues =
+                  PlatformProviderUtils.constraintValues(
+                    transitive_info_collections
+                          /*
+                           * MAGIC conversion between `labels` and `List<? extends
+                           * ProviderCollection>` ???
+                           */)
+                      .stream()
+                      .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
+                      .collect(ImmutableList.toImmutableList());
+              if (!invalidConstraintValues.isEmpty()) {
+                return createIncompatibleRuleConfiguredTarget(
+                    target,
+                    configuration,
+                    configConditions,
+                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                      invalidConstraintValues),
+                    rule.getRuleClass(),
+                    transitivePackagesForPackageRootResolution
+                    );
+              }
+            }
+          }
+        }
+      }
+
       // Calculate the dependencies of this target.
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
           computeDependencies(
@@ -343,6 +444,34 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         return null;
       }
       Preconditions.checkNotNull(depValueMap);
+
+      ImmutableList.Builder<ConfiguredTarget> incompatibleDepsBuilder = ImmutableList.builder();
+      if (target instanceof OutputFile) {
+        rule = ((OutputFile) target).getAssociatedRule();
+      }
+      if (rule != null) {
+        if (!rule.getRuleClass().equals("toolchain")) {
+          for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : depValueMap.entries()) {
+            ConfiguredTarget dep = entry.getValue().getConfiguredTarget();
+            RuleContextConstraintSemantics.IncompatibleCheckResult incompatibilityResult = RuleContextConstraintSemantics.checkForIncompatibility(dep);
+            if (incompatibilityResult.isIncompatible()) {
+              incompatibleDepsBuilder.add(dep);
+            }
+          }
+        }
+      }
+      ImmutableList<ConfiguredTarget> incompatibleDeps = incompatibleDepsBuilder.build();
+
+      if (!incompatibleDeps.isEmpty()) {
+        return createIncompatibleRuleConfiguredTarget(
+            target,
+            configuration,
+            configConditions,
+            IncompatiblePlatformProvider.incompatibleDueToTargets(incompatibleDeps),
+            rule.getRuleClass(),
+            transitivePackagesForPackageRootResolution
+            );
+      }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
       ToolchainCollection<ResolvedToolchainContext> toolchainContexts = null;
@@ -439,6 +568,70 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } finally {
       maybeReleaseSemaphore();
     }
+  }
+
+  // Taken from ConfiguredTargetFactory.convertVisibility().
+  // TODO(phil): Figure out how to de-duplicate somehow.
+  private NestedSet<PackageGroupContents> convertVisibility(Target target) {
+    RuleVisibility ruleVisibility = target.getVisibility();
+    if (ruleVisibility instanceof ConstantRuleVisibility) {
+      return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
+          ? NestedSetBuilder.create(
+              Order.STABLE_ORDER,
+              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
+          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
+      throw new IllegalStateException("unsupported PackageGroupsRuleVisibility");
+    } else {
+      throw new IllegalStateException("unknown visibility");
+    }
+  }
+
+  private RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
+      Target target,
+      BuildConfiguration configuration,
+      ConfigConditions configConditions,
+      IncompatiblePlatformProvider incompatiblePlatformProvider,
+      String ruleClassString,
+      NestedSetBuilder<Package> transitivePackagesForPackageRootResolution
+      ) {
+    NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    FileProvider fileProvider = new FileProvider(filesToBuild);
+    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
+
+    TransitiveInfoProviderMapBuilder providerBuilder =
+        new TransitiveInfoProviderMapBuilder()
+            .put(incompatiblePlatformProvider)
+            .add(RunfilesProvider.simple(Runfiles.EMPTY))
+            .add(fileProvider)
+            .add(filesToRunProvider);
+    if (configuration.hasFragment(TestConfiguration.class)) {
+      // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
+      // though this test will never execute, some code still expects the provider.
+      TestProvider.TestParams testParams = new TestProvider.TestParams(
+          0, 0, false,
+          TestTimeout.ETERNAL,
+          "dummy",
+          ImmutableList.<Artifact.DerivedArtifact>of(),
+          ImmutableList.<Artifact>of(),
+          filesToRunProvider,
+          ImmutableList.<ActionInput>of()
+          );
+      providerBuilder.put(TestProvider.class, new TestProvider(testParams));
+    }
+
+    RuleConfiguredTarget configuredTarget = new RuleConfiguredTarget(
+        target.getLabel(),
+        BuildConfigurationValue.key(configuration),
+        convertVisibility(target),
+        providerBuilder.build(),
+        configConditions.asProviders(),
+        ruleClassString);
+    return new RuleConfiguredTargetValue(
+        configuredTarget,
+        transitivePackagesForPackageRootResolution == null
+            ? null
+            : transitivePackagesForPackageRootResolution.build());
   }
 
   /**

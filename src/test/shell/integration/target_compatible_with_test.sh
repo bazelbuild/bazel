@@ -182,6 +182,13 @@ sh_binary(
         ":foo3",
     ],
 )
+
+config_setting(
+  name = "setting1",
+  define_values = {
+    "foo": "1",
+  },
+)
 EOF
 }
 
@@ -798,6 +805,31 @@ EOF
     //target_skipping:pass_on_everything_but_foo1_and_foo2 &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
   expect_log '^//target_skipping:pass_on_everything_but_foo1_and_foo2  *  PASSED in'
+}
+
+# Validate that an incompatible target with a toolchain not available for the
+# current platform will not cause an analysis error. This is a regression test
+# for https://github.com/bazelbuild/bazel/issues/12897.
+function test_incompatible_with_missing_toolchain() {
+  cat >> target_skipping/BUILD <<EOF
+objc_library(
+    name = "objc",
+    target_compatible_with = select({
+        ":setting1": ["//target_skipping:foo1"],
+        "//conditions:default": ["//target_skipping:foo2"],
+    }),
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build --define=foo=1 \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" \
+    || fail "Bazel build failed unexpectedly."
+  expect_log 'Target //target_skipping:objc was skipped'
 }
 
 # Validates that a tool compatible with the host platform, but incompatible

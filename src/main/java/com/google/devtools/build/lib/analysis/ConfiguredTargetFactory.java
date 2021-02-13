@@ -317,12 +317,6 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredTarget(ruleContext);
     }
 
-    ConfiguredTarget incompatibleTarget =
-        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
-    if (incompatibleTarget != null) {
-      return incompatibleTarget;
-    }
-
     try {
       Class<?> missingFragmentClass = null;
       for (Class<? extends Fragment> fragmentClass :

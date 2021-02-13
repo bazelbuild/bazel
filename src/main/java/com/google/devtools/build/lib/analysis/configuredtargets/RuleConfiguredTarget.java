@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -153,6 +154,31 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       }
     }
   }
+
+  /**
+   * Use this constructor for creating incompatible ConfiguredTarget instances.
+   */
+  public RuleConfiguredTarget(
+      Label label,
+      BuildConfigurationValue.Key configurationKey,
+      NestedSet<PackageGroupContents> visibility,
+      TransitiveInfoProviderMap providers,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String ruleClassString) {
+    this(
+        label,
+        configurationKey,
+        visibility,
+        providers,
+        configConditions,
+        ImmutableSet.<ConfiguredTargetKey>of(),
+        ruleClassString,
+        ImmutableList.<ActionAnalysisMetadata>of(),
+        ImmutableMap.<Label, Artifact>of());
+
+    Preconditions.checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, label);
+  }
+
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
   @Override
