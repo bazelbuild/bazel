@@ -99,6 +99,7 @@ public final class Debug {
     if (prev != null) {
       prev.close();
     }
+    DebugProfile.add((dbg != null ? 1 : 0) - (prev != null ? 1 : 0));
   }
 
   /**
@@ -170,7 +171,9 @@ public final class Debug {
    * This interface is provided to support special tools; ordinary clients should have no need for
    * it.
    */
-  public static void setThreadHook(ThreadHook hook) {
+  public static synchronized void setThreadHook(ThreadHook hook) {
+    ThreadHook oldHook = threadHook;
     threadHook = hook;
+    DebugProfile.add((hook != null ? 1 : 0) - (oldHook != null ? 1 : 0));
   }
 }

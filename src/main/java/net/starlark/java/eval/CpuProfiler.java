@@ -126,7 +126,7 @@ final class CpuProfiler {
   }
 
   /** Start the profiler. */
-  static void start(OutputStream out, Duration period) {
+  static synchronized void start(OutputStream out, Duration period) {
     if (!supported()) {
       throw new UnsupportedOperationException("this platform does not support Starlark profiling");
     }
@@ -140,16 +140,18 @@ final class CpuProfiler {
     }
 
     instance = new CpuProfiler(out, period);
+    DebugProfile.add(1);
   }
 
   /** Stop the profiler and wait for the log to be written. */
-  static void stop() throws IOException {
+  static synchronized void stop() throws IOException {
     if (instance == null) {
       throw new IllegalStateException("stop without start");
     }
 
     CpuProfiler profiler = instance;
     instance = null;
+    DebugProfile.add(-1);
 
     stopTimer();
 

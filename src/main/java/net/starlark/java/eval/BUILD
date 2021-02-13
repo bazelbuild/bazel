@@ -18,6 +18,7 @@ java_library(
         "CallUtils.java",
         "CpuProfiler.java",
         "Debug.java",
+        "DebugProfile.java",
         "Dict.java",
         "Eval.java",
         "EvalException.java",
