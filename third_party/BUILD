@@ -271,7 +271,10 @@ java_plugin(
 distrib_java_import(
     name = "auto_service_lib",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-service-1.0-rc4.jar"],
+    jars = [
+        "auto/auto-service-1.0-rc7.jar",
+        "auto/auto-service-annotations-1.0-rc7.jar",
+    ],
 )
 
 java_plugin(
@@ -305,8 +308,8 @@ distrib_java_import(
     name = "auto_value_value",
     enable_distributions = ["debian"],
     jars = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.7.4.jar",
+        "auto/auto-value-annotations-1.7.4.jar",
     ],
 )
 
@@ -314,8 +317,8 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.7.4.jar",
+        "auto/auto-value-annotations-1.7.4.jar",
     ],
     enable_distributions = ["debian"],
 )
@@ -368,15 +371,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
-        "error_prone/error_prone_type_annotations-2.4.0.jar",
+        "error_prone/error_prone_annotations-2.5.1.jar",
+        "error_prone/error_prone_type_annotations-2.5.1.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
+        "error_prone/error_prone_annotations-2.5.1.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -385,9 +388,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.4.0.jar",
-        "error_prone/error_prone_check_api-2.4.0.jar",
-        "error_prone/error_prone_core-2.4.0.jar",
+        "error_prone/error_prone_annotation-2.5.1.jar",
+        "error_prone/error_prone_check_api-2.5.1.jar",
+        "error_prone/error_prone_core-2.5.1.jar",
     ],
     exports = [
         ":error_prone_annotations",
