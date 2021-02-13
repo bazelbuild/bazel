@@ -149,11 +149,15 @@ public final class Starlark {
    * @throws EvalException otherwise.
    */
   public static void checkHashable(Object x) throws EvalException {
-    if (x instanceof StarlarkValue) {
+    if (x instanceof String) {
+      // Strings are the most common dict keys.
+      // Check them first for that reason, but also because
+      // instanceof interface is slow.
+    } else if (x instanceof StarlarkValue) {
       ((StarlarkValue) x).checkHashable();
     } else {
       Starlark.checkValid(x);
-      // String and Boolean are hashable.
+      // Boolean are hashable.
     }
   }
 
