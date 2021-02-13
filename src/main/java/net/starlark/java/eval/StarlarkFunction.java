@@ -175,13 +175,12 @@ public final class StarlarkFunction implements StarlarkCallable {
       throw Starlark.errorf("function '%s' called recursively", getName());
     }
 
-    // Compute the effective parameter values
-    // and update the corresponding variables.
-    Object[] arguments = processArgs(thread.mutability(), positional, named);
-
     StarlarkThread.Frame fr = thread.frame(0);
     fr.locals = new Object[rfn.getLocals().size()];
-    System.arraycopy(arguments, 0, fr.locals, 0, rfn.getParameterNames().size());
+
+    // Compute the effective parameter values
+    // and update the corresponding variables.
+    processArgs(thread.mutability(), positional, named, fr.locals);
 
     // Spill indicated locals to cells.
     for (int index : rfn.getCellIndices()) {
@@ -212,7 +211,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   // allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
-  private Object[] processArgs(Mutability mu, Object[] positional, Object[] named)
+  private void processArgs(Mutability mu, Object[] positional, Object[] named, Object[] arguments)
       throws EvalException {
 
     // This is the general schema of a function:
@@ -235,10 +234,6 @@ public final class StarlarkFunction implements StarlarkCallable {
     //   It is an error if the defaults tuple entry for an unset parameter is MANDATORY.
 
     ImmutableList<String> names = rfn.getParameterNames();
-
-    // TODO(adonovan): when we have flat frames, pass in the locals array here instead of
-    // allocating.
-    Object[] arguments = new Object[names.size()];
 
     // nparams is the number of ordinary parameters.
     int nparams =
@@ -371,8 +366,6 @@ public final class StarlarkFunction implements StarlarkCallable {
           plural(missingKwonly.size()),
           Joiner.on(", ").join(missingKwonly));
     }
-
-    return arguments;
   }
 
   private static String plural(int n) {
