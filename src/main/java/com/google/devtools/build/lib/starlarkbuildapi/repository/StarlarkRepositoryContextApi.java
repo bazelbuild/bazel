@@ -456,7 +456,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       name = "download_and_extract",
       doc =
           "Downloads a file to the output path for the provided url, extracts it, and returns"
-              " a struct containing <code>success</code>, a flag which is <code>true</code> if the"
+              + " a struct containing <code>success</code>, a flag which is <code>true</code> if the"
               + " download completed successfully, and if successful, a hash of the file"
               + " with the fields <code>sha256</code> and <code>integrity</code>.",
       useStarlarkThread = true,
