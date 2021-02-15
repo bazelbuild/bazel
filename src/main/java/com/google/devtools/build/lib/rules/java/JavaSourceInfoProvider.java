@@ -15,15 +15,12 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.Map;
 
 /** A Provider describing the java sources directly belonging to a java rule. */
 @Immutable
@@ -31,22 +28,11 @@ import java.util.Map;
 public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   private final Collection<Artifact> sourceFiles;
   private final Collection<Artifact> sourceJars;
-  private final Collection<Artifact> jarFiles;
-  private final Collection<Artifact> sourceJarsForJarFiles;
-  private final Map<PathFragment, Artifact> resources;
 
   @VisibleForSerialization
-  JavaSourceInfoProvider(
-      Collection<Artifact> sourceFiles,
-      Collection<Artifact> sourceJars,
-      Collection<Artifact> jarFiles,
-      Collection<Artifact> sourceJarsForJarFiles,
-      Map<PathFragment, Artifact> resources) {
+  JavaSourceInfoProvider(Collection<Artifact> sourceFiles, Collection<Artifact> sourceJars) {
     this.sourceFiles = sourceFiles;
     this.sourceJars = sourceJars;
-    this.jarFiles = jarFiles;
-    this.sourceJarsForJarFiles = sourceJarsForJarFiles;
-    this.resources = resources;
   }
 
   /** Gets the original Java source files provided as inputs to this rule. */
@@ -62,37 +48,6 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   public Collection<Artifact> getSourceJars() {
     return sourceJars;
   }
-
-  /**
-   * Gets the original pre-built jars provided as inputs to this rule.
-   *
-   * <p>These should be used where .class files are needed or wanted in place of recompiling the
-   * sources from {@link #getSourceJarsForJarFiles()}, as this is the source of truth used by the
-   * normal Java machinery.
-   */
-  public Collection<Artifact> getJarFiles() {
-    return jarFiles;
-  }
-
-  /**
-   * Gets the source jars containing the sources of the jars contained in {@link #getJarFiles}.
-   *
-   * <p>These should be used in place of {@link #getJarFiles()} if and only if source is required.
-   */
-  public Collection<Artifact> getSourceJarsForJarFiles() {
-    return sourceJarsForJarFiles;
-  }
-
-  /**
-   * Gets the Java resources which were included in this rule's output.
-   *
-   * <p>Each key in the map (a path within the jar) should correspond to the artifact which belongs
-   * at that path. The path fragment should be some suffix of the artifact's exec path.
-   */
-  public Map<PathFragment, Artifact> getResources() {
-    return resources;
-  }
-
   /**
    * Constructs a JavaSourceInfoProvider using the sources in the given JavaTargetAttributes.
    *
@@ -104,30 +59,20 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     return new Builder()
         .setSourceFiles(attributes.getSourceFiles())
         .setSourceJars(attributes.getSourceJars())
-        .setResources(attributes.getResources())
         .build();
   }
 
   public static JavaSourceInfoProvider merge(Collection<JavaSourceInfoProvider> sourceInfos) {
     JavaSourceInfoProvider.Builder javaSourceInfo = new JavaSourceInfoProvider.Builder();
-    ImmutableList.Builder<Artifact> jarFiles = new ImmutableList.Builder<>();
-    ImmutableMap.Builder<PathFragment, Artifact> resources = new ImmutableMap.Builder<>();
     ImmutableList.Builder<Artifact> sourceFiles = new ImmutableList.Builder<>();
     ImmutableList.Builder<Artifact> sourceJars = new ImmutableList.Builder<>();
-    ImmutableList.Builder<Artifact> sourceJarsForJarFiles = new ImmutableList.Builder<>();
 
     for (JavaSourceInfoProvider sourceInfo : sourceInfos) {
-      jarFiles.addAll(sourceInfo.getJarFiles());
-      resources.putAll(sourceInfo.getResources());
       sourceFiles.addAll(sourceInfo.getSourceFiles());
       sourceJars.addAll(sourceInfo.getSourceJars());
-      sourceJarsForJarFiles.addAll(sourceInfo.getSourceJarsForJarFiles());
     }
-    javaSourceInfo.setJarFiles(jarFiles.build());
-    javaSourceInfo.setResources(resources.build());
     javaSourceInfo.setSourceFiles(sourceFiles.build());
     javaSourceInfo.setSourceJars(sourceJars.build());
-    javaSourceInfo.setSourceJarsForJarFiles(sourceJarsForJarFiles.build());
     return javaSourceInfo.build();
   }
 
@@ -135,9 +80,6 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   public static final class Builder {
     private Collection<Artifact> sourceFiles = ImmutableList.<Artifact>of();
     private Collection<Artifact> sourceJars = ImmutableList.<Artifact>of();
-    private Collection<Artifact> jarFiles = ImmutableList.<Artifact>of();
-    private Collection<Artifact> sourceJarsForJarFiles = ImmutableList.<Artifact>of();
-    private Map<PathFragment, Artifact> resources = ImmutableMap.<PathFragment, Artifact>of();
 
     /** Sets the source files included as part of the sources of this rule. */
     public Builder setSourceFiles(Collection<Artifact> sourceFiles) {
@@ -151,37 +93,9 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    /** Sets the pre-built jar files included as part of the sources of this rule. */
-    public Builder setJarFiles(Collection<Artifact> jarFiles) {
-      this.jarFiles = Preconditions.checkNotNull(jarFiles);
-      return this;
-    }
-
-    /**
-     * Sets the source jars corresponding to the jar files included in this rule.
-     *
-     * <p>Used by, e.g., the srcjars attribute of {@link JavaImport}.
-     */
-    public Builder setSourceJarsForJarFiles(Collection<Artifact> sourceJarsForJarFiles) {
-      this.sourceJarsForJarFiles = Preconditions.checkNotNull(sourceJarsForJarFiles);
-      return this;
-    }
-
-    /**
-     * Sets the resources included in this rule.
-     *
-     * <p>Each key in the map (a path within the jar) should correspond to the artifact which
-     * belongs at that path. The path fragment should be some tail of the artifact's exec path.
-     */
-    public Builder setResources(Map<PathFragment, Artifact> resources) {
-      this.resources = Preconditions.checkNotNull(resources);
-      return this;
-    }
-
     /** Constructs the JavaSourceInfoProvider from the provided Java sources. */
     public JavaSourceInfoProvider build() {
-      return new JavaSourceInfoProvider(
-          sourceFiles, sourceJars, jarFiles, sourceJarsForJarFiles, resources);
+      return new JavaSourceInfoProvider(sourceFiles, sourceJars);
     }
   }
 }

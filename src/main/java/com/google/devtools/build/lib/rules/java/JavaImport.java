@@ -115,10 +115,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     JavaSourceInfoProvider javaSourceInfoProvider =
-        new JavaSourceInfoProvider.Builder()
-            .setJarFiles(jars)
-            .setSourceJarsForJarFiles(srcJars)
-            .build();
+        new JavaSourceInfoProvider.Builder().setSourceJars(srcJars).build();
 
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder();
