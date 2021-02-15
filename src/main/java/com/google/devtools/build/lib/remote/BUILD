@@ -10,6 +10,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/grpc:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree:srcs",
