@@ -20,7 +20,10 @@ import com.google.common.collect.Iterables;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import javax.annotation.Nullable;
+
+import com.google.common.collect.Iterators;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -312,6 +315,12 @@ public final class StarlarkList<E> extends AbstractList<E>
   @Override
   public int size() {
     return size;
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public Iterator<E> iterator() {
+    return (Iterator<E>) Iterators.forArray(elems, 0, size);
   }
 
   @Override

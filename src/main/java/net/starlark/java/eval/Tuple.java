@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.ObjectArrays;
 import java.util.AbstractCollection;
 import java.util.AbstractList;
@@ -145,6 +146,11 @@ public final class Tuple extends AbstractList<Object>
   @Override
   public int size() {
     return elems.length;
+  }
+
+  @Override
+  public Iterator<Object> iterator() {
+    return Iterators.forArray(elems);
   }
 
   @Override
