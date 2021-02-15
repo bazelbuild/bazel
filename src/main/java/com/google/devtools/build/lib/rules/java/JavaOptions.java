@@ -786,6 +786,8 @@ public class JavaOptions extends FragmentOptions {
 
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
+    host.dontCollectSoArtifacts = dontCollectSoArtifacts;
+
     return host;
   }
 
