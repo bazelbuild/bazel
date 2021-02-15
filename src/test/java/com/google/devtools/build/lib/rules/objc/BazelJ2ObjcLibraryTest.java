@@ -378,14 +378,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testMissingEntryClassesError() throws Exception {
-    useConfiguration("--j2objc_dead_code_removal");
+    useConfiguration(
+        "--j2objc_dead_code_removal", "--incompatible_dont_use_javasourceinfoprovider");
     checkError("java/com/google/dummy", "transpile", J2ObjcLibrary.NO_ENTRY_CLASS_ERROR_MSG,
         "j2objc_library(name = 'transpile', deps = ['//java/com/google/dummy/test:test'])");
   }
 
   @Test
   public void testNoJ2ObjcDeadCodeRemovalActionWithoutOptFlag() throws Exception {
-    useConfiguration("--noj2objc_dead_code_removal");
+    useConfiguration(
+        "--noj2objc_dead_code_removal", "--incompatible_dont_use_javasourceinfoprovider");
     addSimpleJ2ObjcLibraryWithEntryClasses();
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
@@ -408,7 +410,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testTranspilationActionTreeArtifactOutputsFromSourceJar() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration(
+        "--ios_cpu=i386", "--ios_minimum_os=1.0", "--incompatible_dont_use_javasourceinfoprovider");
     scratch.file("java/com/google/transpile/dummy.java");
     scratch.file("java/com/google/transpile/dummyjar.srcjar");
     scratch.file(
@@ -433,7 +436,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testGeneratedTreeArtifactFromGenJar() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration(
+        "--ios_cpu=i386", "--ios_minimum_os=1.0", "--incompatible_dont_use_javasourceinfoprovider");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
@@ -693,7 +697,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testArchiveLinkActionWithTreeArtifactFromGenJar() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration(
+        "--ios_cpu=i386", "--ios_minimum_os=1.0", "--incompatible_dont_use_javasourceinfoprovider");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
@@ -769,7 +774,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testModuleMapFromGenJarTreeArtifact() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration(
+        "--ios_cpu=i386", "--ios_minimum_os=1.0", "--incompatible_dont_use_javasourceinfoprovider");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
@@ -848,7 +854,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testObjcCompileArcAction() throws Exception {
-    useConfiguration("--j2objc_translation_flags=-use-arc");
+    useConfiguration(
+        "--j2objc_translation_flags=-use-arc", "--incompatible_dont_use_javasourceinfoprovider");
     Artifact archive = j2objcArchive("//java/com/google/dummy/test:transpile", "test");
     CommandAction compileAction = getObjcCompileAction(archive, "test.o");
     assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
@@ -975,7 +982,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testProtoToolchainForJ2ObjcFlag() throws Exception {
     useConfiguration(
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
-        "--proto_toolchain_for_j2objc=//tools/j2objc:alt_j2objc_proto_toolchain");
+        "--proto_toolchain_for_j2objc=//tools/j2objc:alt_j2objc_proto_toolchain",
+        "--incompatible_dont_use_javasourceinfoprovider");
 
     scratch.file("tools/j2objc/proto_plugin_binary");
     scratch.file("tools/j2objc/alt_proto_runtime.h");
@@ -1060,7 +1068,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcDeadCodeRemovalActionWithOptFlag() throws Exception {
-    useConfiguration("--j2objc_dead_code_removal");
+    useConfiguration(
+        "--j2objc_dead_code_removal", "--incompatible_dont_use_javasourceinfoprovider");
     addSimpleJ2ObjcLibraryWithEntryClasses();
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
@@ -1124,7 +1133,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testCompileActionTemplateFromGenJar() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_minimum_os=1.0");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_i386",
+        "--ios_minimum_os=1.0",
+        "--incompatible_dont_use_javasourceinfoprovider");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);

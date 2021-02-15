@@ -77,7 +77,9 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
 
-    useConfiguration("--proto_toolchain_for_java=//tools/proto/toolchains:java");
+    useConfiguration(
+        "--incompatible_dont_use_javasourceinfoprovider",
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java");
 
     mockToolsConfig.create(
         "tools/proto/toolchains/BUILD",
