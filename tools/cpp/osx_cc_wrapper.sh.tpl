@@ -51,14 +51,21 @@ function parse_option() {
 }
 
 # let parse the option list
+IGNORE_AT=false
 for i in "$@"; do
-    if [[ "$i" = @* ]]; then
-        while IFS= read -r opt
-        do
-            parse_option "$opt"
-        done < "${i:1}" || exit 1
-    else
+    if [[ "$i" = "-install_name" || "$i" = "-Xlinker" ]]; then
         parse_option "$i"
+        IGNORE_AT=true
+    else
+        if [[ ("$i" = @*) && ("$IGNORE_AT" = false) ]]; then
+            while IFS= read -r opt
+            do
+                parse_option "$opt"
+            done < "${i:1}" || exit 1
+        else
+            parse_option "$i"
+        fi
+        IGNORE_AT=false
     fi
 done
 
