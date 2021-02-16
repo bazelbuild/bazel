@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFou
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -109,7 +110,8 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
     // TODO(bazel-team): implement this if needed.
-    throw new UnsupportedOperationException();
+    throw new QueryException(
+        "labels() is not supported for aquery", ActionQuery.Code.LABELS_FUNCTION_NOT_SUPPORTED);
   }
 
   @Override
