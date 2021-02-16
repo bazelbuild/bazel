@@ -299,7 +299,7 @@ public final class ObjcCommon {
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
 
-      ObjcProvider.Builder objcProvider = new ObjcProvider.NativeBuilder(semantics);
+      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder(semantics);
 
       objcProvider
           .addAll(IMPORTED_LIBRARY, extraImportLibraries)
