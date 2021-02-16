@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -247,7 +248,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
     ObjcCommon common;
-    ObjcProvider objcProvider = null;
+    CcCompilationContext ccCompilationContext = null;
 
     if (!j2ObjcSource.getObjcSrcs().isEmpty()) {
       common =
@@ -279,9 +280,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .registerCompileAndArchiveActions(
                 common, extraCompileArgs, ImmutableList.<PathFragment>of())
             .registerFullyLinkAction(
-                compilationSupport.getObjcProvider(),
+                common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
-        objcProvider = compilationSupport.getObjcProvider();
+        ccCompilationContext = compilationSupport.getCcCompilationContext();
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -295,18 +296,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               ImmutableList.<PathFragment>of(),
               depAttributes,
               otherDeps);
-      objcProvider = common.getObjcProviderBuilder().build();
+      ccCompilationContext = common.getCcCompilationContext();
     }
 
     return builder
         .addProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
-        .addNativeDeclaredProvider(objcProvider)
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(
             J2ObjcCcInfo.build(
-                CcInfo.builder()
-                    .setCcCompilationContext(objcProvider.getCcCompilationContext())
-                    .build()))
+                CcInfo.builder().setCcCompilationContext(ccCompilationContext).build()))
         .build();
   }
 

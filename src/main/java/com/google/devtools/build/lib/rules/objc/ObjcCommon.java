@@ -421,14 +421,8 @@ public final class ObjcCommon {
 
       ObjcCompilationContext objcCompilationContext = objcCompilationContextBuilder.build();
 
-      ObjcProvider.NativeBuilder objcProviderNativeBuilder =
-          (ObjcProvider.NativeBuilder) objcProvider;
-      if (purpose == Purpose.LINK_ONLY) {
-        objcProviderNativeBuilder.setCcCompilationContext(
-            objcCompilationContext.createCcCompilationContext());
-      }
       return new ObjcCommon(
-          purpose, objcProviderNativeBuilder, objcCompilationContext, compilationArtifacts);
+          purpose, objcProvider.build(), objcCompilationContext, compilationArtifacts);
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {
@@ -448,18 +442,18 @@ public final class ObjcCommon {
   }
 
   private final Purpose purpose;
-  private final ObjcProvider.NativeBuilder objcProviderBuilder;
+  private final ObjcProvider objcProvider;
   private final ObjcCompilationContext objcCompilationContext;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
 
   private ObjcCommon(
       Purpose purpose,
-      ObjcProvider.NativeBuilder objcProviderBuilder,
+      ObjcProvider objcProvider,
       ObjcCompilationContext objcCompilationContext,
       Optional<CompilationArtifacts> compilationArtifacts) {
     this.purpose = purpose;
-    this.objcProviderBuilder = Preconditions.checkNotNull(objcProviderBuilder);
+    this.objcProvider = Preconditions.checkNotNull(objcProvider);
     this.objcCompilationContext = Preconditions.checkNotNull(objcCompilationContext);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
@@ -468,12 +462,16 @@ public final class ObjcCommon {
     return purpose;
   }
 
-  public ObjcProvider.NativeBuilder getObjcProviderBuilder() {
-    return objcProviderBuilder;
+  public ObjcProvider getObjcProvider() {
+    return objcProvider;
   }
 
   public ObjcCompilationContext getObjcCompilationContext() {
     return objcCompilationContext;
+  }
+
+  public CcCompilationContext getCcCompilationContext() {
+    return objcCompilationContext.createCcCompilationContext();
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {
