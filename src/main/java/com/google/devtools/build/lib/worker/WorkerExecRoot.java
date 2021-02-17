@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -46,10 +47,12 @@ final class WorkerExecRoot {
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
     populateInputsAndDirsToCreate(inputs, workerFiles, outputs, inputsToCreate, dirsToCreate);
 
-    // Then do a full traversal of the `workDir`. This will use what we computed above, delete
-    // anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is can be left
-    // without changes (e.g., a symlink that already points to the right destination).
-    cleanExisting(workDir, inputs, inputsToCreate, dirsToCreate);
+    // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
+    // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
+    // can be left without changes (e.g., a symlink that already points to the right destination).
+    // We're traversing from workDir's parent directory because external repositories can now be
+    // symlinked as siblings of workDir when --experimental_sibling_repository_layout is in effect.
+    cleanExisting(workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate);
 
     // Finally, create anything that is still missing.
     createDirectories(dirsToCreate);
@@ -105,9 +108,20 @@ final class WorkerExecRoot {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate)
       throws IOException {
+    Path execroot = workDir.getParentDirectory();
     for (Path path : root.getDirectoryEntries()) {
       FileStatus stat = path.stat(Symlinks.NOFOLLOW);
-      PathFragment pathRelativeToWorkDir = path.relativeTo(workDir);
+      PathFragment pathRelativeToWorkDir;
+      if (path.startsWith(workDir)) {
+        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+        pathRelativeToWorkDir = path.relativeTo(workDir);
+      } else {
+        // path is not under workDir, which means it belongs to one of external repositories
+        // symlinked directly under execroot. Get the relative path based on there and prepend it
+        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+        pathRelativeToWorkDir =
+            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(path.relativeTo(execroot));
+      }
       Optional<PathFragment> destination =
           getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
       if (destination.isPresent()) {
