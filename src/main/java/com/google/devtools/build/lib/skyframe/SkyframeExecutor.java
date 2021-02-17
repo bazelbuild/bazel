@@ -872,7 +872,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     logger.atInfo().log("Dropping configured target data");
     analysisCacheDiscarded = true;
     clearTrimmingCache();
-    skyframeBuildView.clearInvalidatedConfiguredTargets();
+    skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
     ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }

@@ -481,6 +481,7 @@ java_library(
     srcs = ["AnalysisPhaseCompleteEvent.java"],
     deps = [
         ":configured_target",
+        "//src/main/java/com/google/devtools/build/lib/actions:total_and_configured_target_only_metric",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//third_party:guava",
     ],
@@ -633,7 +634,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
