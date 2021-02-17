@@ -11,12 +11,12 @@ This page covers requirements and layout for output directories.
 
 Requirements for an output directory layout:
 
-* Don't collide if multiple users are building on the same box.
-* Support building in multiple workspaces at the same time.
-* Support building for multiple target configurations in the same workspace.
-* Don't collide with any other tools.
-* Be easy to access.
-* Be easy to clean, even selectively.
+* Doesn't collide if multiple users are building on the same box.
+* Supports building in multiple workspaces at the same time.
+* Supports building for multiple target configurations in the same workspace.
+* Doesn't collide with any other tools.
+* Is easy to access.
+* Is easy to clean, even selectively.
 * Is unambiguous, even if the user relies on symbolic links when changing into
   their client directory.
 * All the build state per user should be underneath one directory ("I'd like to
