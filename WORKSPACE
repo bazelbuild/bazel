@@ -174,7 +174,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz",
         # grpc/grpc
-        "v1.32.0.tar.gz",
+        "v1.33.1.tar.gz",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
@@ -215,7 +215,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
         # grpc/grpc
-        "v1.32.0.tar.gz": "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
+        "v1.33.1.tar.gz": "58eaee5c0f1bd0b92ebe1fa0606ec8f14798500620e7444726afcaf65041cb63",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
@@ -298,9 +298,9 @@ distdir_tar(
             "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
         ],
         # grpc/grpc
-        "v1.32.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+        "v1.33.1.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.33.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.33.1.tar.gz",
         ],
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
@@ -567,7 +567,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz",
         # grpc/grpc
-        "v1.32.0.tar.gz",
+        "v1.33.1.tar.gz",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
@@ -601,7 +601,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
         # grpc/grpc
-        "v1.32.0.tar.gz": "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
+        "v1.33.1.tar.gz": "58eaee5c0f1bd0b92ebe1fa0606ec8f14798500620e7444726afcaf65041cb63",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
@@ -654,9 +654,9 @@ distdir_tar(
             "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
         ],
         # grpc/grpc
-        "v1.32.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+        "v1.33.1.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.33.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.33.1.tar.gz",
         ],
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
@@ -1147,12 +1147,12 @@ register_toolchains("//src/main/res:empty_rc_toolchain")
 http_archive(
     name = "com_github_grpc_grpc",
     patch_args = ["-p1"],
-    patches = ["//third_party/grpc:grpc_1.32.0.patch"],
-    sha256 = "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
-    strip_prefix = "grpc-1.32.0",
+    patches = ["//third_party/grpc:grpc_1.33.1.patch"],
+    sha256 = "58eaee5c0f1bd0b92ebe1fa0606ec8f14798500620e7444726afcaf65041cb63",
+    strip_prefix = "grpc-1.33.1",
     urls = [
-        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
-        "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
+        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.33.1.tar.gz",
+        "https://github.com/grpc/grpc/archive/v1.33.1.tar.gz",
     ],
 )
 

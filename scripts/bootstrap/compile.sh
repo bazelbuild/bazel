@@ -27,7 +27,7 @@ fi
 GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
 PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto -name "*.proto")
 LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
-GRPC_JAVA_VERSION=1.32.2
+GRPC_JAVA_VERSION=1.33.1
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
 GUAVA_VERSION=29.0
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
