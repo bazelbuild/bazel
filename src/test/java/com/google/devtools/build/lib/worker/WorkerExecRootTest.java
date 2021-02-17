@@ -53,8 +53,8 @@ public class WorkerExecRootTest {
     workspaceDir.createDirectory();
     sandboxDir = testRoot.getRelative("sandbox");
     sandboxDir.createDirectory();
-    execRoot = sandboxDir.getRelative("execroot");
-    execRoot.createDirectory();
+    execRoot = sandboxDir.getRelative("execroot/__main__");
+    execRoot.createDirectoryAndParents();
   }
 
   @Test
@@ -211,5 +211,46 @@ public class WorkerExecRootTest {
             FileSystemUtils.readContent(
                 execRoot.getRelative("some_file"), Charset.defaultCharset()))
         .isEmpty();
+  }
+
+  @Test
+  public void createsAndDeletesSiblingExternalRepoFiles() throws Exception {
+    Path fooRepoDir = testRoot.getRelative("external_dir/foo");
+    fooRepoDir.createDirectoryAndParents();
+
+    fooRepoDir.getRelative("bar").createDirectory();
+    Path input1 = fooRepoDir.getRelative("bar/input1");
+    FileSystemUtils.writeContentAsLatin1(input1, "This is input1.");
+    Path input2 = fooRepoDir.getRelative("input2");
+    FileSystemUtils.writeContentAsLatin1(input1, "This is input2.");
+    Path random = fooRepoDir.getRelative("bar/random");
+    FileSystemUtils.writeContentAsLatin1(input1, "This is random.");
+
+    // With the sibling repository layout, external repository source files are no longer symlinked
+    // under <execroot>/external/<repo name>/<path>. Instead, they become *siblings* of the main
+    // workspace files in that they're placed at <execroot>/../<repo name>/<path>. Simulate this
+    // layout and check if inputs are correctly created and irrelevant symlinks are deleted.
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("../foo/bar/input1"), input1);
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("../foo/bar/random"), random);
+
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(
+                PathFragment.create("../foo/bar/input1"),
+                input1,
+                PathFragment.create("../foo/input2"),
+                input2),
+            ImmutableSet.of(),
+            ImmutableMap.of());
+    SandboxOutputs outputs = SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
+    ImmutableSet<PathFragment> workerFiles = ImmutableSet.of();
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(execRoot);
+    workerExecRoot.createFileSystem(workerFiles, inputs, outputs);
+
+    assertThat(execRoot.getRelative("../foo/bar/input1").readSymbolicLink())
+        .isEqualTo(input1.asFragment());
+    assertThat(execRoot.getRelative("../foo/input2").readSymbolicLink())
+        .isEqualTo(input2.asFragment());
+    assertThat(execRoot.getRelative("bar/random").exists()).isFalse();
   }
 }
