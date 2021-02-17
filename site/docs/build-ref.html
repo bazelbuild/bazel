@@ -157,7 +157,8 @@ src/my/app/tests/test.cc
 
 <p>
   All targets belong to exactly one package. The name of a target is
-  called its <em>label</em>, and a typical label in canonical form
+  called its <em>label</em>.  Every label uniquely
+  identifies a target. A typical label in canonical form
   looks like this:
 </p>
 
@@ -167,9 +168,10 @@ src/my/app/tests/test.cc
 </pre>
 
 <p>
-  In the typical case that a label refers to the same repository it occurs
-  in, the repository name may be left out. So, inside <code>@myrepo</code>
-  this label is usually written as
+  The first part of the label is the repository name, <code>@myrepo//</code>.
+  In the typical case that a label refers to the same repository it is used
+  in, the repository identifier may be abbreviated as <code>//</code>. So, inside 
+  <code>@myrepo</code> this label is usually written as
 </p>
 
 <pre>
@@ -177,44 +179,17 @@ src/my/app/tests/test.cc
 </pre>
 
 <p>
-
-  Each label has two parts, a package name
-  (<code>@myrepo//my/app/main</code> or <code>//my/app/main</code>)
-  and a target name (<code>app_binary</code>). Every label uniquely
-  identifies a target. Labels sometimes appear in other forms; when
-  the colon is omitted, the target name is assumed to be the same as
-  the last component of the package name, so these two labels are
-  equivalent:
+  The second part of the label is the un-qualified package name
+  <code>my/app/main</code>, the path to the package
+  relative to the repository root.  When the label refers to the same
+  package it is used in, the package name (and optionally, the colon)
+  may be omitted.  So, inside <code>@myrepo//my/app/main</code>,
+  this label may be written either of the following ways:
 </p>
 
 <pre>
-//my/app
-//my/app:app
-</pre>
-
-<p>
-  Short-form labels such as <code>//my/app</code> are not to
-  be confused with package names. Labels start with <code>//</code>,
-  but package names never do, thus <code>my/app</code> is the
-  package containing <code>//my/app</code>.
-
-  (A common misconception is that <code>//my/app</code> refers
-  to a package, or to <em>all</em> the targets in a package; neither
-  is true.)
-</p>
-
-<p>
-  Within a BUILD file, the package-name part of label may be omitted,
-  and optionally the colon too. So within the BUILD file for package
-  <code>my/app</code> (i.e. <code>//my/app:BUILD</code>),
-  the following "relative" labels are all equivalent:
-</p>
-
-<pre>
-//my/app:app
-//my/app
-:app
-app
+app_binary
+:app_binary
 </pre>
 
 <p>
@@ -223,27 +198,48 @@ app
 </p>
 
 <p>
-  Similarly, within a BUILD file, files belonging to the package may
-  be referenced by their unadorned name relative to the package
-  directory:
+  The part of the label after
+  the colon, <code>app_binary</code> is the un-qualified target name.
+  When it matches the last component of the package path, it, and
+  the colon, may be omitted.  So, these two labels are 
+  equivalent:
 </p>
 
-
 <pre>
-generate.cc
-testdata/input.txt
+//my/app/lib
+//my/app/lib:lib
 </pre>
 
 <p>
-  But from other packages, or from the command-line, these file
-  targets must always be referred to by their complete label, e.g.
-  <code>//my/app:generate.cc</code>.
+  The name of a file target in a subdirectory of the
+  package is the file's path relative to the package
+  root (the directory containing the <code>BUILD</code> file),
+  so this file is in the <code>my/app/main/testdata</code>
+  subdirectory of the repository:
+</p>
+
+<pre>
+//my/app/main:testdata/input.txt
+</pre>
+
+<p>
+  Labels such as <code>//my/app</code> are not to
+  be confused with package names. Labels always start with a
+  repository identifier (often abbreviated <code>//</code>)
+  but package names never do. Thus, <code>my/app</code> is the
+  package containing <code>//my/app/lib</code> (a.k.a. 
+  <code>//my/app/lib:lib</code>).
+
+  (A common misconception is that <code>//my/app</code> refers
+  to a package, or to <em>all</em> the targets in a package; neither
+  is true.)
 </p>
 
 <p>
   Relative labels cannot be used to refer to targets in other
-  packages; the complete package name must always be specified in this
-  case. For example, if the source tree contains both the package
+  packages; the repository identifier and package name must
+  always be specified in this case. For example, if the source
+  tree contains both the package
   <code>my/app</code> and the package
   <code>my/app/testdata</code> (i.e., each of these two
   packages has its own BUILD file). The latter package contains a
