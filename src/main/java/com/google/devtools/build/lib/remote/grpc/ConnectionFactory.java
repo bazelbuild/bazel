@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.grpc;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.reactivex.rxjava3.core.Single;
 
 /**
@@ -25,7 +26,10 @@ import io.reactivex.rxjava3.core.Single;
  *
  * <p>Connection creation must be cancellable. Canceling connection creation must release (“close”)
  * the connection and all associated resources.
+ *
+ * <p>Implementations must be thread-safe.
  */
+@ThreadSafe
 public interface ConnectionFactory {
   /** Creates a new {@link Connection}. */
   Single<? extends Connection> create();
