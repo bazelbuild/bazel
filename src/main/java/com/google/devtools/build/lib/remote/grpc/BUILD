@@ -16,6 +16,8 @@ java_library(
     name = "grpc",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
         "//third_party:rxjava3",
         "//third_party/grpc:grpc-jar",
     ],
