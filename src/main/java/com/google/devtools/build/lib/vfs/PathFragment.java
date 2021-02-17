@@ -614,7 +614,8 @@ public final class PathFragment
    */
   public boolean containsUplevelReferences() {
     // Path is normalized, so any ".." would have to be the first segment.
-    return normalizedPath.equals("..") || normalizedPath.startsWith(".." + SEPARATOR_CHAR);
+    return normalizedPath.startsWith("..")
+        && (normalizedPath.length() == 2 || normalizedPath.charAt(2) == SEPARATOR_CHAR);
   }
 
   /**
