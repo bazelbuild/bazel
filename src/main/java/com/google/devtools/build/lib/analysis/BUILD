@@ -711,6 +711,15 @@ java_library(
 )
 
 java_library(
+    name = "configured_target_value",
+    srcs = ["ConfiguredTargetValue.java"],
+    deps = [
+        ":configured_object_value",
+        ":configured_target",
+    ],
+)
+
+java_library(
     name = "denied_implicit_outputs_marker_provider",
     srcs = ["DeniedImplicitOutputMarkerProvider.java"],
     deps = [
