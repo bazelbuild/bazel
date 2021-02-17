@@ -352,6 +352,7 @@ def create_dummy_sdk_toolchain():
         proguard = ":empty-binary",
         shrinked_android_jar = "dummy.jar",
         zipalign = ":empty-binary",
+        tags = ["__ANDROID_RULES_MIGRATION__"],
     )
 
 def create_system_images_filegroups(system_image_dirs):
