@@ -38,13 +38,13 @@ class LogHelper {
   }
 };
 
-// Abort the program after logging the mesage if the given condition is not
+// Abort the program after logging the message if the given condition is not
 // true. Otherwise, do nothing.
 #define GRPC_CODEGEN_CHECK(x) !(x) && LogHelper(&std::cerr).get_os() \
                              << "CHECK FAILED: " << __FILE__ << ":" \
                              << __LINE__ << ": "
 
-// Abort the program after logging the mesage.
+// Abort the program after logging the message.
 #define GRPC_CODEGEN_FAIL GRPC_CODEGEN_CHECK(false)
 
 namespace java_grpc_generator {
