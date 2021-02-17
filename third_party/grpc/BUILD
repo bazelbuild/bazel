@@ -18,7 +18,7 @@ load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "dis
 
 licenses(["notice"])  # Apache v2
 
-exports_files(["grpc_1.32.0.patch", "grpc_1.33.1.patch"])
+exports_files(["grpc_1.33.1.patch"])
 
 package(default_visibility = ["//visibility:public"])
 
