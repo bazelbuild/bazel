@@ -113,7 +113,7 @@ public final class PathFragment
     return normalizedPath.isEmpty();
   }
 
-  int getDriveStrLength() {
+  public int getDriveStrLength() {
     return driveStrLength;
   }
 

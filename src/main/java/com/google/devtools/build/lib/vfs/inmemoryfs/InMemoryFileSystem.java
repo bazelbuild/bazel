@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.devtools.build.lib.collect.CollectionUtils.isNullOrEmpty;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -33,10 +35,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Stack;
 import javax.annotation.Nullable;
 
 /**
@@ -155,9 +159,9 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     return path.getRelative("/proc/mounts").exists() ? super.getFileSystemType(path) : "inmemoryfs";
   }
 
-  /****************************************************************************
-   * "Kernel" primitives: basic directory lookup primitives, in topological
-   * order.
+  /*
+   ***************************************************************************
+   * "Kernel" primitives: basic directory lookup primitives, in topological order.
    */
 
   /**
@@ -237,19 +241,23 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
    * <p>May fail with ENOTDIR, ENOENT, EACCES, ELOOP.
    */
   private synchronized InodeOrErrno pathWalkErrno(Path path, OnEnoent behavior) {
-    Stack<String> stack = new Stack<>();
-    for (Path p = path; !isRootDirectory(p); p = p.getParentDirectory()) {
-      String name = baseNameOrWindowsDrive(p);
-      stack.push(name);
+    Iterator<String> it = path.segmentIterator();
+
+    // Prepend the Windows drive if there is one.
+    if (path.getDriveStrLength() > 1) {
+      it = Iterators.concat(Iterators.singletonIterator(path.getDriveStr()), it);
     }
 
     InMemoryContentInfo inode = rootInode;
     int traversals = 0;
 
-    while (!stack.isEmpty()) {
+    // Stack of symlink targets. Lazily initialized because we probably won't see any.
+    Deque<String> symlinks = null;
+
+    while (it.hasNext() || !isNullOrEmpty(symlinks)) {
       traversals++;
 
-      String name = stack.pop();
+      String name = !isNullOrEmpty(symlinks) ? symlinks.pop() : it.next();
 
       InodeOrErrno childOrError = directoryLookupErrno(inode, name);
 
@@ -260,12 +268,12 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
         InMemoryDirectoryInfo parent = inode.asDirectory();
         Errno error;
         if (behavior == OnEnoent.CREATE_DIRECTORY_AND_PARENTS) {
-          // ENOENT anywhere with CREATE_DIRECTORY_AND_PARENTS => create a new directory.
+          // ENOENT anywhere with Create.DIRECTORY_AND_PARENTS => create a new directory.
           InMemoryDirectoryInfo newDir = new InMemoryDirectoryInfo(clock);
           error = insertChildDirectory(parent, newDir, name);
           child = newDir;
-        } else if (stack.isEmpty()) {
-          // ENOENT on last segment with CREATE_FILE => create a new file.
+        } else if (!it.hasNext() && isNullOrEmpty(symlinks)) {
+          // ENOENT on last segment with Create.FILE => create a new file.
           child = newFile(clock, path);
           error = insert(parent, name, child);
         } else {
@@ -288,16 +296,18 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
         if (traversals > MAX_TRAVERSALS) {
           return Errno.ELOOP;
         }
-        List<String> segments = linkTarget.getSegments();
-        for (int ii = segments.size() - 1; ii >= 0; --ii) {
-          stack.push(segments.get(ii)); // Note this may include ".." segments.
-        }
-        // Push Windows drive if there is one
-        if (linkTarget.isAbsolute()) {
-          String driveStr = linkTarget.getDriveStr();
-          if (driveStr.length() > 1) {
-            stack.push(driveStr);
+
+        List<String> segments = linkTarget.getSegments(); // Note this may include ".." segments.
+        if (symlinks == null) {
+          symlinks = new ArrayDeque<>(segments);
+        } else {
+          for (int ii = segments.size() - 1; ii >= 0; --ii) {
+            symlinks.push(segments.get(ii));
           }
+        }
+        // Push Windows drive if there is one.
+        if (linkTarget.getDriveStrLength() > 1) {
+          symlinks.push(linkTarget.getDriveStr());
         }
       }
     }
@@ -378,13 +388,14 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     return inodeStatErrno(path, followSymlinks).inodeOrThrow(path);
   }
 
-  /****************************************************************************
-   *  FileSystem methods
+  /*
+   ***************************************************************************
+   * FileSystem methods
    */
 
   /**
    * This is a helper routing for {@link #resolveSymbolicLinks(Path)}, i.e. the "user-mode" routing
-   * for canonicalising paths. It is analogous to the code in glibc's realpath(3).
+   * for canonicalizing paths. It is analogous to the code in glibc's realpath(3).
    *
    * <p>Just like realpath, resolveSymbolicLinks requires a quadratic number of directory lookups: n
    * path segments are statted, and each stat requires a linear amount of work in the "kernel"
