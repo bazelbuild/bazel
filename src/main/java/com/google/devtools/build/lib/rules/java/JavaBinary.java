@@ -645,11 +645,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     semantics.addRunfilesForBinary(ruleContext, launcher, builder);
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());

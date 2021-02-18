@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 
@@ -80,21 +79,18 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
-    JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
-
     JavaInfo javaInfo =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaStrictCompilationArgsProvider.class, strictDependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
-            .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
             .build();
 
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
             .setFilesToBuild(filesToBuild.build())
-            .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+            .addProvider(RunfilesProvider.simple(runfiles))
             .addOutputGroup(
                 OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
             .addNativeDeclaredProvider(javaInfo);

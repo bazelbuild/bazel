@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -302,11 +301,6 @@ final class JavaInfoBuildHelper {
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);
-    Runfiles runfiles =
-        new Runfiles.Builder(starlarkRuleContext.getWorkspaceName())
-            .addTransitiveArtifactsWrappedInStableOrder(
-                javaCompilationArgsProvider.getRuntimeJars())
-            .build();
 
     ImmutableList<Artifact> outputSourceJars = ImmutableList.of(outputSourceJar);
 
@@ -322,7 +316,6 @@ final class JavaInfoBuildHelper {
             JavaSourceJarsProvider.class,
             createJavaSourceJarsProvider(outputSourceJars, concat(deps, exports)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
-        .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
         .addProvider(
             JavaPluginInfoProvider.class,
             createJavaPluginsProvider(concat(exportedPlugins, exports)))

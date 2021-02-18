@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
-import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
@@ -72,7 +71,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           JavaCompilationArgsProvider.class,
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
-          JavaRunfilesProvider.class,
           JavaPluginInfoProvider.class,
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
@@ -124,8 +122,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaStrictCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
-    List<JavaRunfilesProvider> javaRunfilesProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
     List<JavaPluginInfoProvider> javaPluginInfoProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
     List<JavaExportsProvider> javaExportsProviders =
@@ -134,12 +130,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
     List<JavaSourceInfoProvider> sourceInfos =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceInfoProvider.class);
-
-    Runfiles mergedRunfiles = Runfiles.EMPTY;
-    for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
-      Runfiles runfiles = javaRunfilesProvider.getRunfiles();
-      mergedRunfiles = mergedRunfiles == Runfiles.EMPTY ? runfiles : mergedRunfiles.merge(runfiles);
-    }
 
     ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
     ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
@@ -160,7 +150,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .addProvider(
             JavaRuleOutputJarsProvider.class,
             JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-        .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
