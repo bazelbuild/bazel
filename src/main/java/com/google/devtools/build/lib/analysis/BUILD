@@ -1315,6 +1315,8 @@ java_library(
     deps = [
         ":actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//third_party:guava",
     ],
 )
 
