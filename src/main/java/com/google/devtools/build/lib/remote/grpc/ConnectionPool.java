@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.grpc;
 
+import io.reactivex.rxjava3.core.Single;
 import java.io.Closeable;
 import java.io.IOException;
 
@@ -24,6 +25,13 @@ import java.io.IOException;
  * <p>Connections must be closed with {@link Connection#close()} in order to be reused later.
  */
 public interface ConnectionPool extends ConnectionFactory, Closeable {
+  /**
+   * Reuses a {@link Connection} in the pool and will potentially create a new connection depends on
+   * implementation.
+   */
+  @Override
+  Single<? extends Connection> create();
+
   /** Closes the connection pool and closes all the underlying connections */
   @Override
   void close() throws IOException;
