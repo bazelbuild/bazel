@@ -606,7 +606,7 @@ public abstract class CcModule
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
         if (dynamicLibraryPathFragment != null) {
-          if (dynamicLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+          if (dynamicLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
             throw Starlark.errorf(
                 "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
                 dynamicLibrary.getRootRelativePath());
@@ -632,7 +632,7 @@ public abstract class CcModule
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
         if (interfaceLibraryPathFragment != null) {
-          if (interfaceLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+          if (interfaceLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
             throw Starlark.errorf(
                 "interface_library must not be a symbolic link in the solib directory. Got '%s'",
                 interfaceLibrary.getRootRelativePath());
