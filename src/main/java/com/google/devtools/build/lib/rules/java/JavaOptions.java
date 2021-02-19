@@ -495,7 +495,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disallow_strict_deps_for_jlpl",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       metadataTags = {
