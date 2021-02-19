@@ -233,10 +233,16 @@ static void DumpAsJson(
   FILE *output,
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
   fprintf(output, "{\n");
+  int i = 0;
+  NSString *separator = @",";
   for (NSString *version in dict) {
+    i++;
     XcodeVersionEntry *entry = dict[version];
-    fprintf(output, "\t\"%s\": \"%s\",\n",
-            version.UTF8String, entry.url.fileSystemRepresentation);
+    if (i == [dict count]) {
+       separator = @"";
+    }
+    fprintf(output, "\t\"%s\": \"%s\"%s\n",
+            version.UTF8String, entry.url.fileSystemRepresentation, separator.UTF8String);
   }
   fprintf(output, "}\n");
 }
