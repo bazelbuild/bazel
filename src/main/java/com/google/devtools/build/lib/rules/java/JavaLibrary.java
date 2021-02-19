@@ -181,7 +181,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             // attrs.
             : JavaCommon.getTransitivePlugins(ruleContext);
 
-    // java_library doesn't need to return JavaRunfilesProvider
     JavaInfo javaInfo =
         javaInfoBuilder
             .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
