@@ -54,7 +54,7 @@ doc_versions:
   - 0.17.1
 
 main_site_url: https://www.bazel.build
-getting_started_category_url: "/"
+getting_started_category_url: "/bazel-overview.html"
 docs_site_url: "/guide.html"
 blog_site_url: https://blog.bazel.build
 
