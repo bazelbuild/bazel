@@ -154,7 +154,7 @@ class DirectoryTreeBuilder {
 
             case DIRECTORY:
               SortedMap<PathFragment, ActionInput> directoryInputs =
-                  explodeDirectory(path, execRoot);
+                  explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
                   directoryInputs, metadataProvider, execRoot, digestUtil, tree);
 
