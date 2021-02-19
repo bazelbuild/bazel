@@ -2530,8 +2530,10 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    deps = [':mya'],",
         "    exports = [':myb'],",
         ")");
+
     // Test that all bottom jars are on the runtime classpath of lib_android.
     ConfiguredTarget target = getConfiguredTarget("//foo:lib_foo");
+
     ImmutableList<Artifact> transitiveSrcJars =
         OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars))
@@ -2539,6 +2541,12 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
             "libjl_bottom_for_exports-src.jar",
             "libal_bottom_for_deps-src.jar",
             "liblib_foo-src.jar");
+    ImmutableList<Artifact> directSrcJars =
+        OutputGroupInfo.get(target)
+            .getOutputGroup(JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP)
+            .toList();
+    assertThat(ActionsTestUtil.baseArtifactNames(directSrcJars))
+        .containsExactly("liblib_foo-src.jar");
   }
 
   @Test
