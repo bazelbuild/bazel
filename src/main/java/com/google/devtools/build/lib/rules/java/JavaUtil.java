@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -78,9 +79,9 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    int rootIndex = path.getFirstSegment(KNOWN_SOURCE_ROOTS);
-    if (rootIndex < 0) {
-      return rootIndex;
+    int rootIndex = Iterables.indexOf(path.segments(), KNOWN_SOURCE_ROOTS::contains);
+    if (rootIndex == -1) {
+      return -1;
     }
     final boolean isSrc = "src".equals(path.getSegment(rootIndex));
     int checkMavenIndex = isSrc ? rootIndex : -1;

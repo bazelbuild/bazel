@@ -158,7 +158,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   /** SkyKey for retrieving a compiled .bzl program. */
   @AutoCodec
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     /** The root in which the .bzl file is to be found. Null for EMPTY_PRELUDE. */
     @Nullable final Root root;
 
@@ -185,6 +185,10 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
     boolean isBuildPrelude() {
       return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
+    }
+
+    public Label getLabel() {
+      return label;
     }
 
     @Override

@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel
+category: getting-started
 ---
 
 # Installing Bazel

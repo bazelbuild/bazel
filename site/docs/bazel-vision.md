@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Bazel vision
+category: getting-started
 ---
 
 # Bazel Vision

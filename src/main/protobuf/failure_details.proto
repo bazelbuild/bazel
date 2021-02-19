@@ -780,6 +780,7 @@ message ActionQuery {
     TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED = 11
         [(metadata) = { exit_code: 2 }];
     SKYFRAME_STATE_AFTER_EXECUTION = 12 [(metadata) = { exit_code: 1 }];
+    LABELS_FUNCTION_NOT_SUPPORTED = 13 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

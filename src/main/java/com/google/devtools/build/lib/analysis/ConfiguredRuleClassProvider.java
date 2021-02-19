@@ -127,7 +127,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
     private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
-    private ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
+    private final ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
+        ImmutableMap.builder();
+    private final ImmutableMap.Builder<String, Object> starlarkBuiltinsInternals =
         ImmutableMap.builder();
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
@@ -258,6 +260,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
+      return this;
+    }
+
+    public Builder addStarlarkBuiltinsInternal(String name, Object object) {
+      this.starlarkBuiltinsInternals.put(name, object);
       return this;
     }
 
@@ -497,6 +504,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
           starlarkAccessibleTopLevels.build(),
+          starlarkBuiltinsInternals.build(),
           starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
@@ -586,6 +594,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
 
+  private final ImmutableMap<String, Object> starlarkBuiltinsInternals;
+
   private final ImmutableMap<String, Object> environment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
@@ -619,7 +629,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Object> starlarkAccessibleJavaClasses,
+      ImmutableMap<String, Object> starlarkAccessibleTopLevels,
+      ImmutableMap<String, Object> starlarkBuiltinsInternals,
       ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
@@ -646,7 +657,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
     this.nativeRuleSpecificBindings =
-        createNativeRuleSpecificBindings(starlarkAccessibleJavaClasses, starlarkBootstraps);
+        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
+    this.starlarkBuiltinsInternals = starlarkBuiltinsInternals;
     this.environment = createEnvironment(nativeRuleSpecificBindings);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
@@ -842,6 +854,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     // should be overridable by @_builtins); in practice it means anything specifically
     // registered with the RuleClassProvider.
     return nativeRuleSpecificBindings;
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getStarlarkBuiltinsInternals() {
+    return starlarkBuiltinsInternals;
   }
 
   @Override

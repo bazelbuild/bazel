@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Concepts and terminology
+category: getting-started
 ---
 <h1>Concepts and Terminology</h1>
 <p>
@@ -41,8 +42,8 @@ title: Concepts and terminology
    are defined in the <code>WORKSPACE</code> file using workspace rules.
 
 <p>The workspace rules bundled with Bazel are documented in the
-   <a href="be/workspace.html">Workspace Rules</a> section in the Build
-   Encyclopedia and the documentation on
+   <a href="be/workspace.html">Workspace Rules</a> section in the
+   <a href="be/overview.html">Build Encyclopedia</a> and the documentation on
    <a href="repo/index.html">embedded Starlark repository rules</a>.</p>
 
 <p>As external repositories are repositories themselves, they often contain
@@ -148,8 +149,9 @@ src/my/app/tests/test.cc
   are from the <code>visibility</code> attribute of rules or from the
   <code>default_visibility</code> attribute of the <code>package</code>
   function; they do not generate or consume files. For more information, refer
-  to the appropriate section of the <a
-  href='be/functions.html#package_group'>Build Encyclopedia</a>.
+  to the <a
+  href='be/functions.html#package_group'><code>package_group</code>
+  documentation</a>.
 </p>
 
 

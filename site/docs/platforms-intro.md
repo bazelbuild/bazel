@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Building with platforms
+category: getting-started
 ---
 
 # Building with Platforms

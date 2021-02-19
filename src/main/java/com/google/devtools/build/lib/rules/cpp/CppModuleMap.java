@@ -26,6 +26,8 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 @AutoCodec
 public final class CppModuleMap implements CppModuleMapApi<Artifact> {
+  public static final String SEPARATE_MODULE_SUFFIX = ".sep";
+
   // NOTE: If you add a field here, you'll likely need to update CppModuleMapAction.computeKey().
   private final Artifact artifact;
   private final String name;

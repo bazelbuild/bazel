@@ -482,9 +482,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * Given a map of build settings to their values, return a map with the same build settings but
      * in their canonicalized string form to their values.
      *
-     * <p>TODO(juliexxia): It would be nice if this method also returned a map of the canonicalized
-     * settings to given settings so that when we throw the "unrecognized returned option" warning
-     * we can show the setting as the user gave it as well as in its canonicalized form.
+     * <p>TODO(blaze-configurability): It would be nice if this method also returned a map of the
+     * canonicalized settings to given settings so that when we throw the "unrecognized returned
+     * option" warning we can show the setting as the user gave it as well as in its canonicalized
+     * form.
      */
     private static ImmutableMap<String, Object> canonicalizeTransitionOutputDict(
         Map<String, Object> dict,

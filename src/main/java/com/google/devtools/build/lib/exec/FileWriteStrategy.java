@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
@@ -45,14 +45,14 @@ public final class FileWriteStrategy implements FileWriteActionContext {
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
-      boolean isRemotable) {
+      boolean isRemotable,
+      Artifact output) {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
         GoogleAutoProfilerUtils.logged(
             "running write for action " + action.prettyPrint(), MIN_LOGGING)) {
-      Path outputPath =
-          actionExecutionContext.getInputPath(Iterables.getOnlyElement(action.getOutputs()));
+      Path outputPath = actionExecutionContext.getInputPath(output);
       try {
         try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
           deterministicWriter.writeOutputFile(out);

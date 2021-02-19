@@ -14,12 +14,16 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Starlark;
 
+// TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this and
+// the other env-building functions.
 /**
  * This class encapsulates knowledge of how to set up the Starlark environment for BUILD, WORKSPACE,
  * and bzl file evaluation, including the top-level predeclared symbols, the {@code native} module,
@@ -31,12 +35,6 @@ import net.starlark.java.eval.Starlark;
  * result of (1) is cached by an instance of this class. (2) is obtained using helper methods on
  * this class, and cached in {@link StarlarkBuiltinsValue}.
  */
-// TODO(#11437): To deal with StarlarkSemantics inspection via _builtins.flags, we can make it a
-// function (not a struct field) that accesses the StarlarkThread. To deal with flag-guarded
-// top-level symbols exposed under _builtins.toplevel, we can simply make them all accessible
-// unconditionally, under the principle that the flag migrator should be responsible for deleting
-// all uses from @_builtins code, and @_builtins code can be trusted to use flag-guarded features
-// responsibly.
 public final class BazelStarlarkEnvironment {
 
   // TODO(#11954): Eventually the BUILD and WORKSPACE bzl dialects should converge. Right now they
@@ -73,7 +71,9 @@ public final class BazelStarlarkEnvironment {
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
     this.workspaceBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
-    this.builtinsBzlEnv = createBuiltinsBzlEnv(ruleClassProvider);
+    this.builtinsBzlEnv =
+        createBuiltinsBzlEnv(
+            ruleClassProvider, uninjectedBuildBzlNativeBindings, uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
         createUninjectedBuildEnv(ruleFunctions, packageFunction, environmentExtensions);
   }
@@ -194,14 +194,43 @@ public final class BazelStarlarkEnvironment {
   }
 
   private static ImmutableMap<String, Object> createBuiltinsBzlEnv(
-      RuleClassProvider ruleClassProvider) {
+      RuleClassProvider ruleClassProvider,
+      ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings,
+      ImmutableMap<String, Object> uninjectedBuildBzlEnv) {
     Map<String, Object> env = new HashMap<>();
     env.putAll(ruleClassProvider.getEnvironment());
 
     // Clear out rule-specific symbols like CcInfo.
     env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
 
-    env.put("_internal", InternalModule.INSTANCE);
+    // For _builtins.toplevel, replace all FlagGuardedValues with the underlying value;
+    // StarlarkSemantics flags do not affect @_builtins.
+    //
+    // We do this because otherwise we'd need to differentiate the _builtins.toplevel object (and
+    // therefore the @_builtins environment) based on StarlarkSemantics. That seems unnecessary.
+    // Instead we trust @_builtins to not misuse flag-guarded features, same as native code.
+    //
+    // If foo is flag-guarded (either experimental or incompatible), it is unconditionally visible
+    // as _builtins.toplevel.foo. It is legal to list it in exported_toplevels unconditionally, but
+    // the flag still controls whether the symbol is actually visible to user code.
+    Map<String, Object> unwrappedBuildBzlSymbols = new HashMap<>();
+    for (Map.Entry<String, Object> entry : uninjectedBuildBzlEnv.entrySet()) {
+      Object symbol = entry.getValue();
+      if (symbol instanceof FlagGuardedValue) {
+        symbol = ((FlagGuardedValue) symbol).getObject();
+      }
+      unwrappedBuildBzlSymbols.put(entry.getKey(), symbol);
+    }
+
+    Object builtinsModule =
+        new BuiltinsInternalModule(
+            createNativeModule(uninjectedBuildBzlNativeBindings),
+            // createNativeModule() is good enough for the "toplevel" and "internal" objects too.
+            createNativeModule(unwrappedBuildBzlSymbols),
+            createNativeModule(ruleClassProvider.getStarlarkBuiltinsInternals()));
+    Object conflictingValue = env.put("_builtins", builtinsModule);
+    Preconditions.checkState(
+        conflictingValue == null, "'_builtins' name is reserved for builtins injection");
 
     return ImmutableMap.copyOf(env);
   }
@@ -220,16 +249,6 @@ public final class BazelStarlarkEnvironment {
   public ImmutableMap<String, Object> createBuildBzlEnvUsingInjection(
       Map<String, Object> injectedToplevels, Map<String, Object> injectedRules)
       throws InjectionException {
-    // TODO(#11437): Builtins injection should take into account StarlarkSemantics and
-    // FlagGuardedValues. If a builtin is disabled by a flag, we can either:
-    //
-    //   1) Treat it as if it doesn't exist for the purposes of injection. In this case it's an
-    //      error to attempt to inject it, so exports.bzl is required to explicitly check the flag's
-    //      value (via the _internal module) before exporting it.
-    //
-    //   2) Allow it to be exported and automatically suppress/omit it from the final environment,
-    //      effectively rewrapping the injected builtin in the FlagGuardedValue.
-
     // Determine top-level symbols.
     Map<String, Object> env = new HashMap<>();
     env.putAll(uninjectedBuildBzlEnv);
@@ -276,8 +295,6 @@ public final class BazelStarlarkEnvironment {
    * overridden in this manner, not generic built-ins such as {@code package} or {@code glob}.
    * Throws InjectionException if these conditions are not met.
    */
-  // TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this and
-  // the other env-building functions.
   public ImmutableMap<String, Object> createBuildEnvUsingInjection(
       Map<String, Object> injectedRules) throws InjectionException {
     HashMap<String, Object> env = new HashMap<>(uninjectedBuildEnv);

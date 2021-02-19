@@ -31,6 +31,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -206,6 +207,10 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
     return path.substring(0, driveStrLength);
   }
 
+  public int getDriveStrLength() {
+    return driveStrLength;
+  }
+
   /**
    * Returns the {@link Path} relative to the base {@link Path}.
    *
@@ -369,6 +374,11 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
       result.add(getChild(entry));
     }
     return result;
+  }
+
+  /** Returns an {@link Iterator} that lazily yields the segments of this path. */
+  public Iterator<String> segmentIterator() {
+    return PathSegmentIterator.create(path, driveStrLength);
   }
 
   /**

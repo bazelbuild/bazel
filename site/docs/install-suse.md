@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel on openSUSE
+category: getting-started
 ---
 
 # Installing Bazel on openSUSE Tumbleweed & Leap

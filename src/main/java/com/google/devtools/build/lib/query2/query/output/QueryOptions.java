@@ -117,7 +117,7 @@ public class QueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "incompatible_lexicographical_output",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {

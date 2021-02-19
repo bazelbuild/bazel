@@ -214,7 +214,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     NativeLibs nativeLibs =
         NativeLibs.fromLinkedNativeDeps(
             ruleContext,
-            ImmutableList.of("application_resources", "deps"),
+            ImmutableList.of("deps"),
             androidSemantics.getNativeDepsFileName(),
             cppSemantics);
 

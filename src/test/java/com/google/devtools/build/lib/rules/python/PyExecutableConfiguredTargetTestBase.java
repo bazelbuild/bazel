@@ -263,4 +263,18 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     // action to FailAction.
     assertNoEvents();
   }
+
+  @Test
+  public void targetInPackageWithHyphensOkIfSrcsFromOtherPackage() throws Exception {
+    scratch.file(
+        "pkg/BUILD", //
+        "exports_files(['foo.py'])");
+    scratch.file(
+        "pkg-with-hyphens/BUILD",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    main = '//pkg:foo.py',",
+        "    srcs = ['//pkg:foo.py'])");
+    getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
+  }
 }

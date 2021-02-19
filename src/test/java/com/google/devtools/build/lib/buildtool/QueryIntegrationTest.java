@@ -212,7 +212,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       targets += "sh_library(name = '" + dep + "')\n";
     }
     expected.add("//foo:a");
-    Collections.sort(expected, Collections.reverseOrder());
+    Collections.sort(expected);
     write("foo/BUILD", "sh_library(name = 'a', deps = [" + depString + "])", targets);
     List<String> result = getStringQueryResult("deps(//foo:a)");
     assertThat(result).containsExactlyElementsIn(expected).inOrder();

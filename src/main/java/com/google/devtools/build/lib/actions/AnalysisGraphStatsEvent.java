@@ -19,22 +19,24 @@ package com.google.devtools.build.lib.actions;
  * com.google.devtools.build.lib.skyframe.SkyframeBuildView#shouldCheckForConflicts}.
  */
 public final class AnalysisGraphStatsEvent {
-  private final int actionLookupValueCount;
-  private final int actionCount;
+  private final TotalAndConfiguredTargetOnlyMetric actionLookupValueCount;
+  private final TotalAndConfiguredTargetOnlyMetric actionCount;
   private final int outputArtifactCount;
 
   public AnalysisGraphStatsEvent(
-      int actionLookupValueCount, int actionCount, int outputArtifactCount) {
+      TotalAndConfiguredTargetOnlyMetric actionLookupValueCount,
+      TotalAndConfiguredTargetOnlyMetric actionCount,
+      int outputArtifactCount) {
     this.actionLookupValueCount = actionLookupValueCount;
     this.actionCount = actionCount;
     this.outputArtifactCount = outputArtifactCount;
   }
 
-  public int getActionLookupValueCount() {
+  public TotalAndConfiguredTargetOnlyMetric getActionLookupValueCount() {
     return actionLookupValueCount;
   }
 
-  public int getActionCount() {
+  public TotalAndConfiguredTargetOnlyMetric getActionCount() {
     return actionCount;
   }
 
