@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel on Ubuntu
+category: getting-started
 ---
 
 <h1 id="ubuntu">Installing Bazel on Ubuntu</h1>

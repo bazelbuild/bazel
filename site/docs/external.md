@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: External dependencies
+category: getting-started
 ---
 
 # Working with External Dependencies

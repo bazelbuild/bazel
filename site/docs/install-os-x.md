@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel on macOS
+category: getting-started
 ---
 
 <h1 id="mac-os-x">Installing Bazel on macOS</h1>

@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Backward compatibility
+category: getting-started
 ---
 
 # Backward Compatibility

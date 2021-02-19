@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Updating Bazel
+category: getting-started
 ---
 
 # Updating Bazel

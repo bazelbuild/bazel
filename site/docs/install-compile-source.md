@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Compiling Bazel from source
+category: getting-started
 ---
 
 <h1 id="compiling-from-source">Compiling Bazel from Source</h1>

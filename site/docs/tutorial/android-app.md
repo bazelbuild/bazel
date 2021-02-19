@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Build Tutorial - Android
+category: getting-started
 ---
 
 # Bazel Tutorial: Build an Android App

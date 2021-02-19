@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Build Tutorial - iOS
+category: getting-started
 ---
 
 # Bazel Tutorial: Build an iOS App

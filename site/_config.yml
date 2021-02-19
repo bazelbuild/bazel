@@ -54,7 +54,8 @@ doc_versions:
   - 0.17.1
 
 main_site_url: https://www.bazel.build
-docs_site_url: "/"
+getting_started_category_url: "/"
+docs_site_url: "/guide.html"
 blog_site_url: https://blog.bazel.build
 
 defaults:
@@ -65,6 +66,11 @@ defaults:
     values:
       toc: true
       sitemap: true
+  -
+    scope:
+      type: "pages"
+    values:
+      category: "documentation"
 
 # jekyll-toc settings
 toc:

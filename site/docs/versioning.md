@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Release versioning
+category: getting-started
 ---
 
 # Release Versioning
