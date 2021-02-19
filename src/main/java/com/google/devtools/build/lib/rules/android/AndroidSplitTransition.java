@@ -61,15 +61,41 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
     }
   }
 
-  /** Returns a single-split transition that uses the "--cpu" and does not change any flags. */
+  private void addNonCpuSplits(
+      ImmutableMap.Builder<String, BuildOptions> result,
+      String cpu,
+      BuildOptionsView buildOptions) {
+    result.put(cpu, buildOptions.underlying());
+
+    AndroidConfiguration.Options androidOptions =
+        buildOptions.get(AndroidConfiguration.Options.class);
+    if (cpu.equals("arm64-v8a") && androidOptions.fatApkHwasan) {
+      BuildOptionsView hwasanSplitOptions = buildOptions.clone();
+
+      // A HWASAN build is different from a regular one in these ways:
+      // - The native library install directory gets a "-hwasan" suffix
+      // - Some compiler/linker command line options are different (defined in the Android C++
+      //   toolchain)
+      // - The name of the output directory is changed so that HWASAN and non-HWASAN artifacts
+      //   do not conflict
+      hwasanSplitOptions.get(CppOptions.class).outputDirectoryTag = "hwasan";
+      hwasanSplitOptions.get(AndroidConfiguration.Options.class).hwasan = true;
+
+      result.put(cpu + "-hwasan", hwasanSplitOptions.underlying());
+    }
+  }
+
+  /** Returns a transition that uses the "--cpu" and non-CPU (i.e. HWASAN) splits. */
   private ImmutableMap<String, BuildOptions> handleDefaultSplit(
       BuildOptionsView buildOptions, String cpu) {
-    return ImmutableMap.of(cpu, buildOptions.underlying());
+    ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+    addNonCpuSplits(result, cpu, buildOptions);
+    return result.build();
   }
 
   /**
-   * Returns a single-split transition that sets "--cpu" to the value of "--android_cpu" and sets
-   * other C++ flags based on the corresponding Android flags.
+   * Returns a transition that sets "--cpu" to the value of "--android_cpu" and sets other C++ flags
+   * based on the corresponding Android flags.
    */
   private ImmutableMap<String, BuildOptions> handleAndroidCpu(
       BuildOptionsView buildOptions, Options androidOptions) {
@@ -96,22 +122,7 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
       splitOptions.get(Options.class).cpu = cpu;
       splitOptions.get(CoreOptions.class).cpu = cpu;
       setCcFlagsFromAndroid(androidOptions, splitOptions);
-      result.put(cpu, splitOptions.underlying());
-
-      if (cpu.equals("arm64-v8a") && androidOptions.fatApkHwasan) {
-        BuildOptionsView hwasanSplitOptions = splitOptions.clone();
-
-        // A HWASAN build is different from a regular one in these ways:
-        // - The native library install directory gets a "-hwasan" suffix
-        // - Some compiler/linker command line options are different (defined in the Android C++
-        //   toolchain)
-        // - The name of the output directory is changed so that HWASAN and non-HWASAN artifacts
-        //   do not conflict
-        hwasanSplitOptions.get(CppOptions.class).outputDirectoryTag = "hwasan";
-        hwasanSplitOptions.get(AndroidConfiguration.Options.class).hwasan = true;
-
-        result.put(cpu + "-hwasan", hwasanSplitOptions.underlying());
-      }
+      addNonCpuSplits(result, cpu, splitOptions);
     }
     return result.build();
   }
