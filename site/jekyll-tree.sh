@@ -52,7 +52,7 @@ readonly VERSION_DIR="$OUT_DIR/versions/$VERSION"
 function setup {
   mkdir -p "$OUT_DIR"
   cd "$OUT_DIR"
-  tar --warning=no-unknown-keyword -xf "${JEKYLL_BASE}"
+  tar -xf "${JEKYLL_BASE}"
 
   mkdir -p "$VERSION_DIR"
   mv "$OUT_DIR"/docs/* "$VERSION_DIR"
@@ -99,7 +99,7 @@ function unpack_skylark_rule_docs {
   local tmp_dir=$TMP/skylark
   mkdir -p $tmp_dir
   cd "$tmp_dir"
-  tar --warning=no-unknown-keyword -xf "${STARLARK_RULE_DOCS}"
+  tar -xf "${STARLARK_RULE_DOCS}"
   copy_skylark_rule_doc pkg "Packaging"
 }
 
