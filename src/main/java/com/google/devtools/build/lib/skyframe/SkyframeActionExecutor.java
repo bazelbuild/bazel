@@ -322,7 +322,7 @@ public final class SkyframeActionExecutor {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      boolean trackFailedRemoteReads) {
+      boolean rewindingEnabled) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
         executorEngine.getExecRoot().asFragment(),
@@ -330,7 +330,7 @@ public final class SkyframeActionExecutor {
         sourceRootSupplier.get(),
         inputArtifactData,
         outputArtifacts,
-        trackFailedRemoteReads);
+        rewindingEnabled);
   }
 
   private void updateActionFileSystemContext(
@@ -1371,9 +1371,8 @@ public final class SkyframeActionExecutor {
           try {
             Path p =
                 context.getPathResolver().transformRoot(outputFile.getRoot().getRoot()).asPath();
-            PathFragment relativePath = outputDir.relativeTo(p);
-            for (int i = 0; i < relativePath.segmentCount(); i++) {
-              p = p.getRelative(relativePath.getSegment(i));
+            for (String segment : outputDir.relativeTo(p).segments()) {
+              p = p.getRelative(segment);
 
               // This lock ensures that the only thread that observes a filesystem transition in
               // which the path p first exists and then does not is the thread that calls

@@ -44,7 +44,7 @@ import org.junit.Test;
 /**
  * Test for cquery's proto output format.
  *
- * <p>TODO(juliexxia): refactor all cquery output format tests to consolidate duplicate
+ * <p>TODO(blaze-configurability): refactor all cquery output format tests to consolidate duplicate
  * infrastructure.
  */
 public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {

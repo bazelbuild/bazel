@@ -425,14 +425,6 @@ public class CppRuleClasses {
   public static final String DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB =
       "disable_whole_archive_for_static_lib";
 
-  /**
-   * TODO(b/113358321): This feature should be enabled for CROSSTOOLs that work without linking
-   * command line splitting. Eventually when every CROSSTOOL works without linking command line
-   * splitting, this feature can be deleted. The flag --incompatible_do_not_split_linking_cmdline
-   * will activate the same code path even if this feature is not present. See GitHub issue #7670.
-   */
-  public static final String DO_NOT_SPLIT_LINKING_CMDLINE = "do_not_split_linking_cmdline";
-
   public static final String COMPILER_PARAM_FILE = "compiler_param_file";
 
   /**

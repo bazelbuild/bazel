@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Configurable build attributes
+category: getting-started
 ---
 
 # Configurable Build Attributes

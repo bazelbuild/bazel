@@ -225,3 +225,26 @@ cc_library(
 )
 ```
 
+### Detecting incompatible targets using `bazel cquery`
+
+You can use the
+[`IncompatiblePlatformProvider`](skylark/lib/IncompatiblePlatformProvider.html)
+in `bazel cquery`'s [Starlark output
+format](cquery.html#defining-the-output-format-using-starlark) to distinguish
+incompatible targets from compatible ones.
+
+This can be used to filter out incompatible targets. The example below will
+only print the labels for targets that are compatible. Incompatible targets are
+not printed.
+
+```console
+$ cat example.cquery
+
+def format(target):
+  if "IncompatiblePlatformProvider" not in providers(target):
+    return target.label
+  return ""
+
+
+$ bazel cquery //... --output=starlark --starlark:file=example.cquery
+```

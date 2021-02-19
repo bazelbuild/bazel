@@ -76,11 +76,16 @@ fi
   cd $PACKAGE_DIR
   unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
   cd platforms
-  # Platform files may be located under external/platform depending on the
-  # external repository source layout. Take them out if it's the case.
+  # Platform files may be located under external/platform or platform depending
+  # on the external repository source layout. Take them out if it's the case.
   if [ -d "external/platforms" ]; then
+    # --experimental_sibling_repository_layout=false
     mv external/platforms/* .
     rmdir -p external/platforms
+  else
+    # --experimental_sibling_repository_layout=true
+    mv platforms/* .
+    rmdir -p platforms
   fi
   >> WORKSPACE
 )

@@ -145,7 +145,6 @@ java_library(
         "JavaPluginInfoProvider.java",
         "JavaRuleClasses.java",
         "JavaRuleOutputJarsProvider.java",
-        "JavaRunfilesProvider.java",
         "JavaRuntimeInfo.java",
         "JavaSemantics.java",
         "JavaSourceInfoProvider.java",

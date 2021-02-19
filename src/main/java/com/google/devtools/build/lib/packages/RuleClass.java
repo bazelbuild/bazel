@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -184,7 +185,7 @@ public class RuleClass {
     public boolean apply(Rule input) {
       PathFragment path = input.getLabel().getPackageFragment();
       if (pathSegment == ANY_SEGMENT) {
-        return path.getFirstSegment(values) != PathFragment.INVALID_SEGMENT;
+        return stream(path.segments()).anyMatch(values::contains);
       } else {
         return path.segmentCount() >= pathSegment
             && values.contains(path.getSegment(pathSegment - 1));

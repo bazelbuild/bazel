@@ -219,7 +219,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 
     ObjcProvider.Builder objcProviderBuilder =
-        new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations) {
       objcProviderBuilder.addTransitiveAndPropagate(

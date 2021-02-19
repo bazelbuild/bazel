@@ -956,10 +956,6 @@ public class CppLinkActionBuilder {
     }
 
     linkCommandLineBuilder.setBuildVariables(buildVariables);
-    if (CppHelper.doNotSplitLinkingCmdLine(
-        actionConstructionContext.getAnalysisEnvironment().getStarlarkSemantics(), toolchain)) {
-      linkCommandLineBuilder.doNotSplitLinkingCmdLine();
-    }
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
     // Compute the set of inputs - we only need stable order here.

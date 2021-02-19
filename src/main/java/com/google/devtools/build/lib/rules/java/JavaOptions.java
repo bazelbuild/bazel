@@ -590,7 +590,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_jlpl_enforce_strict_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
@@ -688,6 +688,20 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  @Option(
+      name = "incompatible_dont_collect_so_artifacts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Disables collection of .so libraries as artifact (produced by filegroup or genrule); "
+              + " depend on cc_binary or cc_library directly.")
+  public boolean dontCollectSoArtifacts;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
@@ -771,6 +785,8 @@ public class JavaOptions extends FragmentOptions {
     host.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
+
+    host.dontCollectSoArtifacts = dontCollectSoArtifacts;
 
     return host;
   }

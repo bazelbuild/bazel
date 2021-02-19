@@ -95,6 +95,18 @@ function test_compiles_hello_library_using_persistent_javac() {
     || fail "comparison failed"
 }
 
+function test_compiles_hello_library_using_persistent_javac_sibling_layout() {
+  write_hello_library_files
+
+  bazel build \
+    --experimental_sibling_repository_layout java/main:main \
+    --worker_max_instances=Javac=1 \
+    &> $TEST_log || fail "build failed"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+  $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
+    || fail "comparison failed"
+}
+
 function prepare_example_worker() {
   cp ${example_worker} worker_lib.jar
   chmod +w worker_lib.jar

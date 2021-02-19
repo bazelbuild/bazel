@@ -1118,8 +1118,9 @@ inline void ComputeRunfilePath(const std::wstring& test_workspace,
   if (s->size() >= 2 && (*s)[0] == L'.' && (*s)[1] == L'/') {
     s->erase(0, 2);
   }
-  if (s->find(L"external/") == 0) {
-    s->erase(0, 9);
+  // Runfiles paths of external tests start with "../".
+  if (s->find(L"../") == 0) {
+    s->erase(0, 3);
   } else {
     *s = test_workspace + L"/" + *s;
   }
@@ -1569,6 +1570,9 @@ bool GetTestName(std::wstring* result) {
   }
   if (result->size() >= 2 && (*result)[0] == '.' && (*result)[1] == '/') {
     result->erase(0, 2);
+  } else if (result->size() >= 3 && (*result)[0] == '.' &&
+             (*result)[1] == '.' && (*result)[2] == '/') {
+    result->erase(0, 3);
   }
 
   // Ensure that test shards have unique names in the xml output, by including

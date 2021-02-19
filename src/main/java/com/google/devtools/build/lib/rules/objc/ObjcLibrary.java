@@ -80,7 +80,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     compilationSupport
         .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(
-            compilationSupport.getObjcProvider(),
+            common.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
@@ -91,8 +91,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         new J2ObjcEntryClassProvider.Builder()
             .addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.class))
             .build();
-    ObjcProvider objcProvider = compilationSupport.getObjcProvider();
-    CcCompilationContext ccCompilationContext = objcProvider.getCcCompilationContext();
+    ObjcProvider objcProvider = common.getObjcProvider();
+    CcCompilationContext ccCompilationContext = compilationSupport.getCcCompilationContext();
     CcLinkingContext ccLinkingContext =
         buildCcLinkingContext(
             ruleContext.getLabel(), objcProvider, ruleContext.getSymbolGenerator());

@@ -266,7 +266,7 @@ public class MultiArchBinarySupport {
               intermediateArtifacts,
               nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
               additionalDepProviders);
-      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProviderBuilder().build();
+      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
           objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
 

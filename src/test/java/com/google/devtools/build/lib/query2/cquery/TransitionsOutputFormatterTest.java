@@ -214,7 +214,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
     options.transitions = verbosity;
-    // TODO(juliexxia): Test late-bound attributes.
+    // TODO(blaze-configurability): Test late-bound attributes.
     TransitionsOutputFormatterCallback callback =
         new TransitionsOutputFormatterCallback(
             reporter,

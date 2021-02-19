@@ -606,7 +606,7 @@ public abstract class CcModule
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
         if (dynamicLibraryPathFragment != null) {
-          if (dynamicLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+          if (dynamicLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
             throw Starlark.errorf(
                 "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
                 dynamicLibrary.getRootRelativePath());
@@ -632,7 +632,7 @@ public abstract class CcModule
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
         if (interfaceLibraryPathFragment != null) {
-          if (interfaceLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+          if (interfaceLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
             throw Starlark.errorf(
                 "interface_library must not be a symbolic link in the solib directory. Got '%s'",
                 interfaceLibrary.getRootRelativePath());
@@ -1109,10 +1109,7 @@ public abstract class CcModule
               featureNames,
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
-              /* supportsInterfaceSharedLibraries= */ false,
-              starlarkRuleContext
-                  .getStarlarkSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
+              /* supportsInterfaceSharedLibraries= */ false)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -1121,11 +1118,7 @@ public abstract class CcModule
               .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
               .collect(ImmutableList.toImmutableList()));
       for (CToolchain.Feature feature :
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
-              featureNames,
-              starlarkRuleContext
-                  .getStarlarkSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 

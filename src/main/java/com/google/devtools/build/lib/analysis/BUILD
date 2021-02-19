@@ -481,6 +481,7 @@ java_library(
     srcs = ["AnalysisPhaseCompleteEvent.java"],
     deps = [
         ":configured_target",
+        "//src/main/java/com/google/devtools/build/lib/actions:total_and_configured_target_only_metric",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//third_party:guava",
     ],
@@ -633,7 +634,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
@@ -707,6 +707,15 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "configured_target_value",
+    srcs = ["ConfiguredTargetValue.java"],
+    deps = [
+        ":configured_object_value",
+        ":configured_target",
     ],
 )
 
@@ -797,8 +806,10 @@ java_library(
     srcs = ["IncompatiblePlatformProvider.java"],
     deps = [
         ":configured_target",
-        ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1304,6 +1315,8 @@ java_library(
     deps = [
         ":actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//third_party:guava",
     ],
 )
 

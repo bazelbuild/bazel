@@ -107,7 +107,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     // Make sure that we are not creating a derived artifact under the execRoot.
     Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
     Preconditions.checkArgument(
-        !execPath.getSegments().contains(".."),
+        !execPath.containsUplevelReferences(),
         "execPath: %s contains parent directory reference (..)",
         execPath);
     Preconditions.checkArgument(

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -23,6 +25,8 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -34,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -42,7 +47,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>All sandboxed strategies within a build should share the same instance of this object.
  */
 public final class SandboxHelpers {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
   /**
    * If true, materialize virtual inputs only inside the sandbox, not the output tree. This flag
    * exists purely to support rolling this out as the defaut in a controlled manner.
@@ -97,6 +104,48 @@ public final class SandboxHelpers {
         }
       } catch (IOException e) {
         // Ignore.
+      }
+    }
+  }
+
+  /**
+   * Moves all given outputs from a root to another.
+   *
+   * <p>This is a support function to help with the implementation of {@link
+   * SandboxfsSandboxedSpawn#copyOutputs(Path)}.
+   *
+   * @param outputs outputs to move as relative paths to a root
+   * @param sourceRoot source directory from which to resolve outputs
+   * @param targetRoot target directory to which to move the resolved outputs from the source
+   * @throws IOException if any of the moves fails
+   */
+  public static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
+      throws IOException {
+    for (PathFragment output : Iterables.concat(outputs.files(), outputs.dirs())) {
+      Path source = sourceRoot.getRelative(output);
+      Path target = targetRoot.getRelative(output);
+      if (source.isFile() || source.isSymbolicLink()) {
+        // Ensure the target directory exists in the target. The directories for the action outputs
+        // have already been created, but the spawn outputs may be different from the overall action
+        // outputs. This is the case for test actions.
+        target.getParentDirectory().createDirectoryAndParents();
+        if (FileSystemUtils.moveFile(source, target).equals(MoveResult.FILE_COPIED)) {
+          if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
+            logger.atWarning().log(
+                "Moving files out of the sandbox (e.g. from %s to %s"
+                    + ") had to be done with a file copy, which is detrimental to performance; are "
+                    + "the two trees in different file systems?",
+                source, target);
+          }
+        }
+      } else if (source.isDirectory()) {
+        try {
+          source.renameTo(target);
+        } catch (IOException e) {
+          // Failed to move directory directly, thus move it recursively.
+          target.createDirectory();
+          FileSystemUtils.moveTreesBelow(source, target);
+        }
       }
     }
   }
@@ -178,7 +227,7 @@ public final class SandboxHelpers {
      */
     public void materializeVirtualInputs(Path sandboxExecRoot) throws IOException {
       for (VirtualActionInput input : virtualInputs) {
-        materializeVirtualInput(input, sandboxExecRoot, /*needsDelete=*/ false);
+        materializeVirtualInput(input, sandboxExecRoot, /*isExecRootSandboxed=*/ false);
       }
     }
   }
@@ -257,7 +306,7 @@ public final class SandboxHelpers {
       } else {
         if (actionInput instanceof VirtualActionInput) {
           SandboxInputs.materializeVirtualInput(
-              (VirtualActionInput) actionInput, execRoot, /*needsDelete=*/ true);
+              (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
         }
 
         if (actionInput.isSymlink()) {

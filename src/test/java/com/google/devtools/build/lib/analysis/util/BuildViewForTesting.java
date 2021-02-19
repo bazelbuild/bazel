@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
@@ -21,7 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MapDifference;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -95,6 +102,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.Version;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -119,6 +127,8 @@ public class BuildViewForTesting {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
+  private ImmutableMap<ActionLookupKey, Version> currentActionLookupKeys = ImmutableMap.of();
+
   public BuildViewForTesting(
       BlazeDirectories directories,
       ConfiguredRuleClassProvider ruleClassProvider,
@@ -136,8 +146,28 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
-  public Set<SkyKey> getSkyframeEvaluatedTargetKeysForTesting() {
-    return skyframeBuildView.getEvaluatedTargetKeys();
+  public Set<ActionLookupKey> getSkyframeEvaluatedActionLookupKeyCountForTesting() {
+    Set<ActionLookupKey> actionLookupKeys = populateActionLookupKeyMapAndGetDiff();
+    Preconditions.checkState(
+        actionLookupKeys.size() == skyframeBuildView.getEvaluatedCounts().total(),
+        "Number of newly evaluated action lookup values %s does not agree with number that changed"
+            + " in graph: %s",
+        actionLookupKeys);
+    return actionLookupKeys;
+  }
+
+  private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
+    ImmutableMap<ActionLookupKey, Version> newMap =
+        stream(skyframeExecutor.getEvaluatorForTesting().getGraphEntries())
+            .filter(e -> e.getKey() instanceof ActionLookupKey)
+            .collect(
+                toImmutableMap(
+                    e -> ((ActionLookupKey) e.getKey()), e -> e.getValue().getVersion()));
+    MapDifference<ActionLookupKey, Version> difference =
+        Maps.difference(newMap, currentActionLookupKeys);
+    currentActionLookupKeys = newMap;
+    return Sets.union(
+        difference.entriesDiffering().keySet(), difference.entriesOnlyOnLeft().keySet());
   }
 
   /**
@@ -162,6 +192,7 @@ public class BuildViewForTesting {
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
       throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException {
+    populateActionLookupKeyMapAndGetDiff();
     return buildView.update(
         loadingResult,
         targetOptions,

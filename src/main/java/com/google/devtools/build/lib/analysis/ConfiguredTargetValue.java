@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
-
-import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+package com.google.devtools.build.lib.analysis;
 
 /** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
 public interface ConfiguredTargetValue extends ConfiguredObjectValue {

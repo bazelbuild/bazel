@@ -392,7 +392,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     // points to a file under the TreeArtifact, the link target traverses outside of the
     // TreeArtifact into a/b/outside_dir.
     PathFragment intermediatePath = subDir;
-    for (String pathSegment : linkTarget.getSegments()) {
+    for (String pathSegment : linkTarget.segments()) {
       intermediatePath = intermediatePath.getRelative(pathSegment);
       if (intermediatePath.containsUplevelReferences()) {
         String errorMessage =

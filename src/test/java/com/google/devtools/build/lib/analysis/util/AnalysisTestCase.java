@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -80,7 +81,6 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -568,8 +568,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 .build());
   }
 
-  protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {
-    return buildView.getSkyframeEvaluatedTargetKeysForTesting();
+  protected Set<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {
+    return buildView.getSkyframeEvaluatedActionLookupKeyCountForTesting();
   }
 
   protected void assertNumberOfAnalyzedConfigurationsOfTargets(
@@ -577,7 +577,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ImmutableMultiset<Label> actualSet =
         getSkyframeEvaluatedTargetKeys().stream()
             .filter(key -> key instanceof ConfiguredTargetKey)
-            .map(key -> ((ConfiguredTargetKey) key).getLabel())
+            .map(ArtifactOwner::getLabel)
             .collect(toImmutableMultiset());
     ImmutableMap<Label, Integer> expected =
         targetsWithCounts.entrySet().stream()

@@ -770,12 +770,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
   }
 
-  public boolean doNotSplitLinkingCmdline() {
-    return getFeatures()
-        .getActivatableNames()
-        .contains(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE);
-  }
-
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
   public boolean supportsStartEndLib(FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);

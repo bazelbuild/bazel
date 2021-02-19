@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Build Tutorial - C++
+category: getting-started
 ---
 
 # Bazel Tutorial: Build a C++ Project

@@ -241,8 +241,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
     assertThat(srcJar.getExecPathString()).endsWith("foo-src.jar");
 
     Iterable<Artifact> srcInfoJars =
-        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget)
-            .getSourceJarsForJarFiles();
+        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget).getSourceJars();
     assertThat(srcInfoJars).hasSize(1);
     Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
     assertThat(srcInfoJar.getExecPathString()).endsWith("foo-src.jar");
@@ -259,8 +258,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
         .containsExactly("foo-src.jar", "bar-src.jar");
 
     Iterable<Artifact> srcInfoJars =
-        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget)
-            .getSourceJarsForJarFiles();
+        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget).getSourceJars();
     assertThat(srcInfoJars).hasSize(1);
     Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
     assertThat(srcInfoJar.getExecPathString()).endsWith("bar-src.jar");

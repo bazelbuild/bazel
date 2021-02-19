@@ -94,6 +94,11 @@ java_proto_library(
     deps = ["@com_google_protobuf//:any_proto"],
 )
 
+java_proto_library(
+    name = "wrappers_java_proto",
+    deps = ["@com_google_protobuf//:wrappers_proto"],
+)
+
 proto_library(
     name = "command_server_proto",
     srcs = ["command_server.proto"],

@@ -172,7 +172,6 @@ public class CompilationSupport {
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 
-  private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
@@ -525,10 +524,6 @@ public class CompilationSupport {
             .add(isTool ? "host" : "nonhost")
             .add(configuration.getCompilationMode().toString());
 
-    if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()
-        && !getCustomModuleMap(ruleContext).isPresent()) {
-      activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
-    }
     if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
     }
@@ -666,16 +661,16 @@ public class CompilationSupport {
   private final CcToolchainProvider toolchain;
   private final boolean usePch;
   private final IncludeProcessingType includeProcessingType;
-  private Optional<ObjcProvider> objcProvider;
+  private Optional<CcCompilationContext> ccCompilationContext;
 
-  private void setObjcProvider(ObjcProvider objcProvider) {
-    checkState(!this.objcProvider.isPresent());
-    this.objcProvider = Optional.of(objcProvider);
+  private void setCcCompilationContext(CcCompilationContext ccCompilationContext) {
+    checkState(!this.ccCompilationContext.isPresent());
+    this.ccCompilationContext = Optional.of(ccCompilationContext);
   }
 
-  public ObjcProvider getObjcProvider() {
-    checkState(objcProvider.isPresent());
-    return objcProvider.get();
+  public CcCompilationContext getCcCompilationContext() {
+    checkState(ccCompilationContext.isPresent());
+    return ccCompilationContext.get();
   }
 
   /**
@@ -709,7 +704,7 @@ public class CompilationSupport {
     this.intermediateArtifacts = intermediateArtifacts;
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
-    this.objcProvider = Optional.absent();
+    this.ccCompilationContext = Optional.absent();
     this.usePch = usePch;
     if (toolchain == null
         && ruleContext
@@ -921,7 +916,6 @@ public class CompilationSupport {
     return registerCompileAndArchiveActions(
         compilationArtifacts,
         objcCompilationContext,
-        Optional.absent(),
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of());
   }
@@ -966,7 +960,6 @@ public class CompilationSupport {
   private CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
       ObjcCompilationContext objcCompilationContext,
-      Optional<ObjcCommon> objcCommon,
       ExtraCompileArgs extraCompileArgs,
       List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
@@ -1021,17 +1014,7 @@ public class CompilationSupport {
         compilationResult.getCcCompilationOutputs().getObjectFiles(/* usePic= */ false));
     outputGroupCollector.putAll(compilationResult.getOutputGroups());
 
-    if (objcCommon.isPresent()
-        && objcCommon.get().getPurpose() == ObjcCommon.Purpose.COMPILE_AND_LINK) {
-
-      ObjcProvider.NativeBuilder objcProviderBuilder = objcCommon.get().getObjcProviderBuilder();
-      ObjcProvider objcProvider =
-          objcProviderBuilder
-              .setCcCompilationContext(compilationResult.getCcCompilationContext())
-              .build();
-
-      setObjcProvider(objcProvider);
-    }
+    setCcCompilationContext(compilationResult.getCcCompilationContext());
 
     return this;
   }
@@ -1052,7 +1035,6 @@ public class CompilationSupport {
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
           common.getObjcCompilationContext(),
-          Optional.of(common),
           extraCompileArgs,
           priorityHeaders);
     }
@@ -1671,10 +1653,11 @@ public class CompilationSupport {
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            ImmutableList.<Artifact>of(),
+            ImmutableList.of(),
             publicHeaders,
-            attributes.moduleMapsForDirectDeps().toList(),
-            ImmutableList.<PathFragment>of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
             /* compiledModule= */ true,
             /* moduleMapHomeIsCwd= */ false,
             /* generateSubmodules= */ false,

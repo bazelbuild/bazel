@@ -94,7 +94,7 @@ final class WorkerProxy extends Worker {
   }
 
   @Override
-  public void finishExecution(Path execRoot) {}
+  public void finishExecution(Path execRoot, SandboxOutputs outputs) {}
 
   @Override
   boolean diedUnexpectedly() {

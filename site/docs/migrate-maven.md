@@ -94,7 +94,6 @@ maven_install(
         "com.google.j2objc:j2objc-annotations:1.1",
     ],
     repositories = [
-        "https://jcenter.bintray.com/",
         "https://repo1.maven.org/maven2",
     ],
 )
