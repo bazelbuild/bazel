@@ -159,7 +159,7 @@ src/my/app/tests/test.cc
   All targets belong to exactly one package. The name of a target is
   called its <em>label</em>.  Every label uniquely
   identifies a target. A typical label in canonical form
-  looks like this:
+  looks like:
 </p>
 
 
@@ -193,8 +193,8 @@ app_binary
 </pre>
 
 <p>
-  (It is a matter of convention that the colon is omitted for files,
-  but retained for rules, but it is not otherwise significant.)
+  It is a matter of convention that the colon is omitted for files,
+  but retained for rules, but it is not otherwise significant.
 </p>
 
 <p>
@@ -213,8 +213,8 @@ app_binary
 <p>
   The name of a file target in a subdirectory of the
   package is the file's path relative to the package
-  root (the directory containing the <code>BUILD</code> file),
-  so this file is in the <code>my/app/main/testdata</code>
+  root (the directory containing the <code>BUILD</code> file).
+  So, this file is in the <code>my/app/main/testdata</code>
   subdirectory of the repository:
 </p>
 
@@ -223,7 +223,7 @@ app_binary
 </pre>
 
 <p>
-  Labels such as <code>//my/app</code> are not to
+Don't confuse labels like <code>//my/app</code> with package names.
   be confused with package names. Labels always start with a
   repository identifier (often abbreviated <code>//</code>)
   but package names never do. Thus, <code>my/app</code> is the
@@ -232,7 +232,8 @@ app_binary
 
   (A common misconception is that <code>//my/app</code> refers
   to a package, or to <em>all</em> the targets in a package; neither
-  is true.)
+  is true.  Remember, it is equivalent to `//my/app:app`, so it names
+  the `app` target in the `my/app` package of the current repository).
 </p>
 
 <p>
@@ -991,4 +992,3 @@ data = glob(["testdata/**"])  # use this instead
       a directory as a label in an argument other than <code>data</code>, it
       will fail and you will get a (probably cryptic) error message.
    </p>
-
