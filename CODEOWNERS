@@ -61,7 +61,7 @@ android/ @ahumesky
 
 # Starlark
 
-/src/main/java/net/starlark/java/ @alandonovan @brandjon
+/src/main/java/net/starlark/java/ @brandjon @tetromino
 
 /tools/coverage/ @lberki
 /tools/test/collect_coverage.sh @lberki
