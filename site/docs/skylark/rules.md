@@ -929,7 +929,7 @@ We make the following recommendations to reduce complexity:
     [`ctx.runfiles`](lib/ctx.html#runfiles). These modes implicitly collect
     runfiles across certain hardcoded dependency edges in confusing ways.
     Instead, add files using the `files` or `transitive_files` parameters of
-    `ctx.runfiles`, or by mergining in runfiles from dependencies with
+    `ctx.runfiles`, or by merging in runfiles from dependencies with
     `runfiles = runfiles.merge(dep[DefaultInfo].default_runfiles)`.
 
 *   **Avoid** use of the `data_runfiles` and `default_runfiles` of the
