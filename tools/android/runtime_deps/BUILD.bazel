@@ -4,7 +4,7 @@
 # extract all Android rules and tools out of Bazel and into rules_android
 # and tools_android.
 
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 filegroup(
     name = "srcs",
