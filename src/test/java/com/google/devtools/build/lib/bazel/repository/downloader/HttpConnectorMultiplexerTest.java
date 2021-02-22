@@ -73,10 +73,16 @@ public class HttpConnectorMultiplexerTest {
   private static final byte[] data2 = "second".getBytes(UTF_8);
   private static final byte[] data3 = "third".getBytes(UTF_8);
 
+  private static Optional<Checksum> makeChecksum(String string) {
+    try {
+      return Optional.of(Checksum.fromString(KeyType.SHA256, string));
+    } catch (Checksum.InvalidChecksumException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   private static final Optional<Checksum> DUMMY_CHECKSUM =
-      Optional.of(
-          Checksum.fromString(
-              KeyType.SHA256, "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"));
+      makeChecksum("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
 
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
