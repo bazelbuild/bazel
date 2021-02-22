@@ -4482,12 +4482,20 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         // TODO(b/75051107): Remove the following line when fixed.
         "    incremental_dexing = 0,",
         ")");
+
     // Test that all bottom jars are on the runtime classpath of the app.
     ConfiguredTarget target = getConfiguredTarget("//java/r/android:foo_app");
+
     ImmutableList<Artifact> transitiveSrcJars =
         OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars))
         .containsExactly("libal_bottom_for_deps-src.jar", "libfoo_app-src.jar");
+    ImmutableList<Artifact> directSrcJar =
+        OutputGroupInfo.get(target)
+            .getOutputGroup(JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP)
+            .toList();
+    assertThat(ActionsTestUtil.baseArtifactNames(directSrcJar))
+        .containsExactly("libfoo_app-src.jar");
   }
 
   @Test

@@ -22,7 +22,7 @@ execution presents some additional challenges which we will discuss here.
 
 Successful remote cache hits will show up in the status line, similarly to
 [Cache Hits rate with Remote
-Execution](/remote-execution-caching-debug.html#checking-your-cache-hit-rate)].
+Execution](/remote-execution-caching-debug.html#checking-your-cache-hit-rate).
 In the standard output of your Bazel run, you will see something like the
 following:
 

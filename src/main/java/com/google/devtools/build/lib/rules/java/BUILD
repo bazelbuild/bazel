@@ -150,7 +150,6 @@ java_library(
         "JavaSourceInfoProvider.java",
         "JavaSourceJarsProvider.java",
         "JavaStarlarkCommon.java",
-        "JavaStrictCompilationArgsProvider.java",
         "JavaTargetAttributes.java",
         "JavaToolchainProvider.java",
         "JavaToolchainTool.java",

@@ -124,11 +124,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     for (TransitiveInfoCollection info : infos) {
       JavaCompilationArgsProvider provider = null;
 
-      JavaStrictCompilationArgsProvider strictCompilationArgsProvider =
-          JavaInfo.getProvider(JavaStrictCompilationArgsProvider.class, info);
-      if (strictCompilationArgsProvider != null) {
-        provider = strictCompilationArgsProvider.getJavaCompilationArgsProvider();
-      }
       if (provider == null) {
         provider = JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
       }
