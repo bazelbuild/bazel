@@ -89,13 +89,6 @@ public class MockPlatformSupport {
         "    name = 'openbsd',",
         "    constraint_setting = ':os',",
         ")");
-    String basePlatform;
-    if (TestConstants.LOCAL_CONFIG_PLATFORM_PATH != null) {
-      // Use the auto-configured host platform from @local_config_platform.
-      basePlatform = "@local_config_platform//:host";
-    } else {
-      basePlatform = TestConstants.PLATFORM_PACKAGE_ROOT + "/static:host";
-    }
     mockToolsConfig.create(
         TestConstants.PLATFORMS_PATH + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
@@ -103,16 +96,20 @@ public class MockPlatformSupport {
         "constraint_value(name = 'android', constraint_setting = ':os')",
         "platform(",
         "    name = 'default_target',",
-        "    parents = ['" + basePlatform + "'],",
         "    constraint_values = [",
+        // Regardless of the actual machine the tests are run on, hardcode everything to a single
+        // default value for simplicity.
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
         "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:jdk11',",
         "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
         "    ],",
         ")",
         "platform(",
         "    name = 'default_host',",
-        "    parents = ['" + basePlatform + "'],",
         "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
         "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:jdk11',",
         "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
         "    ],",
@@ -134,29 +131,6 @@ public class MockPlatformSupport {
         "    name = 'java8',",
         "    constraint_setting = ':language',",
         ")");
-    if (TestConstants.LOCAL_CONFIG_PLATFORM_PATH != null) {
-      // Only create these if the local config workspace exists.
-      mockToolsConfig.create(
-          TestConstants.LOCAL_CONFIG_PLATFORM_PATH + "/WORKSPACE",
-          "workspace(name = 'local_config_platform')");
-      mockToolsConfig.create(
-          TestConstants.LOCAL_CONFIG_PLATFORM_PATH + "/BUILD",
-          "package(default_visibility=['//visibility:public'])",
-          "platform(name = 'host')");
-    } else {
-      // Create a mock host platform that hard-coded cpu and os, since @local_config_platform isn't
-      // available.
-      mockToolsConfig.create(
-          TestConstants.PLATFORMS_PATH + "/static/BUILD",
-          "package(default_visibility=['//visibility:public'])",
-          "platform(",
-          "    name = 'host',",
-          "    constraint_values = [",
-          "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
-          "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
-          "    ],",
-          ")");
-    }
   }
 
   /** Adds a mock K8 platform. */
