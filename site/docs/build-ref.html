@@ -348,9 +348,9 @@ app_binary
 </p>
 
 <p>
-  Although Bazel allows a package at the build root (e.g. <code>//:foo</code>), this
-  is not advised and projects should attempt to use more descriptively named
-  packages.
+  Although Bazel supports targets in the workspace's root package
+  (e.g. <code>//:foo</code>), it's best to leave that package empty
+  so all meaningful packages have descriptive names.
 </p>
 <p>
   Package names may not contain the substring <code>//</code>, nor
