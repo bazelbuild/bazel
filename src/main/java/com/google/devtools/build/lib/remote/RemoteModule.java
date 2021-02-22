@@ -94,7 +94,10 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1026,13 +1029,19 @@ public final class RemoteModule extends BlazeModule {
         reporter.handle(Event.warn(e.getMessage()));
       }
 
-      if (creds != null
-          && remoteOptions.remoteCache != null
-          && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")) {
-        reporter.handle(
-            Event.warn(
-                "Username and password from .netrc is transmitted in plaintext."
-                    + " Please consider using an HTTPS endpoint."));
+      try {
+        if (creds != null
+            && remoteOptions.remoteCache != null
+            && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
+            && !creds.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
+          reporter.handle(
+              Event.warn(
+                  "Username and password from .netrc is transmitted in plaintext to "
+                      + remoteOptions.remoteCache
+                      + ". Please consider using an HTTPS endpoint."));
+        }
+      } catch (URISyntaxException e) {
+        throw new IOException(e.getMessage(), e);
       }
     }
 
