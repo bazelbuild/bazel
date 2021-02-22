@@ -28,7 +28,6 @@ gen_workspace_stanza(
     repos = [
         "rules_cc",
         "rules_java",
-        "rules_pkg_for_testing",
         "rules_proto",
     ],
     template = "testenv.sh.tmpl",
