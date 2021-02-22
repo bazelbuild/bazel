@@ -63,16 +63,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   ByteStreamBuildEventArtifactUploader(
       ByteStreamUploader uploader,
       MissingDigestsFinder missingDigestsFinder,
-      String remoteServerName,
+      String remoteServerInstanceName,
       String buildRequestId,
       String commandId,
-      @Nullable String remoteInstanceName,
       int maxUploadThreads) {
     this.uploader = Preconditions.checkNotNull(uploader);
-    String remoteServerInstanceName = Preconditions.checkNotNull(remoteServerName);
-    if (!Strings.isNullOrEmpty(remoteInstanceName)) {
-      remoteServerInstanceName += "/" + remoteInstanceName;
-    }
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.remoteServerInstanceName = remoteServerInstanceName;

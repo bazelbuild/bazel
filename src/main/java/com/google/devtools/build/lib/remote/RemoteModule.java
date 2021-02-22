@@ -482,6 +482,14 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
+    String remoteBytestreamUriPrefix = remoteOptions.remoteBytestreamUriPrefix;
+    if (Strings.isNullOrEmpty(remoteBytestreamUriPrefix)) {
+      remoteBytestreamUriPrefix = cacheChannel.authority();
+      if (!Strings.isNullOrEmpty(remoteOptions.remoteInstanceName)) {
+        remoteBytestreamUriPrefix += "/" + remoteOptions.remoteInstanceName;
+      }
+    }
+
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
@@ -504,10 +512,9 @@ public final class RemoteModule extends BlazeModule {
         new ByteStreamBuildEventArtifactUploaderFactory(
             uploader,
             cacheClient,
-            cacheChannel.authority(),
+            remoteBytestreamUriPrefix,
             buildRequestId,
-            invocationId,
-            remoteOptions.remoteInstanceName));
+            invocationId));
 
     if (enableRemoteExecution) {
       RemoteExecutionClient remoteExecutor;

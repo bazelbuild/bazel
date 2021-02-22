@@ -27,25 +27,22 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
     BuildEventArtifactUploaderFactory {
 
   private final ByteStreamUploader uploader;
-  private final String remoteServerName;
+  private final String remoteServerInstanceName;
   private final String buildRequestId;
   private final String commandId;
   private final MissingDigestsFinder missingDigestsFinder;
-  @Nullable private final String remoteInstanceName;
 
   ByteStreamBuildEventArtifactUploaderFactory(
       ByteStreamUploader uploader,
       MissingDigestsFinder missingDigestsFinder,
-      String remoteServerName,
+      String remoteServerInstanceName,
       String buildRequestId,
-      String commandId,
-      @Nullable String remoteInstanceName) {
+      String commandId) {
     this.uploader = uploader;
     this.missingDigestsFinder = missingDigestsFinder;
-    this.remoteServerName = remoteServerName;
+    this.remoteServerInstanceName = remoteServerInstanceName;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.remoteInstanceName = remoteInstanceName;
   }
 
   @Override
@@ -53,10 +50,9 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
     return new ByteStreamBuildEventArtifactUploader(
         uploader.retain(),
         missingDigestsFinder,
-        remoteServerName,
+        remoteServerInstanceName,
         buildRequestId,
         commandId,
-        remoteInstanceName,
         env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads);
   }
 }
