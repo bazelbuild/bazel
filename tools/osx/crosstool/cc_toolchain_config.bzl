@@ -4559,6 +4559,10 @@ def _impl(ctx):
                         key = "APPLE_SDK_PLATFORM",
                         value = "%{apple_sdk_platform_value}",
                     ),
+                    env_entry(
+                        key = "ZERO_AR_DATE",
+                        value = "1",
+                    ),
                 ] + [env_entry(key = key, value = value) for key, value in ctx.attr.extra_env.items()],
             ),
         ],
