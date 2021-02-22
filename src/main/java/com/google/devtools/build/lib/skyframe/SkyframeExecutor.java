@@ -1711,23 +1711,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /**
-   * Returns the {@link ConfiguredTargetAndData}s corresponding to the given keys.
-   *
-   * <p>For use for legacy support and tests calling through {@code BuildView} only.
-   *
-   * <p>If a requested configured target is in error, the corresponding value is omitted from the
-   * returned list.
-   */
-  @ThreadSafety.ThreadSafe
-  public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
-      ExtendedEventHandler eventHandler,
-      BuildConfigurationValue.Key originalConfig,
-      Iterable<DependencyKey> keys)
-      throws InvalidConfigurationException, InterruptedException {
-    return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
-  }
-
-  /**
    * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndData}s
    * corresponding to those dependencies.
    *
