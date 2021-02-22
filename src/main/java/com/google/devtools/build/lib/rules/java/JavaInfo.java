@@ -75,7 +75,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
-          JavaStrictCompilationArgsProvider.class,
           JavaSourceInfoProvider.class);
 
   private final TransitiveInfoProviderMap providers;
@@ -118,8 +117,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
-    List<JavaStrictCompilationArgsProvider> javaStrictCompilationArgsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaStrictCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
     List<JavaPluginInfoProvider> javaPluginInfoProviders =
@@ -142,9 +139,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .addProvider(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
-        .addProvider(
-            JavaStrictCompilationArgsProvider.class,
-            JavaStrictCompilationArgsProvider.merge(javaStrictCompilationArgsProviders))
         .addProvider(
             JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
         .addProvider(
@@ -561,16 +555,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     public JavaInfo build() {
-      // TODO(twerth): Clean up after we remove java_proto_library.strict_deps.
-      // Instead of teaching every (potential Starlark) caller to also create the provider for
-      // strict deps we wrap the non strict provider instead.
-      if (!providerMap.contains(JavaStrictCompilationArgsProvider.class)
-          && providerMap.contains(JavaCompilationArgsProvider.class)) {
-        JavaStrictCompilationArgsProvider javaStrictCompilationArgsProvider =
-            new JavaStrictCompilationArgsProvider(
-                providerMap.getProvider(JavaCompilationArgsProvider.class));
-        addProvider(JavaStrictCompilationArgsProvider.class, javaStrictCompilationArgsProvider);
-      }
       return new JavaInfo(
           providerMap.build(),
           runtimeJars,

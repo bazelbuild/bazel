@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 
@@ -59,7 +58,10 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
-        constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
+        constructJcapFromAspectDeps(
+            ruleContext,
+            javaProtoLibraryAspectProviders,
+            ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced());
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path
@@ -83,14 +85,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
-    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()) {
-      JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
-          new JavaStrictCompilationArgsProvider(
-              constructJcapFromAspectDeps(
-                  ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true));
-      javaInfoBuilder.addProvider(
-          JavaStrictCompilationArgsProvider.class, strictDependencyArgsProviders);
-    }
     JavaInfo javaInfo =
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
