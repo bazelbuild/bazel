@@ -117,7 +117,7 @@ public interface AndroidSemantics {
       ProguardOutput proguardOutput)
       throws InterruptedException;
 
-  default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
+  default AndroidDataContext makeContextForNative(RuleContext ruleContext) throws InterruptedException {
     return AndroidDataContext.forNative(ruleContext);
   }
 

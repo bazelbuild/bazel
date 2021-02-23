@@ -49,13 +49,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.*;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
@@ -493,7 +487,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       String dexbuilderPrereq,
       Artifact jar,
       Set<String> incrementalDexopts,
-      Artifact dexArchive) {
+      Artifact dexArchive) throws InterruptedException {
     CustomCommandLine args =
         new CustomCommandLine.Builder()
             .addExecPath("--input_jar", jar)
@@ -504,6 +498,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
+            .setExecutionInfo(TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)

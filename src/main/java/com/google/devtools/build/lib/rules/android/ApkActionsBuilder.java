@@ -20,11 +20,14 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+
+import java.beans.IntrospectionException;
 import java.util.List;
 
 /**
@@ -153,7 +156,7 @@ public class ApkActionsBuilder {
   }
 
   /** Registers the actions needed to build the requested APKs in the rule context. */
-  public void registerActions(RuleContext ruleContext) {
+  public void registerActions(RuleContext ruleContext) throws InterruptedException {
     // If the caller did not request an unsigned APK, we still need to construct one so that
     // we can sign it. So we make up an intermediate artifact.
     Artifact intermediateUnsignedApk =
@@ -175,11 +178,11 @@ public class ApkActionsBuilder {
   }
 
   /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
-  private void buildApk(RuleContext ruleContext, Artifact outApk) {
+  private void buildApk(RuleContext ruleContext, Artifact outApk) throws InterruptedException {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
 
     SpawnAction.Builder compressedApkActionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
             .addOutput(compressedApk);
@@ -219,7 +222,7 @@ public class ApkActionsBuilder {
     }
 
     SpawnAction.Builder singleJarActionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
             .addInput(compressedApk)
@@ -238,7 +241,7 @@ public class ApkActionsBuilder {
       Artifact extractedJavaResourceZip =
           getApkArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
       ruleContext.registerAction(
-          new SpawnAction.Builder()
+          createSpawnActionBuilder(ruleContext)
               .setExecutable(resourceExtractor)
               .setMnemonic("ResourceExtractor")
               .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
@@ -298,9 +301,10 @@ public class ApkActionsBuilder {
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
-  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
+  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk)
+		  throws InterruptedException {
     ruleContext.registerAction(
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .addInput(inputApk)
             .addOutput(zipAlignedApk)
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
@@ -324,11 +328,11 @@ public class ApkActionsBuilder {
    * alignment cannot be performed after v2 signing without invalidating the signature.
    */
   private void signApk(
-      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) {
+      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) throws InterruptedException {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
     SpawnAction.Builder actionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
             .setProgressMessage("Signing %s", apkName)
             .setMnemonic("ApkSignerTool")
@@ -386,4 +390,12 @@ public class ApkActionsBuilder {
       return AndroidBinary.getDxArtifact(ruleContext, baseName);
     }
   }
+
+  // Adds execution info by propagating tags from the target
+  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) throws InterruptedException {
+    return new SpawnAction.Builder()
+	    .setExecutionInfo(TargetUtils.getExecutionInfo(
+             ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+  }
+
 }
