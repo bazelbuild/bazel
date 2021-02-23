@@ -522,11 +522,50 @@ EOF
 this is bad netrc content
 EOF
 
-  bazel build \
+  NETRC="${PWD}/a/.netrc" bazel build \
       --remote_cache=http://localhost:${http_port} \
-      --action_env=NETRC="${PWD}/a/.netrc" \
       //a:foo \
       || fail "Failed to build //a:foo with bad netrc content"
+}
+
+function test_remote_http_cache_with_unused_netrc_no_warning() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+  cat > a/.netrc <<EOF
+machine foo.example.org login foouser password foopass
+EOF
+
+  NETRC="${PWD}/a/.netrc" bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      //a:foo &> $TEST_log \
+      || fail "Failed to build //a:foo"
+  expect_not_log "WARNING: Username and password from .netrc is transmitted in plaintext" "Should not print warning"
+}
+
+function test_remote_http_cache_with_netrc_warning() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+  cat > a/.netrc <<EOF
+machine localhost login foouser password foopass
+EOF
+
+  NETRC="${PWD}/a/.netrc" bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      //a:foo &> $TEST_log \
+      || fail "Failed to build //a:foo"
+  expect_log "WARNING: Username and password from .netrc is transmitted in plaintext"
 }
 
 run_suite "Remote execution and remote cache tests"
