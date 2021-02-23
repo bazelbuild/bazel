@@ -220,6 +220,7 @@ def _bootclasspath_impl(ctx):
 
     ctx.actions.run(
         executable = "%s/bin/javac" % host_javabase.java_home,
+        mnemonic = "JavaToolchainCompileClasses",
         inputs = [ctx.file.src] + ctx.files.host_javabase,
         outputs = class_outputs,
         arguments = [args],
@@ -246,6 +247,7 @@ def _bootclasspath_impl(ctx):
 
     ctx.actions.run(
         executable = str(host_javabase.java_executable_exec_path),
+        mnemonic = "JavaToolchainCompileBootClasspath",
         inputs = inputs,
         outputs = [bootclasspath],
         arguments = [args],
