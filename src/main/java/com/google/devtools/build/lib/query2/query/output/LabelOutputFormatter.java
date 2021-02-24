@@ -53,7 +53,7 @@ class LabelOutputFormatter extends AbstractUnorderedFormatter {
             writer.append(' ');
           }
           Label label = target.getLabel();
-          writer.append(label.getDefaultCanonicalForm()).append(lineTerm);
+          writer.append(label.getCanonicalForm()).append(lineTerm);
         }
       }
     };
