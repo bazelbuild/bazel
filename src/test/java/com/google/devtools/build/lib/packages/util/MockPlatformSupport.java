@@ -23,12 +23,28 @@ public class MockPlatformSupport {
 
   /** Adds mocks for basic host and target platform. */
   public static void setup(MockToolsConfig mockToolsConfig) throws IOException {
+    setup(
+        mockToolsConfig,
+        TestConstants.PLATFORM_PACKAGE_ROOT,
+        TestConstants.PLATFORMS_PATH,
+        TestConstants.CONSTRAINTS_PACKAGE_ROOT,
+        TestConstants.CONSTRAINTS_PATH);
+  }
+
+  /** Adds mocks for basic host and target platform. */
+  public static void setup(
+      MockToolsConfig mockToolsConfig,
+      String platformPackageRoot,
+      String platformsPath,
+      String constraintsPackageRoot,
+      String constraintsPath)
+      throws IOException {
     mockToolsConfig.create(
-        TestConstants.CONSTRAINTS_PATH + "/BUILD",
+        constraintsPath + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])");
     mockToolsConfig.create(
-        TestConstants.CONSTRAINTS_PATH + "/cpu/BUILD",
+        constraintsPath + "/cpu/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "constraint_setting(name = 'cpu')",
@@ -57,7 +73,7 @@ public class MockPlatformSupport {
         "    constraint_setting = ':cpu',",
         ")");
     mockToolsConfig.create(
-        TestConstants.CONSTRAINTS_PATH + "/os/BUILD",
+        constraintsPath + "/os/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "constraint_setting(name = 'os')",
@@ -90,32 +106,30 @@ public class MockPlatformSupport {
         "    constraint_setting = ':os',",
         ")");
     mockToolsConfig.create(
-        TestConstants.PLATFORMS_PATH + "/BUILD",
+        platformsPath + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "constraint_setting(name = 'os')",
-        "constraint_value(name = 'android', constraint_setting = ':os')",
         "platform(",
         "    name = 'default_target',",
         "    constraint_values = [",
         // Regardless of the actual machine the tests are run on, hardcode everything to a single
         // default value for simplicity.
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
-        "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:jdk11',",
-        "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
+        "        '" + constraintsPackageRoot + "cpu:x86_64',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "        '" + platformPackageRoot + "/java/constraints:jdk11',",
+        "        '" + platformPackageRoot + "/java/constraints:java8',",
         "    ],",
         ")",
         "platform(",
         "    name = 'default_host',",
         "    constraint_values = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
-        "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:jdk11',",
-        "        '" + TestConstants.PLATFORM_PACKAGE_ROOT + "/java/constraints:java8',",
+        "        '" + constraintsPackageRoot + "cpu:x86_64',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "        '" + platformPackageRoot + "/java/constraints:jdk11',",
+        "        '" + platformPackageRoot + "/java/constraints:java8',",
         "    ],",
         ")");
     mockToolsConfig.create(
-        TestConstants.PLATFORMS_PATH + "/java/constraints/BUILD",
+        platformsPath + "/java/constraints/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "constraint_setting(name = 'runtime')",
         "constraint_value(",
