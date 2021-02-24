@@ -210,7 +210,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  name = 'android',",
         "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
         "  constraint_values = [",
-        "    '" + TestConstants.PLATFORM_PACKAGE_ROOT + ":android',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
         "  ],",
         ")");
 
@@ -389,7 +390,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  toolchain = ':sdk',",
         "  toolchain_type = ':sdk_toolchain_type',",
         "  target_compatible_with = [",
-        "    '@bazel_tools//platforms:android',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "  ],",
         ")",
         "android_sdk(",
