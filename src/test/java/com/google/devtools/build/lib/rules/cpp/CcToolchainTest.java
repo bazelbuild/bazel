@@ -756,16 +756,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testCcToolchainNotLoadedThroughMacro() throws Exception {
-    setupTestCcToolchainLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestCcToolchainLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratch.file(
         "a/BUILD",
@@ -782,7 +773,6 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   private void setupTestCcToolchainSuiteLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratch.file(
         "a/BUILD",
@@ -795,14 +785,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    toolchains = { 'k8': ':b' },",
         ")",
         getToolchainRule("b"));
-  }
-
-  @Test
-  public void testCcToolchainSuiteNotLoadedThroughMacro() throws Exception {
-    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
   }
 
   private static String getToolchainRule(String targetName) {

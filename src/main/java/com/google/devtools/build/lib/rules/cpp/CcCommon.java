@@ -1096,16 +1096,6 @@ public final class CcCommon {
     return outputGroupsBuilder.build();
   }
 
-  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext) {
-    if (!ruleContext.getFragment(CppConfiguration.class).loadCcRulesFromBzl()) {
-      return;
-    }
-
-    if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
-      registerMigrationRuleError(ruleContext);
-    }
-  }
-
   public static boolean isOldStarlarkApiWhiteListed(
       StarlarkRuleContext starlarkRuleContext, List<String> whitelistedPackages) {
     RuleContext context = starlarkRuleContext.getRuleContext();
@@ -1118,21 +1108,5 @@ public final class CcCommon {
           .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
     }
     return false;
-  }
-
-  private static boolean hasValidTag(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains("__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
-  }
-
-  private static void registerMigrationRuleError(RuleContext ruleContext) {
-    ruleContext.ruleError(
-        "The native C++/Objc rules are deprecated. Please load "
-            + ruleContext.getRule().getRuleClass()
-            + " from the rules_cc repository. See http://github.com/bazelbuild/rules_cc and "
-            + "https://github.com/bazelbuild/bazel/issues/7643. You can temporarily bypass this "
-            + "error by setting --incompatible_load_cc_rules_from_bzl=false.");
   }
 }

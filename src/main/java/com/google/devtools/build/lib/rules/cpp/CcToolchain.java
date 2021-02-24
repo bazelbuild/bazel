@@ -62,9 +62,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    if (!isAppleToolchain()) {
-      CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    }
     validateToolchain(ruleContext);
     CcToolchainAttributesProvider attributes =
         new CcToolchainAttributesProvider(

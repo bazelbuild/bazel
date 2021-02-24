@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 
@@ -32,7 +31,6 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
 
     CompilationAttributes compilationAttributes =
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
