@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -65,6 +66,8 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
 
   @Before
   public void setup() throws Exception {
+    // This test needs to use Bazel's repository semantics, and so we need to set up the required
+    // repositories in @bazel_tools and @platforms.
     BazelMockCcSupport.INSTANCE.setup(mockToolsConfig);
     scratch.overwriteFile("bazel_tools_workspace/tools/build_defs/cc/BUILD");
     scratch.overwriteFile(
@@ -77,6 +80,20 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
     scratch.file("/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 13.1.3345770");
+
+    // Set up a fake @platforms repository.
+    scratch.appendFile(
+        "WORKSPACE", "local_repository(name = 'platforms', path = 'platforms_workspace')");
+    if (!scratch.resolve("platforms_workspace/WORKSPACE").exists()) {
+      // Create the needed platforms and constraints if they don't already exist.
+      scratch.file("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
+      MockPlatformSupport.setup(
+          mockToolsConfig,
+          "@bazel_tools//platforms",
+          "bazel_tools_workspace/platforms",
+          "@platforms//",
+          "platforms_workspace");
+    }
   }
 
   private void scratchPlatformsDirectories(String arch, int... apiLevels) throws Exception {
