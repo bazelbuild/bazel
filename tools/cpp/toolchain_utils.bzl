@@ -39,8 +39,8 @@ def find_cpp_toolchain(ctx):
         if not "@bazel_tools//tools/cpp:toolchain_type" in ctx.toolchains:
             fail("In order to use find_cpp_toolchain, you must include the '@bazel_tools//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
         toolchain_info = ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
-        if hasattr(toolchain_info, "cc_provider_in_toolchain"):
-            return toolchain_info["cc"]
+        if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
+            return toolchain_info.cc
         return toolchain_info
 
     # Fall back to the legacy implicit attribute lookup.
