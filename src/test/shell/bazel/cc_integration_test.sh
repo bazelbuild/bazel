@@ -1201,4 +1201,51 @@ EOF
   assert_equals "$(sed 's/\\//g' bazel-bin/package/aspect_out-0.params)" \
       "$(cat package/expected_args)"
 }
+
+function test_include_external_genrule_header() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  create_workspace_with_default_repos "$REPO_PATH/WORKSPACE"
+  mkdir "$REPO_PATH/foo"
+  cat > "$REPO_PATH/foo/BUILD" <<'EOF'
+cc_library(
+  name = "bar",
+  srcs = [
+    "bar.cc",
+    "inc.h",
+  ],
+)
+
+genrule(
+  name = "inc_h",
+  srcs = ["inc.txt"],
+  outs = ["inc.h"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > "$REPO_PATH/foo/bar.cc" <<'EOF'
+#include "foo/inc.h"
+
+int main() {
+  sayhello();
+}
+EOF
+  cat > "$REPO_PATH/foo/inc.txt" <<'EOF'
+#include <stdio.h>
+
+void sayhello() {
+  printf("hello\n");
+}
+EOF
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+local_repository(name = 'repo', path='$REPO_PATH')
+EOF
+
+  bazel build @repo//foo:bar \
+    > "$TEST_log" || fail "expected build success"
+  bazel build --experimental_sibling_repository_layout @repo//foo:bar \
+    > "$TEST_log" || fail "expected build success"
+}
+
 run_suite "cc_integration_test"
