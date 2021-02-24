@@ -162,7 +162,9 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
             macosSdkVersion,
             macosMinimumOsVersion,
             xcodeVersionProperties.getXcodeVersion().orNull(),
-            availability);
+            availability,
+            appleOptions.xcodeVersion,
+            appleOptions.includeXcodeExecutionRequirements);
 
     AppleBitcodeMode bitcodeMode = appleConfig.getBitcodeMode();
     DottedVersion xcodeVersion = xcodeVersions.getXcodeVersion();

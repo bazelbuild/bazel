@@ -343,6 +343,21 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public Label xcodeVersionConfig;
 
+  @Option(
+      name = "experimental_include_xcode_execution_requirements",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "If set, add a \"requires-xcode:{version}\" execution requirement to every Xcode action."
+              + "  If the xcode version has a hyphenated label,  also add a"
+              + " \"requires-xcode-label:{version_label}\" execution requirement.")
+  public boolean includeXcodeExecutionRequirements;
+
   /**
    * The default label of the build-wide {@code xcode_config} configuration rule. This can be
    * changed from the default using the {@code xcode_version_config} build flag.
