@@ -98,7 +98,8 @@ public class DecompressorValue implements SkyValue {
   static Decompressor getDecompressor(Path archivePath)
       throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
-    if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
+    if (baseName.endsWith(".zip")
+        || baseName.endsWith(".jar") || baseName.endsWith(".war") || baseName.endsWith(".aar")) {
       return ZipDecompressor.INSTANCE;
     } else if (baseName.endsWith(".tar")) {
       return TarFunction.INSTANCE;
@@ -111,8 +112,8 @@ public class DecompressorValue implements SkyValue {
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .tar, .tar.gz, .tgz, .tar.xz, .txz, or "
-                  + ".tar.bz2 suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz, "
+                  + "or .tar.bz2 suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }
