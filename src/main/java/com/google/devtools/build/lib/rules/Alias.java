@@ -89,10 +89,6 @@ public class Alias implements RuleConfiguredTargetFactory {
                   .allowedRuleClasses(ANY_RULE)
                   .mandatory())
           .canHaveAnyProvider()
-          // Aliases themselves do not need toolchains or an execution platform, so this is fine.
-          // The actual target will resolve platforms and toolchains with no issues regardless of
-          // this setting.
-          .useToolchainResolution(false)
           .build();
     }
 

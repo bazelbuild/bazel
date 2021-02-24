@@ -1267,6 +1267,45 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void selectDirectlyOnConstraintsWithAlias() throws Exception {
+    // Tests select()ing directly on a constraint_value (with no intermediate config_setting).
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'fruit')",
+        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
+        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
+        "platform(",
+        "    name = 'apple_platform',",
+        "    constraint_values = [':apple'],",
+        ")",
+        "platform(",
+        "    name = 'banana_platform',",
+        "    constraint_values = [':banana'],",
+        ")");
+    scratch.file(
+        "check/BUILD",
+        "filegroup(name = 'adep', srcs = ['afile'])",
+        "filegroup(name = 'bdep', srcs = ['bfile'])",
+        "alias(name = 'hello',",
+        "    actual = select({",
+        "        '//conditions:apple': ':adep',",
+        "        '//conditions:banana': ':bdep',",
+        "    }))");
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:apple_platform"),
+        /*expected:*/ ImmutableList.of("src check/afile"),
+        /*not expected:*/ ImmutableList.of("src check/bfile"));
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:banana_platform"),
+        /*expected:*/ ImmutableList.of("src check/bfile"),
+        /*not expected:*/ ImmutableList.of("src check/afile"));
+  }
+
+  @Test
   public void multipleMatchErrorWhenAliasResolvesToSameSetting() throws Exception {
     scratch.file(
         "a/BUILD",
