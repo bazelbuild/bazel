@@ -189,7 +189,6 @@ public class CcToolchainProviderHelper {
         attributes.getAllowlistForLooseHeaderCheck();
 
     return new CcToolchainProvider(
-        /* values= */ ImmutableMap.of(),
         cppConfiguration,
         toolchainFeatures,
         toolsDirectory,
