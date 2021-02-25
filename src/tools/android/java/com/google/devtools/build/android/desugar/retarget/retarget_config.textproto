@@ -933,23 +933,6 @@ replacements {
   source {
     method_id {
       owner: "java/util/Arrays"
-      name: "deepEquals0"
-    }
-  }
-  destination {
-    method_id {
-      owner: "java/util/DesugarArrays"
-      name: "deepEquals0"
-    }
-  }
-  range: DESUGAR_JAVA8_CORE_LIBS
-  auto_deduce_opcode_and_desc: true
-}
-
-replacements {
-  source {
-    method_id {
-      owner: "java/util/Arrays"
       name: "spliterator"
     }
   }
