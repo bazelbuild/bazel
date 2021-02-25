@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -284,5 +287,50 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
     assertThat(variables.getStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME))
         .isEqualTo("6");
+  }
+
+  @Test
+  public void testExternalIncludePathsVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.EXTERNAL_INCLUDE_PATHS));
+    useConfiguration("--features=external_include_paths");
+    scratch.appendFile("WORKSPACE",
+      "local_repository(",
+      "    name = 'pkg',",
+      "    path = '/foo')");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
+            Root.fromPath(rootDirectory));
+
+    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file(
+        "/foo/BUILD",
+        "cc_library(name = 'foo',",
+        "           hdrs = ['foo.hpp'])",
+        "cc_library(name = 'foo2',",
+        "           hdrs = ['foo.hpp'],",
+        "           include_prefix = 'prf')");
+    scratch.file(
+        "x/BUILD",
+        "cc_library(name = 'bar',",
+        "           hdrs = ['bar.hpp'])",
+        "cc_binary(name = 'bin',",
+        "          srcs = ['bin.cc'],",
+        "          deps = ['bar', '@pkg//:foo', '@pkg//:foo2'])");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+    assertThat(CcToolchainVariables.toStringList(variables, CompileBuildVariables.EXTERNAL_INCLUDE_PATHS.getVariableName()))
+        .containsExactly(
+             "bazel-out/k8-fastbuild/bin/external/pkg/_virtual_includes/foo2",
+             "external/pkg",
+             "bazel-out/k8-fastbuild/bin/external/pkg",
+             "external/bazel_tools",
+             "bazel-out/k8-fastbuild/bin/external/bazel_tools");
   }
 }

@@ -374,6 +374,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

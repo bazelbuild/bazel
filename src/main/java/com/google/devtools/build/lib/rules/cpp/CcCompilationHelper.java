@@ -1011,27 +1011,45 @@ public final class CcCompilationHelper {
     boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
     RepositoryName repositoryName = label.getRepository();
     PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
-    ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
-    ccCompilationContextBuilder.addQuoteIncludeDir(
+    PathFragment genIncludeDir =
         siblingRepositoryLayout
             ? ruleContext.getGenfilesFragment()
-            : ruleContext.getGenfilesFragment().getRelative(repositoryPath));
-    ccCompilationContextBuilder.addQuoteIncludeDir(
+            : ruleContext.getGenfilesFragment().getRelative(repositoryPath);
+    PathFragment binIncludeDir =
         siblingRepositoryLayout
             ? ruleContext.getBinFragment()
-            : ruleContext.getBinFragment().getRelative(repositoryPath));
+            : ruleContext.getBinFragment().getRelative(repositoryPath);
 
-    ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
-    ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
+    ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
+    ccCompilationContextBuilder.addQuoteIncludeDir(genIncludeDir);
+    ccCompilationContextBuilder.addQuoteIncludeDir(binIncludeDir);
     ccCompilationContextBuilder.addQuoteIncludeDirs(quoteIncludeDirs);
+    ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
 
-    for (PathFragment includeDir : includeDirs) {
-      ccCompilationContextBuilder.addIncludeDir(includeDir);
+    boolean external =
+      !repositoryName.isDefault() &&
+      !repositoryName.isMain() &&
+      featureConfiguration.isEnabled(CppRuleClasses.EXTERNAL_INCLUDE_PATHS);
+
+    if (external) {
+      ccCompilationContextBuilder.addExternalIncludeDir(repositoryPath);
+      ccCompilationContextBuilder.addExternalIncludeDir(genIncludeDir);
+      ccCompilationContextBuilder.addExternalIncludeDir(binIncludeDir);
+      ccCompilationContextBuilder.addExternalIncludeDirs(quoteIncludeDirs);
+      ccCompilationContextBuilder.addExternalIncludeDirs(systemIncludeDirs);
+      ccCompilationContextBuilder.addExternalIncludeDirs(includeDirs);
+    } else {
+      ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
+      ccCompilationContextBuilder.addIncludeDirs(includeDirs);
     }
 
     PublicHeaders publicHeaders = computePublicHeaders(this.publicHeaders);
     if (publicHeaders.getVirtualIncludePath() != null) {
-      ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
+      if (external) {
+        ccCompilationContextBuilder.addExternalIncludeDir(publicHeaders.getVirtualIncludePath());
+      } else {
+        ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
+      }
     }
 
     if (configuration.isCodeCoverageEnabled()) {
@@ -1694,6 +1712,7 @@ public final class CcCompilationHelper {
         getCopts(builder.getSourceFile(), sourceLabel),
         dotdFileExecPath,
         usePic,
+        ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);
     return buildVariables.build();
   }

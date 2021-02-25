@@ -65,6 +65,13 @@ public enum CompileBuildVariables {
    */
   SYSTEM_INCLUDE_PATHS("system_include_paths"),
   /**
+   * Variable for the collection of external include paths.
+   *
+   * @see CcCompilationContext#getExternalIncludeDirs().
+   */
+  EXTERNAL_INCLUDE_PATHS("external_include_paths"),
+
+  /**
    * Variable for the collection of framework include paths.
    *
    * @see CcCompilationContext#getFrameworkIncludeDirs().
@@ -313,6 +320,7 @@ public enum CompileBuildVariables {
         userCompileFlags,
         dotdFileExecPath,
         usePic,
+        ImmutableList.of(),
         ImmutableMap.of());
     return buildVariables.build();
   }
@@ -331,6 +339,7 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       String dotdFileExecPath,
       boolean usePic,
+      ImmutableList<PathFragment> externalIncludeDirs,
       Map<String, String> additionalBuildVariables) {
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
@@ -379,6 +388,10 @@ public enum CompileBuildVariables {
     if (usePic) {
       buildVariables.addStringVariable(PIC.getVariableName(), "");
     }
+
+    buildVariables.addStringSequenceVariable(
+        EXTERNAL_INCLUDE_PATHS.getVariableName(),
+        Iterables.transform(externalIncludeDirs, PathFragment::getSafePathString));
 
     buildVariables.addAllStringVariables(additionalBuildVariables);
   }

@@ -245,6 +245,9 @@ public class CppRuleClasses {
   /** A string constant for the include_paths feature. */
   public static final String INCLUDE_PATHS = "include_paths";
 
+  /** A string constant for the external_include_paths feature. */
+  public static final String EXTERNAL_INCLUDE_PATHS = "external_include_paths";
+
   /** A string constant for the feature signalling static linking mode. */
   public static final String STATIC_LINKING_MODE = "static_linking_mode";
 
