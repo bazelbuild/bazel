@@ -1825,12 +1825,12 @@ public abstract class CcModule
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
-    String rulePackage =
+    Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageName();
-    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(rulePackage)) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", rulePackage);
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")
+        && !PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.getPackageName())) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
 
@@ -1967,8 +1967,10 @@ public abstract class CcModule
                 .toString());
 
     List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
-    List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
-    List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
+    List<Artifact> publicHeaders =
+        Sequence.cast(publicHeadersUnchecked, Artifact.class, "public_hdrs");
+    List<Artifact> privateHeaders =
+        Sequence.cast(privateHeadersUnchecked, Artifact.class, "private_hdrs");
 
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
