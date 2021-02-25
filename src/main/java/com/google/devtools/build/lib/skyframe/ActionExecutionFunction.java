@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -442,23 +443,24 @@ public class ActionExecutionFunction implements SkyFunction {
       // Collect the set of direct deps of this action which may be responsible for the lost inputs,
       // some of which may be discovered.
       ImmutableList<SkyKey> lostDiscoveredInputs = ImmutableList.of();
-      Iterable<? extends SkyKey> failedActionDeps;
+      ImmutableSet<SkyKey> failedActionDeps;
       if (e.isFromInputDiscovery()) {
         // Lost inputs found during input discovery are necessarily ordinary derived artifacts.
         // Their keys may not be direct deps yet, but the next time this Skyframe node is evaluated
         // they will be. See SkyframeActionExecutor's lostDiscoveredInputsMap.
-        lostDiscoveredInputs =
+        failedActionDeps =
             e.getLostInputs().values().stream()
-                .map(i -> (Artifact) i)
-                .map(Artifact::key)
-                .collect(ImmutableList.toImmutableList());
-        failedActionDeps = lostDiscoveredInputs;
+                .map(input -> Artifact.key((Artifact) input))
+                .collect(toImmutableSet());
+        lostDiscoveredInputs = failedActionDeps.asList();
       } else if (state.discoveredInputs != null) {
         failedActionDeps =
-            Iterables.concat(
-                depKeys, Iterables.transform(state.discoveredInputs.toList(), Artifact::key));
+            ImmutableSet.<SkyKey>builder()
+                .addAll(depKeys)
+                .addAll(Lists.transform(state.discoveredInputs.toList(), Artifact::key))
+                .build();
       } else {
-        failedActionDeps = depKeys;
+        failedActionDeps = ImmutableSet.copyOf(depKeys);
       }
 
       try {
