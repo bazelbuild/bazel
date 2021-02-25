@@ -163,7 +163,7 @@ public class CompatDexBuilder {
 
         List<Future<DexConsumer>> futures = new ArrayList<>(toDex.size());
         for (ZipEntry classEntry : toDex) {
-          futures.add(executor.submit(() -> dexEntry(input, zipFile, classEntry, executor)));
+          futures.add(executor.submit(() -> dexEntry(zipFile, classEntry, executor)));
         }
         for (int i = 0; i < futures.size(); i++) {
           ZipEntry entry = toDex.get(i);
@@ -176,13 +176,11 @@ public class CompatDexBuilder {
     }
   }
 
-  private DexConsumer dexEntry(
-      String classpath, ZipFile zipFile, ZipEntry classEntry, ExecutorService executor)
+  private DexConsumer dexEntry(ZipFile zipFile, ZipEntry classEntry, ExecutorService executor)
       throws IOException, CompilationFailedException {
     DexConsumer consumer = new DexConsumer();
     D8Command.Builder builder = D8Command.builder();
     builder
-        .addClasspathFiles(Paths.get(classpath))
         .setProgramConsumer(consumer)
         .setMode(noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG)
         .setMinApiLevel(13) // H_MR2.
