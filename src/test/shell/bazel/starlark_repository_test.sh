@@ -887,8 +887,8 @@ genrule(
 )
 EOF
   cat > .bazelrc <<EOF
-build:foo --repo_env=FOO=foo
-build:bar --repo_env=FOO=bar
+common:foo --repo_env=FOO=foo
+common:bar --repo_env=FOO=bar
 EOF
 
   bazel build --config=foo //:repoenv //:unrelated
