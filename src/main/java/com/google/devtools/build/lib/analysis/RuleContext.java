@@ -634,10 +634,16 @@ public final class RuleContext extends TargetContext
     Map<String, String> execProperties = new HashMap<>();
 
     if (executionPlatform != null) {
-      for (Map.Entry<String, Map<String, String>> execGroup :
-          parseExecGroups(executionPlatform.execProperties()).entrySet()) {
-        if (execGroup.getKey().equals(DEFAULT_EXEC_GROUP_NAME)
-                || execGroups.contains(execGroup.getKey())) {
+      Map<String, Map<String, String>> execPropertiesPerGroup = parseExecGroups(
+        executionPlatform.execProperties());
+
+      if (execPropertiesPerGroup.containsKey(DEFAULT_EXEC_GROUP_NAME)) {
+        execProperties.putAll(execPropertiesPerGroup.get(DEFAULT_EXEC_GROUP_NAME));
+        execPropertiesPerGroup.remove(DEFAULT_EXEC_GROUP_NAME);
+      }
+
+      for (Map.Entry<String, Map<String, String>> execGroup : execPropertiesPerGroup.entrySet()) {
+        if (execGroups.contains(execGroup.getKey())) {
           execProperties.putAll(execGroup.getValue());
         }
       }
