@@ -625,7 +625,8 @@ public final class RuleContext extends TargetContext
 
   /**
    * Computes a map of exec properties given the execution platform, taking only properties in exec
-   * groups that are applicable to this action.
+   * groups that are applicable to this action. Properties for specific exec groups take precedence
+   * over properties that don't specify an exec group.
    */
   private static ImmutableMap<String, String> computeExecProperties(
       Map<String, String> targetExecProperties,
