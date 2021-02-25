@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
-import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
@@ -72,12 +71,10 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           JavaCompilationArgsProvider.class,
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
-          JavaRunfilesProvider.class,
           JavaPluginInfoProvider.class,
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
-          JavaStrictCompilationArgsProvider.class,
           JavaSourceInfoProvider.class);
 
   private final TransitiveInfoProviderMap providers;
@@ -120,12 +117,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
-    List<JavaStrictCompilationArgsProvider> javaStrictCompilationArgsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaStrictCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
-    List<JavaRunfilesProvider> javaRunfilesProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
     List<JavaPluginInfoProvider> javaPluginInfoProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
     List<JavaExportsProvider> javaExportsProviders =
@@ -134,12 +127,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
     List<JavaSourceInfoProvider> sourceInfos =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceInfoProvider.class);
-
-    Runfiles mergedRunfiles = Runfiles.EMPTY;
-    for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
-      Runfiles runfiles = javaRunfilesProvider.getRunfiles();
-      mergedRunfiles = mergedRunfiles == Runfiles.EMPTY ? runfiles : mergedRunfiles.merge(runfiles);
-    }
 
     ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
     ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
@@ -153,14 +140,10 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
         .addProvider(
-            JavaStrictCompilationArgsProvider.class,
-            JavaStrictCompilationArgsProvider.merge(javaStrictCompilationArgsProviders))
-        .addProvider(
             JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
         .addProvider(
             JavaRuleOutputJarsProvider.class,
             JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-        .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
@@ -572,16 +555,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     public JavaInfo build() {
-      // TODO(twerth): Clean up after we remove java_proto_library.strict_deps.
-      // Instead of teaching every (potential Starlark) caller to also create the provider for
-      // strict deps we wrap the non strict provider instead.
-      if (!providerMap.contains(JavaStrictCompilationArgsProvider.class)
-          && providerMap.contains(JavaCompilationArgsProvider.class)) {
-        JavaStrictCompilationArgsProvider javaStrictCompilationArgsProvider =
-            new JavaStrictCompilationArgsProvider(
-                providerMap.getProvider(JavaCompilationArgsProvider.class));
-        addProvider(JavaStrictCompilationArgsProvider.class, javaStrictCompilationArgsProvider);
-      }
       return new JavaInfo(
           providerMap.build(),
           runtimeJars,

@@ -512,6 +512,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(
+            JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .build();
   }
 
@@ -645,11 +648,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     semantics.addRunfilesForBinary(ruleContext, launcher, builder);
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());

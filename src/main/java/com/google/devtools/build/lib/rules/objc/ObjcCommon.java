@@ -34,6 +34,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEA
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -117,6 +118,7 @@ public final class ObjcCommon {
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Iterable<CcCompilationContext> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkingContext> depCcLinkProviders = ImmutableList.of();
+    private Iterable<CcLinkingContext> depCcLinkStampProviders = ImmutableList.of();
     private Iterable<CcCompilationContext> depCcDirectProviders = ImmutableList.of();
 
     /**
@@ -182,7 +184,8 @@ public final class ObjcCommon {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> directCppDeps = ImmutableList.builder();
-      ImmutableList.Builder<CcLinkingContext> cppDepLinkParams = ImmutableList.builder();
+      ImmutableList.Builder<CcLinkingContext> cppDepLinkContexts = ImmutableList.builder();
+      ImmutableList.Builder<CcLinkingContext> cppDepLinkStampContexts = ImmutableList.builder();
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
@@ -191,16 +194,23 @@ public final class ObjcCommon {
         } else {
           // This is the way we inject cc_library attributes into direct fields.
           addAnyProviders(directCppDeps, depCT, CcInfo.PROVIDER);
+          // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
+          // that objc_library archives do not get treated as if they are from cc targets.
+          addAnyContexts(cppDepLinkContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
         }
         addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
-        if (isCcLibrary(dep)) {
-          cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
-        }
+        // Temporary solution to specially handle LinkStamps, so that they don't get dropped.  When
+        // linking info has been fully migrated to CcInfo, we can drop this.
+        addAnyContexts(
+            cppDepLinkStampContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
       }
       addDepObjcProviders(propagatedObjcDeps.build());
       addDepCcHeaderProviders(cppDeps.build());
       addDepCcDirectProviders(directCppDeps.build());
-      this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, cppDepLinkParams.build());
+      this.depCcLinkProviders =
+          Iterables.concat(this.depCcLinkProviders, cppDepLinkContexts.build());
+      this.depCcLinkStampProviders =
+          Iterables.concat(this.depCcLinkStampProviders, cppDepLinkStampContexts.build());
 
       return this;
     }
@@ -230,6 +240,18 @@ public final class ObjcCommon {
       T provider = collection.get(providerClass);
       if (provider != null) {
         listBuilder.add(provider);
+      }
+      return listBuilder;
+    }
+
+    private <T extends Info, U> ImmutableList.Builder<U> addAnyContexts(
+        ImmutableList.Builder<U> listBuilder,
+        TransitiveInfoCollection collection,
+        BuiltinProvider<T> providerClass,
+        Function<T, U> getContext) {
+      T provider = collection.get(providerClass);
+      if (provider != null) {
+        listBuilder.add(getContext.apply(provider));
       }
       return listBuilder;
     }
@@ -299,7 +321,7 @@ public final class ObjcCommon {
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
 
-      ObjcProvider.Builder objcProvider = new ObjcProvider.NativeBuilder(semantics);
+      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder(semantics);
 
       objcProvider
           .addAll(IMPORTED_LIBRARY, extraImportLibraries)
@@ -339,8 +361,11 @@ public final class ObjcCommon {
                 CC_LIBRARY,
                 NestedSetBuilder.<LibraryToLink>linkOrder()
                     .addTransitive(linkProvider.getLibraries())
-                    .build())
-            .addAll(LINKSTAMP, linkProvider.getLinkstamps());
+                    .build());
+      }
+
+      for (CcLinkingContext linkStampProvider : depCcLinkStampProviders) {
+        objcProvider.addAll(LINKSTAMP, linkStampProvider.getLinkstamps());
       }
 
       if (compilationAttributes.isPresent()) {
@@ -421,45 +446,25 @@ public final class ObjcCommon {
 
       ObjcCompilationContext objcCompilationContext = objcCompilationContextBuilder.build();
 
-      ObjcProvider.NativeBuilder objcProviderNativeBuilder =
-          (ObjcProvider.NativeBuilder) objcProvider;
-      if (purpose == Purpose.LINK_ONLY) {
-        objcProviderNativeBuilder.setCcCompilationContext(
-            objcCompilationContext.createCcCompilationContext());
-      }
       return new ObjcCommon(
-          purpose, objcProviderNativeBuilder, objcCompilationContext, compilationArtifacts);
+          purpose, objcProvider.build(), objcCompilationContext, compilationArtifacts);
     }
 
-    private static boolean isCcLibrary(ConfiguredTargetAndData info) {
-      try {
-        String targetName = info.getTarget().getTargetKind();
-
-        for (String ruleClassName : ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES) {
-          if (targetName.equals(ruleClassName + " rule")) {
-            return true;
-          }
-        }
-        return false;
-      } catch (Exception e) {
-        return false;
-      }
-    }
   }
 
   private final Purpose purpose;
-  private final ObjcProvider.NativeBuilder objcProviderBuilder;
+  private final ObjcProvider objcProvider;
   private final ObjcCompilationContext objcCompilationContext;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
 
   private ObjcCommon(
       Purpose purpose,
-      ObjcProvider.NativeBuilder objcProviderBuilder,
+      ObjcProvider objcProvider,
       ObjcCompilationContext objcCompilationContext,
       Optional<CompilationArtifacts> compilationArtifacts) {
     this.purpose = purpose;
-    this.objcProviderBuilder = Preconditions.checkNotNull(objcProviderBuilder);
+    this.objcProvider = Preconditions.checkNotNull(objcProvider);
     this.objcCompilationContext = Preconditions.checkNotNull(objcCompilationContext);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
@@ -468,12 +473,16 @@ public final class ObjcCommon {
     return purpose;
   }
 
-  public ObjcProvider.NativeBuilder getObjcProviderBuilder() {
-    return objcProviderBuilder;
+  public ObjcProvider getObjcProvider() {
+    return objcProvider;
   }
 
   public ObjcCompilationContext getObjcCompilationContext() {
     return objcCompilationContext;
+  }
+
+  public CcCompilationContext getCcCompilationContext() {
+    return objcCompilationContext.createCcCompilationContext();
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {

@@ -1,4 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
     "DEFAULT_TOOLCHAIN_CONFIGURATION",
@@ -18,7 +17,6 @@ load(
     "legacy_java_runtime_alias",
     "legacy_java_toolchain_alias",
 )
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])

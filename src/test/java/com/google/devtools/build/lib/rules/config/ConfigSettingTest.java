@@ -292,7 +292,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         String.format(
             "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
                 + "allowlisted to %s//tools/... only)",
-            RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getDefaultCanonicalForm()),
+            RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getCanonicalForm()),
         "config_setting(",
         "    name = 'badoption',",
         "    values = {",

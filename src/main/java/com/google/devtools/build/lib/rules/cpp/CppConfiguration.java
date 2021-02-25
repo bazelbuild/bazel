@@ -333,6 +333,13 @@ public final class CppConfiguration extends Fragment
     return cppOptions.dynamicMode;
   }
 
+  @StarlarkMethod(
+      name = "dynamic_mode",
+      doc = "Whether C/C++ binaries/tests were requested to be linked dynamically.")
+  public String getDynamicModeFlagString() {
+    return cppOptions.dynamicMode.name();
+  }
+
   public boolean isFdo() {
     return cppOptions.isFdo();
   }

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import net.starlark.java.syntax.Location;
 
 /**
  * Models the downloader config file. This file has a line-based format, with each line starting
@@ -72,15 +73,18 @@ class UrlRewriterConfig {
   /**
    * Constructor to use. The {@code config} will be read to completion.
    *
+   * @throws UrlRewriterParseException If the file contents was invalid.
    * @throws UncheckedIOException If any processing problems occur.
    */
-  public UrlRewriterConfig(Reader config) {
+  public UrlRewriterConfig(String filePathForErrorReporting, Reader config)
+      throws UrlRewriterParseException {
     ImmutableSet.Builder<String> allowList = ImmutableSet.builder();
     ImmutableSet.Builder<String> blockList = ImmutableSet.builder();
     ImmutableMultimap.Builder<Pattern, String> rewrites = ImmutableMultimap.builder();
 
     try (BufferedReader reader = new BufferedReader(config)) {
-      for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+      int lineNumber = 1;
+      for (String line = reader.readLine(); line != null; line = reader.readLine(), lineNumber++) {
         // Find the first word
         List<String> parts = SPLITTER.splitToList(line);
         if (parts.isEmpty()) {
@@ -92,34 +96,37 @@ class UrlRewriterConfig {
           continue;
         }
 
+        Location location = Location.fromFileLineColumn(filePathForErrorReporting, lineNumber, 0);
+
         switch (parts.get(0)) {
           case "allow":
             if (parts.size() != 2) {
-              throw new IllegalStateException(
-                  "Only the host name is allowed after `allow`: " + line);
+              throw new UrlRewriterParseException(
+                  "Only the host name is allowed after `allow`: " + line, location);
             }
             allowList.add(parts.get(1));
             break;
 
           case "block":
             if (parts.size() != 2) {
-              throw new IllegalStateException(
-                  "Only the host name is allowed after `block`: " + line);
+              throw new UrlRewriterParseException(
+                  "Only the host name is allowed after `block`: " + line, location);
             }
             blockList.add(parts.get(1));
             break;
 
           case "rewrite":
             if (parts.size() != 3) {
-              throw new IllegalStateException(
+              throw new UrlRewriterParseException(
                   "Only the matching pattern and rewrite pattern is allowed after `rewrite`: "
-                      + line);
+                      + line,
+                  location);
             }
             rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
             break;
 
           default:
-            throw new IllegalStateException("Unable to parse: " + line);
+            throw new UrlRewriterParseException("Unable to parse: " + line, location);
         }
       }
     } catch (IOException e) {

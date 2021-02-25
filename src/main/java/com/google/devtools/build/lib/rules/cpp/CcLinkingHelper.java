@@ -843,12 +843,10 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    if (!additionalLinkerInputsBuilder.isEmpty()) {
-      if (fdoContext.getPropellerOptimizeInputFile() != null
-          && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-        this.additionalLinkerInputsBuilder.add(
-            fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-      }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      this.additionalLinkerInputsBuilder.add(
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(

@@ -75,7 +75,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     ObjcCommon common = common(ruleContext);
-    ObjcProvider objcProvider = common.getObjcProviderBuilder().build();
+    ObjcProvider objcProvider = common.getObjcProvider();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
@@ -104,9 +104,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(objcProvider)
         .addNativeDeclaredProvider(
-            CcInfo.builder()
-                .setCcCompilationContext(objcProvider.getCcCompilationContext())
-                .build())
+            CcInfo.builder().setCcCompilationContext(common.getCcCompilationContext()).build())
         .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }

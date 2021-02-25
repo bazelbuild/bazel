@@ -80,10 +80,16 @@ public class HttpConnectorMultiplexerIntegrationTest {
   private final HttpConnectorMultiplexer multiplexer =
       new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper);
 
+  private static Optional<Checksum> makeChecksum(String string) {
+    try {
+      return Optional.of(Checksum.fromString(KeyType.SHA256, string));
+    } catch (Checksum.InvalidChecksumException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   private static final Optional<Checksum> HELLO_SHA256 =
-      Optional.of(
-          Checksum.fromString(
-              KeyType.SHA256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+      makeChecksum("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
 
   @Before
   public void before() throws Exception {

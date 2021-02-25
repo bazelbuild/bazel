@@ -1759,14 +1759,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':custom_library.bzl', 'custom_library')",
         "custom_library(name = 'custom', deps = [':a', ':b'])",
-        "java_import(name = 'a', jars = ['java/A.jar'])",
-        "java_import(name = 'b', jars = ['java/B.jar'])");
+        "java_import(name = 'a', jars = ['java/A.jar'], srcjar = 'java/A.srcjar')",
+        "java_import(name = 'b', jars = ['java/B.jar'], srcjar = 'java/B.srcjar')");
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaSourceInfoProvider sourceInfo =
         JavaInfo.getProvider(JavaSourceInfoProvider.class, myRuleTarget);
-    assertThat(prettyArtifactNames(sourceInfo.getJarFiles()))
-        .containsExactly("foo/java/A.jar", "foo/java/B.jar");
+    assertThat(prettyArtifactNames(sourceInfo.getSourceJars()))
+        .containsExactly("foo/java/A.srcjar", "foo/java/B.srcjar");
   }
 
   @Test

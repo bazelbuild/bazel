@@ -224,7 +224,7 @@ public class SerializationContext {
    * that know they may encounter an object that is expensive to serialize, like {@link
    * com.google.devtools.build.lib.skyframe.PackageValue} and {@link
    * com.google.devtools.build.lib.packages.Package} or {@link
-   * com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} and {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredTargetValue} and {@link
    * com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget}.
    *
    * <p>In case of an unexpected failure from {@link #checkClassExplicitlyAllowed}, it should first

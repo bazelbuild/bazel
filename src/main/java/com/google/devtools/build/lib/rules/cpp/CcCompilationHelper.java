@@ -1013,9 +1013,13 @@ public final class CcCompilationHelper {
     PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
-        ruleContext.getGenfilesFragment().getRelative(repositoryPath));
+        siblingRepositoryLayout
+            ? ruleContext.getGenfilesFragment()
+            : ruleContext.getGenfilesFragment().getRelative(repositoryPath));
     ccCompilationContextBuilder.addQuoteIncludeDir(
-        ruleContext.getBinFragment().getRelative(repositoryPath));
+        siblingRepositoryLayout
+            ? ruleContext.getBinFragment()
+            : ruleContext.getBinFragment().getRelative(repositoryPath));
 
     ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
     ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);

@@ -14,29 +14,46 @@
 
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.MapDifference;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -56,6 +73,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
@@ -79,13 +97,16 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
@@ -95,6 +116,8 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.Version;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -119,6 +142,8 @@ public class BuildViewForTesting {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
+  private ImmutableMap<ActionLookupKey, Version> currentActionLookupKeys = ImmutableMap.of();
+
   public BuildViewForTesting(
       BlazeDirectories directories,
       ConfiguredRuleClassProvider ruleClassProvider,
@@ -136,8 +161,28 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
-  public Set<SkyKey> getSkyframeEvaluatedTargetKeysForTesting() {
-    return skyframeBuildView.getEvaluatedTargetKeys();
+  public Set<ActionLookupKey> getSkyframeEvaluatedActionLookupKeyCountForTesting() {
+    Set<ActionLookupKey> actionLookupKeys = populateActionLookupKeyMapAndGetDiff();
+    Preconditions.checkState(
+        actionLookupKeys.size() == skyframeBuildView.getEvaluatedCounts().total(),
+        "Number of newly evaluated action lookup values %s does not agree with number that changed"
+            + " in graph: %s",
+        actionLookupKeys);
+    return actionLookupKeys;
+  }
+
+  private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
+    ImmutableMap<ActionLookupKey, Version> newMap =
+        stream(skyframeExecutor.getEvaluatorForTesting().getGraphEntries())
+            .filter(e -> e.getKey() instanceof ActionLookupKey)
+            .collect(
+                toImmutableMap(
+                    e -> ((ActionLookupKey) e.getKey()), e -> e.getValue().getVersion()));
+    MapDifference<ActionLookupKey, Version> difference =
+        Maps.difference(newMap, currentActionLookupKeys);
+    currentActionLookupKeys = newMap;
+    return Sets.union(
+        difference.entriesDiffering().keySet(), difference.entriesOnlyOnLeft().keySet());
   }
 
   /**
@@ -162,6 +207,7 @@ public class BuildViewForTesting {
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
       throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException {
+    populateActionLookupKeyMapAndGetDiff();
     return buildView.update(
         loadingResult,
         targetOptions,
@@ -221,6 +267,7 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
+  // TODO(janakr): pass the configuration in as a parameter here.
   public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(
       ExtendedEventHandler eventHandler,
       ConfiguredTarget ct,
@@ -228,38 +275,12 @@ public class BuildViewForTesting {
       throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
     return Collections2.transform(
-        getConfiguredTargetAndDataDirectPrerequisitesForTesting(eventHandler, ct, configurations),
+        getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+            eventHandler, ct, ct.getConfigurationKey(), configurations),
         ConfiguredTargetAndData::getConfiguredTarget);
   }
 
-  // TODO(janakr): pass the configuration in as a parameter here and above.
-  private Collection<ConfiguredTargetAndData>
-      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-          ExtendedEventHandler eventHandler,
-          ConfiguredTarget ct,
-          BuildConfigurationCollection configurations)
-          throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
-              InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-        eventHandler, ct, ct.getConfigurationKey(), configurations);
-  }
-
-  @VisibleForTesting
-  public Collection<ConfiguredTargetAndData>
-      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-          ExtendedEventHandler eventHandler,
-          ConfiguredTargetAndData ct,
-          BuildConfigurationCollection configurations)
-          throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
-              InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-        eventHandler,
-        ct.getConfiguredTarget(),
-        ct.getConfiguredTarget().getConfigurationKey(),
-        configurations);
-  }
-
-  private Collection<ConfiguredTargetAndData>
+  protected Collection<ConfiguredTargetAndData>
       getConfiguredTargetAndDataDirectPrerequisitesForTesting(
           ExtendedEventHandler eventHandler,
           ConfiguredTarget ct,
@@ -267,13 +288,115 @@ public class BuildViewForTesting {
           BuildConfigurationCollection configurations)
           throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
               InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    return skyframeExecutor.getConfiguredTargetsForTesting(
-        eventHandler,
-        configuration,
-        ImmutableSet.copyOf(
-            getDirectPrerequisiteDependenciesForTesting(
-                    eventHandler, ct, configurations, /* toolchainContexts= */ null)
-                .values()));
+
+    SkyframeExecutorWrappingWalkableGraph walkableGraph =
+        SkyframeExecutorWrappingWalkableGraph.of(skyframeExecutor);
+
+    // Directly check the graph for the dependencies of the target.
+    // This duplicates the logic in ConfiguredTargetFunction#computeDependencies without
+    // actually recomputing anything, all values should be directly from skyframe.
+    try {
+      // Fetch the dependency keys. This is actually only needed to load the aspects for each
+      // dependency.
+      Multimap<Label, DependencyKey> dependencyKeys =
+          getDirectPrerequisiteDependenciesForTesting(
+                  eventHandler, ct, configurations, /* toolchainContexts= */ null)
+              .values()
+              .stream()
+              .collect(
+                  ImmutableListMultimap.toImmutableListMultimap(
+                      DependencyKey::getLabel, Functions.identity()));
+
+      // Load the keys of the dependencies of the target, based on data currently in skyframe.
+      Iterable<SkyKey> directPrerequisites =
+          walkableGraph.getDirectDeps(
+              ConfiguredTargetKey.builder().setConfiguredTarget(ct).build());
+
+      // Turn the keys back into ConfiguredTarget instances, possibly merging in aspects that
+      // were propagated from the original target.
+      Collection<ConfiguredTargetAndData> cts =
+          Streams.stream(directPrerequisites)
+              .filter(dep -> dep instanceof ConfiguredTargetKey)
+              .map(dep -> (ConfiguredTargetKey) dep)
+              .map(configuredTargetKey -> getConfiguredTarget(walkableGraph, configuredTargetKey))
+              // For each configured target, add in any aspects from depNodeNames.
+              .map(
+                  configuredTarget ->
+                      mergeAspects(
+                          walkableGraph,
+                          configuredTarget,
+                          findDependencyKey(dependencyKeys, configuredTarget)))
+              .collect(toImmutableList());
+
+      return cts;
+    } catch (InterruptedException e) {
+      return ImmutableList.of();
+    }
+  }
+
+  // Helper method to look up a specific existing key in the graph, and handle the error condition.
+  private static ConfiguredTargetAndData getConfiguredTarget(
+      WalkableGraph graph, ConfiguredTargetKey key) {
+    try {
+      ConfiguredTargetValue value = (ConfiguredTargetValue) graph.getValue(key);
+      if (value != null) {
+        ConfiguredTarget ct = value.getConfiguredTarget();
+        BuildConfiguration config = null;
+        if (ct.getConfigurationKey() != null) {
+          config =
+              ((BuildConfigurationValue) graph.getValue(ct.getConfigurationKey()))
+                  .getConfiguration();
+        }
+        PackageValue packageValue =
+            (PackageValue) graph.getValue(PackageValue.key(ct.getLabel().getPackageIdentifier()));
+        return new ConfiguredTargetAndData(
+            ct,
+            packageValue.getPackage().getTarget(ct.getLabel().getName()),
+            config,
+            /* transitionKeys= */ null);
+      }
+      return null;
+    } catch (InterruptedException | NoSuchTargetException e) {
+      throw new IllegalStateException("Unexpected error retrieving keys from graph", e);
+    }
+  }
+
+  @Nullable
+  private DependencyKey findDependencyKey(
+      Multimap<Label, DependencyKey> dependencyKeys, ConfiguredTargetAndData configuredTarget) {
+    // TODO(blaze-configurability): Figure out how to map the ConfiguredTarget back to the correct
+    // DependencyKey when there are more than one.
+    return Iterables.getFirst(dependencyKeys.get(configuredTarget.getTarget().getLabel()), null);
+  }
+
+  // Helper method to find the aspects needed for a target and merge them.
+  protected ConfiguredTargetAndData mergeAspects(
+      WalkableGraph graph, ConfiguredTargetAndData ctd, @Nullable DependencyKey dependencyKey) {
+    if (dependencyKey == null || dependencyKey.getAspects().getUsedAspects().isEmpty()) {
+      return ctd;
+    }
+
+    // Collect the aspects.
+    try {
+      BuildConfiguration config = ctd.getConfiguration();
+      List<SkyKey> aspectKeys =
+          dependencyKey.getAspects().getUsedAspects().stream()
+              .map(
+                  aspect ->
+                      AspectValueKey.createAspectKey(
+                          dependencyKey.getLabel(), config, aspect.getAspect(), config))
+              .collect(toImmutableList());
+      ImmutableList<ConfiguredAspect> configuredAspects =
+          graph.getSuccessfulValues(aspectKeys).values().stream()
+              .map(value -> (AspectValue) value)
+              .map(AspectValue::getConfiguredAspect)
+              .collect(toImmutableList());
+
+      return ctd.fromConfiguredTarget(
+          MergedConfiguredTarget.of(ctd.getConfiguredTarget(), configuredAspects));
+    } catch (InterruptedException | DuplicateException e) {
+      throw new IllegalStateException("Unexpected exception while finding prerequisites", e);
+    }
   }
 
   @VisibleForTesting
@@ -614,30 +737,6 @@ public class BuildViewForTesting {
         .setToolchainContexts(resolvedToolchainContext.build())
         .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
         .build();
-  }
-
-  /**
-   * For a configured target dependentTarget, returns the desired configured target that is depended
-   * upon. Useful for obtaining the a target with aspects required by the dependent.
-   */
-  @VisibleForTesting
-  public ConfiguredTarget getPrerequisiteConfiguredTargetForTesting(
-      ExtendedEventHandler eventHandler,
-      ConfiguredTarget dependentTarget,
-      Label desiredTarget,
-      BuildConfigurationCollection configurations)
-      throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
-          InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    Collection<ConfiguredTargetAndData> configuredTargets =
-        getPrerequisiteMapForTesting(
-                eventHandler, dependentTarget, configurations, /* toolchainContexts= */ null)
-            .values();
-    for (ConfiguredTargetAndData ct : configuredTargets) {
-      if (ct.getTarget().getLabel().equals(desiredTarget)) {
-        return ct.getConfiguredTarget();
-      }
-    }
-    return null;
   }
 
   /** Clears the analysis cache as in --discard_analysis_cache. */

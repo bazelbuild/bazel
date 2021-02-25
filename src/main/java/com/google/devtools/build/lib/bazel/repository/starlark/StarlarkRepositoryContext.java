@@ -975,7 +975,14 @@ public class StarlarkRepositoryContext
       // The checksum is checked on download, so if we got here, the user provided checksum is good
       return originalChecksum.get();
     }
-    return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+    try {
+      return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+    } catch (Checksum.InvalidChecksumException e) {
+      throw new IllegalStateException(
+          "Unexpected invalid checksum from internal computation of SHA-256 checksum on "
+              + path.getPathString(),
+          e);
+    }
   }
 
   private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
@@ -986,7 +993,7 @@ public class StarlarkRepositoryContext
       }
       try {
         return Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
-      } catch (IllegalArgumentException e) {
+      } catch (Checksum.InvalidChecksumException e) {
         warnAboutChecksumError(urls, e.getMessage());
         throw new RepositoryFunctionException(
             Starlark.errorf(
@@ -1002,7 +1009,7 @@ public class StarlarkRepositoryContext
 
     try {
       return Optional.of(Checksum.fromSubresourceIntegrity(integrity));
-    } catch (IllegalArgumentException e) {
+    } catch (Checksum.InvalidChecksumException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
           Starlark.errorf(

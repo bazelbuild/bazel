@@ -211,10 +211,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     JavaSourceJarsProvider javaSourceJarsProvider =
         JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
     JavaSourceInfoProvider javaSourceInfoProvider =
-        new JavaSourceInfoProvider.Builder()
-            .setJarFiles(ImmutableList.of(mergedJar))
-            .setSourceJarsForJarFiles(srcJars)
-            .build();
+        new JavaSourceInfoProvider.Builder().setSourceJars(srcJars).build();
 
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()

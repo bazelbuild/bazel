@@ -76,6 +76,7 @@ public enum ProfilerTask {
   REMOTE_CACHE_CHECK("remote action cache check"),
   REMOTE_DOWNLOAD("remote output download"),
   REMOTE_NETWORK("remote network"),
+  FILESYSTEM_TRAVERSAL("filesystem traversal"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {

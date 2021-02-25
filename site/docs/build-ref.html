@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Concepts and terminology
+category: getting-started
 ---
 <h1>Concepts and Terminology</h1>
 <p>
@@ -41,8 +42,8 @@ title: Concepts and terminology
    are defined in the <code>WORKSPACE</code> file using workspace rules.
 
 <p>The workspace rules bundled with Bazel are documented in the
-   <a href="be/workspace.html">Workspace Rules</a> section in the Build
-   Encyclopedia and the documentation on
+   <a href="be/workspace.html">Workspace Rules</a> section in the
+   <a href="be/overview.html">Build Encyclopedia</a> and the documentation on
    <a href="repo/index.html">embedded Starlark repository rules</a>.</p>
 
 <p>As external repositories are repositories themselves, they often contain
@@ -148,8 +149,9 @@ src/my/app/tests/test.cc
   are from the <code>visibility</code> attribute of rules or from the
   <code>default_visibility</code> attribute of the <code>package</code>
   function; they do not generate or consume files. For more information, refer
-  to the appropriate section of the <a
-  href='be/functions.html#package_group'>Build Encyclopedia</a>.
+  to the <a
+  href='be/functions.html#package_group'><code>package_group</code>
+  documentation</a>.
 </p>
 
 
@@ -157,8 +159,8 @@ src/my/app/tests/test.cc
 
 <p>
   All targets belong to exactly one package. The name of a target is
-  called its <em>label</em>, and a typical label in canonical form
-  looks like this:
+  called its <em>label</em>.  Every label uniquely identifies a target. A
+  typical label in canonical form looks like:
 </p>
 
 
@@ -167,10 +169,10 @@ src/my/app/tests/test.cc
 </pre>
 
 <p>
+  The first part of the label is the repository name, <code>@myrepo//</code>.
   In the typical case that a label refers to the same repository from which
-  it is used, the repository name may be left out. So, inside
-  <code>@myrepo</code> this label is usually written, in <code>BUILD</code>
-  files and on the command line, as
+  it is used, the repository identifier may be abbreviated as <code>//</code>. 
+  So, inside <code>@myrepo</code> this label is usually written as
 </p>
 
 <pre>
@@ -179,71 +181,68 @@ src/my/app/tests/test.cc
 
 <p>
 
-  Each label has two parts, a package name (<code>my/app/main</code>)
-  and a target name (<code>app_binary</code>). Every label uniquely
-  identifies a target. Labels sometimes appear in other forms; when
-  the colon is omitted, the target name is assumed to be the same as
-  the last component of the package name, so these two labels are
+  The second part of the label is the un-qualified package name
+  <code>my/app/main</code>, the path to the package
+  relative to the repository root.  When the label refers to the same
+  package it is used in, the package name (and optionally, the colon)
+  may be omitted.  So, inside <code>@myrepo//my/app/main</code>,
+  this label may be written either of the following ways:
+
+</p>
+
+<pre>
+app_binary
+:app_binary
+</pre>
+
+<p>
+  It is a matter of convention that the colon is omitted for files,
+  but retained for rules, but it is not otherwise significant.
+</p>
+
+<p>
+  The part of the label after
+  the colon, <code>app_binary</code> is the un-qualified target name.
+  When it matches the last component of the package path, it, and
+  the colon, may be omitted.  So, these two labels are
   equivalent:
 </p>
 
 <pre>
-//my/app
-//my/app:app
+//my/app/lib
+//my/app/lib:lib
 </pre>
 
 <p>
-  Short-form labels such as <code>//my/app</code> are not to
-  be confused with package names. Labels start with <code>//</code>,
-  but package names never do, thus <code>my/app</code> is the
-  package containing <code>//my/app</code>.
+  The name of a file target in a subdirectory of the
+  package is the file's path relative to the package
+  root (the directory containing the <code>BUILD</code> file).
+  So, this file is in the <code>my/app/main/testdata</code>
+  subdirectory of the repository:
+</p>
+
+<pre>
+//my/app/main:testdata/input.txt
+</pre>
+
+<p>
+  Don't confuse labels like <code>//my/app</code> with package names. Labels
+  always start with a repository identifier (often abbreviated <code>//</code>)
+  but package names never do. Thus, <code>my/app</code> is the package
+  containing <code>//my/app/lib</code> (a.k.a.
+  <code>//my/app/lib:lib</code>).
 
   (A common misconception is that <code>//my/app</code> refers
   to a package, or to <em>all</em> the targets in a package; neither
-  is true.)
-</p>
-
-<p>
-  Within a BUILD file, the package-name part of label may be omitted,
-  and optionally the colon too. So within the BUILD file for package
-  <code>my/app</code> (i.e. <code>//my/app:BUILD</code>),
-  the following "relative" labels are all equivalent:
-</p>
-
-<pre>
-//my/app:app
-//my/app
-:app
-app
-</pre>
-
-<p>
-  (It is a matter of convention that the colon is omitted for files,
-  but retained for rules, but it is not otherwise significant.)
-</p>
-
-<p>
-  Similarly, within a BUILD file, files belonging to the package may
-  be referenced by their unadorned name relative to the package
-  directory:
-</p>
-
-
-<pre>
-generate.cc
-testdata/input.txt
-</pre>
-
-<p>
-  But from other packages, or from the command-line, these file
-  targets must always be referred to by their complete label, e.g.
-  <code>//my/app:generate.cc</code>.
+  is true.  Remember, it is equivalent to `//my/app:app`, so it names
+  the `app` target in the `my/app` package of the current repository).
 </p>
 
 <p>
   Relative labels cannot be used to refer to targets in other
-  packages; the complete package name must always be specified in this
-  case. For example, if the source tree contains both the package
+  packages; the repository identifier and package name must
+  always be specified in this case. For example, if the source
+  tree contains both the package
   <code>my/app</code> and the package
   <code>my/app/testdata</code> (i.e., each of these two
   packages has its own BUILD file). The latter package contains a
@@ -334,8 +333,8 @@ testdata/input.txt
 <p>
   The name of a package is the name of the directory containing its
 
-  BUILD file, relative to the top-level directory of the source tree.
-  For example: <code>my/app</code>.
+  BUILD file, relative to the top-level directory of the containing
+  repository. For example: <code>my/app</code>.
 
   Package names must be composed entirely of characters drawn from
   the set <code>A</code>-<code>Z</code>, <code>a</code>–<code>z</code>,
@@ -349,9 +348,9 @@ testdata/input.txt
 </p>
 
 <p>
-  Although Bazel allows a package at the build root (e.g. <code>//:foo</code>), this
-  is not advised and projects should attempt to use more descriptively named
-  packages.
+  Although Bazel supports targets in the workspace's root package
+  (e.g. <code>//:foo</code>), it's best to leave that package empty
+  so all meaningful packages have descriptive names.
 </p>
 <p>
   Package names may not contain the substring <code>//</code>, nor

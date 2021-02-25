@@ -232,12 +232,6 @@ public class JavaCommon {
   public JavaCompilationArgsProvider collectJavaCompilationArgs(
       boolean isNeverLink, boolean srcLessDepsExport) {
     return collectJavaCompilationArgs(
-        isNeverLink, srcLessDepsExport, /* javaProtoLibraryStrictDeps= */ false);
-  }
-
-  public JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean srcLessDepsExport, boolean javaProtoLibraryStrictDeps) {
-    return collectJavaCompilationArgs(
         /* isNeverLink= */ isNeverLink,
         /* srcLessDepsExport= */ srcLessDepsExport,
         getJavaCompilationArtifacts(),
@@ -855,7 +849,6 @@ public class JavaCommon {
                 ruleContext.getConfiguration().legacyExternalRunfiles())
             .addArtifacts(javaArtifacts.getRuntimeJars());
     runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    runfilesBuilder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     List<TransitiveInfoCollection> depsForRunfiles = new ArrayList<>();
     if (ruleContext.getRule().isAttrDefined("runtime_deps", BuildType.LABEL_LIST)) {
@@ -866,7 +859,6 @@ public class JavaCommon {
     }
 
     runfilesBuilder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
-    runfilesBuilder.addTargets(depsForRunfiles, JavaRunfilesProvider.TO_RUNFILES);
 
     TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
     if (launcher != null) {

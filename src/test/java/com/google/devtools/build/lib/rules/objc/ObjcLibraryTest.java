@@ -1126,7 +1126,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(target.get(ObjcProvider.STARLARK_CONSTRUCTOR).header());
+    return Artifact.toRootRelativePaths(
+        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 
   @Test
@@ -2100,16 +2101,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testObjcLibraryNotLoadedThroughMacro() throws Exception {
-    setupTestObjcLibraryLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestObjcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_library"),

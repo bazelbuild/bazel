@@ -65,8 +65,8 @@ public class RepositoryNameTest {
 
   @Test
   public void testGetDefaultCanonicalForm() throws Exception {
-    assertThat(RepositoryName.create("").getDefaultCanonicalForm()).isEqualTo("");
-    assertThat(RepositoryName.create("@").getDefaultCanonicalForm()).isEqualTo("");
-    assertThat(RepositoryName.create("@foo").getDefaultCanonicalForm()).isEqualTo("@foo");
+    assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
+    assertThat(RepositoryName.create("@").getCanonicalForm()).isEqualTo("");
+    assertThat(RepositoryName.create("@foo").getCanonicalForm()).isEqualTo("@foo");
   }
 }

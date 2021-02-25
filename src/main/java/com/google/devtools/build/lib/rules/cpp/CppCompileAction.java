@@ -98,6 +98,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -414,6 +415,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           return null;
         }
 
+        Collections.sort(includes, Artifact.EXEC_PATH_COMPARATOR);
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
       } catch (IORuntimeException e) {
         throw new EnvironmentalExecException(

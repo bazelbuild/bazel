@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel using Bazelisk
+category: getting-started
 ---
 
 # Installing Bazel using Bazelisk

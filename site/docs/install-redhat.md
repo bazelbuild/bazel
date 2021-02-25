@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel on Fedora and CentOS
+category: getting-started
 ---
 
 # Installing Bazel on Fedora and CentOS

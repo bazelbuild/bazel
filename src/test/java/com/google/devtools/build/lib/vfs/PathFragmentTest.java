@@ -268,6 +268,13 @@ public class PathFragmentTest {
   }
 
   @Test
+  public void segments() {
+    assertThat(create("/this/is/a/path").segments())
+        .containsExactly("this", "is", "a", "path")
+        .inOrder();
+  }
+
+  @Test
   public void testBasename() throws Exception {
     assertThat(create("foo/bar").getBaseName()).isEqualTo("bar");
     assertThat(create("/foo/bar").getBaseName()).isEqualTo("bar");

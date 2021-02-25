@@ -745,13 +745,20 @@ message BuildFinished {
 
 message BuildMetrics {
   message ActionSummary {
-    // The total number of actions created and registered during the build. This
-    // includes unused actions that were constructed but not executed during
-    // this build. It does not include actions that were created on prior builds
-    // that are still valid, even if those actions had to be re-executed on this
-    // build. For the total number of actions that would be created if this
-    // invocation were "clean", see BuildGraphMetrics below.
+    // The total number of actions created and registered during the build,
+    // including both aspects and configured targets. This metric includes
+    // unused actions that were constructed but not executed during this build.
+    // It does not include actions that were created on prior builds that are
+    // still valid, even if those actions had to be re-executed on this build.
+    // For the total number of actions that would be created if this invocation
+    // were "clean", see BuildGraphMetrics below.
     int64 actions_created = 1;
+
+    // The total number of actions created this build just by configured
+    // targets. Used mainly to allow consumers of actions_created, which used to
+    // not include aspects' actions, to normalize across the Blaze release that
+    // switched actions_created to include all created actions.
+    int64 actions_created_not_including_aspects = 3;
 
     // The total number of actions executed during the build. This includes any
     // remote cache hits, but excludes local action cache hits.
@@ -772,15 +779,23 @@ message BuildMetrics {
   MemoryMetrics memory_metrics = 2;
 
   message TargetMetrics {
-    // Number of targets loaded during this build. Does not include targets that
-    // were loaded on prior builds on this server and were cached.
+    // DEPRECATED
+    // No longer populated. It never measured what it was supposed to (targets
+    // loaded): it counted targets that were analyzed even if the underlying
+    // package had not changed.
+    // TODO(janakr): rename and remove.
     int64 targets_loaded = 1;
 
-    // Number of targets configured during this build. This can be greater than
-    // targets_loaded if the same target is configured multiple times. Does not
-    // include targets that were configured on prior builds on this server and
+    // Number of targets/aspects configured during this build. Does not include
+    // targets/aspects that were configured on prior builds on this server and
     // were cached. See BuildGraphMetrics below if you need that.
     int64 targets_configured = 2;
+
+    // Number of configured targets analyzed during this build. Does not include
+    // aspects. Used mainly to allow consumers of targets_configured, which used
+    // to not include aspects, to normalize across the Blaze release that
+    // switched targets_configured to include aspects.
+    int64 targets_configured_not_including_aspects = 3;
   }
   TargetMetrics target_metrics = 3;
 
@@ -848,10 +863,18 @@ message BuildMetrics {
     // that were analyzed on a prior build and are still valid. May not be
     // populated if analysis phase was fully cached.
     int32 action_lookup_value_count = 1;
+    // How many configured targets alone were in this build: always at most
+    // action_lookup_value_count. Useful mainly for historical comparisons to
+    // TargetMetrics.targets_configured, which used to not count aspects.
+    int32 action_lookup_value_count_not_including_aspects = 5;
     // How many actions belonged to the configured targets/aspects above. It may
     // not be necessary to execute all of these actions to build the requested
     // targets. May not be populated if analysis phase was fully cached.
     int32 action_count = 2;
+    // How many actions belonged to configured targets: always at most
+    // action_count. Useful mainly for historical comparisons to
+    // ActionMetrics.actions_created, which used to not count aspects' actions.
+    int32 action_count_not_including_aspects = 6;
     // How many artifacts are outputs of the above actions. May not be populated
     // if analysis phase was fully cached.
     int32 output_artifact_count = 3;

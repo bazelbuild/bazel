@@ -19,11 +19,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
- * This interface represents a symbolic link to an absolute or relative path,
- * stored in an InMemoryFileSystem.
+ * This interface represents a symbolic link to an absolute or relative path, stored in an
+ * InMemoryFileSystem.
  */
-@ThreadSafe @Immutable
-class InMemoryLinkInfo extends InMemoryContentInfo {
+@ThreadSafe
+@Immutable
+final class InMemoryLinkInfo extends InMemoryContentInfo {
 
   private final PathFragment linkContent;
   private final PathFragment normalizedLinkContent;

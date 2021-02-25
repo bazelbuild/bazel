@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -60,7 +59,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     validateAttributes(ruleContext);
 
     ObjcCommon common = common(ruleContext);
@@ -80,7 +78,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     compilationSupport
         .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(
-            compilationSupport.getObjcProvider(),
+            common.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
@@ -91,8 +89,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         new J2ObjcEntryClassProvider.Builder()
             .addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.class))
             .build();
-    ObjcProvider objcProvider = compilationSupport.getObjcProvider();
-    CcCompilationContext ccCompilationContext = objcProvider.getCcCompilationContext();
+    ObjcProvider objcProvider = common.getObjcProvider();
+    CcCompilationContext ccCompilationContext = compilationSupport.getCcCompilationContext();
     CcLinkingContext ccLinkingContext =
         buildCcLinkingContext(
             ruleContext.getLabel(), objcProvider, ruleContext.getSymbolGenerator());

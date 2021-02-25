@@ -956,39 +956,6 @@ function test_query_failure_exit_code_behavior() {
   bazel query --keep_going '$x' >& "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   assert_equals 7 "$exit_code"
-
-  bazel query \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 1 "$exit_code"
-  bazel query --keep_going \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 1 "$exit_code"
-
-  bazel query \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      '$x' >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
-  bazel query --keep_going \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      '$x' >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
-
-  bazel query \
-      --experimental_query_failure_exit_code_behavior=seven \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
-  bazel query --keep_going \
-      --experimental_query_failure_exit_code_behavior=seven \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
 }
 
 function test_unnecessary_external_workspaces_not_loaded() {

@@ -18,10 +18,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
-/**
- * Super-interface for {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} and
- * {@link AspectValue}.
- */
+/** Super-interface for {@link ConfiguredTargetValue} and {@link AspectValue}. */
 public interface ConfiguredObjectValue extends ActionLookupValue, NotComparableSkyValue {
   /** Returns the configured target/aspect for this value. */
   ProviderCollection getConfiguredObject();

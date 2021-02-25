@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContaine
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -270,21 +271,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
     return workspaceInfo;
-  }
-
-  /**
-   * Updates ArtifactNestedSetFunction options if the flags' values changed.
-   *
-   * @return whether an update was made.
-   */
-  private static boolean nestedSetAsSkyKeyOptionsChanged(OptionsProvider options) {
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions == null) {
-      return false;
-    }
-
-    return ArtifactNestedSetFunction.sizeThresholdUpdated(
-        buildRequestOptions.nestedSetAsSkyKeyThreshold);
   }
 
   /**

@@ -356,13 +356,10 @@ public class ActionExecutionFunction implements SkyFunction {
       // More details: b/143205147.
       Iterable<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
       if (state.requestedArtifactNestedSetKeys == null) {
-        state.requestedArtifactNestedSetKeys = CompactHashSet.create();
-        for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
-          state.requestedArtifactNestedSetKeys.add(
-              new ArtifactNestedSetKey(nonLeaf, nonLeaf.toNode()));
-        }
+        state.requestedArtifactNestedSetKeys =
+            CompactHashSet.create(
+                Lists.transform(allInputs.getNonLeaves(), ArtifactNestedSetKey::create));
       }
-
       return Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys);
     }
 
@@ -374,7 +371,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * necessary. The default case (without --experimental_nestedset_as_skykey_threshold) will ignore
    * this path.
    */
-  private static boolean evalInputsAsNestedSet(NestedSet<Artifact> inputs) {
+  public static boolean evalInputsAsNestedSet(NestedSet<Artifact> inputs) {
     int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
     if (nestedSetSizeThreshold == 1) {
       // Don't even flatten in this case.

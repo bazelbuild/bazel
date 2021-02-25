@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Configuring C++ toolchains
+category: getting-started
 ---
 
 # Bazel Tutorial: Configure C++ Toolchains

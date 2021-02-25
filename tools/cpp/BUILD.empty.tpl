@@ -15,7 +15,6 @@
 package(default_visibility = ["//visibility:public"])
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
-load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_toolchain")
 
 cc_library(
     name = "malloc",

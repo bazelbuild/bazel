@@ -104,7 +104,7 @@ class SyntheticAttributeHashCalculator {
           // This allows us to recover from such an error by skipping an attribute, as opposed to
           // crashing.
           logger.atWarning().log(
-              "Recovering from failed evaluation of ComputedDefault attribute value: " + e);
+              "Recovering from failed evaluation of ComputedDefault attribute value: %s", e);
           continue;
         }
       }

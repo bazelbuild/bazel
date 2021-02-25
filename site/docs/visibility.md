@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Visibility
+category: getting-started
 ---
 # Visibility
 

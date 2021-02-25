@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -260,9 +259,12 @@ class BuildResultPrinter {
         // its rule.
         TransitiveInfoCollection generatingRule =
             ((OutputFileConfiguredTarget) configuredTarget).getGeneratingRule();
-        if (CollectionUtils.containsAll(
-                generatingRule.getProvider(FileProvider.class).getFilesToBuild().toList(),
-                configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList())
+        if (generatingRule
+                .getProvider(FileProvider.class)
+                .getFilesToBuild()
+                .toSet()
+                .containsAll(
+                    configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList())
             && configuredTargets.contains(generatingRule)) {
           continue;
         }
