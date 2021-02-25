@@ -2326,7 +2326,7 @@ public final class Attribute implements Comparable<Attribute> {
       return false;
     }
     Attribute attribute = (Attribute) o;
-    return Objects.equals(hashCode, attribute.hashCode)
+    return hashCode == attribute.hashCode
         && Objects.equals(name, attribute.name)
         && Objects.equals(doc, attribute.doc)
         && Objects.equals(type, attribute.type)
