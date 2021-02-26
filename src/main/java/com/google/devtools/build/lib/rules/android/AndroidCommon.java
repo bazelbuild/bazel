@@ -314,7 +314,7 @@ public class AndroidCommon {
     if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
       return haystack;
     }
-    List<String> needleSegments = needle.getSegments();
+    List<String> needleSegments = needle.splitToListOfSegments();
     // Compute the overlap offset for duplicated parts of the needle.
     int[] overlap = new int[needleSegments.size() + 1];
     // Start overlap at -1, as it will cancel out the increment in the search.
@@ -329,7 +329,7 @@ public class AndroidCommon {
     }
     // TODO(corysmith): reverse the search algorithm.
     // Keep the index of the found so that the rightmost index is taken.
-    List<String> haystackSegments = haystack.getSegments();
+    List<String> haystackSegments = haystack.splitToListOfSegments();
     int found = -1;
     for (int i = 0, j = 0; i < haystackSegments.size(); i++) {
 

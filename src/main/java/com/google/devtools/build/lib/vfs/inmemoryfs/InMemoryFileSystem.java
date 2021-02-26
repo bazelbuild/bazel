@@ -297,7 +297,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
           return Errno.ELOOP;
         }
 
-        List<String> segments = linkTarget.getSegments(); // Note this may include ".." segments.
+        List<String> segments = linkTarget.splitToListOfSegments(); // May include ".." segments.
         if (symlinks == null) {
           symlinks = new ArrayDeque<>(segments);
         } else {
