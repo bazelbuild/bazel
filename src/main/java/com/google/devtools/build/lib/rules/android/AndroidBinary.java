@@ -60,7 +60,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.*;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
@@ -1755,11 +1759,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return dexedClasspath.build();
   }
 
-  // Adds execution info by propagating tags from the target
-  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) throws InterruptedException {
-	return new SpawnAction.Builder()
+  /**
+   * Adds execution info by propagating tags from the target
+   */
+  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) {
+    return new SpawnAction.Builder()
         .setExecutionInfo(TargetUtils.getExecutionInfo(
-          ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+            ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.

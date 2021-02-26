@@ -23,5 +23,3 @@
 .bazelversion
 # User-specific .bazelrc
 user.bazelrc
-# Intellij
-.aswb
