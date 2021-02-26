@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Optimizing performance
+category: extending
 ---
 
 # Optimizing Performance

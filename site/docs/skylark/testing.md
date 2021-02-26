@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Testing
+category: extending
 ---
 
 # Testing

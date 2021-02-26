@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Multiplex workers
+category: extending
 ---
 
 # Multiplex Workers (Experimental Feature)

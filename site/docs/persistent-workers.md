@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Persistent Workers
+category: extending
 ---
 
 # Persistent Workers

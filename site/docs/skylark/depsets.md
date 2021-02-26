@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Depsets
+category: extending
 ---
 
 # Depsets

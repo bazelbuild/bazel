@@ -56,6 +56,7 @@ doc_versions:
 main_site_url: https://www.bazel.build
 getting_started_category_url: "/bazel-overview.html"
 docs_site_url: "/guide.html"
+extending_category_url: "/skylark/concepts.html"
 blog_site_url: https://blog.bazel.build
 
 defaults:
