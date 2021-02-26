@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
@@ -69,6 +70,11 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
     // This test needs to use Bazel's repository semantics, and so we need to set up the required
     // repositories in @bazel_tools and @platforms.
     BazelMockCcSupport.INSTANCE.setup(mockToolsConfig);
+    // Replace the default host cc toolchain with one that uses Bazel platform constraints.
+    BazelMockCcSupport.INSTANCE.setupCcToolchainConfig(
+        mockToolsConfig,
+        CcToolchainConfig.builder()
+            .withToolchainTargetConstraints("@platforms//os:linux", "@platforms//cpu:x86_64"));
     scratch.overwriteFile("bazel_tools_workspace/tools/build_defs/cc/BUILD");
     scratch.overwriteFile(
         "bazel_tools_workspace/tools/build_defs/cc/action_names.bzl",

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -26,7 +27,7 @@ public final class BazelMockAndroidSupport {
   private BazelMockAndroidSupport() {}
 
   public static void setupNdk(MockToolsConfig config) throws IOException {
-    new Crosstool(config, "android/crosstool")
+    new Crosstool(config, "android/crosstool", Label.parseAbsoluteUnchecked("//android/crosstool"))
         .setCcToolchainFile(
             ResourceLoader.readFromResources(
                 "com/google/devtools/build/lib/packages/util/mock/android_cc_toolchain_config.bzl"))
