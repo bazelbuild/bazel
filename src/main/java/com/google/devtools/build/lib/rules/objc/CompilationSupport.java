@@ -1567,7 +1567,7 @@ public class CompilationSupport {
         stripArgs = ImmutableList.of("-x");
         break;
       case DEFAULT:
-        stripArgs = ImmutableList.<String>of();
+        stripArgs = ImmutableList.of("-x", "-T");
         break;
       default:
         throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
