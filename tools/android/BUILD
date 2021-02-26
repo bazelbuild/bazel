@@ -119,6 +119,21 @@ py_test(
 )
 
 py_binary(
+    name = "aar_embedded_proguard_extractor",
+    srcs = ["aar_embedded_proguard_extractor.py"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/abseil",
+    ],
+)
+
+py_test(
+    name = "aar_embedded_proguard_extractor_test",
+    srcs = ["aar_embedded_proguard_extractor_test.py"],
+    deps = [":aar_embedded_proguard_extractor"],
+)
+
+py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
     deps = [
