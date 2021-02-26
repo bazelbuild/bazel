@@ -959,9 +959,9 @@ public class AspectTest extends AnalysisTestCase {
                     "//foo:foo"));
     assertThat(exception)
         .hasMessageThat()
-        .contains(
-            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect 1',"
-                + " attempted action: action 'Action for aspect 2'");
+        .containsMatch(
+            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
+                + " attempted action: action 'Action for aspect .'");
 
     // Fix bzl file so actions are shared: analysis should succeed now.
     scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "1"));
