@@ -73,11 +73,11 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final boolean useDataBindingAndroidX;
   private final ImmutableMap<String, String> executionInfo;
 
-  public static AndroidDataContext forNative(RuleContext ruleContext) throws InterruptedException {
+  public static AndroidDataContext forNative(RuleContext ruleContext) {
     return makeContext(ruleContext);
   }
 
-  public static AndroidDataContext makeContext(RuleContext ruleContext) throws InterruptedException {
+  public static AndroidDataContext makeContext(RuleContext ruleContext) {
     AndroidConfiguration androidConfig =
         ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
 

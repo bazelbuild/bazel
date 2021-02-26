@@ -155,7 +155,7 @@ public class ApkActionsBuilder {
   }
 
   /** Registers the actions needed to build the requested APKs in the rule context. */
-  public void registerActions(RuleContext ruleContext) throws InterruptedException {
+  public void registerActions(RuleContext ruleContext) {
     // If the caller did not request an unsigned APK, we still need to construct one so that
     // we can sign it. So we make up an intermediate artifact.
     Artifact intermediateUnsignedApk =
@@ -177,7 +177,7 @@ public class ApkActionsBuilder {
   }
 
   /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
-  private void buildApk(RuleContext ruleContext, Artifact outApk) throws InterruptedException {
+  private void buildApk(RuleContext ruleContext, Artifact outApk) {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
 
     SpawnAction.Builder compressedApkActionBuilder =
@@ -300,8 +300,7 @@ public class ApkActionsBuilder {
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
-  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk)
-		  throws InterruptedException {
+  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
     ruleContext.registerAction(
         createSpawnActionBuilder(ruleContext)
             .addInput(inputApk)
@@ -327,7 +326,7 @@ public class ApkActionsBuilder {
    * alignment cannot be performed after v2 signing without invalidating the signature.
    */
   private void signApk(
-      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) throws InterruptedException {
+      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
     SpawnAction.Builder actionBuilder =

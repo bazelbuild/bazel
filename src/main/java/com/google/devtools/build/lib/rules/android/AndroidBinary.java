@@ -1769,7 +1769,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
-  private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) throws InterruptedException {
+  private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
     Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder = createSpawnActionBuilder(ruleContext).useDefaultShellEnvironment();
     if (singleJar.getFilename().endsWith(".jar")) {
@@ -1790,7 +1790,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * of the output.
    */
   static void createCleanDexZipAction(
-      RuleContext ruleContext, Artifact inputZip, Artifact outputZip) throws InterruptedException {
+      RuleContext ruleContext, Artifact inputZip, Artifact outputZip) {
     ruleContext.registerAction(
         singleJarSpawnActionBuilder(ruleContext)
             .setProgressMessage("Trimming %s", inputZip.getExecPath().getBaseName())
