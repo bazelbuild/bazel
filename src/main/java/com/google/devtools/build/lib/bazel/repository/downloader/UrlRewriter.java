@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Helper class for taking URLs and converting them according to an optional config specified by
@@ -195,5 +196,10 @@ public class UrlRewriter {
               }
             })
         .collect(toImmutableList());
+  }
+
+  @Nullable
+  public String getAllBlockedMessage() {
+    return config.getAllBlockedMessage();
   }
 }
