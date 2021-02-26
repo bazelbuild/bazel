@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -65,6 +65,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -92,7 +93,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   private ListeningScheduledExecutorService retryService;
 
   private Server server;
-  private ManagedChannel channel;
+  private ChannelConnectionFactory channelConnectionFactory;
+
   private final FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
 
   private final Path execRoot = fs.getPath("/execroot");
@@ -108,7 +110,19 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             .fallbackHandlerRegistry(serviceRegistry)
             .build()
             .start();
-    channel = InProcessChannelBuilder.forName(serverName).build();
+    channelConnectionFactory =
+        new ChannelConnectionFactory() {
+          @Override
+          public Single<? extends ChannelConnection> create() {
+            return Single.just(
+                new ChannelConnection(InProcessChannelBuilder.forName(serverName).build()));
+          }
+
+          @Override
+          public int maxConcurrency() {
+            return 100;
+          }
+        };
 
     outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
@@ -123,8 +137,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     retryService.awaitTermination(
         com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-    channel.shutdownNow();
-    channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
   }
@@ -155,7 +167,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
-    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
@@ -212,36 +224,37 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
     }
     String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
-    serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash) {
-      @Override
-      public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
-        StreamObserver<WriteRequest> delegate = super.write(response);
-        return new StreamObserver<WriteRequest>() {
+    serviceRegistry.addService(
+        new MaybeFailOnceUploadService(blobsByHash) {
           @Override
-          public void onNext(WriteRequest value) {
-            if (value.getResourceName().contains(hashOfBlobThatShouldFail)) {
-              response.onError(Status.CANCELLED.asException());
-            } else {
-              delegate.onNext(value);
-            }
-          }
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
+            StreamObserver<WriteRequest> delegate = super.write(response);
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest value) {
+                if (value.getResourceName().contains(hashOfBlobThatShouldFail)) {
+                  response.onError(Status.CANCELLED.asException());
+                } else {
+                  delegate.onNext(value);
+                }
+              }
 
-          @Override
-          public void onError(Throwable t) {
-            delegate.onError(t);
-          }
+              @Override
+              public void onError(Throwable t) {
+                delegate.onError(t);
+              }
 
-          @Override
-          public void onCompleted() {
-            delegate.onCompleted();
+              @Override
+              public void onCompleted() {
+                delegate.onCompleted();
+              }
+            };
           }
-        };
-      }
-    });
+        });
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
-    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);

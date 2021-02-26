@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -94,6 +93,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -283,6 +283,9 @@ public final class RemoteModule extends BlazeModule {
     String buildRequestId = env.getBuildRequestId();
     env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
 
+    RxJavaPlugins.setErrorHandler(
+        error -> env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(error))));
+
     Path logDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
     cleanAndCreateRemoteLogsDir(logDir);
@@ -309,39 +312,29 @@ public final class RemoteModule extends BlazeModule {
     ReferenceCountedChannel cacheChannel = null;
     ReferenceCountedChannel downloaderChannel = null;
 
-    int poolSize = 1;
-    BuildRequestOptions buildRequestOptions =
-        env.getOptions().getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions != null) {
-      // The following calculation is based on the suggestion from comment
-      // https://github.com/bazelbuild/bazel/issues/11801#issuecomment-672973245
-      //
-      // The number of concurrent requests for one connection to a gRPC server is limited by
-      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
-      // each connection should be fairly well. The number of connections opened by one channel is
-      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
-      // number of required channels is calculated as: ceil(jobs / 100).
-      poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 100.0);
-    }
+    // The number of concurrent requests for one connection to a gRPC server is limited by
+    // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+    // each connection should be fairly well. The number of connections opened by one channel is
+    // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+    // max concurrency per connection is 100.
+    int maxConcurrencyPerConnection = 100;
+
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
       interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
-      try {
-        execChannel =
-            RemoteCacheClientFactory.createGrpcChannelPool(
-                channelFactory,
-                poolSize,
-                remoteOptions.remoteExecutor,
-                remoteOptions.remoteProxy,
-                authAndTlsOptions,
-                interceptors.build());
-      } catch (IOException e) {
-        handleInitFailure(env, e, Code.EXEC_CHANNEL_INIT_FAILURE);
-        return;
-      }
+      execChannel =
+          new ReferenceCountedChannel(
+              new GoogleChannelConnectionFactory(
+                  channelFactory,
+                  remoteOptions.remoteExecutor,
+                  remoteOptions.remoteProxy,
+                  authAndTlsOptions,
+                  interceptors.build(),
+                  maxConcurrencyPerConnection));
+
       // Create a separate channel if --remote_executor and --remote_cache point to different
       // endpoints.
       if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
@@ -355,19 +348,15 @@ public final class RemoteModule extends BlazeModule {
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
-      try {
-        cacheChannel =
-            RemoteCacheClientFactory.createGrpcChannelPool(
-                channelFactory,
-                poolSize,
-                remoteOptions.remoteCache,
-                remoteOptions.remoteProxy,
-                authAndTlsOptions,
-                interceptors.build());
-      } catch (IOException e) {
-        handleInitFailure(env, e, Code.CACHE_CHANNEL_INIT_FAILURE);
-        return;
-      }
+      cacheChannel =
+          new ReferenceCountedChannel(
+              new GoogleChannelConnectionFactory(
+                  channelFactory,
+                  remoteOptions.remoteCache,
+                  remoteOptions.remoteProxy,
+                  authAndTlsOptions,
+                  interceptors.build(),
+                  maxConcurrencyPerConnection));
     }
 
     if (enableRemoteDownloader) {
@@ -380,19 +369,15 @@ public final class RemoteModule extends BlazeModule {
         if (loggingInterceptor != null) {
           interceptors.add(loggingInterceptor);
         }
-        try {
-          downloaderChannel =
-              RemoteCacheClientFactory.createGrpcChannelPool(
-                  channelFactory,
-                  poolSize,
-                  remoteOptions.remoteDownloader,
-                  remoteOptions.remoteProxy,
-                  authAndTlsOptions,
-                  interceptors.build());
-        } catch (IOException e) {
-          handleInitFailure(env, e, Code.DOWNLOADER_CHANNEL_INIT_FAILURE);
-          return;
-        }
+        downloaderChannel =
+            new ReferenceCountedChannel(
+                new GoogleChannelConnectionFactory(
+                    channelFactory,
+                    remoteOptions.remoteDownloader,
+                    remoteOptions.remoteProxy,
+                    authAndTlsOptions,
+                    interceptors.build(),
+                    maxConcurrencyPerConnection));
       }
     }
 

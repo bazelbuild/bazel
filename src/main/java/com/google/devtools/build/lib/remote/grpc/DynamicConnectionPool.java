@@ -45,6 +45,10 @@ public class DynamicConnectionPool implements ConnectionPool {
     this.factories = new ArrayList<>();
   }
 
+  public boolean isClosed() {
+    return closed.get();
+  }
+
   @Override
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
