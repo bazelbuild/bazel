@@ -212,4 +212,25 @@ public class UrlRewriterTest {
       assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/some/file", 3, 0));
     }
   }
+
+  @Test
+  public void rewritingUrlsAllowsProtocolRewrite() throws Exception {
+    String config =
+        ""
+            + "block *\n"
+            + "allow mycorp.com\n"
+            + "allow othercorp.com\n"
+            + "rewrite bad.com/foo/(.*) http://mycorp.com/$1\n"
+            + "rewrite bad.com/bar/(.*) https://othercorp.com/bar/$1\n";
+
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+
+    List<URL> amended =
+        munger.amend(
+            ImmutableList.of(new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar"),
+                new URL("http://bad.com/bar/xyz")));
+
+    assertThat(amended).containsExactly(new URL("http://mycorp.com/bar"),
+        new URL("https://othercorp.com/bar/xyz"));
+  }
 }
