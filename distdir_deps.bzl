@@ -20,11 +20,11 @@ DIST_DEPS = {
     #
     ########################################
     "platforms": {
-        "archive": "platforms-0.0.3.tar.gz",
-        "sha256": "460caee0fa583b908c622913334ec3c1b842572b9c23cf0d3da0c2543a1a157d",
+        "archive": "platforms-0.0.4.tar.gz",
+        "sha256": "079945598e4b6cc075846f7fd6a9d0857c33a7afc0de868c2ccb96405225135d",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.3/platforms-0.0.3.tar.gz",
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.3/platforms-0.0.3.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -263,7 +263,10 @@ DIST_DEPS = {
         ],
     },
     "remote_java_tools": {
-        "aliases": ["remote_java_tools_test", "remote_java_tools_for_testing"],
+        "aliases": [
+            "remote_java_tools_test",
+            "remote_java_tools_for_testing",
+        ],
         "archive": "java_tools-v11.1.zip",
         "sha256": "12cffbb7c87622a6bd6e9231e81ecb9efdb118afbdd6e047ef06eeb3d72a7dc3",
         "urls": [
@@ -276,7 +279,10 @@ DIST_DEPS = {
         ],
     },
     "remote_java_tools_linux": {
-        "aliases": ["remote_java_tools_test_linux", "remote_java_tools_linux_for_testing"],
+        "aliases": [
+            "remote_java_tools_test_linux",
+            "remote_java_tools_linux_for_testing",
+        ],
         "archive": "java_tools_linux-v11.1.zip",
         "sha256": "a0dea21d348c8be94d06fde5a6c18d7691aa659cd56c3f1f932f0a28ae943a23",
         "urls": [
@@ -289,7 +295,10 @@ DIST_DEPS = {
         ],
     },
     "remote_java_tools_windows": {
-        "aliases": ["remote_java_tools_test_windows", "remote_java_tools_windows_for_testing"],
+        "aliases": [
+            "remote_java_tools_test_windows",
+            "remote_java_tools_windows_for_testing",
+        ],
         "archive": "java_tools_windows-v11.1.zip",
         "sha256": "ac4d22ce9b10a1d5e46cbae0beb63221d96043d1f3543a729482005481e3e51a",
         "urls": [
@@ -302,7 +311,10 @@ DIST_DEPS = {
         ],
     },
     "remote_java_tools_darwin": {
-        "aliases": ["remote_java_tools_test_darwin", "remote_java_tools_darwin_for_testing"],
+        "aliases": [
+            "remote_java_tools_test_darwin",
+            "remote_java_tools_darwin_for_testing",
+        ],
         "archive": "java_tools_darwin-v11.1.zip",
         "sha256": "72a2f34806e7f83b111601495c3bd401b96ea1794daa259608481fd4f6a60629",
         "urls": [
@@ -389,9 +401,6 @@ http_archive(
     return [DefaultInfo(files = depset([ctx.outputs.out]))]
 
 gen_workspace_stanza = rule(
-    implementation = _gen_workspace_stanza_impl,
-    doc = "Use specifications from DIST_DEPS to generate WORKSPACE http_archive stanzas or to" +
-          "drop them into a template.",
     attrs = {
         "repos": attr.string_list(doc = "Set of repos to inlcude"),
         "out": attr.output(mandatory = True),
@@ -405,4 +414,7 @@ gen_workspace_stanza = rule(
         ),
         "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive"),
     },
+    doc = "Use specifications from DIST_DEPS to generate WORKSPACE http_archive stanzas or to" +
+          "drop them into a template.",
+    implementation = _gen_workspace_stanza_impl,
 )
