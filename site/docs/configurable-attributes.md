@@ -332,7 +332,7 @@ The platform can be specified on the command line. It activates the
 allowing those `config_setting`s to match in `select()` expressions.
 
 For example, in order to set the `srcs` attribute of `my_rocks` to `calcite.sh`,
-we can simply run
+you can simply run
 
 ```sh
 bazel build //my_app:my_rocks --platforms=//myapp:marble_platform
@@ -773,7 +773,7 @@ type 'select' has no method upper().
 ERROR: error loading package 'myapp': Package 'myapp' contains errors.
 ```
 
-Building succeeds when we comment out `sad_macro`:
+Building succeeds when you comment out `sad_macro`:
 
 ```sh
 # Comment out sad_macro so it doesn't mess up the build.

@@ -416,7 +416,7 @@ is similar to that of a feature.
 
 The last two attributes are redundant against the corresponding attributes on
 features and are included because some Bazel actions require certain flags or
-environment variables and we want to avoid unnecessary `action_config`+`feature`
+environment variables and the goal is to avoid unnecessary `action_config`+`feature`
 pairs. Typically, sharing a single feature across multiple `action_config`s is
 preferred.
 
@@ -460,7 +460,7 @@ its tool path and execution requirements to the Bazel action. A tool is selected
 by iterating through the `tools` attribute on an `action_config` until a tool
 with a `with_feature` set matching the feature configuration is found
 (see [Feature relationships](#feature-relationships) earlier on this page
-for more information). We recommend that you end your tool lists with a default
+for more information). You should end your tool lists with a default
 tool that corresponds to an empty feature configuration.
 
 ### Example usage

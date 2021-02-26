@@ -316,7 +316,7 @@ app_binary
 </p>
 
 <p>While it is common to use <code>/</code> in the name of a file
-  target, we recommend that you avoid the use of <code>/</code> in the
+  target, it is recommended that you avoid the use of <code>/</code> in the
   names of rules. Especially when the shorthand form of a label is
   used, it may confuse the reader. The
   label <code>//foo/bar/wiz</code> is always a shorthand
@@ -436,8 +436,8 @@ cc_binary(
 
 <p>
   The previous section described packages, targets and labels, and the
-  build dependency graph abstractly. In this section, we'll look at
-  the concrete syntax used to define a package.
+  build dependency graph abstractly. This section describes the
+  concrete syntax used to define a package.
 </p>
 
 <p>
@@ -608,7 +608,7 @@ a <code>.bzl</code> file visible.
   <code>B</code> if <code>B</code> is needed by <code>A</code> at
   build or execution time. The <i>depends upon</i> relation induces a
   <a href="https://en.wikipedia.org/wiki/Directed_acyclic_graph">Directed
-  Acyclic Graph</a> (DAG) over targets, and we call this a
+  Acyclic Graph</a> (DAG) over targets, and it is called a
   <em>dependency graph</em>.
 
   A target's <em>direct</em> dependencies are those other targets
@@ -646,7 +646,7 @@ a <code>.bzl</code> file visible.
   For correct builds, the graph of actual dependencies <i>A</i> must
   be a subgraph of the graph of declared dependencies <i>D</i>. That
   is, every pair of directly-connected nodes <code>x --&gt; y</code>
-  in <i>A</i> must also be directly connected in <i>D</i>. We say
+  in <i>A</i> must also be directly connected in <i>D</i>. It can be said that
   <i>D</i> is an <em>overapproximation</em> of <i>A</i>.
 </p>
 
@@ -893,8 +893,8 @@ function foo() {
 <p>A build target might need some data files to run correctly. These
    data files aren't source code: they don't affect how the target is
    built. For example, a unit test might compare a function's output
-   to the contents of a file. When we build the unit test, we
-   don't need the file; but we do need it when we run the test. The
+   to the contents of a file. When you build the unit test you
+   don't need the file, but you do need it when you run the test. The
    same applies to tools that are launched during execution.
 
 <p>The build system runs tests in an isolated directory where only files
