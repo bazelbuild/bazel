@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -53,7 +55,6 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** CompletionFunction builds the artifactsToBuild collection of a {@link ConfiguredTarget}. */
@@ -94,7 +95,7 @@ public final class CompletionFunction<
 
     /**
      * Creates supplementary data needed to call {@link #createFailed(Object, NestedSet,
-     * CompletionContext, NestedSet, Object)}; returns null if skyframe found missing values.
+     * CompletionContext, ImmutableMap, Object)}; returns null if skyframe found missing values.
      */
     @Nullable
     FailureT getFailureData(KeyT key, ValueT value, Environment env) throws InterruptedException;
@@ -104,7 +105,7 @@ public final class CompletionFunction<
         ValueT value,
         NestedSet<Cause> rootCauses,
         CompletionContext ctx,
-        NestedSet<ArtifactsInOutputGroup> outputs,
+        ImmutableMap<String, ArtifactsInOutputGroup> outputs,
         FailureT failureData)
         throws InterruptedException;
 
@@ -129,29 +130,18 @@ public final class CompletionFunction<
    * Reduce an ArtifactsToBuild to only the Artifacts that were actually built (used when reporting
    * a failed target/aspect's completed outputs).
    */
-  private static NestedSet<ArtifactsInOutputGroup> filterArtifactOutputGroupsToBuiltArtifacts(
-      ImmutableSet<Artifact> builtArtifacts, ArtifactsToBuild allArtifactsToBuild) {
-    NestedSetBuilder<ArtifactsInOutputGroup> outputs = NestedSetBuilder.stableOrder();
-    allArtifactsToBuild.getAllArtifactsByOutputGroup().toList().stream()
-        .map(aog -> outputGroupIfAllArtifactsBuilt(aog, builtArtifacts))
-        .flatMap(Streams::stream)
-        .forEach(outputs::add);
-    return outputs.build();
-  }
-
-  /**
-   * Returns the given ArtifactsInOutputGroup unmodified if all referenced artifacts were
-   * successfully built, and otherwise returns an empty Optional.
-   */
-  public static Optional<ArtifactsInOutputGroup> outputGroupIfAllArtifactsBuilt(
-      ArtifactsInOutputGroup aog, ImmutableSet<Artifact> builtArtifacts) {
-    // Iterating over all artifacts in the output group although we already iterated over the set
-    // while collecting all builtArtifacts. Ideally we would have a NestedSetIntersectionView that
-    // would not require duplicating some-or-all of the original NestedSet.
-    if (aog.getArtifacts().toList().stream().allMatch(builtArtifacts::contains)) {
-      return Optional.of(aog);
-    }
-    return Optional.empty();
+  private static ImmutableMap<String, ArtifactsInOutputGroup>
+      filterArtifactOutputGroupsToBuiltArtifacts(
+          ImmutableSet<Artifact> builtArtifacts, ArtifactsToBuild allArtifactsToBuild) {
+    return ImmutableMap.copyOf(
+        Maps.filterValues(
+            allArtifactsToBuild.getAllArtifactsByOutputGroup(),
+            // Iterating over all artifacts in the output group although we already iterated over
+            // the set while collecting all builtArtifacts. Ideally we would have a
+            // NestedSetIntersectionView that would not require duplicating some-or-all of the
+            // original NestedSet.
+            artifactsInOutputGroup ->
+                builtArtifacts.containsAll(artifactsInOutputGroup.getArtifacts().toList())));
   }
 
   private final PathResolverFactory pathResolverFactory;
@@ -294,7 +284,7 @@ public final class CompletionFunction<
     }
 
     if (!rootCauses.isEmpty()) {
-      NestedSet<ArtifactsInOutputGroup> builtOutputs =
+      ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
           filterArtifactOutputGroupsToBuiltArtifacts(
               builtArtifactsBuilder.build(), artifactsToBuild);
       env.getListener()
