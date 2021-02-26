@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigni
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
-
 import java.util.List;
 
 /**
