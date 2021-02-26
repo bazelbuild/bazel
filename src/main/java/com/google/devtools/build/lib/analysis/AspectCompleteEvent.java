@@ -29,16 +29,19 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Out
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 
 /** This event is fired as soon as a top-level aspect is either built or fails. */
 public class AspectCompleteEvent
     implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
-  private final AspectValue aspectValue;
+  private final Label label;
+  private final AspectDescriptor descriptor;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
@@ -46,12 +49,14 @@ public class AspectCompleteEvent
   private final BuildEventId configurationEventId;
 
   private AspectCompleteEvent(
-      AspectValue aspectValue,
+      Label label,
+      AspectDescriptor descriptor,
       NestedSet<Cause> rootCauses,
       CompletionContext completionContext,
       NestedSet<ArtifactsInOutputGroup> artifactOutputGroups,
       BuildEventId configurationEventId) {
-    this.aspectValue = aspectValue;
+    this.label = label;
+    this.descriptor = descriptor;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
@@ -70,7 +75,13 @@ public class AspectCompleteEvent
       CompletionContext completionContext,
       NestedSet<ArtifactsInOutputGroup> artifacts,
       BuildEventId configurationEventId) {
-    return new AspectCompleteEvent(value, null, completionContext, artifacts, configurationEventId);
+    return new AspectCompleteEvent(
+        value.getKey().getLabel(),
+        value.getAspect().getDescriptor(),
+        null,
+        completionContext,
+        artifacts,
+        configurationEventId);
   }
 
   /**
@@ -83,14 +94,13 @@ public class AspectCompleteEvent
       BuildEventId configurationEventId,
       NestedSet<ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new AspectCompleteEvent(value, rootCauses, ctx, outputs, configurationEventId);
-  }
-
-  /**
-   * Returns the target associated with the event.
-   */
-  public AspectValue getAspectValue() {
-    return aspectValue;
+    return new AspectCompleteEvent(
+        value.getKey().getLabel(),
+        value.getAspect().getDescriptor(),
+        rootCauses,
+        ctx,
+        outputs,
+        configurationEventId);
   }
 
   /**
@@ -108,9 +118,7 @@ public class AspectCompleteEvent
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.aspectCompleted(
-        aspectValue.getKey().getLabel(),
-        configurationEventId,
-        aspectValue.getAspect().getDescriptor().getDescription());
+        label, configurationEventId, descriptor.getDescription());
   }
 
   @Override
