@@ -422,6 +422,20 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "(Experimental) runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
+        @Param(
+            name = "shadowed_action",
+            allowedTypes = {
+              @ParamType(type = ActionApi.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
+            valueWhenDisabled = "None",
+            doc =
+                "(Experimental) runs the action using the given shadowed action's discovered inputs"
+                    + " added to the action's inputs list. If none, uses only the action's"
+                    + " inputs."),
       })
   void run(
       Sequence<?> outputs,
@@ -436,7 +450,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Object execGroupUnchecked)
+      Object execGroupUnchecked,
+      Object shadowedAction)
       throws EvalException;
 
   @StarlarkMethod(
@@ -609,6 +624,20 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "(Experimental) runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
+        @Param(
+            name = "shadowed_action",
+            allowedTypes = {
+              @ParamType(type = ActionApi.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
+            valueWhenDisabled = "None",
+            doc =
+                "(Experimental) runs the action using the given shadowed action's discovered inputs"
+                    + " added to the action's inputs list. If none, uses only the action's"
+                    + " inputs."),
       })
   void runShell(
       Sequence<?> outputs,
@@ -622,7 +651,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Object execGroupUnchecked)
+      Object execGroupUnchecked,
+      Object shadowedAction)
       throws EvalException;
 
   @StarlarkMethod(
