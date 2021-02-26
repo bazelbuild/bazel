@@ -379,7 +379,7 @@ public class DeployArchiveBuilder {
 			ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
     if (!usingNativeSinglejar) {
-	    executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .useDefaultShellEnvironment()
@@ -408,7 +408,7 @@ public class DeployArchiveBuilder {
                   ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
               .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
-			  .setExecutionInfo(executionInfo.build())
+              .setExecutionInfo(executionInfo.build())
               .build(ruleContext));
     }
   }

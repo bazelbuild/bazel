@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 
-import java.beans.IntrospectionException;
 import java.util.List;
 
 /**
@@ -391,11 +390,12 @@ public class ApkActionsBuilder {
     }
   }
 
-  // Adds execution info by propagating tags from the target
-  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) throws InterruptedException {
+  /**
+   * Adds execution info by propagating tags from the target
+   */
+  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) {
     return new SpawnAction.Builder()
-	    .setExecutionInfo(TargetUtils.getExecutionInfo(
-             ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+        .setExecutionInfo(TargetUtils.getExecutionInfo(
+            ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
-
 }

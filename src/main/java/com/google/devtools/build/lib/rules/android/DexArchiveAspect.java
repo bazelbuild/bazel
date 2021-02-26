@@ -49,7 +49,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.*;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
@@ -487,7 +494,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       String dexbuilderPrereq,
       Artifact jar,
       Set<String> incrementalDexopts,
-      Artifact dexArchive) throws InterruptedException {
+      Artifact dexArchive) {
     CustomCommandLine args =
         new CustomCommandLine.Builder()
             .addExecPath("--input_jar", jar)

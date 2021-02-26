@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.TargetUtils;
 
 import java.util.Objects;
 

@@ -1849,7 +1849,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // Process the input jar through Proguard into an intermediate, streamlined jar.
       Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
       SpawnAction.Builder streamlinedBuilder =
-		      createSpawnActionBuilder(ruleContext)
+          createSpawnActionBuilder(ruleContext)
               .useDefaultShellEnvironment()
               .addOutput(strippedJar)
               .setExecutable(sdk.getProguard())
