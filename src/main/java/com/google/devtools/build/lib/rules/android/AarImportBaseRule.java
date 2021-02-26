@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.FileType;
 public class AarImportBaseRule implements RuleDefinition {
 
   static final String AAR_EMBEDDED_JARS_EXTACTOR = "$aar_embedded_jars_extractor";
+  static final String AAR_EMBEDDED_PROGUARD_EXTACTOR = "$aar_embedded_proguard_extractor";
   static final String AAR_NATIVE_LIBS_ZIP_CREATOR = "$aar_native_libs_zip_creator";
   static final String AAR_RESOURCES_EXTRACTOR = "$aar_resources_extractor";
   static final String ZIPPER = "$zipper";
@@ -66,6 +67,11 @@ public class AarImportBaseRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_embedded_jars_extractor")))
+        .add(
+            attr(AAR_EMBEDDED_PROGUARD_EXTACTOR, LABEL)
+                .cfg(HostTransition.createFactory())
+                .exec()
+                .value(env.getToolsLabel("//tools/android:aar_embedded_proguard_extractor")))
         .add(
             attr(AAR_NATIVE_LIBS_ZIP_CREATOR, LABEL)
                 .cfg(HostTransition.createFactory())
