@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -51,11 +52,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
+import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -121,7 +124,19 @@ public class GrpcRemoteDownloaderTest {
             retryService);
     final ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
+                return Single.just(new ChannelConnection(ch));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     return new GrpcRemoteDownloader(
         "none",
         "none",
