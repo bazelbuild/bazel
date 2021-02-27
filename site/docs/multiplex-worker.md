@@ -21,7 +21,7 @@ time.
 
 ## Overview
 
-We add two layers between the Bazel server and the worker process. For certain
+There are two layers between the Bazel server and the worker process. For certain
 mnemonics that can run processes in parallel, Bazel gets a `WorkerProxy` from
 the worker pool. The `WorkerProxy` forwards requests to the worker process
 sequentially along with a `request_id`, the worker process processes the request

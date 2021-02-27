@@ -35,28 +35,28 @@ The solution that's currently implemented:
   `SHGetKnownFolderPath()` with the `FOLDERID_Profile` flag set. If the
   environment variable `$TEST_TMPDIR` is set, as in a test of bazel itself,
   then that value overrides the default.
-* We stick the Bazel user's build state beneath `outputRoot/_bazel_$USER`. This
-  is called the _outputUserRoot_ directory.
-* Beneath the `outputUserRoot` directory, we create an `installBase` directory
+* The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
+  This is called the _outputUserRoot_ directory.
+* Beneath the `outputUserRoot` directory, an `installBase` directory is created
   whose name is "install" plus the MD5 hash of the Bazel installation manifest.
-* Beneath the `outputUserRoot` directory, we also create an `outputBase`
-  directory whose name is the MD5 hash of the path name of the workspace
+* Beneath the `outputUserRoot` directory, an `outputBase` directory
+  is also created whose name is the MD5 hash of the path name of the workspace
   directory. So, for example, if Bazel is running in the workspace directory
-  `/home/user/src/my-project` (or in a directory symlinked to that one), then we
-  create an output base directory called:
+  `/home/user/src/my-project` (or in a directory symlinked to that one), then
+  an output base directory is created called:
   `/home/user/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`.
-* Users can use Bazel's `--output_base` startup option to override the default
+* You can use Bazel's `--output_base` startup option to override the default
   output base directory. For example,
   `bazel --output_base=/tmp/bazel/output build x/y:z`.
-* Users can also use Bazel's `--output_user_root` startup option to override the
+* You can also use Bazel's `--output_user_root` startup option to override the
   default install base and output base directories. For example:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
-We put symlinks "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
-and "bazel-bin" in the workspace directory; these symlinks point to some
+The symlinks for "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
+and "bazel-bin" are put in the workspace directory; these symlinks point to some
 directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
-use them. Also, we only do this if the workspace directory is writable.
+use them. Also, this is done only if the workspace directory is writable.
 
 ## Layout diagram
 

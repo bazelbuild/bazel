@@ -46,8 +46,8 @@ bind rather than diverge languages and projects. This is what the new platform
 and toolchain APIs achieve.
 
 ### Migration
-These APIs aren't enough for all projects to use platforms. We also have to
-retire the old APIs. This isn't trivial because all of a project's languages,
+These APIs aren't enough for all projects to use platforms, and the old APIs
+have to be retired. This isn't trivial because all of a project's languages,
 toolchains, dependencies, and `select()`s have to support the new APIs. This
 requires an *ordered migration sequence* to keep projects working correctly.
 
@@ -85,8 +85,8 @@ understand the machine properties implied by `//:myplatform`.
 repo if the platform is unique to your project, otherwise somewhere all projects
 that may use this platform can find.
 
-As soon as this goal is achieved, we'll remove the old APIs and make this *the*
-way projects select platforms and toolchains.
+The old APIs will be removed as soon as this goal is achieved and this will
+become the standard way projects select platforms and toolchains.
 
 ## Should I use platforms?
 If you just want to build or cross-compile a project, you should follow the
@@ -188,7 +188,7 @@ API][Toolchains] (`ctx.toolchains`) and stop reading legacy settings like
    maintain an easy user experience.
 
    Platform definitions are also necessary (unless you build for the same machine
-   Bazel runs on). But we generally expect projects to define their own platforms.
+   Bazel runs on). Generally, projects should define their own platforms.
 
 1. Existing projects must be migrated. `select()`s and
 [transitions][Starlark transitions] also have to be
@@ -196,9 +196,9 @@ migrated. This is the biggest challenge. It's particularly challenging for
 multi-language projects (which may fail if *all* languages can't read
 `--platforms`).
 
-If you're designing a new rule set, we *strongly* recommend you support
-platforms from the beginning. This automatically makes your rules compatible
-with other rules and projects, with increasing value as the platform API becomes
+If you're designing a new rule set, you must support platforms from the
+beginning. This automatically makes your rules compatible with other
+rules and projects, with increasing value as the platform API becomes
 more ubiquitious.
 
 Details:
@@ -302,14 +302,14 @@ platforms.
 platforms
 ([details](https://github.com/bazelbuild/rules_go#how-do-i-cross-compile)).
 
-If you're designing rules for a new language, we *strongly* encourage you to use
-platforms to select your language's toolchains. See
-the [toolchains documentation](toolchains.md) for a good walkthrough.
+If you're designing rules for a new language, use platforms
+to select your language's toolchains. See the
+[toolchains documentation](toolchains.md) for a good walkthrough.
 
 ### `select()`
 Projects can [`select()`][select()] on
 [`constraint_value` targets][constraint_value Rule] but not complete
-platforms. This is intentional: we want `select()`s to support as wide a variety
+platforms. This is intentional so that `select()`s supports as wide a variety
 of machines as possible. A library with `ARM`-specific sources should support
 *all* `ARM`-powered machines unless there's reason to be more specific.
 
