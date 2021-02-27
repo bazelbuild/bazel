@@ -66,8 +66,8 @@ export BAZEL_VERSION=3.2.0
 curl -fLO "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-darwin-x86_64.sh"
 ```
 
-This is a temporary workaround until we fix notarization in our macOS release
-workflow ([#9304](https://github.com/bazelbuild/bazel/issues/9304)).
+This is a temporary workaround until the macOS release flow supports
+notarization ([#9304](https://github.com/bazelbuild/bazel/issues/9304)).
 
 ### Step 3: Run the installer
 

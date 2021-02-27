@@ -12,8 +12,8 @@ This page describes how to integrate with C++ rules on various levels.
 Because of
 [ongoing migration of C++ rules](https://github.com/bazelbuild/bazel/issues/6516)
 to [platforms](https://docs.bazel.build/versions/master/platforms.html) and
-[toolchains](https://docs.bazel.build/versions/master/toolchains.html), we
-advise to use the helper function available at
+[toolchains](https://docs.bazel.build/versions/master/toolchains.html), you
+should use the helper function available at
 [@bazel_tools//tools/cpp:toolchain_utils.bzl](https://source.bazel.build/bazel/+/master:tools/cpp/toolchain_utils.bzl;l=23),
 which works both when toolchains are disabled and enabled. To depend on a C++
 toolchain in your rule, add a
@@ -81,6 +81,6 @@ A complete working example can be found
 
 ## Reusing logic and actions of C++ rules
 
-_Not stable yet, we will update this section once the API stabilizes. Follow
-[#4570](https://github.com/bazelbuild/bazel/issues/4570) for up to date
+_Not stable yet; This section will be updated once the API stabilizes. Follow
+[#4570](https://github.com/bazelbuild/bazel/issues/4570) for up-to-date
 information._
