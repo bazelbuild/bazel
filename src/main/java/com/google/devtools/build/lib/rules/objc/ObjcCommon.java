@@ -117,6 +117,7 @@ public final class ObjcCommon {
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Iterable<CcCompilationContext> ccCompilationContexts = ImmutableList.of();
+    private Iterable<CcCompilationContext> directCCompilationContexts = ImmutableList.of();
     private Iterable<CcLinkingContext> ccLinkingContexts = ImmutableList.of();
     private Iterable<CcLinkingContext> ccLinkStampContexts = ImmutableList.of();
     private Iterable<CcCompilationContext> ccCompilationContextsForDirectFields =
@@ -166,6 +167,16 @@ public final class ObjcCommon {
       return Streams.stream(ccInfos)
           .map(CcInfo::getCcCompilationContext)
           .collect(ImmutableList.toImmutableList());
+    }
+
+    Builder addDirectCcCompilationContexts(Iterable<CcInfo> ccInfos) {
+      // TODO(waltl): Support direct CcCompilationContexts in CcCompilationHelper.
+      Preconditions.checkState(
+          this.purpose.equals(Purpose.LINK_ONLY),
+          "direct CcCompilationContext is only supported for LINK_ONLY purpose");
+      this.directCCompilationContexts =
+          Iterables.concat(this.directCCompilationContexts, getCcCompilationContexts(ccInfos));
+      return this;
     }
 
     Builder addCcCompilationContexts(Iterable<CcInfo> ccInfos) {
@@ -331,6 +342,7 @@ public final class ObjcCommon {
           .addIncludes(includes)
           .addObjcProviders(objcProviders)
           .addObjcProviders(runtimeObjcProviders)
+          .addDirectCcCompilationContexts(directCCompilationContexts)
           // TODO(bazel-team): This pulls in stl via
           // CcCompilationHelper.getStlCcCompilationContext(), but probably shouldn't.
           .addCcCompilationContexts(ccCompilationContexts);
