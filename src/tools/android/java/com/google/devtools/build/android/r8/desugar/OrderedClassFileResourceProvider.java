@@ -33,9 +33,9 @@ public class OrderedClassFileResourceProvider implements ClassFileResourceProvid
       ImmutableList<ClassFileResourceProvider> bootclasspathProviders,
       ImmutableList<ClassFileResourceProvider> classfileProviders) {
     final Set<String> bootclasspathDescriptors = Sets.newHashSet();
+    bootclasspathProviders.forEach(p -> bootclasspathDescriptors.addAll(p.getClassDescriptors()));
     for (ClassFileResourceProvider provider : classfileProviders) {
       // Collect all descriptors provided and the first provider providing each.
-      bootclasspathProviders.forEach(p -> bootclasspathDescriptors.addAll(p.getClassDescriptors()));
       for (String descriptor : provider.getClassDescriptors()) {
         // Pick first definition of classpath class and filter out platform classes
         // from classpath if present.
