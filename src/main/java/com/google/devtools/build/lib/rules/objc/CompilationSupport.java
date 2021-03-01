@@ -560,13 +560,21 @@ public class CompilationSupport {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
+    ImmutableSet.Builder<String> disableFeatures = ImmutableSet.<String>builder();
+    // TODO(b/159096411): Remove once supports_header_parsing is removed from the cc_toolchain rule.
+    if (disableParseHeaders || !ccToolchain.supportsHeaderParsing()) {
+      disableFeatures.add(CppRuleClasses.PARSE_HEADERS);
+    }
+    if (disableLayeringCheck) {
+      disableFeatures.add(CppRuleClasses.LAYERING_CHECK);
+    }
+
+    ImmutableSet<String> disableFeaturesSet = disableFeatures.build();
     ImmutableSet<String> activatedCrosstoolSelectablesSet;
-    if (!ccToolchain.supportsHeaderParsing()) {
-      // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
-      // cc_toolchain rule.
+    if (!disableFeaturesSet.isEmpty()) {
       activatedCrosstoolSelectablesSet =
           activatedCrosstoolSelectables.build().stream()
-              .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
+              .filter(feature -> !disableFeaturesSet.contains(feature))
               .collect(toImmutableSet());
     } else {
       activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
@@ -660,6 +668,8 @@ public class CompilationSupport {
   private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
   private final boolean usePch;
+  private final boolean disableLayeringCheck;
+  private final boolean disableParseHeaders;
   private final IncludeProcessingType includeProcessingType;
   private Optional<CcCompilationContext> ccCompilationContext;
 
@@ -694,7 +704,9 @@ public class CompilationSupport {
       Map<String, NestedSet<Artifact>> outputGroupCollector,
       ImmutableList.Builder<Artifact> objectFilesCollector,
       CcToolchainProvider toolchain,
-      boolean usePch)
+      boolean usePch,
+      boolean disableLayeringCheck,
+      boolean disableParseHeaders)
       throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
@@ -706,6 +718,8 @@ public class CompilationSupport {
     this.objectFilesCollector = objectFilesCollector;
     this.ccCompilationContext = Optional.absent();
     this.usePch = usePch;
+    this.disableLayeringCheck = disableLayeringCheck;
+    this.disableParseHeaders = disableParseHeaders;
     if (toolchain == null
         && ruleContext
             .attributes()
@@ -732,6 +746,8 @@ public class CompilationSupport {
     private ImmutableList.Builder<Artifact> objectFilesCollector;
     private CcToolchainProvider toolchain;
     private boolean usePch = true;
+    private boolean disableLayeringCheck = false;
+    private boolean disableParseHeaders = false;
 
     /** Sets the {@link RuleContext} for the calling target. */
     public Builder setRuleContext(RuleContext ruleContext) {
@@ -763,6 +779,18 @@ public class CompilationSupport {
      */
     public Builder doNotUsePch() {
       this.usePch = false;
+      return this;
+    }
+
+    /** Sets that this {@link CompilationSupport} will disable layering check. */
+    public Builder disableLayeringCheck() {
+      this.disableLayeringCheck = true;
+      return this;
+    }
+
+    /** Sets that this {@link CompilationSupport} will disable parse headers. */
+    public Builder disableParseHeaders() {
+      this.disableParseHeaders = true;
       return this;
     }
 
@@ -834,7 +862,9 @@ public class CompilationSupport {
           outputGroupCollector,
           objectFilesCollector,
           toolchain,
-          usePch);
+          usePch,
+          disableLayeringCheck,
+          disableParseHeaders);
     }
   }
 

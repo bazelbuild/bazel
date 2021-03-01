@@ -270,6 +270,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .setToolchainProvider(ccToolchain)
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()
+                .disableLayeringCheck()
+                .disableParseHeaders()
                 .build();
         ExtraCompileArgs extraCompileArgs =
             j2objcCompileWithARC(ruleContext)
