@@ -267,7 +267,7 @@ public class CompilationSupport {
             .addIncludeDirs(objcCompilationContext.getIncludes())
             .addSystemIncludeDirs(objcCompilationContext.getSystemIncludes())
             .addQuoteIncludeDirs(objcCompilationContext.getQuoteIncludes())
-            .addCcCompilationContexts(objcCompilationContext.getDepCcCompilationContexts())
+            .addCcCompilationContexts(objcCompilationContext.getCcCompilationContexts())
             .setCopts(
                 ImmutableList.<String>builder()
                     .addAll(getCompileRuleCopts())

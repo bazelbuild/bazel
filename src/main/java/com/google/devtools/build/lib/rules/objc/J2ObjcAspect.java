@@ -882,17 +882,17 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             ccInfoList.add(ccInfo);
           }
         }
-        builder.addDepCcHeaderProviders(ccInfoList.build());
-        builder.addDepObjcProviders(
+        builder.addCcCompilationContexts(ccInfoList.build());
+        builder.addObjcProviders(
             ruleContext.getPrerequisites(attrName, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
 
     // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
-    builder.addDepObjcProviders(
+    builder.addObjcProviders(
         otherDeps.stream().map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR)).collect(toList()));
-    builder.addDepCcHeaderProviders(
+    builder.addCcCompilationContexts(
         otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
 
     return builder
