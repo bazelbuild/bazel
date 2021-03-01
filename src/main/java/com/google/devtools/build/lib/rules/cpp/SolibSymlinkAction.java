@@ -169,7 +169,8 @@ public final class SolibSymlinkAction extends AbstractAction {
       PathFragment path) {
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(path.getBaseName()));
-    Preconditions.checkArgument(!library.getRootRelativePath().getSegment(0).startsWith("_solib_"));
+    Preconditions.checkArgument(
+        !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
     PathFragment solibDirPath = PathFragment.create(solibDir);
     PathFragment linkName = solibDirPath.getRelative(path);
@@ -208,7 +209,8 @@ public final class SolibSymlinkAction extends AbstractAction {
       Artifact library,
       PathFragment symlinkName) {
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
-    Preconditions.checkArgument(!library.getRootRelativePath().getSegment(0).startsWith("_solib_"));
+    Preconditions.checkArgument(
+        !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
     // Ignore libraries that are already represented by the symlinks.
     ArtifactRoot root = actionConstructionContext.getBinDirectory();

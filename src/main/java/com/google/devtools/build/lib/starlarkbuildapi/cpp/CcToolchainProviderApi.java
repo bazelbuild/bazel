@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -34,7 +34,7 @@ public interface CcToolchainProviderApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         BranchFdoProfileT extends BranchFdoProfileApi,
         FdoContextT extends FdoContextApi<BranchFdoProfileT>>
-    extends ToolchainInfoApi {
+    extends StructApi {
 
   @StarlarkMethod(
       name = "needs_pic_for_dynamic_libraries",

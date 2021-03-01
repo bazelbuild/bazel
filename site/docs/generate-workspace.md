@@ -53,7 +53,7 @@ use this tool:
     >    --maven_project=/path/to/my/project \
     >    --artifact=groupId:artifactId:version \
     >    --artifact=groupId:artifactId:version \
-    >    --repositories=https://jcenter.bintray.com
+    >    --repositories=https://repo1.maven.org/maven2
     Wrote
     /usr/local/.../generate_workspace.runfiles/__main__/generate_workspace.bzl
     ```

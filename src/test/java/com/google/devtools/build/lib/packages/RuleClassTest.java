@@ -310,39 +310,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testCreateRuleWithLegacyPublicVisibility() throws Exception {
-    RuleClass ruleClass =
-        newRuleClass(
-            "ruleVis",
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            ImplicitOutputsFunction.NONE,
-            null,
-            DUMMY_CONFIGURED_TARGET_FACTORY,
-            PredicatesWithMessage.<Rule>alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
-            AdvertisedProviderSet.EMPTY,
-            null,
-            ImmutableSet.<Class<?>>of(),
-            true,
-            attr("visibility", LABEL_LIST).legacyAllowAnyFileType().build());
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("visibility", Arrays.asList("//visibility:legacy_public"));
-
-    reporter.removeHandler(failFastHandler);
-    EventCollector collector = new EventCollector(EventKind.ERRORS);
-    reporter.addHandler(collector);
-
-    createRule(ruleClass, TEST_RULE_NAME, attributeValues, testRuleLocation, NO_STACK);
-
-    assertContainsEvent("//visibility:legacy_public only allowed in package declaration");
-  }
-
-  @Test
   public void testCreateRule() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
 

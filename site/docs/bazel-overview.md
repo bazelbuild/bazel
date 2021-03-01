@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Bazel Overview
+category: getting-started
 ---
 
 # Bazel Overview

@@ -28,6 +28,7 @@ java_library(
         exclude = [
             "ActionInput.java",
             "ActionLookupKey.java",
+            "AnalysisGraphStatsEvent.java",
             "Artifact.java",
             "ArtifactFactory.java",
             "ArtifactOwner.java",
@@ -136,12 +137,26 @@ java_library(
 )
 
 java_library(
+    name = "total_and_configured_target_only_metric",
+    srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
+    deps = [
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "action_lookup_key",
     srcs = ["ActionLookupKey.java"],
     deps = [
         ":artifact_owner",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
+)
+
+java_library(
+    name = "analysis_graph_stats_event",
+    srcs = ["AnalysisGraphStatsEvent.java"],
+    deps = [":total_and_configured_target_only_metric"],
 )
 
 java_library(

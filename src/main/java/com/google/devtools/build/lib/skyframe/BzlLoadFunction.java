@@ -1181,7 +1181,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     private void reset() {
       if (cache != null) {
-        logger.atInfo().log("Starlark inlining cache stats from earlier build: " + cache.stats());
+        logger.atInfo().log("Starlark inlining cache stats from earlier build: %s", cache.stats());
       }
       cachedDataBuilderFactory = new CachedBzlLoadDataBuilderFactory();
       Preconditions.checkState(

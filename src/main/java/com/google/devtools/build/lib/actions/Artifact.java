@@ -27,6 +27,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -200,9 +201,15 @@ public abstract class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Iterable<SkyKey> keys(Collection<Artifact> artifacts) {
-    // Use Collections2 instead of Iterables#transform to ensure O(1) size().
-    return Collections2.transform(artifacts, Artifact::key);
+  public static Collection<SkyKey> keys(Collection<Artifact> artifacts) {
+    return artifacts instanceof List
+        ? keys((List<Artifact>) artifacts)
+        // Use Collections2 instead of Iterables#transform to ensure O(1) size().
+        : Collections2.transform(artifacts, Artifact::key);
+  }
+
+  public static List<SkyKey> keys(List<Artifact> artifacts) {
+    return Lists.transform(artifacts, Artifact::key);
   }
 
   @Override

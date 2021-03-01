@@ -19,7 +19,7 @@ nav: docs
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">
   {% include head.html current_version=current_version %}
   <body>
-    {% include header.html %}
+    {% include header.html current_version=current_version %}
 
     <div class="container vpad">
       <div class="row">
@@ -43,10 +43,10 @@ nav: docs
 
             <!-- If the current version has a explicitly versioned sidebar for the major version -->
             {% if site.doc_versions contains current_version %}
-                {% capture sidebar %}documentation-sidebar/{{major_version}}/sidebar.html{% endcapture %}
+                {% capture sidebar %}{{page.category}}-sidebar/{{major_version}}/sidebar.html{% endcapture %}
             {% else %}
                 <!-- else, use the latest sidebar -->
-                {% capture sidebar %}documentation-sidebar/master/sidebar.html{% endcapture %}
+                {% capture sidebar %}{{page.category}}-sidebar/master/sidebar.html{% endcapture %}
             {% endif %}
             {% include {{ sidebar }} current_version=current_version %}
           </nav>
@@ -98,7 +98,7 @@ nav: docs
     </div>
 
     <!-- Satisfaction Survey -->
-    <script async="" defer="" src="//www.google.com/insights/consumersurveys/async_survey?site=hihwpyy5e5kllsq62elzjrcgn4"></script>
+    <script async="" defer="" src="//www.google.com/insights/consumersurveys/async_survey?site=WiW2jfuqA0qnVVi98UP0WeVsqBPB"></script>
 
     {% include footer.html %}
   </body>

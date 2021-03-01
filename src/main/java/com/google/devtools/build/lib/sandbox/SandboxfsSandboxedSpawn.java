@@ -201,7 +201,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     // TODO(jmmv): If we knew the targetExecRoot when setting up the spawn, we may be able to
     // configure sandboxfs so that the output files are written directly to their target locations.
     // This would avoid having to move them after-the-fact.
-    AbstractContainerizingSandboxedSpawn.moveOutputs(outputs, sandboxScratchDir, targetExecRoot);
+    SandboxHelpers.moveOutputs(outputs, sandboxScratchDir, targetExecRoot);
   }
 
   @Override

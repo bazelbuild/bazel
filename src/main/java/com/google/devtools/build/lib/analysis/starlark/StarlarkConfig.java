@@ -26,7 +26,6 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 
 /** Starlark namespace for creating build settings. */
-// TODO(juliexxia): Consider adding more types of build settings, specifically other label types.
 public class StarlarkConfig implements StarlarkConfigApi {
 
   @Override

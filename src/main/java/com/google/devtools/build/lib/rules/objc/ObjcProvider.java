@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
@@ -53,12 +52,10 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A provider that provides all compiling and linking information in the transitive closure of its
- * deps that are needed for building Objective-C rules.
- *
- * <p>Most of the compilation information is stored in an embedded {@code CcCompilationContext}. The
- * objc proto strict dependency include paths are stored in a special, non-propagated field {@code
- * strictDependencyIncludes}.
+ * A provider that provides all linking and miscellaneous information in the transitive closure of
+ * its deps that are needed for building Objective-C rules. Most of the compilation information has
+ * been migrated to {@code CcInfo}. The objc proto strict dependency include paths are still here
+ * and stored in a special, non-propagated field {@code strictDependencyIncludes}.
  *
  * <p>The rest of the information is stored in two generic maps indexed by {@code ObjcProvider.Key}:
  *
@@ -287,8 +284,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    */
   private final ImmutableListMultimap<Key<?>, ?> directItems;
 
-  private final CcCompilationContext ccCompilationContext;
-
   /** All keys in ObjcProvider that will be passed in the corresponding Starlark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_STARLARK =
       ImmutableList.<Key<?>>of(
@@ -352,17 +347,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return Depset.of(Artifact.TYPE, get(EXPORTED_DEBUG_ARTIFACTS));
   }
 
-  public ImmutableList<PathFragment> frameworkInclude() {
-    return getCcCompilationContext().getFrameworkIncludeDirs();
-  }
-
   @Override
   public Depset /*<Artifact>*/ forceLoadLibrary() {
     return Depset.of(Artifact.TYPE, get(FORCE_LOAD_LIBRARY));
-  }
-
-  public NestedSet<Artifact> header() {
-    return getCcCompilationContext().getDeclaredIncludeSrcs();
   }
 
   @Override
@@ -375,14 +362,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return Depset.of(Artifact.TYPE, get(IMPORTED_LIBRARY));
   }
 
-  public ImmutableList<PathFragment> include() {
-    ImmutableList.Builder<PathFragment> listBuilder = ImmutableList.builder();
-    return listBuilder
-        .addAll(strictDependencyIncludes)
-        .addAll(getCcCompilationContext().getIncludeDirs())
-        .build();
-  }
-
   @Override
   public Depset /*<String>*/ strictIncludeForStarlark() {
     return Depset.of(
@@ -392,14 +371,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
             getStrictDependencyIncludes().stream()
                 .map(PathFragment::getSafePathString)
                 .collect(ImmutableList.toImmutableList())));
-  }
-
-  public ImmutableList<PathFragment> systemInclude() {
-    return getCcCompilationContext().getSystemIncludeDirs();
-  }
-
-  public ImmutableList<PathFragment> quoteInclude() {
-    return getCcCompilationContext().getQuoteIncludeDirs();
   }
 
   @Override
@@ -508,10 +479,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
             WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
   }
 
-  public CcCompilationContext getCcCompilationContext() {
-    return ccCompilationContext;
-  }
-
   /**
    * All keys in ObjcProvider that are explicitly not exposed to Starlark. This is used for testing
    * and verification purposes to ensure that a conscious decision is made for all keys; by default,
@@ -572,13 +539,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       StarlarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableList<PathFragment> strictDependencyIncludes,
-      ImmutableListMultimap<Key<?>, ?> directItems,
-      CcCompilationContext ccCompilationContext) {
+      ImmutableListMultimap<Key<?>, ?> directItems) {
     this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.strictDependencyIncludes = Preconditions.checkNotNull(strictDependencyIncludes);
     this.directItems = Preconditions.checkNotNull(directItems);
-    this.ccCompilationContext = ccCompilationContext;
   }
 
   @Override
@@ -689,7 +654,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
     }
-    ObjcProvider.NativeBuilder objcProviderBuilder = new ObjcProvider.NativeBuilder(semantics);
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
     for (Key<?> key : items.keySet()) {
       if (key == CC_LIBRARY) {
         addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
@@ -706,7 +671,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       }
     }
     objcProviderBuilder.addStrictDependencyIncludes(strictDependencyIncludes);
-    objcProviderBuilder.setCcCompilationContext(ccCompilationContext);
     return objcProviderBuilder.build();
   }
 
@@ -880,7 +844,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * A builder for this context with an API that is optimized for collecting information from
    * several transitive dependencies.
    */
-  public abstract static class Builder {
+  public static class Builder {
 
     private final StarlarkSemantics starlarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
@@ -998,9 +962,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       return this;
     }
 
-    abstract ObjcProvider build();
-
-    protected ObjcProvider build(CcCompilationContext ccCompilationContext) {
+    ObjcProvider build() {
       ImmutableMap.Builder<Key<?>, NestedSet<?>> propagatedBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : items.entrySet()) {
         propagatedBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
@@ -1009,37 +971,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           starlarkSemantics,
           propagatedBuilder.build(),
           strictDependencyIncludes.build(),
-          directItems.build(),
-          ccCompilationContext);
-    }
-  }
-
-  /** A builder for this context, specialized for native use. */
-  public static final class NativeBuilder extends Builder {
-    private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
-
-    public NativeBuilder(StarlarkSemantics semantics) {
-      super(semantics);
-    }
-
-    Builder setCcCompilationContext(CcCompilationContext ccCompilationContext) {
-      Preconditions.checkState(this.ccCompilationContext == CcCompilationContext.EMPTY);
-      Preconditions.checkNotNull(ccCompilationContext);
-      this.ccCompilationContext = ccCompilationContext;
-      return this;
-    }
-
-    @Override
-    public ObjcProvider build() {
-      return build(ccCompilationContext);
+          directItems.build());
     }
   }
 
   /** A builder for this context, specialized for Starlark use. */
   public static final class StarlarkBuilder extends Builder {
-    private final CcCompilationContext.Builder ccCompilationContextBuilder =
-        CcCompilationContext.builder(null, null, null);
-
     public StarlarkBuilder(StarlarkSemantics semantics) {
       super(semantics);
     }
@@ -1076,8 +1013,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           } else {
             ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
-            ccCompilationContextBuilder.mergeDependentCcCompilationContext(
-                objcProvider.getCcCompilationContext());
           }
         }
       }
@@ -1094,11 +1029,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
               ObjcProviderStarlarkConverters.convertToJava(STRICT_INCLUDE, starlarkToAdd);
 
       addStrictDependencyIncludes(toAdd.toList());
-    }
-
-    @Override
-    public ObjcProvider build() {
-      return build(ccCompilationContextBuilder.build());
     }
   }
 

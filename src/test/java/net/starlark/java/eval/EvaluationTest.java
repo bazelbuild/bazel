@@ -724,7 +724,42 @@ public final class EvaluationTest {
                 "foo1"));
   }
 
-  // TODO(adonovan): add more tests of load.
+  @Test
+  public void testLoadsBindLocally() throws Exception {
+    Module a = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("x = 1", "a.bzl"),
+        FileOptions.DEFAULT,
+        a,
+        new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT));
+
+    StarlarkThread bThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    bThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("a.bzl");
+          return a;
+        });
+    Module b = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("load('a.bzl', 'x')", "b.bzl"), FileOptions.DEFAULT, b, bThread);
+
+    StarlarkThread cThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    cThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("b.bzl");
+          return b;
+        });
+    EvalException ex =
+        assertThrows(
+            EvalException.class,
+            () ->
+                Starlark.execFile(
+                    ParserInput.fromString("load('b.bzl', 'x')", "c.bzl"),
+                    FileOptions.DEFAULT,
+                    Module.create(),
+                    cThread));
+    assertThat(ex).hasMessageThat().contains("file 'b.bzl' does not contain symbol 'x'");
+  }
 
   @Test
   public void testTopLevelRebinding() throws Exception {

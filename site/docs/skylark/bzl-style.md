@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: .bzl style guide
+category: extending
 ---
 
 # .bzl style guide

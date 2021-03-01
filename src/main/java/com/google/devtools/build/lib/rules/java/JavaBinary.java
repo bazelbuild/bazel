@@ -120,7 +120,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Lists.newArrayList(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     helper.addLibrariesToAttributes(deps);
     attributesBuilder.addNativeLibraries(
-        collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
+        collectNativeLibraries(ruleContext, common.targetsTreatedAsDeps(ClasspathType.BOTH)));
 
     // deploy_env is valid for java_binary, but not for java_test.
     if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
@@ -512,6 +512,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(
+            JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .build();
   }
 
@@ -645,11 +648,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     semantics.addRunfilesForBinary(ruleContext, launcher, builder);
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
@@ -674,13 +675,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   /**
    * Collects the native libraries in the transitive closure of the deps.
    *
+   * @param ruleContext rule context
    * @param deps the dependencies to be included as roots of the transitive closure.
    * @return the native libraries found in the transitive closure of the deps.
    */
   public static Collection<Artifact> collectNativeLibraries(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      RuleContext ruleContext, Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
-        new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
+        new NativeLibraryNestedSetBuilder(ruleContext).addJavaTargets(deps).build();
     return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 

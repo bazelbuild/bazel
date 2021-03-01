@@ -65,10 +65,10 @@ maintained by the Bazel team.
 
 #### <a name="guava-1"></a>Guava project example: external dependencies
 
-Using the
+You can list the external dependencies of the
+[Guava project](https://github.com/google/guava) with the
 [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
-ruleset, we can list the external dependencies of the
-[Guava project](https://github.com/google/guava).
+ruleset.
 
 Add the following snippet to the `WORKSPACE` file:
 
@@ -94,7 +94,6 @@ maven_install(
         "com.google.j2objc:j2objc-annotations:1.1",
     ],
     repositories = [
-        "https://jcenter.bintray.com/",
         "https://repo1.maven.org/maven2",
     ],
 )
@@ -161,8 +160,8 @@ targets.
           )
           ```
     *  Specify the attributes:
-       *  `name`: Give the target a meaningful name. In the examples above
-          we call the target "everything."
+       *  `name`: Give the target a meaningful name. In the examples above,
+          the target is called "everything."
        *  `srcs`: Use globbing to list all .java files in your project.
        *  `resources`: Use globbing to list all resources in your project.
        *  `deps`: You need to determine which external dependencies your

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.QueryFailureExitCodeBehavior;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -157,12 +156,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
             // sure no null error messages ever get in.
             .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
-        if (QueryFailureExitCodeBehavior.UNDERLYING.equals(
-            queryOptions.queryFailureExitCodeBehavior)) {
-          return Either.ofLeft(BlazeCommandResult.failureDetail(e.getFailureDetail()));
-        } else {
-          return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.ANALYSIS_FAILURE, e));
-        }
+        return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.ANALYSIS_FAILURE, e));
       } catch (InterruptedException e) {
         catastrophe = false;
         IOException ioException = callback.getIoException();

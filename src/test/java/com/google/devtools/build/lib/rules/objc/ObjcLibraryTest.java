@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -580,26 +581,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "x",
         BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED,
         "objc_library( name = 'x', module_name = 'x', module_map = 'x.modulemap' )");
-  }
-
-  @Test
-  public void testCompilationActionsWithModuleMapsEnabled() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_enable_module_maps");
-    String target = "//objc/library:lib@a-foo_foobar";
-    createLibraryTargetWriter(target)
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction(target, "a.o");
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(
-            moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
-    assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
-    assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
-        .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
   }
 
   @Test
@@ -1146,7 +1127,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(target.get(ObjcProvider.STARLARK_CONSTRUCTOR).header());
+    return Artifact.toRootRelativePaths(
+        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 
   @Test
@@ -2120,16 +2102,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testObjcLibraryNotLoadedThroughMacro() throws Exception {
-    setupTestObjcLibraryLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestObjcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_library"),
@@ -2282,6 +2255,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .isEqualTo("ObjcCompileHeader");
     assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
         .isEqualTo("ObjcCompileHeader");
+  }
+
+  @Test
+  public void testLinkActionMnemonic() throws Exception {
+    scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
+
+    CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
+    assertThat(archiveAction.getMnemonic()).isEqualTo("CppLink");
+    CppLinkAction fullyArchiveAction =
+        (CppLinkAction) getGeneratingActionForLabel("//foo:x_fully_linked.a");
+    assertThat(fullyArchiveAction.getMnemonic()).isEqualTo("CppLink");
   }
 
   protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {

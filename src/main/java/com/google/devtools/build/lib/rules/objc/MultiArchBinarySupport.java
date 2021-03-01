@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -58,14 +57,13 @@ public class MultiArchBinarySupport {
    */
   static ImmutableMap<BuildConfiguration, CcToolchainProvider> getChildConfigurationsAndToolchains(
       RuleContext ruleContext) {
-    ImmutableListMultimap<BuildConfiguration, ToolchainInfo> configToProvider =
+    ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, ToolchainInfo.PROVIDER);
+            ObjcRuleClasses.CHILD_CONFIG_ATTR, CcToolchainProvider.PROVIDER);
 
     ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
     for (BuildConfiguration config : configToProvider.keySet()) {
-      CcToolchainProvider toolchain =
-          (CcToolchainProvider) Iterables.getOnlyElement(configToProvider.get(config));
+      CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
       result.put(config, toolchain);
     }
 
@@ -266,7 +264,7 @@ public class MultiArchBinarySupport {
               intermediateArtifacts,
               nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
               additionalDepProviders);
-      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProviderBuilder().build();
+      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
           objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
 
@@ -314,7 +312,7 @@ public class MultiArchBinarySupport {
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedConfiguredTargetAndDataDeps)
-            .addDepObjcProviders(additionalDepProviders)
+            .addObjcProviders(additionalDepProviders)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(false)
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());

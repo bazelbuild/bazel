@@ -1348,7 +1348,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1383,7 +1383,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1426,7 +1426,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1466,7 +1466,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1503,7 +1503,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1539,7 +1539,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1609,7 +1609,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1646,7 +1646,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1719,7 +1719,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -4558,6 +4558,10 @@ def _impl(ctx):
                     env_entry(
                         key = "APPLE_SDK_PLATFORM",
                         value = "%{apple_sdk_platform_value}",
+                    ),
+                    env_entry(
+                        key = "ZERO_AR_DATE",
+                        value = "1",
                     ),
                 ] + [env_entry(key = key, value = value) for key, value in ctx.attr.extra_env.items()],
             ),

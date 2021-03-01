@@ -140,15 +140,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public List<String> fastbuildOptions;
 
   @Option(
-    name = "experimental_objc_enable_module_maps",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Enables module map generation and interpretation."
-  )
-  public boolean enableModuleMaps;
-
-  @Option(
       name = "objc_enable_binary_stripping",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

@@ -843,13 +843,16 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    if (!additionalLinkerInputsBuilder.isEmpty()) {
-      if (fdoContext.getPropellerOptimizeInputFile() != null
-          && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-        this.additionalLinkerInputsBuilder.add(
-            fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-      }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      this.additionalLinkerInputsBuilder.add(
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
+    String mnemonic =
+        (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
+                || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))
+            ? "ObjcLink"
+            : null;
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
                 ruleErrorConsumer,
@@ -862,8 +865,7 @@ public final class CcLinkingHelper {
                 featureConfiguration,
                 semantics)
             .setGrepIncludes(grepIncludes)
-            .setMnemonic(
-                featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC) ? "ObjcLink" : null)
+            .setMnemonic(mnemonic)
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
             .setLinkType(linkType)

@@ -151,20 +151,39 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOutputGroupExtractsCorrectArtifacts() throws Exception {
+  public void outputGroupSourceJars_extractsTransitiveSources() throws Exception {
     scratch.file("pkg/a.java");
     scratch.file("pkg/b.java");
-    scratch.file("pkg/in_ouput_group_a");
-    scratch.file("pkg/in_ouput_group_b");
-
+    scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
         "java_library(name='lib_a', srcs=['a.java'])",
-        "java_library(name='lib_b', srcs=['b.java'])",
+        "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
+        "java_library(name='lib_c', srcs=['c.java'])",
         "filegroup(name='group', srcs=[':lib_a', ':lib_b'],"
             + String.format("output_group='%s')", JavaSemantics.SOURCE_JARS_OUTPUT_GROUP));
 
     ConfiguredTarget group = getConfiguredTarget("//pkg:group");
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(group)))
+        .containsExactly("pkg/liblib_a-src.jar", "pkg/liblib_b-src.jar", "pkg/liblib_c-src.jar");
+  }
+
+  @Test
+  public void outputGroupDirectSourceJars_extractsDirectSources() throws Exception {
+    scratch.file("pkg/a.java");
+    scratch.file("pkg/b.java");
+    scratch.file("pkg/c.java");
+    scratch.file(
+        "pkg/BUILD",
+        "java_library(name='lib_a', srcs=['a.java'])",
+        "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
+        "java_library(name='lib_c', srcs=['c.java'])",
+        "filegroup(name='group', srcs=[':lib_a', ':lib_b'],"
+            + String.format("output_group='%s')", JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP));
+
+    ConfiguredTarget group = getConfiguredTarget("//pkg:group");
+
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(group)))
         .containsExactly("pkg/liblib_a-src.jar", "pkg/liblib_b-src.jar");
   }

@@ -283,9 +283,13 @@ final class ExecutionServer extends ExecutionImplBase {
       outputs.add(file);
     }
 
+    Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
+    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
     // implementation instead of copying it.
-    com.google.devtools.build.lib.shell.Command cmd = getCommand(command, execRoot.getPathString());
+    com.google.devtools.build.lib.shell.Command cmd =
+        getCommand(command, workingDirectory.getPathString());
     long startTime = System.currentTimeMillis();
     CommandResult cmdResult = null;
 

@@ -172,7 +172,6 @@ public class CompilationSupport {
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 
-  private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
@@ -268,7 +267,7 @@ public class CompilationSupport {
             .addIncludeDirs(objcCompilationContext.getIncludes())
             .addSystemIncludeDirs(objcCompilationContext.getSystemIncludes())
             .addQuoteIncludeDirs(objcCompilationContext.getQuoteIncludes())
-            .addCcCompilationContexts(objcCompilationContext.getDepCcCompilationContexts())
+            .addCcCompilationContexts(objcCompilationContext.getCcCompilationContexts())
             .setCopts(
                 ImmutableList.<String>builder()
                     .addAll(getCompileRuleCopts())
@@ -525,10 +524,6 @@ public class CompilationSupport {
             .add(isTool ? "host" : "nonhost")
             .add(configuration.getCompilationMode().toString());
 
-    if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()
-        && !getCustomModuleMap(ruleContext).isPresent()) {
-      activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
-    }
     if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
     }
@@ -565,13 +560,21 @@ public class CompilationSupport {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
+    ImmutableSet.Builder<String> disableFeatures = ImmutableSet.<String>builder();
+    // TODO(b/159096411): Remove once supports_header_parsing is removed from the cc_toolchain rule.
+    if (disableParseHeaders || !ccToolchain.supportsHeaderParsing()) {
+      disableFeatures.add(CppRuleClasses.PARSE_HEADERS);
+    }
+    if (disableLayeringCheck) {
+      disableFeatures.add(CppRuleClasses.LAYERING_CHECK);
+    }
+
+    ImmutableSet<String> disableFeaturesSet = disableFeatures.build();
     ImmutableSet<String> activatedCrosstoolSelectablesSet;
-    if (!ccToolchain.supportsHeaderParsing()) {
-      // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
-      // cc_toolchain rule.
+    if (!disableFeaturesSet.isEmpty()) {
       activatedCrosstoolSelectablesSet =
           activatedCrosstoolSelectables.build().stream()
-              .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
+              .filter(feature -> !disableFeaturesSet.contains(feature))
               .collect(toImmutableSet());
     } else {
       activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
@@ -665,17 +668,19 @@ public class CompilationSupport {
   private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
   private final boolean usePch;
+  private final boolean disableLayeringCheck;
+  private final boolean disableParseHeaders;
   private final IncludeProcessingType includeProcessingType;
-  private Optional<ObjcProvider> objcProvider;
+  private Optional<CcCompilationContext> ccCompilationContext;
 
-  private void setObjcProvider(ObjcProvider objcProvider) {
-    checkState(!this.objcProvider.isPresent());
-    this.objcProvider = Optional.of(objcProvider);
+  private void setCcCompilationContext(CcCompilationContext ccCompilationContext) {
+    checkState(!this.ccCompilationContext.isPresent());
+    this.ccCompilationContext = Optional.of(ccCompilationContext);
   }
 
-  public ObjcProvider getObjcProvider() {
-    checkState(objcProvider.isPresent());
-    return objcProvider.get();
+  public CcCompilationContext getCcCompilationContext() {
+    checkState(ccCompilationContext.isPresent());
+    return ccCompilationContext.get();
   }
 
   /**
@@ -699,8 +704,10 @@ public class CompilationSupport {
       Map<String, NestedSet<Artifact>> outputGroupCollector,
       ImmutableList.Builder<Artifact> objectFilesCollector,
       CcToolchainProvider toolchain,
-      boolean usePch)
-      throws InterruptedException {
+      boolean usePch,
+      boolean disableLayeringCheck,
+      boolean disableParseHeaders)
+      throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
@@ -709,8 +716,10 @@ public class CompilationSupport {
     this.intermediateArtifacts = intermediateArtifacts;
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
-    this.objcProvider = Optional.absent();
+    this.ccCompilationContext = Optional.absent();
     this.usePch = usePch;
+    this.disableLayeringCheck = disableLayeringCheck;
+    this.disableParseHeaders = disableParseHeaders;
     if (toolchain == null
         && ruleContext
             .attributes()
@@ -737,6 +746,8 @@ public class CompilationSupport {
     private ImmutableList.Builder<Artifact> objectFilesCollector;
     private CcToolchainProvider toolchain;
     private boolean usePch = true;
+    private boolean disableLayeringCheck = false;
+    private boolean disableParseHeaders = false;
 
     /** Sets the {@link RuleContext} for the calling target. */
     public Builder setRuleContext(RuleContext ruleContext) {
@@ -768,6 +779,18 @@ public class CompilationSupport {
      */
     public Builder doNotUsePch() {
       this.usePch = false;
+      return this;
+    }
+
+    /** Sets that this {@link CompilationSupport} will disable layering check. */
+    public Builder disableLayeringCheck() {
+      this.disableLayeringCheck = true;
+      return this;
+    }
+
+    /** Sets that this {@link CompilationSupport} will disable parse headers. */
+    public Builder disableParseHeaders() {
+      this.disableParseHeaders = true;
       return this;
     }
 
@@ -807,7 +830,7 @@ public class CompilationSupport {
     }
 
     /** Returns a {@link CompilationSupport} instance. */
-    public CompilationSupport build() throws InterruptedException {
+    public CompilationSupport build() throws InterruptedException, RuleErrorException {
       checkNotNull(ruleContext, "CompilationSupport is missing RuleContext");
 
       if (buildConfiguration == null) {
@@ -839,7 +862,9 @@ public class CompilationSupport {
           outputGroupCollector,
           objectFilesCollector,
           toolchain,
-          usePch);
+          usePch,
+          disableLayeringCheck,
+          disableParseHeaders);
     }
   }
 
@@ -921,7 +946,6 @@ public class CompilationSupport {
     return registerCompileAndArchiveActions(
         compilationArtifacts,
         objcCompilationContext,
-        Optional.absent(),
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of());
   }
@@ -966,7 +990,6 @@ public class CompilationSupport {
   private CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
       ObjcCompilationContext objcCompilationContext,
-      Optional<ObjcCommon> objcCommon,
       ExtraCompileArgs extraCompileArgs,
       List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
@@ -1021,17 +1044,7 @@ public class CompilationSupport {
         compilationResult.getCcCompilationOutputs().getObjectFiles(/* usePic= */ false));
     outputGroupCollector.putAll(compilationResult.getOutputGroups());
 
-    if (objcCommon.isPresent()
-        && objcCommon.get().getPurpose() == ObjcCommon.Purpose.COMPILE_AND_LINK) {
-
-      ObjcProvider.NativeBuilder objcProviderBuilder = objcCommon.get().getObjcProviderBuilder();
-      ObjcProvider objcProvider =
-          objcProviderBuilder
-              .setCcCompilationContext(compilationResult.getCcCompilationContext())
-              .build();
-
-      setObjcProvider(objcProvider);
-    }
+    setCcCompilationContext(compilationResult.getCcCompilationContext());
 
     return this;
   }
@@ -1052,7 +1065,6 @@ public class CompilationSupport {
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
           common.getObjcCompilationContext(),
-          Optional.of(common),
           extraCompileArgs,
           priorityHeaders);
     }
@@ -1671,10 +1683,11 @@ public class CompilationSupport {
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            ImmutableList.<Artifact>of(),
+            ImmutableList.of(),
             publicHeaders,
-            attributes.moduleMapsForDirectDeps().toList(),
-            ImmutableList.<PathFragment>of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
             /* compiledModule= */ true,
             /* moduleMapHomeIsCwd= */ false,
             /* generateSubmodules= */ false,

@@ -22,7 +22,6 @@ import os
 import re
 import shutil
 import subprocess
-import sysconfig
 import tempfile
 import zipfile
 
@@ -39,7 +38,12 @@ def GetWindowsPathWithUNCPrefix(path):
 
   # No need to add prefix for non-Windows platforms.
   # And \\?\ doesn't work in python 2 or on mingw
-  if not IsWindows() or sys.version_info[0] < 3 or sysconfig.get_platform() == 'mingw':
+  if not IsWindows() or sys.version_info[0] < 3:
+    return path
+
+  # import sysconfig only now to maintain python 2.6 compatibility
+  import sysconfig
+  if sysconfig.get_platform() == 'mingw':
     return path
 
   # Lets start the unicode fun

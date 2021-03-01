@@ -20,7 +20,12 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
-final class ArtifactNestedSetKey implements SkyKey {
+public final class ArtifactNestedSetKey implements SkyKey {
+
+  // TODO(jhorvitz): Consider sharing the nestedSetToSkyKey map in ArtifactNestedSetFunction.
+  public static ArtifactNestedSetKey create(NestedSet<Artifact> set) {
+    return new ArtifactNestedSetKey(set, set.toNode());
+  }
 
   private final NestedSet<Artifact> set;
   private final NestedSet.Node node;

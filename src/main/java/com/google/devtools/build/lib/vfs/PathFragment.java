@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -57,7 +56,6 @@ public final class PathFragment
   @SerializationConstant public static final PathFragment EMPTY_FRAGMENT = new PathFragment("", 0);
   public static final char SEPARATOR_CHAR = '/';
   private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
-  public static final int INVALID_SEGMENT = -1;
 
   private final String normalizedPath;
   private final int driveStrLength; // 0 for relative paths, 1 on Unix, 3 on Windows
@@ -113,7 +111,7 @@ public final class PathFragment
     return normalizedPath.isEmpty();
   }
 
-  int getDriveStrLength() {
+  public int getDriveStrLength() {
     return driveStrLength;
   }
 
@@ -141,7 +139,7 @@ public final class PathFragment
     Preconditions.checkNotNull(other);
     // Fast-path: The path fragment is already normal, use cheaper normalization check
     String otherStr = other.normalizedPath;
-    return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
+    return getRelative(otherStr, other.driveStrLength, OS.needsToNormalizeSuffix(otherStr));
   }
 
   public static boolean isNormalizedRelativePath(String path) {
@@ -326,7 +324,7 @@ public final class PathFragment
       return false;
     }
     return normalizedPath.length() == other.normalizedPath.length()
-        || other.normalizedPath.length() == 0
+        || other.normalizedPath.isEmpty()
         || normalizedPath.charAt(normalizedPath.length() - other.normalizedPath.length() - 1)
             == SEPARATOR_CHAR;
   }
@@ -493,45 +491,37 @@ public final class PathFragment
   }
 
   /**
-   * Returns the segments of this path fragment. This array should not be
-   * modified.
+   * Returns an {@link Iterable} that lazily yields the segments of this path.
+   *
+   * <p>When iterating over the segments of a path fragment, prefer this method to {@link
+   * #splitToListOfSegments} as it performs a single, lazy traversal over the path string without
+   * the overhead of creating a list.
    */
-  String[] segments() {
-    int segmentCount = segmentCount();
-    String[] segments = new String[segmentCount];
-    int segmentIndex = 0;
+  public Iterable<String> segments() {
+    return () -> PathSegmentIterator.create(normalizedPath, driveStrLength);
+  }
+
+  /**
+   * Splits this path fragment into a list of segments.
+   *
+   * <p>This operation is O(N) on the length of the string. If it is not necessary to store the
+   * segments in list form, consider using {@link #segments}.
+   */
+  public ImmutableList<String> splitToListOfSegments() {
+    ImmutableList.Builder<String> segments = ImmutableList.builderWithExpectedSize(segmentCount());
     int nexti = driveStrLength;
     int n = normalizedPath.length();
     for (int i = driveStrLength; i < n; ++i) {
       if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
-        segments[segmentIndex++] = normalizedPath.substring(nexti, i);
+        segments.add(normalizedPath.substring(nexti, i));
         nexti = i + 1;
       }
     }
     // Add last segment if one exists.
     if (nexti < n) {
-      segments[segmentIndex] = normalizedPath.substring(nexti);
+      segments.add(normalizedPath.substring(nexti));
     }
-    return segments;
-  }
-
-  /**
-   * Returns a list of the segments.
-   *
-   * <p>This operation is O(N) on the length of the string.
-   */
-  public ImmutableList<String> getSegments() {
-    return ImmutableList.copyOf(segments());
-  }
-
-  public int getFirstSegment(Set<String> values) {
-    String[] segments = segments();
-    for (int i = 0; i < segments.length; ++i) {
-      if (values.contains(segments[i])) {
-        return i;
-      }
-    }
-    return INVALID_SEGMENT;
+    return segments.build();
   }
 
   /** Returns the path string, or '.' if the path is empty. */
@@ -614,7 +604,8 @@ public final class PathFragment
    */
   public boolean containsUplevelReferences() {
     // Path is normalized, so any ".." would have to be the first segment.
-    return normalizedPath.equals("..") || normalizedPath.startsWith(".." + SEPARATOR_CHAR);
+    return normalizedPath.startsWith("..")
+        && (normalizedPath.length() == 2 || normalizedPath.charAt(2) == SEPARATOR_CHAR);
   }
 
   /**
@@ -730,11 +721,11 @@ public final class PathFragment
 
   @Override
   public String expandToCommandLine() {
-    return getPathString();
+    return normalizedPath;
   }
 
   private static void checkBaseName(String baseName) {
-    if (baseName.length() == 0) {
+    if (baseName.isEmpty()) {
       throw new IllegalArgumentException("Child must not be empty string ('')");
     }
     if (baseName.equals(".") || baseName.equals("..")) {
@@ -759,7 +750,7 @@ public final class PathFragment
   }
 
   /** Indicates that a path fragment's base name had invalid characters. */
-  public static class InvalidBaseNameException extends Exception {
+  public static final class InvalidBaseNameException extends Exception {
     private InvalidBaseNameException(String message) {
       super(message);
     }
@@ -768,7 +759,7 @@ public final class PathFragment
   @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
   private static class Codec implements ObjectCodec<PathFragment> {
     @Override
-    public Class<? extends PathFragment> getEncodedClass() {
+    public Class<PathFragment> getEncodedClass() {
       return PathFragment.class;
     }
 

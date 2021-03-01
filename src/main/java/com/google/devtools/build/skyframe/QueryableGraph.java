@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
@@ -85,6 +86,10 @@ public interface QueryableGraph {
   /** Checks whether this graph stores reverse dependencies. */
   default boolean storesReverseDeps() {
     return true;
+  }
+
+  default ImmutableSet<SkyKey> getAllKeysForTesting() {
+    throw new UnsupportedOperationException();
   }
 
   /**

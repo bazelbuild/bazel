@@ -46,7 +46,8 @@ public final class ObjcCompilationContext {
   private final ImmutableList<PathFragment> systemIncludes;
   private final ImmutableList<PathFragment> quoteIncludes;
   private final ImmutableList<PathFragment> strictDependencyIncludes;
-  private final ImmutableList<CcCompilationContext> depCcCompilationContexts;
+  private final ImmutableList<CcCompilationContext> directCcCompilationContexts;
+  private final ImmutableList<CcCompilationContext> ccCompilationContexts;
 
   ObjcCompilationContext(
       Iterable<String> defines,
@@ -57,7 +58,8 @@ public final class ObjcCompilationContext {
       Iterable<PathFragment> systemIncludes,
       Iterable<PathFragment> quoteIncludes,
       Iterable<PathFragment> strictDependencyIncludes,
-      Iterable<CcCompilationContext> depCcCompilationContexts) {
+      Iterable<CcCompilationContext> directCcCompilationContexts,
+      Iterable<CcCompilationContext> ccCompilationContexts) {
     this.defines = ImmutableList.copyOf(defines);
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.publicTextualHeaders = ImmutableList.copyOf(publicTextualHeaders);
@@ -66,7 +68,8 @@ public final class ObjcCompilationContext {
     this.systemIncludes = ImmutableList.copyOf(systemIncludes);
     this.quoteIncludes = ImmutableList.copyOf(quoteIncludes);
     this.strictDependencyIncludes = ImmutableList.copyOf(strictDependencyIncludes);
-    this.depCcCompilationContexts = ImmutableList.copyOf(depCcCompilationContexts);
+    this.directCcCompilationContexts = ImmutableList.copyOf(directCcCompilationContexts);
+    this.ccCompilationContexts = ImmutableList.copyOf(ccCompilationContexts);
   }
 
   public ImmutableList<String> getDefines() {
@@ -101,8 +104,12 @@ public final class ObjcCompilationContext {
     return strictDependencyIncludes;
   }
 
-  public ImmutableList<CcCompilationContext> getDepCcCompilationContexts() {
-    return depCcCompilationContexts;
+  public ImmutableList<CcCompilationContext> getDirectCcCompilationContexts() {
+    return directCcCompilationContexts;
+  }
+
+  public ImmutableList<CcCompilationContext> getCcCompilationContexts() {
+    return ccCompilationContexts;
   }
 
   public CcCompilationContext createCcCompilationContext() {
@@ -120,7 +127,8 @@ public final class ObjcCompilationContext {
         .addIncludeDirs(getIncludes())
         .addSystemIncludeDirs(getSystemIncludes())
         .addQuoteIncludeDirs(getQuoteIncludes())
-        .mergeDependentCcCompilationContexts(getDepCcCompilationContexts());
+        .mergeDependentCcCompilationContexts(
+            getDirectCcCompilationContexts(), getCcCompilationContexts());
     return builder.build();
   }
 
@@ -138,7 +146,8 @@ public final class ObjcCompilationContext {
     private final List<PathFragment> systemIncludes = new ArrayList<>();
     private final List<PathFragment> quoteIncludes = new ArrayList<>();
     private final List<PathFragment> strictDependencyIncludes = new ArrayList<>();
-    private final List<CcCompilationContext> depCcCompilationContexts = new ArrayList<>();
+    private final List<CcCompilationContext> directCcCompilationContexts = new ArrayList<>();
+    private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
 
     Builder() {}
 
@@ -177,21 +186,26 @@ public final class ObjcCompilationContext {
       return this;
     }
 
-    public Builder addDepObjcProviders(Iterable<ObjcProvider> objcProviders) {
+    public Builder addObjcProviders(Iterable<ObjcProvider> objcProviders) {
       for (ObjcProvider objcProvider : objcProviders) {
         this.strictDependencyIncludes.addAll(objcProvider.getStrictDependencyIncludes());
       }
       return this;
     }
 
-    public Builder addDepCcCompilationContexts(
-        Iterable<CcCompilationContext> ccCompilationContexts) {
-      Iterables.addAll(this.depCcCompilationContexts, ccCompilationContexts);
+    public Builder addCcCompilationContexts(Iterable<CcCompilationContext> ccCompilationContexts) {
+      Iterables.addAll(this.ccCompilationContexts, ccCompilationContexts);
       return this;
     }
 
-    public Builder addDepCcCompilationContext(CcCompilationContext ccCompilationContext) {
-      this.depCcCompilationContexts.add(ccCompilationContext);
+    public Builder addDirectCcCompilationContexts(
+        Iterable<CcCompilationContext> ccCompilationContexts) {
+      Iterables.addAll(this.directCcCompilationContexts, ccCompilationContexts);
+      return this;
+    }
+
+    public Builder addCcCompilationContext(CcCompilationContext ccCompilationContext) {
+      this.ccCompilationContexts.add(ccCompilationContext);
       return this;
     }
 
@@ -205,7 +219,8 @@ public final class ObjcCompilationContext {
           systemIncludes,
           quoteIncludes,
           strictDependencyIncludes,
-          depCcCompilationContexts);
+          directCcCompilationContexts,
+          ccCompilationContexts);
     }
   }
 }

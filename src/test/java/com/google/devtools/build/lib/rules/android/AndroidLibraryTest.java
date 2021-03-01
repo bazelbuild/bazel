@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
@@ -2002,19 +2001,17 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
 
     useConfiguration("--android_sdk=//sdk:sdk");
-    ConfiguredTargetAndData a = getConfiguredTargetAndData("//java/a:a");
-    ConfiguredTargetAndData b = getConfiguredTargetAndDataDirectPrerequisite(a, "//java/a:b");
-    ConfiguredTargetAndData sdk = getConfiguredTargetAndDataDirectPrerequisite(a, "//sdk:sdk");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    ConfiguredTarget b = getDirectPrerequisite(a, "//java/a:b");
+    ConfiguredTarget sdk = getDirectPrerequisite(a, "//sdk:sdk");
     SpawnAction compileAction =
         getGeneratingSpawnAction(
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(compileAction).isNotNull();
 
     SpawnAction linkAction =
         getGeneratingSpawnAction(
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_LIBRARY_APK));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
     if (platformBasedToolchains()) {
@@ -2024,16 +2021,13 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(linkAction.getInputs().toList())
         .containsAtLeast(
-            sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
-            getImplicitOutputArtifact(
-                b.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+            sdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
+            getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAtLeast(
-            getImplicitOutputArtifact(a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_R_TXT),
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_R_TXT),
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR));
   }
 
   @Test
@@ -2530,8 +2524,10 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    deps = [':mya'],",
         "    exports = [':myb'],",
         ")");
+
     // Test that all bottom jars are on the runtime classpath of lib_android.
     ConfiguredTarget target = getConfiguredTarget("//foo:lib_foo");
+
     ImmutableList<Artifact> transitiveSrcJars =
         OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars))
@@ -2539,6 +2535,12 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
             "libjl_bottom_for_exports-src.jar",
             "libal_bottom_for_deps-src.jar",
             "liblib_foo-src.jar");
+    ImmutableList<Artifact> directSrcJars =
+        OutputGroupInfo.get(target)
+            .getOutputGroup(JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP)
+            .toList();
+    assertThat(ActionsTestUtil.baseArtifactNames(directSrcJars))
+        .containsExactly("liblib_foo-src.jar");
   }
 
   @Test

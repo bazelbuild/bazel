@@ -168,3 +168,15 @@ capture_test_stderr () {
 if [[ -z "${XML_OUTPUT_FILE:-}" ]]; then
   XML_OUTPUT_FILE=${TEST_TMPDIR}/ouput.xml
 fi
+
+# Functions to provide easy access to external repository outputs in the sibling
+# repository layout.
+#
+# Usage:
+#   bin_dir <repository name>
+#   genfiles_dir <repository name>
+#   testlogs_dir <repository name>
+
+testlogs_dir() {
+  echo $(bazel info bazel-testlogs | sed "s|bazel-out|bazel-out/$1|")
+}

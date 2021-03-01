@@ -55,8 +55,6 @@ import org.junit.runners.JUnit4;
  *
  * <p>This tests core cquery behavior (behavior that doesn't depend on <code>--output</code>).
  * Output format-specific behavior is covered in dedicated test classes.
- *
- * <p>TODO(juliexxia): separate out tests in this file into one test per tested functionality.
  */
 @RunWith(JUnit4.class)
 public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTest {

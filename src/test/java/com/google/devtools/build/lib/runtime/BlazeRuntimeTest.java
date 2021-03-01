@@ -32,6 +32,10 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
+import com.google.protobuf.StringValue;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -117,6 +121,49 @@ public class BlazeRuntimeTest {
                 .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
                 .build());
     assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
+  }
+
+  @Test
+  public void resultExtensions() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ServerDirectories serverDirectories =
+        new ServerDirectories(
+            fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
+    BlazeRuntime runtime =
+        new BlazeRuntime.Builder()
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
+                    return BuildOptions.builder().build();
+                  }
+                })
+            .setFileSystem(fs)
+            .setProductName("bazel")
+            .setServerDirectories(serverDirectories)
+            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .build();
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
+    BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
+    CommandEnvironment env =
+        new CommandEnvironment(
+            runtime,
+            workspace,
+            Mockito.mock(EventBus.class),
+            Thread.currentThread(),
+            VersionCommand.class.getAnnotation(Command.class),
+            OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build(),
+            ImmutableList.of(),
+            0L,
+            0L,
+            ImmutableList.of());
+    Any anyFoo = Any.pack(StringValue.of("foo"));
+    Any anyBar = Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")));
+    env.addResponseExtensions(ImmutableList.of(anyFoo, anyBar));
+    assertThat(runtime.afterCommand(env, BlazeCommandResult.success()).getResponseExtensions())
+        .containsExactly(anyFoo, anyBar);
   }
 
   @Test

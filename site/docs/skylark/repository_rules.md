@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Repository rules
+category: extending
 ---
 # Repository Rules
 

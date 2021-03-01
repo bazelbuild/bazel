@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Persistent Workers
+category: extending
 ---
 
 # Persistent Workers
@@ -47,9 +48,9 @@ bazel build //my:target --strategy=Javac=worker,local
 ```
 
 Using the workers strategy instead of the local strategy can boost compilation
-speed significantly, depending on implementation. For Java, we typically see 2–4
-times faster builds, sometimes more for incremental compilation. Compiling Bazel
-is about 2.5 times as fast with workers. For more details, see the
+speed significantly, depending on implementation. For Java, builds can be
+2–4 times faster, sometimes more for incremental compilation. Compiling
+Bazel is about 2.5 times as fast with workers. For more details, see the
 "[Choosing number of workers](#number-of-workers)" section.
 
 If you also have a remote build environment that matches your local build
@@ -80,8 +81,8 @@ benefit of multiple worker instances is even smaller.
 
 This graph shows the from-scratch compilation times for Bazel (target
 `//src:bazel`) on a 6-core hyper-threaded Intel Xeon 3.5 GHz Linux workstation
-with 64 GB of RAM. For each worker configuration, we ran 5 clean builds and took
-the average of the last 4.
+with 64 GB of RAM. For each worker configuration, five clean builds are run and
+the average of the last four are taken.
 
 <p align="center">
 <img width="596px" alt="Graph of performance improvements of clean builds" src="/assets/workers-clean-chart.png">
@@ -106,8 +107,9 @@ discarded):
 <img width="592px" alt="Graph of performance improvements of incremental builds" src="/assets/workers-incremental-chart.png">
 </p>
 
-The speed-up depends on the change being made. We have measured a speed-up of a
-factor 6 in the above situation when a commonly used constant was changed.
+The speed-up depends on the change being made. A speed-up of a
+factor 6 is measured in the above situation when a commonly used constant
+is changed.
 
 ## Modifying persistent workers<a name="options"></a>
 

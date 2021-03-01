@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.analysis.actions;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -56,8 +59,12 @@ import javax.annotation.Nullable;
 /** A Starlark specific SpawnAction. */
 public final class StarlarkAction extends SpawnAction implements ActionCacheAwareAction {
 
+  // All the inputs of the Starlark action including those listed in the unused inputs and
+  // execluding the shadowed action inputs
+  private final NestedSet<Artifact> allStarlarkActionInputs;
+
   private final Optional<Artifact> unusedInputsList;
-  private final NestedSet<Artifact> allInputs;
+  private final Optional<Action> shadowedAction;
 
   /**
    * Constructs a StarlarkAction using direct initialization arguments.
@@ -83,6 +90,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log
    * @param unusedInputsList file containing the list of inputs that were not used by the action.
+   * @param shadowedAction the action to use its discovered inputs during execution
    */
   public StarlarkAction(
       ActionOwner owner,
@@ -99,11 +107,14 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      Optional<Artifact> unusedInputsList) {
+      Optional<Artifact> unusedInputsList,
+      Optional<Action> shadowedAction) {
     super(
         owner,
         tools,
-        inputs,
+        shadowedAction.isPresent()
+            ? createInputs(shadowedAction.get().getInputs(), inputs)
+            : inputs,
         outputs,
         primaryOutput,
         resourceSet,
@@ -118,8 +129,10 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         /* executeUnconditionally */ false,
         /* extraActionInfoSupplier */ null,
         /* resultConsumer */ null);
-    this.allInputs = inputs;
+
+    this.allStarlarkActionInputs = inputs;
     this.unusedInputsList = unusedInputsList;
+    this.shadowedAction = shadowedAction;
   }
 
   @VisibleForTesting
@@ -134,21 +147,52 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
 
   @Override
   public boolean discoversInputs() {
-    return unusedInputsList.isPresent();
+    return unusedInputsList.isPresent()
+        || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
   }
 
   @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
+    if (shadowedAction.isPresent()) {
+      return createInputs(shadowedAction.get().getAllowedDerivedInputs(), getInputs());
+    }
     return getInputs();
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    // We need to "re-discover" all the original inputs: the unused ones that were removed
-    // might now be needed.
-    updateInputs(allInputs);
-    return allInputs;
+    // If the Starlark action shadows another action and the shadowed action discovers its inputs,
+    // we depend on the outputs of the action doing input discovery and it should know its inputs
+    // after having been executed.
+    if (shadowedAction.isPresent() && shadowedAction.get().discoversInputs()) {
+      Action shadowedActionObj = shadowedAction.get();
+
+      // We depend on the outputs of actions doing input discovery and they should know their inputs
+      // after having been executed
+      Preconditions.checkState(shadowedActionObj.inputsDiscovered());
+
+      NestedSet<Artifact> oldInputs = getInputs();
+      NestedSet<Artifact> inputFilesForExtraAction =
+          shadowedActionObj.getInputFilesForExtraAction(actionExecutionContext);
+      if (inputFilesForExtraAction == null) {
+        return null;
+      }
+      updateInputs(
+          createInputs(
+              shadowedActionObj.getInputs(), inputFilesForExtraAction, allStarlarkActionInputs));
+      return NestedSetBuilder.wrap(
+          Order.STABLE_ORDER, Sets.<Artifact>difference(getInputs().toSet(), oldInputs.toSet()));
+    }
+    // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
+    // removed might now be needed.
+    updateInputs(allStarlarkActionInputs);
+    return allStarlarkActionInputs;
   }
 
   private InputStream getUnusedInputListInputStream(
@@ -185,6 +229,10 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
     if (!unusedInputsList.isPresent()) {
       return;
     }
+
+    // Get all the action's inputs after execution which will include the shadowed action
+    // discovered inputs
+    NestedSet<Artifact> allInputs = getInputs();
     Map<String, Artifact> usedInputs = new HashMap<>();
     for (Artifact input : allInputs.toList()) {
       usedInputs.put(input.getExecPathString(), input);
@@ -211,13 +259,32 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
 
   @Override
   Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(allInputs);
+    if (shadowedAction.isPresent()) {
+      return getSpawn(createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs));
+    }
+    return getSpawn(allStarlarkActionInputs);
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
   @Override
   public NestedSet<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext) {
-    return allInputs;
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    if (shadowedAction.isPresent()) {
+      NestedSet<Artifact> inputFilesForExtraAction =
+          shadowedAction.get().getInputFilesForExtraAction(actionExecutionContext);
+      if (inputFilesForExtraAction == null) {
+        return null;
+      }
+      return createInputs(
+          shadowedAction.get().getInputFilesForExtraAction(actionExecutionContext),
+          allStarlarkActionInputs);
+    }
+    return allStarlarkActionInputs;
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {
@@ -225,6 +292,14 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         .setMessage(message)
         .setStarlarkAction(FailureDetails.StarlarkAction.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  private static NestedSet<Artifact> createInputs(NestedSet<Artifact>... inputsLists) {
+    NestedSetBuilder<Artifact> nestedSetBuilder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    for (NestedSet<Artifact> inputs : inputsLists) {
+      nestedSetBuilder.addTransitive(inputs);
+    }
+    return nestedSetBuilder.build();
   }
 
   /**
@@ -241,9 +316,15 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   public static class Builder extends SpawnAction.Builder {
 
     private Optional<Artifact> unusedInputsList = Optional.empty();
+    private Optional<Action> shadowedAction = Optional.empty();
 
     public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
       this.unusedInputsList = unusedInputsList;
+      return this;
+    }
+
+    public Builder setShadowedAction(Optional<Action> shadowedAction) {
+      this.shadowedAction = shadowedAction;
       return this;
     }
 
@@ -290,7 +371,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          unusedInputsList);
+          unusedInputsList,
+          shadowedAction);
     }
   }
 }

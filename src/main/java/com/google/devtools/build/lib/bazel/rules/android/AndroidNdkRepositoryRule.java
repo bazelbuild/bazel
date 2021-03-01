@@ -17,7 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
-import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceConfiguredTargetFactory;
-import java.util.Map;
 
 /**
  * Definition of the {@code android_ndk_repository} rule.
@@ -35,19 +34,24 @@ import java.util.Map;
 public class AndroidNdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_ndk_repository";
 
-  private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
-      rule ->
-          ImmutableMap.of(
-              "android/crosstool",
-              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:default_crosstool"),
-              "android_ndk_for_testing",
-              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
+  private static final ImmutableMap<String, Label> calculateBindings(Rule rule) {
+    String prefix = "@" + rule.getName() + "//:";
+    ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
+    builder.put("android/crosstool", Label.parseAbsoluteUnchecked(prefix + "default_crosstool"));
+    builder.put("android_ndk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
+    return builder.build();
+  }
+
+  private static final ImmutableList<String> calculateToolchainsToRegister(Rule rule) {
+    return ImmutableList.of(String.format("@%s//:all", rule.getName()));
+  }
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .setWorkspaceOnly()
-        .setExternalBindingsFunction(BINDINGS_FUNCTION)
+        .setExternalBindingsFunction(AndroidNdkRepositoryRule::calculateBindings)
+        .setToolchainsToRegisterFunction(AndroidNdkRepositoryRule::calculateToolchainsToRegister)
         /* <!-- #BLAZE_RULE(android_ndk_repository).ATTRIBUTE(path) -->
         An absolute or relative path to an Android NDK. Either this attribute or the
         <code>$ANDROID_NDK_HOME</code> environment variable must be set.

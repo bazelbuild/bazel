@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -539,16 +541,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       throws Exception {
     scratch.file("x/a.h");
     ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
-    ObjcProvider provider =
+    CcCompilationContext ccCompilationContext =
         getConfiguredTarget("//x:x", getAppleCrosstoolConfiguration())
-            .get(ObjcProvider.STARLARK_CONSTRUCTOR);
+            .get(CcInfo.PROVIDER)
+            .getCcCompilationContext();
     if (privateHdr.isPresent()) {
-      assertThat(provider.header().toList())
+      assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList())
           .containsExactly(getSourceArtifact("x/a.h"), getSourceArtifact(privateHdr.get()));
     } else {
-      assertThat(provider.header().toList()).containsExactly(getSourceArtifact("x/a.h"));
+      assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList())
+          .containsExactly(getSourceArtifact("x/a.h"));
     }
-    assertThat(provider.include())
+    assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             PathFragment.create("x/incdir"),
             getAppleCrosstoolConfiguration()
@@ -667,9 +671,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private void assertObjcProtoProviderArtifactsArePropagated(ConfiguredTarget topTarget)
       throws Exception {
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
+    ConfiguredTarget libTarget = getDirectPrerequisite(topTarget, "//libs:objc_lib");
 
     ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
@@ -807,9 +809,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     ConfiguredTarget topTarget = getConfiguredTarget("//x:x");
 
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
+    ConfiguredTarget libTarget = getDirectPrerequisite(topTarget, "//libs:objc_lib");
 
     ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
@@ -1815,7 +1815,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkCustomModuleMap(RuleType ruleType) throws Exception {
-    useConfiguration("--experimental_objc_enable_module_maps");
     ruleType.scratchTarget(scratch, "deps", "['//z:testModuleMap']");
     scratch.file("z/b.m");
     scratch.file("z/b.h");

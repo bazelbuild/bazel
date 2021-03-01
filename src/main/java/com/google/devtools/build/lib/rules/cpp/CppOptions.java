@@ -957,9 +957,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "If enabled, direct usage of the native C++ and some Objc rules is disabled. Please use "
-              + "the Starlark rules instead https://github.com/bazelbuild/rules_cc")
+      help = "No-op flag. Will be removed in a future release.")
   public boolean loadCcRulesFromBzl;
 
   @Option(

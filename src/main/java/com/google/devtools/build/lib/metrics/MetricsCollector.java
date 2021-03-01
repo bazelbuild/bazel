@@ -17,6 +17,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
+import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
@@ -84,10 +85,14 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onAnalysisPhaseComplete(AnalysisPhaseCompleteEvent event) {
-    actionSummary.setActionsCreated(event.getActionsConstructed());
+    TotalAndConfiguredTargetOnlyMetric actionsConstructed = event.getActionsConstructed();
+    actionSummary
+        .setActionsCreated(actionsConstructed.total())
+        .setActionsCreatedNotIncludingAspects(actionsConstructed.configuredTargetsOnly());
+    TotalAndConfiguredTargetOnlyMetric targetsConfigured = event.getTargetsConfigured();
     targetMetrics
-        .setTargetsLoaded(event.getTargetsLoaded())
-        .setTargetsConfigured(event.getTargetsConfigured());
+        .setTargetsConfigured(targetsConfigured.total())
+        .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
     packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
   }
@@ -95,9 +100,14 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logAnalysisGraphStats(AnalysisGraphStatsEvent event) {
+    TotalAndConfiguredTargetOnlyMetric actionLookupValueCount = event.getActionLookupValueCount();
+    TotalAndConfiguredTargetOnlyMetric actionCount = event.getActionCount();
     buildGraphMetrics
-        .setActionLookupValueCount(event.getActionLookupValueCount())
-        .setActionCount(event.getActionCount())
+        .setActionLookupValueCount(actionLookupValueCount.total())
+        .setActionLookupValueCountNotIncludingAspects(
+            actionLookupValueCount.configuredTargetsOnly())
+        .setActionCount(actionCount.total())
+        .setActionCountNotIncludingAspects(actionCount.configuredTargetsOnly())
         .setOutputArtifactCount(event.getOutputArtifactCount());
   }
 

@@ -581,6 +581,17 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " (zero means no limit).")
   public long maxComputationSteps;
 
+  @Option(
+      name = "experimental_shadowed_action",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, allows passing an action for Starlark created actions to shadow and use"
+              + " its discovered inputs combined with the starlark action inputs during execution.")
+  public boolean experimentalShadowedAction;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -649,6 +660,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(INCOMPATIBLE_RESTRICT_STRING_ESCAPES, incompatibleRestrictStringEscapes)
             .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
+            .setBool(EXPERIMENTAL_SHADOWED_ACTION, experimentalShadowedAction)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -721,6 +733,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
       "+record_rule_instantiation_callstack";
+  public static final String EXPERIMENTAL_SHADOWED_ACTION = "-experimental_shadowed_action";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

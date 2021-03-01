@@ -19,9 +19,15 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /**
  * Represent a "promise" that the Artifacts under a NestedSet is evaluated by Skyframe and the
- * ValueOrException is available in {@link ArtifactNestedSetFunction#artifactToSkyValueMap}
+ * ValueOrException is available in {@link ArtifactNestedSetFunction#artifactToSkyValueMap}.
  */
 @Immutable
 @ThreadSafe
-public class ArtifactNestedSetValue implements SkyValue {
+public final class ArtifactNestedSetValue implements SkyValue {
+
+  @Override
+  public boolean dataIsShareable() {
+    // This is just a promise that data is available in memory. Not meant for cross-server sharing.
+    return false;
+  }
 }

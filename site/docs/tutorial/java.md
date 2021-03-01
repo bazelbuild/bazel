@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Build Tutorial - Java
+category: getting-started
 ---
 
 # Bazel Tutorial: Build a Java Project

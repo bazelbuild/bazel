@@ -912,6 +912,44 @@ function test_cquery_incompatible_target() {
   expect_log "target platform didn't satisfy constraint //target_skipping:foo1"
 }
 
+# Runs a cquery and makes sure that we can properly distinguish between
+# incompatible targets and compatible targets.
+function test_cquery_with_starlark_formatting() {
+  cat > target_skipping/compatibility.cquery <<EOF
+def format(target):
+    if "IncompatiblePlatformProvider" in providers(target):
+        result = "incompatible"
+    else:
+        result = "compatible"
+
+    return "%s is %s" % (target.label, result)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel cquery \
+    --host_platform=//target_skipping:foo1_bar1_platform \
+    --platforms=//target_skipping:foo1_bar1_platform \
+    :all \
+    --output=starlark --starlark:file=target_skipping/compatibility.cquery \
+    &> "${TEST_log}"
+
+  expect_log '^//target_skipping:pass_on_foo1 is compatible$'
+  expect_log '^//target_skipping:fail_on_foo2 is incompatible$'
+  expect_log '^//target_skipping:some_foo3_target is incompatible$'
+
+  bazel cquery \
+    --host_platform=//target_skipping:foo3_platform \
+    --platforms=//target_skipping:foo3_platform \
+    :all \
+    --output=starlark --starlark:file=target_skipping/compatibility.cquery \
+    &> "${TEST_log}"
+
+  expect_log '^//target_skipping:pass_on_foo1 is incompatible$'
+  expect_log '^//target_skipping:fail_on_foo2 is incompatible$'
+  expect_log '^//target_skipping:some_foo3_target is compatible$'
+}
+
 # Run an aquery on a target that is compatible. This should pass.
 function test_aquery_compatible_target() {
   write_query_test_targets

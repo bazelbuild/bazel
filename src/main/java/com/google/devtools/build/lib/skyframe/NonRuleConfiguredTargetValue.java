@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -66,14 +67,12 @@ public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
     this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
   }
 
-  @VisibleForTesting
   @Override
   public ConfiguredTarget getConfiguredTarget() {
     Preconditions.checkNotNull(configuredTarget);
     return configuredTarget;
   }
 
-  @VisibleForTesting
   @Override
   public ImmutableList<ActionAnalysisMetadata> getActions() {
     Preconditions.checkNotNull(configuredTarget, this);

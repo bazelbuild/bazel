@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
@@ -72,7 +74,7 @@ class ArtifactConflictFinder {
     MapBasedActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap =
         new ConcurrentSkipListMap<>(Actions.comparatorForPrefixConflicts());
-    Pair<Integer, Integer> counts =
+    Pair<TotalAndConfiguredTargetOnlyMetric, TotalAndConfiguredTargetOnlyMetric> counts =
         constructActionGraphAndPathMap(
             actionGraph, artifactPathMap, actionLookupValues, temporaryBadActionMap);
 
@@ -95,23 +97,30 @@ class ArtifactConflictFinder {
    * PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save around
    * 1.5 seconds on a mid-sized build versus a single-threaded operation.
    */
-  private static Pair<Integer, Integer> constructActionGraphAndPathMap(
-      MutableActionGraph actionGraph,
-      ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap,
-      Iterable<ActionLookupValue> values,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
-      throws InterruptedException {
+  private static Pair<TotalAndConfiguredTargetOnlyMetric, TotalAndConfiguredTargetOnlyMetric>
+      constructActionGraphAndPathMap(
+          MutableActionGraph actionGraph,
+          ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap,
+          Iterable<ActionLookupValue> values,
+          ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
+          throws InterruptedException {
     // Action graph construction is CPU-bound.
     int numJobs = Runtime.getRuntime().availableProcessors();
     // No great reason for expecting 5000 action lookup values, but not worth counting size of
     // values.
     Sharder<ActionLookupValue> actionShards = new Sharder<>(numJobs, 5000);
     int actionLookupValueCount = 0;
+    int configuredTargetValueCount = 0;
     int actionCount = 0;
+    int configuredTargetActionCount = 0;
     for (ActionLookupValue value : values) {
       actionShards.add(value);
       actionLookupValueCount++;
       actionCount += value.getNumActions();
+      if (value instanceof ConfiguredTargetValue) {
+        configuredTargetValueCount++;
+        configuredTargetActionCount += value.getNumActions();
+      }
     }
 
     ThrowableRecordingRunnableWrapper wrapper =
@@ -131,7 +140,10 @@ class ArtifactConflictFinder {
     if (interrupted) {
       throw new InterruptedException();
     }
-    return Pair.of(actionLookupValueCount, actionCount);
+    return Pair.of(
+        TotalAndConfiguredTargetOnlyMetric.create(
+            actionLookupValueCount, configuredTargetValueCount),
+        TotalAndConfiguredTargetOnlyMetric.create(actionCount, configuredTargetActionCount));
   }
 
   private static Runnable actionRegistration(
@@ -206,8 +218,8 @@ class ArtifactConflictFinder {
 
     private static ActionConflictsAndStats create(
         ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts,
-        int actionValueCount,
-        int actionCount,
+        TotalAndConfiguredTargetOnlyMetric actionValueCount,
+        TotalAndConfiguredTargetOnlyMetric actionCount,
         int artifactCount) {
       return new AutoValue_ArtifactConflictFinder_ActionConflictsAndStats(
           conflicts, new AnalysisGraphStatsEvent(actionValueCount, actionCount, artifactCount));

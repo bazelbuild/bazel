@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Installing Bazel on Windows
+category: getting-started
 ---
 
 # Installing Bazel on Windows

@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DuplicateException;
@@ -871,7 +872,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     logger.atInfo().log("Dropping configured target data");
     analysisCacheDiscarded = true;
     clearTrimmingCache();
-    skyframeBuildView.clearInvalidatedConfiguredTargets();
+    skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
     ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }
@@ -1706,23 +1707,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildConfiguration originalConfig,
       Iterable<DependencyKey> keys)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
-    return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
-  }
-
-  /**
-   * Returns the {@link ConfiguredTargetAndData}s corresponding to the given keys.
-   *
-   * <p>For use for legacy support and tests calling through {@code BuildView} only.
-   *
-   * <p>If a requested configured target is in error, the corresponding value is omitted from the
-   * returned list.
-   */
-  @ThreadSafety.ThreadSafe
-  public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
-      ExtendedEventHandler eventHandler,
-      BuildConfigurationValue.Key originalConfig,
-      Iterable<DependencyKey> keys)
-      throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -2702,6 +2686,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       lastAnalysisDiscarded = false;
     }
     return null;
+  }
+
+  /**
+   * Updates {@link ArtifactNestedSetFunction} with the value of {@link
+   * BuildRequestOptions#nestedSetAsSkyKeyThreshold}.
+   *
+   * @return whether a change was made
+   */
+  protected static boolean nestedSetAsSkyKeyOptionsChanged(OptionsProvider options) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null) {
+      return false;
+    }
+    return ArtifactNestedSetFunction.sizeThresholdUpdated(
+        buildRequestOptions.nestedSetAsSkyKeyThreshold);
   }
 
   protected void syncPackageLoading(

@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
+import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraCompileArgs;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
@@ -246,7 +248,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
     ObjcCommon common;
-    ObjcProvider objcProvider = null;
+    CcCompilationContext ccCompilationContext = null;
 
     if (!j2ObjcSource.getObjcSrcs().isEmpty()) {
       common =
@@ -268,6 +270,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .setToolchainProvider(ccToolchain)
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()
+                .disableLayeringCheck()
+                .disableParseHeaders()
                 .build();
         ExtraCompileArgs extraCompileArgs =
             j2objcCompileWithARC(ruleContext)
@@ -278,9 +282,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .registerCompileAndArchiveActions(
                 common, extraCompileArgs, ImmutableList.<PathFragment>of())
             .registerFullyLinkAction(
-                compilationSupport.getObjcProvider(),
+                common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
-        objcProvider = compilationSupport.getObjcProvider();
+        ccCompilationContext = compilationSupport.getCcCompilationContext();
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -294,18 +298,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               ImmutableList.<PathFragment>of(),
               depAttributes,
               otherDeps);
-      objcProvider = common.getObjcProviderBuilder().build();
+      ccCompilationContext = common.getCcCompilationContext();
     }
 
     return builder
         .addProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
-        .addNativeDeclaredProvider(objcProvider)
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(
             J2ObjcCcInfo.build(
-                CcInfo.builder()
-                    .setCcCompilationContext(objcProvider.getCcCompilationContext())
-                    .build()))
+                CcInfo.builder().setCcCompilationContext(ccCompilationContext).build()))
         .build();
   }
 
@@ -318,11 +320,28 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     JavaGenJarsProvider genJarProvider = JavaInfo.getProvider(JavaGenJarsProvider.class, base);
     ImmutableSet.Builder<Artifact> javaSourceFilesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<Artifact> javaSourceJarsBuilder = ImmutableSet.builder();
-    if (sourceInfoProvider != null) {
+    if (ruleContext
+        .getConfiguration()
+        .getFragment(J2ObjcConfiguration.class)
+        .dontUseJavaSourceInfoProvider()) {
+      for (Artifact srcArtifact : ruleContext.getPrerequisiteArtifacts("srcs").list()) {
+        String srcFilename = srcArtifact.getExecPathString();
+        if (JavaSemantics.SOURCE_JAR.apply(srcFilename)) {
+          javaSourceJarsBuilder.add(srcArtifact);
+        } else if (JavaSemantics.JAVA_SOURCE.apply(srcFilename)) {
+          javaSourceFilesBuilder.add(srcArtifact);
+        }
+      }
+      Artifact srcJar =
+          ruleContext.attributes().has("srcjar")
+              ? ruleContext.getPrerequisiteArtifact("srcjar")
+              : null;
+      if (srcJar != null) {
+        javaSourceJarsBuilder.add(srcJar);
+      }
+    } else if (sourceInfoProvider != null) {
       javaSourceFilesBuilder.addAll(sourceInfoProvider.getSourceFiles());
-      javaSourceJarsBuilder
-          .addAll(sourceInfoProvider.getSourceJars())
-          .addAll(sourceInfoProvider.getSourceJarsForJarFiles());
+      javaSourceJarsBuilder.addAll(sourceInfoProvider.getSourceJars());
     }
 
     if (genJarProvider != null && genJarProvider.getGenSourceJar() != null) {
@@ -865,17 +884,17 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             ccInfoList.add(ccInfo);
           }
         }
-        builder.addDepCcHeaderProviders(ccInfoList.build());
-        builder.addDepObjcProviders(
+        builder.addCcCompilationContexts(ccInfoList.build());
+        builder.addObjcProviders(
             ruleContext.getPrerequisites(attrName, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
 
     // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
-    builder.addDepObjcProviders(
+    builder.addObjcProviders(
         otherDeps.stream().map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR)).collect(toList()));
-    builder.addDepCcHeaderProviders(
+    builder.addCcCompilationContexts(
         otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
 
     return builder

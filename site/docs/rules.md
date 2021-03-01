@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Rules
+category: extending
 ---
 
 # Rules

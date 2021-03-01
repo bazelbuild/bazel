@@ -235,4 +235,9 @@ public final class Scratch {
     }
     return builder.toString();
   }
+
+  public void copyFile(String sourceFile, String destFile) throws IOException {
+    String contents = readFile(sourceFile);
+    overwriteFile(destFile, contents);
+  }
 }

@@ -238,7 +238,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
             {PARENT_REMOTE_EXECUTION_PROPERTIES}
             properties: {
                 name: "gceMachineType"
-                value: "n1-highcpu-32"
+                value: "e2-highcpu-32"
             }
             """,
     )

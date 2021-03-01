@@ -23,13 +23,14 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -46,78 +47,13 @@ import net.starlark.java.eval.StarlarkThread;
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
 @AutoCodec
-public final class CcToolchainProvider extends ToolchainInfo
+public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
             FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
         HasCcToolchainLabel {
 
-  /** An empty toolchain to be returned in the error case (instead of null). */
-  public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
-      new CcToolchainProvider(
-          /* values= */ ImmutableMap.of(),
-          /* cppConfiguration= */ null,
-          /* toolchainFeatures= */ null,
-          /* crosstoolTopPathFragment= */ null,
-          /* allFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* allFilesMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* compilerFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* compilerFilesWithoutIncludes= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* stripFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* objcopyFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* asFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* arFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* linkerFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* interfaceSoBuilder= */ null,
-          /* dwpFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* coverageFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* libcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* targetLibcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* staticRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* staticRuntimeLinkMiddleman= */ null,
-          /* dynamicRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* dynamicRuntimeLinkMiddleman= */ null,
-          /* dynamicRuntimeSolibDir= */ PathFragment.EMPTY_FRAGMENT,
-          CcCompilationContext.EMPTY,
-          /* supportsParamFiles= */ false,
-          /* supportsHeaderParsing= */ false,
-          (buildOptions) -> CcToolchainVariables.EMPTY,
-          CcToolchainVariables.EMPTY,
-          /* builtinIncludeFiles= */ ImmutableList.of(),
-          /* targetBuiltinIncludeFiles= */ ImmutableList.of(),
-          /* linkDynamicLibraryTool= */ null,
-          /* builtInIncludeDirectories= */ ImmutableList.of(),
-          /* sysroot= */ null,
-          /* targetSysroot= */ null,
-          /* fdoContext= */ null,
-          /* isToolConfiguration= */ false,
-          /* licensesProvider= */ null,
-          /* toolPaths= */ ImmutableMap.of(),
-          /* toolchainIdentifier= */ "",
-          /* compiler= */ "",
-          /* abiGlibcVersion= */ "",
-          /* targetCpu= */ "",
-          /* targetOS= */ "",
-          /* defaultSysroot= */ PathFragment.EMPTY_FRAGMENT,
-          /* runtimeSysroot= */ PathFragment.EMPTY_FRAGMENT,
-          /* targetLibc= */ "",
-          /* hostSystemName= */ "",
-          /* ccToolchainLabel= */ null,
-          /* solibDirectory= */ "",
-          /* abi= */ "",
-          /* targetSystemName= */ "",
-          /* additionalMakeVariables= */ ImmutableMap.of(),
-          /* legacyCcFlagsMakeVariable= */ "",
-          /* allowlistForLayeringCheck= */ null,
-          /* allowListForLooseHeaderCheck= */ null,
-          /* objcopyExecutable= */ "",
-          /* compilerExecutable= */ "",
-          /* preprocessorExecutable= */ "",
-          /* nmExecutable= */ "",
-          /* objdumpExecutable= */ "",
-          /* arExecutable= */ "",
-          /* stripExecutable= */ "",
-          /* ldExecutable= */ "",
-          /* gcovExecutable= */ "");
+  public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
+      new BuiltinProvider<CcToolchainProvider>("CcToolchainInfo", CcToolchainProvider.class) {};
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
@@ -193,7 +129,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final String gcovExecutable;
 
   public CcToolchainProvider(
-      ImmutableMap<String, Object> values,
       @Nullable CppConfiguration cppConfiguration,
       CcToolchainFeatures toolchainFeatures,
       PathFragment crosstoolTopPathFragment,
@@ -257,7 +192,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       String stripExecutable,
       String ldExecutable,
       String gcovExecutable) {
-    super(values);
+    super();
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.allFiles = Preconditions.checkNotNull(allFiles);
@@ -325,6 +260,11 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.stripExecutable = stripExecutable;
     this.ldExecutable = ldExecutable;
     this.gcovExecutable = gcovExecutable;
+  }
+
+  @Override
+  public BuiltinProvider<CcToolchainProvider> getProvider() {
+    return PROVIDER;
   }
 
   /**
@@ -768,12 +708,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   /** Returns whether the toolchain supports dynamic linking. */
   public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
-  }
-
-  public boolean doNotSplitLinkingCmdline() {
-    return getFeatures()
-        .getActivatableNames()
-        .contains(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE);
   }
 
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */

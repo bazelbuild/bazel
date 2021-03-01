@@ -681,7 +681,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
-    return finalCommandResult;
+    return BlazeCommandResult.withResponseExtensions(
+        finalCommandResult, env.getResponseExtensions());
   }
 
   /**

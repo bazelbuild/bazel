@@ -18,7 +18,6 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -27,13 +26,9 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import io.grpc.ClientInterceptor;
-import io.grpc.ManagedChannel;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -55,21 +50,6 @@ public final class RemoteCacheClientFactory {
     DiskCacheClient diskCacheClient =
         createDiskCache(workingDirectory, diskCachePath, remoteVerifyDownloads, digestUtil);
     return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient, options);
-  }
-
-  public static ReferenceCountedChannel createGrpcChannelPool(
-      ChannelFactory channelFactory,
-      int poolSize,
-      String target,
-      String proxyUri,
-      AuthAndTLSOptions authOptions,
-      @Nullable List<ClientInterceptor> interceptors)
-      throws IOException {
-    List<ManagedChannel> channels = new ArrayList<>();
-    for (int i = 0; i < poolSize; i++) {
-      channels.add(channelFactory.newChannel(target, proxyUri, authOptions, interceptors));
-    }
-    return new ReferenceCountedChannelPool(ImmutableList.copyOf(channels));
   }
 
   public static RemoteCacheClient create(

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -149,7 +148,7 @@ public abstract class CcModule
 
   @Override
   public Provider getCcToolchainProvider() {
-    return ToolchainInfo.PROVIDER;
+    return CcToolchainProvider.PROVIDER;
   }
 
   @Override
@@ -606,7 +605,7 @@ public abstract class CcModule
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
         if (dynamicLibraryPathFragment != null) {
-          if (dynamicLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+          if (dynamicLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
             throw Starlark.errorf(
                 "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
                 dynamicLibrary.getRootRelativePath());
@@ -632,7 +631,7 @@ public abstract class CcModule
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
         if (interfaceLibraryPathFragment != null) {
-          if (interfaceLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+          if (interfaceLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
             throw Starlark.errorf(
                 "interface_library must not be a symbolic link in the solib directory. Got '%s'",
                 interfaceLibrary.getRootRelativePath());
@@ -1109,10 +1108,7 @@ public abstract class CcModule
               featureNames,
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
-              /* supportsInterfaceSharedLibraries= */ false,
-              starlarkRuleContext
-                  .getStarlarkSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
+              /* supportsInterfaceSharedLibraries= */ false)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -1121,11 +1117,7 @@ public abstract class CcModule
               .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
               .collect(ImmutableList.toImmutableList()));
       for (CToolchain.Feature feature :
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
-              featureNames,
-              starlarkRuleContext
-                  .getStarlarkSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 
@@ -1833,12 +1825,12 @@ public abstract class CcModule
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
-    String rulePackage =
+    Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageName();
-    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(rulePackage)) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", rulePackage);
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")
+        && !PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.getPackageName())) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
 
@@ -1975,8 +1967,10 @@ public abstract class CcModule
                 .toString());
 
     List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
-    List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
-    List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
+    List<Artifact> publicHeaders =
+        Sequence.cast(publicHeadersUnchecked, Artifact.class, "public_hdrs");
+    List<Artifact> privateHeaders =
+        Sequence.cast(privateHeadersUnchecked, Artifact.class, "private_hdrs");
 
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);

@@ -213,7 +213,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     context.report(ProgressStatus.SCHEDULING, getName());
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
+    // The "root directory" of the action from the point of view of RBE is the parent directory of
+    // the execroot locally. This is so that paths of artifacts in external repositories don't
+    // start with an uplevel reference...
+    SortedMap<PathFragment, ActionInput> inputMap =
+        context.getInputMapping(PathFragment.create(execRoot.getBaseName()));
+
+    // ...however, MerkleTree.build() uses its execRoot parameter to resolve artifacts based on
+    // ActionInput.getExecPath(), so it needs the execroot and not its parent directory.
     final MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =
@@ -231,7 +238,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             spawn.getArguments(),
             spawn.getEnvironment(),
             platform,
-            /* workingDirectory= */ null);
+            execRoot.getBaseName());
     Digest commandHash = digestUtil.compute(command);
     Action action =
         buildAction(
@@ -707,12 +714,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
       List<String> arguments,
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
-      @Nullable String workingDirectory) {
+      @Nullable String workingDirectoryString) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
+    PathFragment workingDirectoryPathFragment =
+        workingDirectoryString == null
+            ? PathFragment.EMPTY_FRAGMENT
+            : PathFragment.create(workingDirectoryString);
     for (ActionInput output : outputs) {
-      String pathString = output.getExecPathString();
+      String pathString =
+          workingDirectoryPathFragment.getRelative(output.getExecPath()).getPathString();
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectories.add(pathString);
       } else {
@@ -734,8 +746,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       command.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
     }
 
-    if (!Strings.isNullOrEmpty(workingDirectory)) {
-      command.setWorkingDirectory(workingDirectory);
+    if (!Strings.isNullOrEmpty(workingDirectoryString)) {
+      command.setWorkingDirectory(workingDirectoryString);
     }
     return command.build();
   }

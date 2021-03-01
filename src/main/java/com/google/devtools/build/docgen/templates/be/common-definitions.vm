@@ -57,7 +57,9 @@ many functions or build rules.
   expansion: if those strings contain a valid label as a
   substring, such as <code>//mypkg:target</code>, and that label is a
   declared prerequisite of the current rule, it is expanded into the
-  pathname of the file represented by the target <code>//mypkg:target</code>.
+  pathname of the file represented by the
+  <a href="https://docs.bazel.build/versions/master/glossary.html#target">target</a>
+  <code>//mypkg:target</code>.
 </p>
 
 <p>

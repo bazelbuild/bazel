@@ -101,6 +101,7 @@ public class CommandEnvironment {
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
+  private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
 
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
@@ -820,5 +821,20 @@ public class CommandEnvironment {
    */
   public ImmutableList<Any> getCommandExtensions() {
     return commandExtensions;
+  }
+
+  /**
+   * Returns the {@linkplain
+   * com.google.devtools.build.lib.server.CommandProtos.RunResponse#getCommandExtensions extensions}
+   * to be passed to the client for this command.
+   *
+   * <p>Extensions are arbitrary messages containing additional execution results.
+   */
+  public ImmutableList<Any> getResponseExtensions() {
+    return responseExtensions.build();
+  }
+
+  public void addResponseExtensions(Iterable<Any> extensions) {
+    responseExtensions.addAll(extensions);
   }
 }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -26,7 +27,7 @@ public final class BazelMockAndroidSupport {
   private BazelMockAndroidSupport() {}
 
   public static void setupNdk(MockToolsConfig config) throws IOException {
-    new Crosstool(config, "android/crosstool")
+    new Crosstool(config, "android/crosstool", Label.parseAbsoluteUnchecked("//android/crosstool"))
         .setCcToolchainFile(
             ResourceLoader.readFromResources(
                 "com/google/devtools/build/lib/packages/util/mock/android_cc_toolchain_config.bzl"))
@@ -58,7 +59,10 @@ public final class BazelMockAndroidSupport {
             Pair.of("objdump", "x86/bin/i686-linux-android-objdump"),
             Pair.of("strip", "x86/bin/i686-linux-android-strip"),
             Pair.of("ld-bfd", "x86/bin/i686-linux-android-ld.bfd"),
-            Pair.of("ld-gold", "x86/bin/i686-linux-android-ld.gold"));
+            Pair.of("ld-gold", "x86/bin/i686-linux-android-ld.gold"))
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android");
   }
 
   public static CcToolchainConfig.Builder armeabiV7a() {
@@ -83,7 +87,10 @@ public final class BazelMockAndroidSupport {
             Pair.of("objdump", "arm/bin/arm-linux-androideabi-objdump"),
             Pair.of("strip", "arm/bin/arm-linux-androideabi-strip"),
             Pair.of("ld-bfd", "arm/bin/arm-linux-androideabi-ld.bfd"),
-            Pair.of("ld-gold", "arm/bin/arm-linux-androideabi-ld.gold"));
+            Pair.of("ld-gold", "arm/bin/arm-linux-androideabi-ld.gold"))
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android");
   }
 
   public static void setupPlatformResolvableSdks(MockToolsConfig config) throws Exception {
