@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /** This event is fired as soon as a top-level aspect is either built or fails. */
 public class AspectCompleteEvent
@@ -114,6 +115,23 @@ public class AspectCompleteEvent
   /** Get the root causes of the target. May be empty. */
   public NestedSet<Cause> getRootCauses() {
     return rootCauses;
+  }
+
+  public Label getLabel() {
+    return label;
+  }
+
+  public String getAspectName() {
+    return descriptor.getAspectClass().getName();
+  }
+
+  @Nullable
+  public ArtifactsInOutputGroup getArtifacts(String outputGroup) {
+    return artifactOutputGroups.get(outputGroup);
+  }
+
+  public CompletionContext getCompletionContext() {
+    return completionContext;
   }
 
   @Override
