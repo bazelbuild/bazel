@@ -32,6 +32,9 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.FileType;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
@@ -139,7 +142,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws RecursiveFilesystemTraversalFunctionException, InterruptedException {
     TraversalRequest traversal = (TraversalRequest) skyKey.argument();
-    try {
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(ProfilerTask.FILESYSTEM_TRAVERSAL, traversal.getRoot().toString())) {
       // Stat the traversal root.
       FileInfo rootInfo = lookUpFileInfo(env, traversal);
 

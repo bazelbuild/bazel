@@ -366,7 +366,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Exception ex = evaluatePackageToException("@//foo");
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
-    assertThat(msg).contains("Encountered error 'Directory is not readable'");
+    assertThat(msg).contains("Encountered error '/workspace/foo/bar (Permission denied)'");
     assertDetailedExitCode(ex, PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 

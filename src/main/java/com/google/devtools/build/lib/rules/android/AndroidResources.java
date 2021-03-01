@@ -292,7 +292,7 @@ public class AndroidResources {
   private static int segmentCountAfterAncestor(PathFragment ancestor, PathFragment path) {
     String cutAtSegment = ancestor.getSegment(ancestor.segmentCount() - 1);
     int index = -1;
-    List<String> segments = path.getSegments();
+    List<String> segments = path.splitToListOfSegments();
     for (int i = segments.size() - 1; i >= 0; i--) {
       if (segments.get(i).equals(cutAtSegment)) {
         index = i;

@@ -248,7 +248,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(compilationArtifacts)
         .addDeps(propagatedConfigredTargetAndTargetDeps)
-        .addDepObjcProviders(protosObjcProvider.asSet())
+        .addObjcProviders(protosObjcProvider.asSet())
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
         .build();

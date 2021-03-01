@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Sharing variables
+category: extending
 ---
 
 # Sharing Variables

@@ -210,7 +210,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  name = 'android',",
         "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
         "  constraint_values = [",
-        "    '" + TestConstants.PLATFORM_PACKAGE_ROOT + ":android',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
         "  ],",
         ")");
 
@@ -389,7 +390,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  toolchain = ':sdk',",
         "  toolchain_type = ':sdk_toolchain_type',",
         "  target_compatible_with = [",
-        "    '@bazel_tools//platforms:android',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "  ],",
         ")",
         "android_sdk(",
@@ -447,6 +448,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("            jars = [ 'ZipFilterAction_deploy.jar' ])")
         .add("sh_binary(name = 'aar_resources_extractor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'aar_embedded_jars_extractor', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'aar_embedded_proguard_extractor', srcs = ['empty.sh'])")
         .add("java_import(name = 'idlclass_import',")
         .add("            jars = [ 'idlclass.jar' ])")
         .add("exports_files(['adb', 'adb_static'])")

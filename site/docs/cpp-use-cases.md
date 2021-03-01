@@ -121,15 +121,15 @@ Then create `gtest.BUILD`, a `BUILD` file used to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-*  `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all of the other
-   files in `googletest-release-1.7.0/src/`, so we need to exclude it from the
-   compile or we'll get link errors for duplicate symbols.
+*  `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all other
+   files in `googletest-release-1.7.0/src/`: exclude it from the
+   compile to prevent link errors for duplicate symbols.
 
 *  It uses header files that are relative to the
-`googletest-release-1.7.0/include/` directory  (`"gtest/gtest.h"`), so we must
+`googletest-release-1.7.0/include/` directory  (`"gtest/gtest.h"`), so you must
 add that directory to the include paths.
 
-*  It needs to link in `pthread`, so we add that as a `linkopt`.
+*  It needs to link in `pthread`, so add that as a `linkopt`.
 
 The final rule therefore looks like this:
 
@@ -192,7 +192,7 @@ Now `cc_` rules can depend on `@gtest//:main`.
 
 ## Writing and running C++ tests
 
-For example, we could create a test `./test/hello-test.cc` such as:
+For example, you could create a test `./test/hello-test.cc`, such as:
 
 ```cpp
 #include "gtest/gtest.h"
@@ -217,7 +217,7 @@ cc_test(
 )
 ```
 
-Note that in order to make `hello-greet` visible to `hello-test`, we have to add
+To make `hello-greet` visible to `hello-test`, you must add
 `"//test:__pkg__",` to the `visibility` attribute in `./main/BUILD`.
 
 Now you can use `bazel test` to run the test.

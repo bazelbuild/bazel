@@ -24,10 +24,9 @@ incompatible and require some changes from Bazel users.
 
 1. Every breaking change is guarded with an `--incompatible_*` flag.
 1. Newly introduced incompatible flags default to off.
-1. For every `--incompatible_*` flag we have a GitHub issue that explains
+1. For every `--incompatible_*` flag, there is a GitHub issue that explains
    the change in behavior and provides a migration recipe.
 1. The migration window is at least one release long and is set by the author of the incompatible change.
-1. We announce what set of flags we intend to flip with the next release one release in advance.
 1. APIs and behavior guarded by an `--experimental_*` flag can change at any time.
 1. Users should never run their production builds with `--experimental_*`  or `--incompatible_*` flags.
 
@@ -41,8 +40,9 @@ incompatible and require some changes from Bazel users.
 
 ## What is stable functionality?
 
-In general, if an API or a behavior is available in Bazel without
-`--experimental_...` flag, we consider it a stable, supported feature.
+In general, APIs or behaviors without `--experimental_...` flags are considered
+stable, supported features in Bazel.
+
 This includes:
 
 * Starlark language and APIs
@@ -52,20 +52,20 @@ This includes:
 
 ## Incompatible changes and migration recipes
 
-When we introduce an incompatible change, we try to make it easier for Bazel
-users to update their code. We do this by means of _migration windows_ and
-_migration recipes_.
+When a release contains an incompatible change, the Bazel team provides
+_migration windows_ and _migration recipes_ to make it easier for Bazel users
+to update their code.
 
 Migration window is one or more release of Bazel during which a migration from
 old functionality to new functionality is possible, according to a migration
 recipe.
 
-During the migration window, both the old functionality and the new functionality
-are available in the Bazel release. For every incompatible change, we provide
-a _migration recipe_ that allows updating the user code (`BUILD` and `.bzl` files,
-as well as any Bazel usage in scripts, usage of Bazel API and so on) in such a
-way that **it works simultaneously without any flags with old and new
-functionality**.
+During the migration window, both the old and new functionality
+are available in the Bazel release. For every incompatible change, a
+_migration recipe_ is provided that allows updating the user code
+(`BUILD` and `.bzl` files, as well as any Bazel usage in scripts,
+usage of Bazel API, and so on) in such a way that **it works simultaneously
+without any flags with old and new functionality**.
 
 In other words, during a migration window for an incompatible change `foo`:
 

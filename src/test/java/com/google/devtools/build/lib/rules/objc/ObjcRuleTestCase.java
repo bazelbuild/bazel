@@ -671,9 +671,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private void assertObjcProtoProviderArtifactsArePropagated(ConfiguredTarget topTarget)
       throws Exception {
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
+    ConfiguredTarget libTarget = getDirectPrerequisite(topTarget, "//libs:objc_lib");
 
     ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
@@ -811,9 +809,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     ConfiguredTarget topTarget = getConfiguredTarget("//x:x");
 
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
+    ConfiguredTarget libTarget = getDirectPrerequisite(topTarget, "//libs:objc_lib");
 
     ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();

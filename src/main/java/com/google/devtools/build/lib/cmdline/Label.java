@@ -442,7 +442,7 @@ public final class Label
    * <p>invariant: {@code parseAbsolute(x.getCanonicalForm(), false).equals(x)}
    */
   public String getCanonicalForm() {
-    return getDefaultCanonicalForm();
+    return packageIdentifier.getCanonicalForm() + ":" + name;
   }
 
   public String getUnambiguousCanonicalForm() {
@@ -463,15 +463,6 @@ public final class Label
               + " == \"foo\"</pre>")
   public String getWorkspaceName() {
     return packageIdentifier.getRepository().strippedName();
-  }
-
-  /**
-   * Renders this label in canonical form, except with labels in the main and default repositories
-   * conflated.
-   */
-  public String getDefaultCanonicalForm() {
-    String repository = packageIdentifier.getRepository().getDefaultCanonicalForm();
-    return repository + "//" + packageIdentifier.getPackageFragment() + ":" + name;
   }
 
   /**

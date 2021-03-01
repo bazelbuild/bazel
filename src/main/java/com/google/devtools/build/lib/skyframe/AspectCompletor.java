@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -96,7 +97,7 @@ class AspectCompletor
       AspectValue value,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
-      NestedSet<ArtifactsInOutputGroup> outputs,
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       BuildEventId configurationEventId) {
     return AspectCompleteEvent.createFailed(value, ctx, rootCauses, configurationEventId, outputs);
   }

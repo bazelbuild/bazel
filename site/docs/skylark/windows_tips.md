@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Writing rules on Windows
+category: extending
 ---
 
 # Writing Rules on Windows

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -45,6 +46,8 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.java.ProguardLibrary;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -61,6 +64,7 @@ import javax.annotation.Nullable;
 public class AarImport implements RuleConfiguredTargetFactory {
   private static final String ANDROID_MANIFEST = "AndroidManifest.xml";
   private static final String MERGED_JAR = "classes_and_libs_merged.jar";
+  private static final String PROGUARD_SPEC = "proguard.txt";
 
   private final JavaSemantics javaSemantics;
   private final AndroidSemantics androidSemantics;
@@ -239,6 +243,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addNativeDeclaredProvider(dataBindingV2Provider)
+        .addNativeDeclaredProvider(new ProguardSpecProvider(extractProguardSpecs(ruleContext, aar)))
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
@@ -254,6 +259,46 @@ public class AarImport implements RuleConfiguredTargetFactory {
       ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
+  }
+
+  /**
+   * Collect Proguard Specs from transitives and proguard.txt if it exists in the AAR file. In the
+   * case the proguard.txt file does exists, we need to extract it from the AAR file
+   */
+  private NestedSet<Artifact> extractProguardSpecs(RuleContext ruleContext, Artifact aar) {
+
+    NestedSet<Artifact> proguardSpecs =
+        new ProguardLibrary(ruleContext).collectProguardSpecs(ImmutableSet.of("deps", "exports"));
+
+    Artifact proguardSpecArtifact = createAarArtifact(ruleContext, PROGUARD_SPEC);
+
+    ruleContext.registerAction(
+        createAarEmbeddedProguardExtractorActions(ruleContext, aar, proguardSpecArtifact));
+
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
+    return builder.addTransitive(proguardSpecs).add(proguardSpecArtifact).build();
+  }
+
+  /**
+   * Create action to extract embedded Proguard.txt from an AAR. If the file is not found, an empty
+   * file will be created
+   */
+  private static Action[] createAarEmbeddedProguardExtractorActions(
+      RuleContext ruleContext, Artifact aar, Artifact proguardSpecArtifact) {
+    return new SpawnAction.Builder()
+        .useDefaultShellEnvironment()
+        .setExecutable(
+            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_PROGUARD_EXTACTOR))
+        .setMnemonic("AarEmbeddedProguardExtractor")
+        .setProgressMessage("Extracting proguard.txt from %s", aar.getFilename())
+        .addInput(aar)
+        .addOutput(proguardSpecArtifact)
+        .addCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("--input_aar", aar)
+                .addExecPath("--output_proguard_file", proguardSpecArtifact)
+                .build())
+        .build(ruleContext);
   }
 
   private NestedSet<Artifact> getBootclasspath(RuleContext ruleContext) {

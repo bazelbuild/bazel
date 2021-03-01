@@ -359,16 +359,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     assertNoEvents();
   }
 
-  @Test
-  public void testCcImportNotLoadedThroughMacro() throws Exception {
-    setupTestCcImportLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestCcImportLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_import"),

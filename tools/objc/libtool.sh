@@ -34,9 +34,6 @@ fi
 
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-# Ensure 0 timestamping for hermetic results.
-export ZERO_AR_DATE=1
-
 if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
     echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
 elif "${MY_LOCATION}"/libtool_check_unique "$@"; then

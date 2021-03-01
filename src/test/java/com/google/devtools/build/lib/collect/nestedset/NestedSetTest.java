@@ -139,6 +139,31 @@ public final class NestedSetTest {
                 .build());
   }
 
+  @Test
+  public void reusesSingleTransitiveSet_noDirectMembers() {
+    NestedSet<String> set = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c");
+    NestedSet<String> built = NestedSetBuilder.<String>stableOrder().addTransitive(set).build();
+    assertThat(built).isSameInstanceAs(set);
+  }
+
+  @Test
+  public void reusesSingleTransitiveSet_singletonEqualsDirects() {
+    NestedSet<String> set = NestedSetBuilder.create(Order.STABLE_ORDER, "a");
+    NestedSet<String> built =
+        NestedSetBuilder.<String>stableOrder().add("a").addTransitive(set).build();
+    assertThat(built).isSameInstanceAs(set);
+  }
+
+  @Test
+  public void noReuseOfSingleTransitiveSet_orderWouldDiffer() {
+    NestedSet<String> set = NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "b", "a");
+    NestedSet<String> built =
+        NestedSetBuilder.<String>naiveLinkOrder().add("a").add("b").addTransitive(set).build();
+    assertThat(built).isNotSameInstanceAs(set);
+    assertThat(set.toList()).containsExactly("b", "a").inOrder();
+    assertThat(built.toList()).containsExactly("a", "b").inOrder();
+  }
+
   /**
    * A handy wrapper that allows us to use EqualsTester to test shallowEquals and shallowHashCode.
    */

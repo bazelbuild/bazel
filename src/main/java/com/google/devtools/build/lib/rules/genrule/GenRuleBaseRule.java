@@ -71,7 +71,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <a href="../build-ref.html#deps">dependencies</a> for more information. <br/>
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='../user-manual.html#configurations'><i>host</i>
+          they are built using the <a href='../guide.html#configurations'><i>host</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.

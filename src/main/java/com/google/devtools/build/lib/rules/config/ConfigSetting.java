@@ -302,7 +302,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             errorMessage +=
                 String.format(
                     " (it is allowlisted to %s//tools/... only)",
-                    getToolsRepository(ruleContext).getDefaultCanonicalForm());
+                    getToolsRepository(ruleContext).getCanonicalForm());
           }
           if (selectRestriction.getErrorMessage() != null) {
             errorMessage += ". " + selectRestriction.getErrorMessage();

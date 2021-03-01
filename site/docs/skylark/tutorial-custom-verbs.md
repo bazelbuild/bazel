@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Using macros to create "custom verbs"
+category: extending
 ---
 
 # Using Macros to Create "Custom Verbs"

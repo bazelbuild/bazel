@@ -2117,7 +2117,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testNoPlatformChange() throws Exception {
     writeAllowlistFile();
-    scratch.file("platforms/BUILD", "platform(name = 'my_platform', constraint_values = [])");
+    scratch.file(
+        "platforms/BUILD",
+        "platform(name = 'my_platform',",
+        "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_host'],",
+        "    constraint_values = [],",
+        ")");
     scratch.file(
         "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",

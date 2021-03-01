@@ -1,4 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
     "DEFAULT_TOOLCHAIN_CONFIGURATION",
@@ -18,7 +17,6 @@ load(
     "legacy_java_runtime_alias",
     "legacy_java_toolchain_alias",
 )
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -100,6 +98,8 @@ cc_library(
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
         "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
         "//src/conditions:linux_s390x": [":jni_md_header-linux"],
+        "//src/conditions:linux_mips64": [":jni_md_header-linux"],
+        "//src/conditions:linux_riscv64": [":jni_md_header-linux"],
         "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
@@ -111,6 +111,8 @@ cc_library(
         "//src/conditions:linux_aarch64": ["include/linux"],
         "//src/conditions:linux_ppc64le": ["include/linux"],
         "//src/conditions:linux_s390x": ["include/linux"],
+        "//src/conditions:linux_mips64": [":include/linux"],
+        "//src/conditions:linux_riscv64": [":include/linux"],
         "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],

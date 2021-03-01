@@ -17,6 +17,12 @@ config_setting(
 )
 
 config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_ppc",
     constraint_values = [
         "@platforms//os:linux",
@@ -39,6 +45,24 @@ config_setting(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:s390x",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_mips64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:mips64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_riscv64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:riscv64",
     ],
     visibility = ["//visibility:public"],
 )

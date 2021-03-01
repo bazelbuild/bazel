@@ -101,10 +101,10 @@ INFO: Elapsed time: 0.144s, Critical Path: 0.00s
 INFO: Build completed successfully, 1 total action
 ```
 
-We see a "null" build: in this case, there are no packages to re-load, since
-nothing has changed, and no build steps to execute. (If something had changed in
+You see a "null" build: in this case, there are no packages to reload, since
+nothing changed, and no build steps to execute. (If something changed in
 "foo" or some of its dependencies, resulting in the re-execution of some build
-actions, we would call it an "incremental" build, not a "null" build.)
+actions, you would call it an "incremental" build, not a "null" build.)
 
 Before you can start a build, you will need a Bazel workspace. This is simply a
 directory tree that contains all the source files needed to build your
