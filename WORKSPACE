@@ -771,8 +771,6 @@ register_execution_platforms("//:default_host_platform")  # buildozer: disable=p
 # Tools for building deb, rpm and tar files.
 dist_http_archive(
     name = "rules_pkg",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
