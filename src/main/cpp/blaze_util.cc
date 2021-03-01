@@ -77,7 +77,8 @@ bool GetNullaryOption(const char *arg, const char *key) {
 }
 
 std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
-                                                 const char *key) {
+                                                 const char *key,
+                                                 const char *ignore_after_value) {
   vector<std::string> values;
   for (vector<string>::size_type i = 0; i < args.size(); ++i) {
     if (args[i] == "--") {
@@ -101,7 +102,21 @@ std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
     }
   }
 
-  return values;
+  if (ignore_after_value == nullptr) {
+    return values;
+  }
+  else {
+    vector<std::string> new_values;
+    std::string ignore_after_value_str = std::string(ignore_after_value);
+    for (vector<string>::size_type i = 0; i < values.size(); ++i) {
+      std::string curr_val = values[i];
+      new_values.push_back(curr_val);
+      if (curr_val == ignore_after_value_str) {
+        break;
+      }
+    }
+    return new_values;
+  }
 }
 
 const char* SearchUnaryOption(const vector<string>& args,

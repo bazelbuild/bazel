@@ -34,7 +34,11 @@ public class BazelStartupOptionsModule extends BlazeModule {
         help =
             "The location of the user .bazelrc file containing default values of "
                 + "Bazel options. This option can also be specified multiple times.\n"
-                + "E.g. `--bazelrc=x.rc --bazelrc=y.rc` so options in both RCs will be read.\n"
+                + "E.g. with `--bazelrc=x.rc --bazelrc=y.rc`, options in both RCs will be read.\n"
+                + "--bazelrc values that come after `/dev/null` will be ignored to maintain "
+                + "backward compatibility.\nE.g. with "
+                + "`--bazelrc=x.rc --bazelrc=y.rc --bazelrc=/dev/null --bazelrc=z.rc`, "
+                + "only x.rc and y.rc will be ready, and z.rc will be ignored.\n"
                 + "If unspecified, Bazel uses the first .bazelrc file it finds in "
                 + "the following two locations: the workspace directory, then the user's home "
                 + "directory. Use /dev/null to disable the search for a user rc file, e.g. in "

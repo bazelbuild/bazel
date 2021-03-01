@@ -242,72 +242,80 @@ void assert_equal_vector_char_pointer(std::vector<std::string> expected, std::ve
   }
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryForEmpty) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryForEmpty) {
   assert_equal_vector_char_pointer({}, GetAllUnaryOptionValues({"bazel", "build", ":target"}, ""));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryFlagNotPresent) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryFlagNotPresent) {
   assert_equal_vector_char_pointer({}, GetAllUnaryOptionValues({"bazel", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithEquals) {
   assert_equal_vector_char_pointer({"value"}, GetAllUnaryOptionValues({"bazel", "--flag=value", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals2) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithEquals2) {
   assert_equal_vector_char_pointer({"value1", "value2"}, GetAllUnaryOptionValues({"bazel", "--flag=value1", "--flag=value2", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithRepeatingFlag) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithRepeatingFlag) {
   assert_equal_vector_char_pointer({"--flag"}, GetAllUnaryOptionValues({"bazel", "--flag", "--flag", "value1", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithRepeatingFlagOptionsOnly) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithRepeatingFlagOptionsOnly) {
   assert_equal_vector_char_pointer({"--flag"}, GetAllUnaryOptionValues({"bazel", "--flag", "--flag", "value1"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithRepeatingFlagOptionsOnlyMulti) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithRepeatingFlagOptionsOnlyMulti) {
   assert_equal_vector_char_pointer({"--flag", "value1"}, GetAllUnaryOptionValues({"bazel", "--flag", "--flag", "--flag", "value1"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithRepeatingFlagOptionsOnlyMultiWithEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithRepeatingFlagOptionsOnlyMultiWithEquals) {
   assert_equal_vector_char_pointer({"--flag", "value1"}, GetAllUnaryOptionValues({"bazel", "--flag=--flag", "--flag", "value1"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithEquals3) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithEquals3) {
   assert_equal_vector_char_pointer({"value1", "value2", "value3"}, GetAllUnaryOptionValues({"bazel", "--flag=value1", "--flag=value2", "--flag=value3", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithoutEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithoutEquals) {
   assert_equal_vector_char_pointer({"value"}, GetAllUnaryOptionValues({"bazel", "--flag", "value", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryStartupOptionWithoutEquals2) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryStartupOptionWithoutEquals2) {
   assert_equal_vector_char_pointer({"value1", "value2"}, GetAllUnaryOptionValues({"bazel", "--flag", "value1", "--flag", "value2", "build", ":target"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryCommandOptionWithEquals) {
   assert_equal_vector_char_pointer({"value"}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--flag", "value"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithEquals2) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryCommandOptionWithEquals2) {
   assert_equal_vector_char_pointer({"value1","value2"}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--flag", "value1", "--flag", "value2"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithoutEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryCommandOptionWithoutEquals) {
   assert_equal_vector_char_pointer({"value"}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--flag=value"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNaryCommandOptionWithoutEquals2) {
+TEST_F(BlazeUtilTest, TestSearchAllUnaryCommandOptionWithoutEquals2) {
   assert_equal_vector_char_pointer({"value1", "value2"}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--flag=value1", "--flag=value2"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNarySkipsAfterDashDashWithEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnarySkipsAfterDashDashWithEquals) {
   assert_equal_vector_char_pointer({}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--", "--flag", "value"}, "--flag"));
 }
 
-TEST_F(BlazeUtilTest, TestSearchNarySkipsAfterDashDashWithoutEquals) {
+TEST_F(BlazeUtilTest, TestSearchAllUnarySkipsAfterDashDashWithoutEquals) {
   assert_equal_vector_char_pointer({}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--", "--flag=value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchAllUnaryCommandOptionWithIgnoreAfter) {
+  assert_equal_vector_char_pointer({"value1","/dev/null"}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--flag", "value1", "--flag", "/dev/null",  "--flag", "value3"}, "--flag", "/dev/null"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchAllUnaryCommandOptionWithIgnoreAfterDevNull) {
+  assert_equal_vector_char_pointer({"/dev/null"}, GetAllUnaryOptionValues({"bazel", "build", ":target", "--flag", "/dev/null", "--flag", "value2",  "--flag", "value3"}, "--flag", "/dev/null"));
 }
 
 }  // namespace blaze
