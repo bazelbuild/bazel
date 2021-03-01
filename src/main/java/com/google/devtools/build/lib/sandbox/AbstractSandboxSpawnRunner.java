@@ -266,6 +266,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                     resourceUsage.getBlockInputOperations());
                 spawnResultBuilder.setNumInvoluntaryContextSwitches(
                     resourceUsage.getInvoluntaryContextSwitches());
+                // The memory usage of the largest child process
+                spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
               });
     }
 

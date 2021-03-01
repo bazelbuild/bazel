@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -105,7 +106,7 @@ class TargetCompletor
       ConfiguredTargetValue value,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
-      NestedSet<ArtifactsInOutputGroup> outputs,
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       ConfiguredTargetAndData configuredTargetAndData) {
     return TargetCompleteEvent.createFailed(configuredTargetAndData, ctx, rootCauses, outputs);
   }

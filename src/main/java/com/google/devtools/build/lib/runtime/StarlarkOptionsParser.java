@@ -246,8 +246,7 @@ public class StarlarkOptionsParser {
       // Use the canonical form to ensure we don't have
       // duplicate options getting into the starlark options map.
       unparsedOptions.put(
-          buildSettingTarget.getLabel().getDefaultCanonicalForm(),
-          new Pair<>(value, buildSettingTarget));
+          buildSettingTarget.getLabel().getCanonicalForm(), new Pair<>(value, buildSettingTarget));
     } else {
       boolean booleanValue = true;
       // check --noflag form

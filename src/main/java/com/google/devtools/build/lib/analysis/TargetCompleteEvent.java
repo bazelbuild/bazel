@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.buildeventstream.TestFileNameConstants.BASELINE_COVERAGE;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -63,7 +66,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -112,7 +114,7 @@ public final class TargetCompleteEvent
   private final NestedSet<Cause> rootCauses;
   private final ImmutableList<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
-  private final NestedSet<ArtifactsInOutputGroup> outputs;
+  private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final Label aliasLabel;
   private final boolean isTest;
@@ -128,7 +130,7 @@ public final class TargetCompleteEvent
       ConfiguredTargetAndData targetAndData,
       NestedSet<Cause> rootCauses,
       CompletionContext completionContext,
-      NestedSet<ArtifactsInOutputGroup> outputs,
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       boolean isTest) {
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
@@ -200,7 +202,7 @@ public final class TargetCompleteEvent
   public static TargetCompleteEvent successfulBuild(
       ConfiguredTargetAndData ct,
       CompletionContext completionContext,
-      NestedSet<ArtifactsInOutputGroup> outputs) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
     return new TargetCompleteEvent(ct, null, completionContext, outputs, false);
   }
 
@@ -208,7 +210,7 @@ public final class TargetCompleteEvent
   public static TargetCompleteEvent successfulBuildSchedulingTest(
       ConfiguredTargetAndData ct,
       CompletionContext completionContext,
-      NestedSet<ArtifactsInOutputGroup> outputs) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
     return new TargetCompleteEvent(ct, null, completionContext, outputs, true);
   }
 
@@ -219,7 +221,7 @@ public final class TargetCompleteEvent
       ConfiguredTargetAndData ct,
       CompletionContext completionContext,
       NestedSet<Cause> rootCauses,
-      NestedSet<ArtifactsInOutputGroup> outputs) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
     return new TargetCompleteEvent(ct, rootCauses, completionContext, outputs, false);
   }
@@ -249,8 +251,8 @@ public final class TargetCompleteEvent
 
   public Iterable<Artifact> getLegacyFilteredImportantArtifacts() {
     // TODO(ulfjack): This duplicates code in ArtifactsToBuild.
-    NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(outputs.getOrder());
-    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs.toList()) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs.values()) {
       if (artifactsInOutputGroup.areImportant()) {
         builder.addTransitive(artifactsInOutputGroup.getArtifacts());
       }
@@ -266,7 +268,7 @@ public final class TargetCompleteEvent
   }
 
   @Override
-  public Collection<BuildEventId> getChildrenEvents() {
+  public ImmutableList<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (Cause cause : getRootCauses().toList()) {
       childrenBuilder.add(cause.getIdProto());
@@ -284,6 +286,15 @@ public final class TargetCompleteEvent
       childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
     return childrenBuilder.build();
+  }
+
+  public CompletionContext getCompletionContext() {
+    return completionContext;
+  }
+
+  @Nullable
+  public ArtifactsInOutputGroup getOutputGroup(String outputGroup) {
+    return outputs.get(outputGroup);
   }
 
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
@@ -335,9 +346,8 @@ public final class TargetCompleteEvent
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
       String name, Artifact artifact, PathFragment relPath) {
-    File.Builder builder = File.newBuilder();
     if (name == null) {
-      String pathString = artifact.getRootRelativePath().getRelative(relPath).getPathString();
+      name = artifact.getRootRelativePath().getRelative(relPath).getPathString();
       if (OS.getCurrent() != OS.WINDOWS) {
         // TODO(b/36360490): Unix file names are currently always Latin-1 strings, even if they
         // contain UTF-8 bytes. Protobuf specifies string fields to contain UTF-8 and passing a
@@ -346,15 +356,12 @@ public final class TargetCompleteEvent
         // Bazel (eg. by standardizing on UTF-8 on Unix systems) we will need to silently swap out
         // the encoding at the protobuf library boundary. Windows does not suffer from this issue
         // due to the corresponding OS APIs supporting UTF-16.
-        pathString =
-            new String(pathString.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        name = new String(name.getBytes(ISO_8859_1), UTF_8);
       }
-      builder.setName(pathString);
-    } else {
-      builder.setName(name);
     }
-    builder.addAllPathPrefix(artifact.getRoot().getComponents());
-    return builder;
+    return File.newBuilder()
+        .setName(name)
+        .addAllPathPrefix(artifact.getRoot().getExecPath().segments());
   }
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(Artifact artifact) {
@@ -362,9 +369,9 @@ public final class TargetCompleteEvent
   }
 
   @Override
-  public Collection<LocalFile> referencedLocalFiles() {
+  public ImmutableList<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> builder = ImmutableList.builder();
-    for (ArtifactsInOutputGroup group : outputs.toList()) {
+    for (ArtifactsInOutputGroup group : outputs.values()) {
       if (group.areImportant()) {
         completionContext.visitArtifacts(
             filterFilesets(group.getArtifacts().toList()),
@@ -424,15 +431,14 @@ public final class TargetCompleteEvent
         builder.addDirectoryOutput(newFileFromArtifact(artifact).build());
       }
     }
-    // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
-    // need it.
+    // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer need it.
     if (converters.getOptions().legacyImportantOutputs) {
       addImportantOutputs(completionContext, builder, converters, filteredImportantArtifacts);
       if (baselineCoverageArtifacts != null) {
         addImportantOutputs(
             completionContext,
             builder,
-            (artifact -> BASELINE_COVERAGE),
+            artifact -> BASELINE_COVERAGE,
             converters,
             baselineCoverageArtifacts.toList());
       }
@@ -443,14 +449,14 @@ public final class TargetCompleteEvent
   }
 
   @Override
-  public Collection<BuildEventId> postedAfter() {
+  public ImmutableList<BuildEventId> postedAfter() {
     return postedAfter;
   }
 
   @Override
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
-    for (ArtifactsInOutputGroup artifactsInGroup : outputs.toList()) {
+    for (ArtifactsInOutputGroup artifactsInGroup : outputs.values()) {
       if (artifactsInGroup.areImportant()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
@@ -472,15 +478,17 @@ public final class TargetCompleteEvent
 
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
-    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs.toList()) {
-      if (!artifactsInOutputGroup.areImportant()) {
-        continue;
-      }
-      OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
-      groupBuilder.setName(artifactsInOutputGroup.getOutputGroup());
-      groupBuilder.addFileSets(namer.apply(artifactsInOutputGroup.getArtifacts().toNode()));
-      groups.add(groupBuilder.build());
-    }
+    outputs.forEach(
+        (outputGroup, artifactsInOutputGroup) -> {
+          if (!artifactsInOutputGroup.areImportant()) {
+            return;
+          }
+          groups.add(
+              OutputGroup.newBuilder()
+                  .setName(outputGroup)
+                  .addFileSets(namer.apply(artifactsInOutputGroup.getArtifacts().toNode()))
+                  .build());
+        });
     if (baselineCoverageArtifacts != null) {
       groups.add(
           OutputGroup.newBuilder()

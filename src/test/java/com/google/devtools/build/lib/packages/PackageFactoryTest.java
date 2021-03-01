@@ -741,13 +741,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testGlobWithIOErrors() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("pkg/BUILD", "glob(['globs/**'])");
-    scratch.dir("pkg/globs/unreadable").setReadable(false);
+    Path dir = scratch.dir("pkg/globs/unreadable");
+    dir.setReadable(false);
 
     NoSuchPackageException ex =
         assertThrows(NoSuchPackageException.class, () -> loadPackage("pkg"));
     assertThat(ex)
         .hasMessageThat()
-        .contains("error globbing [globs/**]: Directory is not readable");
+        .contains("error globbing [globs/**]: " + dir + " (Permission denied)");
   }
 
   @Test

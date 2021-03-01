@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -109,36 +112,38 @@ final class WorkerExecRoot {
       Set<PathFragment> dirsToCreate)
       throws IOException {
     Path execroot = workDir.getParentDirectory();
-    for (Path path : root.getDirectoryEntries()) {
-      FileStatus stat = path.stat(Symlinks.NOFOLLOW);
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      Path absPath = root.getChild(dirent.getName());
       PathFragment pathRelativeToWorkDir;
-      if (path.startsWith(workDir)) {
+      if (absPath.startsWith(workDir)) {
         // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = path.relativeTo(workDir);
+        pathRelativeToWorkDir = absPath.relativeTo(workDir);
       } else {
         // path is not under workDir, which means it belongs to one of external repositories
         // symlinked directly under execroot. Get the relative path based on there and prepend it
         // with the designated prefix, '../', so that it's still a valid relative path to workDir.
         pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(path.relativeTo(execroot));
+            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                absPath.relativeTo(execroot));
       }
       Optional<PathFragment> destination =
           getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
       if (destination.isPresent()) {
-        if (stat.isSymbolicLink() && path.readSymbolicLink().equals(destination.get())) {
+        if (SYMLINK.equals(dirent.getType())
+            && absPath.readSymbolicLink().equals(destination.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
         } else {
-          path.delete();
+          absPath.delete();
         }
-      } else if (stat.isDirectory()) {
+      } else if (DIRECTORY.equals(dirent.getType())) {
         if (dirsToCreate.contains(pathRelativeToWorkDir)) {
-          cleanExisting(path, inputs, inputsToCreate, dirsToCreate);
+          cleanExisting(absPath, inputs, inputsToCreate, dirsToCreate);
           dirsToCreate.remove(pathRelativeToWorkDir);
         } else {
-          path.deleteTree();
+          absPath.deleteTree();
         }
       } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
-        path.delete();
+        absPath.delete();
       }
     }
   }

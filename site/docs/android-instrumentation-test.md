@@ -213,9 +213,9 @@ android_test_repositories()
 
 ## Maven dependencies
 
-For managing dependencies on Maven artifacts from repositories like [Google
+For managing dependencies on Maven artifacts from repositories, such as [Google
 Maven](https://maven.google.com) or [Maven Central](https://central.maven.org),
-we recommend using a Maven resolver like
+you should use a Maven resolver, such as
 [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external).
 
 The rest of this page shows how to use `rules_jvm_external` to
@@ -267,8 +267,8 @@ To see the full list of supported `android_device` targets in
 bazel query 'filter("x86_qemu2$", kind(android_device, @android_test_support//tools/android/emulated_devices/...:*))'
 ```
 
-Bazel currently supports x86-based emulators only. For better performance, we
-also recommend using `QEMU2` `android_device` targets instead of `QEMU` ones.
+Bazel currently supports x86-based emulators only. For better performance, use
+`QEMU2` `android_device` targets instead of `QEMU` ones.
 
 ## Running tests
 

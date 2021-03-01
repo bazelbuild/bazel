@@ -183,7 +183,7 @@ public class ArtifactTest {
     Artifact aHeader3 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar3.h"));
     ArtifactRoot middleRoot =
         ArtifactRoot.asDerivedRoot(
-            scratch.dir("/foo"), RootType.Middleman, PathFragment.create("/foo/out"));
+            scratch.dir("/foo"), RootType.Middleman, PathFragment.create("out"));
     Artifact middleman = ActionsTestUtil.createArtifact(middleRoot, "middleman");
     MiddlemanAction.create(
         new ActionRegistry() {

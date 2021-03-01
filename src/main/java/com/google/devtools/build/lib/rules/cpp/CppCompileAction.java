@@ -1217,13 +1217,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
-    return NestedSetBuilder.fromNestedSet(mandatoryInputs)
-        .addTransitive(additionalPrunableHeaders)
-        .addTransitive(inputsForInvalidation)
-        .addTransitive(getDeclaredIncludeSrcs())
-        .addTransitive(ccCompilationContext.getTransitiveModules(usePic))
-        .add(getSourceFile())
-        .build();
+    NestedSetBuilder<Artifact> builder =
+        NestedSetBuilder.fromNestedSet(mandatoryInputs)
+            .addTransitive(additionalPrunableHeaders)
+            .addTransitive(inputsForInvalidation)
+            .addTransitive(getDeclaredIncludeSrcs())
+            .addTransitive(ccCompilationContext.getTransitiveModules(usePic))
+            .add(getSourceFile());
+
+    // The separate module is an allowed input to all compiles of this context except for its own
+    // compile.
+    Artifact separateModule = ccCompilationContext.getSeparateHeaderModule(usePic);
+    if (separateModule != null && !separateModule.equals(outputFile)) {
+      builder.add(separateModule);
+    }
+    return builder.build();
   }
 
   /**

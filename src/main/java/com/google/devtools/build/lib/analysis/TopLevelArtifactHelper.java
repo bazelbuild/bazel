@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -40,19 +41,12 @@ public final class TopLevelArtifactHelper {
   /** Set of {@link Artifact}s in an output group. */
   @Immutable
   public static final class ArtifactsInOutputGroup {
-    private final String outputGroup;
     private final boolean important;
     private final NestedSet<Artifact> artifacts;
 
-    private ArtifactsInOutputGroup(
-        String outputGroup, boolean important, NestedSet<Artifact> artifacts) {
-      this.outputGroup = checkNotNull(outputGroup);
+    private ArtifactsInOutputGroup(boolean important, NestedSet<Artifact> artifacts) {
       this.important = important;
       this.artifacts = checkNotNull(artifacts);
-    }
-
-    public String getOutputGroup() {
-      return outputGroup;
     }
 
     public NestedSet<Artifact> getArtifacts() {
@@ -75,9 +69,9 @@ public final class TopLevelArtifactHelper {
    */
   @Immutable
   public static final class ArtifactsToBuild {
-    private NestedSet<ArtifactsInOutputGroup> artifacts;
+    private final ImmutableMap<String, ArtifactsInOutputGroup> artifacts;
 
-    private ArtifactsToBuild(NestedSet<ArtifactsInOutputGroup> artifacts) {
+    private ArtifactsToBuild(ImmutableMap<String, ArtifactsInOutputGroup> artifacts) {
       this.artifacts = checkNotNull(artifacts);
     }
 
@@ -85,8 +79,8 @@ public final class TopLevelArtifactHelper {
      * Returns the artifacts that the user should know about.
      */
     public NestedSet<Artifact> getImportantArtifacts() {
-      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.toList()) {
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.values()) {
         if (artifactsInOutputGroup.areImportant()) {
           builder.addTransitive(artifactsInOutputGroup.getArtifacts());
         }
@@ -98,8 +92,8 @@ public final class TopLevelArtifactHelper {
      * Returns the actual set of artifacts that need to be built.
      */
     public NestedSet<Artifact> getAllArtifacts() {
-      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.toList()) {
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.values()) {
         builder.addTransitive(artifactsInOutputGroup.getArtifacts());
       }
       return builder.build();
@@ -111,7 +105,7 @@ public final class TopLevelArtifactHelper {
      * <p>If an {@link Artifact} belongs to two or more output groups, it appears once in each
      * output group.
      */
-    public NestedSet<ArtifactsInOutputGroup> getAllArtifactsByOutputGroup() {
+    public ImmutableMap<String, ArtifactsInOutputGroup> getAllArtifactsByOutputGroup() {
       return artifacts;
     }
   }
@@ -202,7 +196,8 @@ public final class TopLevelArtifactHelper {
       @Nullable OutputGroupInfo outputGroupInfo,
       @Nullable FileProvider fileProvider,
       TopLevelArtifactContext context) {
-    NestedSetBuilder<ArtifactsInOutputGroup> allBuilder = NestedSetBuilder.stableOrder();
+    ImmutableMap.Builder<String, ArtifactsInOutputGroup> allOutputGroups =
+        ImmutableMap.builderWithExpectedSize(context.outputGroups().size());
 
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
@@ -224,11 +219,11 @@ public final class TopLevelArtifactHelper {
           !outputGroup.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX);
 
       ArtifactsInOutputGroup artifacts =
-          new ArtifactsInOutputGroup(outputGroup, isImportantGroup, results.build());
+          new ArtifactsInOutputGroup(isImportantGroup, results.build());
 
-      allBuilder.add(artifacts);
+      allOutputGroups.put(outputGroup, artifacts);
     }
 
-    return new ArtifactsToBuild(allBuilder.build());
+    return new ArtifactsToBuild(allOutputGroups.build());
   }
 }

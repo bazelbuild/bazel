@@ -225,8 +225,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   }
 
   private boolean isAliasConfiguredTarget(ConfiguredTargetKey key) throws InterruptedException {
-    return getConfiguredTargetValue(key).getConfiguredTarget().getProvider(AliasProvider.class)
-        != null;
+    return AliasProvider.isAlias(getConfiguredTargetValue(key).getConfiguredTarget());
   }
 
   public InterruptibleSupplier<ImmutableSet<PathFragment>>

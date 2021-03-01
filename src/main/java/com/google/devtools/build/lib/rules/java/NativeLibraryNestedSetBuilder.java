@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.util.FileType;
-import java.util.List;
 
 /** A builder that helps construct nested sets of native libraries. */
 public final class NativeLibraryNestedSetBuilder {
@@ -97,16 +96,13 @@ public final class NativeLibraryNestedSetBuilder {
 
   /** Include files and genrule artifacts. */
   private void addTarget(TransitiveInfoCollection dep) {
-    List<Artifact> soLibraries =
+    if (ruleContext.getFragment(JavaConfiguration.class).dontCollectSoArtifacts()) {
+      return;
+    }
+    for (Artifact artifact :
         FileType.filterList(
             dep.getProvider(FileProvider.class).getFilesToBuild().toList(),
-            CppFileTypes.SHARED_LIBRARY);
-    if (!soLibraries.isEmpty()
-        && ruleContext.getFragment(JavaConfiguration.class).dontCollectSoArtifacts()) {
-      ruleContext.ruleError(
-          ".so libraries as artifact (from filegroup or genrule) are present in the dependencies");
-    }
-    for (Artifact artifact : soLibraries) {
+            CppFileTypes.SHARED_LIBRARY)) {
       builder.add(
           LibraryToLink.builder()
               .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(artifact))

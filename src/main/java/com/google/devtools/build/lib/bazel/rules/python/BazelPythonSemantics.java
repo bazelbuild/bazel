@@ -189,8 +189,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                 Substitution.of(
                     "%enable_host_version_warning%",
                     boolToLiteral(common.shouldWarnAboutHostVersionUponFailure())),
-                Substitution.of(
-                    "%target%", ruleContext.getRule().getLabel().getDefaultCanonicalForm()),
+                Substitution.of("%target%", ruleContext.getRule().getLabel().getCanonicalForm()),
                 Substitution.of(
                     "%python_version_from_config%", versionToLiteral(common.getVersion())),
                 Substitution.of("%python_version_from_attr%", versionToLiteral(attrVersion)),

@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Configurations
+category: extending
 ---
 
 # Configurations

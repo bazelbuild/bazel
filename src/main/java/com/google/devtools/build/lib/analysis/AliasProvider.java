@@ -116,4 +116,12 @@ public final class AliasProvider implements TransitiveInfoProvider {
 
     return result.toString();
   }
+
+  /**
+   * Returns {@code true} iff the given {@link TransitiveInfoCollection} has an {@link
+   * AliasProvider}.
+   */
+  public static boolean isAlias(TransitiveInfoCollection dep) {
+    return dep.getProvider(AliasProvider.class) != null;
+  }
 }

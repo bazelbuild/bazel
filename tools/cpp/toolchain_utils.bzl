@@ -36,9 +36,12 @@ def find_cpp_toolchain(ctx):
 
     # Check the incompatible flag for toolchain resolution.
     if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if "@bazel_tools//tools/cpp:toolchain_type" in ctx.toolchains:
-            return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
-        fail("In order to use find_cpp_toolchain, you must include the '@bazel_tools//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
+        if not "@bazel_tools//tools/cpp:toolchain_type" in ctx.toolchains:
+            fail("In order to use find_cpp_toolchain, you must include the '@bazel_tools//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
+        toolchain_info = ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
+        if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
+            return toolchain_info.cc
+        return toolchain_info
 
     # Fall back to the legacy implicit attribute lookup.
     if hasattr(ctx.attr, "_cc_toolchain"):

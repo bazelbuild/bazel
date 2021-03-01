@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Macros
+category: extending
 ---
 
 # Macros

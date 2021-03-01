@@ -197,6 +197,10 @@ def get_cpu_value(repository_ctx):
         return "ppc"
     if result.stdout.strip() in ["s390x"]:
         return "s390x"
+    if result.stdout.strip() in ["mips64"]:
+        return "mips64"
+    if result.stdout.strip() in ["riscv64"]:
+        return "riscv64"
     if result.stdout.strip() in ["arm", "armv7l"]:
         return "arm"
     if result.stdout.strip() in ["aarch64"]:

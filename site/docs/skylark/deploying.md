@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Deploying rules
+category: extending
 ---
 
 # Deploying Rules

@@ -211,7 +211,7 @@ java_library(
 
 genrule(
     name = "local_and_anonymous_interface",
-    srcs = [":liblocal_and_anonymous_lib.jar"],
+    srcs = [":local_and_anonymous_lib"],
     outs = ["local_and_anonymous-interface.jar"],
     cmd = "$(location //third_party/ijar) $< $@",
     tools = ["//third_party/ijar"],

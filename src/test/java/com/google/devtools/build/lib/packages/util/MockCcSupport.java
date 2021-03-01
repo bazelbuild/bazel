@@ -190,16 +190,17 @@ public abstract class MockCcSupport {
 
   public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
       throws IOException {
-    String crosstoolTop = getCrosstoolTopPathForConfig(config);
     if (config.isRealFileSystem()) {
-      config.linkTools(getRealFilesystemTools(crosstoolTop));
+      String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
+      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
+      writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
     } else {
       ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
       toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
       for (String cpu : cpus) {
         toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
       }
-      new Crosstool(config, crosstoolTop)
+      new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
           .setToolchainConfigs(toolchainConfigBuilder.build())
@@ -214,17 +215,45 @@ public abstract class MockCcSupport {
 
   public void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
-    String crosstoolTop = getCrosstoolTopPathForConfig(config);
     if (config.isRealFileSystem()) {
-      config.linkTools(getRealFilesystemTools(crosstoolTop));
+      String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
+      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
+      writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
     } else {
-      new Crosstool(config, crosstoolTop)
+      new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
           .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
           .setSupportsHeaderParsing(true)
           .write();
     }
+  }
+
+  /** Writes a basic toolchain definition to keep the CC tests working. */
+  // TODO(cc-rules): Remove this when crosstool provides its own toolchain definitions.
+  private void writeToolchainsForRealFilesystemTools(
+      MockToolsConfig config, String crosstoolTopPath) throws IOException {
+    config.create(
+        "toolchains/BUILD",
+        "toolchain(",
+        "    name = 'k8-toolchain',",
+        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-k8-llvm',",
+        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "    target_compatible_with = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "    ],",
+        ")",
+        "toolchain(",
+        "    name = 'arm-toolchain',",
+        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-arm-llvm',",
+        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "    target_compatible_with = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
+        "    ],",
+        ")");
+    config.append("WORKSPACE", "register_toolchains('//toolchains:all')");
   }
 
   protected void setupRulesCc(MockToolsConfig config) throws IOException {

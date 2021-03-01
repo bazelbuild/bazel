@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -81,7 +80,6 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
                 .value(
                     environment.getToolsLabel(
                         "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
         .useToolchainTransition(true)
         .build();
   }

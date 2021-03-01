@@ -288,7 +288,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           .checkSrcs(protoInfo.getOriginalDirectProtoSources(), "cc_proto_library");
     }
 
-    private FeatureConfiguration getFeatureConfiguration() {
+    private FeatureConfiguration getFeatureConfiguration() throws RuleErrorException {
       ImmutableSet.Builder<String> requestedFeatures = new ImmutableSet.Builder<>();
       requestedFeatures.addAll(ruleContext.getFeatures());
       ImmutableSet.Builder<String> unsupportedFeatures = new ImmutableSet.Builder<>();
@@ -312,7 +312,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     private CcCompilationHelper initializeCompilationHelper(
         FeatureConfiguration featureConfiguration, List<TransitiveInfoCollection> deps)
-        throws InterruptedException {
+        throws RuleErrorException {
       CcCommon common = new CcCommon(ruleContext);
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcCompilationHelper helper =
@@ -369,7 +369,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     private CcLinkingHelper initializeLinkingHelper(
         FeatureConfiguration featureConfiguration, ImmutableList<TransitiveInfoCollection> deps)
-        throws InterruptedException {
+        throws RuleErrorException {
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
@@ -397,7 +397,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       return helper;
     }
 
-    private CcToolchainProvider ccToolchain(RuleContext ruleContext) {
+    private CcToolchainProvider ccToolchain(RuleContext ruleContext) throws RuleErrorException {
       return CppHelper.getToolchain(
           ruleContext,
           ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME),

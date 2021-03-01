@@ -805,6 +805,27 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void unknownRuleAttributeFlags_forbidden() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        ev,
+        "def _impl(ctx): return None",
+        "r1 = rule(_impl, attrs = { 'srcs': attr.label_list(flags = ['NO-SUCH-FLAG']) })");
+    ev.assertContainsError("unknown attribute flag 'NO-SUCH-FLAG'");
+  }
+
+  @Test
+  public void duplicateRuleAttributeFlags_forbidden() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        ev,
+        "def _impl(ctx): return None",
+        "r1 = rule(_impl, attrs = { 'srcs': attr.label_list(mandatory = True,",
+        "                                                   flags = ['MANDATORY']) })");
+    ev.assertContainsError("'MANDATORY' flag is already set");
+  }
+
+  @Test
   public void testRuleOutputs() throws Exception {
     evalAndExport(
         ev,

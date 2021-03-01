@@ -283,7 +283,7 @@ public abstract class FileSystem {
 
   /**
    * Returns value of the given extended attribute name or null if attribute does not exist or file
-   * system does not support extended attributes. Follows symlinks.
+   * system does not support extended attributes.
    *
    * <p>Default implementation assumes that file system does not support extended attributes and
    * always returns null. Specific file system implementations should override this method if they

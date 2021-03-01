@@ -44,8 +44,7 @@ The recommended best practices for downloading Maven jars are as follows:
 2. Permanently mirror all dependencies to GCS or S3 as the first URL
 3. Put the original URL in the GCS or S3 object name
 4. Make the second URL the original repo1.maven.org URL
-5. Make the third URL the maven.ibiblio.org mirror, if it isn't 404
-6. Always specify the sha256 checksum
+5. Always specify the sha256 checksum
 
 Bazel has one of the most sophisticated systems for downloading files of any
 build system. Following these best practices will ensure that your codebase
@@ -108,7 +107,6 @@ java_import_external(
     jar_urls = [
         "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/guava/guava/20.0/guava-20.0.jar",
         "http://repo1.maven.org/maven2/com/google/guava/guava/20.0/guava-20.0.jar",
-        "http://maven.ibiblio.org/maven2/com/google/guava/guava/20.0/guava-20.0.jar",
     ],
     jar_sha256 = "36a666e3b71ae7f0f0dca23654b67e086e6c93d192f60ba5dfd5519db6c288c8",
     deps = [
@@ -123,7 +121,6 @@ java_import_external(
     jar_urls = [
         "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
         "http://repo1.maven.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
-        "http://maven.ibiblio.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
     ],
     jar_sha256 = "905721a0eea90a81534abb7ee6ef4ea2e5e645fa1def0a5cd88402df1b46c9ed",
 )
@@ -134,7 +131,6 @@ java_import_external(
     jar_sha256 = "e7749ffdf03fb8ebe08a727ea205acb301c8791da837fee211b99b04f9d79c46",
     jar_urls = [
         "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.15/error_prone_annotations-2.0.15.jar",
-        "http://maven.ibiblio.org/maven2/com/google/errorprone/error_prone_annotations/2.0.15/error_prone_annotations-2.0.15.jar",
         "http://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.15/error_prone_annotations-2.0.15.jar",
     ],
 )

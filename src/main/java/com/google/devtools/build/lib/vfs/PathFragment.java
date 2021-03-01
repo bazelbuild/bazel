@@ -139,7 +139,7 @@ public final class PathFragment
     Preconditions.checkNotNull(other);
     // Fast-path: The path fragment is already normal, use cheaper normalization check
     String otherStr = other.normalizedPath;
-    return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
+    return getRelative(otherStr, other.driveStrLength, OS.needsToNormalizeSuffix(otherStr));
   }
 
   public static boolean isNormalizedRelativePath(String path) {
@@ -494,20 +494,20 @@ public final class PathFragment
    * Returns an {@link Iterable} that lazily yields the segments of this path.
    *
    * <p>When iterating over the segments of a path fragment, prefer this method to {@link
-   * #getSegments} as it performs a single, lazy traversal over the path string without the overhead
-   * of creating a list.
+   * #splitToListOfSegments} as it performs a single, lazy traversal over the path string without
+   * the overhead of creating a list.
    */
   public Iterable<String> segments() {
     return () -> PathSegmentIterator.create(normalizedPath, driveStrLength);
   }
 
   /**
-   * Returns a list of the segments.
+   * Splits this path fragment into a list of segments.
    *
-   * <p>This operation is O(N) on the length of the string.
+   * <p>This operation is O(N) on the length of the string. If it is not necessary to store the
+   * segments in list form, consider using {@link #segments}.
    */
-  // TODO(b/180422294): Rename this to make it more apparent that it's not a simple getter.
-  public ImmutableList<String> getSegments() {
+  public ImmutableList<String> splitToListOfSegments() {
     ImmutableList.Builder<String> segments = ImmutableList.builderWithExpectedSize(segmentCount());
     int nexti = driveStrLength;
     int n = normalizedPath.length();
