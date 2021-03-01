@@ -42,6 +42,16 @@ alias(
 )
 
 alias(
+    name = "mips64",
+    actual = "@platforms//cpu:mips64",
+)
+
+alias(
+    name = "riscv64",
+    actual = "@platforms//cpu:riscv64",
+)
+
+alias(
     name = "os",
     actual = "@platforms//os:os",
 )
@@ -97,6 +107,8 @@ platform(
         "@platforms//cpu:arm",
         "@platforms//cpu:aarch64",
         "@platforms//cpu:s390x",
+        "@platforms//cpu:mips64",
+        "@platforms//cpu:riscv64",
     ],
     host_platform = True,
     os_constraints = [
@@ -119,6 +131,8 @@ platform(
         "@platforms//cpu:arm",
         "@platforms//cpu:aarch64",
         "@platforms//cpu:s390x",
+        "@platforms//cpu:mips64",
+        "@platforms//cpu:riscv64",
     ],
     os_constraints = [
         "@platforms//os:osx",
