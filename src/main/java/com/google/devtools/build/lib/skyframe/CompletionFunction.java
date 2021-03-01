@@ -271,7 +271,6 @@ public final class CompletionFunction<
       ctx =
           CompletionContext.create(
               expandedArtifacts,
-              archivedTreeArtifacts,
               expandedFilesets,
               key.topLevelArtifactContext().expandFilesets(),
               key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
