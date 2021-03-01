@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import java.util.HashSet;
@@ -349,10 +350,18 @@ public class DeployArchiveBuilder {
     Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     boolean usingNativeSinglejar = !singlejar.getFilename().endsWith(".jar");
 
+    String toolchainIdentifier = null;
+    try {
+      toolchainIdentifier =
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
+              .getToolchainIdentifier();
+    } catch (RuleErrorException e) {
+      // Something went wrong loading the toolchain, which is an exceptional condition.
+      throw new IllegalStateException("Unable to load cc toolchain", e);
+    }
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(
-            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
-                .getToolchainIdentifier(),
+            toolchainIdentifier,
             outputJar,
             javaStartClass,
             deployManifestLines,
