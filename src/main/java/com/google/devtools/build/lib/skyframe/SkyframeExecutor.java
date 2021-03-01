@@ -2686,7 +2686,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
-    PrecomputedValue.REPO_ENV.set(injectable(), repoEnvOption);
+    PrecomputedValue.REPO_ENV.set(injectable(), new LinkedHashMap<>(repoEnvOption));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
