@@ -82,7 +82,7 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_dont_use_javasourceinfoprovider",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
