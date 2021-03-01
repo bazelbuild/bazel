@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -92,7 +91,7 @@ public final class AggregatingTestListener {
             summaryOptions.testVerboseTimeoutWarnings);
     // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     for (ConfiguredTarget target : event.getTestTargets()) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       TestResultAggregator aggregator =
@@ -152,14 +151,14 @@ public final class AggregatingTestListener {
     for (ConfiguredTarget target :
         Sets.difference(
             ImmutableSet.copyOf(nonSuccessfulTargets), ImmutableSet.copyOf(skippedTargets))) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       targetFailure(asKey(target));
     }
 
     for (ConfiguredTarget target : skippedTargets) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       targetSkipped(asKey(target));
@@ -226,7 +225,7 @@ public final class AggregatingTestListener {
     DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
       TestSummary summary;
-      if (isAlias(testTarget)) {
+      if (AliasProvider.isAlias(testTarget)) {
         ConfiguredTargetKey actualKey =
             ConfiguredTargetKey.builder()
                 .setLabel(testTarget.getLabel())
@@ -282,13 +281,8 @@ public final class AggregatingTestListener {
         : TESTS_FAILED_DETAILED_CODE;
   }
 
-  private static boolean isAlias(ConfiguredTarget target) {
-    // I expect this to be consistent with target.getProvider(AliasProvider.class) != null.
-    return target instanceof AliasConfiguredTarget;
-  }
-
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    Preconditions.checkArgument(!isAlias(target));
+    Preconditions.checkArgument(!AliasProvider.isAlias(target));
     return ConfiguredTargetKey.builder()
         .setLabel(AliasProvider.getDependencyLabel(target))
         .setConfigurationKey(target.getConfigurationKey())
