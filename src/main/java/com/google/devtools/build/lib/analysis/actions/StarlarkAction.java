@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -172,10 +171,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
     // after having been executed.
     if (shadowedAction.isPresent() && shadowedAction.get().discoversInputs()) {
       Action shadowedActionObj = shadowedAction.get();
-
-      // We depend on the outputs of actions doing input discovery and they should know their inputs
-      // after having been executed
-      Preconditions.checkState(shadowedActionObj.inputsDiscovered());
 
       NestedSet<Artifact> oldInputs = getInputs();
       NestedSet<Artifact> inputFilesForExtraAction =
