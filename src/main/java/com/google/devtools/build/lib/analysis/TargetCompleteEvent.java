@@ -288,6 +288,15 @@ public final class TargetCompleteEvent
     return childrenBuilder.build();
   }
 
+  public CompletionContext getCompletionContext() {
+    return completionContext;
+  }
+
+  @Nullable
+  public ArtifactsInOutputGroup getOutputGroup(String outputGroup) {
+    return outputs.get(outputGroup);
+  }
+
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
   // field.
   private static void addImportantOutputs(

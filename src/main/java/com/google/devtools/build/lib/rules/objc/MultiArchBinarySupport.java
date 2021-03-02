@@ -312,7 +312,7 @@ public class MultiArchBinarySupport {
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedConfiguredTargetAndDataDeps)
-            .addDepObjcProviders(additionalDepProviders)
+            .addObjcProviders(additionalDepProviders)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(false)
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());

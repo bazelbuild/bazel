@@ -160,7 +160,7 @@ public final class CcCommon {
 
   private final FdoContext fdoContext;
 
-  public CcCommon(RuleContext ruleContext) {
+  public CcCommon(RuleContext ruleContext) throws RuleErrorException {
     this(
         ruleContext,
         Preconditions.checkNotNull(

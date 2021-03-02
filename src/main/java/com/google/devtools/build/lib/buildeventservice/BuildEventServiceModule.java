@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
+import com.google.devtools.build.lib.runtime.TargetSummaryPublisher;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -358,6 +359,10 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     if (bepTransports.isEmpty()) {
       // Exit early if there are no transports to stream to.
       return;
+    }
+
+    if (bepOptions.publishTargetSummary) {
+      cmdEnv.getEventBus().register(new TargetSummaryPublisher(cmdEnv.getEventBus()));
     }
 
     streamer =

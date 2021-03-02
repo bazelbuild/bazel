@@ -129,7 +129,7 @@ rules, which need to declare all input files ahead of time.
 Above, we argued that in order to be correct, Bazel needs to know all the input
 files that go into a build step in order to detect whether that build step is
 still up-to-date. The same is true for package loading and rule analysis, and we
-have designed [Skyframe] (https://bazel.build/designs/skyframe.html) to handle this
+have designed [Skyframe](https://bazel.build/designs/skyframe.html) to handle this
 in general. Skyframe is a graph library and evaluation framework that takes a
 goal node (such as 'build //foo with these options'), and breaks it down into
 its constituent parts, which are then evaluated and combined to yield this
