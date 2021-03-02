@@ -155,9 +155,17 @@ public class CoreLibraryDesugar {
 
     @Override
     public void warning(Diagnostic warning) {
+      // Workaround for b/181634110.
       if (warning instanceof InterfaceDesugarMissingTypeDiagnostic) {
         InterfaceDesugarMissingTypeDiagnostic missingTypeDiagnostic =
             (InterfaceDesugarMissingTypeDiagnostic) warning;
+        if (missingTypeDiagnostic.getMissingType().getTypeName().equals("jdk.internal.misc.Unsafe")
+            && missingTypeDiagnostic
+                .getContextType()
+                .getTypeName()
+                .equals("java.util.concurrent.ThreadLocalRandomHelper")) {
+          return;
+        }
         outputConsumer.missingImplementedInterface(
             DescriptorUtils.descriptorToBinaryName(
                 missingTypeDiagnostic.getContextType().getDescriptor()),
