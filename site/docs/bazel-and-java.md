@@ -242,7 +242,7 @@ Example toolchain configuration:
 
 ```python
 load(
-  '@bazel_tools@bazel_tools//tools/jdk:default_java_toolchain.bzl',
+  '@bazel_tools//tools/jdk:default_java_toolchain.bzl',
   "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION", "JDK9_JVM_OPTS", "DEFAULT_JAVACOPTS"
 )
 
