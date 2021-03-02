@@ -753,8 +753,42 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public ExecutionInfoModifier executionInfoModifier;
 
   @Option(
+      name = "incompatible_genquery_use_graphless_query",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      expansion = {
+        "--experimental_genquery_use_graphless_query=auto",
+      },
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "Use graphless query and disable output ordering for genquery.")
+  public Void incompatibleUseGraphlessQuery;
+
+  @Option(
+      name = "noincompatible_genquery_use_graphless_query",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      expansion = {
+        "--experimental_genquery_use_graphless_query=false",
+      },
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help = "Do not use graphless query for genquery.")
+  public Void noincompatibleUseGraphlessQuery;
+
+  @Option(
       name = "experimental_genquery_use_graphless_query",
-      defaultValue = "false",
+      defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,

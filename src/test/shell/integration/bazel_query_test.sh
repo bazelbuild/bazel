@@ -694,8 +694,7 @@ EOF
 //foo:b
 //foo:a
 EOF
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:somepath >& $TEST_log || fail "Expected success"
+  bazel build //foo:somepath >& $TEST_log || fail "Expected success"
   assert_equals "$(cat foo/expected_sp_output)" "$(cat bazel-bin/foo/somepath)"
 
   # Allpaths in genquery outputs in lexicographical order (just like all other
@@ -706,8 +705,7 @@ EOF
 //foo:b
 //foo:c
 EOF
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:allpaths >& $TEST_log || fail "Expected success"
+  bazel build //foo:allpaths >& $TEST_log || fail "Expected success"
   assert_equals "$(cat foo/expected_ap_output)" "$(cat bazel-bin/foo/allpaths)"
 }
 
