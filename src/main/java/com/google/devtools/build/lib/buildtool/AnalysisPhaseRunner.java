@@ -222,6 +222,7 @@ public final class AnalysisPhaseRunner {
             request.getAspects(),
             request.getViewOptions(),
             request.getKeepGoing(),
+            request.getCheckForActionConflicts(),
             request.getLoadingPhaseThreadCount(),
             request.getTopLevelArtifactContext(),
             env.getReporter(),

@@ -216,6 +216,7 @@ public class BuildViewForTesting {
         aspects,
         viewOptions,
         keepGoing,
+        /*checkForActionConflicts=*/ true,
         loadingPhaseThreads,
         topLevelOptions,
         eventHandler,

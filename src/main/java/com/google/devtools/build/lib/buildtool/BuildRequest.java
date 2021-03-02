@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -76,6 +77,7 @@ public class BuildRequest implements OptionsProvider {
     private long startTimeMillis; // milliseconds since UNIX epoch.
     private boolean needsInstrumentationFilter;
     private boolean runTests;
+    private boolean checkForActionConflicts = true;
 
     private Builder() {}
 
@@ -124,6 +126,11 @@ public class BuildRequest implements OptionsProvider {
       return this;
     }
 
+    public Builder setCheckforActionConflicts(boolean checkForActionConflicts) {
+      this.checkForActionConflicts = checkForActionConflicts;
+      return this;
+    }
+
     public BuildRequest build() {
       return new BuildRequest(
           commandName,
@@ -134,7 +141,8 @@ public class BuildRequest implements OptionsProvider {
           id,
           startTimeMillis,
           needsInstrumentationFilter,
-          runTests);
+          runTests,
+          checkForActionConflicts);
     }
   }
 
@@ -159,6 +167,7 @@ public class BuildRequest implements OptionsProvider {
   private final boolean needsInstrumentationFilter;
   private final boolean runningInEmacs;
   private final boolean runTests;
+  private final boolean checkForActionConflicts;
 
   private BuildRequest(
       String commandName,
@@ -169,7 +178,8 @@ public class BuildRequest implements OptionsProvider {
       UUID id,
       long startTimeMillis,
       boolean needsInstrumentationFilter,
-      boolean runTests) {
+      boolean runTests,
+      boolean checkForActionConflicts) {
     this.commandName = commandName;
     this.optionsDescription = OptionsUtils.asShellEscapedString(options);
     this.outErr = outErr;
@@ -191,6 +201,7 @@ public class BuildRequest implements OptionsProvider {
     this.starlarkOptions = options.getStarlarkOptions();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
+    this.checkForActionConflicts = checkForActionConflicts;
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
@@ -203,9 +214,8 @@ public class BuildRequest implements OptionsProvider {
   /**
    * Since the OptionsProvider interface is used by many teams, this method is String-keyed even
    * though it should always contain labels for our purposes. Consumers of this method should
-   * probably use the {@link
-   * com.google.devtools.build.lib.analysis.config.BuildOptions#labelizeStarlarkOptions} method
-   * before doing meaningful work with the results.
+   * probably use the {@link BuildOptions#labelizeStarlarkOptions} method before doing meaningful
+   * work with the results.
    */
   @Override
   public Map<String, Object> getStarlarkOptions() {
@@ -373,4 +383,7 @@ public class BuildRequest implements OptionsProvider {
     return ImmutableList.copyOf(getBuildOptions().aspects);
   }
 
+  public boolean getCheckForActionConflicts() {
+    return checkForActionConflicts;
+  }
 }

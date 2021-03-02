@@ -206,6 +206,7 @@ public class BuildView {
       List<String> aspects,
       AnalysisOptions viewOptions,
       boolean keepGoing,
+      boolean checkForActionConflicts,
       int loadingPhaseThreads,
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
@@ -415,7 +416,8 @@ public class BuildView {
               eventBus,
               keepGoing,
               loadingPhaseThreads,
-              viewOptions.strictConflictChecks);
+              viewOptions.strictConflictChecks,
+              checkForActionConflicts);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();

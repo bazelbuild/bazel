@@ -389,7 +389,8 @@ public final class SkyframeBuildView {
       EventBus eventBus,
       boolean keepGoing,
       int numThreads,
-      boolean strictConflictChecks)
+      boolean strictConflictChecks,
+      boolean checkForActionConflicts)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
@@ -441,7 +442,7 @@ public final class SkyframeBuildView {
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
-      if (shouldCheckForConflicts(newKeys)) {
+      if (checkForActionConflicts && shouldCheckForConflicts(newKeys)) {
         largestTopLevelKeySetCheckedForConflicts = newKeys;
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
