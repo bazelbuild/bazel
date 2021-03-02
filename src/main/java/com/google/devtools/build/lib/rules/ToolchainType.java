@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 
 /**
  * Implementation of {@code toolchain_type}.
@@ -50,7 +51,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .useToolchainResolution(false)
+          .useToolchainResolution(ToolchainResolutionMode.DISABLED)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .build();
