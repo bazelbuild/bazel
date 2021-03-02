@@ -1595,13 +1595,6 @@ public class RuleClass {
       }
     }
 
-    public Builder useToolchainResolution(boolean flag) {
-      if (flag) {
-        return this.useToolchainResolution(ToolchainResolutionMode.ENABLED);
-      }
-      return this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
-    }
-
     /**
      * Causes rules to use toolchain resolution to determine the execution platform and toolchains.
      * Rules that are part of configuring toolchains and platforms should set this to {@code
@@ -1610,13 +1603,6 @@ public class RuleClass {
     public Builder useToolchainResolution(ToolchainResolutionMode mode) {
       this.useToolchainResolution = mode;
       return this;
-    }
-
-    public Builder useToolchainTransition(boolean flag) {
-      if (flag) {
-        return this.useToolchainTransition(ToolchainTransitionMode.ENABLED);
-      }
-      return this.useToolchainTransition(ToolchainTransitionMode.DISABLED);
     }
 
     public Builder useToolchainTransition(ToolchainTransitionMode mode) {
