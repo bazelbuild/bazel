@@ -183,4 +183,27 @@ public class AttributeContainerTest {
     // AttributeContainer.Large can handle at max 254 attributes.
     testContainerSize(254);
   }
+
+  @Test
+  public void testMutableGetRawAttributeValuesReturnsNullSafeCopy() {
+    AttributeContainer container = new Mutable(1);
+    assertThat(container.getRawAttributeValues()).containsExactly((Object) null);
+
+    container.getRawAttributeValues().set(0, "foo");
+    assertThat(container.getRawAttributeValues()).containsExactly((Object) null);
+  }
+
+  @Test
+  public void testGetRawAttributeValuesReturnsCopy() {
+    AttributeContainer mutable = new Mutable(2);
+    mutable.setAttributeValue(0, "hi", /*explicit=*/ true);
+    mutable.setAttributeValue(1, null, /*explicit=*/ false);
+
+    AttributeContainer container = mutable.freeze();
+    // Nulls don't make it into the frozen representation.
+    assertThat(container.getRawAttributeValues()).containsExactly("hi");
+
+    container.getRawAttributeValues().set(0, "foo");
+    assertThat(container.getRawAttributeValues()).containsExactly("hi");
+  }
 }
