@@ -52,6 +52,7 @@ final class DepsFunction implements QueryFunction {
   }
 
   /** Breadth-first search from the arguments. */
+  @SuppressWarnings("unchecked")
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
@@ -71,12 +72,16 @@ final class DepsFunction implements QueryFunction {
     }
 
     if (env instanceof QueryEnvironment.CustomFunctionQueryEnvironment) {
-      return env.eval(
-          queryExpression,
-          context,
-          partialResult ->
-              ((CustomFunctionQueryEnvironment<T>) env)
-                  .deps(partialResult, depthBound, expression, callback));
+      // Not all expressions generate a single future (e.g. SetExpression), as such, we should batch
+      // them here before the heavy blocking work is done in the callback to deps.
+      return ((QueryEnvironment.CustomFunctionQueryEnvironment) env)
+          .eval(
+              queryExpression,
+              context,
+              result ->
+                  ((CustomFunctionQueryEnvironment<T>) env)
+                      .deps(result, depthBound, expression, callback),
+              /* batch= */ true);
     }
 
     final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
