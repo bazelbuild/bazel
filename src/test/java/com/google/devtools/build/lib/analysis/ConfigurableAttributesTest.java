@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -159,7 +160,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
               (builder, env) ->
                   builder
                       .add(attr("deps", LABEL_LIST).allowedFileTypes())
-                      .useToolchainResolution(false));
+                      .useToolchainResolution(ToolchainResolutionMode.DISABLED));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
