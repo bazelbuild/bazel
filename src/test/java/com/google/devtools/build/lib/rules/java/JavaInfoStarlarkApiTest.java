@@ -775,7 +775,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     private void build() throws Exception {
       if (useIJar || stampJar || sourceFiles) {
-        writeBuildFileForJavaToolchain();
+        JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
       }
 
       ImmutableList.Builder<String> lines = ImmutableList.builder();

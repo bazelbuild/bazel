@@ -297,7 +297,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaToolchainInfo_jacocoRunnerAttribute() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file("java/test/B.jar");
     scratch.file(
         "java/test/BUILD",
@@ -328,7 +328,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileExposesOutputJarProvider() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file("java/test/B.jar");
     scratch.file(
         "java/test/BUILD",
@@ -417,7 +417,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     // Set up a Starlark rule that uses java_common.compile and supports annotation processing in
     // the same way as java_library, then use a helper method to test that the custom rule produces
     // the same annotation processing information as java_library would.
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -453,7 +453,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileCompilationInfo() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -514,7 +514,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileTransitiveSourceJars() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -573,7 +573,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileSourceJarName() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -640,7 +640,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileWithOnlyOneSourceJar() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -691,7 +691,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompile_noSources() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -737,7 +737,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileWithOnlyOneSourceJarWithIncompatibleFlag() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -788,7 +788,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileCustomSourceJar() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -841,7 +841,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileWithNoSources() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -885,7 +885,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileWithOnlyExportedPlugins() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -933,7 +933,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileAdditionalInputsAndOutputs() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -1551,7 +1551,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   /* Test inspired by {@link AbstractJavaLibraryConfiguredTargetTest#testNeverlink}.*/
   @Test
   public void javaCommonCompileNeverlink() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -1771,7 +1771,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaToolchainFlag_default() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/rule.bzl",
         "result = provider()",
@@ -1811,7 +1811,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaToolchainFlag_set() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/rule.bzl",
         "result = provider()",
@@ -1881,7 +1881,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileExports() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -1937,7 +1937,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileOutputJarHasManifestProto() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
         "def _impl(ctx):",
@@ -1972,7 +1972,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileWithNeverlinkDeps() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
         "def _impl(ctx):",
@@ -2013,7 +2013,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileOutputJarNotInRuntimePathWithoutAnySourcesDefined() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
         "def _impl(ctx):",
@@ -2057,7 +2057,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testConfiguredTargetToolchain() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
 
     scratch.file(
         "a/BUILD",
@@ -2094,7 +2094,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void defaultJavacOpts() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -2120,7 +2120,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void defaultJavacOpts_toolchainProvider() throws Exception {
-    writeBuildFileForJavaToolchain();
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
