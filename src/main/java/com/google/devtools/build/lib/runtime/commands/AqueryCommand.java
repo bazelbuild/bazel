@@ -109,14 +109,15 @@ public final class AqueryCommand implements BlazeCommand {
     BlazeRuntime runtime = env.getRuntime();
 
     BuildRequest request =
-        BuildRequest.create(
-            getClass().getAnnotation(Command.class).name(),
-            options,
-            runtime.getStartupOptionsProvider(),
-            topLevelTargets,
-            env.getReporter().getOutErr(),
-            env.getCommandId(),
-            env.getCommandStartTime());
+        BuildRequest.builder()
+            .setCommandName(getClass().getAnnotation(Command.class).name())
+            .setId(env.getCommandId())
+            .setOptions(options)
+            .setStartupOptions(runtime.getStartupOptionsProvider())
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(topLevelTargets)
+            .setStartTimeMillis(env.getCommandStartTime())
+            .build();
 
     AqueryBuildTool aqueryBuildTool;
 
