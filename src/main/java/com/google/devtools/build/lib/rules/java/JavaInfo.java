@@ -74,8 +74,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           JavaPluginInfoProvider.class,
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
-          JavaCompilationInfoProvider.class,
-          JavaSourceInfoProvider.class);
+          JavaCompilationInfoProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -125,8 +124,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
-    List<JavaSourceInfoProvider> sourceInfos =
-        JavaInfo.fetchProvidersFromList(providers, JavaSourceInfoProvider.class);
 
     ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
     ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
@@ -147,7 +144,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
-        .addProvider(JavaSourceInfoProvider.class, JavaSourceInfoProvider.merge(sourceInfos))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
         // TODO(iirina): merge or remove JavaCompilationInfoProvider
         .setRuntimeJars(runtimeJars.build())

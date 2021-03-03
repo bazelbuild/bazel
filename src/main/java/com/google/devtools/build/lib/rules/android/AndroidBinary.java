@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
@@ -264,8 +263,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     AndroidApplicationResourceInfo androidApplicationResourceInfo =
         ruleContext.getPrerequisite(
-            "application_resources",
-            AndroidApplicationResourceInfo.PROVIDER);
+            "application_resources", AndroidApplicationResourceInfo.PROVIDER);
 
     final ResourceApk resourceApk;
     boolean shouldCompileJavaSrcs = true;
@@ -694,9 +692,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
-        .addProvider(
-            JavaSourceInfoProvider.class,
-            JavaSourceInfoProvider.fromJavaTargetAttributes(resourceClasses, javaSemantics))
         .addNativeDeclaredProvider(
             new ApkInfo(
                 zipAlignedApk,

@@ -70,7 +70,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   private final boolean experimentalJ2ObjcHeaderMap;
   private final boolean experimentalShorterHeaderPath;
   @Nullable private final Label deadCodeReport;
-  private final boolean dontUseJavaSourceInfoProvider;
 
   public J2ObjcConfiguration(BuildOptions buildOptions) {
     J2ObjcCommandLineOptions j2ObjcOptions = buildOptions.get(J2ObjcCommandLineOptions.class);
@@ -84,7 +83,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
     this.experimentalShorterHeaderPath = j2ObjcOptions.experimentalShorterHeaderPath;
     this.deadCodeReport = j2ObjcOptions.deadCodeReport;
-    this.dontUseJavaSourceInfoProvider = j2ObjcOptions.dontUseJavaSourceInfoProvider;
   }
 
   /**
@@ -144,11 +142,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   /** Returns whether objc_library should build generated files using ARC (-fobjc-arc). */
   public boolean compileWithARC() {
     return translationFlags.contains(J2OBJC_USE_ARC_FLAG);
-  }
-
-  /** Collect sources directly or use JavaSourceInfoProvider. */
-  public boolean dontUseJavaSourceInfoProvider() {
-    return dontUseJavaSourceInfoProvider;
   }
 
   @Override

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 
 /**
  * Rule definition for the java_import rule.
@@ -68,9 +67,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
                 .allowedRuleClasses(ALLOWED_DEPS)
                 .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY)
                 .skipAnalysisTimeFileTypeCheck())
-        .advertiseProvider(JavaSourceInfoProvider.class)
         .build();
-
   }
 
   @Override

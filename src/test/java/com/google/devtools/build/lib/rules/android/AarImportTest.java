@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import java.util.Collection;
@@ -280,12 +279,6 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
     assertThat(srcJars).hasSize(1);
     Artifact srcJar = Iterables.getOnlyElement(srcJars);
     assertThat(srcJar.getExecPathString()).endsWith("foo-src.jar");
-
-    Iterable<Artifact> srcInfoJars =
-        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget).getSourceJars();
-    assertThat(srcInfoJars).hasSize(1);
-    Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
-    assertThat(srcInfoJar.getExecPathString()).endsWith("foo-src.jar");
   }
 
   @Test
@@ -297,12 +290,6 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
             .getTransitiveSourceJars();
     assertThat(ActionsTestUtil.baseArtifactNames(srcJars))
         .containsExactly("foo-src.jar", "bar-src.jar");
-
-    Iterable<Artifact> srcInfoJars =
-        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget).getSourceJars();
-    assertThat(srcInfoJars).hasSize(1);
-    Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
-    assertThat(srcInfoJar.getExecPathString()).endsWith("bar-src.jar");
   }
 
   @Test

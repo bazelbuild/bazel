@@ -113,9 +113,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
-    JavaSourceInfoProvider javaSourceInfoProvider =
-        new JavaSourceInfoProvider.Builder().setSourceJars(srcJars).build();
-
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
@@ -138,7 +135,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
             .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
