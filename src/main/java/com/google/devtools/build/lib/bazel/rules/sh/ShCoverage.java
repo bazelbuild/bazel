@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Common logic for coverage for sh_* rules. */
-final class ShCoverage {
+public final class ShCoverage {
 
   private ShCoverage() {}
 

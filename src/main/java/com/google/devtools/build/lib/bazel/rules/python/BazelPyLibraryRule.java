@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
 /**
@@ -39,7 +40,7 @@ public final class BazelPyLibraryRule implements RuleDefinition {
         .add(
             attr("srcs", LABEL_LIST)
                 .direct_compile_time_input()
-                .allowedFileTypes(BazelPyRuleClasses.PYTHON_SOURCE))
+                .allowedFileTypes(PyRuleClasses.PYTHON_SOURCE))
         .build();
   }
 
