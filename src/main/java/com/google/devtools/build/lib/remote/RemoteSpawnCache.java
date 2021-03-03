@@ -147,7 +147,7 @@ final class RemoteSpawnCache implements SpawnCache {
     RemoteOutputsMode remoteOutputsMode = options.remoteOutputsMode;
     Action action =
         RemoteSpawnRunner.buildAction(
-            digestUtil.compute(command), merkleTreeRoot, context.getTimeout(), true);
+            digestUtil.compute(command), merkleTreeRoot, platform, context.getTimeout(), true);
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
