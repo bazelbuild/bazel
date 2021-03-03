@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(
     default_testonly = 1,

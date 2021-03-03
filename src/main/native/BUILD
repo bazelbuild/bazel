@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({

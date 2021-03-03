@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "objc_library")
-
 package(default_visibility = ["//visibility:public"])
 
 # Files which shouldn't be publicly visible and dependencies of all objc_* or ios_* rules shouldn't be in this package.

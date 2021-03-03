@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 load("//src:release_archive.bzl", "release_archive")
 
 # Description:
