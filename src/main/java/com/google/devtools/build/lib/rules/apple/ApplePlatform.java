@@ -98,6 +98,16 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   /**
+   * Returns the platform cpu string with target environment (_device|_simulator).
+   *
+   * @param targetCpu cpu value with platform type prefix, such as 'ios_arm64'
+   */
+  public String cpuStringWithTargetEnvironmentForTargetCpu(String targetCpu) {
+    String targetEnvironment = isDevice ? "device" : "simulator";
+    return String.format("%s_%s", targetCpu, targetEnvironment);
+  }
+
+  /**
    * Returns the name of the "platform" as it appears in the plist when it appears in all-lowercase.
    */
   public String getLowerCaseNameInPlist() {

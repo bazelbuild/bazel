@@ -214,8 +214,7 @@ public class AppleStarlarkCommon
         Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
-    return new AppleDynamicFrameworkInfo(
-        binary, depsObjcProvider, frameworkDirs, frameworkFiles);
+    return new AppleDynamicFrameworkInfo(binary, depsObjcProvider, frameworkDirs, frameworkFiles);
   }
 
   @Override
@@ -224,6 +223,7 @@ public class AppleStarlarkCommon
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkInt stamp,
+      Boolean shouldLipo,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
@@ -235,7 +235,8 @@ public class AppleStarlarkCommon
               ruleContext,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
-              isStampingEnabled);
+              isStampingEnabled,
+              shouldLipo);
       return createAppleBinaryOutputStarlarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(exception);
@@ -275,7 +276,9 @@ public class AppleStarlarkCommon
         ImmutableMap.of(
             "binary_provider", output.getBinaryInfoProvider(),
             "debug_outputs_provider", output.getDebugOutputsProvider(),
-            "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
+            "output_groups", Dict.copyOf(thread.mutability(), outputGroups),
+            "artifact_by_platform",
+                Dict.copyOf(thread.mutability(), output.getArtifactByPlatform()));
     return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 
