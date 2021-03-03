@@ -29,14 +29,6 @@ and more, all completely from .bzl files (no Bazel release required). See the
 
 <!-- [TOC] -->
 
-## Current status
-
-Ongoing bug/feature work can be found in the [Bazel
-configurability roadmap](https://bazel.build/roadmaps/configuration.html).
-
-This feature may have [memory and performance impacts](#memory-and-performance-considerations) and we are
-still working on ways to [measure and mitigate](https://github.com/bazelbuild/bazel/issues/10613) those impacts.
-
 ## User-defined build settings
 A build setting is a single piece of
 [configuration](rules.html#configurations)
@@ -406,8 +398,8 @@ A configuration
 is how we change configuration of
 configured targets in the build graph.
 
-> IMPORTANT: In order to use Starlark transitions, you need to attach a
-> special attribute to the rule to which the transition is attached:
+> IMPORTANT: Transitions have [memory and performance impact](#memory-and-performance-considerations).
+> Rules that set them must include a special attribute:
 >
 > ```python
 > "_allowlist_function_transition": attr.label(
