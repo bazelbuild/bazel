@@ -299,5 +299,130 @@ EOF
   grep "child_value" out.txt || fail "Did not find the overriding value"
 }
 
+function test_platform_execgroup_properties_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "default_value" out.txt || fail "Did not find the default value"
+  grep "test_value" out.txt && fail "Used the test-action value when not testing"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_value" out.txt || fail "Did not find the test-action value"
+}
+
+function test_platform_execgroup_properties_nongroup_override_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "platform_key": "override_value",
+  },
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "override_value" out.txt || fail "Did not find the overriding value"
+  grep "default_value" out.txt && fail "Used the default value"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "override_value" out.txt || fail "Did not find the overriding value"
+}
+
+function test_platform_execgroup_properties_group_override_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "test.platform_key": "test_override",
+  },
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "default_value" out.txt || fail "Used the default value"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_override" out.txt || fail "Did not find the overriding test-action value"
+}
+
+function test_platform_execgroup_properties_override_group_and_default_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "platform_key": "override_value",
+    "test.platform_key": "test_override",
+  },
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "override_value" out.txt || fail "Did not find the overriding value"
+  grep "default_value" out.txt && fail "Used the default value"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_override" out.txt || fail "Did not find the overriding test-action value"
+}
+
 run_suite "platform mapping test"
 
