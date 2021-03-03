@@ -45,13 +45,6 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   FileT getIJar();
 
-  @StarlarkMethod(
-      name = "manifest_proto",
-      doc =
-          "A manifest proto file. The protobuf file containing the manifest generated from "
-              + "JavaBuilder.",
-      allowReturnNones = true,
-      structField = true)
   @Nullable
   FileT getManifestProto();
 

@@ -41,11 +41,6 @@ public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?
   @Nullable
   FileApi getJdeps();
 
-  @StarlarkMethod(
-      name = "native_headers",
-      doc = "An archive of native header files.",
-      structField = true,
-      allowReturnNones = true)
   @Nullable
   FileApi getNativeHeaders();
 }
