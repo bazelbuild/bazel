@@ -242,7 +242,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     Digest commandHash = digestUtil.compute(command);
     Action action =
         buildAction(
-            commandHash, merkleTree.getRootDigest(), context.getTimeout(), spawnCacheableRemotely);
+            commandHash,
+            merkleTree.getRootDigest(),
+            platform,
+            context.getTimeout(),
+            spawnCacheableRemotely);
 
     spawnMetrics.setParseTime(totalTime.elapsed());
 
@@ -695,7 +699,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  static Action buildAction(Digest command, Digest inputRoot, Duration timeout, boolean cacheable) {
+  static Action buildAction(
+      Digest command,
+      Digest inputRoot,
+      @Nullable Platform platform,
+      Duration timeout,
+      boolean cacheable) {
 
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
@@ -705,6 +714,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
     if (!cacheable) {
       action.setDoNotCache(true);
+    }
+    if (platform != null) {
+      action.setPlatform(platform);
     }
     return action.build();
   }
