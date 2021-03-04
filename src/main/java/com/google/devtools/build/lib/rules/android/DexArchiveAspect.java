@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -504,6 +505,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
+            .setExecutionInfo(
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)
