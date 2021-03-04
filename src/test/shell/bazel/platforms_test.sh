@@ -321,7 +321,7 @@ EOF
   bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "default_value" out.txt || fail "Did not find the default value"
-  (! grep "test_value" out.txt) || fail "Used the test-action value when not testing"
+  grep "test_value" out.txt && fail "Used the test-action value when not testing"
 
   bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -353,7 +353,7 @@ EOF
   bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  (! grep "default_value" out.txt) || fail "Used the default value"
+  grep "default_value" out.txt && fail "Used the default value"
 
   bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -417,7 +417,7 @@ EOF
   bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  (! grep "default_value" out.txt) || fail "Used the default value"
+  grep "default_value" out.txt && fail "Used the default value"
 
   bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -446,7 +446,6 @@ EOF
   bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "default_value" out.txt || fail "Did not find the default value"
-  (! grep "unknown_value" out.txt) || fail "Used the value for an unknown execgroup"
 }
 
 function test_cannot_set_properties_for_irrelevant_execgroup_on_target_cc_test() {
@@ -463,7 +462,7 @@ cc_test(
   }
 )
 EOF
-  (! bazel test :a >& $TEST_log) || fail "Build passed when we expected an error"
+  bazel test :a &> $TEST_log && fail "Build passed when we expected an error"
   grep "Tried to set properties for non-existent exec group" $TEST_log || fail "Did not complain about unknown exec group"
 }
 
