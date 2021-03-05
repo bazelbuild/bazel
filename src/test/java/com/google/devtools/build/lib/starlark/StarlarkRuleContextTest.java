@@ -3138,7 +3138,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/rule.bzl",
         "def _sample_impl(ctx):",
         "    info = ctx.toolchains['//:toolchain_type']",
-        "    if info:",
+        "    if info != None:",
         "        fail('Toolchain should be empty')",
         "sample_setting = rule(",
         "    implementation = _sample_impl,",
