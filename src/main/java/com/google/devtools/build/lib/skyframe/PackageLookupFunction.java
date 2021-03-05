@@ -189,9 +189,14 @@ public class PackageLookupFunction implements SkyFunction {
       // This error is not transient from the perspective of the PackageLookupFunction.
       throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
     } catch (FileSymlinkException e) {
-      throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
-          "Symlink cycle detected while trying to find " + basename + " file "
-              + fileRootedPath.asPath()),
+      throw new PackageLookupFunctionException(
+          new BuildFileNotFoundException(
+              packageIdentifier,
+              "Symlink cycle detected while trying to find "
+                  + basename
+                  + " file "
+                  + fileRootedPath.asPath(),
+              e),
           Transience.PERSISTENT);
     } catch (IOException e) {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,

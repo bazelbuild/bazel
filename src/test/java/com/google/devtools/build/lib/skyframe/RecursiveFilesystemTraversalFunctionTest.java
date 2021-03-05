@@ -986,7 +986,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     ErrorInfo error = result.getError(key);
     assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
     assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
-        .isEqualTo(RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE);
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
     assertThat(error.getException()).hasMessageThat().contains("Infinite symlink expansion");
   }
 
@@ -1006,7 +1006,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     ErrorInfo error = result.getError(key);
     assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
     assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
-        .isEqualTo(RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE);
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
     assertThat(error.getException()).hasMessageThat().contains("Symlink cycle");
   }
 

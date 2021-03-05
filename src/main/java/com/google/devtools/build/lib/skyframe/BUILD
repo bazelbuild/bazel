@@ -2136,6 +2136,7 @@ java_library(
     deps = [
         ":action_execution_value",
         ":directory_listing_value",
+        ":file_symlink_exception",
         ":file_symlink_infinite_expansion_exception",
         ":file_symlink_infinite_expansion_uniqueness_function",
         ":package_lookup_value",
@@ -2147,6 +2148,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.BlazeTestUtils.createFilesetRule;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -29,12 +30,14 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -260,8 +263,57 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
             + " blaze-out/k8-fastbuild/bin/foo/_pic_objs/lib/mytree: nope");
   }
 
+  @Test
+  public void filesetIOException() throws Exception {
+    write("foo/BUILD");
+    Path filePath = write("foo/subdir/file");
+    // Violating best practices, this doesn't explicitly list the file underneath //foo that it
+    // wants, since then foo would have to expose that file as a target, leading to foo/subdir
+    // being listed (and cached in Skyframe) during the analysis phase, not the execution phase.
+    write(
+        "fileset/BUILD",
+        createFilesetRule("fileset", "fs_out", "FilesetEntry (srcdir = '//foo', destdir = 'x')"));
+    customFileSystem.alwaysError(filePath.getParentDirectory());
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//fileset"));
+    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
+    assertThat(rootCauses).hasSize(1);
+    assertThat(rootCauses.get(0).getLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//fileset:fileset"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    events.assertContainsError(
+        "Traversing Fileset trees to write manifest fileset/fileset.fileset_manifest failed: Error"
+            + " while traversing directory foo/subdir: nope");
+  }
+
+  @Test
+  public void filesetIOExceptionInBuildFile() throws Exception {
+    // Violating best practices, this doesn't explicitly list the file underneath //foo that it
+    // wants, since then foo would have to expose that file as a target, leading to foo/subdir
+    // being listed (and cached in Skyframe) during the analysis phase, not the execution phase.
+    Path packageBuildFile =
+        write(
+            "fileset/BUILD",
+            createFilesetRule("fileset", "fs_out", "FilesetEntry (srcdir = 'foo', destdir = 'x')"));
+    Path packageDirectory = packageBuildFile.getParentDirectory();
+    Path subdir = packageDirectory.getRelative("foo/bar");
+    subdir.createDirectoryAndParents();
+    customFileSystem.alwaysError(subdir.getChild("BUILD"));
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//fileset"));
+    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
+    assertThat(rootCauses).hasSize(1);
+    assertThat(rootCauses.get(0).getLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//fileset:fileset"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    events.assertContainsError(
+        "Traversing Fileset trees to write manifest fileset/fileset.fileset_manifest failed: Error"
+            + " while traversing directory fileset/foo/bar: no such package 'fileset/foo/bar': IO"
+            + " errors while looking for BUILD file");
+  }
+
   private static class CustomRealFilesystem extends UnixFileSystem {
-    private Map<Path, Integer> badPaths = new HashMap<>();
+    private final Map<Path, Integer> badPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
@@ -315,6 +367,12 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     protected UnixFileStatus statInternal(Path path, boolean followSymlinks) throws IOException {
       maybeThrowExn(path);
       return super.statInternal(path, followSymlinks);
+    }
+
+    @Override
+    protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+      maybeThrowExn(path);
+      return super.readdir(path, followSymlinks);
     }
 
     @Override
