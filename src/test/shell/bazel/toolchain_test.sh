@@ -2034,35 +2034,6 @@ EOF
   expect_not_log "does not provide ToolchainTypeInfo"
 }
 
-function test_toolchain_from_no_toolchain_rule() {
-  # Create a build_setting that tries to load a toolchain.
-  # build_settings cnanot actually have toolchains because they
-  # are part of the configuration.
-  mkdir -p demo
-  cat >> demo/BUILD <<EOF
-load(":rule.bzl", "sample_setting")
-
-toolchain_type(name = "toolchain_type")
-sample_setting(
-    name = "demo",
-    build_setting_default = True,
-)
-EOF
-  cat >> demo/rule.bzl <<EOF
-def _sample_impl(ctx):
-    info = ctx.toolchains["//:toolchain_type"]
-    if info:
-        fail("Toolchain should be empty")
-
-sample_setting = rule(
-    implementation = _sample_impl,
-    build_setting = config.bool(flag = True),
-)
-EOF
-
-  bazel build //demo &> $TEST_log || fail "Build should succeed"
-}
-
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"
