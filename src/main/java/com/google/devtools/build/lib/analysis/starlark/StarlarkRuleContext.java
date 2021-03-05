@@ -709,12 +709,12 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       // Starlark rules are easier if this cannot be null, so return a no-op value instead.
       return new ToolchainContextApi() {
         @Override
-        public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+        public Object getIndex(StarlarkSemantics semantics, Object key) {
           return Starlark.NONE;
         }
 
         @Override
-        public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+        public boolean containsKey(StarlarkSemantics semantics, Object key) {
           return false;
         }
       };
