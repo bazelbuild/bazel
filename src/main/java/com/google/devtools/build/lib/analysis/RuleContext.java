@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -217,7 +218,7 @@ public final class RuleContext extends TargetContext
   private final ConstraintSemantics<RuleContext> constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
-  private final ImmutableMap<String, ImmutableMap<String, String>> execProperties;
+  private final ImmutableTable<String, String, String> execProperties;
 
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
@@ -635,17 +636,16 @@ public final class RuleContext extends TargetContext
     Map<String, String> execProperties = new HashMap<>();
 
     if (executionPlatform != null) {
-      Map<String, Map<String, String>> execPropertiesPerGroup =
+      ImmutableTable<String, String, String> execPropertiesPerGroup =
           parseExecGroups(executionPlatform.execProperties());
 
-      if (execPropertiesPerGroup.containsKey(DEFAULT_EXEC_GROUP_NAME)) {
-        execProperties.putAll(execPropertiesPerGroup.get(DEFAULT_EXEC_GROUP_NAME));
-        execPropertiesPerGroup.remove(DEFAULT_EXEC_GROUP_NAME);
+      if (execPropertiesPerGroup.containsRow(DEFAULT_EXEC_GROUP_NAME)) {
+        execProperties.putAll(execPropertiesPerGroup.row(DEFAULT_EXEC_GROUP_NAME));
       }
 
-      for (Map.Entry<String, Map<String, String>> execGroup : execPropertiesPerGroup.entrySet()) {
-        if (execGroups.contains(execGroup.getKey())) {
-          execProperties.putAll(execGroup.getValue());
+      for (String execGroup : execPropertiesPerGroup.rowKeySet()) {
+        if (execGroups.contains(execGroup)) {
+          execProperties.putAll(execPropertiesPerGroup.row(execGroup));
         }
       }
     }
@@ -1404,10 +1404,10 @@ public final class RuleContext extends TargetContext
     return ans.build();
   }
 
-  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+  private ImmutableTable<String, String, String> parseExecProperties(
       Map<String, String> execProperties) throws InvalidExecGroupException {
     if (execProperties.isEmpty()) {
-      return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
+      return ImmutableTable.of();
     } else {
       return parseExecProperties(
           execProperties, toolchainContexts == null ? null : toolchainContexts.getExecGroups());
@@ -1420,25 +1420,21 @@ public final class RuleContext extends TargetContext
    * former get parsed into the default exec group, the latter get parsed into their relevant exec
    * groups.
    */
-  private static Map<String, Map<String, String>> parseExecGroups(
+  private static ImmutableTable<String, String, String> parseExecGroups(
       Map<String, String> rawExecProperties) {
-    Map<String, Map<String, String>> consolidatedProperties = new HashMap<>();
-    consolidatedProperties.put(DEFAULT_EXEC_GROUP_NAME, new HashMap<>());
+    ImmutableTable.Builder<String, String, String> execProperties = ImmutableTable.builder();
     for (Map.Entry<String, String> execProperty : rawExecProperties.entrySet()) {
       String rawProperty = execProperty.getKey();
       int delimiterIndex = rawProperty.indexOf('.');
       if (delimiterIndex == -1) {
-        consolidatedProperties
-            .get(DEFAULT_EXEC_GROUP_NAME)
-            .put(rawProperty, execProperty.getValue());
+        execProperties.put(DEFAULT_EXEC_GROUP_NAME, rawProperty, execProperty.getValue());
       } else {
         String execGroup = rawProperty.substring(0, delimiterIndex);
         String property = rawProperty.substring(delimiterIndex + 1);
-        consolidatedProperties.putIfAbsent(execGroup, new HashMap<>());
-        consolidatedProperties.get(execGroup).put(property, execProperty.getValue());
+        execProperties.put(execGroup, property, execProperty.getValue());
       }
     }
-    return consolidatedProperties;
+    return execProperties.build();
   }
 
   /**
@@ -1446,13 +1442,13 @@ public final class RuleContext extends TargetContext
    * If given a set of exec groups, validates all the exec groups in the map are applicable to the
    * action.
    */
-  private static ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+  private static ImmutableTable<String, String, String> parseExecProperties(
       Map<String, String> rawExecProperties, @Nullable Set<String> execGroups)
       throws InvalidExecGroupException {
-    Map<String, Map<String, String>> consolidatedProperties = parseExecGroups(rawExecProperties);
+    ImmutableTable<String, String, String> consolidatedProperties =
+        parseExecGroups(rawExecProperties);
     if (execGroups != null) {
-      for (Map.Entry<String, Map<String, String>> execGroup : consolidatedProperties.entrySet()) {
-        String execGroupName = execGroup.getKey();
+      for (String execGroupName : consolidatedProperties.rowKeySet()) {
         if (!execGroupName.equals(DEFAULT_EXEC_GROUP_NAME) && !execGroups.contains(execGroupName)) {
           throw new InvalidExecGroupException(
               String.format(
@@ -1461,14 +1457,7 @@ public final class RuleContext extends TargetContext
       }
     }
 
-    // Copy everything to immutable maps.
-    ImmutableMap.Builder<String, ImmutableMap<String, String>> execProperties =
-        new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Map<String, String>> execGroupMap : consolidatedProperties.entrySet()) {
-      execProperties.put(execGroupMap.getKey(), ImmutableMap.copyOf(execGroupMap.getValue()));
-    }
-
-    return execProperties.build();
+    return consolidatedProperties;
   }
 
   /**
@@ -1480,16 +1469,16 @@ public final class RuleContext extends TargetContext
    * @param execProperties Map of exec group name to map of properties and values
    */
   private static ImmutableMap<String, String> getExecProperties(
-      String execGroup, Map<String, ImmutableMap<String, String>> execProperties) {
-    if (!execProperties.containsKey(execGroup) || execGroup.equals(DEFAULT_EXEC_GROUP_NAME)) {
-      return execProperties.get(DEFAULT_EXEC_GROUP_NAME);
+      String execGroup, ImmutableTable<String, String, String> execProperties) {
+    if (!execProperties.containsRow(execGroup) || execGroup.equals(DEFAULT_EXEC_GROUP_NAME)) {
+      return execProperties.row(DEFAULT_EXEC_GROUP_NAME);
     }
 
     // Use a HashMap to build here because we expect duplicate keys to happen
     // (and rewrite previous entries).
     Map<String, String> targetAndGroupProperties =
-        new HashMap<>(execProperties.get(DEFAULT_EXEC_GROUP_NAME));
-    targetAndGroupProperties.putAll(execProperties.get(execGroup));
+        new HashMap<>(execProperties.row(DEFAULT_EXEC_GROUP_NAME));
+    targetAndGroupProperties.putAll(execProperties.row(execGroup));
     return ImmutableMap.copyOf(targetAndGroupProperties);
   }
 
@@ -1508,11 +1497,6 @@ public final class RuleContext extends TargetContext
               .setAnalysis(Analysis.newBuilder().setCode(Code.EXEC_GROUP_MISSING))
               .build());
     }
-  }
-
-  @VisibleForTesting
-  public ImmutableMap<String, ImmutableMap<String, String>> getExecPropertiesForTesting() {
-    return execProperties;
   }
 
   private void checkAttributeIsDependency(String attributeName) {
