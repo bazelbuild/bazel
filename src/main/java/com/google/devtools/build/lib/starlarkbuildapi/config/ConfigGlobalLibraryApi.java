@@ -58,7 +58,7 @@ public interface ConfigGlobalLibraryApi {
             // strings. Update the documentation.
             doc =
                 "The function implementing this transition. This function always has two "
-                    + "parammeters: <code>settings</code> and <code>attr</code>. The "
+                    + "parameters: <code>settings</code> and <code>attr</code>. The "
                     + "<code>settings</code> param is a dictionary whose set of keys is defined "
                     + "by the inputs parameter. So, for each build setting "
                     + "<code>--//foo=bar</code>, if <code>inputs</code> contains "
