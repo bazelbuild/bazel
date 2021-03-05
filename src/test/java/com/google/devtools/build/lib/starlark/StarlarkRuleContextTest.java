@@ -3123,4 +3123,28 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Object result = ev.eval("ruleContext.build_file_path");
     assertThat(result).isEqualTo("bar/BUILD");
   }
+
+  @Test
+  public void testNoToolchainContext() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'sample_setting')",
+        "toolchain_type(name = 'toolchain_type')",
+        "sample_setting(",
+        "    name = 'test',",
+        "    build_setting_default = True,",
+        ")");
+    scratch.file(
+        "test/rule.bzl",
+        "def _sample_impl(ctx):",
+        "    info = ctx.toolchains['//:toolchain_type']",
+        "    if info:",
+        "        fail('Toolchain should be empty')",
+        "sample_setting = rule(",
+        "    implementation = _sample_impl,",
+        "    build_setting = config.bool(flag = True),",
+        ")");
+    getConfiguredTarget("//test:test");
+    assertNoEvents();
+  }
 }
