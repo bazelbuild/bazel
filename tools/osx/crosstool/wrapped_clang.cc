@@ -419,7 +419,8 @@ int main(int argc, char *argv[]) {
   RunSubProcess(invocation_args);
 
   std::vector<std::string> dsymutil_args = {
-      "/usr/bin/xcrun", "dsymutil", linked_binary, "-o", dsym_path, "--flat"};
+      "/usr/bin/xcrun", "dsymutil", linked_binary, "-o", dsym_path, "--flat",
+      "--no-swiftmodule-timestamp"};
   ExecProcess(dsymutil_args);
   std::cerr << "ExecProcess should not return. Please fix!\n";
   abort();
