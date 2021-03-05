@@ -131,6 +131,12 @@ public final class ExtraActionRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = extra_action, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
 <p>
+  <b>WARNING:</b> Extra actions are deprecated. Use
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  instead.
+</p>
+
+<p>
   An <code>extra_action</code> rule doesn't produce any meaningful output
   when specified as a regular build target. Instead, it allows tool developers
   to insert additional actions into the build graph that shadow existing actions.

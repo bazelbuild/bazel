@@ -566,6 +566,11 @@ the compilation of binaries during the build.
   <code class='flag'>--experimental_action_listener=<var>label</var></code>
 </h4>
 <p>
+  <b>WARNING:</b> Extra actions are deprecated. Use
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  instead.
+</p>
+<p>
   The <code>experimental_action_listener</code> option instructs Bazel to use
   details from the <a href="be/extra-actions.html#action_listener"
   ><code>action_listener</code></a> rule specified by <var>label</var> to
@@ -577,6 +582,11 @@ the compilation of binaries during the build.
   <code class='flag'>--[no]experimental_extra_action_top_level_only</code>
 </h4>
 <p>
+  <b>WARNING:</b> Extra actions are deprecated. Use
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  instead.
+</p>
+<p>
   If this option is set to true, extra actions specified by the
   <a href='#flag--experimental_action_listener'> <code>
   --experimental_action_listener</code></a> command line option will only be
@@ -586,6 +596,11 @@ the compilation of binaries during the build.
 <h4 id='flag--experimental_extra_action_filter'>
   <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
 </h4>
+<p>
+  <b>WARNING:</b> Extra actions are deprecated. Use
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  instead.
+</p>
 <p>
   The <code>experimental_extra_action_filter</code> option instructs Bazel to
   filter the set of targets to schedule <code>extra_actions</code> for.

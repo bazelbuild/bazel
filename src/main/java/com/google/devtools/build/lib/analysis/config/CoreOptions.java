@@ -528,7 +528,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Use action_listener to attach an extra_action to existing build actions.")
+      help =
+          "Deprecated in favor of aspects. Use action_listener to attach an extra_action to"
+              + " existing build actions.")
   public List<Label> actionListeners;
 
   @Option(
