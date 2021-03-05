@@ -299,11 +299,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
       }
 
-      requestBuilder
-          .addInputsBuilder()
-          .setPath(input.getExecPathString())
-          .setDigest(digest)
-          .build();
+      requestBuilder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
     }
     if (key.getProxied()) {
       requestBuilder.setRequestId(requestIdCounter.getAndIncrement());
