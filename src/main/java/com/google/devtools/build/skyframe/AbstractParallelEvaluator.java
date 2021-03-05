@@ -657,6 +657,11 @@ abstract class AbstractParallelEvaluator {
                   childErrorKey,
                   childErrorInfoMaybe);
           evaluatorContext.getVisitor().preventNewEvaluations();
+          // TODO(b/166268889): Remove when fixed.
+          if (childErrorInfo.getException() instanceof IOException) {
+            logger.atInfo().withCause(childErrorInfo.getException()).log(
+                "Child %s with IOException forced abort of %s", childErrorKey, skyKey);
+          }
           throw SchedulerException.ofError(childErrorInfo, childErrorKey, ImmutableSet.of(skyKey));
         }
 

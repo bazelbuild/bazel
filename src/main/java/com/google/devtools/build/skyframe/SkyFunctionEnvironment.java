@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,6 +40,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -53,7 +55,7 @@ import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
 class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
-
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final SkyValue NULL_MARKER = new SkyValue() {};
   private static final boolean PREFETCH_OLD_DEPS =
       Boolean.parseBoolean(
@@ -822,6 +824,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     if (errorInfo == null) {
       errorInfo = evaluatorContext.getErrorInfoManager().getErrorInfoToUse(
           skyKey, value != null, childErrorInfos);
+      // TODO(b/166268889): remove when fixed.
+      if (errorInfo != null && errorInfo.getException() instanceof IOException) {
+        logger.atInfo().withCause(errorInfo.getException()).log(
+            "Synthetic errorInfo for %s", skyKey);
+      }
     }
 
     // We have the following implications:
