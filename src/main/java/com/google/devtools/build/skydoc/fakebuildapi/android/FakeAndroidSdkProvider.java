@@ -53,6 +53,7 @@ public class FakeAndroidSdkProvider
     return null;
   }
 
+  @Nullable
   @Override
   public FileApi getShrinkedAndroidJar() {
     return null;
@@ -144,7 +145,7 @@ public class FakeAndroidSdkProvider
             Object aidlLib,
             FileApi androidJar,
             Object sourceProperties,
-            FileApi shrinkedAndroidJar,
+            Object shrinkedAndroidJar,
             FileApi mainDexClasses,
             FilesToRunProviderApi<FileApi> adb,
             FilesToRunProviderApi<FileApi> dx,

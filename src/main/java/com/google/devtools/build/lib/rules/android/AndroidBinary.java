@@ -1815,7 +1815,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact jar,
       @Nullable Artifact mainDexProguardSpec,
       @Nullable Artifact proguardOutputMap)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     // Create the main dex classes list.
     Artifact mainDexList = AndroidBinary.getDxArtifact(ruleContext, "main_dex_list.txt");
@@ -1841,6 +1841,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // legacy_main_dex_list_generator is provided, use that tool instead.
     // TODO(b/147692286): Remove the old main-dex list generation that relied on ProGuard.
     if (legacyMainDexListGenerator == null) {
+      if (sdk.getShrinkedAndroidJar() == null) {
+        ruleContext.throwWithRuleError(
+            "In \"legacy\" multidex mode, either legacy_main_dex_list_generator or "
+                + "shrinked_android_jar must be set in the android_sdk.");
+      }
       // Process the input jar through Proguard into an intermediate, streamlined jar.
       Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
       SpawnAction.Builder streamlinedBuilder =
