@@ -114,39 +114,43 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
       throws InterruptedException {
-    if (evaluatorContext.getProgressReceiver() != null) {
-      Preconditions.checkState(entry.isDone(), entry);
-      SkyValue value = entry.getValue();
-      Version valueVersion = entry.getVersion();
-      Preconditions.checkState(
-          valueVersion.atMost(evaluatorContext.getGraphVersion()),
-          "%s should be at most %s in the version partial ordering",
-          valueVersion,
-          evaluatorContext.getGraphVersion());
-
-      SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
-      if (valueMaybeWithMetadata != null) {
-        replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
-      }
-
-      // For most nodes we do not inform the progress receiver if they were already done when we
-      // retrieve them, but top-level nodes are presumably of more interest.
-      // If valueVersion is not equal to graphVersion, it must be less than it (by the
-      // Preconditions check above), and so the node is clean.
-      EvaluationState evaluationState =
-          valueVersion.equals(evaluatorContext.getGraphVersion())
-              ? EvaluationState.BUILT
-              : EvaluationState.CLEAN;
-      evaluatorContext
-          .getProgressReceiver()
-          .evaluated(
-              key,
-              evaluationState == EvaluationState.BUILT ? value : null,
-              value != null
-                  ? EvaluationSuccessState.SUCCESS.supplier()
-                  : EvaluationSuccessState.FAILURE.supplier(),
-              evaluationState);
+    if (evaluatorContext.getProgressReceiver() == null) {
+      return;
     }
+    Preconditions.checkState(entry.isDone(), entry);
+    SkyValue value = entry.getValue();
+    Version valueVersion = entry.getVersion();
+    Preconditions.checkState(
+        valueVersion.atMost(evaluatorContext.getGraphVersion()),
+        "%s should be at most %s in the version partial ordering",
+        valueVersion,
+        evaluatorContext.getGraphVersion());
+
+    ErrorInfo error = null;
+    SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
+    if (valueMaybeWithMetadata != null) {
+      replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
+      error = ValueWithMetadata.getMaybeErrorInfo(valueMaybeWithMetadata);
+    }
+
+    // For most nodes we do not inform the progress receiver if they were already done when we
+    // retrieve them, but top-level nodes are presumably of more interest.
+    // If valueVersion is not equal to graphVersion, it must be less than it (by the
+    // Preconditions check above), and so the node is clean.
+    EvaluationState evaluationState =
+        valueVersion.equals(evaluatorContext.getGraphVersion())
+            ? EvaluationState.BUILT
+            : EvaluationState.CLEAN;
+    evaluatorContext
+        .getProgressReceiver()
+        .evaluated(
+            key,
+            evaluationState == EvaluationState.BUILT ? value : null,
+            evaluationState == EvaluationState.BUILT ? error : null,
+            value != null
+                ? EvaluationSuccessState.SUCCESS.supplier()
+                : EvaluationSuccessState.FAILURE.supplier(),
+            evaluationState);
   }
 
   <T extends SkyValue> EvaluationResult<T> evalExceptionally(Iterable<? extends SkyKey> skyKeys)

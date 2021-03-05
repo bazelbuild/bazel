@@ -3041,18 +3041,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     @Override
     public void evaluated(
         SkyKey skyKey,
-        @Nullable SkyValue value,
+        @Nullable SkyValue newValue,
+        @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
-      trimmingListener.evaluated(skyKey, value, evaluationSuccessState, state);
+      trimmingListener.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
       if (ignoreInvalidations) {
         return;
       }
       skyframeBuildView
           .getProgressReceiver()
-          .evaluated(skyKey, value, evaluationSuccessState, state);
+          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
       if (executionProgressReceiver != null) {
-        executionProgressReceiver.evaluated(skyKey, value, evaluationSuccessState, state);
+        executionProgressReceiver.evaluated(
+            skyKey, newValue, newError, evaluationSuccessState, state);
       }
     }
   }

@@ -511,7 +511,8 @@ public class ParallelEvaluatorTest {
               @Override
               public void evaluated(
                   SkyKey skyKey,
-                  @Nullable SkyValue value,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
                   Supplier<EvaluationSuccessState> evaluationSuccessState,
                   EvaluationState state) {
                 receivedValues.add(skyKey);
@@ -2184,7 +2185,8 @@ public class ParallelEvaluatorTest {
           @Override
           public void evaluated(
               SkyKey skyKey,
-              @Nullable SkyValue value,
+              @Nullable SkyValue newValue,
+              @Nullable ErrorInfo newError,
               Supplier<EvaluationSuccessState> evaluationSuccessState,
               EvaluationState state) {
             evaluatedValues.add(skyKey);

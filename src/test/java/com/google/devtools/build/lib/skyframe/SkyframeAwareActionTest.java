@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
@@ -179,6 +180,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     public void evaluated(
         SkyKey skyKey,
         @Nullable SkyValue value,
+        @Nullable ErrorInfo error,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
       evaluated.add(new EvaluatedEntry(skyKey, evaluationSuccessState.get(), state));

@@ -71,6 +71,7 @@ public class TrackingProgressReceiver
   public void evaluated(
       SkyKey skyKey,
       @Nullable SkyValue value,
+      @Nullable ErrorInfo error,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     evaluated.add(skyKey);

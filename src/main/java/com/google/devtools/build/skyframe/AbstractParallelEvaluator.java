@@ -350,7 +350,11 @@ abstract class AbstractParallelEvaluator {
           evaluatorContext
               .getProgressReceiver()
               .evaluated(
-                  skyKey, null, new EvaluationSuccessStateSupplier(state), EvaluationState.CLEAN);
+                  skyKey,
+                  /*newValue=*/ null,
+                  /*newError=*/ null,
+                  new EvaluationSuccessStateSupplier(state),
+                  EvaluationState.CLEAN);
           if (!evaluatorContext.keepGoing() && state.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;

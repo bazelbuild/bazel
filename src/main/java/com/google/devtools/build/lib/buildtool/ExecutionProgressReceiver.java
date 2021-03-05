@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -102,7 +103,8 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
-      @Nullable SkyValue value,
+      @Nullable SkyValue newValue,
+      @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     SkyFunctionName type = skyKey.functionName();
