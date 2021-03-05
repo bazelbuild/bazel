@@ -300,11 +300,14 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   /**
    * StarlarkAction can contain `unused_input_list`, which rely on the action cache entry's file
    * list to determine the list of inputs for a subsequent run, taking into account
-   * unused_input_list. Hence we need to store the inputs' execPaths in the action cache.
+   * unused_input_list. Hence we need to store the inputs' execPaths in the action cache. The
+   * StarlarkAction inputs' execPaths should also be stored in the action cache if it shadows
+   * another action that discovers its inputs to avoid re-running input discovery after a shutdown.
    */
   @Override
   public boolean storeInputsExecPathsInActionCache() {
-    return unusedInputsList.isPresent();
+    return unusedInputsList.isPresent()
+        || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
   }
 
   /** Builder class to construct {@link StarlarkAction} instances. */
