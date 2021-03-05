@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -605,8 +607,11 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
             .setTotalRunCount(totalRuns())
             .setRunCount(testParams.getRuns())
             .setShardCount(testParams.getShards())
+            .setFirstStartTime(Timestamps.fromMillis(firstStartTimeMillis))
             .setFirstStartTimeMillis(firstStartTimeMillis)
+            .setLastStopTime(Timestamps.fromMillis(lastStopTimeMillis))
             .setLastStopTimeMillis(lastStopTimeMillis)
+            .setTotalRunDuration(Durations.fromMillis(totalRunDurationMillis))
             .setTotalRunDurationMillis(totalRunDurationMillis);
     for (Path path : getFailedLogs()) {
       String uri = pathConverter.apply(path);

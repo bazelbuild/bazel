@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.util.Durations;
 import java.util.Collection;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -422,6 +423,7 @@ public final class TargetCompleteEvent
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 
     if (isTest) {
+      builder.setTestTimeout(Durations.fromSeconds(testTimeoutSeconds));
       builder.setTestTimeoutSeconds(testTimeoutSeconds);
     }
 

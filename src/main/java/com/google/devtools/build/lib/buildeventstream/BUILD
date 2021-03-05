@@ -31,6 +31,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//java/util",
     ],
 )
 
