@@ -93,7 +93,12 @@ std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
     if (result != nullptr) {
       // 'key' was found and 'result' has its value.
       values.push_back(result);
+
+      if (ignore_after_value != nullptr && std::strcmp(result, ignore_after_value) == 0) {
+        break;
+      }
     }
+
     // This is a pointer comparison, so equality means that the result must be from the next arg
     // instead of happening to match the value from "--key=<value>" string, in which case
     // we need to advance the index to skip the next arg for later iterations.
@@ -102,21 +107,7 @@ std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
     }
   }
 
-  if (ignore_after_value == nullptr) {
-    return values;
-  }
-  else {
-    vector<std::string> new_values;
-    std::string ignore_after_value_str = std::string(ignore_after_value);
-    for (vector<string>::size_type i = 0; i < values.size(); ++i) {
-      std::string curr_val = values[i];
-      new_values.push_back(curr_val);
-      if (curr_val == ignore_after_value_str) {
-        break;
-      }
-    }
-    return new_values;
-  }
+  return values;
 }
 
 const char* SearchUnaryOption(const vector<string>& args,
