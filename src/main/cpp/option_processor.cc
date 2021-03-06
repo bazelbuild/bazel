@@ -625,7 +625,7 @@ static void PreprocessEnvString(const string* env_str) {
 
 static std::vector<std::string> GetProcessedEnv() {
   std::vector<std::string> processed_env;
-  for (char** env = environ; *env != NULL; env++) {
+  for (char** env = environ; *env != nullptr; env++) {
     string env_str(*env);
     if (IsValidEnvName(*env)) {
       PreprocessEnvString(&env_str);

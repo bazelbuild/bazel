@@ -426,7 +426,7 @@ bool AsShortWindowsPath(const std::wstring& path, std::wstring* result,
 }
 
 bool IsDevNull(const char* path) {
-  return path != NULL && *path != 0 &&
+  return path != nullptr && *path != 0 &&
          (strncmp("/dev/null\0", path, 10) == 0 ||
           ((path[0] == 'N' || path[0] == 'n') &&
            (path[1] == 'U' || path[1] == 'u') &&
@@ -434,7 +434,7 @@ bool IsDevNull(const char* path) {
 }
 
 bool IsDevNull(const wchar_t* path) {
-  return path != NULL && *path != 0 &&
+  return path != nullptr && *path != 0 &&
          (wcsncmp(L"/dev/null\0", path, 10) == 0 ||
           ((path[0] == L'N' || path[0] == L'n') &&
            (path[1] == L'U' || path[1] == L'u') &&

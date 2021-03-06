@@ -282,7 +282,7 @@ bool OutputJar::Open() {
                              // Must share for reading, otherwise
                              // symlink-following file existence checks (e.g.
                              // java.nio.file.Files.exists()) fail.
-                             FILE_SHARE_READ, NULL, CREATE_ALWAYS, 0, NULL);
+                             FILE_SHARE_READ, nullptr, CREATE_ALWAYS, 0, nullptr);
   if (hFile == INVALID_HANDLE_VALUE) {
     diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
               wpath.c_str());
@@ -958,7 +958,7 @@ ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
   while (static_cast<size_t>(total_written) < count) {
     ssize_t len = std::min(kBufferSize, count - total_written);
     DWORD n_read;
-    if (!::ReadFile(hFile, buffer.get(), len, &n_read, NULL)) {
+    if (!::ReadFile(hFile, buffer.get(), len, &n_read, nullptr)) {
       return -1;
     }
     if (n_read == 0) {

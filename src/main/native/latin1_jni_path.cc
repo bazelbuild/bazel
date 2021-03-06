@@ -73,9 +73,9 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
     return result;
   }
 
-  const jchar *str = env->GetStringCritical(jstr, NULL);
-  if (str == NULL) {
-    return NULL;
+  const jchar *str = env->GetStringCritical(jstr, nullptr);
+  if (str == nullptr) {
+    return nullptr;
   }
 
   char *result = new char[len + 1];

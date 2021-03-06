@@ -51,10 +51,10 @@ string GetOutputRoot() {
   } else {
     char buf[2048];
     struct passwd pwbuf;
-    struct passwd *pw = NULL;
+    struct passwd *pw = nullptr;
     int uid = getuid();
     int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-    if (r != -1 && pw != NULL) {
+    if (r != -1 && pw != nullptr) {
       base = pw->pw_dir;
     }
   }
@@ -152,7 +152,7 @@ string GetSystemJavabase() {
 
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
-  if (realpath(javac_dir.c_str(), resolved_path) == NULL) {
+  if (realpath(javac_dir.c_str(), resolved_path) == nullptr) {
     return "";
   }
   javac_dir = resolved_path;

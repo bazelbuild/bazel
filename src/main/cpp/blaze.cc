@@ -738,7 +738,7 @@ static void WriteFileToStderrOrDie(const blaze_util::Path &path) {
   FILE *fp = fopen(path.AsNativePath().c_str(), "r");
 #endif
 
-  if (fp == NULL) {
+  if (fp == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "opening " << path.AsPrintablePath()
         << " failed: " << GetLastErrorString();
@@ -1385,7 +1385,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // environment variables to modify the current process, we may actually use
   // such map to configure a process from scratch (via interfaces like execvpe
   // or posix_spawn), so we need to inherit any untouched variables.
-  for (char **entry = environ; *entry != NULL; entry++) {
+  for (char **entry = environ; *entry != nullptr; entry++) {
     const std::string var_value = *entry;
     std::string::size_type equals = var_value.find('=');
     if (equals == std::string::npos) {
@@ -2089,7 +2089,7 @@ unsigned int BlazeServer::Communicate(
 
     // Execute the requested program, but before doing so, flush everything
     // we still have to say.
-    fflush(NULL);
+    fflush(nullptr);
     ExecuteRunRequest(blaze_util::Path(request.argv(0)), argv);
   }
 

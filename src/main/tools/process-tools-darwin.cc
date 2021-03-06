@@ -39,7 +39,7 @@ int WaitForProcessToTerminate(pid_t pid) {
   int nev;
   struct kevent ke;
 retry:
-  if ((nev = kevent(kq, &kc, 1, &ke, 1, NULL)) == -1) {
+  if ((nev = kevent(kq, &kc, 1, &ke, 1, nullptr)) == -1) {
     if (errno == EINTR) {
       goto retry;
     }
@@ -68,24 +68,24 @@ int WaitForProcessGroupToTerminate(pid_t pgid) {
     // have to first query the size of the output data and then account for
     // the fact that the size might change by the time we actually issue
     // the query.
-    struct kinfo_proc *procs = NULL;
+    struct kinfo_proc *procs = nullptr;
     size_t nprocs = 0;
     do {
       size_t len;
-      if (sysctl(name, 4, 0, &len, NULL, 0) == -1) {
+      if (sysctl(name, 4, 0, &len, nullptr, 0) == -1) {
         return -1;
       }
       procs = (struct kinfo_proc *)malloc(len);
-      if (sysctl(name, 4, procs, &len, NULL, 0) == -1) {
+      if (sysctl(name, 4, procs, &len, nullptr, 0) == -1) {
         if (errno != ENOMEM) {
           DIE("Unexpected error code %d", errno);
         }
         free(procs);
-        procs = NULL;
+        procs = nullptr;
       } else {
         nprocs = len / sizeof(struct kinfo_proc);
       }
-    } while (procs == NULL);
+    } while (procs == nullptr);
     if (nprocs < 1) {
       DIE("Must have found the group leader at least");
     }
@@ -110,7 +110,7 @@ int WaitForProcessGroupToTerminate(pid_t pgid) {
     struct timespec ts;
     ts.tv_sec = 0;
     ts.tv_nsec = 1000000;
-    if (nanosleep(&ts, NULL) == -1) {
+    if (nanosleep(&ts, nullptr) == -1) {
       return -1;
     }
   }

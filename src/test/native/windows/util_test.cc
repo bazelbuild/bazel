@@ -43,7 +43,7 @@ static const wstring kUncPrefix = wstring(L"\\\\?\\");
 // Retrieves TEST_TMPDIR as a shortened path. Result won't have a "\\?\" prefix.
 static void GetShortTempDir(wstring* result) {
   unique_ptr<WCHAR[]> buf;
-  DWORD size = ::GetEnvironmentVariableW(L"TEST_TMPDIR", NULL, 0);
+  DWORD size = ::GetEnvironmentVariableW(L"TEST_TMPDIR", nullptr, 0);
   ASSERT_GT(size, (DWORD)0);
   // `size` accounts for the null-terminator
   buf.reset(new WCHAR[size]);
@@ -59,7 +59,7 @@ static void GetShortTempDir(wstring* result) {
   std::replace(tmpdir.begin(), tmpdir.end(), '/', '\\');
 
   // Convert to 8dot3 style short path.
-  size = ::GetShortPathNameW(tmpdir.c_str(), NULL, 0);
+  size = ::GetShortPathNameW(tmpdir.c_str(), nullptr, 0);
   ASSERT_GT(size, (DWORD)0);
   // `size` accounts for the null-terminator
   buf.reset(new WCHAR[size]);
@@ -88,15 +88,15 @@ static wstring CreateDummyFile(wstring path) {
       /* lpFileName */ path.c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ CREATE_ALWAYS,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
+      /* hTemplateFile */ nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return ReturnEmptyOrError(false, L"CreateFileW", path);
   }
   DWORD actually_written = 0;
-  WriteFile(handle, "hello", 5, &actually_written, NULL);
+  WriteFile(handle, "hello", 5, &actually_written, nullptr);
   if (actually_written == 0) {
     return ReturnEmptyOrError(false, L"WriteFile", path);
   }
@@ -123,7 +123,7 @@ static wstring DeleteDummyFile(wstring path) {
 // Creates a directory under `path`. `path` should NOT have a "\\?\" prefix.
 static wstring CreateDir(wstring path) {
   path = kUncPrefix + path;
-  return ReturnEmptyOrError(::CreateDirectoryW(path.c_str(), NULL),
+  return ReturnEmptyOrError(::CreateDirectoryW(path.c_str(), nullptr),
                             L"CreateDirectoryW", path);
 }
 
