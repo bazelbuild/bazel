@@ -907,8 +907,11 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       RuleContext ruleContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap)
       throws ActionConflictException, InterruptedException {
-    // The target (ruleContext) is incompatible if explicitly specified to be.
-    if (ruleContext.getRule().getRuleClassObject().useToolchainResolution()
+    // The target (ruleContext) is incompatible if explicitly specified to be. Any rule that has
+    // provides its own meaning for the "target_compatible_with" attribute has to be excluded here.
+    // For example, the "toolchain" rule uses "target_compatible_with" for bazel's toolchain
+    // resolution.
+    if (!ruleContext.getRule().getRuleClass().equals("toolchain")
         && ruleContext.attributes().has("target_compatible_with")) {
       ImmutableList<ConstraintValueInfo> invalidConstraintValues =
           PlatformProviderUtils.constraintValues(

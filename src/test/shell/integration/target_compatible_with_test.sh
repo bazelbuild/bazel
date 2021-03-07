@@ -299,6 +299,59 @@ EOF
   expect_log 'Target //target_skipping:filegroup is incompatible and cannot be built'
 }
 
+# Validates that filegroups and other rules that don't inherit from
+# `NativeActionCreatingRule` can be marked with target_compatible_with. This is
+# a regression test for https://github.com/bazelbuild/bazel/issues/12745.
+function test_skipping_for_rules_that_dont_create_actions() {
+  # Create a fake shared library for cc_import.
+  echo > target_skipping/some_precompiled_library.so
+
+  cat >> target_skipping/BUILD <<EOF
+cc_import(
+    name = "some_precompiled_library",
+    shared_library = "some_precompiled_library.so",
+    target_compatible_with = [
+        ":foo3",
+    ],
+)
+
+cc_binary(
+    name = "some_binary",
+    deps = [
+        ":some_precompiled_library",
+    ],
+)
+
+filegroup(
+    name = "filegroup",
+    srcs = [
+        "some_precompiled_library.so",
+    ],
+    target_compatible_with = [
+        ":foo3",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    :all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log 'Target //target_skipping:some_precompiled_library was skipped'
+  expect_log 'Target //target_skipping:some_binary was skipped'
+  expect_log 'Target //target_skipping:filegroup was skipped'
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    :filegroup &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+  expect_log 'Target //target_skipping:filegroup is incompatible and cannot be built'
+}
+
 # Validates that incompatible target skipping errors behave nicely with
 # --keep_going. In other words, even if there's an error in the target skipping
 # (e.g. because the user explicitly requested an incompatible target) we still
