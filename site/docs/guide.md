@@ -139,15 +139,15 @@ workspace.
 </tr>
 <tr>
   <td><code>//foo/bar:all</code></td>
-  <td>All rules in the package <code>foo/bar</code>.</td>
+  <td>All rule targets in the package <code>foo/bar</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...</code></td>
-  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
+  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:all</code></td>
-  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
+  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:*</code></td>
@@ -156,6 +156,16 @@ workspace.
 <tr>
   <td><code>//foo/...:all-targets</code></td>
   <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
+</tr>
+<tr>
+  <td><code>//...</code></td>
+  <td>All targets in packages in the workspace. This does not include targets 
+  from a href="external.html">external repositories</a>.</td>
+</tr>
+<tr>
+  <td><code>//:all</code></td>
+  <td>All targets in the top-level package, if there is a BUILD file at the 
+  root of the workspace.</td>
 </tr>
 </table>
 
