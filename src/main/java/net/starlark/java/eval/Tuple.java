@@ -148,6 +148,20 @@ public final class Tuple extends AbstractList<Object>
   }
 
   @Override
+  public boolean contains(Object o) {
+    // Tuple contains only valid Starlark objects (which are non-null)
+    if (o == null) {
+      return false;
+    }
+    for (Object elem : elems) {
+      if (o.equals(elem)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
   public Tuple subList(int from, int to) {
     return wrap(Arrays.copyOfRange(elems, from, to));
   }
