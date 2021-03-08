@@ -121,11 +121,11 @@ describes the output formats <code>bazel query</code> supports.
         "'a' + 'a'"    # OK
       </pre>
 
-      <p>We chose this syntax so that quote marks aren't needed in most cases.
+     <p>This syntax doesn't need quote marks in most cases.
         The (unusual) <code>".*test rule"</code> example needs quotes: it
         starts with a period and contains a space.
         Quoting <code>"cc_library"</code> is unnecessary but harmless.
-      </p>
+     </p>
 
     <li><b>Punctuation</b>, such as parens <code>()</code>, period
     <code>.</code> and comma <code>,</code>, etc. Words containing
@@ -144,13 +144,13 @@ describes the output formats <code>bazel query</code> supports.
   datatype.
 </p>
 <p>
-  In some expressions, the partial order of the graph is
-  not interesting; In this case, we call the values
-  "sets". In cases where the partial order of elements
-  is significant, we call values "graphs". Note
-  that both terms refer to the same datatype, but merely emphasize
-  different aspects of it.
+  Set and graph refer to the same datatype, but emphasize different
+  aspects of it, for example:
 </p>
+<ul>
+  <li><b>Set:</b> The partial order of the targets is not interesting.</li>
+  <li><b>Graph:</b> The partial order of targets is significant.</li>
+</ul>
 
 <h3>Cycles in the dependency graph</h3>
 <p>
@@ -330,7 +330,7 @@ describes the output formats <code>bazel query</code> supports.
 </pre>
 
 <p>
-  We will examine each of the productions of this grammar in order.
+  The following sections describe each of the productions of this grammar in order.
 </p>
 
 <h3 id="target-patterns">Target patterns</h3>
@@ -504,8 +504,8 @@ describes the output formats <code>bazel query</code> supports.
 x intersect (y union z)</pre>
 
 <p>
-  (We strongly recommend that you use parentheses where there is
-  any danger of ambiguity in reading a query expression.)
+  **Recommendation:** Use parentheses where there is
+  any danger of ambiguity in reading a query expression.
 </p>
 
 <h3 id="set">Read targets from an external source: set</h3>
