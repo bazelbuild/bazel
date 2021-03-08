@@ -49,10 +49,18 @@ public class WorkerKeyTest {
 
   @Test
   public void testWorkerKeyGetter() {
-    assertThat(workerKey.mustBeSandboxed()).isEqualTo(true);
-    assertThat(workerKey.getProxied()).isEqualTo(true);
-    assertThat(WorkerKey.makeWorkerTypeName(false)).isEqualTo("worker");
-    assertThat(WorkerKey.makeWorkerTypeName(true)).isEqualTo("multiplex-worker");
+    assertThat(workerKey.mustBeSandboxed()).isTrue();
+    assertThat(workerKey.getProxied()).isTrue();
+    assertThat(workerKey.isMultiplex()).isFalse();
+    assertThat(workerKey.getWorkerTypeName()).isEqualTo("worker");
+    assertThat(WorkerKey.makeWorkerTypeName(/* proxied=*/ false, /* mustBeSandboxed=*/ false))
+        .isEqualTo("worker");
+    assertThat(WorkerKey.makeWorkerTypeName(/* proxied=*/ false, /* mustBeSandboxed=*/ true))
+        .isEqualTo("worker");
+    assertThat(WorkerKey.makeWorkerTypeName(/* proxied=*/ true, /* mustBeSandboxed=*/ false))
+        .isEqualTo("multiplex-worker");
+    assertThat(WorkerKey.makeWorkerTypeName(/* proxied=*/ true, /* mustBeSandboxed=*/ true))
+        .isEqualTo("worker");
     // Hash code contains args, env, execRoot, proxied, and mnemonic.
     assertThat(workerKey.hashCode()).isEqualTo(1605714200);
     assertThat(workerKey.getProtocolFormat()).isEqualTo(WorkerProtocolFormat.PROTO);

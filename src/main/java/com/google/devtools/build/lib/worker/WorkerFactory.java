@@ -55,7 +55,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
   @Override
   public Worker create(WorkerKey key) {
     int workerId = pidCounter.getAndIncrement();
-    String workTypeName = WorkerKey.makeWorkerTypeName(key.getProxied());
+    String workTypeName = key.getWorkerTypeName();
     Path logFile =
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
@@ -87,12 +87,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
   Path getSandboxedWorkerPath(WorkerKey key, int workerId) {
     String workspaceName = key.getExecRoot().getBaseName();
     return workerBaseDir
-        .getRelative(
-            WorkerKey.makeWorkerTypeName(key.getProxied())
-                + "-"
-                + workerId
-                + "-"
-                + key.getMnemonic())
+        .getRelative(key.getWorkerTypeName() + "-" + workerId + "-" + key.getMnemonic())
         .getRelative(workspaceName);
   }
 
@@ -115,7 +110,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
           Event.info(
               String.format(
                   "Destroying %s %s (id %d)",
-                  key.getMnemonic(), WorkerKey.makeWorkerTypeName(key.getProxied()), workerId)));
+                  key.getMnemonic(), key.getWorkerTypeName(), workerId)));
     }
     p.getObject().destroy();
   }
@@ -135,7 +130,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
               String.format(
                   "%s %s (id %d) has unexpectedly died with exit code %d.",
                   key.getMnemonic(),
-                  WorkerKey.makeWorkerTypeName(key.getProxied()),
+                  key.getWorkerTypeName(),
                   worker.getWorkerId(),
                   exitValue.get());
           ErrorMessage errorMessage =
@@ -150,9 +145,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
           String msg =
               String.format(
                   "%s %s (id %d) was destroyed, but is still in the worker pool.",
-                  key.getMnemonic(),
-                  WorkerKey.makeWorkerTypeName(key.getProxied()),
-                  worker.getWorkerId());
+                  key.getMnemonic(), key.getWorkerTypeName(), worker.getWorkerId());
           reporter.handle(Event.info(msg));
         }
       }
@@ -166,9 +159,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
       msg.append(
           String.format(
               "%s %s (id %d) can no longer be used, because its files have changed on disk:",
-              key.getMnemonic(),
-              WorkerKey.makeWorkerTypeName(key.getProxied()),
-              worker.getWorkerId()));
+              key.getMnemonic(), key.getWorkerTypeName(), worker.getWorkerId()));
       TreeSet<PathFragment> files = new TreeSet<>();
       files.addAll(key.getWorkerFilesWithHashes().keySet());
       files.addAll(worker.getWorkerFilesWithHashes().keySet());
