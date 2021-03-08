@@ -1570,24 +1570,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private final Map<Path, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private final Set<Path> makeUnreadableAfterReaddir = Sets.newHashSet();
-    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, FileStatusOrException> stubbedStats = Maps.newHashMap();
+    private final Set<PathFragment> makeUnreadableAfterReaddir = Sets.newHashSet();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, new FileStatusOrException.FileStatusImpl(stubbedResult));
+      stubbedStats.put(path.asFragment(), new FileStatusOrException.FileStatusImpl(stubbedResult));
     }
 
     public void stubStatError(Path path, IOException stubbedResult) {
-      stubbedStats.put(path, new FileStatusOrException.ExceptionImpl(stubbedResult));
+      stubbedStats.put(path.asFragment(), new FileStatusOrException.ExceptionImpl(stubbedResult));
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path).get();
       }
@@ -1595,24 +1595,25 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     public void scheduleMakeUnreadableAfterReaddir(Path path) {
-      makeUnreadableAfterReaddir.add(path);
+      makeUnreadableAfterReaddir.add(path.asFragment());
     }
 
     @Override
-    public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+    public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+        throws IOException {
       Collection<Dirent> result = super.readdir(path, followSymlinks);
       if (makeUnreadableAfterReaddir.contains(path)) {
-        path.setReadable(false);
+        setReadable(path, false);
       }
       return result;
     }
 
     public void throwExceptionOnGetInputStream(Path path, IOException exn) {
-      pathsToErrorOnGetInputStream.put(path, exn);
+      pathsToErrorOnGetInputStream.put(path.asFragment(), exn);
     }
 
     @Override
-    protected InputStream getInputStream(Path path) throws IOException {
+    protected InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

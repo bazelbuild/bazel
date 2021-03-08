@@ -51,7 +51,7 @@ public abstract class FileSystem {
    * An exception thrown when attempting to resolve an ordinary file as a symlink.
    */
   protected static final class NotASymlinkException extends IOException {
-    public NotASymlinkException(Path path) {
+    public NotASymlinkException(PathFragment path) {
       super(path + " is not a symlink");
     }
   }
@@ -85,14 +85,14 @@ public abstract class FileSystem {
    * <p>Returns true if FileSystem supports the following:
    *
    * <ul>
-   *   <li>{@link #setWritable(Path, boolean)}
-   *   <li>{@link #setExecutable(Path, boolean)}
+   *   <li>{@link #setWritable(PathFragment, boolean)}
+   *   <li>{@link #setExecutable(PathFragment, boolean)}
    * </ul>
    *
    * The above calls will result in an {@link UnsupportedOperationException} on a FileSystem where
    * this method returns {@code false}.
    */
-  public abstract boolean supportsModifications(Path path);
+  public abstract boolean supportsModifications(PathFragment path);
 
   /**
    * Returns whether or not the FileSystem supports symbolic links.
@@ -100,17 +100,17 @@ public abstract class FileSystem {
    * <p>Returns true if FileSystem supports the following:
    *
    * <ul>
-   *   <li>{@link #createSymbolicLink(Path, PathFragment)}
-   *   <li>{@link #getFileSize(Path, boolean)} where {@code followSymlinks=false}
-   *   <li>{@link #getLastModifiedTime(Path, boolean)} where {@code followSymlinks=false}
-   *   <li>{@link #readSymbolicLink(Path)} where the link points to a non-existent file
+   *   <li>{@link #createSymbolicLink(PathFragment, PathFragment)}
+   *   <li>{@link #getFileSize(PathFragment, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #getLastModifiedTime(PathFragment, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #readSymbolicLink(PathFragment)} where the link points to a non-existent file
    * </ul>
    *
    * The above calls may result in an {@link UnsupportedOperationException} on a FileSystem where
    * this method returns {@code false}. The implementation can try to emulate these calls at its own
    * discretion.
    */
-  public abstract boolean supportsSymbolicLinksNatively(Path path);
+  public abstract boolean supportsSymbolicLinksNatively(PathFragment path);
 
   /**
    * Returns whether or not the FileSystem supports hard links.
@@ -118,14 +118,14 @@ public abstract class FileSystem {
    * <p>Returns true if FileSystem supports the following:
    *
    * <ul>
-   *   <li>{@link #createFSDependentHardLink(Path, Path)}
+   *   <li>{@link #createFSDependentHardLink(PathFragment, PathFragment)}
    * </ul>
    *
    * The above calls may result in an {@link UnsupportedOperationException} on a FileSystem where
    * this method returns {@code false}. The implementation can try to emulate these calls at its own
    * discretion.
    */
-  protected abstract boolean supportsHardLinksNatively(Path path);
+  protected abstract boolean supportsHardLinksNatively(PathFragment path);
 
   /***
    * Returns true if file path is case-sensitive on this file system. Default is true.
@@ -135,28 +135,27 @@ public abstract class FileSystem {
   /**
    * Returns the type of the file system path belongs to.
    *
-   * <p>The string returned is obtained directly from the operating system, so
-   * it's a best guess in absence of a guaranteed api.
+   * <p>The string returned is obtained directly from the operating system, so it's a best guess in
+   * absence of a guaranteed api.
    *
-   * <p>This implementation uses <code>/proc/mounts</code> to determine the
-   * file system type.
+   * <p>This implementation uses <code>/proc/mounts</code> to determine the file system type.
    */
-  public String getFileSystemType(Path path) {
+  public String getFileSystemType(PathFragment path) {
     String fileSystem = "unknown";
     int bestMountPointSegmentCount = -1;
     try {
-      Path canonicalPath = path.resolveSymbolicLinks();
-      Path mountTable = path.getRelative("/proc/mounts");
-      try (InputStreamReader reader = new InputStreamReader(mountTable.getInputStream(),
-          ISO_8859_1)) {
+      Path canonicalPath = resolveSymbolicLinks(path);
+      PathFragment mountTable = PathFragment.createAlreadyNormalized("/proc/mounts");
+      try (InputStreamReader reader =
+          new InputStreamReader(getInputStream(mountTable), ISO_8859_1)) {
         for (String line : CharStreams.readLines(reader)) {
           String[] words = line.split("\\s+");
           if (words.length >= 3) {
             if (!words[1].startsWith("/")) {
               continue;
             }
-            Path mountPoint = path.getFileSystem().getPath(words[1]);
-            int segmentCount = mountPoint.asFragment().segmentCount();
+            PathFragment mountPoint = PathFragment.create(words[1]);
+            int segmentCount = mountPoint.segmentCount();
             if (canonicalPath.startsWith(mountPoint) && segmentCount > bestMountPointSegmentCount) {
               bestMountPointSegmentCount = segmentCount;
               fileSystem = words[2];
@@ -174,26 +173,26 @@ public abstract class FileSystem {
    * Creates a directory with the name of the current path. See {@link Path#createDirectory} for
    * specification.
    */
-  public abstract boolean createDirectory(Path path) throws IOException;
+  public abstract boolean createDirectory(PathFragment path) throws IOException;
 
   /**
    * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
    * specification.
    */
-  public abstract void createDirectoryAndParents(Path path) throws IOException;
+  public abstract void createDirectoryAndParents(PathFragment path) throws IOException;
 
   /**
    * Returns the size in bytes of the file denoted by {@code path}. See {@link
    * Path#getFileSize(Symlinks)} for specification.
    *
-   * <p>Note: for <@link FileSystem>s where {@link #supportsSymbolicLinksNatively(Path)} returns
-   * false, this method will throw an {@link UnsupportedOperationException} if {@code
+   * <p>Note: for <@link FileSystem>s where {@link #supportsSymbolicLinksNatively(PathFragment)}
+   * returns false, this method will throw an {@link UnsupportedOperationException} if {@code
    * followSymLinks=false}.
    */
-  protected abstract long getFileSize(Path path, boolean followSymlinks) throws IOException;
+  protected abstract long getFileSize(PathFragment path, boolean followSymlinks) throws IOException;
 
   /** Deletes the file denoted by {@code path}. See {@link Path#delete} for specification. */
-  public abstract boolean delete(Path path) throws IOException;
+  public abstract boolean delete(PathFragment path) throws IOException;
 
   /**
    * Deletes all directory trees recursively beneath the given path and removes that path as well.
@@ -201,9 +200,9 @@ public abstract class FileSystem {
    * @param path the directory hierarchy to remove
    * @throws IOException if the hierarchy cannot be removed successfully
    */
-  public void deleteTree(Path path) throws IOException {
+  public void deleteTree(PathFragment path) throws IOException {
     deleteTreesBelow(path);
-    path.delete();
+    delete(path);
   }
 
   /**
@@ -219,27 +218,27 @@ public abstract class FileSystem {
    * @param dir the directory hierarchy to remove
    * @throws IOException if the hierarchy cannot be removed successfully
    */
-  public void deleteTreesBelow(Path dir) throws IOException {
-    if (dir.isDirectory(Symlinks.NOFOLLOW)) {
-      Collection<Path> entries;
+  public void deleteTreesBelow(PathFragment dir) throws IOException {
+    if (isDirectory(dir, /*followSymlinks=*/ false)) {
+      Collection<String> entries;
       try {
-        entries = dir.getDirectoryEntries();
+        entries = getDirectoryEntries(dir);
       } catch (IOException e) {
         // If we couldn't read the directory, it may be because it's not readable. Try granting this
         // permission and retry. If the retry fails, give up.
-        dir.setReadable(true);
-        dir.setExecutable(true);
-        entries = dir.getDirectoryEntries();
+        setReadable(dir, true);
+        setExecutable(dir, true);
+        entries = getDirectoryEntries(dir);
       }
 
-      Iterator<Path> iterator = entries.iterator();
+      Iterator<String> iterator = entries.iterator();
       if (iterator.hasNext()) {
-        Path first = iterator.next();
+        PathFragment first = dir.getChild(iterator.next());
         deleteTreesBelow(first);
         try {
           // If the directory is not executable, delete(), depending on implementation, may decide
           // that the directory entry does not exist and return false without throwing.
-          if (!first.delete()) {
+          if (!delete(first)) {
             throw new IOException(
                 "Unable to delete \"" + first + "\": directory entry does not exist");
           }
@@ -250,17 +249,17 @@ public abstract class FileSystem {
           // first is itself a directory; if the directory were not executable, the initial
           // first.deleteTreesBelow() call would have been a silent no-op (since first.isDirectory()
           // would have returned false) and sub-entries of first would not have been deleted.
-          dir.setWritable(true);
-          dir.setExecutable(true);
+          setWritable(dir, true);
+          setExecutable(dir, true);
           deleteTreesBelow(first);
-          first.delete();
+          delete(first);
         }
       }
       while (iterator.hasNext()) {
-        Path path = iterator.next();
+        PathFragment path = dir.getChild(iterator.next());
         deleteTreesBelow(path);
         // No need to retry here: if needed, we already unprotected the directory earlier.
-        path.delete();
+        delete(path);
       }
     }
   }
@@ -269,17 +268,18 @@ public abstract class FileSystem {
    * Returns the last modification time of the file denoted by {@code path}. See {@link
    * Path#getLastModifiedTime(Symlinks)} for specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(Path)} returns
-   * false, this method will throw an {@link UnsupportedOperationException} if {@code
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
+   * returns false, this method will throw an {@link UnsupportedOperationException} if {@code
    * followSymLinks=false}.
    */
-  protected abstract long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException;
+  protected abstract long getLastModifiedTime(PathFragment path, boolean followSymlinks)
+      throws IOException;
 
   /**
    * Sets the last modification time of the file denoted by {@code path}. See {@link
    * Path#setLastModifiedTime} for specification.
    */
-  public abstract void setLastModifiedTime(Path path, long newTime) throws IOException;
+  public abstract void setLastModifiedTime(PathFragment path, long newTime) throws IOException;
 
   /**
    * Returns value of the given extended attribute name or null if attribute does not exist or file
@@ -297,7 +297,8 @@ public abstract class FileSystem {
    *     attribute is defined (ENODATA) or file system does not support extended attributes at all.
    * @throws IOException if the call failed for any other reason.
    */
-  public byte[] getxattr(Path path, String name, boolean followSymlinks) throws IOException {
+  public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
+      throws IOException {
     return null;
   }
 
@@ -306,7 +307,7 @@ public abstract class FileSystem {
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
-  protected byte[] getFastDigest(Path path) throws IOException {
+  protected byte[] getFastDigest(PathFragment path) throws IOException {
     return null;
   }
 
@@ -318,7 +319,7 @@ public abstract class FileSystem {
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  protected byte[] getDigest(final Path path) throws IOException {
+  protected byte[] getDigest(PathFragment path) throws IOException {
     return new ByteSource() {
       @Override
       public InputStream openStream() throws IOException {
@@ -328,27 +329,26 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns true if "path" denotes an existing symbolic link. See
-   * {@link Path#isSymbolicLink} for specification.
+   * Returns true if "path" denotes an existing symbolic link. See {@link Path#isSymbolicLink} for
+   * specification.
    */
-  protected abstract boolean isSymbolicLink(Path path);
+  protected abstract boolean isSymbolicLink(PathFragment path);
 
   /**
-   * Appends a single regular path segment 'child' to 'dir', recursively
-   * resolving symbolic links in 'child'. 'dir' must be canonical. 'maxLinks' is
-   * the maximum number of symbolic links that may be traversed before it gives
-   * up (the Linux kernel uses 32).
+   * Appends a single regular path segment 'child' to 'dir', recursively resolving symbolic links in
+   * 'child'. 'dir' must be canonical. 'maxLinks' is the maximum number of symbolic links that may
+   * be traversed before it gives up (the Linux kernel uses 32).
    *
-   * <p>(This method does not need to be synchronized; but the result may be
-   * stale in the case of concurrent modification.)
+   * <p>(This method does not need to be synchronized; but the result may be stale in the case of
+   * concurrent modification.)
    *
-   * @throws IOException if 'dir' is not an existing directory; or if
-   *         stat(child) fails for any reason, or if 'child' is a symlink and
-   *         readlink(child) fails for any reason (e.g. ENOENT, EACCES), or if
-   *         the chain of symbolic links exceeds 'maxLinks'.
+   * @throws IOException if 'dir' is not an existing directory; or if stat(child) fails for any
+   *     reason, or if 'child' is a symlink and readlink(child) fails for any reason (e.g. ENOENT,
+   *     EACCES), or if the chain of symbolic links exceeds 'maxLinks'.
    */
-  protected final Path appendSegment(Path dir, String child, int maxLinks) throws IOException {
-    Path naive = dir.getChild(child);
+  protected final PathFragment appendSegment(PathFragment dir, String child, int maxLinks)
+      throws IOException {
+    PathFragment naive = dir.getChild(child);
 
     PathFragment linkTarget = resolveOneLink(naive);
     if (linkTarget == null) {
@@ -359,13 +359,13 @@ public abstract class FileSystem {
       throw new IOException(naive + " (Too many levels of symbolic links)");
     }
     if (linkTarget.isAbsolute()) {
-      dir = getPath(linkTarget.getDriveStr());
+      dir = PathFragment.createAlreadyNormalized(linkTarget.getDriveStr());
     }
     for (String name : linkTarget.segments()) {
       if (name.equals(".") || name.isEmpty()) {
         // no-op
       } else if (name.equals("..")) {
-        Path parent = dir.getParentDirectory();
+        PathFragment parent = dir.getParentDirectory();
         // root's parent is root, when canonicalizing, so this is a no-op.
         if (parent != null) { dir = parent; }
       } else {
@@ -376,21 +376,19 @@ public abstract class FileSystem {
   }
 
   /**
-   * Helper method of {@link #resolveSymbolicLinks(Path)}. This method
-   * encapsulates the I/O component of a full canonicalization operation.
-   * Subclasses can (and do) provide more efficient implementations.
+   * Helper method of {@link #resolveSymbolicLinks(PathFragment)}. This method encapsulates the I/O
+   * component of a full canonicalization operation. Subclasses can (and do) provide more efficient
+   * implementations.
    *
-   * <p>(This method does not need to be synchronized; but the result may be
-   * stale in the case of concurrent modification.)
+   * <p>(This method does not need to be synchronized; but the result may be stale in the case of
+   * concurrent modification.)
    *
-   * @param path a path, of which all but the last segment is guaranteed to be
-   *        canonical
-   * @return {@link #readSymbolicLink} iff path is a symlink or null iff
-   *         path exists but is not a symlink
-   * @throws IOException if the file did not exist, or a parent directory could
-   *         not be searched
+   * @param path a path, of which all but the last segment is guaranteed to be canonical
+   * @return {@link #readSymbolicLink} iff path is a symlink or null iff path exists but is not a
+   *     symlink
+   * @throws IOException if the file did not exist, or a parent directory could not be searched
    */
-  protected PathFragment resolveOneLink(Path path) throws IOException {
+  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     try {
       return readSymbolicLink(path);
     } catch (NotASymlinkException e) {
@@ -410,28 +408,26 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the canonical path for the given path. See
-   * {@link Path#resolveSymbolicLinks} for specification.
+   * Returns the canonical path for the given path. See {@link Path#resolveSymbolicLinks} for
+   * specification.
    */
-  protected Path resolveSymbolicLinks(Path path)
-      throws IOException {
-    Path parentNode = path.getParentDirectory();
+  protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    PathFragment parentNode = path.getParentDirectory();
     return parentNode == null
-        ? path // (root)
-        : appendSegment(resolveSymbolicLinks(parentNode), path.getBaseName(), 32);
+        ? getPath(path) // (root)
+        : getPath(
+            appendSegment(resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), 32));
   }
 
   /**
-   * Returns the status of a file. See {@link Path#stat(Symlinks)} for
-   * specification.
+   * Returns the status of a file. See {@link Path#stat(Symlinks)} for specification.
    *
-   * <p>The default implementation of this method is a "lazy" one, based on
-   * other accessor methods such as {@link #isFile}, etc. Subclasses may provide
-   * more efficient specializations. However, we still try to follow Unix-like
-   * semantics of failing fast in case of non-existent files (or in case of
-   * permission issues).
+   * <p>The default implementation of this method is a "lazy" one, based on other accessor methods
+   * such as {@link #isFile}, etc. Subclasses may provide more efficient specializations. However,
+   * we still try to follow Unix-like semantics of failing fast in case of non-existent files (or in
+   * case of permission issues).
    */
-  protected FileStatus stat(final Path path, final boolean followSymlinks) throws IOException {
+  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus status = new FileStatus() {
       volatile Boolean isFile;
       volatile Boolean isDirectory;
@@ -496,10 +492,8 @@ public abstract class FileSystem {
     return status;
   }
 
-  /**
-   * Like stat(), but returns null on failures instead of throwing.
-   */
-  protected FileStatus statNullable(Path path, boolean followSymlinks) {
+  /** Like stat(), but returns null on failures instead of throwing. */
+  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
       return stat(path, followSymlinks);
     } catch (IOException e) {
@@ -508,12 +502,12 @@ public abstract class FileSystem {
   }
 
   /**
-   * Like {@link #stat}, but returns null if the file is not found (corresponding to
-   * {@code ENOENT} or {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Note that
-   * this implementation does <i>not</i> successfully catch {@code ENOTDIR} exceptions. If the
+   * Like {@link #stat}, but returns null if the file is not found (corresponding to {@code ENOENT}
+   * or {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Note that this
+   * implementation does <i>not</i> successfully catch {@code ENOTDIR} exceptions. If the
    * instantiated filesystem can catch such errors, it should override this method to do so.
    */
-  protected FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);
     } catch (FileNotFoundException e) {
@@ -522,65 +516,65 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns true iff {@code path} denotes an existing directory. See
-   * {@link Path#isDirectory(Symlinks)} for specification.
+   * Returns true iff {@code path} denotes an existing directory. See {@link
+   * Path#isDirectory(Symlinks)} for specification.
    */
-  protected abstract boolean isDirectory(Path path, boolean followSymlinks);
+  protected abstract boolean isDirectory(PathFragment path, boolean followSymlinks);
 
   /**
-   * Returns true iff {@code path} denotes an existing regular or special file.
-   * See {@link Path#isFile(Symlinks)} for specification.
+   * Returns true iff {@code path} denotes an existing regular or special file. See {@link
+   * Path#isFile(Symlinks)} for specification.
    */
-  protected abstract boolean isFile(Path path, boolean followSymlinks);
+  protected abstract boolean isFile(PathFragment path, boolean followSymlinks);
 
   /**
-   * Returns true iff {@code path} denotes a special file.
-   * See {@link Path#isSpecialFile(Symlinks)} for specification.
+   * Returns true iff {@code path} denotes a special file. See {@link Path#isSpecialFile(Symlinks)}
+   * for specification.
    */
-  protected abstract boolean isSpecialFile(Path path, boolean followSymlinks);
+  protected abstract boolean isSpecialFile(PathFragment path, boolean followSymlinks);
 
   /**
    * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(Path)} returns
-   * false, this method will throw an {@link UnsupportedOperationException}
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
+   * returns false, this method will throw an {@link UnsupportedOperationException}
    */
-  protected abstract void createSymbolicLink(Path linkPath, PathFragment targetFragment)
+  protected abstract void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException;
 
   /**
    * Returns the target of a symbolic link. See {@link Path#readSymbolicLink} for specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(Path)} returns
-   * false, this method will throw an {@link UnsupportedOperationException} if the link points to a
-   * non-existent file.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
+   * returns false, this method will throw an {@link UnsupportedOperationException} if the link
+   * points to a non-existent file.
    *
    * @throws NotASymlinkException if the current path is not a symbolic link
    * @throws IOException if the contents of the link could not be read for any reason.
    */
-  protected abstract PathFragment readSymbolicLink(Path path) throws IOException;
+  protected abstract PathFragment readSymbolicLink(PathFragment path) throws IOException;
 
   /**
    * Returns the target of a symbolic link, under the assumption that the given path is indeed a
-   * symbolic link (this assumption permits efficient implementations). See
-   * {@link Path#readSymbolicLinkUnchecked} for specification.
+   * symbolic link (this assumption permits efficient implementations). See {@link
+   * Path#readSymbolicLinkUnchecked} for specification.
    *
    * @throws IOException if the contents of the link could not be read for any reason.
    */
-  protected PathFragment readSymbolicLinkUnchecked(Path path) throws IOException {
+  protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
     return readSymbolicLink(path);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
-  public boolean exists(Path path) {
+  public boolean exists(PathFragment path) {
     return exists(path, true);
   }
 
   /**
-   * Returns true iff {@code path} denotes an existing file of any kind. See
-   * {@link Path#exists(Symlinks)} for specification.
+   * Returns true iff {@code path} denotes an existing file of any kind. See {@link
+   * Path#exists(Symlinks)} for specification.
    */
-  protected abstract boolean exists(Path path, boolean followSymlinks);
+  protected abstract boolean exists(PathFragment path, boolean followSymlinks);
 
   /**
    * Returns a collection containing the names of all entities within the directory denoted by the
@@ -588,7 +582,7 @@ public abstract class FileSystem {
    *
    * @throws IOException if there was an error reading the directory entries
    */
-  protected abstract Collection<String> getDirectoryEntries(Path path) throws IOException;
+  protected abstract Collection<String> getDirectoryEntries(PathFragment path) throws IOException;
 
   protected static Dirent.Type direntFromStat(FileStatus stat) {
     if (stat == null) {
@@ -607,19 +601,20 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns a Dirents structure, listing the names of all entries within the
-   * directory {@code path}, plus their types (file, directory, other).
+   * Returns a Dirents structure, listing the names of all entries within the directory {@code
+   * path}, plus their types (file, directory, other).
    *
-   * @param followSymlinks whether to follow symlinks when determining the file types of
-   *     individual directory entries. No matter the value of this parameter, symlinks are
-   *     followed when resolving the directory whose entries are to be read.
+   * @param followSymlinks whether to follow symlinks when determining the file types of individual
+   *     directory entries. No matter the value of this parameter, symlinks are followed when
+   *     resolving the directory whose entries are to be read.
    * @throws IOException if there was an error reading the directory entries
    */
-  protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+      throws IOException {
     Collection<String> children = getDirectoryEntries(path);
     List<Dirent> dirents = Lists.newArrayListWithCapacity(children.size());
     for (String child : children) {
-      Path childPath = path.getChild(child);
+      PathFragment childPath = path.getChild(child);
       Dirent.Type type = direntFromStat(statNullable(childPath, followSymlinks));
       dirents.add(new Dirent(child, type));
     }
@@ -631,54 +626,54 @@ public abstract class FileSystem {
    *
    * @throws IOException if there was an error reading the file's metadata
    */
-  protected abstract boolean isReadable(Path path) throws IOException;
+  protected abstract boolean isReadable(PathFragment path) throws IOException;
 
   /**
    * Sets the file to readable (if the argument is true) or non-readable (if the argument is false)
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false or
-   * which do not support unreadable files, this method will throw an {@link
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(PathFragment)} returns
+   * false or which do not support unreadable files, this method will throw an {@link
    * UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  protected abstract void setReadable(Path path, boolean readable) throws IOException;
+  protected abstract void setReadable(PathFragment path, boolean readable) throws IOException;
 
   /**
    * Returns true iff the file represented by {@code path} is writable.
    *
    * @throws IOException if there was an error reading the file's metadata
    */
-  protected abstract boolean isWritable(Path path) throws IOException;
+  protected abstract boolean isWritable(PathFragment path) throws IOException;
 
   /**
    * Sets the file to writable (if the argument is true) or non-writable (if the argument is false)
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false, this
-   * method will throw an {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(PathFragment)} returns
+   * false, this method will throw an {@link UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  public abstract void setWritable(Path path, boolean writable) throws IOException;
+  public abstract void setWritable(PathFragment path, boolean writable) throws IOException;
 
   /**
    * Returns true iff the file represented by the path is executable.
    *
    * @throws IOException if there was an error reading the file's metadata
    */
-  protected abstract boolean isExecutable(Path path) throws IOException;
+  protected abstract boolean isExecutable(PathFragment path) throws IOException;
 
   /**
    * Sets the file to executable, if the argument is true. It is currently not supported to unset
    * the executable status of a file, so {code executable=false} yields an {@link
    * UnsupportedOperationException}.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false, this
-   * method will throw an {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(PathFragment)} returns
+   * false, this method will throw an {@link UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  protected abstract void setExecutable(Path path, boolean executable) throws IOException;
+  protected abstract void setExecutable(PathFragment path, boolean executable) throws IOException;
 
   /**
    * Sets the file permissions. If permission changes on this {@link FileSystem} are slow (e.g. one
@@ -686,12 +681,12 @@ public abstract class FileSystem {
    * individually. If this {@link FileSystem} does not support group or others permissions, those
    * bits will be ignored.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false, this
-   * method will throw an {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(PathFragment)} returns
+   * false, this method will throw an {@link UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  protected void chmod(Path path, int mode) throws IOException {
+  protected void chmod(PathFragment path, int mode) throws IOException {
     setReadable(path, (mode & 0400) != 0);
     setWritable(path, (mode & 0200) != 0);
     setExecutable(path, (mode & 0100) != 0);
@@ -702,14 +697,14 @@ public abstract class FileSystem {
    *
    * @throws IOException if there was an error opening the file for reading
    */
-  protected abstract InputStream getInputStream(Path path) throws IOException;
+  protected abstract InputStream getInputStream(PathFragment path) throws IOException;
 
   /**
    * Creates a ReadableFileChannel accessing the file denoted by the path.
    *
    * @throws IOException if there was an error opening the file for reading
    */
-  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
     throw new UnsupportedOperationException();
   }
 
@@ -718,7 +713,7 @@ public abstract class FileSystem {
    *
    * @throws IOException if there was an error opening the file for writing
    */
-  protected final OutputStream getOutputStream(Path path) throws IOException {
+  protected final OutputStream getOutputStream(PathFragment path) throws IOException {
     return getOutputStream(path, false);
   }
 
@@ -728,13 +723,15 @@ public abstract class FileSystem {
    * @param append whether to open the output stream in append mode
    * @throws IOException if there was an error opening the file for writing
    */
-  protected abstract OutputStream getOutputStream(Path path, boolean append) throws IOException;
+  protected abstract OutputStream getOutputStream(PathFragment path, boolean append)
+      throws IOException;
 
   /**
    * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
    * Path#renameTo} for specification.
    */
-  public abstract void renameTo(Path sourcePath, Path targetPath) throws IOException;
+  public abstract void renameTo(PathFragment sourcePath, PathFragment targetPath)
+      throws IOException;
 
   /**
    * Create a new hard link file at "linkPath" for file at "originalPath".
@@ -743,9 +740,10 @@ public abstract class FileSystem {
    * @param originalPath The path of the original file
    * @throws IOException if the original file does not exist or the link file already exists
    */
-  protected void createHardLink(Path linkPath, Path originalPath) throws IOException {
+  protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
+      throws IOException {
 
-    if (!originalPath.exists()) {
+    if (!exists(originalPath)) {
       throw new FileNotFoundException(
           "File \""
               + originalPath.getBaseName()
@@ -754,7 +752,7 @@ public abstract class FileSystem {
               + "\" does not exist");
     }
 
-    if (linkPath.exists()) {
+    if (exists(linkPath)) {
       throw new FileAlreadyExistsException(
           "New link file \"" + linkPath.getBaseName() + "\" already exists");
     }
@@ -769,14 +767,13 @@ public abstract class FileSystem {
    * @param originalPath The path of the original file
    * @throws IOException if there was an I/O error
    */
-  protected abstract void createFSDependentHardLink(Path linkPath, Path originalPath)
-      throws IOException;
+  protected abstract void createFSDependentHardLink(
+      PathFragment linkPath, PathFragment originalPath) throws IOException;
 
   /**
-   * Prefetch all directories and symlinks within the package
-   * rooted at "path".  Enter at most "maxDirs" total directories.
-   * Specializations for high-latency remote filesystems may wish to
+   * Prefetch all directories and symlinks within the package rooted at "path". Enter at most
+   * "maxDirs" total directories. Specializations for high-latency remote filesystems may wish to
    * implement this in order to warm the filesystem's internal caches.
    */
-  protected void prefetchPackageAsync(Path path, int maxDirs) { }
+  protected void prefetchPackageAsync(PathFragment path, int maxDirs) {}
 }

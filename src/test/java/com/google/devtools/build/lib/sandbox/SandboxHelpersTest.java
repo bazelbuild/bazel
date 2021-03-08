@@ -188,7 +188,7 @@ public class SandboxHelpersTest {
     FileSystem customFs =
         new InMemoryFileSystem(DigestHashFunction.SHA1) {
           @Override
-          protected void setExecutable(Path path, boolean executable) throws IOException {
+          protected void setExecutable(PathFragment path, boolean executable) throws IOException {
             try {
               bothWroteTempFile.await();
               finishProcessingSemaphore.acquire();

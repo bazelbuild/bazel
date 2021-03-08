@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.function.Function;
@@ -31,15 +32,13 @@ import org.junit.runners.JUnit4;
 /** {@link AnalysisTestCase} with custom filesystem that can throw on stat if desired. */
 @RunWith(JUnit4.class)
 public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
-  private static final Function<Path, String> NULL_FUNCTION = (path) -> null;
-
-  private Function<Path, String> crashMessage = NULL_FUNCTION;
+  private Function<PathFragment, String> crashMessage = (path) -> null;
 
   @Override
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
         if (crash != null) {
           throw new IOException(crash);
@@ -78,7 +77,7 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
             "sh_library(name = 'crosses/directory', srcs = ['foo.sh'])");
     scratch.file("top/BUILD", "sh_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
     Path errorPath = buildPath.getParentDirectory().getChild("subdir");
-    crashMessage = path -> errorPath.equals(path) ? "custom crash: bork" : null;
+    crashMessage = path -> errorPath.asFragment().equals(path) ? "custom crash: bork" : null;
     assertThrows(ViewCreationFailedException.class, () -> update("//top:top"));
   }
 }

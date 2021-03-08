@@ -344,7 +344,7 @@ public final class TreeArtifactValueTest {
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          public ImmutableList<Dirent> readdir(Path path, boolean followSymlinks) {
+          public ImmutableList<Dirent> readdir(PathFragment path, boolean followSymlinks) {
             return ImmutableList.of(new Dirent("?", Dirent.Type.UNKNOWN));
           }
         };

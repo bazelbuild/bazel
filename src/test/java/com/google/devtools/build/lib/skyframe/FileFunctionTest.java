@@ -514,7 +514,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path) {
+          protected byte[] getFastDigest(PathFragment path) {
             return digest;
           }
         });
@@ -552,7 +552,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path) {
+          protected byte[] getFastDigest(PathFragment path) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -850,7 +850,7 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(Path path) throws IOException {
+          protected byte[] getDigest(PathFragment path) throws IOException {
             digestCalls.incrementAndGet();
             return super.getDigest(path);
           }
@@ -932,7 +932,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected boolean isReadable(Path path) throws IOException {
+          protected boolean isReadable(PathFragment path) throws IOException {
             if (path.getBaseName().equals("unreadable")) {
               throw new IOException("isReadable failed");
             }
@@ -1302,7 +1302,7 @@ public class FileFunctionTest {
         .hasExceptionThat()
         .hasMessageThat()
         .isEqualTo("bork");
-    fs.stubbedStatErrors.remove(foo);
+    fs.stubbedStatErrors.remove(foo.asFragment());
     differencer.inject(
         fileStateSkyKey("foo"),
         FileStateValue.create(
@@ -1752,20 +1752,20 @@ public class FileFunctionTest {
 
   private class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private final Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
-    private final Map<Path, IOException> stubbedStatErrors = Maps.newHashMap();
-    private final Map<Path, IOException> stubbedFastDigestErrors = Maps.newHashMap();
+    private final Map<PathFragment, FileStatus> stubbedStats = Maps.newHashMap();
+    private final Map<PathFragment, IOException> stubbedStatErrors = Maps.newHashMap();
+    private final Map<PathFragment, IOException> stubbedFastDigestErrors = Maps.newHashMap();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     void stubFastDigestError(Path path, IOException error) {
-      stubbedFastDigestErrors.put(path, error);
+      stubbedFastDigestErrors.put(path.asFragment(), error);
     }
 
     @Override
-    protected byte[] getFastDigest(Path path) throws IOException {
+    protected byte[] getFastDigest(PathFragment path) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }
@@ -1773,15 +1773,15 @@ public class FileFunctionTest {
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, stubbedResult);
+      stubbedStats.put(path.asFragment(), stubbedResult);
     }
 
     void stubStatError(Path path, IOException error) {
-      stubbedStatErrors.put(path, error);
+      stubbedStatErrors.put(path.asFragment(), error);
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStatErrors.containsKey(path)) {
         throw stubbedStatErrors.get(path);
       }

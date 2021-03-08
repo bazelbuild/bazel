@@ -885,7 +885,7 @@ public class FileSystemUtils {
    * Returns the type of the file system path belongs to.
    */
   public static String getFileSystem(Path path) {
-    return path.getFileSystem().getFileSystemType(path);
+    return path.getFileSystem().getFileSystemType(path.asFragment());
   }
 
   /**

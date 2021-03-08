@@ -1614,18 +1614,18 @@ public final class LoadingPhaseRunnerTest {
    * IOException instead of the usual behavior.
    */
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
-    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     synchronized void throwExceptionOnGetInputStream(Path path, IOException exn) {
-      pathsToErrorOnGetInputStream.put(path, exn);
+      pathsToErrorOnGetInputStream.put(path.asFragment(), exn);
     }
 
     @Override
-    protected synchronized InputStream getInputStream(Path path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

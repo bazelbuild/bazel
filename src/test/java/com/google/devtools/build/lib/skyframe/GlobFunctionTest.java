@@ -808,18 +808,18 @@ public abstract class GlobFunctionTest {
 
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
+    private Map<PathFragment, FileStatus> stubbedStats = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, stubbedResult);
+      stubbedStats.put(path.asFragment(), stubbedResult);
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path);
       }

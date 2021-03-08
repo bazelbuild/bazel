@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import java.io.IOException;
@@ -313,7 +314,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
   }
 
   private static class CustomRealFilesystem extends UnixFileSystem {
-    private final Map<Path, Integer> badPaths = new HashMap<>();
+    private final Map<PathFragment, Integer> badPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
@@ -325,7 +326,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     }
 
     void alwaysErrorAfter(Path path, int numCalls) {
-      badPaths.put(path, numCalls);
+      badPaths.put(path.asFragment(), numCalls);
     }
 
     void errorOnDirectory(String baseName) {
@@ -333,10 +334,10 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     }
 
     int getNumCallsUntilError(Path path) {
-      return badPaths.getOrDefault(path, 0);
+      return badPaths.getOrDefault(path.asFragment(), 0);
     }
 
-    private synchronized void maybeThrowExn(Path path) throws IOException {
+    private synchronized void maybeThrowExn(PathFragment path) throws IOException {
       if (badPaths.containsKey(path)) {
         Integer numCallsRemaining = badPaths.get(path);
         if (numCallsRemaining <= 0) {
@@ -348,7 +349,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     }
 
     @Override
-    protected FileStatus statNullable(Path path, boolean followSymlinks) {
+    protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
       try {
         maybeThrowExn(path);
       } catch (IOException e) {
@@ -358,25 +359,27 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     }
 
     @Override
-    protected FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       maybeThrowExn(path);
       return super.statIfFound(path, followSymlinks);
     }
 
     @Override
-    protected UnixFileStatus statInternal(Path path, boolean followSymlinks) throws IOException {
+    protected UnixFileStatus statInternal(PathFragment path, boolean followSymlinks)
+        throws IOException {
       maybeThrowExn(path);
       return super.statInternal(path, followSymlinks);
     }
 
     @Override
-    protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+    protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+        throws IOException {
       maybeThrowExn(path);
       return super.readdir(path, followSymlinks);
     }
 
     @Override
-    public void createDirectoryAndParents(Path path) throws IOException {
+    public void createDirectoryAndParents(PathFragment path) throws IOException {
       if (createDirectoryErrorNames.contains(path.getBaseName())) {
         throw new IOException("nope");
       }

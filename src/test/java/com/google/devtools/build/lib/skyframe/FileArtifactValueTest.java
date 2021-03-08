@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Test;
@@ -182,12 +183,12 @@ public final class FileArtifactValueTest {
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          public byte[] getDigest(Path path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             throw exception;
           }
 
           @Override
-          protected byte[] getFastDigest(Path path) throws IOException {
+          protected byte[] getFastDigest(PathFragment path) throws IOException {
             throw exception;
           }
         };

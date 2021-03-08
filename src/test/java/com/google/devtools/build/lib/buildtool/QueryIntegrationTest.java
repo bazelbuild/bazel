@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.ByteArrayInputStream;
@@ -70,18 +71,18 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final List<String> options = new ArrayList<>();
 
   private static class CustomFileSystem extends UnixFileSystem {
-    final Map<Path, FileStatus> stubbedStats = new HashMap<>();
+    final Map<PathFragment, FileStatus> stubbedStats = new HashMap<>();
 
     CustomFileSystem() {
       super(DigestHashFunction.SHA256, "");
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, stubbedResult);
+      stubbedStats.put(path.asFragment(), stubbedResult);
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path);
       }

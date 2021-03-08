@@ -135,7 +135,7 @@ public class RemoteActionFileSystemTest {
     FileSystem actionFs = newRemoteActionFileSystem(inputs);
 
     // act
-    boolean success = actionFs.delete(actionFs.getPath(remoteArtifact.getPath().getPathString()));
+    boolean success = actionFs.delete(remoteArtifact.getPath().asFragment());
 
     // assert
     assertThat(success).isTrue();
@@ -150,7 +150,7 @@ public class RemoteActionFileSystemTest {
     FileSystemUtils.writeContent(filePath, StandardCharsets.UTF_8, "local contents");
 
     // act
-    boolean success = actionFs.delete(actionFs.getPath(filePath.getPathString()));
+    boolean success = actionFs.delete(filePath.asFragment());
 
     // assert
     assertThat(success).isTrue();
