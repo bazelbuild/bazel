@@ -127,18 +127,27 @@ final class WorkerKey {
     return proxied;
   }
 
+  public boolean isMultiplex() {
+    return getProxied() && !mustBeSandboxed;
+  }
+
   /** Returns the format of the worker protocol. */
   public WorkerProtocolFormat getProtocolFormat() {
     return protocolFormat;
   }
 
   /** Returns a user-friendly name for this worker type. */
-  public static String makeWorkerTypeName(boolean proxied) {
-    if (proxied) {
+  public static String makeWorkerTypeName(boolean proxied, boolean mustBeSandboxed) {
+    if (proxied && !mustBeSandboxed) {
       return "multiplex-worker";
     } else {
       return "worker";
     }
+  }
+
+  /** Returns a user-friendly name for this worker type. */
+  public String getWorkerTypeName() {
+    return makeWorkerTypeName(proxied, mustBeSandboxed);
   }
 
   @Override

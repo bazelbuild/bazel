@@ -144,7 +144,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       throws ExecException, IOException, InterruptedException {
     context.report(
         ProgressStatus.SCHEDULING,
-        WorkerKey.makeWorkerTypeName(Spawns.supportsMultiplexWorkers(spawn)));
+        WorkerKey.makeWorkerTypeName(
+            Spawns.supportsMultiplexWorkers(spawn), context.speculating()));
     if (spawn.getToolFiles().isEmpty()) {
       throw createUserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()),
@@ -301,7 +302,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       requestBuilder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
     }
-    if (key.getProxied()) {
+    if (key.isMultiplex()) {
       requestBuilder.setRequestId(requestIdCounter.getAndIncrement());
     }
     return requestBuilder.build();
@@ -420,7 +421,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         // We acquired a worker and resources -- mark that as queuing time.
         spawnMetrics.setQueueTime(queueStopwatch.elapsed());
 
-        context.report(ProgressStatus.EXECUTING, WorkerKey.makeWorkerTypeName(key.getProxied()));
+        context.report(ProgressStatus.EXECUTING, key.getWorkerTypeName());
         try {
           // We consider `prepareExecution` to be also part of setup.
           Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
