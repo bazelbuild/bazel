@@ -507,7 +507,7 @@ public class ParallelEvaluatorTest {
     final Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
     revalidationReceiver =
         new DirtyTrackingProgressReceiver(
-            new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
+            new EvaluationProgressReceiver() {
               @Override
               public void evaluated(
                   SkyKey skyKey,
@@ -2176,7 +2176,7 @@ public class ParallelEvaluatorTest {
     final Set<SkyKey> enqueuedValues = Sets.newConcurrentHashSet();
     final Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver progressReceiver =
-        new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
+        new EvaluationProgressReceiver() {
           @Override
           public void enqueueing(SkyKey skyKey) {
             enqueuedValues.add(skyKey);

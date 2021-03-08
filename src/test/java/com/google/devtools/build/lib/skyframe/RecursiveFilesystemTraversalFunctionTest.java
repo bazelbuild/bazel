@@ -415,7 +415,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static final class RecordingEvaluationProgressReceiver
-      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+      implements EvaluationProgressReceiver {
     Set<SkyKey> invalidations;
     Set<SkyKey> evaluations;
 

@@ -20,11 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
-/**
- * A testing utility to keep track of evaluation.
- */
-public class TrackingProgressReceiver
-    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+/** A testing utility to keep track of evaluation. */
+public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   private final boolean checkEvaluationResults;
   /**
    * Callback to be executed on a next {@link #invalidated} call. It will be run once and is

@@ -39,13 +39,13 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * Listener for executed actions and built artifacts. We use a listener so that we have an
- * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
+ * Listener for executed actions and built artifacts. We use a listener so that we have an accurate
+ * set of successfully run actions and built artifacts, even if the build is interrupted.
  */
 public final class ExecutionProgressReceiver
-    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
     implements SkyframeActionExecutor.ProgressSupplier,
-        SkyframeActionExecutor.ActionCompletedReceiver {
+        SkyframeActionExecutor.ActionCompletedReceiver,
+        EvaluationProgressReceiver {
   private static final ThreadLocal<NumberFormat> PROGRESS_MESSAGE_NUMBER_FORMATTER =
       ThreadLocal.withInitial(
           () -> {

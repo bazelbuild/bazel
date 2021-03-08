@@ -19,10 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver.InvalidationState;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NullEvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.function.Supplier;
@@ -32,7 +29,7 @@ import javax.annotation.Nullable;
  * Skyframe progress receiver which keeps a {@link TrimmedConfigurationCache} in sync with Skyframe
  * invalidations and revalidations.
  */
-public final class TrimmedConfigurationProgressReceiver extends NullEvaluationProgressReceiver {
+public final class TrimmedConfigurationProgressReceiver implements EvaluationProgressReceiver {
 
   private final TrimmedConfigurationCache<SkyKey, Label, BuildOptions.OptionsDiffForReconstruction>
       cache;

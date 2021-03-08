@@ -420,7 +420,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         InMemoryMemoizingEvaluator.SUPPLIER.create(
             makeFreshSkyFunctions(),
             preinjectedDifferencer,
-            new EvaluationProgressReceiver.NullEvaluationProgressReceiver(),
+            EvaluationProgressReceiver.NULL,
             GraphInconsistencyReceiver.THROWING,
             InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
             new MemoizingEvaluator.EmittedEventState(),
