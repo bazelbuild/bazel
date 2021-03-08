@@ -104,7 +104,7 @@ public class Package {
    */
   private final PackageIdentifier packageIdentifier;
 
-  private final boolean suggestNoSuchTargetCorrections;
+  private final boolean succinctTargetNotFoundErrors;
 
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
@@ -269,10 +269,10 @@ public class Package {
    * <p>{@code name} <b>MUST</b> be a suffix of {@code filename.getParentDirectory())}.
    */
   private Package(
-      PackageIdentifier packageId, String workspaceName, boolean suggestNoSuchTargetCorrections) {
+      PackageIdentifier packageId, String workspaceName, boolean succinctTargetNotFoundErrors) {
     this.packageIdentifier = packageId;
     this.workspaceName = workspaceName;
-    this.suggestNoSuchTargetCorrections = suggestNoSuchTargetCorrections;
+    this.succinctTargetNotFoundErrors = succinctTargetNotFoundErrors;
   }
 
   /** Returns this packages' identifier. */
@@ -663,19 +663,24 @@ public class Package {
       return target;
     }
 
-    String alternateTargetSuggestion =
-        suggestNoSuchTargetCorrections ? getAlternateTargetSuggestion(targetName) : "";
     Label label;
     try {
       label = Label.create(packageIdentifier, targetName);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(targetName);
     }
-    String msg =
-        String.format(
-            "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString());
-    throw new NoSuchTargetException(label, msg);
+
+    if (succinctTargetNotFoundErrors) {
+      throw new NoSuchTargetException(
+          label, String.format("target '%s' not declared in package '%s'", targetName, getName()));
+    } else {
+      String alternateTargetSuggestion = getAlternateTargetSuggestion(targetName);
+      throw new NoSuchTargetException(
+          label,
+          String.format(
+              "target '%s' not declared in package '%s'%s defined by %s",
+              targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString()));
+    }
   }
 
   private String getAlternateTargetSuggestion(String targetName) {
@@ -888,11 +893,11 @@ public class Package {
     /** Defines configuration to control the runtime behavior of {@link Package}s. */
     public interface PackageSettings {
       /**
-       * Returns if {@link NoSuchTargetException}s thrown from {@link #getTarget} should attempt to
-       * suggest existing alternatives. The benefit is potentially improved error messaging, while
-       * the drawback is extra I/O and CPU work, which might not be desired in all environments.
+       * Returns whether or not extra detail should be added to {@link NoSuchTargetException}s
+       * thrown from {@link #getTarget}. Useful for toning down verbosity in situations where it can
+       * be less helpful.
        */
-      boolean suggestNoSuchTargetCorrections();
+      boolean succinctTargetNotFoundErrors();
 
       /**
        * Reports whether to record the set of Modules loaded by this package, which enables richer
@@ -908,8 +913,8 @@ public class Package {
       private DefaultPackageSettings() {}
 
       @Override
-      public boolean suggestNoSuchTargetCorrections() {
-        return true;
+      public boolean succinctTargetNotFoundErrors() {
+        return false;
       }
 
       @Override
@@ -1045,7 +1050,7 @@ public class Package {
         String workspaceName,
         boolean noImplicitFileExport,
         ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.pkg = new Package(id, workspaceName, packageSettings.suggestNoSuchTargetCorrections());
+      this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
       if (pkg.getName().startsWith("javatests/")) {
