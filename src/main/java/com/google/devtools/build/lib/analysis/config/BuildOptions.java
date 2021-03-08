@@ -178,7 +178,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   /** Returns the actual instance of a FragmentOptions class. */
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     FragmentOptions options = fragmentOptionsMap.get(optionsClass);
-    Preconditions.checkNotNull(options, "fragment options unavailable: " + optionsClass.getName());
+    Preconditions.checkNotNull(options, "fragment options unavailable: %s", optionsClass);
     return optionsClass.cast(options);
   }
 
