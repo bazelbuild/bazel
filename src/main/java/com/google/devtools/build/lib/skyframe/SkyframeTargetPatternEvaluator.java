@@ -228,9 +228,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
 
     private SimpleLookup(String pattern, TargetPatternKey key) {
       this(
-          pattern,
-          PackageValue.key(key.getParsedPattern().getDirectoryForTargetOrTargetsInPackage()),
-          key.getParsedPattern());
+          pattern, PackageValue.key(key.getParsedPattern().getDirectory()), key.getParsedPattern());
     }
 
     private SimpleLookup(String pattern, PackageValue.Key key, TargetPattern targetPattern) {
