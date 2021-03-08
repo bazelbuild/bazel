@@ -371,6 +371,19 @@ public class SandboxOptions extends OptionsBase {
               + " avoid unnecessary setup costs.")
   public boolean reuseSandboxDirectories;
 
+  @Option(
+      name = "experimental_use_hermetic_linux_sandbox",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+        "If set to true, do not mount root, only mount whats provided with "
+            + "sandbox_add_mount_pair. Input files will be hardlinked to the sandbox instead of "
+            + "symlinked to from the sandbox. "
+            + "If action input files are located on a filesystem different from the sandbox, "
+            + "then the input files will be copied instead.")
+  public boolean useHermetic;
+
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {
     public AsyncTreeDeletesConverter() {

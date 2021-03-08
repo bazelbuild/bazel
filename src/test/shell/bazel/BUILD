@@ -953,6 +953,19 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_hermetic_sandboxing_test",
+    size = "small",
+    srcs = ["bazel_hermetic_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+    tags = [
+        "no-sandbox",
+        "no_windows",
+    ],
+)
+sh_test(
     name = "bazel_sandboxing_cpp_test",
     srcs = ["bazel_sandboxing_cpp_test.sh"],
     data = [
