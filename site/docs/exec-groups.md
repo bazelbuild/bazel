@@ -175,8 +175,8 @@ my_rule = rule(
 It is possible to define `exec_properties` for arbitrary execution groups on
 platform targets (unlike `exec_properties` set directly on a target, where
 properties for unknown execution groups are rejected). Targets then inherit the
-platform's `exec_properties` that affect the default execution group and any
-other relevant execution groups.
+execution platform's `exec_properties` that affect the default execution group
+and any other relevant execution groups.
 
 For example, suppose running a C++ test requires some resource to be available,
 but it isn't required for compiling and linking; this can be modelled as
@@ -202,4 +202,4 @@ cc_test(
 ```
 
 `exec_properties` defined directly on targets take precedence over those that
-are inherited from the platform.
+are inherited from the execution platform.
