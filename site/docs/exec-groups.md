@@ -132,6 +132,13 @@ All actions with `exec_group = "link"` would see the exec properties
 dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 
+### Execution groups for native rules
+
+The following execution groups are available for actions defined by native rules:
+
+* `test`: Test runner actions.
+* `cpp_link`: C++ linking actions.
+
 ### Creating exec groups to set exec properties
 
 Sometimes you want to use an exec group to give specific actions different exec
@@ -162,3 +169,36 @@ my_rule = rule(
 #
 ```
 
+### Execution groups and platform execution properties
+
+It is possible to define `exec_properties` for arbitrary execution groups on
+platform targets (unlike `exec_properties` set directly on a target, where
+properties for unknown execution groups are rejected). Targets then inherit the
+execution platform's `exec_properties` that affect the default execution group
+and any other relevant execution groups.
+
+For example, suppose running a C++ test requires some resource to be available,
+but it isn't required for compiling and linking; this can be modelled as
+follows:
+
+```python
+constraint_setting(name = "resource")
+constraint_value(name = "has_resource", constraint_setting = ":resource")
+
+platform(
+    name = "platform_with_resource",
+    constraint_values = [":has_resource"],
+    exec_properties = {
+        "test.resource": "...",
+    },
+)
+
+cc_test(
+    name = "my_test",
+    srcs = ["my_test.cc"],
+    exec_compatible_with = [":has_resource"],
+)
+```
+
+`exec_properties` defined directly on targets take precedence over those that
+are inherited from the execution platform.
