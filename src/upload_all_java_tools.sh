@@ -73,7 +73,7 @@ fi
 # Skip for now, as the test is broken on Windows.
 # See https://github.com/bazelbuild/bazel/issues/12244 for details
 if [[ "$platform" != "windows" ]]; then
-    for java_version in 11 14 15; do
+    for java_version in 11 15; do
         bazel test --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
             --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}" \
