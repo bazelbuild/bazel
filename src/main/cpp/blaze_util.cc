@@ -94,7 +94,7 @@ std::vector<std::string> GetAllUnaryOptionValues(const vector<string>& args,
       // 'key' was found and 'result' has its value.
       values.push_back(result);
 
-      if (ignore_after_value != nullptr && std::strcmp(result, ignore_after_value) == 0) {
+      if (ignore_after_value != nullptr && strcmp(result, ignore_after_value) == 0) {
         break;
       }
     }
