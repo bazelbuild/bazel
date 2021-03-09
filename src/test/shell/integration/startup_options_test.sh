@@ -106,4 +106,16 @@ function test_multiple_bazelrc_set_different_options() {
   expect_log "Inherited 'common' options: --test_output=all"
 }
 
+function test_bazelrc_after_devnull_ignored() {
+  echo "common --verbose_failures" > 1.rc
+  echo "common --test_output=all" > 2.rc
+  echo "common --definitely_invalid_config" > 3.rc
+
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" "--${PRODUCT_NAME}rc=/dev/null" \
+   "--${PRODUCT_NAME}rc=3.rc" build --announce_rc &> $TEST_log || fail "Should pass"
+  expect_log "Inherited 'common' options: --verbose_failures"
+  expect_log "Inherited 'common' options: --test_output=all"
+  expect_not_log "--definitely_invalid_config"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"

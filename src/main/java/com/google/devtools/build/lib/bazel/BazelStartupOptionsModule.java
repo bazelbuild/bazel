@@ -42,7 +42,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
                 + "to disable the search for a user rc file, e.g. in release builds.\n"
                 + "If unspecified, Bazel uses the first .bazelrc file it finds in "
                 + "the following two locations: the workspace directory, then the user's home "
-                + "directory. \n"
+                + "directory.\n"
                 + "Note: command line options will always supersede any option in bazelrc.")
     public String blazerc;
 
