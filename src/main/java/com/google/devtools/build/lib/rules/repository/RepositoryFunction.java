@@ -334,9 +334,13 @@ public abstract class RepositoryFunction {
       return null;
     }
 
+    // Only depend on --repo_env values that are specified in the "environ" attribute.
     Map<String, String> repoEnv = new LinkedHashMap<String, String>(environ);
-    for (Map.Entry<String, String> value : repoEnvOverride.entrySet()) {
-      repoEnv.put(value.getKey(), value.getValue());
+    for (String key : keys) {
+      String value = repoEnvOverride.get(key);
+      if (value != null) {
+        repoEnv.put(key, value);
+      }
     }
 
     // Add the dependencies to the marker file
@@ -365,9 +369,13 @@ public abstract class RepositoryFunction {
       return false;
     }
 
+    // Only depend on --repo_env values that are specified in the "environ" attribute.
     Map<String, String> repoEnv = new LinkedHashMap<>(environ);
-    for (Map.Entry<String, String> value : repoEnvOverride.entrySet()) {
-      repoEnv.put(value.getKey(), value.getValue());
+    for (String key : keys) {
+      String value = repoEnvOverride.get(key);
+      if (value != null) {
+        repoEnv.put(key, value);
+      }
     }
 
     // Verify that all environment variable in the marker file are also in keys
