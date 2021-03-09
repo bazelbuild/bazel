@@ -60,7 +60,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
-    boolean sandboxed = workerOptions.workerSandboxing || key.mustBeSandboxed();
+    boolean sandboxed = workerOptions.workerSandboxing || key.isSpeculative();
     if (sandboxed) {
       Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);
@@ -124,30 +124,18 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     Worker worker = p.getObject();
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
-      if (workerOptions.workerVerbose) {
-        if (worker.diedUnexpectedly()) {
-          String msg =
-              String.format(
-                  "%s %s (id %d) has unexpectedly died with exit code %d.",
-                  key.getMnemonic(),
-                  key.getWorkerTypeName(),
-                  worker.getWorkerId(),
-                  exitValue.get());
-          ErrorMessage errorMessage =
-              ErrorMessage.builder()
-                  .message(msg)
-                  .logFile(worker.getLogFile())
-                  .logSizeLimit(4096)
-                  .build();
-          reporter.handle(Event.warn(errorMessage.toString()));
-        } else {
-          // Can't rule this out entirely, but it's not an unexpected death.
-          String msg =
-              String.format(
-                  "%s %s (id %d) was destroyed, but is still in the worker pool.",
-                  key.getMnemonic(), key.getWorkerTypeName(), worker.getWorkerId());
-          reporter.handle(Event.info(msg));
-        }
+      if (workerOptions.workerVerbose && worker.diedUnexpectedly()) {
+        String msg =
+            String.format(
+                "%s %s (id %d) has unexpectedly died with exit code %d.",
+                key.getMnemonic(), key.getWorkerTypeName(), worker.getWorkerId(), exitValue.get());
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message(msg)
+                .logFile(worker.getLogFile())
+                .logSizeLimit(4096)
+                .build();
+        reporter.handle(Event.warn(errorMessage.toString()));
       }
       return false;
     }

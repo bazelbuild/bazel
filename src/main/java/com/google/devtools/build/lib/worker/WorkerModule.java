@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -72,7 +71,8 @@ public class WorkerModule extends BlazeModule {
       this.options = event.getOptionsProvider().getOptions(WorkerOptions.class);
       workerFactory.setReporter(env.getReporter());
       workerFactory.setOptions(options);
-      shutdownPool("Clean command is running, shutting down worker pool...");
+      shutdownPool(
+          "Clean command is running, shutting down worker pool...", /* alwaysLog= */ false);
     }
   }
 
@@ -179,29 +179,8 @@ public class WorkerModule extends BlazeModule {
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     if (options != null && options.workerQuitAfterBuild) {
-      shutdownPool("Build completed, shutting down worker pool...");
+      shutdownPool("Build completed, shutting down worker pool...", /* alwaysLog= */ false);
     }
-  }
-
-  /**
-   * Stops any workers that are still executing.
-   *
-   * <p>This currently kills off some amount of workers, losing the warmed-up state.
-   * TODO(b/119701157): Cancel running workers instead (requires some way to reach each worker).
-   */
-  @Subscribe
-  public void buildInterrupted(BuildInterruptedEvent event) {
-    if (workerPool != null) {
-      if ((options != null && options.workerVerbose)) {
-        env.getReporter().handle(Event.info("Build interrupted, stopping active workers..."));
-      }
-      workerPool.stopWork();
-    }
-  }
-
-  /** Shuts down the worker pool and sets {#code workerPool} to null. */
-  private void shutdownPool(String reason) {
-    shutdownPool(reason, /* alwaysLog= */ false);
   }
 
   /** Shuts down the worker pool and sets {#code workerPool} to null. */
