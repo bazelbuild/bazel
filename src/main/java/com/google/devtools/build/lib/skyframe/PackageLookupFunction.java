@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -326,11 +327,11 @@ public class PackageLookupFunction implements SkyFunction {
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
-    SkyKey repositoryKey = RepositoryValue.key(id.getRepository());
-    RepositoryValue repositoryValue;
+    SkyKey repositoryKey = RepositoryDirectoryValue.key(id.getRepository());
+    RepositoryDirectoryValue repositoryValue;
     try {
       repositoryValue =
-          (RepositoryValue)
+          (RepositoryDirectoryValue)
               env.getValueOrThrow(
                   repositoryKey,
                   NoSuchPackageException.class,

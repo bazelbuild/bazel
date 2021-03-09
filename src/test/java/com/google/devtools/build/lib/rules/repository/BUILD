@@ -29,7 +29,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_loader_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",

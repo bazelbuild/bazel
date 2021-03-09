@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -123,7 +122,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       directories,
                       ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
                       EXTERNAL_PACKAGE_HELPER))
-              .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
               .build());
       addExtraPrecomputedValues(
           PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),

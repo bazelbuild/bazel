@@ -40,7 +40,6 @@ java_library(
         ":repository/new_repository_file_handler",
         ":repository/repository_directory_value",
         ":repository/repository_function",
-        ":repository/repository_loader_function",
         ":repository/resolved_file_value",
         ":repository/resolved_hashes_value",
         ":repository/workspace_attribute_mapper",
@@ -440,22 +439,6 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/repository_loader_function",
-    srcs = ["repository/RepositoryLoaderFunction.java"],
-    deps = [
-        ":repository/repository_directory_value",
-        ":repository/workspace_file_helper",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_value",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
 )
