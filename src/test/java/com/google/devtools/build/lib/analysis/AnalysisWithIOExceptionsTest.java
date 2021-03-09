@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.function.Function;
@@ -52,6 +54,24 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
   public void testGlobIOException() throws Exception {
     scratch.file("b/BUILD", "sh_library(name = 'b', deps= ['//a:a'])");
     scratch.file("a/BUILD", "sh_library(name = 'a', srcs = glob(['a.sh']))");
+    crashMessage = path -> path.toString().contains("a.sh") ? "bork" : null;
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//b:b"));
+  }
+
+  @Test
+  public void testIncrementalGlobIOException() throws Exception {
+    scratch.file("b/BUILD", "sh_library(name = 'b', deps= ['//a:a'])");
+    scratch.file(
+        "a/BUILD",
+        "sh_library(name = 'a', srcs = glob(['a.sh']))",
+        "sh_library(name = 'expensive', srcs = ['expensive.sh'])");
+    Path aShFile = scratch.file("a/a.sh");
+    update("//b:b");
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        ModifiedFileSet.builder().modify(aShFile.relativeTo(rootDirectory)).build(),
+        Root.fromPath(rootDirectory));
     crashMessage = path -> path.toString().contains("a.sh") ? "bork" : null;
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//b:b"));

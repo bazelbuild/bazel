@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -89,6 +90,7 @@ import net.starlark.java.syntax.SyntaxError;
  * per client application.
  */
 public final class PackageFactory {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
   // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
@@ -647,6 +649,16 @@ public final class PackageFactory {
         pkgContext.eventHandler.handle(
             Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
+      } catch (InterruptedException ex) {
+        if (pkgContext.pkgBuilder.containsErrors()) {
+          // Suppress the interrupted exception: we have an error of our own to return.
+          Thread.currentThread().interrupt();
+          logger.atInfo().withCause(ex).log(
+              "Suppressing InterruptedException for Package %s because an error was also found",
+              pkgBuilder.getPackageIdentifier().getCanonicalForm());
+        } else {
+          throw ex;
+        }
       }
       pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
