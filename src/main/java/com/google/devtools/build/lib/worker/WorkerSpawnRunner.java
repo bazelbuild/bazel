@@ -384,7 +384,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     Worker worker = null;
     WorkResponse response;
     WorkRequest request;
-
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     try {
       Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
