@@ -33,9 +33,11 @@ or
 import hashlib
 import os
 try:
-    from Queue import Queue
+  # python2 without compatibility package
+  from Queue import Queue
 except ImportError:
-    import queue as Queue
+  # python3
+  from queue import Queue
 import shutil
 import sys
 import tempfile
