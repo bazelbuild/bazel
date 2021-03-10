@@ -154,7 +154,7 @@ bool IsAbsolute(const string& path) {
 
 string GetEnv(const string& key) {
 #ifdef _WIN32
-  DWORD size = ::GetEnvironmentVariableA(key.c_str(), NULL, 0);
+  DWORD size = ::GetEnvironmentVariableA(key.c_str(), nullptr, 0);
   if (size == 0) {
     return string();  // unset or empty envvar
   }
@@ -163,7 +163,7 @@ string GetEnv(const string& key) {
   return value.get();
 #else
   char* result = getenv(key.c_str());
-  return (result == NULL) ? string() : string(result);
+  return (result == nullptr) ? string() : string(result);
 #endif
 }
 

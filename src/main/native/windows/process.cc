@@ -105,7 +105,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           commandline.size() + 1);
   // MDSN says that the default for job objects is that breakaway is not
   // allowed. Thus, we don't need to do any more setup here.
-  job_ = CreateJobObject(NULL, NULL);
+  job_ = CreateJobObject(nullptr, nullptr);
   if (!job_.IsValid()) {
     DWORD err_code = GetLastError();
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -172,10 +172,10 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   STARTUPINFOEXW info;
   attr_list->InitStartupInfoExW(&info);
   if (!CreateProcessW(
-          /* lpApplicationName */ NULL,
+          /* lpApplicationName */ nullptr,
           /* lpCommandLine */ mutable_commandline.get(),
-          /* lpProcessAttributes */ NULL,
-          /* lpThreadAttributes */ NULL,
+          /* lpProcessAttributes */ nullptr,
+          /* lpThreadAttributes */ nullptr,
           /* bInheritHandles */ attr_list->InheritAnyHandles() ? TRUE : FALSE,
           /* dwCreationFlags */ (create_window ? 0 : CREATE_NO_WINDOW) |
               (handle_signals ? 0
@@ -184,7 +184,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
               | CREATE_SUSPENDED  // So that it doesn't start a new job itself
               | EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
           /* lpEnvironment */ env,
-          /* lpCurrentDirectory */ cwd.empty() ? NULL : cwd.c_str(),
+          /* lpCurrentDirectory */ cwd.empty() ? nullptr : cwd.c_str(),
           /* lpStartupInfo */ &info.StartupInfo,
           /* lpProcessInformation */ &process_info)) {
     DWORD err = GetLastError();
@@ -210,7 +210,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
 
   if (!AssignProcessToJobObject(job_, process_)) {
     BOOL is_in_job = false;
-    if (IsProcessInJob(process_, NULL, &is_in_job) && is_in_job &&
+    if (IsProcessInJob(process_, nullptr, &is_in_job) && is_in_job &&
         !IsWindows8OrGreater()) {
       // Pre-Windows 8 systems don't support nested jobs, and Bazel is already
       // in a job.  We can't create nested jobs, so just revert to

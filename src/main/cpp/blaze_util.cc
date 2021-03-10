@@ -51,12 +51,12 @@ const char* GetUnaryOption(const char *arg,
                            const char *next_arg,
                            const char *key) {
   const char *value = blaze_util::var_strprefix(arg, key);
-  if (value == NULL) {
-    return NULL;
+  if (value == nullptr) {
+    return nullptr;
   } else if (value[0] == '=') {
     return value + 1;
   } else if (value[0]) {
-    return NULL;  // trailing garbage in key name
+    return nullptr;  // trailing garbage in key name
   }
 
   return next_arg;
@@ -64,7 +64,7 @@ const char* GetUnaryOption(const char *arg,
 
 bool GetNullaryOption(const char *arg, const char *key) {
   const char *value = blaze_util::var_strprefix(arg, key);
-  if (value == NULL) {
+  if (value == nullptr) {
     return false;
   } else if (value[0] == '=') {
     BAZEL_DIE(blaze_exit_code::BAD_ARGV)
@@ -114,7 +114,7 @@ std::vector<std::string> GetAllUnaryOptionValues(
 const char* SearchUnaryOption(const vector<string>& args,
                               const char *key, bool warn_if_dupe) {
   if (args.empty()) {
-    return NULL;
+    return nullptr;
   }
 
   const char* value = nullptr;
@@ -138,7 +138,7 @@ const char* SearchUnaryOption(const vector<string>& args,
     const char* result = GetUnaryOption(args[i].c_str(),
                                         args[i + 1].c_str(),
                                         key);
-    if (result != NULL) {
+    if (result != nullptr) {
       // 'key' was found and 'result' has its value.
       if (value) {
         // 'key' was found once before, because 'value' is not empty.
@@ -158,7 +158,7 @@ const char* SearchUnaryOption(const vector<string>& args,
       if (!found_dupe) {
         // We did not find a duplicate in the first N-1 arguments. Examine the
         // last argument, it may be a duplicate.
-        found_dupe = (GetUnaryOption(args[i].c_str(), NULL, key) != nullptr);
+        found_dupe = (GetUnaryOption(args[i].c_str(), nullptr, key) != nullptr);
       }
       if (found_dupe) {
         BAZEL_LOG(WARNING) << key << " is given more than once, "
@@ -170,7 +170,7 @@ const char* SearchUnaryOption(const vector<string>& args,
     // 'value' is empty, so 'key' was not yet found in the first N-1 arguments.
     // If 'key' is in the last argument, we'll parse and return the value from
     // that, and if it isn't, we'll return NULL.
-    return GetUnaryOption(args[i].c_str(), NULL, key);
+    return GetUnaryOption(args[i].c_str(), nullptr, key);
   }
 }
 

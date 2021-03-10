@@ -190,7 +190,7 @@ void SignalHandler::Install(const string& product_name,
   // Unblock all signals.
   sigset_t sigset;
   sigemptyset(&sigset);
-  sigprocmask(SIG_SETMASK, &sigset, NULL);
+  sigprocmask(SIG_SETMASK, &sigset, nullptr);
 
   signal(SIGINT, handler);
   signal(SIGTERM, handler);
@@ -255,7 +255,7 @@ class CharPP {
     for (; i < args.size(); i++) {
       charpp_[i] = strdup(args[i].c_str());
     }
-    charpp_[i] = NULL;
+    charpp_[i] = nullptr;
   }
 
   // Constructs a new CharPP from a list of environment variables.
@@ -279,12 +279,12 @@ class CharPP {
           assert(false);
       }
     }
-    charpp_[i] = NULL;
+    charpp_[i] = nullptr;
   }
 
   // Deletes all memory held by the CharPP.
   ~CharPP() {
-    for (char** ptr = charpp_; *ptr != NULL; ptr++) {
+    for (char** ptr = charpp_; *ptr != nullptr; ptr++) {
       free(*ptr);
     }
     free(charpp_);
@@ -532,14 +532,12 @@ void CreateSecureOutputRoot(const blaze_util::Path& path) {
 
 string GetEnv(const string& name) {
   char* result = getenv(name.c_str());
-  return result != NULL ? string(result) : "";
+  return result != nullptr ? string(result) : "";
 }
 
 string GetPathEnv(const string& name) { return GetEnv(name); }
 
-bool ExistsEnv(const string& name) {
-  return getenv(name.c_str()) != NULL;
-}
+bool ExistsEnv(const string& name) { return getenv(name.c_str()) != nullptr; }
 
 void SetEnv(const string& name, const string& value) {
   setenv(name.c_str(), value.c_str(), 1);
@@ -558,8 +556,8 @@ void SetupStdStreams() {
   // output (when for example a query returns results as proto), in which case
   // we must not perform line buffering on the client side. So turn off
   // buffering here completely.
-  setvbuf(stdout, NULL, _IONBF, 0);
-  setvbuf(stderr, NULL, _IONBF, 0);
+  setvbuf(stdout, nullptr, _IONBF, 0);
+  setvbuf(stderr, nullptr, _IONBF, 0);
 
   // Ensure we have three open fds.  Otherwise we can end up with
   // bizarre things like stdout going to the lock file, etc.
@@ -736,7 +734,7 @@ void TrySleep(unsigned int milliseconds) {
   time_t seconds_part = (time_t)(milliseconds / 1000);
   long nanoseconds_part = ((long)(milliseconds % 1000)) * 1000 * 1000;
   struct timespec sleeptime = {seconds_part, nanoseconds_part};
-  nanosleep(&sleeptime, NULL);
+  nanosleep(&sleeptime, nullptr);
 }
 
 string GetUserName() {
@@ -746,7 +744,7 @@ string GetUserName() {
   }
   errno = 0;
   passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == NULL || pwent->pw_name == NULL) {
+  if (pwent == nullptr || pwent->pw_name == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "$USER is not set, and unable to look up name of current user: "
         << GetLastErrorString();

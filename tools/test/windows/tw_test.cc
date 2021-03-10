@@ -138,8 +138,8 @@ void CompareZipEntryPaths(char const* const* actual,
 
 HANDLE FopenRead(const std::wstring& unc_path) {
   return CreateFileW(unc_path.c_str(), GENERIC_READ,
-                     FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
-                     FILE_ATTRIBUTE_NORMAL, NULL);
+                     FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 }
 
 HANDLE FopenContents(const wchar_t* wline, const char* contents, DWORD size) {
@@ -160,9 +160,9 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
 
   // Create a directory structure to parse.
   std::wstring root = tmpdir + L"\\tmp" + WLINE;
-  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
-  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), NULL));
-  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo\\sub").c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo\\sub").c_str(), nullptr));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\sub\\file1", ""));
   EXPECT_TRUE(
       blaze_util::CreateDummyFile(root + L"\\foo\\sub\\file2", "hello"));
@@ -317,9 +317,9 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
 
   // Create a directory structure to archive.
   std::wstring root = tmpdir + L"\\tmp" + WLINE;
-  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
-  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), NULL));
-  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo\\sub").c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo\\sub").c_str(), nullptr));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\sub\\file1", ""));
   EXPECT_TRUE(
       blaze_util::CreateDummyFile(root + L"\\foo\\sub\\file2", "hello"));
@@ -414,9 +414,9 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
 
   // Create a directory structure to parse.
   std::wstring root = tmpdir + L"\\tmp" + WLINE;
-  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
-  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), NULL));
-  EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), nullptr));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.part", "Hello a"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\b.txt", "Hello b"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\c.part", "Hello c"));
@@ -431,7 +431,7 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
   ASSERT_NE(h, INVALID_HANDLE_VALUE);
   char content[100];
   DWORD read;
-  bool success = ReadFile(h, content, 100, &read, NULL) != FALSE;
+  bool success = ReadFile(h, content, 100, &read, nullptr) != FALSE;
   CloseHandle(h);
   EXPECT_TRUE(success);
   ASSERT_EQ(std::string(content, read), std::string("Hello aHello c"));
@@ -439,13 +439,13 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
 
 TEST_F(TestWrapperWindowsTest, TestTee) {
   HANDLE read1_h, write1_h;
-  EXPECT_TRUE(CreatePipe(&read1_h, &write1_h, NULL, 0));
+  EXPECT_TRUE(CreatePipe(&read1_h, &write1_h, nullptr, 0));
   bazel::windows::AutoHandle read1(read1_h), write1(write1_h);
   HANDLE read2_h, write2_h;
-  EXPECT_TRUE(CreatePipe(&read2_h, &write2_h, NULL, 0));
+  EXPECT_TRUE(CreatePipe(&read2_h, &write2_h, nullptr, 0));
   bazel::windows::AutoHandle read2(read2_h), write2(write2_h);
   HANDLE read3_h, write3_h;
-  EXPECT_TRUE(CreatePipe(&read3_h, &write3_h, NULL, 0));
+  EXPECT_TRUE(CreatePipe(&read3_h, &write3_h, nullptr, 0));
   bazel::windows::AutoHandle read3(read3_h), write3(write3_h);
 
   std::unique_ptr<bazel::tools::test_wrapper::Tee> tee;
@@ -454,21 +454,21 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   DWORD written, read;
   char content[100];
 
-  EXPECT_TRUE(WriteFile(write1, "hello", 5, &written, NULL));
+  EXPECT_TRUE(WriteFile(write1, "hello", 5, &written, nullptr));
   EXPECT_EQ(written, 5);
-  EXPECT_TRUE(ReadFile(read2, content, 100, &read, NULL));
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, nullptr));
   EXPECT_EQ(read, 5);
   EXPECT_EQ(std::string(content, read), "hello");
-  EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, nullptr));
   EXPECT_EQ(read, 5);
   EXPECT_EQ(std::string(content, read), "hello");
 
-  EXPECT_TRUE(WriteFile(write1, "foo", 3, &written, NULL));
+  EXPECT_TRUE(WriteFile(write1, "foo", 3, &written, nullptr));
   EXPECT_EQ(written, 3);
-  EXPECT_TRUE(ReadFile(read2, content, 100, &read, NULL));
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, nullptr));
   EXPECT_EQ(read, 3);
   EXPECT_EQ(std::string(content, read), "foo");
-  EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, nullptr));
   EXPECT_EQ(read, 3);
   EXPECT_EQ(std::string(content, read), "foo");
 

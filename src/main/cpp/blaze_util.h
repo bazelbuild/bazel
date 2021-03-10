@@ -49,7 +49,7 @@ bool GetNullaryOption(const char *arg, const char *key);
 // When 'warn_if_dupe' is true, the method checks if 'key' is specified more
 // than once and prints a warning if so.
 // Returns the value of the 'key' flag iff it occurs in args.
-// Returns NULL otherwise.
+// Returns nullptr otherwise.
 const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key, bool warn_if_dupe);
 
