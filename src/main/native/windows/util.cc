@@ -56,11 +56,11 @@ wstring GetLastErrorString(DWORD error_code) {
     return L"";
   }
 
-  LPWSTR message = NULL;
+  LPWSTR message = nullptr;
   DWORD size = FormatMessageW(
       FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS |
           FORMAT_MESSAGE_ALLOCATE_BUFFER,
-      NULL, error_code, LANG_USER_DEFAULT, (LPWSTR)&message, 0, NULL);
+      nullptr, error_code, LANG_USER_DEFAULT, (LPWSTR)&message, 0, nullptr);
 
   if (size == 0) {
     wstringstream err;
@@ -90,7 +90,7 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
   SIZE_T size = 0;
   // According to MSDN, the first call to InitializeProcThreadAttributeList is
   // expected to fail.
-  InitializeProcThreadAttributeList(NULL, kAttributeCount, 0, &size);
+  InitializeProcThreadAttributeList(nullptr, kAttributeCount, 0, &size);
   SetLastError(ERROR_SUCCESS);
 
   std::unique_ptr<uint8_t[]> data(new uint8_t[size]);
@@ -111,8 +111,8 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
   if (!UpdateProcThreadAttribute(
           attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
           attr_list->handles_.ValidHandles(),
-          attr_list->handles_.ValidHandlesCount() * sizeof(HANDLE), NULL,
-          NULL)) {
+          attr_list->handles_.ValidHandlesCount() * sizeof(HANDLE), nullptr,
+          nullptr)) {
     if (error_msg) {
       DWORD err = GetLastError();
       *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -245,7 +245,7 @@ wstring AsShortPath(wstring path, wstring* result) {
   static const size_t kMaxShortPath = MAX_PATH + 4;
 
   WCHAR wshort[kMaxShortPath];
-  DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), NULL, 0);
+  DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), nullptr, 0);
   if (wshort_size == 0) {
     DWORD err_code = GetLastError();
     wstring res = MakeErrorMessage(WSTR(__FILE__), __LINE__,
