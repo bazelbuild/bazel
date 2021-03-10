@@ -2261,7 +2261,7 @@ public abstract class CcModule
       FileTypeSet fileTypeForErrorMessage)
       throws EvalException {
     for (Artifact file : files) {
-      if (!validFileTypeSet.matches(file.getFilename())) {
+      if (!validFileTypeSet.matches(file.getFilename()) && !file.isTreeArtifact()) {
         throw Starlark.errorf(
             "'%s' has wrong extension. The list of possible extensions for '%s' is: %s",
             file.getExecPathString(),
