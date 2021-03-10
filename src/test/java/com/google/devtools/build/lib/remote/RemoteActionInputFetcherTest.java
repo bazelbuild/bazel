@@ -107,7 +107,7 @@ public class RemoteActionInputFetcherTest {
     assertThat(a2.getPath().isExecutable()).isTrue();
     assertThat(actionInputFetcher.downloadedFiles()).hasSize(2);
     assertThat(actionInputFetcher.downloadedFiles()).containsAtLeast(a1.getPath(), a2.getPath());
-    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress()).isEmpty();
   }
 
   @Test
@@ -127,7 +127,7 @@ public class RemoteActionInputFetcherTest {
     assertThat(FileSystemUtils.readContent(p, StandardCharsets.UTF_8)).isEqualTo("hello world");
     assertThat(p.isExecutable()).isTrue();
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
-    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress()).isEmpty();
   }
 
   @Test
@@ -144,7 +144,7 @@ public class RemoteActionInputFetcherTest {
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
-    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress()).isEmpty();
   }
 
   @Test
@@ -167,7 +167,7 @@ public class RemoteActionInputFetcherTest {
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
-    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress()).isEmpty();
   }
 
   @Test
@@ -189,7 +189,7 @@ public class RemoteActionInputFetcherTest {
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
-    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress()).isEmpty();
   }
 
   @Test
@@ -259,6 +259,113 @@ public class RemoteActionInputFetcherTest {
 
     assertThat(interrupted.get()).isTrue();
     assertThat(a1.getPath().exists()).isFalse();
+  }
+
+  @Test
+  public void testPrefetchFiles_multipleThreads_downloadIsNotCancelledByOtherThreads()
+      throws Exception {
+    // Test multiple threads can share downloads, but do not cancel each other when interrupted
+
+    // arrange
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<Digest, ByteString> cacheEntries = new HashMap<>();
+    Artifact artifact = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    SettableFuture<Void> download = SettableFuture.create();
+    RemoteCache remoteCache = mock(RemoteCache.class);
+    when(remoteCache.downloadFile(any(), any(), any())).thenAnswer(invocation -> download);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+    Thread cancelledThread =
+        new Thread(
+            () -> {
+              try {
+                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+              } catch (IOException | InterruptedException ignored) {
+                // do nothing
+              }
+            });
+
+    AtomicBoolean successful = new AtomicBoolean(false);
+    Thread successfulThread =
+        new Thread(
+            () -> {
+              try {
+                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+                successful.set(true);
+              } catch (IOException | InterruptedException ignored) {
+                // do nothing
+              }
+            });
+    cancelledThread.start();
+    successfulThread.start();
+    while (true) {
+      if (actionInputFetcher
+              .getDownloadCache()
+              .getSubscriberCount(execRoot.getRelative(artifact.getExecPath()))
+          == 2) {
+        break;
+      }
+    }
+
+    // act
+    cancelledThread.interrupt();
+    cancelledThread.join();
+    // simulate the download finishing
+    assertThat(download.isCancelled()).isFalse();
+    download.set(null);
+    successfulThread.join();
+
+    // assert
+    assertThat(successful.get()).isTrue();
+  }
+
+  @Test
+  public void testPrefetchFiles_multipleThreads_downloadIsCancelled() throws Exception {
+    // Test shared downloads are cancelled if all threads/callers are interrupted
+
+    // arrange
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<Digest, ByteString> cacheEntries = new HashMap<>();
+    Artifact artifact = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+
+    SettableFuture<Void> download = SettableFuture.create();
+    RemoteCache remoteCache = mock(RemoteCache.class);
+    when(remoteCache.downloadFile(any(), any(), any())).thenAnswer(invocation -> download);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+
+    Thread cancelledThread1 =
+        new Thread(
+            () -> {
+              try {
+                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+              } catch (IOException | InterruptedException ignored) {
+                // do nothing
+              }
+            });
+
+    Thread cancelledThread2 =
+        new Thread(
+            () -> {
+              try {
+                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+              } catch (IOException | InterruptedException ignored) {
+                // do nothing
+              }
+            });
+
+    // act
+    cancelledThread1.start();
+    cancelledThread2.start();
+    cancelledThread1.interrupt();
+    cancelledThread2.interrupt();
+    cancelledThread1.join();
+    cancelledThread2.join();
+
+    // assert
+    assertThat(download.isCancelled()).isTrue();
   }
 
   private Artifact createRemoteArtifact(
