@@ -494,19 +494,14 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       return this;
     }
 
-    public Builder maybeTransitiveOnlyRuntimeJarsToJavaInfo(
-        List<? extends TransitiveInfoCollection> deps, boolean shouldAdd) {
-      // TODO(b/149926109): Currently all callers call with shouldAdd=true as a temporary workaround
-      // to make --trim_test_configuration work again.
-      if (shouldAdd) {
-        deps.stream()
-            .map(JavaInfo::getJavaInfo)
-            .filter(Objects::nonNull)
-            .map(j -> j.getProvider(JavaCompilationArgsProvider.class))
-            .filter(Objects::nonNull)
-            .map(JavaCompilationArgsProvider::getRuntimeJars)
-            .forEach(this::addTransitiveOnlyRuntimeJars);
-      }
+    public Builder addTransitiveOnlyRuntimeJars(List<? extends TransitiveInfoCollection> deps) {
+      deps.stream()
+          .map(JavaInfo::getJavaInfo)
+          .filter(Objects::nonNull)
+          .map(j -> j.getProvider(JavaCompilationArgsProvider.class))
+          .filter(Objects::nonNull)
+          .map(JavaCompilationArgsProvider::getRuntimeJars)
+          .forEach(this::addTransitiveOnlyRuntimeJars);
       return this;
     }
 
