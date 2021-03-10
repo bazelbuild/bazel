@@ -158,6 +158,19 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuilderWithExecutableInRootPcakage() throws Exception {
+    Artifact tool = getSourceArtifact("tool.bin");
+    Action[] actions = builder()
+      .setExecutable(tool)
+      .addOutput(destinationArtifact)
+      .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).hasSize(1);
+    assertThat(action.getArguments().get(0)).matches("\\.[/\\\\]tool.bin");
+  }
+
+  @Test
   public void testBuilderWithJavaExecutable() throws Exception {
     Action[] actions = builder()
         .addOutput(destinationArtifact)
