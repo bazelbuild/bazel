@@ -35,7 +35,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
             "The location of the user .bazelrc file containing default values of "
                 + "Bazel options. "
                 + "/dev/null indicates that all further `--bazelrc`s will be ignored, "
-                + "This is useful to disable the search for a user rc file, "
+                + "which is useful to disable the search for a user rc file, "
                 + "e.g. in release builds.\n"
                 + "This option can also be specified multiple times.\n"
                 + "E.g. with "
