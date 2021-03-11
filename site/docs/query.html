@@ -98,8 +98,8 @@ describes the output formats <code>bazel query</code> supports.
       <pre>bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
 
       <p>
-        Keywords, when quoted, are treated as ordinary words, thus
-        <code>some</code> is a keyword but <code>"some"</code> is a word.
+        Keywords, when quoted, are treated as ordinary words. For example,
+        <code>set</code> is a keyword and <code>"set"</code> in quotes is treated as a word.
         Both <code>foo</code> and <code>"foo"</code> are words.
       </p>
 
