@@ -1649,11 +1649,12 @@ echo "STABLE_USER_NAME $USER"
   register_toolchains()</a>.
 </p>
 
-<h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=false</code></h4>
+<h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=<var>regex</var></code></h4>
 <p>
-  Print debug information while finding toolchains for a rule. This might help
-  developers of Bazel or Starlark rules with debugging failures due to missing
-  toolchains.
+  Print debug information while finding toolchains if the toolchain type matches
+  the regex. Multiple regexes can be separated by commas. The regex can be
+  negated by using a <code>-</code> at the beginning. This might help developers
+  of Bazel or Starlark rules with debugging failures due to missing toolchains.
 </p>
 
 <h3 id='misc_build_options'>Miscellaneous</h3>
