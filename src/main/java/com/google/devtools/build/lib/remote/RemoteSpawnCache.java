@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -85,6 +86,7 @@ final class RemoteSpawnCache implements SpawnCache {
   private final Set<String> reportedErrors = new HashSet<>();
 
   private final DigestUtil digestUtil;
+  private final RemotePathResolver remotePathResolver;
 
   /**
    * If {@link RemoteOutputsMode#TOPLEVEL} is specified it contains the artifacts that should be
@@ -101,7 +103,8 @@ final class RemoteSpawnCache implements SpawnCache {
       String commandId,
       @Nullable Reporter cmdlineReporter,
       DigestUtil digestUtil,
-      ImmutableSet<ActionInput> filesToDownload) {
+      ImmutableSet<ActionInput> filesToDownload,
+      RemotePathResolver remotePathResolver) {
     this.execRoot = execRoot;
     this.options = options;
     this.verboseFailures = verboseFailures;
@@ -111,6 +114,7 @@ final class RemoteSpawnCache implements SpawnCache {
     this.commandId = commandId;
     this.digestUtil = digestUtil;
     this.filesToDownload = Preconditions.checkNotNull(filesToDownload, "filesToDownload");
+    this.remotePathResolver = remotePathResolver;
   }
 
   @Override
@@ -125,8 +129,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Stopwatch totalTime = Stopwatch.createStarted();
 
-    SortedMap<PathFragment, ActionInput> inputMap =
-        context.getInputMapping(PathFragment.create(execRoot.getBaseName()));
+    SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
     MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =
@@ -144,7 +147,7 @@ final class RemoteSpawnCache implements SpawnCache {
             spawn.getArguments(),
             spawn.getEnvironment(),
             platform,
-            execRoot.getBaseName());
+            remotePathResolver);
     RemoteOutputsMode remoteOutputsMode = options.remoteOutputsMode;
     Action action =
         RemoteSpawnRunner.buildAction(
@@ -186,8 +189,8 @@ final class RemoteSpawnCache implements SpawnCache {
                 prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
               remoteCache.download(
                   remoteActionExecutionContext,
+                  remotePathResolver,
                   result,
-                  execRoot,
                   context.getFileOutErr(),
                   context::lockOutputFiles);
             }
@@ -199,12 +202,11 @@ final class RemoteSpawnCache implements SpawnCache {
               inMemoryOutput =
                   remoteCache.downloadMinimal(
                       remoteActionExecutionContext,
-                      actionKey.getDigest().getHash(),
+                      remotePathResolver,
                       result,
                       spawn.getOutputFiles(),
                       inMemoryOutputPath,
                       context.getFileOutErr(),
-                      execRoot,
                       context.getMetadataInjector(),
                       context::lockOutputFiles);
             }
@@ -288,10 +290,10 @@ final class RemoteSpawnCache implements SpawnCache {
           try (SilentCloseable c = prof.profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
             remoteCache.upload(
                 remoteActionExecutionContext,
+                remotePathResolver,
                 actionKey,
                 action,
                 command,
-                execRoot.getParentDirectory(),
                 files,
                 context.getFileOutErr());
           } catch (IOException e) {

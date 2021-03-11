@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -60,6 +61,13 @@ class DirectoryTreeBuilder {
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
     int numFiles = buildFromActionInputs(inputs, metadataProvider, execRoot, digestUtil, tree);
+    // // Make sure working directory is exists
+    // PathFragment workingDirectory = PathFragment.create(execRoot.getBaseName());
+    // if (!tree.containsKey(workingDirectory)) {
+    //   DirectoryNode dir = new DirectoryNode(workingDirectory.toString());
+    //   tree.put(workingDirectory, dir);
+    //   createParentDirectoriesIfNotExist(workingDirectory, dir, tree);
+    // }
     return new DirectoryTree(tree, numFiles);
   }
 
