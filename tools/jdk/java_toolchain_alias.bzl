@@ -36,6 +36,7 @@ def _java_runtime_alias(ctx):
 java_runtime_alias = rule(
     implementation = _java_runtime_alias,
     toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+    incompatible_use_toolchain_transition = True,
     attrs = {
         "_java_runtime": attr.label(
             default = Label("@bazel_tools//tools/jdk:legacy_current_java_runtime"),
@@ -103,6 +104,7 @@ _java_runtime_transition = transition(
 java_runtime_version_alias = rule(
     implementation = _java_runtime_version_alias,
     toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+    incompatible_use_toolchain_transition = True,
     attrs = {
         "runtime_version": attr.string(mandatory = True),
         # TODO(ilist): remove after java toolchain resolution flag is flipped
