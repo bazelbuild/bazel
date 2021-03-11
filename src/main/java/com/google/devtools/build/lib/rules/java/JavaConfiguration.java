@@ -93,7 +93,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final JavaClasspathMode javaClasspath;
   private final boolean inmemoryJdepsFiles;
   private final ImmutableList<String> defaultJvmFlags;
-  private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
   private final Label proguardBinary;
@@ -133,7 +132,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaClasspath = javaOptions.javaClasspath;
     this.inmemoryJdepsFiles = javaOptions.inmemoryJdepsFiles;
     this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
-    this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
@@ -267,10 +265,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public ImmutableList<String> getDefaultJvmFlags() {
     return defaultJvmFlags;
-  }
-
-  public ImmutableList<String> getCheckedConstraints() {
-    return checkedConstraints;
   }
 
   public StrictDepsMode getStrictJavaDeps() {

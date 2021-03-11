@@ -138,24 +138,6 @@ public class JavaCommon {
   }
 
   /**
-   * Validates that the packages listed under "deps" all have the given constraint. If a package
-   * does not have this attribute, an error is generated.
-   */
-  public static final void validateConstraint(
-      RuleContext ruleContext,
-      String constraint,
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    for (TransitiveInfoCollection target : targets) {
-      JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-      if (javaInfo != null && !javaInfo.getJavaConstraints().contains(constraint)) {
-        ruleContext.attributeError(
-            "deps",
-            String.format("%s: does not have constraint '%s'", target.getLabel(), constraint));
-      }
-    }
-  }
-
-  /**
    * Creates an action to aggregate all metadata artifacts into a single
    * &lt;target_name&gt;_instrumented.jar file.
    */

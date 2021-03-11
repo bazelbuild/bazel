@@ -446,13 +446,14 @@ public class JavaOptions extends FragmentOptions {
       help = "The message translations used for translating messages in Java targets.")
   public List<String> translationTargets;
 
+  @Deprecated
   @Option(
       name = "check_constraint",
       allowMultiple = true,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Check the listed constraint.")
+      help = "No-op. Kept here for backwards compatibility.")
   public List<String> checkedConstraints;
 
   @Option(
@@ -761,8 +762,6 @@ public class JavaOptions extends FragmentOptions {
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
     host.isJlplStrictDepsEnforced = isJlplStrictDepsEnforced;
-
-    host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
     host.disallowResourceJars = disallowResourceJars;
 

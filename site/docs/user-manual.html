@@ -102,28 +102,6 @@ Package path elements may be specified in three formats:
   These options control Bazel's error-checking and/or warnings.
 </p>
 
-<h4 id='flag--check_constraint'><code class='flag'>--check_constraint=<var>constraint</var></code></h4>
-<p>
-  This option takes an argument that specifies which constraint
-  should be checked.
-</p>
-<p>
-  Bazel performs special checks on each rule that is annotated with the
-  given constraint.
-</p>
-<p>
-  The supported constraints and their checks are as follows:
-</p>
-<ul>
-
-  <li><code>public</code>: Verify that all java_libraries marked with
-    <code>constraints = ['public']</code> only depend on java_libraries
-    that are marked as <code>constraints = ['public']</code> too. If bazel
-    finds a dependency that does not conform to this rule, bazel will issue
-    an error.
-  </li>
-</ul>
-
 <h4 id='flag--check_visibility'><code class='flag'>--[no]check_visibility</code></h4>
 <p>
   If this option is set to false, visibility checks are demoted to warnings.
