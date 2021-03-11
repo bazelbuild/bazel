@@ -19,7 +19,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -79,7 +79,10 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     }
 
     // Find the right one.
-    boolean debug = configuration.getOptions().get(PlatformOptions.class).toolchainResolutionDebug;
+    boolean debug =
+        configuration
+            .getFragment(PlatformConfiguration.class)
+            .debugToolchainResolution(key.toolchainTypeLabel());
     return resolveConstraints(
         key.toolchainTypeLabel(),
         key.availableExecutionPlatformKeys(),

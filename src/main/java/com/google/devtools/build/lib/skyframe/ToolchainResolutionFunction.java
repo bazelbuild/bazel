@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -81,7 +80,9 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
       // Check if debug output should be generated.
       boolean debug =
-          configuration.getOptions().get(PlatformOptions.class).toolchainResolutionDebug;
+          configuration
+              .getFragment(PlatformConfiguration.class)
+              .debugToolchainResolution(key.requiredToolchainTypeLabels());
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
