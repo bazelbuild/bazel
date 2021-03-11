@@ -5587,6 +5587,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTreeArtifactSrcs() throws Exception {
+    doTestTreeAtrifactInSrcsAndHdrs("srcs");
+  }
+
+  @Test
+  public void testTreeArtifactPrivateHdrs() throws Exception {
+    doTestTreeAtrifactInSrcsAndHdrs("private_hdrs");
+  }
+
+  @Test
+  public void testTreeArtifactPublicHdrs() throws Exception {
+    doTestTreeAtrifactInSrcsAndHdrs("public_hdrs");
+  }
+
+  @Test
   public void testWrongSrcsExtensionGivesError() throws Exception {
     doTestWrongExtensionOfSrcsAndHdrs("srcs");
   }
@@ -6118,6 +6133,35 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       getConfiguredTarget("//bar:starlark_lib");
       assertNoEvents();
     }
+  }
+
+  private void doTestTreeAtrifactInSrcsAndHdrs(String attrName) throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "bar/create_tree_artifact.bzl",
+        "def _impl(ctx):",
+        "    tree = ctx.actions.declare_directory('dir')",
+        "    ctx.actions.run_shell(",
+        "        outputs = [tree],",
+        "        inputs = [],",
+        "        arguments = [tree.path],",
+        "        command = 'mkdir $1',",
+        "    )",
+        "    return [DefaultInfo(files = depset([tree]))]",
+        "create_tree_artifact = rule(implementation = _impl)");
+    scratch.file(
+        "bar/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "load(':create_tree_artifact.bzl', 'create_tree_artifact')",
+        "create_tree_artifact(name = 'tree_artifact')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    " + attrName + " = [':tree_artifact'],",
+        ")");
+    getConfiguredTarget("//bar:starlark_lib");
+    assertNoEvents();
   }
 
   private void doTestCcOutputsWrongExtension(String attrName, String paramName) throws Exception {
