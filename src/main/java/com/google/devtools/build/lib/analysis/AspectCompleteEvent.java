@@ -180,6 +180,7 @@ public class AspectCompleteEvent
               builder.addOutputGroup(
                   OutputGroup.newBuilder()
                       .setName(outputGroup)
+                      .setIncomplete(artifactsInGroup.isIncomplete())
                       .addFileSets(namer.apply(artifactsInGroup.getArtifacts().toNode()))));
     }
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();

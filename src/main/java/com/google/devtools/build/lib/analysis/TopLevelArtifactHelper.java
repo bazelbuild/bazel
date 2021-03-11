@@ -50,10 +50,13 @@ public final class TopLevelArtifactHelper {
   @Immutable
   public static final class ArtifactsInOutputGroup {
     private final boolean important;
+    private final boolean incomplete;
     private final NestedSet<Artifact> artifacts;
 
-    private ArtifactsInOutputGroup(boolean important, NestedSet<Artifact> artifacts) {
+    private ArtifactsInOutputGroup(
+        boolean important, boolean incomplete, NestedSet<Artifact> artifacts) {
       this.important = important;
+      this.incomplete = incomplete;
       this.artifacts = checkNotNull(artifacts);
     }
 
@@ -64,6 +67,10 @@ public final class TopLevelArtifactHelper {
     /** Returns {@code true} if the user should know about this output group. */
     public boolean areImportant() {
       return important;
+    }
+
+    public boolean isIncomplete() {
+      return incomplete;
     }
   }
 
@@ -220,7 +227,7 @@ public final class TopLevelArtifactHelper {
           !outputGroup.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX);
 
       ArtifactsInOutputGroup artifacts =
-          new ArtifactsInOutputGroup(isImportantGroup, results.build());
+          new ArtifactsInOutputGroup(isImportantGroup, /*incomplete=*/ false, results.build());
 
       allOutputGroups.put(outputGroup, artifacts);
     }
@@ -261,7 +268,8 @@ public final class TopLevelArtifactHelper {
           filteredArtifactsInOutputGroup = artifactsInOutputGroup;
         } else {
           filteredArtifactsInOutputGroup =
-              new ArtifactsInOutputGroup(artifactsInOutputGroup.areImportant(), filteredArtifacts);
+              new ArtifactsInOutputGroup(
+                  artifactsInOutputGroup.areImportant(), /*incomplete=*/ true, filteredArtifacts);
           leavesDirty = true;
         }
         if (!filteredArtifactsInOutputGroup.getArtifacts().isEmpty()) {

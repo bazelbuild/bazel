@@ -120,8 +120,13 @@ public class SuccessfulArtifactFilterTest {
         allArtifactsToBuild.getAllArtifactsByOutputGroup();
 
     SuccessfulArtifactFilter filter = new SuccessfulArtifactFilter(successfulArtifacts);
+    ImmutableMap<String, ArtifactsInOutputGroup> filteredOutputGroups =
+        filter.filterArtifactsInOutputGroup(outputGroups);
+    assertThat(filteredOutputGroups.get("g1").isIncomplete()).isTrue();
+    assertThat(filteredOutputGroups.get("g2").isIncomplete()).isTrue();
+    assertThat(filteredOutputGroups.get("g3").isIncomplete()).isTrue();
     Map<String, ImmutableSet<Artifact>> groupArtifacts =
-        extractArtifactsByOutputGroup(filter.filterArtifactsInOutputGroup(outputGroups));
+        extractArtifactsByOutputGroup(filteredOutputGroups);
     assertThat(groupArtifacts.get("g1")).containsExactly(group1BuiltArtifact);
     assertThat(groupArtifacts.get("g2")).containsExactly(group2BuiltArtifact);
     assertThat(groupArtifacts.get("g3"))
@@ -152,6 +157,7 @@ public class SuccessfulArtifactFilterTest {
     SuccessfulArtifactFilter filter = new SuccessfulArtifactFilter(successfulArtifacts);
     ImmutableMap<String, ArtifactsInOutputGroup> filteredOutputGroups =
         filter.filterArtifactsInOutputGroup(outputGroups);
+    assertThat(filteredOutputGroups.get("g1").isIncomplete()).isTrue();
     assertThat(filteredOutputGroups).containsKey("g1");
     assertThat(filteredOutputGroups).doesNotContainKey("g2");
   }
@@ -197,6 +203,7 @@ public class SuccessfulArtifactFilterTest {
     ArtifactsInOutputGroup unfilteredArtifactsInOutputGroup = outputGroups.get("out");
     ArtifactsInOutputGroup filteredArtifactsInOutputGroup =
         filter.filterArtifactsInOutputGroup(outputGroups).get("out");
+    assertThat(filteredArtifactsInOutputGroup.isIncomplete()).isFalse();
     assertThat(filteredArtifactsInOutputGroup).isSameInstanceAs(unfilteredArtifactsInOutputGroup);
   }
 

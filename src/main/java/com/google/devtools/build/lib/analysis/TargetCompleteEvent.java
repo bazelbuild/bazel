@@ -486,6 +486,7 @@ public final class TargetCompleteEvent
           groups.add(
               OutputGroup.newBuilder()
                   .setName(outputGroup)
+                  .setIncomplete(artifactsInOutputGroup.isIncomplete())
                   .addFileSets(namer.apply(artifactsInOutputGroup.getArtifacts().toNode()))
                   .build());
         });

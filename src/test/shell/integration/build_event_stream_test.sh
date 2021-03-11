@@ -682,6 +682,7 @@ function test_bep_output_groups() {
     expect_log "\"name\":\"${name}_outputs\""
     expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  expect_log "\"name\":\"foo_outputs\".*\"incomplete\":true"
   # Verify that a URI is produced for foo's successful action's output but not
   # its failed action's output.
   expect_log "\"name\":\"outputgroups/my_lib-foo.out\",\"uri\":"
@@ -796,6 +797,7 @@ function test_failing_aspect_bep_output_groups() {
   expect_log "\"name\":\"good-aspect-out\""
   expect_log "\"name\":\"mixed-aspect-out\""
   expect_not_log "\"name\":\"bad-aspect-out\""
+  expect_log "\"name\":\"mixed-aspect-out\".*\"incomplete\":true"
   expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.good\",\"uri\":"
   expect_log "\"name\":\"semifailingpkg/out2.txt.aspect.good\",\"uri\":"
   expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.mixed\",\"uri\":"
