@@ -141,6 +141,7 @@ def _semifailing_aspect_impl(target, ctx):
         return struct(output_groups = {})
     bad_outputs = list()
     good_outputs = list()
+    mixed_outputs = list()
     for out in ctx.rule.attr.outs:
         if out.name[0] == "f":
             aspect_out = ctx.actions.declare_file(out.name + ".aspect.bad")
@@ -155,9 +156,21 @@ def _semifailing_aspect_impl(target, ctx):
             outputs = [aspect_out],
             command = cmd,
         )
+        mixed_out = ctx.actions.declare_file(out.name + ".aspect.mixed")
+        if out.name[3] == "2":  # only matches "out2.txt"
+            cmd = "false"
+        else:
+            cmd = "echo %s > %s" % (out.name, mixed_out.path)
+        mixed_outputs.append(mixed_out)
+        ctx.actions.run_shell(
+            inputs = [],
+            outputs = [mixed_out],
+            command = cmd,
+        )
     return [OutputGroupInfo(**{
         "bad-aspect-out": depset(bad_outputs),
         "good-aspect-out": depset(good_outputs),
+        "mixed-aspect-out": depset(mixed_outputs),
     })]
 
 semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
@@ -654,8 +667,9 @@ function test_bep_output_groups() {
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
   #
-  # We request the first three output groups and expect only bar_outputs to
-  # appear in BEP, because all actions contributing to bar_outputs succeeded.
+  # We request the first three output groups and expect foo_outputs and
+  # bar_outputs to appear in BEP, because both groups have at least one
+  # successful action.
   bazel build //outputgroups:my_lib \
    --keep_going\
    --build_event_text_file=bep_output \
@@ -664,16 +678,24 @@ function test_bep_output_groups() {
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
-  for name in bar; do
+  for name in foo bar; do
     expect_log "\"name\":\"${name}_outputs\""
     expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
+  done
+  # Verify that a URI is produced for foo's successful action's output but not
+  # its failed action's output.
+  expect_log "\"name\":\"outputgroups/my_lib-foo.out\",\"uri\":"
+  expect_not_log "\"name\":\"outputgroups/my_lib-foo.fail.out\",\"uri\":"
+  # Verify that a URI is produced for all of bar's successful actions' outputs.
+  for suffix in out out2 out3 out4 out5; do
+    expect_log "\"name\":\"outputgroups/my_lib-bar.ok.${suffix}\",\"uri\":"
   done
   # Verify that nested NamedSetOfFiles structure is preserved in BEP.
   expect_log "namedSet.*\"1\".*bar.ok.*fileSets.*\"2\""
   expect_log "namedSet.*\"2\".*bar.ok.*fileSets.*\"3\""
   expect_log "namedSet.*\"3\".*bar.ok.*fileSets.*\"4\""
 
-  for name in foo baz skip; do
+  for name in baz skip; do
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
@@ -754,21 +776,30 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
-   --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out \
+   --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
     && fail "expected failure" || true
 
-  for name in bar; do
+  for name in foo bar; do
     expect_log "\"name\":\"${name}_outputs\""
     expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  # Verify that a URI is produced for foo's successful action's output but not
+  # its failed action's output.
+  expect_log "\"name\":\"outputgroups/my_lib-foo.out\",\"uri\":"
+  expect_not_log "\"name\":\"outputgroups/my_lib-foo.fail.out\",\"uri\":"
 
-  for name in foo baz skip; do
+  for name in baz skip; do
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
 
   expect_log "\"name\":\"good-aspect-out\""
+  expect_log "\"name\":\"mixed-aspect-out\""
   expect_not_log "\"name\":\"bad-aspect-out\""
+  expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.good\",\"uri\":"
+  expect_log "\"name\":\"semifailingpkg/out2.txt.aspect.good\",\"uri\":"
+  expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.mixed\",\"uri\":"
+  expect_not_log "\"name\":\"semifailingpkg/out2.txt.aspect.mixed\",\"uri\":"
 }
 
 function test_build_only() {

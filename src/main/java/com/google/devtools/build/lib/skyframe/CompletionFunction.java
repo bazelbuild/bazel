@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.SuccessfulArtifactFilter;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -124,24 +124,6 @@ public final class CompletionFunction<
     ActionLookupKey actionLookupKey();
 
     TopLevelArtifactContext topLevelArtifactContext();
-  }
-
-  /**
-   * Reduce an ArtifactsToBuild to only the Artifacts that were actually built (used when reporting
-   * a failed target/aspect's completed outputs).
-   */
-  private static ImmutableMap<String, ArtifactsInOutputGroup>
-      filterArtifactOutputGroupsToBuiltArtifacts(
-          ImmutableSet<Artifact> builtArtifacts, ArtifactsToBuild allArtifactsToBuild) {
-    return ImmutableMap.copyOf(
-        Maps.filterValues(
-            allArtifactsToBuild.getAllArtifactsByOutputGroup(),
-            // Iterating over all artifacts in the output group although we already iterated over
-            // the set while collecting all builtArtifacts. Ideally we would have a
-            // NestedSetIntersectionView that would not require duplicating some-or-all of the
-            // original NestedSet.
-            artifactsInOutputGroup ->
-                builtArtifacts.containsAll(artifactsInOutputGroup.getArtifacts().toList())));
   }
 
   private final PathResolverFactory pathResolverFactory;
@@ -284,8 +266,8 @@ public final class CompletionFunction<
 
     if (!rootCauses.isEmpty()) {
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
-          filterArtifactOutputGroupsToBuiltArtifacts(
-              builtArtifactsBuilder.build(), artifactsToBuild);
+          new SuccessfulArtifactFilter(builtArtifactsBuilder.build())
+              .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
       env.getListener()
           .post(completor.createFailed(value, rootCauses, ctx, builtOutputs, failureData));
       if (firstActionExecutionException != null) {
