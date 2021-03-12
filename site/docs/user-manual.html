@@ -78,8 +78,8 @@ Package path elements may be specified in three formats:
   </li>
 </ol>
 <p>
-  If you use a non-default package path, we recommend that you specify
-  it in your <a href='guide.html#bazelrc'>Bazel configuration file</a> for
+  If you use a non-default package path, specify it in your
+  <a href='guide.html#bazelrc'>Bazel configuration file</a> for
   convenience.
 </p>
 <p>
@@ -1161,8 +1161,8 @@ memory-saving mode</a>.
   generated for the set of targets specified on the command line.
 </p>
 <p>
-  Note that our implementation of <code class='flag'>--save_temps</code> does not use the compiler's
-  <code>-save-temps</code> flag. Instead, we do two passes, one with <code>-S</code>
+  Note that the implementation of <code class='flag'>--save_temps</code> does not use the compiler's
+  <code>-save-temps</code> flag. Instead, there are two passes, one with <code>-S</code>
   and one with <code>-E</code>. A consequence of this is that if your build fails,
   Bazel may not yet have produced the ".i" or ".ii" and ".s" files.
   If you're trying to use <code class='flag'>--save_temps</code> to debug a failed compilation,
@@ -2150,19 +2150,16 @@ Examples:
 <p>
   The <code>clean</code> command is provided primarily as a means of
   reclaiming disk space for workspaces that are no longer needed.
-  However, we recognize that Bazel's incremental rebuilds might not be
-  perfect; <code>clean</code> may be used to recover a consistent
+  Bazel's incremental rebuilds may not be
+  perfect so <code>clean</code> can be used to recover a consistent
   state when problems arise.
 </p>
 <p>
-  Bazel's design is such that these problems are fixable; we consider
-  such bugs a high priority, and will do our best fix them. If you
-  ever find an incorrect incremental build, please file a bug report.
-  We encourage developers to get out of the habit of
-  using <code>clean</code> and into that of reporting bugs in the
-  tools.
+  Bazel's design is such that these problems are fixable and
+  these bugs are a high priority to be fixed. If you
+  ever find an incorrect incremental build, file a bug report, and report bugs in the tools
+  rather than using <code>clean</code>.
 </p>
-
 
 <h2 id='run'>Running executables</h2>
 <p>
@@ -2823,9 +2820,8 @@ adb -s deadbeef install ...
   overriden with <code class='flag'>--output_base</code>. The directory
   must either not exist or be owned by the calling user. In the past,
   this was allowed to point to a directory shared among various users
-  but it's not allowed any longer. (We can reconsider allowing this once
-  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>
-  is addressed.)
+  but it's not allowed any longer. This may be allowed once the following is addressed:
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>.
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides
@@ -2939,7 +2935,7 @@ adb -s deadbeef install ...
   <i>WARNING:</i> <code class='flag'>--batch</code> is sufficiently slower than standard
   client/server mode. Additionally it might not support all of the features and optimizations which
   are made possible by a persistent Bazel server. If you're using <code class='flag'>--batch</code>
-  for the purpose of build isolation, we recommend using the command option
+  for the purpose of build isolation, you should use the command option
   <code class='flag'>--nokeep_state_after_build</code>, which guarantees that no incremental
   in-memory state is kept between builds. In order to restart the Bazel server and JVM after a
   build, please explicitly do so using the "shutdown" command.

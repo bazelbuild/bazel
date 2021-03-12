@@ -5,7 +5,7 @@ title: Finding non-hermetic behavior in WORKSPACE rules
 
 # Finding Non-Hermetic Behavior in WORKSPACE Rules
 
-In the following, we say that a host machine is the machine where Bazel runs.
+In the following, a host machine is the machine where Bazel runs.
 
 When using remote execution, the actual build and/or test steps are not
 happening on the host machine, but are instead sent off to the remote execution
