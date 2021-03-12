@@ -111,7 +111,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean addTestSupportToCompileTimeDeps;
   private final boolean isJlplStrictDepsEnforced;
   private final ImmutableList<Label> pluginList;
-  private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
   private final boolean disallowLegacyJavaToolchainFlags;
   private final boolean experimentalTurbineAnnotationProcessing;
@@ -191,8 +190,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
 
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
-    this.requireJavaToolchainHeaderCompilerDirect =
-        javaOptions.requireJavaToolchainHeaderCompilerDirect;
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.experimentalTurbineAnnotationProcessing;
@@ -445,10 +442,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public ImmutableList<Label> getPlugins() {
     return pluginList;
-  }
-
-  public boolean requireJavaToolchainHeaderCompilerDirect() {
-    return requireJavaToolchainHeaderCompilerDirect;
   }
 
   public boolean disallowResourceJars() {

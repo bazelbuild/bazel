@@ -615,20 +615,6 @@ public class JavaOptions extends FragmentOptions {
   public List<Label> pluginList;
 
   @Option(
-      name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, java_toolchains.header_compilation_direct must be set when "
-              + "--java_header_compilation is enabled.")
-  public boolean requireJavaToolchainHeaderCompilerDirect;
-
-  @Option(
       name = "incompatible_disallow_resource_jars",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
