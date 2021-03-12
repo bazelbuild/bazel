@@ -530,7 +530,7 @@ use_toolchain(
 EOF
 
   bazel build \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     --incompatible_auto_configure_host_platform \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution:   Type //toolchain:test_toolchain: target platform @local_config_platform//.*: execution @local_config_platform//:host: Selected toolchain //:test_toolchain_impl_1'
@@ -904,14 +904,14 @@ EOF
 
   # When no platform has the constraint, an error
   bazel build \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=.* \
     //demo:target &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:target: .* from available execution platforms \[\]"
 
   # When the platform exists, it is used.
   bazel build \
     --extra_execution_platforms=//platform:test_platform \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=.* \
     //demo:target &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platform:test_platform"
 }
@@ -964,7 +964,7 @@ EOF
   # Build the target, using debug messages to verify the correct platform was selected.
   bazel build \
     --extra_execution_platforms=//platforms:all \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platforms:platform2"
 }
@@ -1020,7 +1020,7 @@ EOF
   # Build the target, using debug messages to verify the correct platform was selected.
   bazel build \
     --extra_execution_platforms=//platforms:all \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platforms:platform2"
 }
@@ -1090,7 +1090,7 @@ EOF
   # Build the target, using debug messages to verify the correct platform was selected.
   bazel build \
     --extra_execution_platforms=//platforms:all \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platforms:platform2_4"
 }

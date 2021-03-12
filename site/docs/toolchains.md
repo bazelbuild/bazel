@@ -431,7 +431,8 @@ independently to each version of the target.
 
 ## Debugging toolchains
 
-When adding toolchain support to an existing rule, use the
-`--toolchain_resolution_debug` flag to make toolchain resolution verbose. Bazel
-will output names of toolchains it is checking and skipping during the
-resolution process.
+If you are adding toolchain support to an existing rule, use the
+`--toolchain_resolution_debug=regex` flag. During toolchain resolution, the flag
+provides verbose output for toolchain types that match the regex variable. You
+can use `.*` to output all information. Bazel will output names of toolchains it
+checks and skips during the resolution process.

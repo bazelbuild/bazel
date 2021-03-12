@@ -148,13 +148,15 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "toolchain_resolution_debug",
-      defaultValue = "false",
+      defaultValue = "-.*", // By default, exclude everything.
+      converter = RegexFilter.RegexFilterConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Print debug information while finding toolchains for a rule. This might help developers "
-              + "of Bazel or Starlark rules with debugging failures due to missing toolchains.")
-  public boolean toolchainResolutionDebug;
+          "Print debug information during toolchain resolution. The flag takes a regex, which is"
+              + " checked against toolchain types to see which to debug. Multiple regexes may be"
+              + " separated by commas, and then each regex is checked separately.")
+  public RegexFilter toolchainResolutionDebug;
 
   @Option(
       name = "incompatible_auto_configure_host_platform",
