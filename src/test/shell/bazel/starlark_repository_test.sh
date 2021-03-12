@@ -889,6 +889,7 @@ EOF
   cat > .bazelrc <<EOF
 build:foo --repo_env=FOO=foo
 build:bar --repo_env=FOO=bar
+build:qux --repo_env=FOO
 EOF
 
   bazel build --config=foo //:repoenv //:unrelated
@@ -923,6 +924,18 @@ EOF
   grep -q 'FOO=bar' repoenv3.txt \
       || fail "Expected FOO to be visible to repo rules"
   diff unrelated1.txt unrelated3.txt \
+      || fail "Expected unrelated action to not be rerun"
+
+  FOO=qux bazel build --config=qux //:repoenv //:unrelated
+  # The new config should be picked up, but the unrelated target should
+  # not be rerun
+  cp `bazel info bazel-genfiles 3>/dev/null`/repoenv.txt repoenv4.txt
+  cp `bazel info bazel-genfiles 3> /dev/null`/unrelated.txt unrelated4.txt
+  echo; cat repoenv4.txt; echo; cat unrelated4.txt; echo
+
+  grep -q 'FOO=qux' repoenv4.txt \
+      || fail "Expected FOO to be visible to repo rules"
+  diff unrelated1.txt unrelated4.txt \
       || fail "Expected unrelated action to not be rerun"
 }
 
