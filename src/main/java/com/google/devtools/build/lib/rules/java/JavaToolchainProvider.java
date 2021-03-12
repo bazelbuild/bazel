@@ -17,7 +17,6 @@ import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_V
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -30,20 +29,27 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.Iterator;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.syntax.Location;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
 @AutoCodec
-public class JavaToolchainProvider extends ToolchainInfo
+public class JavaToolchainProvider extends NativeInfo
     implements JavaToolchainStarlarkApiProviderApi {
+
+  public static final BuiltinProvider<JavaToolchainProvider> PROVIDER =
+      new BuiltinProvider<JavaToolchainProvider>(
+          "JavaToolchainInfo", JavaToolchainProvider.class) {};
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
@@ -59,8 +65,13 @@ public class JavaToolchainProvider extends ToolchainInfo
   private static JavaToolchainProvider from(
       ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
-    if (toolchainInfo instanceof JavaToolchainProvider) {
-      return (JavaToolchainProvider) toolchainInfo;
+    try {
+      JavaToolchainProvider provider = (JavaToolchainProvider) toolchainInfo.getValue("java");
+      if (provider != null) {
+        return provider;
+      }
+    } catch (EvalException e) {
+      // Ignore?
     }
     if (errorConsumer != null) {
       errorConsumer.ruleError("The selected Java toolchain is not a JavaToolchainProvider");
@@ -183,7 +194,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       FilesToRunProvider proguardAllowlister,
       JavaSemantics javaSemantics,
       JavaRuntimeInfo javaRuntime) {
-    super(ImmutableMap.of(), Location.BUILTIN);
+    super();
 
     this.label = label;
     this.bootclasspath = bootclasspath;
@@ -420,5 +431,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Override
   public Depset getStarlarkTools() {
     return Depset.of(Artifact.TYPE, getTools());
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 }
