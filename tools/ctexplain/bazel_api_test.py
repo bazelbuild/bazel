@@ -45,7 +45,7 @@ class BazelApiTest(test_base.TestBase):
     self.assertEqual(len(cts), 1)
     self.assertEqual(cts[0].label, '//testapp:fg')
     self.assertIsNone(cts[0].config)
-    self.assertGreater(len(cts[0].config_hash), 10)
+    self.assertGreater(len(cts[0].config_hash), 6)
     self.assertIn('PlatformConfiguration', cts[0].transitive_fragments)
 
   def testFailedCquery(self):
@@ -134,7 +134,9 @@ class BazelApiTest(test_base.TestBase):
 
   def testConfigWithStarlarkFlags(self):
     self.ScratchFile('testapp/defs.bzl', [
-        'def _flag_impl(settings, attr):', '  pass', 'string_flag = rule(',
+        'def _flag_impl(settings, attr):',
+        '  pass',
+        'string_flag = rule(',
         '  implementation = _flag_impl,',
         '  build_setting = config.string(flag = True)'
         ')'
@@ -144,7 +146,7 @@ class BazelApiTest(test_base.TestBase):
         'string_flag(name = "my_flag", build_setting_default = "nada")',
         'filegroup(name = "fg", srcs = ["a.file"])',
     ])
-    cquery_args = ['//testapp:fg', '--//testapp:my_flag', 'algo']
+    cquery_args = ['//testapp:fg', '--//testapp:my_flag=algo']
     cts = self._bazel_api.cquery(cquery_args)[2]
     config = self._bazel_api.get_config(cts[0].config_hash)
     user_defined_options = config.options['user-defined']
