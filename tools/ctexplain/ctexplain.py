@@ -43,11 +43,14 @@ from absl import app
 from absl import flags
 from dataclasses import dataclass
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.analyses.summary as summary
+# Do not edit this line. Copybara replaces it with PY2 migration helper..
+import tools.ctexplain.analyses.summary as summary
 from tools.ctexplain.bazel_api import BazelApi
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.lib as lib
+# Do not edit this line. Copybara replaces it with PY2 migration helper..
+import tools.ctexplain.lib as lib
 from tools.ctexplain.types import ConfiguredTarget
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.util as util
+# Do not edit this line. Copybara replaces it with PY2 migration helper..
+import tools.ctexplain.util as util
 
 FLAGS = flags.FLAGS
 
@@ -57,26 +60,28 @@ class Analysis():
   """Supported analysis type."""
   # The value in --analysis=<value> that triggers this analysis.
   key: str
-  # The function that invokes this analysis.
-  exec: Callable[[Tuple[ConfiguredTarget, ...]], None]
+  # The function that invokes this analysis. First parameter is the build's
+  # untrimmed configured targets. Second parameter is what the build's
+  # configured targets would be if it were perfectly trimmed.
+  exec: Callable[[Tuple[ConfiguredTarget, ...], Tuple[ConfiguredTarget, ...]], None]
   # User-friendly analysis description.
   description: str
 
 available_analyses = [
     Analysis(
         "summary",
-        lambda x: summary.report(summary.analyze(x)),
+        lambda x, y: summary.report(summary.analyze(x, y)),
         "summarizes build graph size and how trimming could help"
     ),
     Analysis(
         "culprits",
-        lambda x: print("this analysis not yet implemented"),
+        lambda x, y: print("this analysis not yet implemented"),
         "shows which flags unnecessarily fork configured targets. These\n"
         + "are conceptually mergeable."
     ),
     Analysis(
         "forked_targets",
-        lambda x: print("this analysis not yet implemented"),
+        lambda x, y: print("this analysis not yet implemented"),
         "ranks targets by how many configured targets they\n"
         + "create. These may be legitimate forks (because they behave "
         + "differently with\n different flags) or identical clones that are "
@@ -84,7 +89,7 @@ available_analyses = [
     ),
     Analysis(
         "cloned_targets",
-        lambda x: print("this analysis not yet implemented"),
+        lambda x, y: print("this analysis not yet implemented"),
         "ranks targets by how many behavior-identical configured\n targets "
         + "they produce. These are conceptually mergeable."
     )
@@ -151,8 +156,9 @@ def main(argv):
   build_desc = ",".join(labels)
   with util.ProgressStep(f"Collecting configured targets for {build_desc}"):
     cts = lib.analyze_build(BazelApi(), labels, build_flags)
+  trimmed_cts = lib.trim_configured_targets(cts)
   for analysis in FLAGS.analysis:
-    analyses[analysis].exec(cts)
+    analyses[analysis].exec(cts, trimmed_cts)
 
 
 if __name__ == "__main__":
