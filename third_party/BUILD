@@ -657,6 +657,12 @@ java_import(
     jars = ["objenesis/objenesis-1_3.jar"],
 )
 
+java_library(
+    name = "testparameterinjector",
+    testonly = True,
+    exports= ["@com_google_testparameterinjector//:testparameterinjector"],
+)
+
 filegroup(
     name = "turbine_direct",
     srcs = ["turbine/turbine_direct.jar"],
