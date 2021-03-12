@@ -43,7 +43,7 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:
     Tuple of (return code, stdout, stderr)
   """
   result = subprocess.run(
-      ["blaze"] + args,
+      ["bazel"] + args,
       cwd=os.getcwd(),
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
@@ -145,20 +145,27 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
   Returns:
     Corresponding ConfiguredTarget if the line matches else None.
   """
-  tokens = line.split(maxsplit=2)
-  label = tokens[0]
-  if tokens[1][0] != "(" or tokens[1][-1] != ")":
-    raise ValueError(f"{tokens[1]} in {line} not surrounded by parentheses")
-  config_hash = tokens[1][1:-1]
+  config_hash_start = line.find("(")
+  config_hash_end = line.find(")", config_hash_start)
+  fragments_start = line.find("[", config_hash_end)
+  fragments_end = line.find("]", fragments_start)
+
+  label = line[0:config_hash_start].strip()
+  if config_hash_start == -1 or config_hash_end < config_hash_start:
+    raise ValueError(f'"{line}": no "(<config hash>)" suffix')
+  config_hash = line[config_hash_start + 1:config_hash_end]
   if config_hash == "null":
     fragments = ()
   else:
-    if tokens[2][0] != "[" or tokens[2][-1] != "]":
-      raise ValueError(f"{tokens[2]} in {line} not surrounded by [] brackets")
+    if fragments_start == -1 or fragments_end < fragments_start:
+      raise ValueError(f'"{line}": no "[<required fragment>, ...]" suffix')
     # The fragments list looks like '[Fragment1, Fragment2, ...]'. Split the
     # whole line on ' [' to get just this list, then remove the final ']', then
     # split again on ', ' to convert it to a structured tuple.
-    fragments = tuple(line.split(" [")[1][0:-1].split(", "))
+    if fragments_start == fragments_end - 1:
+      fragments = tuple()
+    else:
+      fragments = tuple(line[fragments_start + 1:fragments_end].split(", "))
   return ConfiguredTarget(
       label=label,
       config=None,  # Not yet available: we'll need `bazel config` to get this.

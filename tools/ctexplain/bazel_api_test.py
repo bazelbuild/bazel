@@ -45,7 +45,7 @@ class BazelApiTest(test_base.TestBase):
     self.assertEqual(len(cts), 1)
     self.assertEqual(cts[0].label, '//testapp:fg')
     self.assertIsNone(cts[0].config)
-    self.assertGreater(len(cts[0].config_hash), 10)
+    self.assertGreater(len(cts[0].config_hash), 6)
     self.assertIn('PlatformConfiguration', cts[0].transitive_fragments)
 
   def testFailedCquery(self):
@@ -144,7 +144,7 @@ class BazelApiTest(test_base.TestBase):
         'string_flag(name = "my_flag", build_setting_default = "nada")',
         'filegroup(name = "fg", srcs = ["a.file"])',
     ])
-    cquery_args = ['//testapp:fg', '--//testapp:my_flag', 'algo']
+    cquery_args = ['//testapp:fg', '--//testapp:my_flag=algo']
     cts = self._bazel_api.cquery(cquery_args)[2]
     config = self._bazel_api.get_config(cts[0].config_hash)
     user_defined_options = config.options['user-defined']
@@ -152,6 +152,30 @@ class BazelApiTest(test_base.TestBase):
     self.assertDictEqual(user_defined_options._dict,
                          {'//testapp:my_flag': 'algo'})
 
+  def testLabelsWithSpaces(self):
+    self.ScratchFile('testapp/BUILD', [
+        'filegroup(name = "labels can have spaces", srcs = ["a.file"])',
+    ])
+    cquery_args = ['//testapp:labels can have spaces']
+    res = self._bazel_api.cquery(['//testapp:all'])
+    success = res[0]
+    cts = res[2]
+    self.assertTrue(success)
+    self.assertEqual(len(cts), 1)
+    self.assertEqual(cts[0].label, '//testapp:labels can have spaces')
+
+  def testEmptyFragmentRequirements(self):
+    self.ScratchFile('testapp/BUILD', [
+        'alias(name = "alias_to_src", actual = "source.file")',
+    ])
+    cquery_args = ['//testapp:alias_to_src']
+    res = self._bazel_api.cquery(['//testapp:all'])
+    success = res[0]
+    cts = res[2]
+    self.assertTrue(success)
+    self.assertEqual(len(cts), 1)
+    self.assertEqual(cts[0].label, '//testapp:alias_to_src')
+    self.assertEqual(len(cts[0].transitive_fragments), 0)
 
 if __name__ == '__main__':
   unittest.main()
