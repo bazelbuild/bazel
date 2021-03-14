@@ -1021,7 +1021,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     if (!outputArtifacts.isEmpty()) {
       Artifact executable = outputArtifacts.get(0);
       RunfilesSupport runfilesSupport =
-          RunfilesSupport.withExecutable(ruleContext, runfiles, executable);
+          RunfilesSupport.withExecutableButNoArgs(ruleContext, runfiles, executable);
       builder.setRunfilesSupport(runfilesSupport, executable);
 
       ruleContext.registerAction(
