@@ -353,7 +353,7 @@ java_library(
       "@//third_party:junit4",
       "@//third_party/protobuf:protobuf_java",
     ],
-    visibility = ["@//third_party:__pkg__"],
+    visibility = ["//visibility:public"],
 )
 """,
     urls = [
