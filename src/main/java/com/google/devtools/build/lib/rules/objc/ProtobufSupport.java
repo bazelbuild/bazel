@@ -259,7 +259,7 @@ final class ProtobufSupport {
             .addTransitiveInputs(getAllProtos())
             .addOutputs(getGeneratedProtoOutputs(getAllProtos(), HEADER_SUFFIX))
             .addOutputs(getGeneratedProtoOutputs(getOutputProtos(), SOURCE_SUFFIX))
-            .setExecutable(attributes.getProtoCompiler().getExecPath())
+            .setExecutable(attributes.getProtoCompiler())
             .addCommandLine(getGenerationCommandLine(outputGroupFile, skipGroupFile))
             .build(ruleContext));
 

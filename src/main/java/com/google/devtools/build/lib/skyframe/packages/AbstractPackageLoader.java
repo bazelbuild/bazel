@@ -457,7 +457,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCacheRef);
           }
         };
-    ExternalPackageHelper externalPackageHelper = getExternalPackageHelper();
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
@@ -507,8 +506,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
-                IncrementalityIntent.NON_INCREMENTAL,
-                externalPackageHelper))
+                IncrementalityIntent.NON_INCREMENTAL))
         .putAll(extraSkyFunctions);
     return builder.build();
   }

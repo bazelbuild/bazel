@@ -219,8 +219,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
     useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
-    // TODO(b/129637690): the runtime shouldn't be resolved in the host config
-    ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
+    ConfiguredTarget genrule = getConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -406,6 +405,92 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("java/test/libdep-src.jar");
     assertThat(outputs.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(outputs.getNativeHeaders().getFilename()).isEqualTo("libdep-native-header.jar");
+  }
+
+  @Test
+  public void javaCommonCompile_setsRuntimeDeps() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = ['Main.java'],",
+        "  deps = [':dep'],",
+        "  runtime_deps = [':runtime'],",
+        ")",
+        "java_library(",
+        "  name = 'dep',",
+        "  srcs = [ 'Dep.java'],",
+        ")",
+        "java_library(",
+        "  name = 'runtime',",
+        "  srcs = [ 'Runtime.java'],",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  deps = [dep[JavaInfo] for dep in ctx.attr.deps]",
+        "  runtime_deps = [dep[JavaInfo] for dep in ctx.attr.runtime_deps]",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    deps = deps,",
+        "    runtime_deps = runtime_deps,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  )",
+        "  return [",
+        "      DefaultInfo(",
+        "          files = depset([output_jar])",
+        "      ),",
+        "      compilation_provider",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar',",
+        "    'my_src_output': 'lib%{name}-src.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'deps': attr.label_list(),",
+        "    'runtime_deps': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    JavaCompilationArgsProvider compilationArgs =
+        info.getProviders().getProvider(JavaCompilationArgsProvider.class);
+    JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
+    JavaSourceJarsProvider sourceJarsProvider = info.getProvider(JavaSourceJarsProvider.class);
+
+    assertThat(prettyArtifactNames(compilationArgs.getRuntimeJars()))
+        .containsExactly(
+            "java/test/libcustom.jar", "java/test/libdep.jar", "java/test/libruntime.jar")
+        .inOrder();
+    assertThat(prettyArtifactNames(info.getDirectRuntimeJars()))
+        .containsExactly("java/test/libcustom.jar");
+    assertThat(prettyArtifactNames(info.getTransitiveOnlyRuntimeJars()))
+        .containsExactly("java/test/libdep.jar", "java/test/libruntime.jar")
+        .inOrder();
+    assertThat(
+            prettyArtifactNames(compilationInfo.getCompilationClasspath().toList(Artifact.class)))
+        .containsExactly("java/test/libdep-hjar.jar");
+    assertThat(prettyArtifactNames(compilationInfo.getRuntimeClasspath().toList(Artifact.class)))
+        .containsExactly(
+            "java/test/libcustom.jar", "java/test/libruntime.jar", "java/test/libdep.jar")
+        .inOrder();
+    assertThat(prettyArtifactNames(sourceJarsProvider.getTransitiveSourceJars()))
+        .containsExactly(
+            "java/test/libruntime-src.jar",
+            "java/test/libdep-src.jar",
+            "java/test/libcustom-src.jar")
+        .inOrder();
   }
 
   /**

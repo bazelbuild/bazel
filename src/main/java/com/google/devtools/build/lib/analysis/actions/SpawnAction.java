@@ -962,7 +962,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     /**
-     * Sets the executable path; the path is interpreted relative to the execution root.
+     * Sets the executable path; the path is interpreted relative to the execution root, unless it's
+     * a bare file name.
+     *
+     * <p><b>Caution</b>: if the executable is a bare file name ("foo"), it will be interpreted
+     * relative to PATH. See https://github.com/bazelbuild/bazel/issues/13189 for details. To avoid
+     * that, use {@link #setExecutable(Artifact)} instead.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
@@ -981,7 +986,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
-      return setExecutable(executable.getExecPath());
+      this.executableArgs = CustomCommandLine.builder().addCallablePath(executable.getExecPath());
+      this.isShellCommand = false;
+      return this;
     }
 
     /**
@@ -1007,7 +1014,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setExecutable(FilesToRunProvider executableProvider) {
       Preconditions.checkArgument(executableProvider.getExecutable() != null,
           "The target does not have an executable");
-      setExecutable(executableProvider.getExecutable().getExecPath());
+      this.executableArgs =
+          CustomCommandLine.builder()
+              .addCallablePath(executableProvider.getExecutable().getExecPath());
+      this.isShellCommand = false;
       return addTool(executableProvider);
     }
 

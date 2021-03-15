@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -110,7 +109,6 @@ public class PackageFunction implements SkyFunction {
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
-  private final ExternalPackageHelper externalPackageHelper;
 
   // Not final only for testing.
   @Nullable private BzlLoadFunction bzlLoadFunctionForInlining;
@@ -178,8 +176,7 @@ public class PackageFunction implements SkyFunction {
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      IncrementalityIntent incrementalityIntent,
-      ExternalPackageHelper externalPackageHelper) {
+      IncrementalityIntent incrementalityIntent) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
@@ -190,7 +187,6 @@ public class PackageFunction implements SkyFunction {
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
-    this.externalPackageHelper = externalPackageHelper;
   }
 
   @VisibleForTesting
@@ -201,8 +197,7 @@ public class PackageFunction implements SkyFunction {
       Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache,
       Cache<PackageIdentifier, CompiledBuildFile> compiledBuildFileCache,
       AtomicInteger numPackagesLoaded,
-      @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
-      ExternalPackageHelper externalPackageHelper) {
+      @Nullable BzlLoadFunction bzlLoadFunctionForInlining) {
     this(
         packageFactory,
         pkgLocator,
@@ -213,8 +208,7 @@ public class PackageFunction implements SkyFunction {
         bzlLoadFunctionForInlining,
         /*packageProgress=*/ null,
         ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-        IncrementalityIntent.INCREMENTAL,
-        externalPackageHelper);
+        IncrementalityIntent.INCREMENTAL);
   }
 
   public void setBzlLoadFunctionForInliningForTesting(BzlLoadFunction bzlLoadFunctionForInlining) {
@@ -354,12 +348,11 @@ public class PackageFunction implements SkyFunction {
   private SkyValue getExternalPackage(Environment env)
       throws PackageFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    RootedPath workspacePath = externalPackageHelper.findWorkspaceFile(env);
     if (env.valuesMissing()) {
       return null;
     }
 
-    SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
+    SkyKey workspaceKey = ExternalPackageFunction.key();
     PackageValue workspace = null;
     try {
       // This may throw a NoSuchPackageException if the WORKSPACE file was malformed or had other
