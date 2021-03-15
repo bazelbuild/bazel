@@ -1014,7 +1014,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setExecutable(FilesToRunProvider executableProvider) {
       Preconditions.checkArgument(executableProvider.getExecutable() != null,
           "The target does not have an executable");
-      setExecutable(executableProvider.getExecutable());
+      this.executableArgs =
+          CustomCommandLine.builder()
+              .addCallablePath(executableProvider.getExecutable().getExecPath());
+      this.isShellCommand = false;
       return addTool(executableProvider);
     }
 
