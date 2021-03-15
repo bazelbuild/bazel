@@ -58,7 +58,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         TargetCompleteEvent.successfulBuild(
             ctAndData,
             CompletionContext.FAILED_COMPLETION_CTX,
-            artifactsToBuild.getAllArtifactsByOutputGroup());
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /*announceTargetSummary=*/ false);
     assertThat(event.referencedLocalFiles())
         .contains(
             new BuildEvent.LocalFile(
@@ -97,7 +98,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         TargetCompleteEvent.successfulBuild(
             ctAndData,
             CompletionContext.FAILED_COMPLETION_CTX,
-            artifactsToBuild.getAllArtifactsByOutputGroup());
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /*announceTargetSummary=*/ false);
 
     ArrayList<File> fileProtos = new ArrayList<>();
     ReportedArtifacts reportedArtifacts = event.reportedArtifacts();

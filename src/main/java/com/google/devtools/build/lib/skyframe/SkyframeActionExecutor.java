@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -315,6 +316,10 @@ public final class SkyframeActionExecutor {
 
   boolean useArchivedTreeArtifacts() {
     return options.getOptions(CoreOptions.class).sendArchivedTreeArtifactInputs;
+  }
+
+  boolean publishTargetSummaries() {
+    return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */

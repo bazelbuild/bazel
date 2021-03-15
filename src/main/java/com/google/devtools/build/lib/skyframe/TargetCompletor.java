@@ -43,15 +43,23 @@ class TargetCompletor
         TargetCompletionValue,
         TargetCompletionKey,
         ConfiguredTargetAndData> {
+
+  private final SkyframeActionExecutor skyframeActionExecutor;
+
   static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric) {
     return new CompletionFunction<>(
         pathResolverFactory,
-        new TargetCompletor(),
+        new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric);
+  }
+
+  private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {
+    // SkyframeActionExecutor.options not populated yet, so store and query lazily later
+    this.skyframeActionExecutor = announceTargetSummaries;
   }
 
   @Override
@@ -108,7 +116,12 @@ class TargetCompletor
       CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       ConfiguredTargetAndData configuredTargetAndData) {
-    return TargetCompleteEvent.createFailed(configuredTargetAndData, ctx, rootCauses, outputs);
+    return TargetCompleteEvent.createFailed(
+        configuredTargetAndData,
+        ctx,
+        rootCauses,
+        outputs,
+        skyframeActionExecutor.publishTargetSummaries());
   }
 
   @Override
@@ -130,12 +143,14 @@ class TargetCompletor
       return TargetCompleteEvent.successfulBuildSchedulingTest(
           configuredTargetAndData,
           completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup());
+          artifactsToBuild.getAllArtifactsByOutputGroup(),
+          skyframeActionExecutor.publishTargetSummaries());
     } else {
       return TargetCompleteEvent.successfulBuild(
           configuredTargetAndData,
           completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup());
+          artifactsToBuild.getAllArtifactsByOutputGroup(),
+          skyframeActionExecutor.publishTargetSummaries());
     }
   }
 }
