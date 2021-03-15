@@ -457,7 +457,6 @@ public final class SkyframeActionExecutor {
       synchronized (reporter) {
         reporter.handle(error);
       }
-      recordExecutionError();
       throw e;
     }
 
@@ -1677,13 +1676,18 @@ public final class SkyframeActionExecutor {
   }
 
   /**
+   * Prints the given error {@code message} ascribed to {@code action}. May be called multiple times
+   * for the same action if there are multiple errors: will print all of them.
+   */
+  void printError(String message, ActionAnalysisMetadata action) {
+    printError(message, action, null);
+  }
+
+  /**
    * For the action 'action' that failed due to 'message' with the output 'actionOutput', notify the
    * user about the error. To notify the user, the method first displays the output of the action
    * and then reports an error via the reporter. The method ensures that the two messages appear
    * next to each other by locking the outErr object where the output is displayed.
-   *
-   * <p>Should not be called for actions that might have failed because the build is shutting down
-   * after an error, since it prints output unconditionally, and such output should be suppressed.
    *
    * @param message The reason why the action failed
    * @param action The action that failed, must not be null.
@@ -1691,12 +1695,12 @@ public final class SkyframeActionExecutor {
    *     display
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
-  void printError(String message, ActionAnalysisMetadata action, FileOutErr actionOutput) {
+  private void printError(
+      String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
     message = action.describe() + " failed: " + message;
     Event event = Event.error(action.getOwner().getLocation(), message);
     synchronized (reporter) {
       dumpRecordedOutErr(reporter, event, actionOutput);
-      recordExecutionError();
     }
   }
 
