@@ -123,6 +123,10 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>For actions that discover inputs, but do so during execution, if missing metadata for
  *       inputs discovered during execution.
  * </ol>
+ *
+ * <p>If async action execution is enabled, or if a non-primary shared action coalesces with an
+ * in-flight primary shared action's execution, this function can abort after declaring an external
+ * dep on the execution's completion future.
  */
 public class ActionExecutionFunction implements SkyFunction {
 
@@ -288,7 +292,6 @@ public class ActionExecutionFunction implements SkyFunction {
               env.getListener(),
               /*primaryOutputPath=*/ null,
               action,
-              actionLookupData,
               e,
               new FileOutErr(),
               ErrorTiming.BEFORE_EXECUTION));
@@ -444,7 +447,11 @@ public class ActionExecutionFunction implements SkyFunction {
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
 
-    boolean isPrimaryAction = e.isPrimaryAction(actionLookupData);
+    Preconditions.checkState(
+        e.isPrimaryAction(actionLookupData),
+        "non-primary action handling lost inputs exception: %s %s",
+        actionLookupData,
+        e);
     RewindPlan rewindPlan = null;
     try {
       ActionInputDepOwners inputDepOwners =
@@ -478,34 +485,29 @@ public class ActionExecutionFunction implements SkyFunction {
             actionRewindStrategy.getRewindPlan(
                 action, actionLookupData, failedActionDeps, e, inputDepOwners, env);
       } catch (ActionExecutionException rewindingFailedException) {
-        // This call to processAndGetExceptionToThrow will emit an ActionExecutedEvent and report
-        // the error. The previous call to processAndGetExceptionToThrow didn't.
+        // This ensures coalesced shared actions aren't orphaned.
+        skyframeActionExecutor.resetRewindingAction(actionLookupData, action, lostDiscoveredInputs);
         throw new ActionExecutionFunctionException(
             new AlreadyReportedActionExecutionException(
                 skyframeActionExecutor.processAndGetExceptionToThrow(
                     env.getListener(),
                     e.getPrimaryOutputPath(),
                     action,
-                    actionLookupData,
                     rewindingFailedException,
                     e.getFileOutErr(),
                     ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
       }
 
-      if (isPrimaryAction) {
-        // This action is the "winner" amongst its set of shared actions. Only it must post events
-        // and clean up state associated with its shared action set.
-        if (e.isActionStartedEventAlreadyEmitted()) {
-          env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
-        }
-        skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
-        for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
-          skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
-        }
+      if (e.isActionStartedEventAlreadyEmitted()) {
+        env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
+      }
+      skyframeActionExecutor.resetRewindingAction(actionLookupData, action, lostDiscoveredInputs);
+      for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
+        skyframeActionExecutor.resetPreviouslyCompletedAction(actionLookupData, actionToRestart);
       }
       return rewindPlan.getNodesToRestart();
     } finally {
-      if (rewindPlan == null && isPrimaryAction && e.isActionStartedEventAlreadyEmitted()) {
+      if (rewindPlan == null && e.isActionStartedEventAlreadyEmitted()) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
@@ -702,12 +704,13 @@ public class ActionExecutionFunction implements SkyFunction {
       long actionStartTime)
       throws ActionExecutionException, InterruptedException {
     if (previousAction != null) {
-      // There are two cases where we can already have an executing action for a specific output:
+      // There are two cases where we can already have an ActionExecutionState for a specific
+      // output:
       // 1. Another instance of a shared action won the race and got executed first.
       // 2. The action was already started earlier, and this SkyFunction got restarted since
       //    there's progress to be made.
-      // In either case, we must use this continuation to continue. Note that in the first case,
-      // we don't have any input metadata available, so we couldn't re-execute the action even if we
+      // In either case, we must use this continuation to continue. Note that in the first case, we
+      // don't have any input metadata available, so we couldn't re-execute the action even if we
       // wanted to.
       return previousAction.getResultOrDependOnFuture(
           env,
