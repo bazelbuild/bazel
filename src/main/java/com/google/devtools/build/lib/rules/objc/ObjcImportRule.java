@@ -55,11 +55,7 @@ public class ObjcImportRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("objc_import")
         .factoryClass(ObjcImport.class)
-        .ancestors(
-            BaseRuleClasses.NativeBuildRule.class,
-            ObjcRuleClasses.CompilingRule.class,
-            ObjcRuleClasses.AlwaysLinkRule.class,
-            BaseRuleClasses.MakeVariableExpandingRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class, ObjcRuleClasses.AlwaysLinkRule.class)
         .build();
   }
 }

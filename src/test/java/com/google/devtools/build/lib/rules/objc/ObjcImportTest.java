@@ -79,6 +79,20 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testNoDepsAllowed() throws Exception {
+    createLibraryTargetWriter("//lib:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .write();
+    checkError("imp", "imp",
+        "//imp:imp: no such attribute 'deps' in 'objc_import' rule",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['library.a'],",
+        "    deps = ['//lib:lib'],",
+        ")");
+  }
+
+  @Test
   public void testArchiveRequiresDotInName() throws Exception {
     checkError("x", "x", "'//x:fooa' does not produce any objc_import archives files (expected .a)",
         "objc_import(",

@@ -92,10 +92,12 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
@@ -277,8 +279,8 @@ public class CompilationSupport {
                     .addAll(
                         pathsToIncludeArgs(objcCompilationContext.getStrictDependencyIncludes()))
                     .build())
-            .setCppModuleMap(intermediateArtifacts.internalModuleMap())
-            .setPropagateModuleMapToCompileAction(true)
+            .setCppModuleMap(intermediateArtifacts.moduleMap())
+            .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
@@ -288,7 +290,7 @@ public class CompilationSupport {
       result.addPublicTextualHeaders(ImmutableList.of(pchHdr));
     }
 
-    if (!generateModuleMap) {
+    if (getCustomModuleMap(ruleContext).isPresent() || !generateModuleMap) {
       result.doNotGenerateModuleMap();
     }
 
@@ -387,18 +389,6 @@ public class CompilationSupport {
             /* generateModuleMap= */ false,
             // We only need to validate headers once, in arc compilation above.
             /* shouldProcessHeaders= */ false);
-
-    // We create a module map for Swift interop.
-    if (!getCustomModuleMap(ruleContext).isPresent()) {
-      generateSwiftModuleMap(
-          intermediateArtifacts.moduleMap(),
-          publicHdrs,
-          privateHdrs,
-          objcCompilationContext.getPublicTextualHeaders(),
-          getPchFile(),
-          objcCompilationContext.getCcCompilationContexts(),
-          semantics);
-    }
 
     FeatureConfiguration featureConfiguration =
         getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics);
@@ -512,8 +502,7 @@ public class CompilationSupport {
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration,
-      ObjcCppSemantics semantics,
-      boolean forSwiftModuleMap) {
+      ObjcCppSemantics semantics) {
     boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
@@ -525,7 +514,11 @@ public class CompilationSupport {
                     .getBitcodeMode()
                     .getFeatureNames())
             .add(CppRuleClasses.LANG_OBJC)
+            // We create a module map by default to allow for Swift interop.
             .add(CppRuleClasses.MODULE_MAPS)
+            .add(CppRuleClasses.COMPILE_ALL_MODULES)
+            .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
+            .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS)
             .add(isTool ? "host" : "nonhost")
@@ -575,15 +568,6 @@ public class CompilationSupport {
     if (disableLayeringCheck) {
       disableFeatures.add(CppRuleClasses.LAYERING_CHECK);
     }
-    if (forSwiftModuleMap) {
-      activatedCrosstoolSelectables
-          .add(CppRuleClasses.COMPILE_ALL_MODULES)
-          .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
-          .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
-          .add(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE)
-          .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS);
-      disableFeatures.add(CppRuleClasses.GENERATE_SUBMODULES);
-    }
 
     ImmutableSet<String> disableFeaturesSet = disableFeatures.build();
     ImmutableSet<String> activatedCrosstoolSelectablesSet;
@@ -598,24 +582,6 @@ public class CompilationSupport {
 
     return CcCommon.configureFeaturesOrReportRuleError(
         ruleContext, activatedCrosstoolSelectablesSet, ImmutableSet.of(), ccToolchain, semantics);
-  }
-
-  private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
-      ObjcCppSemantics semantics) {
-    return getFeatureConfiguration(
-        ruleContext, ccToolchain, configuration, semantics, /* forSwiftModuleMap= */ false);
-  }
-
-  private FeatureConfiguration getFeatureConfigurationForSwiftModuleMap(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
-      ObjcCppSemantics semantics) {
-    return getFeatureConfiguration(
-        ruleContext, ccToolchain, configuration, semantics, /* forSwiftModuleMap= */ true);
   }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
@@ -1704,46 +1670,28 @@ public class CompilationSupport {
   }
 
   /**
-   * Registers an action that will generate a clang module map for Swift consumption. Note this
-   * module map has requirements that are much different from that specified by the
-   * CcToolchainProvider, and thus uses its own feature configuration.
+   * Registers an action that will generate a clang module map.
+   *
+   * @param moduleMap the module map to generate
+   * @param publicHeaders the headers that should be directly accessible by dependers
+   * @return this compilation support
    */
-  private CompilationSupport generateSwiftModuleMap(
-      CppModuleMap moduleMap,
-      Collection<Artifact> publicHeaders,
-      Collection<Artifact> privateHeaders,
-      List<Artifact> textualHeaders,
-      Optional<Artifact> pchHdr,
-      Iterable<CcCompilationContext> ccCompilationContexts,
-      ObjcCppSemantics semantics)
-      throws RuleErrorException, InterruptedException {
-    CcCompilationHelper result =
-        new CcCompilationHelper(
-            ruleContext,
-            ruleContext,
-            ruleContext.getLabel(),
-            CppHelper.getGrepIncludes(ruleContext),
-            semantics,
-            getFeatureConfigurationForSwiftModuleMap(
-                ruleContext, toolchain, buildConfiguration, semantics),
-            CcCompilationHelper.SourceCategory.CC_AND_OBJC,
-            toolchain,
-            toolchain.getFdoContext(),
-            buildConfiguration,
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
-            /* shouldProcessHeaders= */ false);
-
-    result
-        .addPublicHeaders(publicHeaders)
-        .addPublicTextualHeaders(textualHeaders)
-        .addPrivateHeaders(privateHeaders)
-        .addCcCompilationContexts(ccCompilationContexts)
-        .setCppModuleMap(moduleMap);
-    if (pchHdr.isPresent()) {
-      result.addPublicTextualHeaders(ImmutableList.of(pchHdr.get()));
-    }
-    result.compile(ruleContext);
+  public CompilationSupport registerGenerateModuleMapAction(
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders) {
+    publicHeaders = Iterables.filter(publicHeaders, CppFileTypes.MODULE_MAP_HEADER);
+    ruleContext.registerAction(
+        new CppModuleMapAction(
+            ruleContext.getActionOwner(),
+            moduleMap,
+            ImmutableList.of(),
+            publicHeaders,
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            /* compiledModule= */ true,
+            /* moduleMapHomeIsCwd= */ false,
+            /* generateSubmodules= */ false,
+            /* externDependencies= */ true));
 
     return this;
   }

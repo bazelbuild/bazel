@@ -254,7 +254,8 @@ public final class IntermediateArtifacts {
     return architectureRepresentation(arch, LINKMAP_SUFFIX);
   }
 
-  private String getModuleName() {
+  /** {@link CppModuleMap} that provides the clang module map for this target. */
+  public CppModuleMap moduleMap() {
     String moduleName;
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("module_name")) {
       moduleName = ruleContext.attributes().get("module_name", Type.STRING);
@@ -269,12 +270,6 @@ public final class IntermediateArtifacts {
               .replace("/", "_")
               .replace(":", "_");
     }
-    return moduleName;
-  }
-
-  /** {@link CppModuleMap} that provides the clang module map for this target. */
-  public CppModuleMap moduleMap() {
-    String moduleName = getModuleName();
     Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
     if (customModuleMap.isPresent()) {
       return new CppModuleMap(customModuleMap.get(), moduleName);
@@ -289,11 +284,6 @@ public final class IntermediateArtifacts {
       return new CppModuleMap(
           appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
     }
-  }
-
-  /** {@link CppModuleMap} for internal use. */
-  public CppModuleMap internalModuleMap() {
-    return new CppModuleMap(appendExtensionInGenfiles(".internal.cppmap"), getModuleName());
   }
 
   /**

@@ -295,7 +295,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Artifact moduleMapArtifact =
         getGenfilesArtifact(
             targetName + ".modulemaps/module.modulemap", packagePath + ":" + targetName);
-    String moduleName = packagePath + ":" + targetName;
+    String moduleName =
+        (packagePath + "_" + targetName)
+            .replace("//", "")
+            .replace("@", "")
+            .replace("-", "_")
+            .replace("/", "_")
+            .replace(":", "_");
 
     return ImmutableList.of("-iquote",
         moduleMapArtifact.getExecPath().getParentDirectory().toString(),
