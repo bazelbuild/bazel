@@ -166,17 +166,22 @@ public final class FilesetManifestTest {
   public static final class OneOffManifestTests {
 
     @Test
-    public void testManifestWithErrorOnRelativeSymlink() throws Exception {
+    public void testManifestWithErrorOnRelativeSymlink() {
       List<FilesetOutputSymlink> symlinks =
           ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
-      IOException e =
+      // Because BugReport throws in tests, we catch the wrapped exception.
+      IllegalStateException e =
           assertThrows(
-              IOException.class,
+              IllegalStateException.class,
               () ->
                   FilesetManifest.constructFilesetManifest(
                       symlinks, PathFragment.create("out/foo"), ERROR));
-      assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
+      assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
+      assertThat(e)
+          .hasCauseThat()
+          .hasMessageThat()
+          .contains("runfiles target is not absolute: foo");
     }
 
     @Test
