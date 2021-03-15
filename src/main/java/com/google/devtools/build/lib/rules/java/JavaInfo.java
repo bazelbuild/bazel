@@ -495,9 +495,16 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     public Builder addTransitiveOnlyRuntimeJars(List<? extends TransitiveInfoCollection> deps) {
+      addTransitiveOnlyRuntimeJarsToJavaInfo(
+          deps.stream()
+              .map(JavaInfo::getJavaInfo)
+              .filter(Objects::nonNull)
+              .collect(ImmutableList.toImmutableList()));
+      return this;
+    }
+
+    public Builder addTransitiveOnlyRuntimeJarsToJavaInfo(List<JavaInfo> deps) {
       deps.stream()
-          .map(JavaInfo::getJavaInfo)
-          .filter(Objects::nonNull)
           .map(j -> j.getProvider(JavaCompilationArgsProvider.class))
           .filter(Objects::nonNull)
           .map(JavaCompilationArgsProvider::getRuntimeJars)
