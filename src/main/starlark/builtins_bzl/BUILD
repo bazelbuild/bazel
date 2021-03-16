@@ -1,5 +1,6 @@
 # This directory serves as the root of the builtins_bzl tree for Bazel, both in
-# source form and as the value of --experimental_builtins_bzl_path.
+# source form and at runtime when --experimental_builtins_bzl_path is set to
+# %workspace%.
 #
 # Because we use globs to gather builtins sources, there should be no
 # subpackages here.
@@ -14,7 +15,7 @@ filegroup(
 # resource with BazelRuleClassProvider.
 genrule(
     name = "builtins_bzl_zip",
-    srcs = glob(["**/*.bzl"]) + ["BUILD.builtins"],
+    srcs = glob(["**/*.bzl"]),
     outs = ["builtins_bzl.zip"],
     # builtins_zip.sh zip output builtins_root files...
     cmd = "$(location //src:zip_builtins)" +

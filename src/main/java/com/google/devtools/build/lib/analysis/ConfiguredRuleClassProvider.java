@@ -512,8 +512,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           // Dummy case, use empty bundled builtins content.
           try {
             builtinsPath.createDirectoryAndParents();
-            // The builtins root must have a top-level BUILD file.
-            try (OutputStream os = builtinsPath.getRelative("BUILD").getOutputStream()) {}
             try (OutputStream os = builtinsPath.getRelative("exports.bzl").getOutputStream()) {
               String emptyExports =
                   ("exported_rules = {}\n" //
