@@ -64,6 +64,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -473,7 +474,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   }
 
   private void executeCommand(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
-    boolean badCookie = !request.getCookie().equals(requestCookie);
+    boolean badCookie = !isValidRequestCookie(request.getCookie());
     if (badCookie || request.getClientDescription().isEmpty()) {
       try {
         FailureDetail failureDetail =
@@ -616,7 +617,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
     try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
-      if (pingRequest.getCookie().equals(requestCookie)) {
+      if (isValidRequestCookie(pingRequest.getCookie())) {
         response.setCookie(responseCookie);
       }
 
@@ -629,7 +630,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   public void cancel(
       final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
     logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
-    if (!request.getCookie().equals(requestCookie)) {
+    if (!isValidRequestCookie(request.getCookie())) {
       streamObserver.onCompleted();
       return;
     }
@@ -649,6 +650,17 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       logger.atInfo().log(
           "Client cancelled RPC of cancellation request for %s", request.getCommandId());
     }
+  }
+
+  /**
+   * Returns whether or not the provided cookie is valid for this server using a constant-time
+   * comparison in order to guard against timing attacks.
+   */
+  private boolean isValidRequestCookie(String incomingRequestCookie) {
+    // Note that cookie file was written as latin-1, so use that here.
+    return MessageDigest.isEqual(
+        incomingRequestCookie.getBytes(StandardCharsets.ISO_8859_1),
+        requestCookie.getBytes(StandardCharsets.ISO_8859_1));
   }
 
   private static AbruptExitException createFilesystemFailureException(
