@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Option;
@@ -101,6 +102,31 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     /** List of required modules. */
     ImmutableList<RuleSet> requires();
+  }
+
+  /** An InMemoryFileSystem for bundled builtins .bzl files. */
+  public static class BundledFileSystem extends InMemoryFileSystem {
+
+    private static final byte[] EMPTY_DIGEST = new byte[0];
+
+    public BundledFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    // Bundled files are guaranteed to not change throughout the lifetime of the Bazel server, so it
+    // is permissible to use a fake digest. This helps avoid peculiarities in the interaction of
+    // InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion, including of
+    // possible (but unlikely) future caveats of this approach.
+
+    @Override
+    protected synchronized byte[] getFastDigest(PathFragment path) throws IOException {
+      return EMPTY_DIGEST;
+    }
+
+    @Override
+    protected synchronized byte[] getDigest(PathFragment path) throws IOException {
+      return EMPTY_DIGEST;
+    }
   }
 
   /** Builder for {@link ConfiguredRuleClassProvider}. */
@@ -503,7 +529,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         // Use of --experimental_builtins_bzl_path=%bundled% is disallowed.
         builtinsRoot = null;
       } else {
-        InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+        BundledFileSystem fs = new BundledFileSystem();
         Path builtinsPath = fs.getPath("/virtual_builtins_bzl");
         if (builtinsBzlZipResource != null) {
           // Production case.
