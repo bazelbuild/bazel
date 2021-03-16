@@ -747,14 +747,6 @@ public final class RemoteModule extends BlazeModule {
       logger.atWarning().withCause(e).log(failureMessage);
     }
 
-    try {
-      deleteDownloadedInputs();
-    } catch (IOException e) {
-      failure = e;
-      failureCode = Code.DOWNLOADED_INPUTS_DELETION_FAILURE;
-      failureMessage = "Failed to delete downloaded inputs";
-    }
-
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteExecutorFactoryDelegate.reset();
     remoteDownloaderSupplier.set(null);
@@ -765,30 +757,6 @@ public final class RemoteModule extends BlazeModule {
 
     if (failure != null) {
       throw createExitException(failureMessage, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, failureCode);
-    }
-  }
-
-  /**
-   * Delete any input files that have been fetched from the remote cache during the build. This is
-   * so that Bazel's view of the output base is identical with the output base after a build i.e.
-   * files that Bazel thinks exist only remotely actually do.
-   */
-  private void deleteDownloadedInputs() throws IOException {
-    if (actionInputFetcher == null) {
-      return;
-    }
-    IOException deletionFailure = null;
-    for (Path file : actionInputFetcher.downloadedFiles()) {
-      try {
-        file.delete();
-      } catch (IOException e) {
-        logger.atSevere().withCause(e).log(
-            "Failed to delete remote output '%s' from the output base.", file);
-        deletionFailure = e;
-      }
-    }
-    if (deletionFailure != null) {
-      throw deletionFailure;
     }
   }
 

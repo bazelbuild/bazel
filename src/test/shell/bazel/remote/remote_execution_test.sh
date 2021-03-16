@@ -1011,8 +1011,8 @@ EOF
   [[ $(< ${localtxt}) == "remotelocal" ]] \
   || fail "Unexpected contents in " ${localtxt} ": " $(< ${localtxt})
 
-  (! [[ -f bazel-bin/a/remote.txt ]]) \
-  || fail "Expected bazel-bin/a/remote.txt to have been deleted again"
+  [[ -f bazel-bin/a/remote.txt ]] \
+  || fail "Expected bazel-bin/a/remote.txt to be downloaded"
 }
 
 function test_download_outputs_invalidation() {
@@ -1105,8 +1105,8 @@ EOF
   [[ $(< ${outtxt}) == "Hello buchgr!" ]] \
   || fail "Unexpected contents in "${outtxt}":" $(< ${outtxt})
 
-  (! [[ -f bazel-bin/a/template.txt ]]) \
-  || fail "Expected bazel-bin/a/template.txt to have been deleted again"
+  [[ -f bazel-bin/a/template.txt ]] \
+  || fail "Expected bazel-bin/a/template.txt to be downloaded"
 }
 
 function test_downloads_toplevel() {
