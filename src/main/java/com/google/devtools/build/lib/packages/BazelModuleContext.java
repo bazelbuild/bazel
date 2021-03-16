@@ -33,7 +33,7 @@ public abstract class BazelModuleContext {
 
   /**
    * Maps the load string for each load statement in this .bzl file (in source order) to the module
-   * it loads. It thus records the complete load DAG.
+   * it loads. It thus records the complete load DAG (not including {@code @_builtins} .bzl files).
    */
   public abstract ImmutableMap<String, Module> loads();
 

@@ -77,6 +77,9 @@ public abstract class Root implements Comparable<Root>, Serializable {
   @Nullable
   public abstract Path asPath();
 
+  /** Returns the underlying FileSystem this Root is on. */
+  public abstract FileSystem getFileSystem();
+
   public abstract boolean isAbsolute();
 
   /** Implementation of Root that is backed by a {@link Path}. */
@@ -122,6 +125,11 @@ public abstract class Root implements Comparable<Root>, Serializable {
     @Override
     public Path asPath() {
       return path;
+    }
+
+    @Override
+    public FileSystem getFileSystem() {
+      return path.getFileSystem();
     }
 
     @Override
@@ -211,6 +219,11 @@ public abstract class Root implements Comparable<Root>, Serializable {
     @Override
     public Path asPath() {
       return null;
+    }
+
+    @Override
+    public FileSystem getFileSystem() {
+      return fileSystem;
     }
 
     @Override

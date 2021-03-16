@@ -278,6 +278,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         new ConfiguredRuleClassProvider.Builder()
             .setRunfilesPrefix("workspace")
             .setPrelude("//tools:empty_prelude.bzl")
+            .useDummyBuiltinsBzl()
             .build();
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
