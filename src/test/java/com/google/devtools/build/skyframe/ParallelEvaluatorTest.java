@@ -918,6 +918,38 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void topCatastrophe() throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
+    Exception catastrophe = new SomeErrorException("bad");
+    tester
+        .getOrCreate(catastropheKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                throw new SkyFunctionException(catastrophe, Transience.PERSISTENT) {
+                  @Override
+                  public boolean isCatastrophic() {
+                    return true;
+                  }
+                };
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+
+    EvaluationResult<StringValue> result =
+        eval(/*keepGoing=*/ true, ImmutableList.of(catastropheKey));
+    assertThat(result.getCatastrophe()).isEqualTo(catastrophe);
+  }
+
+  @Test
   public void incrementalCycleWithCatastropheAndFailedBubbleUp() throws Exception {
     SkyKey topKey = GraphTester.toSkyKey("top");
     // Comes alphabetically before "top".
