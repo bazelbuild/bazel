@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.rules.filegroup.Filegroup;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -76,7 +75,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
             attr("path", STRING)
                 .undocumented(
                     "only used to expose FilegroupPathProvider, which is not currently used"))
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .build();
   }
 
