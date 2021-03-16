@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
-import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
@@ -27,14 +26,12 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.server.FailureDetails.Execution;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** Manages completing builds for configured targets. */
 class TargetCompletor
@@ -73,25 +70,16 @@ class TargetCompletor
         String.format("%s: %s", key.actionLookupKey().getLabel(), rootCause.getMessage()));
   }
 
-  @Override
   @Nullable
-  public MissingInputFileException getMissingFilesException(
-      ConfiguredTargetValue value, TargetCompletionKey key, int missingCount, Environment env)
+  @Override
+  public Location getLocationIdentifier(
+      ConfiguredTargetValue value, TargetCompletionKey key, Environment env)
       throws InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
         ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(value.getConfiguredTarget(), env);
-    if (configuredTargetAndData == null) {
-      return null;
-    }
-    return new MissingInputFileException(
-        FailureDetail.newBuilder()
-            .setMessage(
-                String.format(
-                    "%s %d input file(s) do not exist",
-                    configuredTargetAndData.getTarget().getLocation(), missingCount))
-            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
-            .build(),
-        configuredTargetAndData.getTarget().getLocation());
+    return configuredTargetAndData == null
+        ? null
+        : configuredTargetAndData.getTarget().getLocation();
   }
 
   @Override
