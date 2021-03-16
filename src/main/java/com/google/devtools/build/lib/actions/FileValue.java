@@ -150,9 +150,10 @@ public abstract class FileValue implements SkyValue {
     return Key.create(rootedPath);
   }
 
+  /** Key type for FileValue. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<RootedPath> {
+  public static class Key extends AbstractSkyKey<RootedPath> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(RootedPath arg) {
