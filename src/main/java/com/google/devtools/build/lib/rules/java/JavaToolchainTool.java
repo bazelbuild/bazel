@@ -92,9 +92,9 @@ public abstract class JavaToolchainTool {
    * <p>For a Java command, the executable command line will include {@code java -jar deploy.jar} as
    * well as any JVM flags.
    *
-   * @param toolchains {@code java_toolchain} for the action being constructed
-   * @param inputs for the action being constructed
-   * @returns the executable command line for the tool
+   * @param command the executable command line builder for the tool
+   * @param toolchain {@code java_toolchain} for the action being constructed
+   * @param inputs inputs for the action being constructed
    */
   void buildCommandLine(
       CustomCommandLine.Builder command,
