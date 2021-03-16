@@ -10,9 +10,9 @@ that must be present in the target platform for this target to be considered
 rule type. If the target platform does not satisfy all listed constraints then
 the target is considered <em>incompatible</em>. Incompatible targets are
 skipped for building and testing when the target pattern is expanded
-(e.g. `//...`, `:all`). When explicitly specified on the command line,
-incompatible targets cause Bazel to print an error and cause a build or test
-failure.
+(e.g. <code>//...</code>, <code>:all</code>). When explicitly specified on the
+command line, incompatible targets cause Bazel to print an error and cause a
+build or test failure.
 </p>
 
 <p>
@@ -23,6 +23,13 @@ considered incompatible. They are also skipped for building and testing.
 <p>
 An empty list (which is the default) signifies that the target is compatible
 with all platforms.
+<p>
+
+<p>
+All rules other than [Workspace Rules](workspace.html) support this attribute.
+For some rules this attribute has no effect. For example, specifying
+<code>target_compatible_with</code> for a
+<code><a href="c-cpp.html#cc_toolchain">cc_toolchain</a></code> is not useful.
 <p>
 
 <p>

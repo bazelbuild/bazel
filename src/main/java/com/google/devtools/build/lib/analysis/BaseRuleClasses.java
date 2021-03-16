@@ -381,6 +381,13 @@ public class BaseRuleClasses {
           .add(
               attr("distribs", DISTRIBUTIONS)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
+          // Any rule that has provides its own meaning for the "target_compatible_with" attribute
+          // has to be excluded in `RuleContextConstraintSemantics.incompatibleConfiguredTarget()`.
+          .add(
+              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                  // This should be configurable to allow for complex types of restrictions.
+                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 
@@ -441,11 +448,6 @@ public class BaseRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
                   .value(ImmutableList.of()))
-          .add(
-              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
-                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                  // This should be configurable to allow for complex types of restrictions.
-                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 
