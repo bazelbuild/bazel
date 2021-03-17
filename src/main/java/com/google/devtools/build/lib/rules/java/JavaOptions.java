@@ -495,20 +495,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean isDisallowStrictDepsForJpl;
 
   @Option(
-      name = "incompatible_disallow_strict_deps_for_jlpl",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set, any java_lite_proto_library which sets the strict_deps attribute explicitly will"
-              + "fail to build.")
-  public boolean isDisallowStrictDepsForJlpl;
-
-  @Option(
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
@@ -588,17 +574,6 @@ public class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
   public boolean jplPropagateCcLinkParamsStore;
-
-  @Option(
-      name = "experimental_jlpl_enforce_strict_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help =
-          "Turns on strict deps for all java_lite_proto_libraries even if they set strict_deps=0"
-              + " unless the java_library package disables the feature jpl_strict_deps."
-              + " Used for java_lite_proto_library.strict_deps migration.")
-  public boolean isJlplStrictDepsEnforced;
 
   // Plugins are built using the host config. To avoid cycles we just don't propagate
   // this option to the host config. If one day we decide to use plugins when building
@@ -746,8 +721,6 @@ public class JavaOptions extends FragmentOptions {
     host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
-
-    host.isJlplStrictDepsEnforced = isJlplStrictDepsEnforced;
 
     host.disallowResourceJars = disallowResourceJars;
 
