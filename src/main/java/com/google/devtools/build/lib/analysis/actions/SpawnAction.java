@@ -82,7 +82,6 @@ import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -360,10 +359,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
         commandLines.allArguments(),
-        ImmutableMap.of(),
+        /*env=*/ ImmutableMap.of(),
+        /*envResolved=*/ false,
         inputs,
-        ImmutableList.of(),
-        ImmutableMap.of());
+        /*additionalInputs=*/ ImmutableList.of(),
+        /*filesetMappings=*/ ImmutableMap.of());
   }
 
   /**
@@ -375,19 +375,30 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
+        /*envResolved=*/ false,
         actionExecutionContext.getTopLevelFilesets());
   }
 
+  /**
+   * Return a spawn that is representative of the command that this Action will execute in the given
+   * environment.
+   *
+   * @param envResolved If set to true, the passed environment variables will be used as the Spawn
+   *     effective environment. Otherwise they will be used as client environment to resolve the
+   *     action env.
+   */
   Spawn getSpawn(
       ArtifactExpander artifactExpander,
-      Map<String, String> clientEnv,
+      Map<String, String> env,
+      boolean envResolved,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings)
       throws CommandLineExpansionException, InterruptedException {
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
-        clientEnv,
+        env,
+        envResolved,
         getInputs(),
         expandedCommandLines.getParamFiles(),
         filesetMappings);
@@ -540,10 +551,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     private ActionSpawn(
         ImmutableList<String> arguments,
-        Map<String, String> clientEnv,
+        Map<String, String> env,
+        boolean envResolved,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings)
+        throws CommandLineExpansionException {
       super(
           arguments,
           ImmutableMap.<String, String>of(),
@@ -561,9 +574,17 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       inputsBuilder.addAll(additionalInputs);
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
-      LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.env.size());
-      SpawnAction.this.env.resolve(env, clientEnv);
-      effectiveEnvironment = ImmutableMap.copyOf(env);
+
+      /**
+       * If the action environment is already resolved using the client environment, the given
+       * environment variables are used as they are. Otherwise, they are used as clientEnv to
+       * resolve the action environment variables
+       */
+      if (envResolved) {
+        effectiveEnvironment = ImmutableMap.copyOf(env);
+      } else {
+        effectiveEnvironment = SpawnAction.this.getEffectiveEnvironment(env);
+      }
     }
 
     @Override

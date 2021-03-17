@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -101,7 +102,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -836,7 +836,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(ImmutableMap.of());
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -847,9 +847,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  public ImmutableMap<String, String> getEnvironment(Map<String, String> clientEnv)
+  @Override()
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
-    Map<String, String> environment = new LinkedHashMap<>(env.size());
+    Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(environment, clientEnv);
 
     if (!getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {
@@ -917,7 +918,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -936,7 +937,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Returns the compiler options. */
   @VisibleForTesting
   public List<String> getCompilerOptions() throws CommandLineExpansionException {
-    return compileCommandLine.getCompilerOptions(/* overwrittenVariables= */ null);
+    return compileCommandLine.getCompilerOptions(/*overwrittenVariables=*/ null);
   }
 
   @Override
@@ -1481,7 +1482,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return new SimpleSpawn(
           this,
           ImmutableList.copyOf(getArguments()),
-          getEnvironment(clientEnv),
+          getEffectiveEnvironment(clientEnv),
           executionInfo,
           inputs,
           getOutputs(),

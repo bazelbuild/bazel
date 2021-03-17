@@ -589,7 +589,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If set to true, allows passing an action for Starlark created actions to shadow and use"
-              + " its discovered inputs combined with the starlark action inputs during execution.")
+              + " its environment, inputs and discovered inputs combined with the starlark action's"
+              + " environment and inputs during execution.")
   public boolean experimentalShadowedAction;
 
   /**

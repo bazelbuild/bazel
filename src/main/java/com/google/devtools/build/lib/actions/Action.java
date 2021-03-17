@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -231,4 +233,17 @@ public interface Action extends ActionExecutionMetadata {
    */
   ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException;
+
+  /**
+   * Called by {@link com.google.devtools.build.lib.analysis.actions.StarlarkAction} in {@link
+   * #beginExecution} to use its shadowed action, if any, complete list of environment variables in
+   * the Starlark action Spawn.
+   *
+   * <p>As this method is called from the StarlarkAction, make sure it is ok to call it from a
+   * different thread than the one this action is executed on. By definition, the method should not
+   * mutate any of the called action data but if necessary, its implementation must synchronize any
+   * accesses to mutable data.
+   */
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException;
 }

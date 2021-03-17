@@ -1249,13 +1249,6 @@ EOF
 }
 
 function test_reconstructing_cpp_actions_using_shadowed_action() {
-  if is_darwin; then
-    # Darwin toolchain uses env variables and those are not properly exported
-    # to Starlark.
-    # TODO(#10376): Remove once env vars on C++ actions are exported.
-    return 0
-  fi
-
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -1290,7 +1283,6 @@ def _actions_test_impl(target, ctx):
         shadowed_action = compile_action,
         mnemonic = "RecreatedCppCompile",
         outputs = [compile_out],
-        env = compile_action.env,
         command = "\$(cat %s | sed 's|%s|%s|g' | sed 's|%s|%s|g')" % (
             compile_args.path,
             # We need to replace the original output path with something else
@@ -1316,7 +1308,6 @@ def _actions_test_impl(target, ctx):
         shadowed_action = archive_action,
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
-        env = archive_action.env,
         command = "\$(cat %s | sed 's|%s|%s|g')" % (
             archive_args.path,
             archive_action.outputs.to_list()[0].path,
@@ -1337,7 +1328,6 @@ def _actions_test_impl(target, ctx):
         shadowed_action = link_action,
         mnemonic = "RecreatedCppLink",
         outputs = [link_out],
-        env = link_action.env,
         command = "\$(cat %s | sed 's|%s|%s|g')" % (
             link_args.path,
             link_action.outputs.to_list()[0].path,
@@ -1391,4 +1381,6 @@ EOF
        --experimental_shadowed_action || \
       fail "bazel build should've passed with --features=compiler_param_file"
 }
+
+
 run_suite "cc_integration_test"

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -236,6 +237,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   public final ActionEnvironment getEnvironment() {
     return env;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException {
+    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    env.resolve(effectiveEnvironment, clientEnv);
+    return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   @Override
