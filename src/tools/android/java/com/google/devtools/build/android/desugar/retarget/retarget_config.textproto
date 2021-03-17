@@ -1199,6 +1199,24 @@ replacements {
 replacements {
   source {
     method_id {
+      owner: "java/lang/Iterable"
+      name: "forEach"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarCollections"
+      name: "forEachIterable"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
       owner: "java/util/concurrent/atomic/AtomicInteger"
       name: "getAndUpdate"
     }
