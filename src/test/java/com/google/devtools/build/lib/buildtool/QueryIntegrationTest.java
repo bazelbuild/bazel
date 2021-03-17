@@ -308,7 +308,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
     BlazeCommandResult blazeCommandResult = result.getQueryOutput().getBlazeCommandResult();
-    assertThat(blazeCommandResult.getExitCode()).isEqualTo(ExitCode.ANALYSIS_FAILURE);
+    assertExitCode(result.getQueryOutput(), ExitCode.ANALYSIS_FAILURE);
     assertThat(blazeCommandResult.getFailureDetail().getMessage())
         .contains(
             "The label '//donut:thief' in the test_suite "
@@ -369,8 +369,9 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       options.add("--keep_going");
     }
     QueryOutput result = getQueryResult("deps(//bar:baz)");
-    assertThat(result.getBlazeCommandResult().getExitCode())
-        .isEqualTo(keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE);
+    ExitCode expectedExitcode =
+        keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE;
+    assertExitCode(result, expectedExitcode);
     events.assertContainsError("Inconsistent filesystem operations");
     assertThat(events.errors()).hasSize(1);
   }
@@ -392,8 +393,9 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       options.add("--keep_going");
     }
     QueryOutput result = getQueryResult("deps(//foo:foo)");
-    assertThat(result.getBlazeCommandResult().getExitCode())
-        .isEqualTo(keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE);
+    ExitCode expectedExitcode =
+        keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE;
+    assertExitCode(result, expectedExitcode);
     events.assertContainsError("Inconsistent filesystem operations");
     events.assertContainsError("and referenced by '//foo:foo'");
     events.assertContainsError("Evaluation of query \"deps(//foo:foo)\" failed: errors were ");
@@ -437,7 +439,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void invalidQueryFailsParsing() throws Exception {
     QueryOutput result = getQueryResult("deps(\"--bad_target_name_from_bad_script\")");
 
-    assertCommandLineError(result);
+    assertCommandLineErrorExitCode(result);
     assertThat(result.getStdout()).isEmpty();
     events.assertContainsError("target literal must not begin with (-)");
   }
@@ -504,7 +506,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         getQueryResult("//foo", "--experimental_graphless_query", "--order_output=deps");
     events.assertContainsError(
         "--experimental_graphless_query requires --order_output=no or --order_output=auto");
-    assertCommandLineError(result);
+    assertCommandLineErrorExitCode(result);
     assertThat(result.getStdout()).isEmpty();
   }
 
@@ -530,7 +532,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         getQueryResult(
             "//foo", "--experimental_graphless_query", "--order_output=no", "--output=maxrank");
 
-    assertCommandLineError(result);
+    assertCommandLineErrorExitCode(result);
     assertThat(result.getStdout()).isEmpty();
     events.assertContainsError(
         "--experimental_graphless_query requires --order_output=no or --order_output=auto and an"
@@ -808,16 +810,16 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     assertDepthBoundedQuery(true);
   }
 
-  private void assertExitStatus(QueryOutput result, ExitCode expected) {
+  private void assertExitCode(QueryOutput result, ExitCode expected) {
     assertThat(result.getBlazeCommandResult().getExitCode()).isEqualTo(expected);
   }
 
   private void assertSuccessfulExitCode(QueryOutput result) {
-    assertExitStatus(result, ExitCode.SUCCESS);
+    assertExitCode(result, ExitCode.SUCCESS);
   }
 
-  private void assertCommandLineError(QueryOutput result) {
-    assertExitStatus(result, ExitCode.COMMAND_LINE_ERROR);
+  private void assertCommandLineErrorExitCode(QueryOutput result) {
+    assertExitCode(result, ExitCode.COMMAND_LINE_ERROR);
   }
 
   private void assertQueryOutputContains(QueryOutput result, String... expectedStrings) {
