@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Ascii;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +40,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -823,10 +824,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     if (errorInfo == null) {
       errorInfo = evaluatorContext.getErrorInfoManager().getErrorInfoToUse(
           skyKey, value != null, childErrorInfos);
-      // TODO(b/166268889, b/172223413, b/159596514): remove when fixed.
-      if (errorInfo != null && errorInfo.getException() != null) {
+      // TODO(b/166268889, b/172223413): remove when fixed.
+      if (errorInfo != null && errorInfo.getException() instanceof IOException) {
         logger.atInfo().withCause(errorInfo.getException()).log(
-            "Synthetic errorInfo for %s", truncate(skyKey));
+            "Synthetic errorInfo for %s", skyKey);
       }
     }
 
@@ -1004,10 +1005,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public boolean restartPermitted() {
     return evaluatorContext.restartPermitted();
-  }
-
-  private static String truncate(@Nullable Object obj) {
-    return obj == null ? String.valueOf(null) : Ascii.truncate(obj.toString(), 300, "...");
   }
 
   /** Thrown during environment construction if previously requested deps are no longer done. */

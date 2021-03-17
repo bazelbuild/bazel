@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +34,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -526,12 +526,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();
       }
-      // TODO(b/166268889, b/172223413, b/159596514): remove when fixed.
-      if (completedRun && error.getException() != null) {
+      // TODO(b/166268889, b/172223413): remove when fixed.
+      if (completedRun && error.getException() instanceof IOException) {
         logger.atInfo().log(
             "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
                 + " via %s, %s (%s)",
-            truncate(errorKey), truncate(childErrorKey), error, truncate(bubbleErrorInfo));
+            errorKey, childErrorKey, error, bubbleErrorInfo);
       }
       // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
@@ -552,10 +552,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Thread.currentThread().interrupt();
     }
     return bubbleErrorInfo;
-  }
-
-  private static String truncate(@Nullable Object obj) {
-    return obj == null ? String.valueOf(null) : Ascii.truncate(obj.toString(), 300, "...");
   }
 
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(
