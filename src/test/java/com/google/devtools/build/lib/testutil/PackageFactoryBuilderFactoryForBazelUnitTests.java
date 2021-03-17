@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.BuilderFactoryForTesting;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -57,6 +58,7 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
           version,
           DefaultPackageSettings.INSTANCE,
           packageValidator,
+          PackageOverheadEstimator.NOOP_ESTIMATOR,
           doChecksForTesting
               ? new BazelPackageLoadingListenerForTesting(
                   (ConfiguredRuleClassProvider) ruleClassProvider, directories)
