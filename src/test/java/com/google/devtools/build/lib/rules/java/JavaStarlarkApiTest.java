@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -1569,6 +1570,94 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(exports.getSet(Label.class).toList())
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
+  }
+
+  private void writeJavaCustomLibraryWithLabels(String path) throws Exception {
+    scratch.file(
+        path,
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    exports = ctx.attr.exports,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  )",
+        "  return [",
+        "      DefaultInfo(",
+        "          files = depset([output_jar]),",
+        "      ),",
+        "      compilation_provider",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "     'exports': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+  }
+
+  @Test
+  public void javaCompile_transitiveExportsWithLabels() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    writeJavaCustomLibraryWithLabels("tools/build_defs/java/java_library.bzl");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/java:java_library.bzl', 'java_custom_library')",
+        "load(':extension.bzl', 'my_rule')",
+        "java_custom_library(name = 'lib',",
+        "    srcs = ['Lib.java'],",
+        "    exports = [ ':export' ])",
+        "java_custom_library(name = 'export',",
+        "    srcs = ['Export.java'])",
+        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
+    scratch.file("tools/build_defs/java/BUILD");
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute(
+                        "//foo:extension.bzl", /* repositoryMapping = */ ImmutableMap.of()),
+                    "result"));
+
+    Depset exports = (Depset) info.getValue("property");
+
+    assertThat(exports.getSet(Label.class).toList())
+        .containsExactly(Label.parseAbsolute("//foo:export", ImmutableMap.of()));
+  }
+
+  @Test
+  public void javaCompileTransitiveExportsWithLabels_limitedToBuiltins() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    writeJavaCustomLibraryWithLabels("foo/java_library.bzl");
+    scratch.file(
+        "foo/BUILD",
+        "load('//foo:java_library.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'lib',",
+        "    srcs = ['Lib.java'],",
+        "    exports = [ ':export' ])",
+        "java_custom_library(name = 'export',",
+        "    srcs = ['Export.java'])");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
