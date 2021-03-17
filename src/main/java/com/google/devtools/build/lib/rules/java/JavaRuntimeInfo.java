@@ -69,7 +69,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   }
 
   @Nullable
-  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
+  static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }

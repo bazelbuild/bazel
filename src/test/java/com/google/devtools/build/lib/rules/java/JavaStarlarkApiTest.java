@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1799,11 +1798,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             configuredTarget.get(
                 new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
-    Label javaToolchainLabel =
-        ((JavaToolchainProvider)
-                ((ConfiguredTarget) info.getValue("java_toolchain_label"))
-                    .get(ToolchainInfo.PROVIDER))
-            .getToolchainLabel();
+    JavaToolchainProvider javaToolchainProvider =
+        JavaToolchainProvider.from((ConfiguredTarget) info.getValue("java_toolchain_label"));
+    Label javaToolchainLabel = javaToolchainProvider.getToolchainLabel();
     assertWithMessage(javaToolchainLabel.toString())
         .that(
             javaToolchainLabel.toString().endsWith("jdk:remote_toolchain")
@@ -1842,11 +1839,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             configuredTarget.get(
                 new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
-    Label javaToolchainLabel =
-        ((JavaToolchainProvider)
-                ((ConfiguredTarget) info.getValue("java_toolchain_label"))
-                    .get(ToolchainInfo.PROVIDER))
-            .getToolchainLabel();
+    JavaToolchainProvider javaToolchainProvider =
+        JavaToolchainProvider.from((ConfiguredTarget) info.getValue("java_toolchain_label"));
+    Label javaToolchainLabel = javaToolchainProvider.getToolchainLabel();
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
   }
 

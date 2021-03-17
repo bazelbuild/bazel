@@ -216,7 +216,7 @@ public class JavaStarlarkCommon
 
   @Override
   public Provider getJavaToolchainProvider() {
-    return ToolchainInfo.PROVIDER;
+    return JavaToolchainProvider.PROVIDER;
   }
 
   @Override
