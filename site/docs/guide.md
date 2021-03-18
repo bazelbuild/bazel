@@ -776,8 +776,17 @@ before the command (`build`, `test`, etc).
 4.  **The user-specified RC file**, if specified with
     <code>--bazelrc=<var>file</var></code>
 
-    This flag is optional. However, if the flag is specified, then the file must
-    exist.
+    This flag is optional but can also be specified multiple times.
+
+    `/dev/null` indicates that all further `--bazelrc`s will be ignored, which
+     is useful to disable the search for a user rc file, e.g. in release builds.
+
+    For example:
+    ```
+    --bazelrc=x.rc --bazelrc=y.rc --bazelrc=/dev/null --bazelrc=z.rc
+    ```
+    1. `x.rc` and `y.rc` are read.
+    2. `z.rc` is ignored due to the prior `/dev/null`.
 
 In addition to this optional configuration file, Bazel looks for a global rc
 file. For more details, see the [global bazelrc section](#global_bazelrc).
