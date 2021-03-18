@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLite
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.getProtoToolchainLabel;
 
 import com.google.common.collect.ImmutableList;
@@ -56,6 +57,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
                 .aspect(javaProtoAspect))
+        .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .add(
             attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
                 .mandatoryBuiltinProviders(
