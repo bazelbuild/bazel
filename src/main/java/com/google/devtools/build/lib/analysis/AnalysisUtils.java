@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -56,11 +57,18 @@ public final class AnalysisUtils {
    * -1.
    */
   public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
-    if (config.isToolConfiguration()
-        || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
+    if (config.isToolConfiguration()) {
       return false;
     }
-    TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+    TriState stamp;
+    if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
+      stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+    } else if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      int value = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
+      stamp = TriState.fromInt(value);
+    } else {
+      return false;
+    }
     return stamp == TriState.YES || (stamp == TriState.AUTO && config.stampBinaries());
   }
 
