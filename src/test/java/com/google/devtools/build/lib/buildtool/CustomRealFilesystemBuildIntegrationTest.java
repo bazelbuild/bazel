@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.BlazeTestUtils.createFilesetRule;
 import static org.junit.Assert.assertThrows;
 
@@ -21,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -170,7 +172,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     write("bar/bar.cc", "int f() { return 0; }");
     write("bar/in.txt", "int f(); // 0");
 
-    // On an incremental skyframe build, the output file from a genrule is statted 7 times:
+    // On an incremental skyframe build, the output file from a genrule is statted 5 times:
     //   1 time in FilesystemValueChecker
     //   1 time in ActionCacheChecker#needToExecute
     //   1 time in GenRuleAction#checkOutputsForDirectories
@@ -195,6 +197,66 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     write("bar/in.txt", "int f(); // 2");
     buildTarget("//foo");
     assertThat(customFileSystem.getNumCallsUntilError(barHOutputPath)).isEqualTo(0);
+  }
+
+  @Test
+  public void ioExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
+    write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
+    Path header = write("hello/subdir/undeclared.h");
+    Path buildFile = header.getParentDirectory().getChild("BUILD");
+    // Error unfortunately not noticed when we find header directly.
+    customFileSystem.alwaysError(buildFile);
+    addOptions("--discard_analysis_cache"); // Fall back to action cache on next build.
+    buildTarget("//hello:hello");
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        "^ERROR.*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
+            + " artifact: no such package 'hello/subdir': IO errors while looking for BUILD file"
+            + " reading .*hello/subdir/BUILD: nope");
+    assertThat(e.getDetailedExitCode().getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(
+            FailureDetails.FailureDetail.newBuilder()
+                .setIncludeScanning(
+                    FailureDetails.IncludeScanning.newBuilder()
+                        .setCode(FailureDetails.IncludeScanning.Code.SYSTEM_PACKAGE_LOAD_FAILURE)
+                        .setPackageLoadingCode(
+                            FailureDetails.PackageLoading.Code.OTHER_IO_EXCEPTION))
+                .build());
+  }
+
+  @Test
+  public void inconsistentExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
+    write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
+    write("hello/subdir/undeclared.h");
+    addOptions("--discard_analysis_cache"); // Fall back to action cache on next build.
+    buildTarget("//hello:hello");
+    Path buildFile = write("hello/subdir/BUILD");
+    customFileSystem.errorInsideStat(buildFile, 0);
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        ".*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
+            + " artifact: Inconsistent filesystem operations. 'stat' said .*/hello/subdir/BUILD is"
+            + " a file but then we later encountered error 'nope for .*/hello/subdir/BUILD' which"
+            + " indicates that .*/hello/subdir/BUILD is no longer a file.*");
+    events.assertContainsError("hello/subdir/BUILD ");
+    assertThat(e.getDetailedExitCode().getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(
+            FailureDetails.FailureDetail.newBuilder()
+                .setIncludeScanning(
+                    FailureDetails.IncludeScanning.newBuilder()
+                        .setCode(FailureDetails.IncludeScanning.Code.SYSTEM_PACKAGE_LOAD_FAILURE)
+                        .setPackageLoadingCode(
+                            FailureDetails.PackageLoading.Code
+                                .PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR))
+                .build());
   }
 
   @Test
@@ -372,6 +434,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
 
   private static class CustomRealFilesystem extends UnixFileSystem {
     private final Map<PathFragment, Integer> badPaths = new HashMap<>();
+    private final Map<PathFragment, Integer> statBadPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
@@ -390,18 +453,29 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
       createDirectoryErrorNames.add(baseName);
     }
 
+    void errorInsideStat(Path path, int numCalls) {
+      statBadPaths.put(path.asFragment(), numCalls);
+    }
+
     int getNumCallsUntilError(Path path) {
       return badPaths.getOrDefault(path.asFragment(), 0);
     }
 
-    private synchronized void maybeThrowExn(PathFragment path) throws IOException {
-      if (badPaths.containsKey(path)) {
-        Integer numCallsRemaining = badPaths.get(path);
+    private static boolean shouldThrowExn(PathFragment path, Map<PathFragment, Integer> paths) {
+      if (paths.containsKey(path)) {
+        Integer numCallsRemaining = paths.get(path);
         if (numCallsRemaining <= 0) {
-          throw new IOException("nope");
+          return true;
         } else {
-          badPaths.put(path, numCallsRemaining - 1);
+          paths.put(path, numCallsRemaining - 1);
         }
+      }
+      return false;
+    }
+
+    private synchronized void maybeThrowExn(PathFragment path) throws IOException {
+      if (shouldThrowExn(path, badPaths)) {
+        throw new IOException("nope");
       }
     }
 
@@ -418,7 +492,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     @Override
     protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       maybeThrowExn(path);
-      return super.statIfFound(path, followSymlinks);
+      FileStatus fileStatus = super.statIfFound(path, followSymlinks);
+      return shouldThrowExn(path, statBadPaths) ? new ThrowingFileStatus(path) : fileStatus;
     }
 
     @Override
@@ -441,6 +516,54 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
         throw new IOException("nope");
       }
       super.createDirectoryAndParents(path);
+    }
+
+    private static class ThrowingFileStatus implements FileStatus {
+      private final PathFragment path;
+
+      ThrowingFileStatus(PathFragment path) {
+        this.path = path;
+      }
+
+      @Override
+      public boolean isFile() {
+        return true;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return false;
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return false;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return false;
+      }
+
+      @Override
+      public long getSize() throws IOException {
+        throw new IOException("nope for " + path);
+      }
+
+      @Override
+      public long getLastModifiedTime() throws IOException {
+        throw new IOException("nope for " + path);
+      }
+
+      @Override
+      public long getLastChangeTime() throws IOException {
+        throw new IOException("nope for " + path);
+      }
+
+      @Override
+      public long getNodeId() throws IOException {
+        throw new IOException("nope for " + path);
+      }
     }
   }
 }

@@ -713,8 +713,22 @@ public final class SkyframeActionExecutor {
 
   @Nullable
   List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
-      throws InterruptedException {
-    return actionCacheChecker.getCachedInputs(action, resolver);
+      throws AlreadyReportedActionExecutionException, InterruptedException {
+    try {
+      return actionCacheChecker.getCachedInputs(action, resolver);
+    } catch (PackageRootResolver.PackageRootException e) {
+      printError(e.getMessage(), action);
+      throw new AlreadyReportedActionExecutionException(
+          new ActionExecutionException(
+              e,
+              action,
+              /*catastrophe=*/ false,
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(e.getMessage())
+                      .setIncludeScanning(e.getError())
+                      .build())));
+    }
   }
 
   /**

@@ -735,12 +735,16 @@ message IncludeScanning {
     INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
     ILLEGAL_ABSOLUTE_PATH = 5 [(metadata) = { exit_code: 1 }];
-    // TODO(b/138456686): this code should be deprecated in favor of more finely
-    //   resolved loading-phase codes.
+    // TODO(b/166268889): this code should be deprecated in favor of more finely
+    //  resolved loading-phase codes.
     PACKAGE_LOAD_FAILURE = 6 [(metadata) = { exit_code: 1 }];
+    USER_PACKAGE_LOAD_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    SYSTEM_PACKAGE_LOAD_FAILURE = 8 [(metadata) = { exit_code: 36 }];
+    UNDIFFERENTIATED_PACKAGE_LOAD_FAILURE = 9 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
+  PackageLoading.Code package_loading_code = 2;
 }
 
 message TestCommand {

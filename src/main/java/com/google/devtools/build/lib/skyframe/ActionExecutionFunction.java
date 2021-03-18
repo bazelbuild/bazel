@@ -68,6 +68,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -237,15 +239,20 @@ public class ActionExecutionFunction implements SkyFunction {
       state = new ContinuationState();
     }
     if (!state.hasCollectedInputs()) {
-      state.allInputs = collectInputs(action, env);
+      try {
+        state.allInputs = collectInputs(action, env);
+      } catch (AlreadyReportedActionExecutionException e) {
+        throw new ActionExecutionFunctionException(e);
+      }
       state.requestedArtifactNestedSetKeys = null;
       if (state.allInputs == null) {
         // Missing deps.
         return null;
       }
-    } else if (state.allInputs.keysRequested != null) {
-      // Preserve the invariant that we ask for the same deps each build.
-      env.getValues(state.allInputs.keysRequested);
+    } else if (state.allInputs.packageLookupsRequested != null) {
+      // Preserve the invariant that we ask for the same deps each build. Because we know these deps
+      // were already retrieved successfully, we don't request them with exceptions.
+      env.getValues(state.allInputs.packageLookupsRequested);
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
     CheckInputResults checkedInputs = null;
@@ -580,7 +587,8 @@ public class ActionExecutionFunction implements SkyFunction {
    * dependencies were missing and this ActionExecutionFunction needs to restart.
    */
   @Nullable
-  private AllInputs collectInputs(Action action, Environment env) throws InterruptedException {
+  private AllInputs collectInputs(Action action, Environment env)
+      throws InterruptedException, AlreadyReportedActionExecutionException {
     NestedSet<Artifact> allKnownInputs = action.getInputs();
     if (action.inputsDiscovered()) {
       return new AllInputs(allKnownInputs);
@@ -594,27 +602,27 @@ public class ActionExecutionFunction implements SkyFunction {
       Preconditions.checkState(env.valuesMissing(), action);
       return null;
     }
-    return new AllInputs(allKnownInputs, actionCacheInputs, resolver.keysRequested);
+    return new AllInputs(allKnownInputs, actionCacheInputs, resolver.packageLookupsRequested);
   }
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
     @Nullable final List<Artifact> actionCacheInputs;
-    @Nullable final List<SkyKey> keysRequested;
+    @Nullable final List<ContainingPackageLookupValue.Key> packageLookupsRequested;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = null;
-      this.keysRequested = null;
+      this.packageLookupsRequested = null;
     }
 
     AllInputs(
         NestedSet<Artifact> defaultInputs,
         List<Artifact> actionCacheInputs,
-        List<SkyKey> keysRequested) {
+        List<ContainingPackageLookupValue.Key> packageLookupsRequested) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
-      this.keysRequested = keysRequested;
+      this.packageLookupsRequested = packageLookupsRequested;
     }
 
     NestedSet<Artifact> getAllInputs() {
@@ -635,7 +643,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * because it uses SkyFunction.Environment for evaluation of ContainingPackageLookupValue.
    */
   private static class PackageRootResolverWithEnvironment implements PackageRootResolver {
-    final List<SkyKey> keysRequested = new ArrayList<>();
+    final List<ContainingPackageLookupValue.Key> packageLookupsRequested = new ArrayList<>();
     private final Environment env;
 
     private PackageRootResolverWithEnvironment(Environment env) {
@@ -644,11 +652,11 @@ public class ActionExecutionFunction implements SkyFunction {
 
     @Override
     public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-        throws InterruptedException {
+        throws PackageRootException, InterruptedException {
       Preconditions.checkState(
-          keysRequested.isEmpty(),
+          packageLookupsRequested.isEmpty(),
           "resolver should only be called once: %s %s",
-          keysRequested,
+          packageLookupsRequested,
           execPaths);
       StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
       if (starlarkSemantics == null) {
@@ -659,31 +667,38 @@ public class ActionExecutionFunction implements SkyFunction {
           starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
 
       // Create SkyKeys list based on execPaths.
-      Map<PathFragment, SkyKey> depKeys = new HashMap<>();
+      Map<PathFragment, ContainingPackageLookupValue.Key> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
         PathFragment parent =
             checkNotNull(path.getParentDirectory(), "Must pass in files, not root directory");
         Preconditions.checkArgument(!parent.isAbsolute(), path);
-        SkyKey depKey =
+        ContainingPackageLookupValue.Key depKey =
             ContainingPackageLookupValue.key(
                 PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout));
         depKeys.put(path, depKey);
-        keysRequested.add(depKey);
+        packageLookupsRequested.add(depKey);
       }
 
-      Map<SkyKey, SkyValue> values = env.getValues(depKeys.values());
-      if (env.valuesMissing()) {
-        return null;
-      }
-
+      Map<SkyKey, ValueOrException2<BuildFileNotFoundException, InconsistentFilesystemException>>
+          values =
+              env.getValuesOrThrow(
+                  depKeys.values(),
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
       Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
         if (!depKeys.containsKey(path)) {
           continue;
         }
-        ContainingPackageLookupValue value =
-            (ContainingPackageLookupValue) values.get(depKeys.get(path));
-        if (value.hasContainingPackage()) {
+        ContainingPackageLookupValue value;
+        try {
+          value = (ContainingPackageLookupValue) values.get(depKeys.get(path)).get();
+        } catch (BuildFileNotFoundException e) {
+          throw PackageRootException.create(path, e);
+        } catch (InconsistentFilesystemException e) {
+          throw PackageRootException.create(path, e);
+        }
+        if (value != null && value.hasContainingPackage()) {
           // We have found corresponding root for current execPath.
           result.put(path, value.getContainingPackageRoot());
         } else {
@@ -691,7 +706,7 @@ public class ActionExecutionFunction implements SkyFunction {
           result.put(path, null);
         }
       }
-      return result;
+      return env.valuesMissing() ? null : result;
     }
   }
 
