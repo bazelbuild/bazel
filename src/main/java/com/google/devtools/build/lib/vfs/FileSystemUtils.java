@@ -457,6 +457,17 @@ public class FileSystemUtils {
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
           copyLargeBuffer(in, out);
+        } catch (FileAccessException e1) {
+          // Rules can accidentally make output non-readable, let's fix that (b/150963503)
+          if (!from.isReadable()) {
+            from.setReadable(true);
+            try (InputStream in = from.getInputStream();
+                OutputStream out = to.getOutputStream()) {
+              copyLargeBuffer(in, out);
+            }
+          } else {
+            throw e1;
+          }
         }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {
