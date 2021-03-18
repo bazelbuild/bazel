@@ -435,9 +435,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-      if (compileJar == null) {
-        throw Starlark.errorf("Expected 'File' for 'compile_jar', found 'None'");
-      }
       checkSequenceOfJavaInfo(deps, "deps");
       checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
       checkSequenceOfJavaInfo(exports, "exports");
