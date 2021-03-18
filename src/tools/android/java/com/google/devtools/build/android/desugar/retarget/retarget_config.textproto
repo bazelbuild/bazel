@@ -1209,7 +1209,6 @@ replacements {
       name: "forEachIterable"
     }
   }
-  range: DESUGAR_JAVA8_LIBS
   range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
