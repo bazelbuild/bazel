@@ -94,8 +94,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     @Override
     protected String defaultPlatformFlag() {
-      return String.format(
-          "--android_platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
+      return String.format("--android_platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
     }
   }
 
@@ -4502,7 +4501,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void androidManifestMergerOrderAlphabetical_MergeesSortedByExecPath() throws Exception {
     useConfiguration("--android_manifest_merger_order=alphabetical");
     /*
-     * Dependency hierarchy:
+     * Dependency heirarchy:
      * - //java/binary:application
      *   - //java/binary:library
      *     - //java/common:theme
