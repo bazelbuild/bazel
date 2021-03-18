@@ -32,7 +32,7 @@ public class ConstraintValueRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .advertiseProvider(ConstraintValueInfo.class)
+        .advertiseStarlarkProvider(ConstraintValueInfo.PROVIDER.id())
         /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint_setting) -->
         The <code>constraint_setting</code> for which this <code>constraint_value</code> is a
         possible choice.
