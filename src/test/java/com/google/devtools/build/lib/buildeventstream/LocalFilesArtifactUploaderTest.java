@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,9 +36,11 @@ public class LocalFilesArtifactUploaderTest {
   @Test
   public void testUploadFiles() throws Exception {
     Path file = fileSystem.getPath("/test");
-    FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, "foo");
+    // We do not need to create the file when using LocalFileType.OUTPUT_FILE as this type permits
+    // skipping the directory check.
     ListenableFuture<PathConverter> future =
-        artifactUploader.upload(ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT)));
+        artifactUploader.upload(
+            ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT_FILE)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isEqualTo("file:///test");
   }

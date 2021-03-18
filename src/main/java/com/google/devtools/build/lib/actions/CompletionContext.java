@@ -36,12 +36,19 @@ import java.util.Map;
 public class CompletionContext {
   public static final CompletionContext FAILED_COMPLETION_CTX =
       new CompletionContext(
-          null, ImmutableMap.of(), ImmutableMap.of(), ArtifactPathResolver.IDENTITY, false, false);
+          null,
+          ImmutableMap.of(),
+          ImmutableMap.of(),
+          ArtifactPathResolver.IDENTITY,
+          new ActionInputMap(0),
+          false,
+          false);
 
   private final Path execRoot;
   private final ArtifactPathResolver pathResolver;
   private final Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
+  private final ActionInputMap inputMap;
   private final boolean expandFilesets;
   private final boolean fullyResolveFilesetLinks;
 
@@ -50,12 +57,14 @@ public class CompletionContext {
       Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ArtifactPathResolver pathResolver,
+      ActionInputMap inputMap,
       boolean expandFilesets,
       boolean fullyResolveFilesetLinks) {
     this.execRoot = execRoot;
     this.expandedArtifacts = expandedArtifacts;
     this.expandedFilesets = expandedFilesets;
     this.pathResolver = pathResolver;
+    this.inputMap = inputMap;
     this.expandFilesets = expandFilesets;
     this.fullyResolveFilesetLinks = fullyResolveFilesetLinks;
   }
@@ -80,12 +89,25 @@ public class CompletionContext {
         expandedArtifacts,
         expandedFilesets,
         pathResolver,
+        inputMap,
         expandFilesets,
         fullyResolveFilesetSymlinks);
   }
 
   public ArtifactPathResolver pathResolver() {
     return pathResolver;
+  }
+
+  /** Returns true if the given artifact is guaranteed to be a file (and not a directory). */
+  public boolean isOutputFile(Artifact artifact) {
+    FileArtifactValue metadata = inputMap.getMetadata(artifact);
+    if (metadata == null) {
+      return false;
+    }
+    FileStateType type = metadata.getType();
+    return type == FileStateType.REGULAR_FILE
+        || type == FileStateType.SPECIAL_FILE
+        || type == FileStateType.NONEXISTENT;
   }
 
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {

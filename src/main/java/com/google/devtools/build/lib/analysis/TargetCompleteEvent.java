@@ -391,7 +391,8 @@ public final class TargetCompleteEvent
               public void accept(Artifact artifact) {
                 builder.add(
                     new LocalFile(
-                        completionContext.pathResolver().toPath(artifact), LocalFileType.OUTPUT));
+                        completionContext.pathResolver().toPath(artifact),
+                        LocalFileType.OUTPUT_FILE));
               }
 
               @Override
