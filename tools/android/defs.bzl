@@ -29,7 +29,7 @@ run_ijar = rule(
         "jar": attr.label(mandatory = True, allow_single_file = True),
         "_java_toolchain": attr.label(
             default = "//tools/jdk:current_java_toolchain",
-            providers = [java_common.JavaRuntimeInfo],
+            providers = [java_common.JavaToolchainInfo],
         ),
     },
 )
@@ -60,7 +60,7 @@ run_singlejar = rule(
         "include_prefixes": attr.string_list(),
         "_java_toolchain": attr.label(
             default = "//tools/jdk:current_java_toolchain",
-            providers = [java_common.JavaRuntimeInfo],
+            providers = [java_common.JavaToolchainInfo],
         ),
     },
 )
