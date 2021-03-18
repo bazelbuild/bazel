@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.io;
 
 import java.io.IOException;
 
@@ -22,6 +22,6 @@ public abstract class FileSymlinkException extends IOException {
   }
 
   /** Returns a description of the problem that is suitable for printing to users. */
-  // TODO(nharmata): Consider unifying this with AbstractChainUniquenessFunction.
+  // TODO(nharmata): Consider unifying this with AbstractFileChainUniquenessFunction.
   public abstract String getUserFriendlyMessage();
 }
