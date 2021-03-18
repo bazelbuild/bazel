@@ -136,6 +136,9 @@ public final class PackageFactory {
     protected final String version = "test";
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
+    protected PackageOverheadEstimator packageOverheadEstimator =
+        PackageOverheadEstimator.NOOP_ESTIMATOR;
+
     protected boolean doChecksForTesting = true;
 
     public BuilderForTesting setEnvironmentExtensions(
@@ -151,6 +154,12 @@ public final class PackageFactory {
 
     public BuilderForTesting setPackageValidator(PackageValidator packageValidator) {
       this.packageValidator = packageValidator;
+      return this;
+    }
+
+    public BuilderForTesting setPackageOverheadEstimator(
+        PackageOverheadEstimator packageOverheadEstimator) {
+      this.packageOverheadEstimator = packageOverheadEstimator;
       return this;
     }
 
@@ -528,7 +537,7 @@ public final class PackageFactory {
       throws InvalidPackageException {
     OptionalLong packageOverhead = packageOverheadEstimator.estimatePackageOverhead(pkg);
 
-    packageValidator.validate(pkg, eventHandler);
+    packageValidator.validate(pkg, packageOverhead, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
