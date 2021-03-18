@@ -345,7 +345,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .contains(
             "according to stat, existing path /workspace/foo/BUILD is neither"
                 + " a file nor directory nor symlink.");
-    assertDetailedExitCode(ex, PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @Test
@@ -376,7 +379,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
     assertThat(msg).contains("/workspace/foo/bar/baz is no longer an existing directory");
-    assertDetailedExitCode(ex, PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   /** Regression test for unexpected exception type from PackageValue. */
@@ -398,7 +404,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
     assertThat(msg).contains("Encountered error '/workspace/foo/bar (Permission denied)'");
-    assertDetailedExitCode(ex, PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
@@ -629,7 +638,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/starlark': "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -648,7 +658,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'test/starlark': "
                 + "at /workspace/test/starlark/extension.bzl:1:6: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -669,7 +680,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'pkg': Internal error while loading Starlark builtins: Failed"
                 + " to load builtins sources: initialization of module 'exports.bzl' (internal)"
                 + " failed");
-    assertDetailedExitCode(ex, PackageLoading.Code.BUILTINS_INJECTION_FAILURE);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.BUILTINS_INJECTION_FAILURE, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -685,7 +697,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/starlark': Encountered error while reading extension "
                 + "file 'test/starlark/extension.bzl': Symlink cycle");
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -860,7 +873,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).hasMessageThat().contains("nope");
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
-    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -874,7 +887,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).hasMessageThat().contains("nope");
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -1325,12 +1339,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private static void assertDetailedExitCode(
-      Exception exception, PackageLoading.Code expectedPackageLoadingCode) {
+      Exception exception, PackageLoading.Code expectedPackageLoadingCode, ExitCode exitCode) {
     assertThat(exception).isInstanceOf(DetailedException.class);
     DetailedExitCode detailedExitCode = ((DetailedException) exception).getDetailedExitCode();
-    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(exitCode);
     assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(expectedPackageLoadingCode);
+    assertThat(DetailedExitCode.getExitCode(detailedExitCode.getFailureDetail()))
+        .isEqualTo(exitCode);
   }
 
   /**
@@ -1644,7 +1660,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected InputStream getInputStream(PathFragment path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

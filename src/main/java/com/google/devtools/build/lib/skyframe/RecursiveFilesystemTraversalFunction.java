@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.FileType;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
@@ -233,14 +234,28 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           String.format(
               "Error while traversing directory %s: %s",
               traversal.root.getRelativePart(), e.getMessage());
+      // Trying to stat the starting point of this root may have failed with a symlink cycle or
+      // trying to get a package lookup value may have failed due to a symlink cycle.
+      RecursiveFilesystemTraversalException.Type exceptionType =
+          RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE;
+      if (e instanceof FileSymlinkException) {
+        exceptionType =
+            RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION;
+      }
+      if (e instanceof DetailedException) {
+        FailureDetails.PackageLoading.Code code =
+            ((DetailedException) e)
+                .getDetailedExitCode()
+                .getFailureDetail()
+                .getPackageLoading()
+                .getCode();
+        if (code == FailureDetails.PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION) {
+          exceptionType =
+              RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION;
+        }
+      }
       throw new RecursiveFilesystemTraversalFunctionException(
-          new RecursiveFilesystemTraversalException(
-              message,
-              // Trying to stat the starting point of this root may have failed with a symlink cycle
-              // or trying to get a package lookup value may have failed due to a symlink cycle.
-              e instanceof FileSymlinkException || e.getCause() instanceof FileSymlinkException
-                  ? RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION
-                  : RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE));
+          new RecursiveFilesystemTraversalException(message, exceptionType));
     }
   }
 

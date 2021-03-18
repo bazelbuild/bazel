@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -183,26 +185,52 @@ public class PackageLookupFunction implements SkyFunction {
       throws PackageLookupFunctionException, InterruptedException {
     String basename = fileRootedPath.asPath().getBaseName();
     SkyKey fileSkyKey = FileValue.key(fileRootedPath);
-    FileValue fileValue = null;
+    FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
     } catch (InconsistentFilesystemException e) {
       // This error is not transient from the perspective of the PackageLookupFunction.
       throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
     } catch (FileSymlinkException e) {
+      String message =
+          e.getMessage()
+              + " detected while trying to find "
+              + basename
+              + " file "
+              + fileRootedPath.asPath();
       throw new PackageLookupFunctionException(
           new BuildFileNotFoundException(
               packageIdentifier,
-              "Symlink cycle detected while trying to find "
-                  + basename
-                  + " file "
-                  + fileRootedPath.asPath(),
-              e),
+              message,
+              DetailedExitCode.of(
+                  FailureDetails.FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setPackageLoading(
+                          FailureDetails.PackageLoading.newBuilder()
+                              .setCode(
+                                  FailureDetails.PackageLoading.Code
+                                      .SYMLINK_CYCLE_OR_INFINITE_EXPANSION))
+                      .build())),
           Transience.PERSISTENT);
     } catch (IOException e) {
-      throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
-          "IO errors while looking for " + basename + " file reading "
-              + fileRootedPath.asPath() + ": " + e.getMessage(), e),
+      String message =
+          "IO errors while looking for "
+              + basename
+              + " file reading "
+              + fileRootedPath.asPath()
+              + ": "
+              + e.getMessage();
+      throw new PackageLookupFunctionException(
+          new BuildFileNotFoundException(
+              packageIdentifier,
+              message,
+              DetailedExitCode.of(
+                  FailureDetails.FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setPackageLoading(
+                          FailureDetails.PackageLoading.newBuilder()
+                              .setCode(FailureDetails.PackageLoading.Code.OTHER_IO_EXCEPTION))
+                      .build())),
           Transience.PERSISTENT);
     }
     return fileValue;

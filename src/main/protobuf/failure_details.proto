@@ -1166,8 +1166,9 @@ message PackageLoading {
     BUILD_FILE_MISSING = 3 [(metadata) = { exit_code: 1 }];
     REPOSITORY_MISSING = 4 [(metadata) = { exit_code: 1 }];
     PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR = 5
-        [(metadata) = { exit_code: 1 }];
-    TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR = 6 [(metadata) = { exit_code: 1 }];
+        [(metadata) = { exit_code: 36 }];
+    TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR = 6
+        [(metadata) = { exit_code: 36 }];
     INVALID_NAME = 7 [(metadata) = { exit_code: 1 }];
     // was: PRELUDE_FILE_READ_ERROR. Replaced by IMPORT_STARLARK_FILE_ERROR
     // when the prelude was changed to be loaded as a Starlark module.
@@ -1196,6 +1197,8 @@ message PackageLoading {
     // builtins .bzl files are always packaged with Blaze in production, a
     // failure here generally indicates a bug in Blaze.
     BUILTINS_INJECTION_FAILURE = 29 [(metadata) = { exit_code: 1 }];
+    SYMLINK_CYCLE_OR_INFINITE_EXPANSION = 30 [(metadata) = { exit_code: 1 }];
+    OTHER_IO_EXCEPTION = 31 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
