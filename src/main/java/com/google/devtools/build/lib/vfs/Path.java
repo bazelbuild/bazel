@@ -14,7 +14,10 @@
 //
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -31,7 +34,6 @@ import java.io.Serializable;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import javax.annotation.Nullable;
 
 /**
@@ -73,47 +75,34 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
     return fileSystemForSerialization;
   }
 
-  private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
-  private static final char SEPARATOR = '/';
-
-  private String path;
-  private int driveStrLength; // 1 on Unix, 3 on Windows
+  private PathFragment pathFragment;
   private FileSystem fileSystem;
 
   /** Creates a local path that is specific to the host OS. */
   static Path create(String path, FileSystem fileSystem) {
-    Preconditions.checkNotNull(path);
-    int normalizationLevel = OS.needsToNormalize(path);
-    String normalizedPath = OS.normalize(path, normalizationLevel);
-    return createAlreadyNormalized(normalizedPath, fileSystem);
+    checkNotNull(path);
+    return create(PathFragment.create(path), fileSystem);
   }
 
-  @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  static Path createAlreadyNormalized(String path, FileSystem fileSystem) {
-    int driveStrLength = OS.getDriveStrLength(path);
-    return createAlreadyNormalized(path, driveStrLength, fileSystem);
-  }
-
-  static Path createAlreadyNormalized(String path, int driveStrLength, FileSystem fileSystem) {
-    return new Path(path, driveStrLength, fileSystem);
+  static Path create(PathFragment pathFragment, FileSystem fileSystem) {
+    return new Path(pathFragment, fileSystem);
   }
 
   /** This method expects path to already be normalized. */
-  private Path(String path, int driveStrLength, FileSystem fileSystem) {
-    Preconditions.checkArgument(driveStrLength > 0, "Paths must be absolute: '%s'", path);
-    this.path = Preconditions.checkNotNull(path);
-    this.driveStrLength = driveStrLength;
+  private Path(PathFragment pathFragment, FileSystem fileSystem) {
+    checkArgument(pathFragment.isAbsolute(), "Paths must be absolute: '%s'", pathFragment);
+    this.pathFragment = pathFragment;
     this.fileSystem = fileSystem;
   }
 
   public String getPathString() {
-    return path;
+    return pathFragment.getPathString();
   }
 
   @Override
   public String filePathForFileTypeMatcher() {
-    return path;
+    return pathFragment.getPathString();
   }
 
   /**
@@ -123,10 +112,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * is returned.
    */
   public String getBaseName() {
-    int lastSeparator = path.lastIndexOf(SEPARATOR);
-    return lastSeparator < driveStrLength
-        ? path.substring(driveStrLength)
-        : path.substring(lastSeparator + 1);
+    return pathFragment.getBaseName();
   }
 
   /** Synonymous with {@link Path#getRelative(String)}. */
@@ -140,10 +126,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * the given path.
    */
   public Path getRelative(PathFragment other) {
-    Preconditions.checkNotNull(other);
-    String otherStr = other.getPathString();
-    // Fast-path: The path fragment is already normal, use cheaper normalization check
-    return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
+    checkNotNull(other);
+    return new Path(pathFragment.getRelative(other), fileSystem);
   }
 
   /**
@@ -151,30 +135,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * the given path.
    */
   public Path getRelative(String other) {
-    Preconditions.checkNotNull(other);
-    return getRelative(other, OS.getDriveStrLength(other), OS.needsToNormalize(other));
-  }
-
-  private Path getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
-    if (other.isEmpty()) {
-      return this;
-    }
-    // This is an absolute path, simply return it
-    if (otherDriveStrLength > 0) {
-      String normalizedPath = OS.normalize(other, normalizationLevel);
-      return new Path(normalizedPath, otherDriveStrLength, fileSystem);
-    }
-    String newPath;
-    if (path.length() == driveStrLength) {
-      newPath = path + other;
-    } else {
-      newPath = path + '/' + other;
-    }
-    // Note that even if other came from a PathFragment instance we still might
-    // need to normalize the result if (for instance) other is a path that
-    // starts with '..'
-    newPath = OS.normalize(newPath, normalizationLevel);
-    return new Path(newPath, driveStrLength, fileSystem);
+    checkNotNull(other);
+    return new Path(pathFragment.getRelative(other), fileSystem);
   }
 
   /**
@@ -184,30 +146,11 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    */
   @Nullable
   public Path getParentDirectory() {
-    int lastSeparator = path.lastIndexOf(SEPARATOR);
-    if (lastSeparator < driveStrLength) {
-      if (path.length() > driveStrLength) {
-        String newPath = path.substring(0, driveStrLength);
-        return new Path(newPath, driveStrLength, fileSystem);
-      } else {
-        return null;
-      }
+    PathFragment parentPath = pathFragment.getParentDirectory();
+    if (parentPath == null) {
+      return null;
     }
-    String newPath = path.substring(0, lastSeparator);
-    return new Path(newPath, driveStrLength, fileSystem);
-  }
-
-  /**
-   * Returns the drive.
-   *
-   * <p>On unix, this will return "/". On Windows it will return the drive letter, like "C:/".
-   */
-  public String getDriveStr() {
-    return path.substring(0, driveStrLength);
-  }
-
-  public int getDriveStrLength() {
-    return driveStrLength;
+    return new Path(parentPath, fileSystem);
   }
 
   /**
@@ -221,32 +164,9 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * Path} instances aren't both absolute or both relative.
    */
   public PathFragment relativeTo(Path base) {
-    Preconditions.checkNotNull(base);
+    checkNotNull(base);
     checkSameFileSystem(base);
-    String basePath = base.path;
-    if (!OS.startsWith(path, basePath)) {
-      throw new IllegalArgumentException(
-          String.format("Path '%s' is not under '%s', cannot relativize", this, base));
-    }
-    int bn = basePath.length();
-    if (bn == 0) {
-      return PathFragment.createAlreadyNormalized(path, driveStrLength);
-    }
-    if (path.length() == bn) {
-      return PathFragment.EMPTY_FRAGMENT;
-    }
-    final int lastSlashIndex;
-    if (basePath.charAt(bn - 1) == '/') {
-      lastSlashIndex = bn - 1;
-    } else {
-      lastSlashIndex = bn;
-    }
-    if (path.charAt(lastSlashIndex) != '/') {
-      throw new IllegalArgumentException(
-          String.format("Path '%s' is not under '%s', cannot relativize", this, base));
-    }
-    String newPath = path.substring(lastSlashIndex + 1);
-    return PathFragment.createAlreadyNormalized(newPath, 0);
+    return pathFragment.relativeTo(base.pathFragment);
   }
 
   /**
@@ -258,7 +178,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
     if (fileSystem != other.fileSystem) {
       return false;
     }
-    return startsWith(other.path, other.driveStrLength);
+    return pathFragment.startsWith(other.pathFragment);
   }
 
   /**
@@ -269,28 +189,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * <p>An absolute path can never be an ancestor of a relative path fragment.
    */
   public boolean startsWith(PathFragment other) {
-    if (!other.isAbsolute()) {
-      return false;
-    }
-    String otherPath = other.getPathString();
-    return startsWith(otherPath, OS.getDriveStrLength(otherPath));
-  }
-
-  private boolean startsWith(String otherPath, int otherDriveStrLength) {
-    Preconditions.checkNotNull(otherPath);
-    if (otherPath.length() > path.length()) {
-      return false;
-    }
-    if (driveStrLength != otherDriveStrLength) {
-      return false;
-    }
-    if (!OS.startsWith(path, otherPath)) {
-      return false;
-    }
-    return path.length() == otherPath.length() // Handle equal paths
-        || otherPath.length() == driveStrLength // Handle (eg.) 'C:/foo' starts with 'C:/'
-        // Handle 'true' ancestors, eg. "foo/bar" starts with "foo", but does not start with "fo"
-        || path.charAt(otherPath.length()) == SEPARATOR;
+    return pathFragment.startsWith(other);
   }
 
   public FileSystem getFileSystem() {
@@ -298,12 +197,12 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   public PathFragment asFragment() {
-    return PathFragment.createAlreadyNormalized(path, driveStrLength);
+    return pathFragment;
   }
 
   @Override
   public String toString() {
-    return path;
+    return pathFragment.getPathString();
   }
 
   @Override
@@ -311,21 +210,18 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof Path)) {
       return false;
     }
     Path other = (Path) o;
-    if (fileSystem != other.fileSystem) {
-      return false;
-    }
-    return OS.equals(this.path, other.path);
+    return fileSystem == other.fileSystem && pathFragment.equals(other.pathFragment);
   }
 
   @Override
   public int hashCode() {
     // Do not include file system for efficiency.
     // In practice we never construct paths from different file systems.
-    return OS.hash(this.path);
+    return pathFragment.hashCode();
   }
 
   @Override
@@ -341,7 +237,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
         return 1;
       }
     }
-    return OS.compare(this.path, o.path);
+    return pathFragment.compareTo(o.pathFragment);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
@@ -373,11 +269,6 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
       result.add(getChild(entry));
     }
     return result;
-  }
-
-  /** Returns an {@link Iterator} that lazily yields the segments of this path. */
-  public Iterator<String> segmentIterator() {
-    return PathSegmentIterator.create(path, driveStrLength);
   }
 
   /**
@@ -980,14 +871,13 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   private void writeObject(ObjectOutputStream out) throws IOException {
-    Preconditions.checkState(
+    checkState(
         fileSystem == fileSystemForSerialization, "%s %s", fileSystem, fileSystemForSerialization);
-    out.writeUTF(path);
+    out.writeUTF(pathFragment.getPathString());
   }
 
   private void readObject(ObjectInputStream in) throws IOException {
-    path = in.readUTF();
+    pathFragment = PathFragment.createAlreadyNormalized(in.readUTF());
     fileSystem = fileSystemForSerialization;
-    driveStrLength = OS.getDriveStrLength(path);
   }
 }

@@ -204,7 +204,7 @@ public class StarlarkRepositoryContext
       PathFragment pathFragment = PathFragment.create(path.toString());
       return new StarlarkPath(
           pathFragment.isAbsolute()
-              ? outputDirectory.getFileSystem().getPath(path.toString())
+              ? outputDirectory.getFileSystem().getPath(pathFragment)
               : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
       return getPathFromLabel((Label) path);
