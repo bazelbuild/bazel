@@ -95,3 +95,45 @@ built.
   }
 }
 ```
+
+## Aspect Results in BEP
+
+Ordinary builds evaluate actions associated with `(target, configuration)`
+pairs. When building with [aspects](skylark/aspects.html) enabled, Bazel
+additionally evaluates targets associated with `(target, configuration,
+aspect)` triples, for each target affected by a given enabled aspect.
+
+Evaluation results for aspects are available in BEP despite the absence of
+aspect-specific event types. For each `(target, configuration)` pair with an
+applicable aspect, Bazel publishes an additional `TargetConfigured` and
+`TargetComplete` event bearing the result from applying the aspect to the
+target. For example, if `//:foo_lib` is built with
+`--aspects=aspects/myaspect.bzl%custom_aspect`, this event would also appear in
+the BEP:
+
+```json
+{
+  "id": {
+    "targetCompleted": {
+      "label": "//:foo_lib",
+      "configuration": {
+        "id": "544e39a7f0abdb3efdd29d675a48bc6a"
+      },
+      "aspect": "aspects/myaspect.bzl%custom_aspect"
+    }
+  },
+  "completed": {
+    "success": true,
+    "outputGroup": [{
+      "name": "default",
+      "fileSets": [{
+        "id": "1"
+      }]
+    }]
+  }
+}
+```
+
+Note that the only difference between the IDs is the presence of the `aspect`
+field. A tool that does not check the `aspect` ID field and accumulates output
+files by target may commingle target outputs with aspect outputs.
