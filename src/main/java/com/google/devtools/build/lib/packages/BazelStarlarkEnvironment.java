@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Starlark;
 
@@ -236,50 +238,132 @@ public final class BazelStarlarkEnvironment {
   }
 
   /**
-   * Constructs an environment for a BUILD-loaded bzl file based on the default environment as well
-   * as the given {@code @_builtins}-injected top-level symbols and "native" bindings.
+   * Throws {@link InjectionException} with an appropriate error message if the given {@code symbol}
+   * is not in both {@code existingSymbols} and {@code injectableSymbols}. {@code kind} is a string
+   * describing the domain of {@code symbol}.
+   */
+  private static void validateSymbolIsInjectable(
+      String symbol, Set<String> existingSymbols, Set<String> injectableSymbols, String kind)
+      throws InjectionException {
+    if (!existingSymbols.contains(symbol)) {
+      throw new InjectionException(
+          String.format(
+              "Injected %s '%s' must override an existing one by that name", kind, symbol));
+    } else if (!injectableSymbols.contains(symbol)) {
+      throw new InjectionException(
+          String.format("Cannot override '%s' with an injected %s", symbol, kind));
+    }
+  }
+
+  /** Given a string prefixed with + or -, returns that prefix character, or null otherwise. */
+  private static Character getKeyPrefix(String key) {
+    if (key.isEmpty()) {
+      return null;
+    }
+    char prefix = key.charAt(0);
+    if (!(prefix == '+' || prefix == '-')) {
+      return null;
+    }
+    return prefix;
+  }
+
+  /**
+   * Given a string prefixed with + or -, returns the remainder of the string, or the whole string
+   * otherwise.
+   */
+  private static String getKeySuffix(String key) {
+    return getKeyPrefix(key) == null ? key : key.substring(1);
+  }
+
+  /**
+   * Given a list of strings representing the +/- prefixed items in {@code
+   * --experimental_builtins_injection_override}, returns a map from each item to a Boolean
+   * indicating whether it last appeared with the + suffix (True) or - suffix (False).
+   *
+   * @throws InjectionException if an item is not prefixed with either "+" or "-"
+   */
+  private static Map<String, Boolean> parseInjectionOverridesList(List<String> overrides)
+      throws InjectionException {
+    HashMap<String, Boolean> result = new HashMap<>();
+    for (String prefixedItem : overrides) {
+      Character prefix = getKeyPrefix(prefixedItem);
+      if (prefix == null) {
+        throw new InjectionException(
+            String.format("Invalid injection override item: '%s'", prefixedItem));
+      }
+      result.put(prefixedItem.substring(1), prefix == '+');
+    }
+    return result;
+  }
+
+  /**
+   * Given an exports dict key, and an override map, return whether injection should be applied for
+   * that key.
+   */
+  private static boolean injectionApplies(String key, Map<String, Boolean> overrides) {
+    Character prefix = getKeyPrefix(key);
+    if (prefix == null) {
+      // Unprefixed; overrides don't get a say in the matter.
+      return true;
+    }
+    Boolean override = overrides.get(key.substring(1));
+    if (override == null) {
+      return prefix == '+';
+    } else {
+      return override;
+    }
+  }
+
+  /**
+   * Constructs an environment for a BUILD-loaded bzl file based on the default environment, the
+   * maps corresponding to the {@code exported_toplevels} and {@code exported_rules} dicts, and the
+   * value of {@code --experimental_builtins_injection_override}.
    *
    * <p>Injected symbols must override an existing symbol of that name. Furthermore, the overridden
    * symbol must be a rule or a piece of a specific ruleset's logic (e.g., {@code CcInfo} or {@code
    * cc_library}), not a generic built-in (e.g., {@code provider} or {@code glob}). Throws
    * InjectionException if these conditions are not met.
    *
+   * <p>Whether or not injection actually occurs for a given map key depends on its prefix (if any)
+   * and the prefix of its appearance (if it appears at all) in the override list; see the
+   * documentation for {@code --experimental_builtins_injection_override}. Non-injected symbols must
+   * still obey the above constraints.
+   *
    * @see StarlarkBuiltinsFunction
    */
   public ImmutableMap<String, Object> createBuildBzlEnvUsingInjection(
-      Map<String, Object> injectedToplevels, Map<String, Object> injectedRules)
+      Map<String, Object> exportedToplevels,
+      Map<String, Object> exportedRules,
+      List<String> overridesList)
       throws InjectionException {
+    Map<String, Boolean> overridesMap = parseInjectionOverridesList(overridesList);
+
     // Determine top-level symbols.
     Map<String, Object> env = new HashMap<>();
     env.putAll(uninjectedBuildBzlEnv);
-    for (Map.Entry<String, Object> symbol : injectedToplevels.entrySet()) {
-      String name = symbol.getKey();
-      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
-        throw new InjectionException(
-            String.format(
-                "Injected top-level symbol '%s' must override an existing symbol by that name",
-                name));
-      } else if (!ruleClassProvider.getNativeRuleSpecificBindings().containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override top-level builtin '%s' with an injected value", name));
-      } else {
-        env.put(name, symbol.getValue());
+    for (Map.Entry<String, Object> entry : exportedToplevels.entrySet()) {
+      String key = entry.getKey();
+      String name = getKeySuffix(key);
+      validateSymbolIsInjectable(
+          name,
+          Sets.union(env.keySet(), Starlark.UNIVERSE.keySet()),
+          ruleClassProvider.getNativeRuleSpecificBindings().keySet(),
+          "top-level symbol");
+      if (injectionApplies(key, overridesMap)) {
+        env.put(name, entry.getValue());
       }
     }
 
     // Determine "native" bindings.
-    // See above comments for native in BUILD bzls.
+    // TODO(#11954): See above comment in createUninjectedBuildBzlEnv.
     Map<String, Object> nativeBindings = new HashMap<>();
     nativeBindings.putAll(uninjectedBuildBzlNativeBindings);
-    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
-      String name = symbol.getKey();
-      Object preexisting = nativeBindings.put(name, symbol.getValue());
-      if (preexisting == null) {
-        throw new InjectionException(
-            String.format("Injected rule '%s' must override an existing rule by that name", name));
-      } else if (!ruleFunctions.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override native module field '%s' with an injected value", name));
+    for (Map.Entry<String, Object> entry : exportedRules.entrySet()) {
+      String key = entry.getKey();
+      String name = getKeySuffix(key);
+      validateSymbolIsInjectable(name, nativeBindings.keySet(), ruleFunctions.keySet(), "rule");
+      if (injectionApplies(key, overridesMap)) {
+        nativeBindings.put(name, entry.getValue());
       }
     }
 
@@ -288,26 +372,34 @@ public final class BazelStarlarkEnvironment {
   }
 
   /**
-   * Constructs an environment for a BUILD file based on the default environment and the given
-   * {@code @_builtins}-injected rule symbols.
+   * Constructs an environment for a BUILD file based on the default environment, the map
+   * corresponding to the {@code exported_rules} dict, and the value of {@code
+   * --experimental_builtins_injection_override}.
    *
    * <p>Injected rule symbols must override an existing native rule of that name. Only rules may be
    * overridden in this manner, not generic built-ins such as {@code package} or {@code glob}.
    * Throws InjectionException if these conditions are not met.
+   *
+   * <p>Whether or not injection actually occurs for a given map key depends on its prefix (if any)
+   * and the prefix of its appearance (if it appears at all) in the override list; see the
+   * documentation for {@code --experimental_builtins_injection_override}. Non-injected symbols must
+   * still obey the above constraints.
    */
   public ImmutableMap<String, Object> createBuildEnvUsingInjection(
-      Map<String, Object> injectedRules) throws InjectionException {
+      Map<String, Object> exportedRules, List<String> overridesList) throws InjectionException {
+    Map<String, Boolean> overridesMap = parseInjectionOverridesList(overridesList);
+
     HashMap<String, Object> env = new HashMap<>(uninjectedBuildEnv);
-    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
-      String name = symbol.getKey();
-      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Injected rule '%s' must override an existing rule by that name", name));
-      } else if (!ruleFunctions.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override top-level builtin '%s' with an injected value", name));
-      } else {
-        env.put(name, symbol.getValue());
+    for (Map.Entry<String, Object> entry : exportedRules.entrySet()) {
+      String key = entry.getKey();
+      String name = getKeySuffix(key);
+      validateSymbolIsInjectable(
+          name,
+          Sets.union(env.keySet(), Starlark.UNIVERSE.keySet()),
+          ruleFunctions.keySet(),
+          "rule");
+      if (injectionApplies(key, overridesMap)) {
+        env.put(name, entry.getValue());
       }
     }
     return ImmutableMap.copyOf(env);

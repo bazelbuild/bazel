@@ -169,9 +169,14 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
       ImmutableMap<String, Object> predeclaredForBuildBzl =
-          starlarkEnv.createBuildBzlEnvUsingInjection(exportedToplevels, exportedRules);
+          starlarkEnv.createBuildBzlEnvUsingInjection(
+              exportedToplevels,
+              exportedRules,
+              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
       ImmutableMap<String, Object> predeclaredForBuild =
-          starlarkEnv.createBuildEnvUsingInjection(exportedRules);
+          starlarkEnv.createBuildEnvUsingInjection(
+              exportedRules,
+              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
           predeclaredForBuild,
