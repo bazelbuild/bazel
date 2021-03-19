@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,18 +79,22 @@ public class ToolchainTest extends BuildViewTestCase {
     DeclaredToolchainInfo provider = PlatformProviderUtils.declaredToolchainInfo(target);
     assertThat(provider).isNotNull();
     assertThat(provider.toolchainType())
-        .isEqualTo(ToolchainTypeInfo.create(makeLabel("//toolchain:demo_toolchain")));
+        .isEqualTo(ToolchainTypeInfo.create(
+            Label.parseAbsoluteUnchecked("//toolchain:demo_toolchain")));
 
     ConstraintSettingInfo basicConstraintSetting =
-        ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
     assertThat(provider.execConstraints().get(basicConstraintSetting))
         .isEqualTo(
-            ConstraintValueInfo.create(basicConstraintSetting, makeLabel("//constraint:foo")));
+            ConstraintValueInfo.create(basicConstraintSetting,
+                Label.parseAbsoluteUnchecked("//constraint:foo")));
     assertThat(provider.targetConstraints().get(basicConstraintSetting))
         .isEqualTo(
-            ConstraintValueInfo.create(basicConstraintSetting, makeLabel("//constraint:bar")));
+            ConstraintValueInfo.create(basicConstraintSetting,
+                Label.parseAbsoluteUnchecked("//constraint:bar")));
 
-    assertThat(provider.toolchainLabel()).isEqualTo(makeLabel("//toolchain:toolchain_def1"));
+    assertThat(provider.toolchainLabel()).isEqualTo(
+        Label.parseAbsoluteUnchecked("//toolchain:toolchain_def1"));
   }
 
   @Test
@@ -127,10 +132,12 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     assertThat(provider).isNotNull();
     assertThat(provider.toolchainType())
-        .isEqualTo(ToolchainTypeInfo.create(makeLabel("//toolchain:demo_toolchain")));
+        .isEqualTo(ToolchainTypeInfo.create(
+            Label.parseAbsoluteUnchecked("//toolchain:demo_toolchain")));
     assertThat(provider.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches))
         .isTrue();
-    assertThat(provider.toolchainLabel()).isEqualTo(makeLabel("//toolchain:toolchain_def1"));
+    assertThat(provider.toolchainLabel()).isEqualTo(
+        Label.parseAbsoluteUnchecked("//toolchain:toolchain_def1"));
   }
 
   @Test
@@ -168,10 +175,12 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     assertThat(provider).isNotNull();
     assertThat(provider.toolchainType())
-        .isEqualTo(ToolchainTypeInfo.create(makeLabel("//toolchain:demo_toolchain")));
+        .isEqualTo(ToolchainTypeInfo.create(
+            Label.parseAbsoluteUnchecked("//toolchain:demo_toolchain")));
     assertThat(provider.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches))
         .isFalse();
-    assertThat(provider.toolchainLabel()).isEqualTo(makeLabel("//toolchain:toolchain_def1"));
+    assertThat(provider.toolchainLabel()).isEqualTo(
+        Label.parseAbsoluteUnchecked("//toolchain:toolchain_def1"));
   }
 
   @Test
