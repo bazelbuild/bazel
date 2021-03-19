@@ -497,7 +497,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev, "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a1");
     assertThat(a.getRequiredToolchains()).containsExactly(
-        Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+        Label.parseAbsoluteUnchecked("//test:my_toolchain_type", false));
   }
 
   @Test
@@ -1859,7 +1859,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     assertThat(c.getRequiredToolchains()).containsExactly(
-        Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+        Label.parseAbsoluteUnchecked("//test:my_toolchain_type", false));
   }
 
   @Test
@@ -1875,8 +1875,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     assertThat(c.getExecutionPlatformConstraints())
-        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1", false),
+            Label.parseAbsoluteUnchecked("//constraint:cv2", false));
   }
 
   @Test
@@ -1899,11 +1899,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
     assertThat(plum.getExecGroups().get("group").requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type", false));
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
     assertThat(plum.getExecGroups().get("group").execCompatibleWith())
-        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1", false),
+            Label.parseAbsoluteUnchecked("//constraint:cv2", false));
   }
 
   @Test
@@ -1953,10 +1953,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
     assertThat(group.requiredToolchains()).containsExactly(
-        Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+        Label.parseAbsoluteUnchecked("//test:my_toolchain_type", false));
     assertThat(group.execCompatibleWith())
-        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1", false),
+            Label.parseAbsoluteUnchecked("//constraint:cv2", false));
   }
 
   @Test
