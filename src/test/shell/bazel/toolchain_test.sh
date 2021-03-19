@@ -2034,6 +2034,101 @@ EOF
   expect_not_log "does not provide ToolchainTypeInfo"
 }
 
+function test_repository_relative_toolchain_type() {
+  # Create a repository that defines a toolchain type and simple rule.
+  # The toolchain type used in the repository is relative to the repository.
+  mkdir -p external/rules_foo
+  touch external/rules_foo/WORKSPACE
+  mkdir -p external/rules_foo/rule
+  touch external/rules_foo/rule/BUILD
+  cat > external/rules_foo/rule/rule.bzl <<EOF
+def _foo_impl(ctx):
+    print(ctx.toolchains["//toolchain:foo_toolchain_type"])
+    return []
+
+foo_rule = rule(
+    implementation = _foo_impl,
+    toolchains = ["//toolchain:foo_toolchain_type"],
+)
+EOF
+  mkdir -p external/rules_foo/toolchain/
+  cat > external/rules_foo/toolchain/BUILD <<EOF
+load(":toolchain.bzl", "foo_toolchain")
+
+toolchain_type(
+  name = "foo_toolchain_type",
+  visibility = ["//visibility:public"],
+)
+
+foo_toolchain(
+    name = "foo_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+toolchain(
+    name = "foo_default_toolchain",
+    toolchain = ":foo_toolchain",
+    toolchain_type = ":foo_toolchain_type",
+)
+EOF
+  cat > external/rules_foo/toolchain/toolchain.bzl <<EOF
+_ATTRS = dict(
+  foo_tool = attr.label(
+      allow_files = True,
+      default = "//foo_tools:foo_tool",
+  ),
+)
+
+def _impl(ctx):
+    return [platform_common.ToolchainInfo(
+        **{name: getattr(ctx.attr, name) for name in _ATTRS.keys()}
+    )]
+
+foo_toolchain = rule(
+    implementation = _impl,
+    attrs = _ATTRS,
+)
+EOF
+  mkdir -p external/rules_foo/foo_tools
+  cat > external/rules_foo/foo_tools/BUILD <<EOF
+sh_binary(
+  name = "foo_tool",
+  srcs = ["foo_tool.sh"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > external/rules_foo/foo_tools/foo_tool.sh <<EOF
+echo creating \$1
+touch \$1
+EOF
+  chmod +x external/rules_foo/foo_tools/foo_tool.sh
+
+  # Create a target that uses the rule.
+  mkdir -p demo
+  cat > demo/BUILD <<EOF
+load("@rules_foo//rule:rule.bzl", "foo_rule")
+
+foo_rule(name = "demo")
+EOF
+
+  # Set up the WORKSPACE.
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "rules_foo",
+  path = "external/rules_foo",
+)
+
+register_toolchains(
+  "@rules_foo//toolchain:foo_default_toolchain",
+)
+EOF
+
+  # Test the build.
+  bazel build \
+    //demo:demo &> $TEST_log || fail "Build failed"
+  expect_log "foo_tool = <target @rules_foo//foo_tools:foo_tool>"
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"

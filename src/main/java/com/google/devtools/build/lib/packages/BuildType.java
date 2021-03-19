@@ -215,6 +215,20 @@ public final class BuildType {
       return label;
     }
 
+    public Label convert(String input) throws LabelSyntaxException {
+      // Optimization: First check the package-local map, avoiding Label validation, Label
+      // construction, and global Interner lookup. This approach tends to be very profitable
+      // overall, since it's common for the targets in a single package to have duplicate
+      // label-strings across all their attribute values.
+      Label label = convertedLabelsInPackage.get(input);
+      if (label == null) {
+        label = getLabel().getRelativeWithRemapping(input, getRepositoryMapping());
+        convertedLabelsInPackage.put(input, label);
+      }
+
+      return label;
+    }
+
     public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return repositoryMapping;
     }
@@ -284,21 +298,7 @@ public final class BuildType {
           return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
         } else if (context instanceof LabelConversionContext) {
           LabelConversionContext labelConversionContext = (LabelConversionContext) context;
-          HashMap<String, Label> convertedLabelsInPackage =
-              labelConversionContext.getConvertedLabelsInPackage();
-          // Optimization: First check the package-local map, avoiding Label validation, Label
-          // construction, and global Interner lookup. This approach tends to be very profitable
-          // overall, since it's common for the targets in a single package to have duplicate
-          // label-strings across all their attribute values.
-          Label label = convertedLabelsInPackage.get(str);
-          if (label == null) {
-            label =
-                labelConversionContext
-                    .getLabel()
-                    .getRelativeWithRemapping(str, labelConversionContext.getRepositoryMapping());
-            convertedLabelsInPackage.put(str, label);
-          }
-          return label;
+          return labelConversionContext.convert(str);
         } else {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }

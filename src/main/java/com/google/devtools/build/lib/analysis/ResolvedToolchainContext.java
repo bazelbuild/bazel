@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -31,12 +29,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Represents the data needed for a specific target's use of toolchains and platforms, including
@@ -45,7 +38,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 @AutoValue
 @Immutable
 @ThreadSafe
-public abstract class ResolvedToolchainContext implements ToolchainContextApi, ToolchainContext {
+public abstract class ResolvedToolchainContext implements ToolchainContext {
 
   /**
    * Finishes preparing the {@link ResolvedToolchainContext} by finding the specific toolchain
@@ -110,12 +103,12 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   abstract ImmutableMap<RepositoryName, RepositoryName> repoMapping();
 
   /** Returns a description of the target being used, for error messaging. */
-  abstract String targetDescription();
+  public abstract String targetDescription();
 
   /** Sets the map from requested {@link Label} to toolchain type provider. */
-  abstract ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels();
+  public abstract ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels();
 
-  abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
+  public abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
 
   /** Returns the template variables that these toolchains provide. */
   public abstract ImmutableList<TemplateVariableInfo> templateVariableProviders();
@@ -136,67 +129,6 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   @Nullable
   public ToolchainInfo forToolchainType(ToolchainTypeInfo toolchainType) {
     return toolchains().get(toolchainType);
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true;
-  }
-
-  @Override
-  public void repr(Printer printer) {
-    printer.append("<toolchain_context.resolved_labels: ");
-    printer.append(
-        toolchains().keySet().stream()
-            .map(ToolchainTypeInfo::typeLabel)
-            .map(Label::toString)
-            .collect(joining(", ")));
-    printer.append(">");
-  }
-
-  private static Label transformKey(
-      Object key, ImmutableMap<RepositoryName, RepositoryName> repoMapping) throws EvalException {
-    if (key instanceof Label) {
-      return (Label) key;
-    } else if (key instanceof ToolchainTypeInfo) {
-      return ((ToolchainTypeInfo) key).typeLabel();
-    } else if (key instanceof String) {
-      try {
-        return Label.parseAbsolute((String) key, repoMapping);
-      } catch (LabelSyntaxException e) {
-        throw Starlark.errorf("Unable to parse toolchain label '%s': %s", key, e.getMessage());
-      }
-    } else {
-      throw Starlark.errorf(
-          "Toolchains only supports indexing by toolchain type, got %s instead",
-          Starlark.type(key));
-    }
-  }
-
-  @Override
-  public ToolchainInfo getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    Label toolchainTypeLabel = transformKey(key, repoMapping());
-
-    if (!containsKey(semantics, key)) {
-      // TODO(bazel-configurability): The list of available toolchain types is confusing in the
-      // presence of aliases, since it only contains the actual label, not the alias passed to the
-      // rule definition.
-      throw Starlark.errorf(
-          "In %s, toolchain type %s was requested but only types [%s] are configured",
-          targetDescription(),
-          toolchainTypeLabel,
-          requiredToolchainTypes().stream()
-              .map(ToolchainTypeInfo::typeLabel)
-              .map(Label::toString)
-              .collect(joining(", ")));
-    }
-    return forToolchainType(toolchainTypeLabel);
-  }
-
-  @Override
-  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    Label toolchainTypeLabel = transformKey(key, repoMapping());
-    return requestedToolchainTypeLabels().containsKey(toolchainTypeLabel);
   }
 
   /**
