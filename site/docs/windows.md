@@ -137,6 +137,8 @@ To build C++ targets with MSVC, you need:
 
 *   [The Visual C++ compiler](install-windows.html#install-vc).
 
+*   The compiler flag `/showIncludes` in case that you define your custom toolchain.
+
 *   (Optional) The `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable.
 
     Bazel automatically detects the Visual C++ compiler on your system.
