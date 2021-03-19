@@ -97,7 +97,6 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -235,6 +234,8 @@ public class CompilationSupport {
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
       Artifact pchHdr,
+      CppModuleMap moduleMap,
+      FeatureConfiguration moduleMapFeatureConfiguration,
       ObjcCppSemantics semantics,
       String purpose,
       boolean generateModuleMap,
@@ -247,7 +248,7 @@ public class CompilationSupport {
                 ruleContext.getLabel(),
                 CppHelper.getGrepIncludes(ruleContext),
                 semantics,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics),
+                moduleMapFeatureConfiguration,
                 CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoContext,
@@ -277,7 +278,7 @@ public class CompilationSupport {
                     .addAll(
                         pathsToIncludeArgs(objcCompilationContext.getStrictDependencyIncludes()))
                     .build())
-            .setCppModuleMap(intermediateArtifacts.internalModuleMap())
+            .setCppModuleMap(moduleMap)
             .setPropagateModuleMapToCompileAction(true)
             .addVariableExtension(extension)
             .setPurpose(purpose)
@@ -288,7 +289,7 @@ public class CompilationSupport {
       result.addPublicTextualHeaders(ImmutableList.of(pchHdr));
     }
 
-    if (!generateModuleMap) {
+    if (moduleMap.getArtifact().isSourceArtifact() || !generateModuleMap) {
       result.doNotGenerateModuleMap();
     }
 
@@ -347,6 +348,33 @@ public class CompilationSupport {
             .collect(toImmutableSortedSet(naturalOrder()));
     Artifact pchHdr = getPchFile().orNull();
     ObjcCppSemantics semantics = createObjcCppSemantics();
+    FeatureConfiguration featureConfiguration =
+        getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, semantics);
+    FeatureConfiguration featureConfigurationForSwiftModuleMap =
+        getFeatureConfigurationForSwiftModuleMap(
+            ruleContext, toolchain, buildConfiguration, semantics);
+
+    // Generate up to two module maps, while minimizing the number of actions created.  If
+    // module_map feature is off, generate a swift module map.  If module_map feature is on,
+    // generate a layering check and a swift module map.  In the latter case, the layering check
+    // module map must be the primary one.
+    //
+    // TODO(waltl): Delete this logic when swift module map is migrated to swift_library.
+    CppModuleMap primaryModuleMap;
+    FeatureConfiguration primaryModuleMapFeatureConfiguration;
+    Optional<CppModuleMap> extraModuleMap;
+    Optional<FeatureConfiguration> extraModuleMapFeatureConfiguration;
+    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
+      primaryModuleMap = intermediateArtifacts.internalModuleMap();
+      primaryModuleMapFeatureConfiguration = featureConfiguration;
+      extraModuleMap = Optional.of(intermediateArtifacts.swiftModuleMap());
+      extraModuleMapFeatureConfiguration = Optional.of(featureConfigurationForSwiftModuleMap);
+    } else {
+      primaryModuleMap = intermediateArtifacts.swiftModuleMap();
+      primaryModuleMapFeatureConfiguration = featureConfigurationForSwiftModuleMap;
+      extraModuleMap = Optional.absent();
+      extraModuleMapFeatureConfiguration = Optional.absent();
+    }
 
     String purpose = String.format("%s_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(true);
@@ -362,6 +390,8 @@ public class CompilationSupport {
             privateHdrs,
             publicHdrs,
             pchHdr,
+            primaryModuleMap,
+            primaryModuleMapFeatureConfiguration,
             semantics,
             purpose,
             /* generateModuleMap= */ true,
@@ -381,6 +411,8 @@ public class CompilationSupport {
             privateHdrs,
             publicHdrs,
             pchHdr,
+            primaryModuleMap,
+            primaryModuleMapFeatureConfiguration,
             semantics,
             purpose,
             // Only generate the module map once (see above) and re-use it here.
@@ -388,20 +420,18 @@ public class CompilationSupport {
             // We only need to validate headers once, in arc compilation above.
             /* shouldProcessHeaders= */ false);
 
-    // We create a module map for Swift interop.
-    if (!getCustomModuleMap(ruleContext).isPresent()) {
-      generateSwiftModuleMap(
-          intermediateArtifacts.moduleMap(),
+    if (extraModuleMap.isPresent() && !extraModuleMap.get().getArtifact().isSourceArtifact()) {
+      generateExtraModuleMap(
+          extraModuleMap.get(),
           publicHdrs,
           privateHdrs,
           objcCompilationContext.getPublicTextualHeaders(),
           getPchFile(),
           objcCompilationContext.getCcCompilationContexts(),
-          semantics);
+          semantics,
+          extraModuleMapFeatureConfiguration.get());
     }
 
-    FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics);
     CcLinkingHelper resultLink =
         new CcLinkingHelper(
                 ruleContext,
@@ -525,7 +555,6 @@ public class CompilationSupport {
                     .getBitcodeMode()
                     .getFeatureNames())
             .add(CppRuleClasses.LANG_OBJC)
-            .add(CppRuleClasses.MODULE_MAPS)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS)
             .add(isTool ? "host" : "nonhost")
@@ -577,6 +606,7 @@ public class CompilationSupport {
     }
     if (forSwiftModuleMap) {
       activatedCrosstoolSelectables
+          .add(CppRuleClasses.MODULE_MAPS)
           .add(CppRuleClasses.COMPILE_ALL_MODULES)
           .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
           .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
@@ -1190,7 +1220,7 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    CppSemantics cppSemantics = createObjcCppSemantics();
+    ObjcCppSemantics cppSemantics = createObjcCppSemantics();
     FeatureConfiguration featureConfiguration =
         getFeatureConfiguration(
             ruleContext, toolchain, buildConfiguration, createObjcCppSemantics());
@@ -1679,7 +1709,8 @@ public class CompilationSupport {
             ruleContext.getLabel(),
             CppHelper.getGrepIncludes(ruleContext),
             semantics,
-            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, semantics),
+            getFeatureConfigurationForSwiftModuleMap(
+                ruleContext, toolchain, buildConfiguration, semantics),
             CcCompilationHelper.SourceCategory.CC_AND_OBJC,
             toolchain,
             toolchain.getFdoContext(),
@@ -1694,7 +1725,7 @@ public class CompilationSupport {
                 compilationArtifacts.getAdditionalHdrs().toList().stream())
             .collect(toImmutableSortedSet(naturalOrder()));
 
-    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+    CppModuleMap moduleMap = intermediateArtifacts.swiftModuleMap();
 
     ccCompilationHelper.setCppModuleMap(moduleMap).addPublicHeaders(publicHeaders);
 
@@ -1703,21 +1734,18 @@ public class CompilationSupport {
     return this;
   }
 
-  /**
-   * Registers an action that will generate a clang module map for Swift consumption. Note this
-   * module map has requirements that are much different from that specified by the
-   * CcToolchainProvider, and thus uses its own feature configuration.
-   */
-  private CompilationSupport generateSwiftModuleMap(
+  /** Registers an action to generate an extra clang module map. */
+  private CompilationSupport generateExtraModuleMap(
       CppModuleMap moduleMap,
       Collection<Artifact> publicHeaders,
       Collection<Artifact> privateHeaders,
       List<Artifact> textualHeaders,
       Optional<Artifact> pchHdr,
       Iterable<CcCompilationContext> ccCompilationContexts,
-      ObjcCppSemantics semantics)
+      ObjcCppSemantics semantics,
+      FeatureConfiguration featureConfiguration)
       throws RuleErrorException, InterruptedException {
-    String purpose = String.format("%s_swift_module_map", semantics.getPurpose());
+    String purpose = String.format("%s_extra_module_map", semantics.getPurpose());
     CcCompilationHelper result =
         new CcCompilationHelper(
             ruleContext,
@@ -1725,8 +1753,7 @@ public class CompilationSupport {
             ruleContext.getLabel(),
             CppHelper.getGrepIncludes(ruleContext),
             semantics,
-            getFeatureConfigurationForSwiftModuleMap(
-                ruleContext, toolchain, buildConfiguration, semantics),
+            featureConfiguration,
             CcCompilationHelper.SourceCategory.CC_AND_OBJC,
             toolchain,
             toolchain.getFdoContext(),
