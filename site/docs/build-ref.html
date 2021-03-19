@@ -256,16 +256,6 @@ app_binary
 </pre>
 
 <p>
-  If, by mistake, you refer to <code>testdepot.zip</code> by the wrong
-  label, such as <code>//my/app:testdata/testdepot.zip</code>
-  or <code>//my:app/testdata/testdepot.zip</code>, you will get an
-  error from the build tool saying that the label "crosses a package
-  boundary". You should correct the label by putting the colon after
-  the directory containing the innermost enclosing BUILD file, i.e.,
-  <code>//my/app/testdata:testdepot.zip</code>.
-</p>
-
-<p>
   Labels starting with <code>@//</code> are references to the main
   repository, which will still work even from external repositories.
   Therefore <code>@//a/b/c</code> is different from
