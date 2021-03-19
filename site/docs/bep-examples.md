@@ -136,4 +136,113 @@ the BEP:
 
 Note that the only difference between the IDs is the presence of the `aspect`
 field. A tool that does not check the `aspect` ID field and accumulates output
-files by target may commingle target outputs with aspect outputs.
+files by target may conflate target outputs with aspect outputs.
+
+## Consuming `NamedSetOfFiles`
+
+Determining the artifacts produced by a given target (or aspect) is a common
+BEP use-case that can be done efficiently with some preparation. This section
+discusses the recursive, shared structure offered by the `NamedSetOfFiles`
+event, which matches the structure of a Starlark [Depset](skylark/depsets.html).
+Consumers must take care to avoid quadratic algorithms when processing
+`NamedSetOfFiles` events because large builds can contain tens of thousands of
+such events, requiring hundreds of millions operations in a traversal with
+quadratic complexity.
+
+A `NamedSetOfFiles` event always appears in the BEP stream *before* a
+`TargetComplete` or `NamedSetOfFiles` event that references it. This is the
+inverse of the "parent-child" event relationship, where all but the first event
+appears after at least one event announcing it. A `NamedSetOfFiles` event is
+announced by a `Progress` event with no semantics.
+
+Given these ordering and sharing constraints, a typical consumer must buffer all
+`NamedSetOfFiles` events until the BEP stream is exhausted. The following JSON
+event stream and Python code demonstrate how to populate a map from
+target/aspect to built artifacts in the "default" output group, and how to
+process the outputs for a subset of built targets/aspects:
+
+<p>
+  <button class="btn btn-primary" type="button" data-toggle="collapse"
+      data-target="#collapseNamedSetJson" aria-expanded="false"
+      aria-controls="collapseNamedSetJson">
+    Show/Hide BEP JSON
+  </button>
+</p>
+
+```json
+{
+  "id": { "namedSet": { "id": "3" } },
+  "namedSetOfFiles": {
+    "files": [ { "name": "examples/py/beplib.py", "uri": "file:///tmp/bazel/examples/py/beplib.py" } ]
+  }
+}
+{
+  "id": { "namedSet": { "id": "2" } },
+  "namedSetOfFiles": { "fileSets": [ { "id": "3" } ] }
+}
+{
+  "id": { "namedSet": { "id": "1" } },
+  "namedSetOfFiles": {
+    "files": [ { "name": "examples/py/util.py", "uri": "file:///tmp/bazel/examples/py/util.py" } ],
+    "fileSets": [ { "id": "3" } ]
+  }
+}
+{
+  "id": { "namedSet": { "id": "0" } },
+  "namedSetOfFiles": {
+    "files": [
+      { "name": "examples/py/bep.py", "uri": "file:///tmp/bazel/examples/py/bep.py" },
+      {
+        "name": "examples/py/bep",
+        "uri": "file:///tmp/.cache/bazel/_bazel_foo/a61fd0fbee3f9d6c1e30d54b68655d35/execroot/io_bazel/bazel-out/k8-fastbuild/bin/examples/py/bep",
+        "pathPrefix": ["bazel-out", "k8-fastbuild", "bin"]
+      }
+    ],
+    "fileSets": [ { "id": "1" }, { "id": "2" } ]
+  }
+}
+{
+  "id": {
+    "targetCompleted": {
+      "label": "//examples/py:bep",
+      "configuration": {
+        "id": "a5d130b0966b4a9ca2d32725aa5baf40e215bcfc4d5cdcdc60f5cc5b4918903b"
+      }
+    }
+  },
+  "completed": {
+    "success": true,
+    "outputGroup": [ { "name": "default", "fileSets": [ { "id": "0" } ] } ]
+  }
+}
+```
+{: .collapse #collapseNamedSetJson}
+
+```python
+named_sets = {}  # type: dict[str, NamedSetOfFiles]
+outputs = {}     # type: dict[str, dict[str, set[str]]]
+
+for event in stream:
+  kind = event.id.WhichOneof("id")
+  if kind == "named_set":
+    named_sets[event.id.named_set.id] = event.named_set_of_files
+  elif kind == "target_completed":
+    tc = event.id.target_completed
+    target_id = (tc.label, tc.configuration.id, tc.aspect)
+    outputs[target_id] = {}
+    for group in event.completed.output_group:
+      outputs[target_id][group.name] = {fs.id for fs in group.file_sets}
+
+for result_id in relevant_subset(outputs.keys()):
+  visit = outputs[result_id].get("default", [])
+  seen_sets = set(visit)
+  while visit:
+    set_name = visit.pop()
+    s = named_sets[set_name]
+    for f in s.files:
+      process_file(result_id, f)
+    for fs in s.file_sets:
+      if fs.id not in seen_sets:
+        visit.add(fs.id)
+        seen_sets.add(fs.id)
+```
