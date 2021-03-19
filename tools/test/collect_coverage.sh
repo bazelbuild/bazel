@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -21,9 +21,14 @@
 #   LCOV_MERGER - mandatory, location of the LcovMerger
 #   COVERAGE_DIR - optional, location of the coverage temp directory
 #   COVERAGE_OUTPUT_FILE - optional, location of the final lcov file
+#   VERBOSE_COVERAGE - optional, print debug info from the coverage scripts
 #
 # Script expects that it will be started in the execution root directory and
 # not in the test's runfiles directory.
+
+if [[ -n "$VERBOSE_COVERAGE" ]]; then
+  set -x
+fi
 
 function resolve_links() {
   local name="$1"

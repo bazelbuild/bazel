@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
  # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,10 +31,15 @@
 # - COVERAGE_GCOV_OPTIONS   Additional options to pass to gcov.
 # - ROOT                    Location from where the code coverage collection
 #                           was invoked.
+# - VERBOSE_COVERAGE        Print debug info from the coverage scripts
 #
 # The script looks in $COVERAGE_DIR for the C++ metadata coverage files (either
 # gcda or profraw) and uses either lcov or gcov to get the coverage data.
 # The coverage data is placed in $COVERAGE_OUTPUT_FILE.
+
+if [[ -n "$VERBOSE_COVERAGE" ]]; then
+  set -x
+fi
 
 # Checks if clang llvm coverage should be used instead of lcov.
 function uses_llvm() {
