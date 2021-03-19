@@ -717,27 +717,28 @@ public abstract class CcModule
       Object frameworkIncludes,
       Object defines,
       Object localDefines,
-      Object textualHdrsNoneable,
-      Object modularPublicHdrsNoneable,
-      Object modularPrivateHdrsNoneable,
+      Sequence<?> directTextualHdrs,
+      Sequence<?> directPublicHdrs,
+      Sequence<?> directPrivateHdrs,
       Object purposeNoneable,
       StarlarkThread thread)
       throws EvalException {
     if (checkObjectsBound(
-        textualHdrsNoneable,
-        modularPrivateHdrsNoneable,
-        modularPublicHdrsNoneable,
         purposeNoneable)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
-    ImmutableList<Artifact> textualHdrs = asClassImmutableList(textualHdrsNoneable);
-    ImmutableList<Artifact> modularPublicHdrs = asClassImmutableList(modularPublicHdrsNoneable);
-    ImmutableList<Artifact> modularPrivateHdrs = asClassImmutableList(modularPrivateHdrsNoneable);
-
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
+    ImmutableList<Artifact> textualHdrsList =
+        Sequence.cast(directTextualHdrs, Artifact.class, "direct_textual_headers")
+            .getImmutableList();
+    ImmutableList<Artifact> modularPublicHdrsList =
+        Sequence.cast(directPublicHdrs, Artifact.class, "direct_public_headers").getImmutableList();
+    ImmutableList<Artifact> modularPrivateHdrsList =
+        Sequence.cast(directPrivateHdrs, Artifact.class, "direct_private_headers")
+            .getImmutableList();
     ccCompilationContext.addDeclaredIncludeSrcs(headerList);
     ccCompilationContext.addModularPublicHdrs(headerList);
     ccCompilationContext.addSystemIncludeDirs(
@@ -761,9 +762,9 @@ public abstract class CcModule
     ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").toList());
     ccCompilationContext.addNonTransitiveDefines(
         toNestedSetOfStrings(localDefines, "local_defines").toList());
-    ccCompilationContext.addTextualHdrs(textualHdrs);
-    ccCompilationContext.addModularPublicHdrs(modularPublicHdrs);
-    ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrs);
+    ccCompilationContext.addTextualHdrs(textualHdrsList);
+    ccCompilationContext.addModularPublicHdrs(modularPublicHdrsList);
+    ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrsList);
     if (purposeNoneable != null && purposeNoneable != Starlark.UNBOUND) {
       ccCompilationContext.setPurpose((String) purposeNoneable);
     }
@@ -1922,14 +1923,11 @@ public abstract class CcModule
     if (checkObjectsBound(
         moduleMapNoneable,
         additionalModuleMapsNoneable,
-        textualHeadersStarlarkObject,
         additionalExportedHeadersObject,
         propagateModuleMapToCompileActionObject,
         doNotGenerateModuleMapObject,
         codeCoverageEnabledObject,
-        hdrsCheckingModeObject,
-        variablesExtension,
-        languageObject)) {
+        hdrsCheckingModeObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -2143,7 +2141,6 @@ public abstract class CcModule
         neverLinkObject,
         alwaysLinkObject,
         testOnlyTargetObject,
-        variablesExtension,
         nativeDepsObject,
         wholeArchiveObject,
         additionalLinkstampDefines,
