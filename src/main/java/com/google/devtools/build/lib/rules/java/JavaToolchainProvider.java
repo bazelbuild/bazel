@@ -65,15 +65,17 @@ public class JavaToolchainProvider extends NativeInfo
   private static JavaToolchainProvider from(
       ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
-    try {
-      JavaToolchainProvider provider = (JavaToolchainProvider) toolchainInfo.getValue("java");
-      if (provider != null) {
-        return provider;
-      }
-    } catch (EvalException e) {
-      if (errorConsumer != null) {
-        errorConsumer.ruleError(
-            String.format("There was an error reading the Java toolchain: %s", e));
+    if (toolchainInfo != null) {
+      try {
+        JavaToolchainProvider provider = (JavaToolchainProvider) toolchainInfo.getValue("java");
+        if (provider != null) {
+          return provider;
+        }
+      } catch (EvalException e) {
+        if (errorConsumer != null) {
+          errorConsumer.ruleError(
+              String.format("There was an error reading the Java toolchain: %s", e));
+        }
       }
     }
     if (errorConsumer != null) {
