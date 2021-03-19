@@ -34,18 +34,18 @@ In this tutorial you learn how to:
 
 ### Install Bazel
 
-You will need to install the following software:
+Before you begin the tutorial, install the following software:
 
 * **Bazel.** To install, follow the [installation instructions](../install.md).
 * **Android Studio.** To install, follow the steps to [download Android
   Studio](https://developer.android.com/sdk/index.html). Execute the setup
   wizard to download the SDK and configure your environment.
-* (Optional) **Git.** We will use `git` to download the Android app project.
+* (Optional) **Git.** Use `git` to download the Android app project.
 
 ### Get the sample project
 
-We will be using a basic Android app project in [Bazel's examples
-repository](https://github.com/bazelbuild/examples).
+For the sample project, use a basic Android app project in
+[Bazel's examples repository](https://github.com/bazelbuild/examples).
 
 This app has a single button that prints a greeting when clicked.
 
@@ -64,7 +64,7 @@ the rest of the tutorial, you will be executing commands in this directory.
 
 ### Review the source files
 
-Let's take a look at the source files for the app.
+Take a look at the source files for the app.
 
 ```
 .
@@ -308,7 +308,7 @@ Now, save and close the file.
 
 ### Build the app
 
-Let's try building the app! Run the following command to build the
+Try building the app! Run the following command to build the
 `android_binary` target:
 
 ```bash
