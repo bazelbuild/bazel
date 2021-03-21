@@ -192,6 +192,36 @@ function tear_down() {
   bazel shutdown
 }
 
+# Validates that we get a good error message when passing a config_setting into
+# the target_compatible_with attribute. This is a regression test for
+# https://github.com/bazelbuild/bazel/issues/13250.
+function test_config_setting_in_target_compatible_with() {
+  cat >> target_skipping/BUILD <<EOF
+config_setting(
+    name = "foo3_config_setting",
+    constraint_values = [":foo3"],
+)
+
+sh_binary(
+    name = "problematic_foo3_target",
+    srcs = ["pass.sh"],
+    target_compatible_with = [
+        ":foo3_config_setting",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    ... &> "${TEST_log}" && fail "Bazel succeeded unexpectedly."
+
+  expect_log "'//target_skipping:foo3_config_setting' does not have mandatory providers: 'ConstraintValueInfo'"
+}
+
 # Validates that the console log provides useful information to the user for
 # builds.
 function test_console_log_for_builds() {
