@@ -32,16 +32,16 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
   public void platformInfo() throws Exception {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s1"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s2"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s1"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s2"));
 
     PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.addConstraint(ConstraintValueInfo.create(setting1,
-        Label.parseAbsoluteUnchecked("//constraint:v1")));
-    builder.addConstraint(ConstraintValueInfo.create(setting2,
-        Label.parseAbsoluteUnchecked("//constraint:v2")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:v1")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:v2")));
     PlatformInfo platformInfo = builder.build();
 
     assertThat(platformInfo).isNotNull();
@@ -65,25 +65,26 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
   public void platformInfo_parentPlatform_noOverlaps() throws Exception {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s1"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s2"));
-    ConstraintSettingInfo setting3 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s3"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s1"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s2"));
+    ConstraintSettingInfo setting3 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s3"));
 
     PlatformInfo parent =
         PlatformInfo.builder()
-            .addConstraint(ConstraintValueInfo.create(setting1,
-                Label.parseAbsoluteUnchecked("//constraint:v1")))
+            .addConstraint(
+                ConstraintValueInfo.create(
+                    setting1, Label.parseAbsoluteUnchecked("//constraint:v1")))
             .build();
 
     PlatformInfo.Builder builder = PlatformInfo.builder();
     builder.setParent(parent);
-    builder.addConstraint(ConstraintValueInfo.create(setting2,
-        Label.parseAbsoluteUnchecked("//constraint:v2")));
-    builder.addConstraint(ConstraintValueInfo.create(setting3,
-        Label.parseAbsoluteUnchecked("//constraint:v3")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:v2")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting3, Label.parseAbsoluteUnchecked("//constraint:v3")));
     PlatformInfo platformInfo = builder.build();
 
     assertThat(platformInfo).isNotNull();
@@ -100,27 +101,28 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
   public void platformInfo_parentPlatform_overlaps() throws Exception {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s1"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s2"));
-    ConstraintSettingInfo setting3 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:s3"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s1"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s2"));
+    ConstraintSettingInfo setting3 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:s3"));
 
     PlatformInfo parent =
         PlatformInfo.builder()
-            .addConstraint(ConstraintValueInfo.create(setting1,
-                Label.parseAbsoluteUnchecked("//constraint:v1")))
+            .addConstraint(
+                ConstraintValueInfo.create(
+                    setting1, Label.parseAbsoluteUnchecked("//constraint:v1")))
             .build();
 
     PlatformInfo.Builder builder = PlatformInfo.builder();
     builder.setParent(parent);
-    builder.addConstraint(ConstraintValueInfo.create(setting1,
-        Label.parseAbsoluteUnchecked("//constraint:v1a")));
-    builder.addConstraint(ConstraintValueInfo.create(setting2,
-        Label.parseAbsoluteUnchecked("//constraint:v2")));
-    builder.addConstraint(ConstraintValueInfo.create(setting3,
-        Label.parseAbsoluteUnchecked("//constraint:v3")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:v1a")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:v2")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting3, Label.parseAbsoluteUnchecked("//constraint:v3")));
     PlatformInfo platformInfo = builder.build();
 
     assertThat(platformInfo).isNotNull();
@@ -202,29 +204,29 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
   public void platformInfo_overlappingConstraintsError() throws Exception {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:basic"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:complex"));
-    ConstraintSettingInfo setting3 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:single"));
+    ConstraintSettingInfo setting3 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:single"));
 
     PlatformInfo.Builder builder = PlatformInfo.builder();
 
-    builder.addConstraint(ConstraintValueInfo.create(setting1,
-        Label.parseAbsoluteUnchecked("//constraint:value1")));
-    builder.addConstraint(ConstraintValueInfo.create(setting1,
-        Label.parseAbsoluteUnchecked("//constraint:value2")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value1")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value2")));
 
-    builder.addConstraint(ConstraintValueInfo.create(setting2,
-        Label.parseAbsoluteUnchecked("//constraint:value3")));
-    builder.addConstraint(ConstraintValueInfo.create(setting2,
-        Label.parseAbsoluteUnchecked("//constraint:value4")));
-    builder.addConstraint(ConstraintValueInfo.create(setting2,
-        Label.parseAbsoluteUnchecked("//constraint:value5")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:value3")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:value4")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:value5")));
 
-    builder.addConstraint(ConstraintValueInfo.create(setting3,
-        Label.parseAbsoluteUnchecked("//constraint:value6")));
+    builder.addConstraint(
+        ConstraintValueInfo.create(setting3, Label.parseAbsoluteUnchecked("//constraint:value6")));
 
     ConstraintCollection.DuplicateConstraintException exception =
         assertThrows(
@@ -241,10 +243,10 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
   public void platformInfo_equalsTester() throws Exception {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:basic"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:other"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other"));
 
     ConstraintValueInfo value1 =
         ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value1"));
@@ -390,8 +392,8 @@ public class PlatformInfoTest extends BuildViewTestCase {
     ConstraintSettingInfo constraintSetting =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//test/constraint:basic"));
     ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(constraintSetting,
-            Label.parseAbsoluteUnchecked("//test/constraint:foo"));
+        ConstraintValueInfo.create(
+            constraintSetting, Label.parseAbsoluteUnchecked("//test/constraint:foo"));
     assertThat(provider.constraints().get(constraintSetting)).isEqualTo(constraintValue);
   }
 
@@ -452,16 +454,16 @@ public class PlatformInfoTest extends BuildViewTestCase {
     ConstraintSettingInfo constraintSetting =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//test/constraint:basic"));
     ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(constraintSetting,
-            Label.parseAbsoluteUnchecked("//test/constraint:bar"));
+        ConstraintValueInfo.create(
+            constraintSetting, Label.parseAbsoluteUnchecked("//test/constraint:bar"));
     assertThat(provider.constraints().get(constraintSetting)).isEqualTo(constraintValue);
 
     // Check that inheritance works.
     ConstraintSettingInfo constraintSetting2 =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//test/constraint:complex"));
     ConstraintValueInfo constraintValue2 =
-        ConstraintValueInfo.create(constraintSetting2,
-            Label.parseAbsoluteUnchecked("//test/constraint:baz"));
+        ConstraintValueInfo.create(
+            constraintSetting2, Label.parseAbsoluteUnchecked("//test/constraint:baz"));
     assertThat(provider.constraints().get(constraintSetting2)).isEqualTo(constraintValue2);
   }
 

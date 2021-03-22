@@ -144,25 +144,28 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))),
+                ImmutableMap.of(
+                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))),
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
+                ImmutableMap.of(
+                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
         // Different execution platform, same label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType, ImmutableMap.of(macCtkey,
-                    Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
+                testToolchainType,
+                ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
         // Same execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
+                ImmutableMap.of(
+                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
         // Different execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType, ImmutableMap.of(macCtkey,
-                    Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
+                testToolchainType,
+                ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
         // Multiple execution platforms.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(

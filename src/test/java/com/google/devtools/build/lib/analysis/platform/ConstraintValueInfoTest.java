@@ -28,23 +28,25 @@ public class ConstraintValueInfoTest extends BuildViewTestCase {
 
   @Test
   public void constraintValue_equalsTester() {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:basic"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:other"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other"));
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value")),
-            ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value")))
+            ConstraintValueInfo.create(
+                setting1, Label.parseAbsoluteUnchecked("//constraint:value")),
+            ConstraintValueInfo.create(
+                setting1, Label.parseAbsoluteUnchecked("//constraint:value")))
         .addEqualityGroup(
             // Different label.
-            ConstraintValueInfo.create(setting1,
-                Label.parseAbsoluteUnchecked("//constraint:otherValue")))
+            ConstraintValueInfo.create(
+                setting1, Label.parseAbsoluteUnchecked("//constraint:otherValue")))
         .addEqualityGroup(
             // Different setting.
-            ConstraintValueInfo.create(setting2,
-                Label.parseAbsoluteUnchecked("//constraint:otherValue")))
+            ConstraintValueInfo.create(
+                setting2, Label.parseAbsoluteUnchecked("//constraint:otherValue")))
         .testEquals();
   }
 }

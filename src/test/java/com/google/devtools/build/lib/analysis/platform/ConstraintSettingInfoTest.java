@@ -32,8 +32,8 @@ public class ConstraintSettingInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic")),
             ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic")))
-        .addEqualityGroup(ConstraintSettingInfo.create(
-            Label.parseAbsoluteUnchecked("//constraint:other")))
+        .addEqualityGroup(
+            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other")))
         .testEquals();
   }
 }

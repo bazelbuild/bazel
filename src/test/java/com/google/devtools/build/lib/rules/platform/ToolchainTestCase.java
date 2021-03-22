@@ -119,16 +119,16 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "    constraint_values = ['//constraints:mac', '//constraints:non_default_value'])");
 
     setting = ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraints:os"));
-    linuxConstraint = ConstraintValueInfo.create(setting,
-        Label.parseAbsoluteUnchecked("//constraints:linux"));
-    macConstraint = ConstraintValueInfo.create(setting,
-        Label.parseAbsoluteUnchecked("//constraints:mac"));
+    linuxConstraint =
+        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//constraints:linux"));
+    macConstraint =
+        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//constraints:mac"));
     defaultedSetting =
         ConstraintSettingInfo.create(
             Label.parseAbsoluteUnchecked("//constraints:setting_with_default"));
     defaultedConstraint =
-        ConstraintValueInfo.create(defaultedSetting,
-            Label.parseAbsoluteUnchecked("//constraints:non_default_value"));
+        ConstraintValueInfo.create(
+            defaultedSetting, Label.parseAbsoluteUnchecked("//constraints:non_default_value"));
 
     linuxPlatform =
         PlatformInfo.builder()

@@ -31,8 +31,8 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
 
   @Test
   public void toolchainInfo_overlappingConstraintsError() throws Exception {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//constraint:basic"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:complex"));
 
@@ -82,15 +82,15 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Base case.
             DeclaredToolchainInfo.builder()
-                .toolchainType(ToolchainTypeInfo.create(
-                    Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
                 .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
                 .build(),
             DeclaredToolchainInfo.builder()
-                .toolchainType(ToolchainTypeInfo.create(
-                    Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
                 .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
@@ -98,8 +98,8 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Different type.
             DeclaredToolchainInfo.builder()
-                .toolchainType(ToolchainTypeInfo.create(
-                    Label.parseAbsoluteUnchecked("//toolchain:tc2")))
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc2")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
                 .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
@@ -107,8 +107,8 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Different constraints.
             DeclaredToolchainInfo.builder()
-                .toolchainType(ToolchainTypeInfo.create(
-                    Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint2))
                 .addTargetConstraints(ImmutableList.of(constraint1))
                 .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
@@ -116,8 +116,8 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Different toolchain label.
             DeclaredToolchainInfo.builder()
-                .toolchainType(ToolchainTypeInfo.create(
-                    Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
                 .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain2"))

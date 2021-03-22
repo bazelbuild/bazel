@@ -56,23 +56,27 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThat(
             value.registeredToolchains().stream()
                 .anyMatch(
-                    toolchain -> toolchain.toolchainType().equals(testToolchainType)
-                        && toolchain.execConstraints().get(setting).equals(linuxConstraint)
-                        && toolchain.targetConstraints().get(setting).equals(macConstraint)
-                        && toolchain
-                            .toolchainLabel()
-                            .equals(Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"))))
+                    toolchain ->
+                        toolchain.toolchainType().equals(testToolchainType)
+                            && toolchain.execConstraints().get(setting).equals(linuxConstraint)
+                            && toolchain.targetConstraints().get(setting).equals(macConstraint)
+                            && toolchain
+                                .toolchainLabel()
+                                .equals(
+                                    Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"))))
         .isTrue();
 
     assertThat(
             value.registeredToolchains().stream()
                 .anyMatch(
-                    toolchain -> toolchain.toolchainType().equals(testToolchainType)
-                        && toolchain.execConstraints().get(setting).equals(macConstraint)
-                        && toolchain.targetConstraints().get(setting).equals(linuxConstraint)
-                        && toolchain
-                            .toolchainLabel()
-                            .equals(Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"))))
+                    toolchain ->
+                        toolchain.toolchainType().equals(testToolchainType)
+                            && toolchain.execConstraints().get(setting).equals(macConstraint)
+                            && toolchain.targetConstraints().get(setting).equals(linuxConstraint)
+                            && toolchain
+                                .toolchainLabel()
+                                .equals(
+                                    Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"))))
         .isTrue();
   }
 
@@ -281,16 +285,16 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   public void testRegisteredToolchainsValue_equalsAndHashCode() throws Exception {
     DeclaredToolchainInfo toolchain1 =
         DeclaredToolchainInfo.builder()
-            .toolchainType(ToolchainTypeInfo.create(
-                Label.parseAbsoluteUnchecked("//test:toolchain")))
+            .toolchainType(
+                ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//test:toolchain")))
             .addExecConstraints(ImmutableList.of())
             .addTargetConstraints(ImmutableList.of())
             .toolchainLabel(Label.parseAbsoluteUnchecked("//test/toolchain_impl_1"))
             .build();
     DeclaredToolchainInfo toolchain2 =
         DeclaredToolchainInfo.builder()
-            .toolchainType(ToolchainTypeInfo.create(
-                Label.parseAbsoluteUnchecked("//test:toolchain")))
+            .toolchainType(
+                ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//test:toolchain")))
             .addExecConstraints(ImmutableList.of())
             .addTargetConstraints(ImmutableList.of())
             .toolchainLabel(Label.parseAbsoluteUnchecked("//test/toolchain_impl_2"))

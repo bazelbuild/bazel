@@ -72,14 +72,16 @@ public class PlatformTest extends BuildViewTestCase {
     // Check the CPU and OS.
     ConstraintSettingInfo cpuConstraint =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//autoconfig:cpu"));
-    ConstraintSettingInfo osConstraint = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("//autoconfig:os"));
+    ConstraintSettingInfo osConstraint =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//autoconfig:os"));
     assertThat(hostPlatformProvider.constraints().get(cpuConstraint))
-        .isEqualTo(ConstraintValueInfo.create(cpuConstraint,
-            Label.parseAbsoluteUnchecked("//autoconfig:x86_32")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                cpuConstraint, Label.parseAbsoluteUnchecked("//autoconfig:x86_32")));
     assertThat(hostPlatformProvider.constraints().get(osConstraint))
-        .isEqualTo(ConstraintValueInfo.create(osConstraint,
-            Label.parseAbsoluteUnchecked("//autoconfig:linux")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                osConstraint, Label.parseAbsoluteUnchecked("//autoconfig:linux")));
 
     // Check the target platform.
     ConfiguredTarget targetPlatform = getConfiguredTarget("//autoconfig:target");
@@ -90,10 +92,12 @@ public class PlatformTest extends BuildViewTestCase {
 
     // Check the CPU and OS.
     assertThat(targetPlatformProvider.constraints().get(cpuConstraint))
-        .isEqualTo(ConstraintValueInfo.create(cpuConstraint,
-            Label.parseAbsoluteUnchecked("//autoconfig:x86_64")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                cpuConstraint, Label.parseAbsoluteUnchecked("//autoconfig:x86_64")));
     assertThat(targetPlatformProvider.constraints().get(osConstraint))
-        .isEqualTo(ConstraintValueInfo.create(osConstraint,
-            Label.parseAbsoluteUnchecked("//autoconfig:linux")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                osConstraint, Label.parseAbsoluteUnchecked("//autoconfig:linux")));
   }
 }
