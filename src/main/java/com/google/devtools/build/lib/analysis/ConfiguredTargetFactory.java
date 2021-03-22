@@ -322,18 +322,18 @@ public final class ConfiguredTargetFactory {
                     prerequisiteMap.values()))
             .build();
 
-    ConfiguredTarget incompatibleTarget =
-        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
-    if (incompatibleTarget != null) {
-      return incompatibleTarget;
-    }
-
     List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors()) {
       return erroredConfiguredTarget(ruleContext);
+    }
+
+    ConfiguredTarget incompatibleTarget =
+        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
+    if (incompatibleTarget != null) {
+      return incompatibleTarget;
     }
 
     try {
