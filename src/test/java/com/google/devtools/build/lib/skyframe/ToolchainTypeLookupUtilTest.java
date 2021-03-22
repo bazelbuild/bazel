@@ -92,7 +92,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
   public void testToolchainTypeLookup_toolchainAlias() throws Exception {
     scratch.file(
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '" + testToolchainTypeLabel + "')");
-    Label aliasToolchainTypeLabel = makeLabel("//alias:toolchain_type");
+    Label aliasToolchainTypeLabel = Label.parseAbsoluteUnchecked("//alias:toolchain_type");
     ConfiguredTargetKey testToolchainTypeKey =
         ConfiguredTargetKey.builder()
             .setLabel(aliasToolchainTypeLabel)
@@ -122,7 +122,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
 
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//invalid:not_a_toolchain_type"))
+            .setLabel(Label.parseAbsoluteUnchecked("//invalid:not_a_toolchain_type"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));
@@ -145,7 +145,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
   public void testToolchainTypeLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//fake:missing"))
+            .setLabel(Label.parseAbsoluteUnchecked("//fake:missing"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));

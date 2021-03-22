@@ -496,7 +496,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev, "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a1");
-    assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(a.getRequiredToolchains()).containsExactly(
+        Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
   }
 
   @Test
@@ -1857,7 +1858,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(c.getRequiredToolchains()).containsExactly(
+        Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
   }
 
   @Test
@@ -1873,7 +1875,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     assertThat(c.getExecutionPlatformConstraints())
-        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1"),
+            Label.parseAbsoluteUnchecked("//constraint:cv2"));
   }
 
   @Test
@@ -1896,10 +1899,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
     assertThat(plum.getExecGroups().get("group").requiredToolchains())
-        .containsExactly(makeLabel("//test:my_toolchain_type"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
     assertThat(plum.getExecGroups().get("group").execCompatibleWith())
-        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1"),
+            Label.parseAbsoluteUnchecked("//constraint:cv2"));
   }
 
   @Test
@@ -1948,9 +1952,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    assertThat(group.requiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(group.requiredToolchains()).containsExactly(
+        Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
     assertThat(group.execCompatibleWith())
-        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//constraint:cv1"),
+            Label.parseAbsoluteUnchecked("//constraint:cv2"));
   }
 
   @Test

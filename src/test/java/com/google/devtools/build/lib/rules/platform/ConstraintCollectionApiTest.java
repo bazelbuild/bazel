@@ -207,7 +207,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(constraintCollectionWithDefault.has(basicConstraintSetting)).isTrue();
     assertThat(constraintCollectionWithDefault.get(basicConstraintSetting)).isNotNull();
     assertThat(constraintCollectionWithDefault.get(basicConstraintSetting).label())
-        .isEqualTo(makeLabel("//constraint/default:foo"));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint/default:foo"));
     assertThat(constraintCollectionWithDefault.has(otherConstraintSetting)).isFalse();
     assertThat(constraintCollectionWithDefault.get(otherConstraintSetting)).isNull();
 
@@ -217,7 +217,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(constraintCollectionWithDefault.has(basicConstraintSetting)).isTrue();
     assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting)).isNotNull();
     assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting).label())
-        .isEqualTo(makeLabel("//constraint/default:bar"));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint/default:bar"));
   }
 
   private Set<Label> collectLabels(Collection<? extends ConstraintSettingInfo> settings) {

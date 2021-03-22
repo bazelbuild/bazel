@@ -98,7 +98,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:linux')");
 
     // Set up an alias for the toolchain type.
-    Label aliasedToolchainTypeLabel = makeLabel("//alias:toolchain_type");
+    Label aliasedToolchainTypeLabel = Label.parseAbsoluteUnchecked("//alias:toolchain_type");
     scratch.file(
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '//toolchain:test_toolchain')");
 
