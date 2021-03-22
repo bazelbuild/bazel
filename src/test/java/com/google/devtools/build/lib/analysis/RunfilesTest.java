@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -481,12 +482,55 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
+  public void mergeAll_symlinks() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
+    Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
+    Artifact artifactC = ActionsTestUtil.createArtifact(root, "c/target");
+    PathFragment sympathA = PathFragment.create("a/symlink");
+    PathFragment sympathB = PathFragment.create("b/symlink");
+    PathFragment sympathC = PathFragment.create("c/symlink");
+    Runfiles runfilesA = new Runfiles.Builder("TESTING").addSymlink(sympathA, artifactA).build();
+    Runfiles runfilesB = new Runfiles.Builder("TESTING").addSymlink(sympathB, artifactB).build();
+    Runfiles runfilesC = new Runfiles.Builder("TESTING").addSymlink(sympathC, artifactC).build();
+
+    Runfiles runfilesMerged = runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB, runfilesC));
+    assertThat(runfilesMerged.getSymlinksAsMap(null))
+        .containsExactly(sympathA, artifactA, sympathB, artifactB, sympathC, artifactC);
+  }
+
+  @Test
   public void testMergeEmptyWithNonEmpty() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Runfiles runfilesB = new Runfiles.Builder("TESTING").addArtifact(artifactA).build();
     assertThat(Runfiles.EMPTY.merge(runfilesB)).isSameInstanceAs(runfilesB);
     assertThat(runfilesB.merge(Runfiles.EMPTY)).isSameInstanceAs(runfilesB);
+  }
+
+  @Test
+  public void mergeAll_emptyWithNonEmpty() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact artifact = ActionsTestUtil.createArtifact(root, "target");
+    Runfiles nonEmpty = new Runfiles.Builder("TESTING").addArtifact(artifact).build();
+
+    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(nonEmpty)))
+        .isSameInstanceAs(nonEmpty);
+    assertThat(
+            Runfiles.EMPTY.mergeAll(
+                StarlarkList.immutableOf(Runfiles.EMPTY, nonEmpty, Runfiles.EMPTY)))
+        .isSameInstanceAs(nonEmpty);
+    assertThat(nonEmpty.mergeAll(StarlarkList.immutableOf(Runfiles.EMPTY, Runfiles.EMPTY)))
+        .isSameInstanceAs(nonEmpty);
+    assertThat(nonEmpty.mergeAll(StarlarkList.immutableOf())).isSameInstanceAs(nonEmpty);
+  }
+
+  @Test
+  public void mergeAll_emptyWithEmpty() throws Exception {
+    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf()))
+        .isSameInstanceAs(Runfiles.EMPTY);
+    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(Runfiles.EMPTY, Runfiles.EMPTY)))
+        .isSameInstanceAs(Runfiles.EMPTY);
   }
 
   @Test

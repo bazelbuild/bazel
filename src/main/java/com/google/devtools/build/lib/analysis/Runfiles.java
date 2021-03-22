@@ -48,7 +48,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -1074,6 +1076,43 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
     return new Runfiles.Builder(suffix, false).merge(this).merge(o).build();
+  }
+
+  @Override
+  public Runfiles mergeAll(Sequence<?> sequence) throws EvalException {
+    // The delayed initialization of the Builder is not just a memory / performance optimization.
+    // The Builder requires a valid suffix, but the {@code Runfiles.EMPTY} singleton has an invalid
+    // one, which must not be used to construct a Runfiles.Builder.
+    Builder builder = null;
+    // When merging exactly one non-empty Runfiles object, we want to return that object and avoid a
+    // Builder. This is a memory optimization and provides identical behavior for `x.merge_all([y])`
+    // and `x.merge(y)` in Starlark.
+    Runfiles uniqueNonEmptyMergee = null;
+    if (!this.isEmpty()) {
+      builder = new Builder(suffix, false).merge(this);
+      uniqueNonEmptyMergee = this;
+    }
+
+    Sequence<Runfiles> runfilesSequence = Sequence.cast(sequence, Runfiles.class, "param");
+    for (Runfiles runfiles : runfilesSequence) {
+      if (!runfiles.isEmpty()) {
+        if (builder == null) {
+          builder = new Builder(runfiles.suffix, /* legacyExternalRunfiles = */ false);
+          uniqueNonEmptyMergee = runfiles;
+        } else {
+          uniqueNonEmptyMergee = null;
+        }
+        builder.merge(runfiles);
+      }
+    }
+
+    if (uniqueNonEmptyMergee != null) {
+      return uniqueNonEmptyMergee;
+    } else if (builder != null) {
+      return builder.build();
+    } else {
+      return EMPTY;
+    }
   }
 
   /**
