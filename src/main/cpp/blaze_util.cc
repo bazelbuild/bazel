@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 
@@ -35,6 +37,7 @@
 namespace blaze {
 
 using std::map;
+using std::min;
 using std::string;
 using std::vector;
 
@@ -72,6 +75,40 @@ bool GetNullaryOption(const char *arg, const char *key) {
   }
 
   return true;
+}
+
+std::vector<std::string> GetAllUnaryOptionValues(
+    const vector<string>& args, const char* key,
+    const char* ignore_after_value) {
+  vector<std::string> values;
+  for (vector<string>::size_type i = 0; i < args.size(); ++i) {
+    if (args[i] == "--") {
+      // "--" means all remaining args aren't options
+      return values;
+    }
+
+    const char* next_arg = args[std::min(i + 1, args.size() - 1)].c_str();
+    const char* result = GetUnaryOption(args[i].c_str(), next_arg, key);
+    if (result != nullptr) {
+      // 'key' was found and 'result' has its value.
+      values.push_back(result);
+
+      if (ignore_after_value != nullptr &&
+          strcmp(result, ignore_after_value) == 0) {
+        break;
+      }
+    }
+
+    // This is a pointer comparison, so equality means that the result must be
+    // from the next arg instead of happening to match the value from
+    // "--key=<value>" string, in which case we need to advance the index to
+    // skip the next arg for later iterations.
+    if (result == next_arg) {
+      i++;
+    }
+  }
+
+  return values;
 }
 
 const char* SearchUnaryOption(const vector<string>& args,
