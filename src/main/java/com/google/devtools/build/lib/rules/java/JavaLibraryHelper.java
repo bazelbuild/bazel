@@ -265,14 +265,15 @@ public final class JavaLibraryHelper {
     if (createOutputSourceJar) {
       helper.createSourceJarAction(outputSourceJar, outputs.genSource(), javaToolchainProvider);
     }
-    ImmutableList<Artifact> outputSourceJars =
-        outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
-    outputJarsBuilder
-        .addOutputJar(new OutputJar(output, iJar, outputs.manifestProto(), outputSourceJars))
-        .setJdeps(outputs.depsProto())
-        .setNativeHeaders(outputs.nativeHeader());
-
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
+    outputJarsBuilder.addOutputJar(
+        OutputJar.builder()
+            .fromJavaCompileOutputs(outputs)
+            .setCompileJar(iJar)
+            .setCompileJdeps(javaArtifacts.getCompileTimeDependencyArtifact())
+            .addSourceJar(outputSourceJar)
+            .build());
+
     if (javaInfoBuilder != null) {
       ClasspathConfiguredFragment classpathFragment =
           new ClasspathConfiguredFragment(

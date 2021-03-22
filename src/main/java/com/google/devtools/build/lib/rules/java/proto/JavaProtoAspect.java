@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -218,10 +219,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         JavaRuleOutputJarsProvider ruleOutputJarsProvider =
             JavaRuleOutputJarsProvider.builder()
                 .addOutputJar(
-                    outputJar,
-                    compileTimeJar,
-                    null /* manifestProto */,
-                    ImmutableList.of(sourceJar))
+                    OutputJar.builder()
+                        .setClassJar(outputJar)
+                        .setCompileJar(compileTimeJar)
+                        .addSourceJar(sourceJar)
+                        .build())
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(
