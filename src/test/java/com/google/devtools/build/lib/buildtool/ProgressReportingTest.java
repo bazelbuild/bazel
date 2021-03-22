@@ -73,7 +73,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
       }
 
       @Override
-      public boolean delete(PathFragment path) throws IOException {
+      protected boolean delete(PathFragment path) throws IOException {
         recordAccess(PathOp.DELETE, path);
         return super.delete(path);
       }

@@ -569,7 +569,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  protected boolean delete(PathFragment path) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EBUSY.exception(path);
     }

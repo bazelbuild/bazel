@@ -97,7 +97,7 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  protected boolean delete(PathFragment path) throws IOException {
     throw modificationException();
   }
 

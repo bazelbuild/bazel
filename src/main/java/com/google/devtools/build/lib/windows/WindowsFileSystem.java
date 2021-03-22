@@ -50,7 +50,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  protected boolean delete(PathFragment path) throws IOException {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       return WindowsFileOperations.deletePath(path.getPathString());

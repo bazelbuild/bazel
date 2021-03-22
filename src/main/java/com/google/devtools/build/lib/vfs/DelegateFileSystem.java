@@ -80,7 +80,7 @@ public abstract class DelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  protected boolean delete(PathFragment path) throws IOException {
     return delegateFs.delete(path);
   }
 
@@ -202,12 +202,12 @@ public abstract class DelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public void deleteTree(PathFragment path) throws IOException {
+  protected void deleteTree(PathFragment path) throws IOException {
     delegateFs.deleteTree(path);
   }
 
   @Override
-  public void deleteTreesBelow(PathFragment dir) throws IOException {
+  protected void deleteTreesBelow(PathFragment dir) throws IOException {
     delegateFs.deleteTreesBelow(dir);
   }
 

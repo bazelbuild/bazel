@@ -190,7 +190,7 @@ public abstract class FileSystem {
   protected abstract long getFileSize(PathFragment path, boolean followSymlinks) throws IOException;
 
   /** Deletes the file denoted by {@code path}. See {@link Path#delete} for specification. */
-  public abstract boolean delete(PathFragment path) throws IOException;
+  protected abstract boolean delete(PathFragment path) throws IOException;
 
   /**
    * Deletes all directory trees recursively beneath the given path and removes that path as well.
@@ -198,7 +198,7 @@ public abstract class FileSystem {
    * @param path the directory hierarchy to remove
    * @throws IOException if the hierarchy cannot be removed successfully
    */
-  public void deleteTree(PathFragment path) throws IOException {
+  protected void deleteTree(PathFragment path) throws IOException {
     deleteTreesBelow(path);
     delete(path);
   }
@@ -216,7 +216,7 @@ public abstract class FileSystem {
    * @param dir the directory hierarchy to remove
    * @throws IOException if the hierarchy cannot be removed successfully
    */
-  public void deleteTreesBelow(PathFragment dir) throws IOException {
+  protected void deleteTreesBelow(PathFragment dir) throws IOException {
     if (isDirectory(dir, /*followSymlinks=*/ false)) {
       Collection<String> entries;
       try {

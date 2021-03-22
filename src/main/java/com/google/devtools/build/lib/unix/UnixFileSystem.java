@@ -363,7 +363,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  protected boolean delete(PathFragment path) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
@@ -432,7 +432,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public void deleteTreesBelow(PathFragment dir) throws IOException {
+  protected void deleteTreesBelow(PathFragment dir) throws IOException {
     if (isDirectory(dir, /*followSymlinks=*/ false)) {
       long startTime = Profiler.nanoTimeMaybe();
       try {

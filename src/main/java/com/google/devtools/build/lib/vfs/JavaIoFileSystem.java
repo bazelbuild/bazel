@@ -342,7 +342,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  protected boolean delete(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
