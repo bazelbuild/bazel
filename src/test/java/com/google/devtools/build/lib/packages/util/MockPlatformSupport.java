@@ -116,7 +116,6 @@ public class MockPlatformSupport {
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
         "        '" + platformPackageRoot + "/java/constraints:jdk11',",
-        "        '" + platformPackageRoot + "/java/constraints:java8',",
         "    ],",
         ")",
         "platform(",
@@ -125,7 +124,6 @@ public class MockPlatformSupport {
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
         "        '" + platformPackageRoot + "/java/constraints:jdk11',",
-        "        '" + platformPackageRoot + "/java/constraints:java8',",
         "    ],",
         ")");
     mockToolsConfig.create(
