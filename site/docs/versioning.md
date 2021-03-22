@@ -75,6 +75,6 @@ incompatible with previous releases.
 * For more information on updating your Bazel version, see
   [Updating Bazel](updating-bazel.html).
 * For more information on contributing updates to new Bazel releases, see
-  [Contributing to Bazel](bazel.build/contributing.html).
+  [Contributing to Bazel](https://bazel.build/contributing.html).
 
 
