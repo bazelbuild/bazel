@@ -6093,6 +6093,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "        library_to_link = linking_outputs.library_to_link",
         "        if library_to_link.pic_static_library != None:",
         "            files_to_build.append(library_to_link.pic_static_library)",
+        "        if library_to_link.static_library != None:",
+        "            files_to_build.append(library_to_link.static_library)",
         "        files_to_build.append(library_to_link.dynamic_library)",
         "    return [MyInfo(libraries=[library_to_link]),",
         "            DefaultInfo(files=depset(files_to_build)),",
@@ -7369,6 +7371,19 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     action.getCompileCommandLine().getVariables().getSequenceVariable("string_sequence_variable");
     action.getCompileCommandLine().getVariables().getStringVariable("string_variable");
     action.getCompileCommandLine().getVariables().getSequenceVariable("string_depset_variable");
+  }
+
+  @Test
+  public void testVariableExtensionLinkingContextApi() throws Exception {
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", "variables_extension = foo_dict");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
+
+    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_sequence_variable");
+    action.getLinkCommandLine().getBuildVariables().getStringVariable("string_variable");
+    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_depset_variable");
   }
 
   @Test
