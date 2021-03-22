@@ -177,7 +177,7 @@ public final class RemoteModule extends BlazeModule {
             retrier);
     ServerCapabilities capabilities = null;
     try {
-      capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
+      capabilities = rsc.get(env.getBuildRequestId(), env.getCommandId().toString());
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return;
