@@ -117,6 +117,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           env,
           key.configurationKey(),
           resolvedToolchainTypeLabels,
+          key.forceExecutionPlatform().map(platformKeys::find),
           builder,
           platformKeys,
           key.shouldSanityCheckConfiguration());
@@ -181,6 +182,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
     abstract ConfiguredTargetKey targetPlatformKey();
 
     abstract ImmutableList<ConfiguredTargetKey> executionPlatformKeys();
+
+    @Nullable
+    public ConfiguredTargetKey find(Label platformLabel) {
+      if (platformLabel.equals(hostPlatformKey().getLabel())) {
+        return hostPlatformKey();
+      }
+      if (platformLabel.equals(targetPlatformKey().getLabel())) {
+        return targetPlatformKey();
+      }
+
+      for (ConfiguredTargetKey configuredTargetKey : executionPlatformKeys()) {
+        if (platformLabel.equals(configuredTargetKey.getLabel())) {
+          return configuredTargetKey;
+        }
+      }
+
+      return null;
+    }
 
     static PlatformKeys create(
         ConfiguredTargetKey hostPlatformKey,
@@ -350,6 +369,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       Environment environment,
       BuildConfigurationValue.Key configurationKey,
       ImmutableSet<Label> requiredToolchainTypeLabels,
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
       boolean shouldSanityCheckConfiguration)
@@ -420,6 +440,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       selectedExecutionPlatformKey =
           findExecutionPlatformForToolchains(
               requiredToolchainTypes,
+              forcedExecutionPlatform,
               platformKeys.executionPlatformKeys(),
               resolvedToolchains);
     } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
@@ -477,24 +498,40 @@ public class ToolchainResolutionFunction implements SkyFunction {
    */
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
       ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
-    for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
-      if (!resolvedToolchains.containsRow(executionPlatformKey)) {
-        continue;
-      }
 
-      Map<ToolchainTypeInfo, Label> toolchains = resolvedToolchains.row(executionPlatformKey);
-      if (!toolchains.keySet().containsAll(requiredToolchainTypes)) {
-        // Not all toolchains are present, ignore this execution platform.
-        continue;
+    if (forcedExecutionPlatform.isPresent()) {
+      // Is the forced platform suitable?
+      if (isPlatformSuitable(
+          forcedExecutionPlatform.get(), requiredToolchainTypes, resolvedToolchains)) {
+        return forcedExecutionPlatform;
       }
-
-      return Optional.of(executionPlatformKey);
     }
 
-    return Optional.empty();
+    return availableExecutionPlatformKeys.stream()
+        .filter(epk -> isPlatformSuitable(epk, requiredToolchainTypes, resolvedToolchains))
+        .findFirst();
   }
+
+  private static boolean isPlatformSuitable(
+      ConfiguredTargetKey executionPlatformKey,
+      ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+    if (!resolvedToolchains.containsRow(executionPlatformKey)) {
+      return false;
+    }
+
+    Map<ToolchainTypeInfo, Label> toolchains = resolvedToolchains.row(executionPlatformKey);
+    if (!toolchains.keySet().containsAll(requiredToolchainTypes)) {
+      // Not all toolchains are present, ignore this execution platform.
+      return false;
+    }
+
+    return true;
+  }
+
 
   @Nullable
   @Override

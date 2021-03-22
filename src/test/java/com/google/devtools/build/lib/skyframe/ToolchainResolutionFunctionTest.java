@@ -431,4 +431,45 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasExceptionThat()
         .isInstanceOf(NoMatchingPlatformException.class);
   }
+
+  @Test
+  public void resolve_forceExecutionPlatform() throws Exception {
+    // This should select platform linux, toolchain extra_toolchain_linux, due to the forced
+    // platform,
+    // even though platform mac is registered first.
+    addToolchain(
+        /* packageName= */ "extra",
+        /* toolchainName= */ "extra_toolchain_linux",
+        /* execConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* data= */ "baz");
+    addToolchain(
+        /* packageName= */ "extra",
+        /* toolchainName= */ "extra_toolchain_mac",
+        /* execConstraints= */ ImmutableList.of("//constraints:mac"),
+        /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* data= */ "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
 }

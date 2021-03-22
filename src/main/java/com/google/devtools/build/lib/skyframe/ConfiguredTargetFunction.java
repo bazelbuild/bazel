@@ -520,18 +520,31 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    ToolchainContextKey toolchainContextKey;
+
+    ToolchainContextKey.Builder toolchainContextKeyBuilder =
+        ToolchainContextKey.key()
+            .configurationKey(toolchainConfig)
+            .requiredToolchainTypeLabels(requiredDefaultToolchains)
+            .execConstraintLabels(defaultExecConstraintLabels)
+            .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively());
+
     if (parentToolchainContextKey != null) {
-      toolchainContextKey = parentToolchainContextKey;
-    } else {
-      toolchainContextKey =
-          ToolchainContextKey.key()
-              .configurationKey(toolchainConfig)
-              .requiredToolchainTypeLabels(requiredDefaultToolchains)
-              .execConstraintLabels(defaultExecConstraintLabels)
-              .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
-              .build();
+      // Find out what execution platform the parent used, and force that.
+      // This key should always be present, but check just in case.
+      ToolchainContext parentToolchainContext =
+          (ToolchainContext)
+              env.getValueOrThrow(parentToolchainContextKey, ToolchainException.class);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      Label execPlatform = parentToolchainContext.executionPlatform().label();
+      if (execPlatform != null) {
+        toolchainContextKeyBuilder.forceExecutionPlatform(execPlatform);
+      }
     }
+
+    ToolchainContextKey toolchainContextKey = toolchainContextKeyBuilder.build();
     toolchainContextKeys.put(targetUnloadedToolchainContext, toolchainContextKey);
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
@@ -558,14 +571,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       if (!valuesMissing) {
         String execGroup = unloadedToolchainContextKey.getKey();
-        if (parentToolchainContextKey != null) {
-          // Since we inherited the toolchain context from the parent of the dependency, the current
-          // target may also be in the resolved toolchains list. We need to clear it out.
-          // TODO(configurability): When updating this for config_setting, only remove the current
-          // target, not everything, because config_setting might want to check the toolchain
-          // dependencies.
-          unloadedToolchainContext = unloadedToolchainContext.withoutResolvedToolchains();
-        }
         if (execGroup.equals(targetUnloadedToolchainContext)) {
           toolchainContexts.addDefaultContext(unloadedToolchainContext);
         } else {
