@@ -585,6 +585,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return additionalInputs;
   }
 
+  @Override
+  protected final NestedSet<Artifact> getOriginalInputs() {
+    return NestedSetBuilder.fromNestedSet(mandatoryInputs)
+        .addTransitive(inputsForInvalidation)
+        .build();
+  }
+
   private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
       ActionExecutionContext actionExecutionContext) {
     if (getDotdFile() != null) {

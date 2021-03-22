@@ -215,6 +215,7 @@ public final class SkyframeActionExecutor {
   private boolean useAsyncExecution;
   private boolean hadExecutionError;
   private boolean replayActionOutErr;
+  private boolean freeDiscoveredInputsAfterExecution;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
@@ -267,7 +268,8 @@ public final class SkyframeActionExecutor {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       TopDownActionCache topDownActionCache,
-      OutputService outputService) {
+      OutputService outputService,
+      boolean incrementalAnalysis) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
@@ -292,6 +294,11 @@ public final class SkyframeActionExecutor {
             .concurrencyLevel(Runtime.getRuntime().availableProcessors())
             .build();
     this.knownDirectories = cache.asMap();
+
+    // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
+    // actions, which consume their shadowed action's discovered inputs.
+    freeDiscoveredInputsAfterExecution =
+        !incrementalAnalysis && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -1293,6 +1300,11 @@ public final class SkyframeActionExecutor {
           return ActionStepOrResult.of(e);
         } catch (ActionExecutionException e) {
           return ActionStepOrResult.of(e);
+        }
+
+        // Once the action has been written to the action cache, we can free its discovered inputs.
+        if (freeDiscoveredInputsAfterExecution && action.discoversInputs()) {
+          action.resetDiscoveredInputs();
         }
         return ActionStepOrResult.of(value);
       }

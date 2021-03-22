@@ -963,6 +963,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /**
+   * Whether this executor may reuse analysis phase nodes for the purpose of improving incremental
+   * performance.
+   *
+   * <p>This may diverge from {@link #tracksStateForIncrementality} in the case where only execution
+   * phase nodes are used for incrementality.
+   */
+  protected boolean isAnalysisIncremental() {
+    return tracksStateForIncrementality();
+  }
+
+  /**
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
    * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
@@ -1552,7 +1563,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, options, actionCacheChecker, topDownActionCache, outputService);
+          reporter,
+          executor,
+          options,
+          actionCacheChecker,
+          topDownActionCache,
+          outputService,
+          isAnalysisIncremental());
     }
 
     resourceManager.resetResourceUsage();
@@ -1603,7 +1620,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, options, actionCacheChecker, topDownActionCache, outputService);
+          reporter,
+          executor,
+          options,
+          actionCacheChecker,
+          topDownActionCache,
+          outputService,
+          isAnalysisIncremental());
     }
 
     resourceManager.resetResourceUsage();
@@ -1633,7 +1656,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ActionCacheChecker checker,
       TopDownActionCache topDownActionCache) {
     skyframeActionExecutor.prepareForExecution(
-        reporter, executor, options, checker, topDownActionCache, outputService);
+        reporter,
+        executor,
+        options,
+        checker,
+        topDownActionCache,
+        outputService,
+        isAnalysisIncremental());
   }
 
   private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)

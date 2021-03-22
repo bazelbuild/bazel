@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -115,7 +116,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -198,6 +199,34 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
+  }
+
+  @Override
+  public final void resetDiscoveredInputs() {
+    Preconditions.checkState(discoversInputs(), "Not an input-discovering action: %s", this);
+    if (!inputsDiscovered()) {
+      return;
+    }
+    NestedSet<Artifact> originalInputs = getOriginalInputs();
+    if (originalInputs != null) {
+      synchronized (this) {
+        inputs = originalInputs;
+        inputsDiscovered = false;
+      }
+    }
+  }
+
+  /**
+   * Returns this action's <em>original</em> inputs, prior to {@linkplain #discoverInputs input
+   * discovery}.
+   *
+   * <p>Input-discovering actions which are able to reconstitute their original inputs may override
+   * this, allowing for memory savings.
+   */
+  @Nullable
+  @ForOverride
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return null;
   }
 
   @Override

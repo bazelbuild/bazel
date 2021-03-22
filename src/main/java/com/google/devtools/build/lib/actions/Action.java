@@ -200,6 +200,15 @@ public interface Action extends ActionExecutionMetadata {
       throws ActionExecutionException, InterruptedException;
 
   /**
+   * Resets this action's inputs to a pre {@linkplain #discoverInputs input discovery} state.
+   *
+   * <p>This may be called on input-discovering actions during non-incremental builds, when it is
+   * not worthwhile to retain the discovered inputs after the action completes execution. It may
+   * still be necessary to rewind the action, so it must retain state necessary for re-execution.
+   */
+  void resetDiscoveredInputs();
+
+  /**
    * Returns the set of artifacts that can possibly be inputs. It will be called iff {@link
    * #inputsDiscovered()} is false for the given action instance and there is a related cache entry
    * in the action cache.
@@ -244,6 +253,6 @@ public interface Action extends ActionExecutionMetadata {
    * mutate any of the called action data but if necessary, its implementation must synchronize any
    * accesses to mutable data.
    */
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException;
 }
