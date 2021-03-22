@@ -110,7 +110,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   abstract ImmutableMap<RepositoryName, RepositoryName> repoMapping();
 
   /** Returns a description of the target being used, for error messaging. */
-  abstract String targetDescription();
+  public abstract String targetDescription();
 
   /** Sets the map from requested {@link Label} to toolchain type provider. */
   abstract ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels();

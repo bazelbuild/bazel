@@ -11,13 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,12 +35,12 @@ import net.starlark.java.syntax.Identifier;
  * starlark.
  */
 @AutoValue
-public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
+public abstract class StarlarkExecGroupCollection implements ExecGroupCollectionApi {
 
-  /** Returns a new {@link ExecGroupCollection} backed by the given {@code toolchainCollection}. */
-  public static ExecGroupCollection create(
+  /** Returns a new {@link StarlarkExecGroupCollection} backed by the given {@code toolchainCollection}. */
+  public static StarlarkExecGroupCollection create(
       ToolchainCollection<ResolvedToolchainContext> toolchainCollection) {
-    return new AutoValue_ExecGroupCollection(toolchainCollection);
+    return new AutoValue_StarlarkExecGroupCollection(toolchainCollection);
   }
 
   protected abstract ToolchainCollection<ResolvedToolchainContext> toolchainCollection();
@@ -60,12 +62,12 @@ public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
   }
 
   /**
-   * This creates a new {@link ExecGroupContext} object every time this is called. This seems better
-   * than pre-creating and storing all {@link ExecGroupContext}s since they're just thin wrappers
+   * This creates a new {@link StarlarkExecGroupContext} object every time this is called. This seems better
+   * than pre-creating and storing all {@link StarlarkExecGroupContext}s since they're just thin wrappers
    * around {@link ResolvedToolchainContext} objects.
    */
   @Override
-  public ExecGroupContext getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+  public StarlarkExecGroupContext getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     String execGroup = castGroupName(key);
     if (!containsKey(semantics, key)) {
       throw Starlark.errorf(
@@ -74,7 +76,7 @@ public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
           execGroup,
           String.join(", ", getScrubbedExecGroups()));
     }
-    return new ExecGroupContext(toolchainCollection().getToolchainContext(execGroup));
+    return new StarlarkExecGroupContext(toolchainCollection().getToolchainContext(execGroup));
   }
 
   private static String castGroupName(Object key) throws EvalException {
@@ -105,10 +107,10 @@ public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
    * The starlark object that is returned by ctx.exec_groups[<name>]. Gives information about that
    * exec group.
    */
-  public static class ExecGroupContext implements ExecGroupContextApi {
+  public static class StarlarkExecGroupContext implements ExecGroupContextApi {
     ResolvedToolchainContext resolvedToolchainContext;
 
-    private ExecGroupContext(ResolvedToolchainContext resolvedToolchainContext) {
+    private StarlarkExecGroupContext(ResolvedToolchainContext resolvedToolchainContext) {
       this.resolvedToolchainContext = resolvedToolchainContext;
     }
 

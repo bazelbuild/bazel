@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -2966,9 +2966,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                     Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
-    assertThat(info.getValue("exec_groups")).isInstanceOf(ExecGroupCollection.class);
+    assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
     ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
-        ((ExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
+        ((StarlarkExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
@@ -3022,9 +3022,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                     Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
-    assertThat(info.getValue("exec_groups")).isInstanceOf(ExecGroupCollection.class);
+    assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
     ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
-        ((ExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
+        ((StarlarkExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet())
         .containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit", "passionfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
@@ -728,9 +727,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public ExecGroupCollection execGroups() {
+  public StarlarkExecGroupCollection execGroups() {
     // Create a thin wrapper around the toolchain collection, to expose the Starlark API.
-    return ExecGroupCollection.create(ruleContext.getToolchainContexts());
+    return StarlarkExecGroupCollection.create(ruleContext.getToolchainContexts());
   }
 
   @Override

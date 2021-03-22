@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -630,7 +629,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     if (execGroupUnchecked != Starlark.NONE) {
       String execGroup = (String) execGroupUnchecked;
-      if (!ExecGroupCollection.isValidGroupName(execGroup)
+      if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
           || !ruleContext.hasToolchainContext(execGroup)) {
         throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
       }
