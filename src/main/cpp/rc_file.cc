@@ -15,6 +15,7 @@
 #include "src/main/cpp/rc_file.h"
 
 #include <algorithm>
+#include <regex>
 #include <utility>
 
 #include "src/main/cpp/blaze_util.h"
@@ -77,6 +78,29 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
     // Check for an empty line.
     if (line.empty()) {
       continue;
+    }
+
+    // Resolve env variables if possible
+    std::regex env_var_regex("\\$\\{(.*?)\\}");
+    std::smatch env_matcher;
+    vector <string> env_var_to_replace;
+    // Finding env variable names to replace
+    string tmp_line = line;
+    while(regex_search(tmp_line, env_matcher, env_var_regex)) {
+         env_var_to_replace.push_back(env_matcher[1].str());
+         tmp_line = env_matcher.suffix();
+    }
+    // Loop through found env variables, try to resolve them and replace if found
+    for (int i = env_var_to_replace.size() - 1; i >= 0; i--){
+      std::string env_var_p = blaze::GetEnv(env_var_to_replace[i].c_str());
+      if(!env_var_p.empty()) {
+        std::string replacement = "${"+ env_var_to_replace[i] +"}";
+        size_t pos = 0;
+        while ((pos = line.find(replacement, pos)) != std::string::npos) {
+         line.replace(pos, replacement.length(), env_var_p);
+         pos += replacement.length();
+        }
+      }
     }
 
     vector<string> words;
