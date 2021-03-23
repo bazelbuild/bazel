@@ -48,9 +48,7 @@ function test_verify_urls() {
   invalid_urls=()
   for file in "${WORKSPACE_FILES[@]}"; do
     for url in $(grep -E '"https://|http://' "${file}" | \
-      grep -v 'jekyll-tree' | \
-      grep -v '^ *#' | \
-      perl -pe 's#.*"(https?://[^"]+)".*#$1#g' | \
+      sed -e '/jekyll-tree/d' -e '/^#/d' -r -e  's#^.*"(https?://[^"]+)".*$#\1#g' | \
       sort -u); do
       #echo "Checking ${url}"
       if ! curl --head -silent --fail --output /dev/null --retry 3 "${url}"; then
