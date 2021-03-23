@@ -2034,6 +2034,105 @@ EOF
   expect_not_log "does not provide ToolchainTypeInfo"
 }
 
+# Tests for the case where a toolchain requires a different toolchain type.
+# Regression test for https://github.com/bazelbuild/bazel/issues/13243
+function test_toolchain_requires_toolchain() {
+  # Create an inner toolchain.
+  mkdir -p inner
+  cat > inner/toolchain.bzl <<EOF
+InnerToolchain = provider(fields = ["msg"])
+
+def _impl(ctx):
+    inner = InnerToolchain(msg = "Inner toolchain %s" % ctx.label)
+    return [
+        platform_common.ToolchainInfo(inner = inner)
+    ]
+
+inner_toolchain = rule(
+    implementation = _impl,
+)
+EOF
+  cat > inner/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+load(":toolchain.bzl", "inner_toolchain")
+toolchain_type(name = "toolchain_type")
+
+inner_toolchain(name = "impl")
+toolchain(
+    name = "toolchain",
+    toolchain_type = ":toolchain_type",
+    toolchain = ":impl",
+)
+EOF
+
+  # Create an outer toolchain the uses the inner.
+  mkdir -p outer
+  cat > outer/toolchain.bzl <<EOF
+OuterToolchain = provider(fields = ["msg"])
+
+def _impl(ctx):
+    toolchain_info = ctx.toolchains["//inner:toolchain_type"]
+    inner = toolchain_info.inner
+    outer = OuterToolchain(msg = "Outer toolchain %s using inner: %s" % (ctx.label, inner.msg))
+    return [
+        platform_common.ToolchainInfo(outer = outer)
+    ]
+
+outer_toolchain = rule(
+    implementation = _impl,
+    toolchains = ["//inner:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+)
+EOF
+  cat > outer/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+load(":toolchain.bzl", "outer_toolchain")
+toolchain_type(name = "toolchain_type")
+
+outer_toolchain(name = "impl")
+toolchain(
+    name = "toolchain",
+    toolchain_type = ":toolchain_type",
+    toolchain = ":impl",
+)
+EOF
+
+  # Register all the toolchains.
+  cat >>WORKSPACE <<EOF
+register_toolchains("//inner:all")
+register_toolchains("//outer:all")
+EOF
+
+  # Write a rule that uses the outer toolchain.
+  mkdir -p rule
+  cat > rule/rule.bzl <<EOF
+def _impl(ctx):
+    toolchain_info = ctx.toolchains["//outer:toolchain_type"]
+    outer = toolchain_info.outer
+    print("Demo rule: outer toolchain says: %s" % outer.msg)
+    return []
+
+demo_rule = rule(
+    implementation = _impl,
+    toolchains = ["//outer:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+)
+EOF
+  cat > rule/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+exports_files(["rule.bzl"])
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//rule:rule.bzl', 'demo_rule')
+demo_rule(name = "demo")
+EOF
+
+  bazel build //demo:demo &> $TEST_log || fail "Build failed"
+  expect_log 'Inner toolchain //inner:impl'
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"
