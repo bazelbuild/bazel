@@ -189,12 +189,6 @@ public class CompilationSupport {
           "c-compile",
           "c++-compile");
 
-  /** The kind of include processing to use. */
-  enum IncludeProcessingType {
-    INCLUDE_SCANNING,
-    NO_PROCESSING;
-  }
-
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
@@ -531,8 +525,6 @@ public class CompilationSupport {
 
   ObjcCppSemantics createObjcCppSemantics() {
     return new ObjcCppSemantics(
-        includeProcessingType,
-        ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
         buildConfiguration,
         attributes.enableModules());
@@ -734,7 +726,6 @@ public class CompilationSupport {
   private final boolean usePch;
   private final boolean disableLayeringCheck;
   private final boolean disableParseHeaders;
-  private final IncludeProcessingType includeProcessingType;
   private Optional<CcCompilationContext> ccCompilationContext;
 
   private void setCcCompilationContext(CcCompilationContext ccCompilationContext) {
@@ -792,12 +783,6 @@ public class CompilationSupport {
     }
 
     this.toolchain = toolchain;
-
-    if (objcConfiguration.shouldScanIncludes()) {
-      includeProcessingType = IncludeProcessingType.INCLUDE_SCANNING;
-    } else {
-      includeProcessingType = IncludeProcessingType.NO_PROCESSING;
-    }
   }
 
   /** Builder for {@link CompilationSupport} */
