@@ -435,7 +435,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void resolve_forceExecutionPlatform() throws Exception {
     // This should select execution platform linux, toolchain extra_toolchain_linux, due to the
-    // forced executin platform, even though execution platform mac is registered first.
+    // forced execution platform, even though execution platform mac is registered first.
     addToolchain(
         /* packageName= */ "extra",
         /* toolchainName= */ "extra_toolchain_linux",
@@ -468,6 +468,29 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
     assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform_noRequiredToolchains() throws Exception {
+    // This should select execution platform linux, due to the forced execution platform, even
+    // though execution platform mac is registered first.
+    rewriteWorkspace("register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }

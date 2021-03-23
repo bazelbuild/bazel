@@ -435,20 +435,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes = requiredToolchainTypesBuilder.build();
 
     // Find and return the first execution platform which has all required toolchains.
-    Optional<ConfiguredTargetKey> selectedExecutionPlatformKey;
-    if (!requiredToolchainTypeLabels.isEmpty()) {
-      selectedExecutionPlatformKey =
-          findExecutionPlatformForToolchains(
-              requiredToolchainTypes,
-              forcedExecutionPlatform,
-              platformKeys.executionPlatformKeys(),
-              resolvedToolchains);
-    } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
-      // Just use the first execution platform.
-      selectedExecutionPlatformKey = Optional.of(platformKeys.executionPlatformKeys().get(0));
-    } else {
-      selectedExecutionPlatformKey = Optional.empty();
-    }
+    Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
+        findExecutionPlatformForToolchains(
+            requiredToolchainTypes,
+            forcedExecutionPlatform,
+            platformKeys.executionPlatformKeys(),
+            resolvedToolchains);
 
     if (!selectedExecutionPlatformKey.isPresent()) {
       throw new NoMatchingPlatformException(
@@ -519,6 +511,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
       ConfiguredTargetKey executionPlatformKey,
       ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+    if (requiredToolchainTypes.isEmpty()) {
+      // Since there aren't any toolchains, we should be able to use any execution platform that
+      // has made it this far.
+      return true;
+    }
+
     if (!resolvedToolchains.containsRow(executionPlatformKey)) {
       return false;
     }
