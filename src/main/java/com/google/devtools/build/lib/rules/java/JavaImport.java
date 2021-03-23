@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -118,11 +117,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
       ruleOutputJarsProviderBuilder.addOutputJar(
-          OutputJar.builder()
-              .setClassJar(jar)
-              .setCompileJar(compilationToRuntimeJarMap.inverse().get(jar))
-              .addSourceJar(srcJar)
-              .build());
+          jar, compilationToRuntimeJarMap.inverse().get(jar), null /* manifestProto */, srcJars);
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();

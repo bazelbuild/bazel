@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -205,7 +204,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(
-                OutputJar.builder().fromJavaCompileOutputs(outputs).addSourceJar(srcJar).build());
+                /* classJar= */ classJar,
+                /* iJar= */ null,
+                /* manifestProto= */ outputs.manifestProto(),
+                /* sourceJars= */ ImmutableList.of(srcJar));
 
     JavaTargetAttributes attributes = attributesBuilder.build();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
@@ -236,6 +238,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             ruleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
     javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
+    ruleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);

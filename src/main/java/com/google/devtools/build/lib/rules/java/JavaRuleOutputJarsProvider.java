@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
 import java.util.Collection;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Sequence;
@@ -40,164 +39,92 @@ public final class JavaRuleOutputJarsProvider
     implements TransitiveInfoProvider, JavaRuleOutputJarsProviderApi<OutputJar> {
 
   public static final JavaRuleOutputJarsProvider EMPTY =
-      new JavaRuleOutputJarsProvider(ImmutableList.<OutputJar>of());
+      new JavaRuleOutputJarsProvider(
+          ImmutableList.<OutputJar>of(), /* jdeps= */ null, /* nativeHeaders= */ null);
 
   /** A collection of artifacts associated with a jar output. */
-  @AutoValue
   @Immutable
   @AutoCodec
-  public abstract static class OutputJar implements OutputJarApi<Artifact> {
+  public static class OutputJar implements OutputJarApi<Artifact> {
+    private final Artifact classJar;
+    @Nullable private final Artifact iJar;
+    @Nullable private final Artifact manifestProto;
+    @Nullable private final ImmutableList<Artifact> srcJars;
+
+    public OutputJar(
+        Artifact classJar,
+        @Nullable Artifact iJar,
+        @Nullable Artifact manifestProto,
+        @Nullable Iterable<Artifact> srcJars) {
+      this.classJar = classJar;
+      this.iJar = iJar;
+      this.manifestProto = manifestProto;
+      this.srcJars = ImmutableList.copyOf(srcJars);
+    }
+
     @Override
     public boolean isImmutable() {
       return true; // immutable and Starlark-hashable
     }
 
     @Override
-    public abstract Artifact getClassJar();
-
-    @Nullable
-    @Override
-    public abstract Artifact getCompileJar();
-
-    @Nullable
-    @Deprecated
-    @Override
-    public Artifact getIJar() {
-      return getCompileJar();
+    public Artifact getClassJar() {
+      return classJar;
     }
 
     @Nullable
     @Override
-    public abstract Artifact getCompileJdeps();
+    public Artifact getIJar() {
+      return iJar;
+    }
 
     @Nullable
     @Override
-    public abstract Artifact getGeneratedClassJar();
+    public Artifact getManifestProto() {
+      return manifestProto;
+    }
 
     @Nullable
-    @Override
-    public abstract Artifact getGeneratedSourceJar();
-
-    @Nullable
-    @Override
-    public abstract Artifact getNativeHeadersJar();
-
-    @Nullable
-    @Override
-    public abstract Artifact getManifestProto();
-
-    @Nullable
-    @Override
-    public abstract Artifact getJdeps();
-
-    @Nullable
-    @Deprecated
     @Override
     public Artifact getSrcJar() {
-      return Iterables.getOnlyElement(getSourceJars(), null);
+      return Iterables.getOnlyElement(srcJars, null);
     }
 
     @Nullable
     @Override
     public Sequence<Artifact> getSrcJarsStarlark() {
-      return StarlarkList.immutableCopyOf(getSourceJars());
+      return StarlarkList.immutableCopyOf(srcJars);
     }
 
-    /** A list of sources archive files. */
-    public abstract ImmutableList<Artifact> getSourceJars();
-
-    @AutoCodec.Instantiator
-    public static OutputJar create(
-        Artifact classJar,
-        @Nullable Artifact compileJar,
-        @Nullable Artifact compileJdeps,
-        @Nullable Artifact generatedClassJar,
-        @Nullable Artifact generatedSourceJar,
-        @Nullable Artifact nativeHeadersJar,
-        @Nullable Artifact manifestProto,
-        @Nullable Artifact jdeps,
-        ImmutableList<Artifact> sourceJars) {
-      return builder()
-          .setClassJar(classJar)
-          .setCompileJar(compileJar)
-          .setCompileJdeps(compileJdeps)
-          .setGeneratedClassJar(generatedClassJar)
-          .setGeneratedSourceJar(generatedSourceJar)
-          .setNativeHeadersJar(nativeHeadersJar)
-          .setManifestProto(manifestProto)
-          .setJdeps(jdeps)
-          .addSourceJars(sourceJars)
-          .build();
-    }
-
-    /** Builder for OutputJar. */
-    @AutoValue.Builder
-    public abstract static class Builder {
-
-      public abstract Builder setClassJar(Artifact value);
-
-      public abstract Builder setCompileJar(Artifact value);
-
-      public abstract Builder setCompileJdeps(Artifact value);
-
-      public abstract Builder setGeneratedClassJar(Artifact value);
-
-      public abstract Builder setGeneratedSourceJar(Artifact value);
-
-      public abstract Builder setNativeHeadersJar(Artifact value);
-
-      public abstract Builder setManifestProto(Artifact value);
-
-      public abstract Builder setJdeps(Artifact value);
-
-      public abstract Builder setSourceJars(Iterable<Artifact> value);
-
-      abstract ImmutableList.Builder<Artifact> sourceJarsBuilder();
-
-      public Builder addSourceJar(@Nullable Artifact value) {
-        if (value != null) {
-          sourceJarsBuilder().add(value);
-        }
-        return this;
-      }
-
-      public Builder addSourceJars(Iterable<Artifact> values) {
-        sourceJarsBuilder().addAll(values);
-        return this;
-      }
-
-      /** Populates the builder with outputs from {@link JavaCompileOutputs}. */
-      public Builder fromJavaCompileOutputs(JavaCompileOutputs<Artifact> value) {
-        setClassJar(value.output());
-        setJdeps(value.depsProto());
-        setGeneratedClassJar(value.genClass());
-        setGeneratedSourceJar(value.genSource());
-        setNativeHeadersJar(value.nativeHeader());
-        setManifestProto(value.manifestProto());
-        return this;
-      }
-
-      public abstract OutputJar build();
-    }
-
-    public static Builder builder() {
-      return new AutoValue_JavaRuleOutputJarsProvider_OutputJar.Builder();
+    public Iterable<Artifact> getSrcJars() {
+      return srcJars;
     }
   }
 
   final ImmutableList<OutputJar> outputJars;
+  @Nullable final Artifact jdeps;
+  /** An archive of native header files. */
+  @Nullable final Artifact nativeHeaders;
 
-  private JavaRuleOutputJarsProvider(ImmutableList<OutputJar> outputJars) {
+  private JavaRuleOutputJarsProvider(
+      ImmutableList<OutputJar> outputJars,
+      @Nullable Artifact jdeps,
+      @Nullable Artifact nativeHeaders) {
     this.outputJars = outputJars;
+    this.jdeps = jdeps;
+    this.nativeHeaders = nativeHeaders;
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  static JavaRuleOutputJarsProvider create(ImmutableList<OutputJar> outputJars) {
-    if (outputJars.isEmpty()) {
+  static JavaRuleOutputJarsProvider create(
+      ImmutableList<OutputJar> outputJars,
+      @Nullable Artifact jdeps,
+      @Nullable Artifact nativeHeaders) {
+    if (outputJars.isEmpty() && jdeps == null && nativeHeaders == null) {
       return EMPTY;
     }
-    return new JavaRuleOutputJarsProvider(outputJars);
+    return new JavaRuleOutputJarsProvider(outputJars, jdeps, nativeHeaders);
   }
 
   @Override
@@ -216,35 +143,22 @@ public final class JavaRuleOutputJarsProvider
   }
 
   /** Collects all source output jars from {@link #outputJars} */
-  public ImmutableList<Artifact> getAllSrcOutputJars() {
+  public Iterable<Artifact> getAllSrcOutputJars() {
     return outputJars.stream()
-        .map(OutputJar::getSourceJars)
-        .flatMap(ImmutableList::stream)
-        .collect(toImmutableList());
+        .map(OutputJar::getSrcJars)
+        .reduce(ImmutableList.of(), Iterables::concat);
   }
 
   @Nullable
   @Override
-  @Deprecated
   public Artifact getJdeps() {
-    ImmutableList<Artifact> jdeps =
-        outputJars.stream()
-            .map(OutputJar::getJdeps)
-            .filter(Objects::nonNull)
-            .collect(toImmutableList());
-    return jdeps.size() == 1 ? jdeps.get(0) : null;
+    return jdeps;
   }
 
   @Nullable
   @Override
-  @Deprecated
   public Artifact getNativeHeaders() {
-    ImmutableList<Artifact> nativeHeaders =
-        outputJars.stream()
-            .map(OutputJar::getNativeHeadersJar)
-            .filter(Objects::nonNull)
-            .collect(toImmutableList());
-    return nativeHeaders.size() == 1 ? nativeHeaders.get(0) : null;
+    return nativeHeaders;
   }
 
   public static Builder builder() {
@@ -262,6 +176,18 @@ public final class JavaRuleOutputJarsProvider
   /** Builder for {@link JavaRuleOutputJarsProvider}. */
   public static class Builder {
     private final ImmutableList.Builder<OutputJar> outputJars = ImmutableList.builder();
+    private Artifact jdeps;
+    private Artifact nativeHeaders;
+
+    public Builder addOutputJar(
+        Artifact classJar,
+        @Nullable Artifact iJar,
+        @Nullable Artifact manifestProto,
+        @Nullable ImmutableList<Artifact> sourceJars) {
+      Preconditions.checkState(classJar != null);
+      outputJars.add(new OutputJar(classJar, iJar, manifestProto, sourceJars));
+      return this;
+    }
 
     public Builder addOutputJar(OutputJar outputJar) {
       outputJars.add(outputJar);
@@ -273,8 +199,18 @@ public final class JavaRuleOutputJarsProvider
       return this;
     }
 
+    public Builder setJdeps(Artifact jdeps) {
+      this.jdeps = jdeps;
+      return this;
+    }
+
+    public Builder setNativeHeaders(Artifact nativeHeaders) {
+      this.nativeHeaders = requireNonNull(nativeHeaders);
+      return this;
+    }
+
     public JavaRuleOutputJarsProvider build() {
-      return new JavaRuleOutputJarsProvider(outputJars.build());
+      return new JavaRuleOutputJarsProvider(outputJars.build(), jdeps, nativeHeaders);
     }
   }
 }

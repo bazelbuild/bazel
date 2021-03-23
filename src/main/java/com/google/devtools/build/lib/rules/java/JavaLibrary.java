@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 
 /** Implementation for the java_library rule. */
@@ -117,17 +117,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     if (attributes.hasSources() && jar != null) {
       iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
-    JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
-
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(
-                OutputJar.builder()
-                    .fromJavaCompileOutputs(outputs)
-                    .setCompileJar(iJar)
-                    .setCompileJdeps(javaArtifacts.getCompileTimeDependencyArtifact())
-                    .addSourceJar(srcJar)
-                    .build());
+            .addOutputJar(classJar, iJar, outputs.manifestProto(), ImmutableList.of(srcJar))
+            .setJdeps(outputs.depsProto())
+            .setNativeHeaders(outputs.nativeHeader());
 
     GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider = null;
     if (includeGeneratedExtensionRegistry) {
@@ -142,7 +136,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     }
 
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
-
+    JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(

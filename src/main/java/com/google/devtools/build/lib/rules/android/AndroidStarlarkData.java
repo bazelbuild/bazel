@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
@@ -586,8 +585,7 @@ public abstract class AndroidStarlarkData
         .addProvider(
             JavaRuleOutputJarsProvider.class,
             JavaRuleOutputJarsProvider.builder()
-                .addOutputJar(
-                    OutputJar.builder().setClassJar(rClassJar).addSourceJar(rClassSrcJar).build())
+                .addOutputJar(rClassJar, null, null, ImmutableList.of(rClassSrcJar))
                 .build())
         .addProvider(
             JavaCompilationArgsProvider.class,

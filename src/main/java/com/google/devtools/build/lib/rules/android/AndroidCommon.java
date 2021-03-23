@@ -651,23 +651,19 @@ public class AndroidCommon {
     OutputJar resourceJar = null;
     if (resourceApk.getResourceJavaClassJar() != null && resourceSourceJar != null) {
       resourceJar =
-          OutputJar.builder()
-              .setClassJar(resourceApk.getResourceJavaClassJar())
-              .addSourceJar(resourceSourceJar)
-              .build();
+          new OutputJar(
+              resourceApk.getResourceJavaClassJar(),
+              null /* ijar */,
+              outputs.manifestProto(),
+              ImmutableList.of(resourceSourceJar));
       javaRuleOutputJarsProviderBuilder.addOutputJar(resourceJar);
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider =
         javaRuleOutputJarsProviderBuilder
-            .addOutputJar(
-                OutputJar.builder()
-                    .fromJavaCompileOutputs(outputs)
-                    .setCompileJar(iJar)
-                    .setCompileJdeps(
-                        javaCommon.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact())
-                    .addSourceJar(srcJar)
-                    .build())
+            .addOutputJar(classJar, iJar, outputs.manifestProto(), ImmutableList.of(srcJar))
+            .setJdeps(outputs.depsProto())
+            .setNativeHeaders(outputs.nativeHeader())
             .build();
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
@@ -883,8 +879,10 @@ public class AndroidCommon {
     ImmutableList<Artifact> dataBindingSources =
         dataBindingContext.getAnnotationSourceFiles(ruleContext);
 
-    ImmutableList<Artifact> srcs =
-        ImmutableList.<Artifact>builder().addAll(ruleSources).addAll(dataBindingSources).build();
+    ImmutableList<Artifact> srcs = ImmutableList.<Artifact>builder()
+        .addAll(ruleSources)
+        .addAll(dataBindingSources)
+        .build();
 
     ImmutableList<TransitiveInfoCollection> compileDeps;
     ImmutableList<TransitiveInfoCollection> runtimeDeps;

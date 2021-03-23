@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -138,7 +137,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     JavaRuleOutputJarsProvider.Builder jarProviderBuilder =
         new JavaRuleOutputJarsProvider.Builder()
-            .addOutputJar(OutputJar.builder().setClassJar(mergedJar).build());
+            .addOutputJar(mergedJar, null /* ijar */, null /* manifestProto */, ImmutableList.of());
 
     ImmutableList<TransitiveInfoCollection> targets =
         ImmutableList.<TransitiveInfoCollection>builder()

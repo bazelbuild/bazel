@@ -35,25 +35,17 @@ public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?
 
   @StarlarkMethod(
       name = "jdeps",
-      doc =
-          "A manifest proto file. The protobuf file containing the manifest generated from "
-              + "JavaBuilder. This function returns a value when exactly one manifest proto file is"
-              + " present in the outputs.  Deprecated: Use jars[i].jdeps.",
+      doc = "The jdeps file for rule outputs.",
       structField = true,
       allowReturnNones = true)
   @Nullable
-  @Deprecated
   FileApi getJdeps();
 
   @StarlarkMethod(
       name = "native_headers",
-      doc =
-          "A jar containing CC header files supporting native method implementation. "
-              + " This function returns a value when exactly one native headers jar file is"
-              + " present in the outputs. Deprecated: Use jars[i].native_headers_jar.",
+      doc = "An archive of native header files.",
       structField = true,
       allowReturnNones = true)
   @Nullable
-  @Deprecated
   FileApi getNativeHeaders();
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -159,10 +160,11 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
       }
 
       Artifact idlSourceJar = getIdeInfoProvider().getIdlSourceJar();
-      return OutputJar.builder()
-          .setClassJar(getIdeInfoProvider().getIdlClassJar())
-          .addSourceJar(idlSourceJar)
-          .build();
+      return new OutputJar(
+          getIdeInfoProvider().getIdlClassJar(),
+          null,
+          null,
+          idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar));
     }
   }
 }

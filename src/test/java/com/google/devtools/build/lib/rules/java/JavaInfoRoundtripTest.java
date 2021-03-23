@@ -64,12 +64,8 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         "    'hjar': 'lib%s-hjar.jar',",
         "    'src': 'lib%s-src.jar',",
         "    'compile_jdeps': 'lib%s-hjar.jdeps',",
-        "    'genclass': 'lib%s-gen.jar',",
-        "    'gensource': 'lib%s-gensrc.jar',",
         "    'jdeps': 'lib%s.jdeps',",
-        "    'manifest': 'lib%s.jar_manifest_proto',",
-        "    'headers': 'lib%s-native-header.jar',",
-        "  }",
+        "    'manifest': 'lib%s.jar_manifest_proto'}",
         "  for file, name in OUTS.items():",
         "     OUTS[file] = ctx.actions.declare_file(name % ctx.label.name)",
         "     ctx.actions.write(OUTS[file], '')",
@@ -78,11 +74,6 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         "     output_jar = OUTS['lib'],",
         "     compile_jar = OUTS['hjar'],",
         "     source_jar = OUTS['src'],",
-        "     compile_jdeps = OUTS['compile_jdeps'],",
-        "     generated_class_jar = ctx.attr.plugins and OUTS['genclass'] or None,",
-        "     generated_source_jar = ctx.attr.plugins and OUTS['gensource'] or None,",
-        "     manifest_proto = OUTS['manifest'],",
-        "     native_headers_jar = OUTS['headers'],",
         "     deps = [d[JavaInfo] for d in ctx.attr.deps],",
         "     runtime_deps = [d[JavaInfo] for d in ctx.attr.runtime_deps],",
         "     exports = [d[JavaInfo] for d in ctx.attr.exports],",
@@ -97,7 +88,6 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    'runtime_deps': attr.label_list(),",
         "    'exports': attr.label_list(),",
-        "    'plugins': attr.bool(default = False),",
         "  },",
         "  fragments = ['java'],",
         ")");
@@ -127,26 +117,28 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
     return javaInfo;
   }
 
-  private Dict<Object, Object> removeCompilationInfo(Dict<Object, Object> javaInfo) {
-    return Dict.builder().putAll(javaInfo).put("compilation_info", Starlark.NONE).buildImmutable();
+  // TODO(b/163811682): remove once JavaInfo supports setting manifest_proto and native_headers.
+  private Dict<Object, Object> removeManifestAndNativeHeaders(Dict<Object, Object> javaInfo) {
+    @SuppressWarnings("unchecked") // safe by specification
+    Dict<Object, Object> outputs = (Dict<Object, Object>) javaInfo.get("outputs");
+    @SuppressWarnings("unchecked") // safe by specification
+    StarlarkList<Object> jars = (StarlarkList<Object>) outputs.get("jars");
+    @SuppressWarnings("unchecked") // safe by specification
+    Dict<Object, Object> jar0 = (Dict<Object, Object>) jars.get(0);
+
+    jar0 = Dict.builder().putAll(jar0).put("manifest_proto", Starlark.NONE).buildImmutable();
+    jars = StarlarkList.immutableOf(jar0);
+    outputs =
+        Dict.builder()
+            .putAll((Map<?, ?>) javaInfo.get("outputs"))
+            .put("jars", jars)
+            .put("native_headers", Starlark.NONE)
+            .buildImmutable();
+    return Dict.builder().putAll(javaInfo).put("outputs", outputs).buildImmutable();
   }
 
-  private Dict<Object, Object> removeAnnotationClasses(Dict<Object, Object> javaInfo) {
-    @SuppressWarnings("unchecked") // safe by specification
-    Dict<Object, Object> annotationProcessing =
-        (Dict<Object, Object>) javaInfo.get("annotation_processing");
-
-    annotationProcessing =
-        Dict.builder()
-            .putAll(annotationProcessing)
-            .put("enabled", false)
-            .put("processor_classnames", StarlarkList.immutableOf())
-            .put("processor_classpath", StarlarkList.immutableOf())
-            .buildImmutable();
-    return Dict.builder()
-        .putAll(javaInfo)
-        .put("annotation_processing", annotationProcessing)
-        .buildImmutable();
+  private Dict<Object, Object> removeCompilationInfo(Dict<Object, Object> javaInfo) {
+    return Dict.builder().putAll(javaInfo).put("compilation_info", Starlark.NONE).buildImmutable();
   }
 
   @Test
@@ -181,6 +173,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         "construct_javainfo(name = 'java_lib', srcs = ['A.java'])");
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
+    javaInfoA = removeManifestAndNativeHeaders(javaInfoA);
     javaInfoA = removeCompilationInfo(javaInfoA);
     assertThat((Map<?, ?>) javaInfoB).isEqualTo(javaInfoA);
   }
@@ -207,6 +200,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         ")");
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
+    javaInfoA = removeManifestAndNativeHeaders(javaInfoA);
     javaInfoA = removeCompilationInfo(javaInfoA);
     assertThat((Map<?, ?>) javaInfoB).isEqualTo(javaInfoA);
   }
@@ -233,6 +227,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         ")");
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
+    javaInfoA = removeManifestAndNativeHeaders(javaInfoA);
     javaInfoA = removeCompilationInfo(javaInfoA);
     assertThat((Map<?, ?>) javaInfoB).isEqualTo(javaInfoA);
   }
@@ -261,36 +256,8 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         ")");
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
+    javaInfoA = removeManifestAndNativeHeaders(javaInfoA);
     javaInfoA = removeCompilationInfo(javaInfoA);
-    assertThat((Map<?, ?>) javaInfoB).isEqualTo(javaInfoA);
-  }
-
-  @Test
-  public void roundtipJavaInfo_plugin() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "java_plugin(name = 'plugin', srcs = ['A.java'], processor_class = 'bar.Main')");
-
-    scratch.overwriteFile(
-        "foo/BUILD",
-        "java_library(",
-        "  name = 'java_lib',",
-        "  srcs = ['A.java'],",
-        "  plugins = ['//bar:plugin']",
-        ")");
-    Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
-    scratch.overwriteFile(
-        "foo/BUILD",
-        "load('//foo:construct_javainfo.bzl', 'construct_javainfo')",
-        "construct_javainfo(",
-        "  name = 'java_lib', ",
-        "  srcs = ['A.java'], ",
-        "  plugins = True,",
-        ")");
-    Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
-
-    javaInfoA = removeCompilationInfo(javaInfoA);
-    javaInfoA = removeAnnotationClasses(javaInfoA);
     assertThat((Map<?, ?>) javaInfoB).isEqualTo(javaInfoA);
   }
 }
