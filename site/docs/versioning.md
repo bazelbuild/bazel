@@ -36,7 +36,7 @@ LTS release to the next, or updating with each minor version release.
 The image shows both rolling and LTS releases, and the expected support for
 each.
 
-[!image](images/roadmap.png)
+<img src="images/roadmap.png" alt="Roadmap" width="100%" />
 
 ## Release branches
 
