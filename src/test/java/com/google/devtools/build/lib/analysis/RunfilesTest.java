@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,15 +29,21 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -53,6 +60,13 @@ public class RunfilesTest extends FoundationTestCase {
         .that(eventCollector.count())
         .isEqualTo(1);
     assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.WARNING);
+  }
+
+  private static StarlarkThread newStarlarkThread(String... options)
+      throws OptionsParsingException {
+    return new StarlarkThread(
+        Mutability.create("test"),
+        Options.parse(BuildLanguageOptions.class, options).getOptions().toStarlarkSemantics());
   }
 
   @Test
@@ -463,7 +477,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testMergeWithSymlinks() {
+  public void testMergeWithSymlinks() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
@@ -475,8 +489,9 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles runfilesB = new Runfiles.Builder("TESTING")
         .addSymlink(sympathB, artifactB)
         .build();
+    StarlarkThread thread = newStarlarkThread();
 
-    Runfiles runfilesC = runfilesA.merge(runfilesB);
+    Runfiles runfilesC = runfilesA.merge(runfilesB, thread);
     assertThat(runfilesC.getSymlinksAsMap(null).get(sympathA)).isEqualTo(artifactA);
     assertThat(runfilesC.getSymlinksAsMap(null).get(sympathB)).isEqualTo(artifactB);
   }
@@ -493,19 +508,23 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles runfilesA = new Runfiles.Builder("TESTING").addSymlink(sympathA, artifactA).build();
     Runfiles runfilesB = new Runfiles.Builder("TESTING").addSymlink(sympathB, artifactB).build();
     Runfiles runfilesC = new Runfiles.Builder("TESTING").addSymlink(sympathC, artifactC).build();
+    StarlarkThread thread = newStarlarkThread();
 
-    Runfiles runfilesMerged = runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB, runfilesC));
+    Runfiles runfilesMerged =
+        runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB, runfilesC), thread);
     assertThat(runfilesMerged.getSymlinksAsMap(null))
         .containsExactly(sympathA, artifactA, sympathB, artifactB, sympathC, artifactC);
   }
 
   @Test
-  public void testMergeEmptyWithNonEmpty() {
+  public void testMergeEmptyWithNonEmpty() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Runfiles runfilesB = new Runfiles.Builder("TESTING").addArtifact(artifactA).build();
-    assertThat(Runfiles.EMPTY.merge(runfilesB)).isSameInstanceAs(runfilesB);
-    assertThat(runfilesB.merge(Runfiles.EMPTY)).isSameInstanceAs(runfilesB);
+    StarlarkThread thread = newStarlarkThread();
+
+    assertThat(Runfiles.EMPTY.merge(runfilesB, thread)).isSameInstanceAs(runfilesB);
+    assertThat(runfilesB.merge(Runfiles.EMPTY, thread)).isSameInstanceAs(runfilesB);
   }
 
   @Test
@@ -513,24 +532,67 @@ public class RunfilesTest extends FoundationTestCase {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifact = ActionsTestUtil.createArtifact(root, "target");
     Runfiles nonEmpty = new Runfiles.Builder("TESTING").addArtifact(artifact).build();
+    StarlarkThread thread = newStarlarkThread();
 
-    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(nonEmpty)))
+    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(nonEmpty), thread))
         .isSameInstanceAs(nonEmpty);
     assertThat(
             Runfiles.EMPTY.mergeAll(
-                StarlarkList.immutableOf(Runfiles.EMPTY, nonEmpty, Runfiles.EMPTY)))
+                StarlarkList.immutableOf(Runfiles.EMPTY, nonEmpty, Runfiles.EMPTY), thread))
         .isSameInstanceAs(nonEmpty);
-    assertThat(nonEmpty.mergeAll(StarlarkList.immutableOf(Runfiles.EMPTY, Runfiles.EMPTY)))
+    assertThat(nonEmpty.mergeAll(StarlarkList.immutableOf(Runfiles.EMPTY, Runfiles.EMPTY), thread))
         .isSameInstanceAs(nonEmpty);
-    assertThat(nonEmpty.mergeAll(StarlarkList.immutableOf())).isSameInstanceAs(nonEmpty);
+    assertThat(nonEmpty.mergeAll(StarlarkList.immutableOf(), thread)).isSameInstanceAs(nonEmpty);
   }
 
   @Test
   public void mergeAll_emptyWithEmpty() throws Exception {
-    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf()))
+    StarlarkThread thread = newStarlarkThread();
+    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(), thread))
         .isSameInstanceAs(Runfiles.EMPTY);
-    assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(Runfiles.EMPTY, Runfiles.EMPTY)))
+    assertThat(
+            Runfiles.EMPTY.mergeAll(
+                StarlarkList.immutableOf(Runfiles.EMPTY, Runfiles.EMPTY), thread))
         .isSameInstanceAs(Runfiles.EMPTY);
+  }
+
+  @Test
+  public void merge_exceedsDepthLimit_throwsException() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
+    Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
+    Artifact artifactC = ActionsTestUtil.createArtifact(root, "c/target");
+    Runfiles runfilesA = new Runfiles.Builder("TESTING").addArtifact(artifactA).build();
+    Runfiles runfilesB = new Runfiles.Builder("TESTING").addArtifact(artifactB).build();
+    Runfiles runfilesC = new Runfiles.Builder("TESTING").addArtifact(artifactC).build();
+    StarlarkThread thread = newStarlarkThread("--nested_set_depth_limit=2");
+
+    Runfiles mergeAB = runfilesA.merge(runfilesB, thread);
+    EvalException expected =
+        assertThrows(EvalException.class, () -> mergeAB.merge(runfilesC, thread));
+    assertThat(expected).hasMessageThat().contains("artifacts depset depth 3 exceeds limit (2)");
+  }
+
+  @Test
+  public void mergeAll_exceedsDepthLimit_throwsException() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
+    Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
+    Artifact artifactC = ActionsTestUtil.createArtifact(root, "c/target");
+    PathFragment sympathA = PathFragment.create("a/symlink");
+    PathFragment sympathB = PathFragment.create("b/symlink");
+    PathFragment sympathC = PathFragment.create("c/symlink");
+    Runfiles runfilesA = new Runfiles.Builder("TESTING").addSymlink(sympathA, artifactA).build();
+    Runfiles runfilesB = new Runfiles.Builder("TESTING").addSymlink(sympathB, artifactB).build();
+    Runfiles runfilesC = new Runfiles.Builder("TESTING").addSymlink(sympathC, artifactC).build();
+    StarlarkThread thread = newStarlarkThread("--nested_set_depth_limit=2");
+
+    Runfiles mergeAllAB = runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB), thread);
+    EvalException expected =
+        assertThrows(
+            EvalException.class,
+            () -> mergeAllAB.mergeAll(StarlarkList.immutableOf(runfilesC), thread));
+    assertThat(expected).hasMessageThat().contains("symlinks depset depth 3 exceeds limit (2)");
   }
 
   @Test

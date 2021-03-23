@@ -43,17 +43,6 @@ java_library(
 )
 
 java_library(
-    name = "options",
-    srcs = ["NestedSetOptionsModule.java"],
-    deps = [
-        ":nestedset",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "testutils",
     testonly = 1,
     srcs = ["NestedSetCodecTestUtils.java"],

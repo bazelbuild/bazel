@@ -22,6 +22,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a set of runfiles. */
@@ -69,8 +70,9 @@ public interface RunfilesApi extends StarlarkValue {
             positional = true,
             named = false,
             doc = "The runfiles object to merge into this."),
-      })
-  RunfilesApi merge(RunfilesApi other);
+      },
+      useStarlarkThread = true)
+  RunfilesApi merge(RunfilesApi other, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "merge_all",
@@ -86,6 +88,7 @@ public interface RunfilesApi extends StarlarkValue {
             positional = true,
             named = false,
             doc = "The sequence of runfiles objects to merge into this."),
-      })
-  RunfilesApi mergeAll(Sequence<?> sequence) throws EvalException;
+      },
+      useStarlarkThread = true)
+  RunfilesApi mergeAll(Sequence<?> sequence, StarlarkThread thread) throws EvalException;
 }

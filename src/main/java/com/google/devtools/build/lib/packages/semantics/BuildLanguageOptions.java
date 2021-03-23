@@ -605,6 +605,16 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public long maxComputationSteps;
 
   @Option(
+      name = "nested_set_depth_limit",
+      defaultValue = "3500",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "The maximum depth of the graph internal to a depset (also known as NestedSet), above"
+              + " which the depset() constructor will fail.")
+  public int nestedSetDepthLimit;
+
+  @Option(
       name = "experimental_shadowed_action",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -685,6 +695,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(INCOMPATIBLE_RESTRICT_STRING_ESCAPES, incompatibleRestrictStringEscapes)
             .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
+            .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(EXPERIMENTAL_SHADOWED_ACTION, experimentalShadowedAction)
             .build();
     return INTERNER.intern(semantics);
@@ -771,4 +782,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               "experimental_cc_starlark_api_enabled_packages", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
+  public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
+      new StarlarkSemantics.Key<>("nested_set_depth_limit", 3500);
 }

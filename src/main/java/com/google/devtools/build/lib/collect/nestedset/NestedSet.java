@@ -369,7 +369,7 @@ public final class NestedSet<E> {
    * <p>This function may return an overapproximation of the true depth if the NestedSet was derived
    * from the result of calling {@link #getNonLeaves} or {@link #splitIfExceedsMaximumSize}.
    */
-  int getApproxDepth() {
+  public int getApproxDepth() {
     return this.depthAndOrder >>> 2;
   }
 
