@@ -434,9 +434,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_forceExecutionPlatform() throws Exception {
-    // This should select platform linux, toolchain extra_toolchain_linux, due to the forced
-    // platform,
-    // even though platform mac is registered first.
+    // This should select execution platform linux, toolchain extra_toolchain_linux, due to the
+    // forced executin platform, even though execution platform mac is registered first.
     addToolchain(
         /* packageName= */ "extra",
         /* toolchainName= */ "extra_toolchain_linux",
