@@ -330,10 +330,7 @@ java_library(
     visibility = ["@com_google_testparameterinjector//:__pkg__"],
 )
 """,
-    urls = [
-        "https://mirror.bazel.build/bitbucket.org/asomov/snakeyaml/get/snakeyaml-1.28.tar.gz",
-        "https://bitbucket.org/asomov/snakeyaml/get/snakeyaml-1.28.tar.gz",
-    ],
+    urls = ["https://mirror.bazel.build/bitbucket.org/asomov/snakeyaml/get/snakeyaml-1.28.tar.gz"],
 )
 
 
