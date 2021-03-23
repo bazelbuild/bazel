@@ -85,7 +85,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
     assertThat(singleToolchainResolutionValue.availableToolchainLabels())
-        .containsExactly(macCtkey, makeLabel("//toolchain:toolchain_2_impl"));
+        .containsExactly(macCtkey, Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -116,9 +116,9 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(singleToolchainResolutionValue.availableToolchainLabels())
         .containsExactly(
             linuxCtkey,
-            makeLabel("//extra:extra_toolchain_impl"),
+            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_impl"),
             macCtkey,
-            makeLabel("//toolchain:toolchain_2_impl"));
+            Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -144,30 +144,35 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(linuxCtkey, makeLabel("//test:toolchain_impl_1"))),
+                ImmutableMap.of(
+                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))),
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(linuxCtkey, makeLabel("//test:toolchain_impl_1"))))
+                ImmutableMap.of(
+                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
         // Different execution platform, same label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType, ImmutableMap.of(macCtkey, makeLabel("//test:toolchain_impl_1"))))
+                testToolchainType,
+                ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
         // Same execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(linuxCtkey, makeLabel("//test:toolchain_impl_2"))))
+                ImmutableMap.of(
+                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
         // Different execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType, ImmutableMap.of(macCtkey, makeLabel("//test:toolchain_impl_2"))))
+                testToolchainType,
+                ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
         // Multiple execution platforms.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
-                    .put(linuxCtkey, makeLabel("//test:toolchain_impl_1"))
-                    .put(macCtkey, makeLabel("//test:toolchain_impl_1"))
+                    .put(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
+                    .put(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
                     .build()))
         .testEquals();
   }

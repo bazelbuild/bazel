@@ -1481,7 +1481,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config = getConfiguration(owner);
     return getGenfilesArtifact(
         packageRelativePath,
-        ConfiguredTargetKey.builder().setLabel(makeLabel(owner)).setConfiguration(config).build(),
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseAbsoluteUnchecked(owner))
+            .setConfiguration(config)
+            .build(),
         config);
   }
 
@@ -1692,17 +1695,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         (Rule) ctad.getTarget(), ctad.getConfiguredTarget().getConfigConditions());
   }
 
-  public static Label makeLabel(String label) {
-    try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     return ConfiguredTargetKey.builder()
-        .setLabel(makeLabel(label))
+        .setLabel(Label.parseAbsoluteUnchecked(label))
         .setConfiguration(getConfiguration(label))
         .build();
   }
