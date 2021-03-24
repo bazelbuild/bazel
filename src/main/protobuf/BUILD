@@ -315,6 +315,7 @@ filegroup(
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":spawn_java_proto_srcs",
         ":xcode_java_proto_srcs",
     ],
 )
