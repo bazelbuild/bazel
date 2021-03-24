@@ -559,13 +559,6 @@ public abstract class DependencyResolver {
       }
     }
 
-    if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {
-      addExplicitDeps(
-          outgoingLabels,
-          rule,
-          RuleClass.APPLICABLE_LICENSES_ATTR,
-          rule.getPackage().getDefaultApplicableLicenses());
-    }
   }
 
   private void resolveAttributes(
