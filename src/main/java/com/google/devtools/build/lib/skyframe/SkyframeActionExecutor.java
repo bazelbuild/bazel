@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -214,6 +215,7 @@ public final class SkyframeActionExecutor {
   private boolean useAsyncExecution;
   private boolean hadExecutionError;
   private boolean replayActionOutErr;
+  private boolean freeDiscoveredInputsAfterExecution;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
@@ -266,7 +268,8 @@ public final class SkyframeActionExecutor {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       TopDownActionCache topDownActionCache,
-      OutputService outputService) {
+      OutputService outputService,
+      boolean incrementalAnalysis) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
@@ -291,6 +294,11 @@ public final class SkyframeActionExecutor {
             .concurrencyLevel(Runtime.getRuntime().availableProcessors())
             .build();
     this.knownDirectories = cache.asMap();
+
+    // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
+    // actions, which consume their shadowed action's discovered inputs.
+    freeDiscoveredInputsAfterExecution =
+        !incrementalAnalysis && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -315,6 +323,10 @@ public final class SkyframeActionExecutor {
 
   boolean useArchivedTreeArtifacts() {
     return options.getOptions(CoreOptions.class).sendArchivedTreeArtifactInputs;
+  }
+
+  boolean publishTargetSummaries() {
+    return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
@@ -388,10 +400,13 @@ public final class SkyframeActionExecutor {
         new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
-  void resetPreviouslyCompletedActionExecution(Action action) {
+  void resetPreviouslyCompletedAction(ActionLookupData actionLookupData, Action action) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(action.getPrimaryOutput());
-    buildActionMap.remove(ownerlessArtifactWrapper);
+    ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
+    if (actionExecutionState != null) {
+      actionExecutionState.obsolete(actionLookupData, buildActionMap, ownerlessArtifactWrapper);
+    }
     completedAndResetActions.add(ownerlessArtifactWrapper);
   }
 
@@ -400,10 +415,18 @@ public final class SkyframeActionExecutor {
     return lostDiscoveredInputsMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
-  void resetFailedActionExecution(Action action, ImmutableList<SkyKey> lostDiscoveredInputs) {
+  void resetRewindingAction(
+      ActionLookupData actionLookupData,
+      Action action,
+      ImmutableList<SkyKey> lostDiscoveredInputs) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(action.getPrimaryOutput());
-    buildActionMap.remove(ownerlessArtifactWrapper);
+    ActionExecutionState state = buildActionMap.get(ownerlessArtifactWrapper);
+    if (state != null) {
+      // If an action failed from lost inputs during input discovery then it won't have a state to
+      // obsolete.
+      state.obsolete(actionLookupData, buildActionMap, ownerlessArtifactWrapper);
+    }
     if (!lostDiscoveredInputs.isEmpty()) {
       lostDiscoveredInputsMap.put(ownerlessArtifactWrapper, lostDiscoveredInputs);
     }
@@ -457,7 +480,6 @@ public final class SkyframeActionExecutor {
       synchronized (reporter) {
         reporter.handle(error);
       }
-      recordExecutionError();
       throw e;
     }
 
@@ -465,7 +487,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionState activeAction =
         buildActionMap.computeIfAbsent(
             new OwnerlessArtifactWrapper(action.getPrimaryOutput()),
-            (_unused_key) ->
+            (unusedKey) ->
                 new ActionExecutionState(
                     actionLookupData,
                     new ActionRunner(
@@ -698,8 +720,22 @@ public final class SkyframeActionExecutor {
 
   @Nullable
   List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
-      throws InterruptedException {
-    return actionCacheChecker.getCachedInputs(action, resolver);
+      throws AlreadyReportedActionExecutionException, InterruptedException {
+    try {
+      return actionCacheChecker.getCachedInputs(action, resolver);
+    } catch (PackageRootResolver.PackageRootException e) {
+      printError(e.getMessage(), action);
+      throw new AlreadyReportedActionExecutionException(
+          new ActionExecutionException(
+              e,
+              action,
+              /*catastrophe=*/ false,
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(e.getMessage())
+                      .setIncludeScanning(e.getError())
+                      .build())));
+    }
   }
 
   /**
@@ -770,20 +806,26 @@ public final class SkyframeActionExecutor {
         }
       }
 
+      Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
       if (e instanceof LostInputsActionExecutionException) {
         // If inputs were lost during input discovery, then enrich the exception, informing action
         // rewinding machinery that these lost inputs are now Skyframe deps of the action.
-        ((LostInputsActionExecutionException) e).setFromInputDiscovery();
+        LostInputsActionExecutionException lostInputsException =
+            (LostInputsActionExecutionException) e;
+        lostInputsException.setFromInputDiscovery();
+        enrichLostInputsException(
+            primaryOutputPath, actionLookupData, fileOutErr, lostInputsException);
+        finalException = lostInputsException;
+      } else {
+        finalException =
+            processAndGetExceptionToThrow(
+                env.getListener(),
+                primaryOutputPath,
+                action,
+                e,
+                fileOutErr,
+                ErrorTiming.BEFORE_EXECUTION);
       }
-      finalException =
-          processAndGetExceptionToThrow(
-              env.getListener(),
-              actionExecutionContext.getInputPath(action.getPrimaryOutput()),
-              action,
-              actionLookupData,
-              e,
-              fileOutErr,
-              ErrorTiming.BEFORE_EXECUTION);
       throw finalException;
     } finally {
       eventHandler.post(new StoppedScanningActionEvent(action));
@@ -904,7 +946,8 @@ public final class SkyframeActionExecutor {
 
     @SuppressWarnings("LogAndThrow") // Thrown exception shown in user output, not info logs.
     @Override
-    public ActionStepOrResult run(Environment env) throws InterruptedException {
+    public ActionStepOrResult run(Environment env)
+        throws LostInputsActionExecutionException, InterruptedException {
       // There are three ExtendedEventHandler instances available while this method is running.
       //   SkyframeActionExecutor.this.reporter
       //   actionExecutionContext.getEventHandler
@@ -1026,7 +1069,7 @@ public final class SkyframeActionExecutor {
     /** Executes the given continuation and returns a new one or a final result. */
     private ActionStepOrResult continueAction(
         ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation)
-        throws InterruptedException {
+        throws LostInputsActionExecutionException, InterruptedException {
       // Every code path that exits this method must call notifyActionCompletion, except for the
       // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
       // duplication.
@@ -1041,29 +1084,41 @@ public final class SkyframeActionExecutor {
             actionExecutionContext.getActionFileSystem(), action, outputService);
       } catch (ActionExecutionException e) {
 
+        LostInputsActionExecutionException lostInputsException = null;
         // Action failures may be caused by lost inputs. Lost input failures have higher priority
         // because rewinding may be able to restore what was lost and allow the action to complete
         // without error.
-        if (!(e instanceof LostInputsActionExecutionException)) {
+        if (e instanceof LostInputsActionExecutionException) {
+          lostInputsException = (LostInputsActionExecutionException) e;
+        } else {
           try {
             checkActionFileSystemForLostInputs(
                 actionExecutionContext.getActionFileSystem(), action, outputService);
-          } catch (LostInputsActionExecutionException lostInputsException) {
-            e = lostInputsException;
+          } catch (LostInputsActionExecutionException e2) {
+            lostInputsException = e2;
           }
         }
 
-        boolean isLostInputsException = e instanceof LostInputsActionExecutionException;
-        if (isLostInputsException) {
-          ((LostInputsActionExecutionException) e).setActionStartedEventAlreadyEmitted();
+        Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
+        notifyActionCompletion(
+            eventHandler, /*postActionCompletionEvent=*/ lostInputsException == null);
+        if (lostInputsException != null) {
+          // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
+          // Action rewinding will rerun this failed action after trying to regenerate the lost
+          // inputs.
+          lostInputsException.setActionStartedEventAlreadyEmitted();
+          enrichLostInputsException(
+              primaryOutputPath,
+              actionLookupData,
+              actionExecutionContext.getFileOutErr(),
+              lostInputsException);
+          throw lostInputsException;
         }
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ !isLostInputsException);
         return ActionStepOrResult.of(
             processAndGetExceptionToThrow(
                 eventHandler,
-                actionExecutionContext.getInputPath(action.getPrimaryOutput()),
+                primaryOutputPath,
                 action,
-                actionLookupData,
                 e,
                 actionExecutionContext.getFileOutErr(),
                 ErrorTiming.AFTER_EXECUTION));
@@ -1215,7 +1270,8 @@ public final class SkyframeActionExecutor {
       }
 
       @Override
-      public ActionStepOrResult run(Environment env) throws InterruptedException {
+      public ActionStepOrResult run(Environment env)
+          throws LostInputsActionExecutionException, InterruptedException {
         ListenableFuture<?> future = actionContinuationOrResult.getFuture();
         if (future != null && !future.isDone()) {
           env.dependOnFuture(future);
@@ -1244,6 +1300,11 @@ public final class SkyframeActionExecutor {
           return ActionStepOrResult.of(e);
         } catch (ActionExecutionException e) {
           return ActionStepOrResult.of(e);
+        }
+
+        // Once the action has been written to the action cache, we can free its discovered inputs.
+        if (freeDiscoveredInputsAfterExecution && action.discoversInputs()) {
+          action.resetDiscoveredInputs();
         }
         return ActionStepOrResult.of(value);
       }
@@ -1452,26 +1513,18 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  /** Must not be called with a {@link LostInputsActionExecutionException}. */
   ActionExecutionException processAndGetExceptionToThrow(
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
       Action action,
-      ActionLookupData actionLookupData,
       ActionExecutionException e,
       FileOutErr outErrBuffer,
       ErrorTiming errorTiming) {
-    if (e instanceof LostInputsActionExecutionException) {
-      // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
-      // Action rewinding will rerun this failed action after trying to regenerate the lost inputs.
-      // Enrich the exception so it can be distinguished by shared actions getting cache hits and so
-      // that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
-      LostInputsActionExecutionException lostInputsException =
-          (LostInputsActionExecutionException) e;
-      lostInputsException.setPrimaryAction(actionLookupData);
-      lostInputsException.setPrimaryOutputPath(primaryOutputPath);
-      lostInputsException.setFileOutErr(outErrBuffer);
-      return lostInputsException;
-    }
+    Preconditions.checkArgument(
+        !(e instanceof LostInputsActionExecutionException),
+        "unexpected LostInputs exception: %s",
+        e);
 
     reportActionExecution(
         eventHandler,
@@ -1500,6 +1553,20 @@ public final class SkyframeActionExecutor {
     // only rethrow the exception that initially caused it to abort will and not check the exit
     // status of any actions that had finished in the meantime.
     return toThrow;
+  }
+
+  /**
+   * Enrich the exception so it can be confirmed as the primary action in a shared action set and so
+   * that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
+   */
+  private static void enrichLostInputsException(
+      Path primaryOutputPath,
+      ActionLookupData actionLookupData,
+      FileOutErr outErrBuffer,
+      LostInputsActionExecutionException lostInputsException) {
+    lostInputsException.setPrimaryAction(actionLookupData);
+    lostInputsException.setPrimaryOutputPath(primaryOutputPath);
+    lostInputsException.setFileOutErr(outErrBuffer);
   }
 
   private static void reportMissingOutputFile(
@@ -1677,13 +1744,18 @@ public final class SkyframeActionExecutor {
   }
 
   /**
+   * Prints the given error {@code message} ascribed to {@code action}. May be called multiple times
+   * for the same action if there are multiple errors: will print all of them.
+   */
+  void printError(String message, ActionAnalysisMetadata action) {
+    printError(message, action, null);
+  }
+
+  /**
    * For the action 'action' that failed due to 'message' with the output 'actionOutput', notify the
    * user about the error. To notify the user, the method first displays the output of the action
    * and then reports an error via the reporter. The method ensures that the two messages appear
    * next to each other by locking the outErr object where the output is displayed.
-   *
-   * <p>Should not be called for actions that might have failed because the build is shutting down
-   * after an error, since it prints output unconditionally, and such output should be suppressed.
    *
    * @param message The reason why the action failed
    * @param action The action that failed, must not be null.
@@ -1691,12 +1763,12 @@ public final class SkyframeActionExecutor {
    *     display
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
-  void printError(String message, ActionAnalysisMetadata action, FileOutErr actionOutput) {
+  private void printError(
+      String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
     message = action.describe() + " failed: " + message;
     Event event = Event.error(action.getOwner().getLocation(), message);
     synchronized (reporter) {
       dumpRecordedOutErr(reporter, event, actionOutput);
-      recordExecutionError();
     }
   }
 

@@ -29,12 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Java classes jar, together with their associated source and interface archives.")
 public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
 
-  @StarlarkMethod(
-      name = "class_jar",
-      doc = "A classes jar file.",
-      allowReturnNones = true,
-      structField = true)
-  @Nullable
+  @StarlarkMethod(name = "class_jar", doc = "A classes jar file.", structField = true)
   FileT getClassJar();
 
   @StarlarkMethod(

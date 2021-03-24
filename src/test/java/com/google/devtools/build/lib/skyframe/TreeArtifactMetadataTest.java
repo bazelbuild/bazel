@@ -192,7 +192,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+          public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+              throws IOException {
             if (path.getBaseName().equals("one")) {
               throw exception;
             }

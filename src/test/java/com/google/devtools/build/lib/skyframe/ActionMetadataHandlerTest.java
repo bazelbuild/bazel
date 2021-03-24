@@ -62,9 +62,9 @@ public final class ActionMetadataHandlerTest {
       new Scratch(
           new InMemoryFileSystem(DigestHashFunction.SHA256) {
             @Override
-            public void chmod(Path path, int mode) throws IOException {
+            public void chmod(PathFragment path, int mode) throws IOException {
               assertThat(mode).isEqualTo(0555); // Read only and executable.
-              if (!chmodCalls.add(path)) {
+              if (!chmodCalls.add(getPath(path))) {
                 fail("chmod called on " + path + " twice");
               }
               super.chmod(path, mode);

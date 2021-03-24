@@ -136,7 +136,7 @@ public class FilesystemValueCheckerTestBase {
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (statThrowsRuntimeException) {
         throw new RuntimeException("bork");
       }
@@ -144,7 +144,7 @@ public class FilesystemValueCheckerTestBase {
     }
 
     @Override
-    protected PathFragment readSymbolicLink(Path path) throws IOException {
+    protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
       if (readlinkThrowsIoException) {
         throw new IOException("readlink failed");
       }

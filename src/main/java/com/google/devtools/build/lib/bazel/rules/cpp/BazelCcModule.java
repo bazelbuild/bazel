@@ -46,8 +46,6 @@ import net.starlark.java.eval.Tuple;
 /**
  * A module that contains Starlark utilities for C++ support.
  *
- * <p>This is a work in progress. The API is guarded behind
- * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<

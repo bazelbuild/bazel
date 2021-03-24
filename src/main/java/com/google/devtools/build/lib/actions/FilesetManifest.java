@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -93,7 +94,9 @@ public final class FilesetManifest {
       throws IOException {
     switch (relSymlinkBehavior) {
       case ERROR:
-        throw new IOException("runfiles target is not absolute: " + artifact);
+        IOException ioException = new IOException("runfiles target is not absolute: " + artifact);
+        BugReport.sendBugReport(ioException);
+        throw ioException;
       case RESOLVE:
       case RESOLVE_FULLY:
         if (!relativeLinks.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
@@ -109,32 +112,45 @@ public final class FilesetManifest {
   private static void fullyResolveRelativeSymlinks(
       Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks, boolean absolute)
       throws IOException {
-    // Construct an in-memory Filesystem containing all the non-relative-symlink entries in the
-    // Fileset. Treat these as regular files in the filesystem whose contents are the "real" symlink
-    // pointing out of the Fileset. For relative symlinks, we encode these as symlinks in the
-    // in-memory Filesystem. This allows us to then crawl the filesystem for files. Any readable
-    // file is a valid part of the FilesetManifest. Dangling internal links or symlink cycles will
-    // be discovered by the in-memory filesystem.
-    // (Choice of digest function is irrelevant).
-    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    Path root = fs.getPath("/");
-    for (Map.Entry<PathFragment, String> e : entries.entrySet()) {
-      PathFragment location = e.getKey();
-      Path locationPath = root.getRelative(location);
-      locationPath.getParentDirectory().createDirectoryAndParents();
-      FileSystemUtils.writeContentAsLatin1(locationPath, Strings.nullToEmpty(e.getValue()));
-    }
-    for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
-      PathFragment location = e.getKey();
-      Path locationPath = fs.getPath("/").getRelative(location);
-      PathFragment value = PathFragment.create(Preconditions.checkNotNull(e.getValue(), e));
-      Preconditions.checkState(!value.isAbsolute(), e);
+    try {
+      // Construct an in-memory Filesystem containing all the non-relative-symlink entries in the
+      // Fileset. Treat these as regular files in the filesystem whose contents are the "real"
+      // symlink
+      // pointing out of the Fileset. For relative symlinks, we encode these as symlinks in the
+      // in-memory Filesystem. This allows us to then crawl the filesystem for files. Any readable
+      // file is a valid part of the FilesetManifest. Dangling internal links or symlink cycles will
+      // be discovered by the in-memory filesystem.
+      // (Choice of digest function is irrelevant).
+      InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+      Path root = fs.getPath("/");
+      for (Map.Entry<PathFragment, String> e : entries.entrySet()) {
+        PathFragment location = e.getKey();
+        Path locationPath = root.getRelative(location);
+        locationPath.getParentDirectory().createDirectoryAndParents();
+        FileSystemUtils.writeContentAsLatin1(locationPath, Strings.nullToEmpty(e.getValue()));
+      }
+      for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
+        PathFragment location = e.getKey();
+        Path locationPath = fs.getPath("/").getRelative(location);
+        PathFragment value = PathFragment.create(Preconditions.checkNotNull(e.getValue(), e));
+        Preconditions.checkState(!value.isAbsolute(), e);
 
-      locationPath.getParentDirectory().createDirectoryAndParents();
-      locationPath.createSymbolicLink(value);
-    }
+        locationPath.getParentDirectory().createDirectoryAndParents();
+        locationPath.createSymbolicLink(value);
+      }
 
-    addSymlinks(root, entries, absolute);
+      addSymlinks(root, entries, absolute);
+    } catch (IOException e) {
+      // TODO(janakr): make this crash hard if there are no bug reports.
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Unexpected IOException from InMemoryFileSystem operations for "
+                  + entries
+                  + " with "
+                  + relativeLinks,
+              e));
+      throw e;
+    }
   }
 
   private static void addSymlinks(Path root, Map<PathFragment, String> entries, boolean absolute)

@@ -37,6 +37,7 @@ public final class JavaRuntimeRule implements RuleDefinition {
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
+        .advertiseStarlarkProvider(JavaRuntimeInfo.PROVIDER.id())
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(srcs) -->
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

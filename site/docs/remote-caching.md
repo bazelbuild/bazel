@@ -309,9 +309,9 @@ checked in `.bazelrc` file.
 **Input file modification during a build**
 
 When an input file is modified during a build, Bazel might upload invalid
-results to the remote cache. We implemented a change detection that can be
-enabled via the `--experimental_guard_against_concurrent_changes` flag. There
-are no known issues and we expect to enable it by default in a future release.
+results to the remote cache. You can enable a change detection with
+the `--experimental_guard_against_concurrent_changes` flag. There
+are no known issues and it will be enabled by default in a future release.
 See [issue #3360] for updates. Generally, avoid modifying source files during a
 build.
 

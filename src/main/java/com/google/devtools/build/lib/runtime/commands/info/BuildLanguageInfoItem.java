@@ -119,8 +119,7 @@ public final class BuildLanguageInfoItem extends InfoItem {
       for (Map.Entry<?, ?> entry : ((Map<?, ?>) v).entrySet()) {
         b.addDictBuilder()
             .setKey(entry.getKey().toString())
-            .setValue(convertAttrValue(dictType.getValueType(), entry.getValue()))
-            .build();
+            .setValue(convertAttrValue(dictType.getValueType(), entry.getValue()));
       }
     } else if (v instanceof List) {
       for (Object elem : (List<?>) v) {

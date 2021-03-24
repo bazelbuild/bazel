@@ -248,7 +248,14 @@ public class CommandEnvironment {
     CoreOptions configOpts = options.getOptions(CoreOptions.class);
     if (configOpts != null) {
       for (Map.Entry<String, String> entry : configOpts.repositoryEnvironment) {
-        repoEnv.put(entry.getKey(), entry.getValue());
+        String name = entry.getKey();
+        String value = entry.getValue();
+        if (value == null) {
+          value = System.getenv(name);
+        }
+        if (value != null) {
+          repoEnv.put(name, value);
+        }
       }
     }
   }

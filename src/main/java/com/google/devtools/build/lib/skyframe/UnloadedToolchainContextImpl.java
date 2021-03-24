@@ -74,9 +74,4 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
   }
 
   protected abstract Builder toBuilder();
-
-  @Override
-  public UnloadedToolchainContext withoutResolvedToolchains() {
-    return this.toBuilder().setToolchainTypeToResolved(ImmutableSetMultimap.of()).build();
-  }
 }

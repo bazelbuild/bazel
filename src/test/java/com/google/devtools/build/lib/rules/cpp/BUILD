@@ -63,8 +63,6 @@ java_library(
     name = "CcImportBaseConfiguredTargetTest",
     srcs = ["CcImportBaseConfiguredTargetTest.java"],
     deps = [
-        ":StarlarkCcCommonTestHelper",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -75,11 +73,6 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
     ],
-)
-
-java_library(
-    name = "StarlarkCcCommonTestHelper",
-    srcs = ["StarlarkCcCommonTestHelper.java"],
 )
 
 java_test(
@@ -661,7 +654,6 @@ java_test(
     srcs = ["StarlarkCcCommonTest.java"],
     shard_count = 4,
     deps = [
-        ":StarlarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

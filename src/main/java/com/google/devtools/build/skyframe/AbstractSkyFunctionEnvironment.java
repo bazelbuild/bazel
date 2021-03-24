@@ -21,7 +21,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.flogger.StackSize;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.util.GroupedList;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -332,7 +331,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
                 && (exceptionClass5 == null || !exceptionClass5.isInstance(e)))) {
           valuesMissing = true;
           // TODO(b/166268889): Remove when debugged.
-          if (e instanceof IOException && !(e instanceof FileNotFoundException)) {
+          if (e instanceof IOException) {
             logger.atInfo().withStackTrace(StackSize.SMALL).withCause(e).log(
                 "IOException suppressed by lack of Skyframe declaration (%s %s %s %s %s)",
                 exceptionClass1,

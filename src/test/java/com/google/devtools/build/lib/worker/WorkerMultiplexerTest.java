@@ -49,7 +49,7 @@ public class WorkerMultiplexerTest {
   public void setUp() throws IOException {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     logPath = fileSystem.getPath("/tmp/logs4");
-    fileSystem.createDirectoryAndParents(logPath);
+    logPath.createDirectoryAndParents();
   }
 
   @Test

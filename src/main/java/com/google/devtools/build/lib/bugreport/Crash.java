@@ -33,9 +33,19 @@ public final class Crash {
   }
 
   /** Creates a crash caused by the given {@link Throwable} with a specified {@link ExitCode}. */
+  // TODO(b/183140185): All callers should pass a DetailedExitCode. By passing just the plain
+  // ExitCode, crashes are assigned the generic CRASH_UNKNOWN.
   public static Crash from(Throwable throwable, ExitCode exitCode) {
     return new Crash(
         throwable, DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)));
+  }
+
+  /**
+   * Creates a crash caused by the given {@link Throwable} with a specified {@link
+   * DetailedExitCode}.
+   */
+  public static Crash from(Throwable throwable, DetailedExitCode detailedExitCode) {
+    return new Crash(throwable, detailedExitCode);
   }
 
   private final Throwable throwable;

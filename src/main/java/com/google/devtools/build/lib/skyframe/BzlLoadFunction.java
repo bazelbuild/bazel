@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsF
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -677,24 +676,33 @@ public class BzlLoadFunction implements SkyFunction {
       throw new IllegalStateException("Requested builtins root, but injection is disabled");
     }
 
-    Path path;
+    // TODO(#11437): For the non-bundled case, should we consider interning the Root rather than
+    // constructing a new one each time?
+    Root root;
     if (builtinsBzlPath.equals("%bundled%")) {
       // May be null in tests, but in that case the builtins path shouldn't be set to %bundled%.
-      path =
+      root =
           Preconditions.checkNotNull(
-              packageFactory.getRuleClassProvider().getBuiltinsBzlRoot(),
+              packageFactory.getRuleClassProvider().getBundledBuiltinsRoot(),
               "rule class provider does not specify a builtins root; either call"
                   + " setBuiltinsBzlZipResource() or else set --experimental_builtins_bzl_path to"
                   + " a root");
     } else if (builtinsBzlPath.equals("%workspace%")) {
       String packagePath =
-          packageFactory.getRuleClassProvider().getBuiltinsBzlPackagePathInSource();
-      path = directories.getWorkspace().getRelative(packagePath);
+          Preconditions.checkNotNull(
+              packageFactory.getRuleClassProvider().getBuiltinsBzlPackagePathInSource(),
+              "rule class provider does not specify a canonical package path to a builtins root;"
+                  + " either call setBuiltinsBzlPackagePathInSource() or else do not set"
+                  + "--experimental_builtins_bzl_path to %workspace%");
+      // TODO(brandjon): Here we return a root that is underneath a package root. Since the root is
+      // itself not a package root, we don't get the benefit of any special DiffAwareness handling.
+      // This case probably isn't important since it doesn't occur in production Bazel, but
+      // presumably we might be able to add a special DiffAwareness for it if we wanted.
+      root = Root.fromPath(directories.getWorkspace().getRelative(packagePath));
     } else {
-      path = directories.getWorkspace().getRelative(builtinsBzlPath);
+      root = Root.fromPath(directories.getWorkspace().getRelative(builtinsBzlPath));
     }
-    // TODO(#11437): Should we consider interning these roots?
-    return Root.fromPath(path);
+    return root;
   }
 
   /**
@@ -797,6 +805,15 @@ public class BzlLoadFunction implements SkyFunction {
 
   private static ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
       BzlLoadValue.Key key, Environment env) throws InterruptedException {
+    if (key.isBuiltins()) {
+      // Builtins .bzls never have a repo mapping defined for them, so return without requesting a
+      // RepositoryMappingValue. (NB: In addition to being a slight optimization, this avoids
+      // adding a reverse dependency on the special //external package, which helps avoid tickling
+      // some peculiarities of the Google-internal Skyframe implementation; see b/182293526 for
+      // details.)
+      return ImmutableMap.of();
+    }
+
     Label enclosingFileLabel = key.getLabel();
 
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;

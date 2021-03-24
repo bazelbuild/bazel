@@ -170,7 +170,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.REPOSITORY_DIRECTORY, delegatorFunction)
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null, null))
+                    new PackageFunction(null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -185,7 +185,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         pkgFactory,
                         directories,
                         /*bzlLoadFunctionForInlining=*/ null))
-                .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
                 .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
                     new LocalRepositoryLookupFunction(

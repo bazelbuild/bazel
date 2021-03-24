@@ -179,7 +179,6 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              defaultValue = "None",
               doc =
                   "A jar that is added as the compile-time dependency in lieu of "
                       + "<code>output_jar</code>. Typically this is the ijar produced by "
@@ -188,7 +187,10 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                       + "If you cannot use ijar, consider instead using the output of "
                       + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
                       + "stamp_ijar</a></code>. If you do not wish to use either, "
-                      + "you can simply pass <code>output_jar</code>."),
+                      + "you can simply pass <code>output_jar</code>. "
+                      + "There are a couple of special cases when this parameter may be set to "
+                      + "<code>None</code>, for example adding a jar with resources or when used in"
+                      + " a terminal rule like <code>java_binary</code>."),
           @Param(
               name = "source_jar",
               allowedTypes = {

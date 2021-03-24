@@ -25,7 +25,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -39,6 +38,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,12 +51,13 @@ import org.mockito.ArgumentMatchers;
 @RunWith(JUnit4.class)
 public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCase {
 
-  private Executor executor;
   private ActionExecutionContext executionContext;
   private AnalysisTestUtil.CollectingAnalysisEnvironment collectingAnalysisEnvironment;
   private NestedSet<Artifact> starlarkActionInputs;
   private NestedSet<Artifact> shadowedActionInputs;
   private NestedSet<Artifact> discoveredInputs;
+  private Map<String, String> starlarkActionEnvironment;
+  private Map<String, String> shadowedActionEnvironment;
 
   private Artifact output;
   private PathFragment executable;
@@ -84,12 +86,22 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             getSourceArtifact("pkg/discovered_inp3"));
     output = getBinArtifactWithNoOwner("output");
     executable = scratch.file("/bin/xxx").asFragment();
+    starlarkActionEnvironment =
+        ImmutableMap.of(
+            "repeated_var", "starlark_val",
+            "a_var", "a_val",
+            "b_var", "b_val");
+    shadowedActionEnvironment =
+        ImmutableMap.of(
+            "repeated_var", "shadowed_val",
+            "c_var", "c_val",
+            "d_var", "d_val");
   }
 
   @Before
   public final void createExecutorAndContext() throws Exception {
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     executionContext =
         new ActionExecutionContext(
             executor,
@@ -294,10 +306,66 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
                 .toArray());
   }
 
+  @Test
+  public void testPassingShadowedActionEnvironment() throws Exception {
+    // Test using Starlark action's environment without using a shadowed action
+    Action[] actions =
+        new StarlarkAction.Builder()
+            .setExecutable(executable)
+            .addInput(starlarkActionInputs.toList().get(0))
+            .addOutput(output)
+            .setEnvironment(starlarkActionEnvironment)
+            .build(NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    StarlarkAction starlarkAction = (StarlarkAction) actions[0];
+
+    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of()))
+        .containsExactlyEntriesIn(starlarkActionEnvironment);
+
+    // Test using shadowed action's environment without Starlark actions's environment
+    Action shadowedAction =
+        createShadowedAction(
+            shadowedActionInputs, /*discoversInputs=*/ false, /*discoveredInputs=*/ null);
+    actions =
+        new StarlarkAction.Builder()
+            .setShadowedAction(Optional.of(shadowedAction))
+            .setExecutable(executable)
+            .addInput(starlarkActionInputs.toList().get(0))
+            .addOutput(output)
+            .build(NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    starlarkAction = (StarlarkAction) actions[0];
+
+    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of()))
+        .containsExactlyEntriesIn(shadowedActionEnvironment);
+
+    // Test using Starlark actions's environment with shadowed action's environment
+    actions =
+        new StarlarkAction.Builder()
+            .setShadowedAction(Optional.of(shadowedAction))
+            .setExecutable(executable)
+            .addInput(starlarkActionInputs.toList().get(0))
+            .addOutput(output)
+            .setEnvironment(starlarkActionEnvironment)
+            .build(NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    starlarkAction = (StarlarkAction) actions[0];
+
+    LinkedHashMap<String, String> expectedEnvironment = new LinkedHashMap<>();
+    expectedEnvironment.putAll(shadowedActionEnvironment);
+    expectedEnvironment.putAll(starlarkActionEnvironment);
+
+    ImmutableMap<String, String> actualEnvironment =
+        starlarkAction.getEffectiveEnvironment(ImmutableMap.of());
+    assertThat(actualEnvironment).hasSize(5);
+    // Starlark action's env overwrites any repeated variable from the shadowed action env
+    assertThat(actualEnvironment).containsEntry("repeated_var", "starlark_val");
+    assertThat(actualEnvironment).containsExactlyEntriesIn(expectedEnvironment);
+  }
+
   private Action createShadowedAction(
       NestedSet<Artifact> inputs, boolean discoversInputs, NestedSet<Artifact> discoveredInputs)
-      throws ActionExecutionException, InterruptedException {
-
+      throws Exception {
     Action shadowedAction = mock(Action.class);
     when(shadowedAction.discoversInputs()).thenReturn(discoversInputs);
     when(shadowedAction.getInputs()).thenReturn(inputs);
@@ -307,6 +375,8 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
         .thenReturn(discoveredInputs);
     when(shadowedAction.inputsDiscovered()).thenReturn(true);
     when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
+    when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap()))
+        .thenReturn(ImmutableMap.copyOf(shadowedActionEnvironment));
 
     return shadowedAction;
   }

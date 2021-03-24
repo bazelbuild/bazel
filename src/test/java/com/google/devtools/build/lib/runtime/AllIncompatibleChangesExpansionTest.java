@@ -207,10 +207,10 @@ public class AllIncompatibleChangesExpansionTest {
     // Check that all-expansion behaves just like any other expansion flag and can be filtered
     // by invocation policy.
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder.addFlagPoliciesBuilder()
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
         .setFlagName("incompatible_A")
-        .setUseDefault(UseDefault.getDefaultInstance())
-        .build();
+        .setUseDefault(UseDefault.getDefaultInstance());
     InvocationPolicy policy = invocationPolicyBuilder.build();
     InvocationPolicyEnforcer enforcer = new InvocationPolicyEnforcer(policy);
 

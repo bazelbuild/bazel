@@ -102,10 +102,7 @@ public final class BlazeDirectories {
     return serverDirectories;
   }
 
-  /**
-   * Returns the base of the output tree, which hosts all build and scratch output for a user and
-   * workspace.
-   */
+  /** Returns the installation base directory. */
   public Path getInstallBase() {
     return serverDirectories.getInstallBase();
   }

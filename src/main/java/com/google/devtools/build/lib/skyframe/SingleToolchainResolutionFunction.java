@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -79,7 +80,10 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     }
 
     // Find the right one.
-    boolean debug = configuration.getOptions().get(PlatformOptions.class).toolchainResolutionDebug;
+    boolean debug =
+        configuration
+            .getFragment(PlatformConfiguration.class)
+            .debugToolchainResolution(key.toolchainTypeLabel());
     return resolveConstraints(
         key.toolchainTypeLabel(),
         key.availableExecutionPlatformKeys(),
@@ -133,12 +137,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     ImmutableMap.Builder<ConfiguredTargetKey, Label> builder = ImmutableMap.builder();
     ToolchainTypeInfo toolchainType = null;
 
-    for (DeclaredToolchainInfo toolchain : toolchains) {
-      // Make sure the type matches.
-      if (!toolchain.toolchainType().typeLabel().equals(toolchainTypeLabel)) {
-        continue;
-      }
+    // Pre-filter for the correct toolchain type. This simplifies the loop and makes debugging
+    // toolchain resolution much, much easier.
+    ImmutableList<DeclaredToolchainInfo> filteredToolchains =
+        toolchains.stream()
+            .filter(toolchain -> toolchain.toolchainType().typeLabel().equals(toolchainTypeLabel))
+            .collect(toImmutableList());
 
+    for (DeclaredToolchainInfo toolchain : filteredToolchains) {
       // Make sure the target setting matches.
       if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
         String mismatchValues =

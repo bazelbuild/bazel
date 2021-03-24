@@ -70,7 +70,7 @@ public final class StableSortTest {
       List<String> inputs, List<String> outputs) {
     SpawnExec.Builder e = SpawnExec.newBuilder();
     for (String output : outputs) {
-      e.addActualOutputsBuilder().setPath(output).build();
+      e.addActualOutputsBuilder().setPath(output);
       e.addListedOutputs(output);
     }
     for (String s : inputs) {

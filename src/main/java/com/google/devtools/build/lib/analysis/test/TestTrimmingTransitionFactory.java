@@ -25,9 +25,8 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.common.options.Options;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 /**
  * Trimming transition factory which removes the test config fragment when entering a non-test rule.
@@ -71,11 +70,10 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
           originalOptions,
           // The transition uses no non-BuildOptions arguments
           0,
-          () -> {
-            return originalOptions.underlying().toBuilder()
-                .removeFragmentOptions(TestOptions.class)
-                .build();
-          });
+          () ->
+              originalOptions.underlying().toBuilder()
+                  .removeFragmentOptions(TestOptions.class)
+                  .build());
     }
   }
 
@@ -83,18 +81,19 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
   public PatchTransition create(Rule rule) {
     RuleClass ruleClass = rule.getRuleClassObject();
     if (ruleClass
-        .getConfigurationFragmentPolicy()
-        .isLegalConfigurationFragment(TestConfiguration.class)) {
-      // Test rule; no need to trim here.
+            .getConfigurationFragmentPolicy()
+            .isLegalConfigurationFragment(TestConfiguration.class)
+        || TargetUtils.isAlias(rule)) {
+      // If Test rule, no need to trim here.
+      // If Alias rule, might point to test rule so don't trim yet.
       return NoTransition.INSTANCE;
     }
 
-    Set<String> referencedTestOptions =
-        new LinkedHashSet<>(ruleClass.getOptionReferenceFunction().apply(rule));
-    referencedTestOptions.retainAll(TEST_OPTIONS);
-    if (!referencedTestOptions.isEmpty()) {
-      // Test-option-referencing config_setting; no need to trim here.
-      return NoTransition.INSTANCE;
+    for (String referencedOptions : ruleClass.getOptionReferenceFunction().apply(rule)) {
+      if (TEST_OPTIONS.contains(referencedOptions)) {
+        // Test-option-referencing config_setting; no need to trim here.
+        return NoTransition.INSTANCE;
+      }
     }
 
     // Non-test rule. Trim it!

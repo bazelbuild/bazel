@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkReposit
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -205,7 +204,7 @@ public class StarlarkRepositoryContext
       PathFragment pathFragment = PathFragment.create(path.toString());
       return new StarlarkPath(
           pathFragment.isAbsolute()
-              ? outputDirectory.getFileSystem().getPath(path.toString())
+              ? outputDirectory.getFileSystem().getPath(pathFragment)
               : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
       return getPathFromLabel((Label) path);
@@ -616,9 +615,8 @@ public class StarlarkRepositoryContext
     env.getListener().post(w);
     try {
       Path path = starlarkPath.getPath();
-      FileSystem fileSystem = path.getFileSystem();
-      fileSystem.deleteTreesBelow(path);
-      return fileSystem.delete(path);
+      path.deleteTreesBelow();
+      return path.delete();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

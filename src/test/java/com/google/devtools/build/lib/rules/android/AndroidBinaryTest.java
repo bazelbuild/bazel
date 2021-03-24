@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -95,7 +94,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     @Override
     protected String defaultPlatformFlag() {
-      return String.format("--android_platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
+      return String.format(
+          "--android_platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
     }
   }
 
@@ -4500,13 +4500,16 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void androidManifestMergerOrderAlphabetical_MergeesSortedByExecPath() throws Exception {
-    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
-    // This is necessary because the transition would change the configuration directory, causing
-    // the manifest paths in the assertion not to match.
-    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
-    // them.
-    useConfiguration(
-        "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=alphabetical");
+    useConfiguration("--android_manifest_merger_order=alphabetical");
+    /*
+     * Dependency hierarchy:
+     * - //java/binary:application
+     *   - //java/binary:library
+     *     - //java/common:theme
+     *     - //java/android:utility
+     *       - //java/common:common
+     *         - //java/android:core
+     */
     scratch.overwriteFile(
         "java/android/BUILD",
         "android_library(",
@@ -4551,22 +4554,23 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    exports_manifest = 1,",
         "    resource_files = ['theme/res/values/values.xml'],",
         ")");
-    ConfiguredTarget application = getConfiguredTarget("//java/binary:application");
-    BuildConfiguration appConfiguration = getConfiguration(application);
-    Artifact androidCoreManifest =
-        getLibraryManifest(getConfiguredTarget("//java/android:core", appConfiguration));
-    Artifact androidUtilityManifest =
-        getLibraryManifest(getConfiguredTarget("//java/android:utility", appConfiguration));
-    Artifact binaryLibraryManifest =
-        getLibraryManifest(getConfiguredTarget("//java/binary:library", appConfiguration));
-    Artifact commonManifest =
-        getLibraryManifest(getConfiguredTarget("//java/common:common", appConfiguration));
-    Artifact commonThemeManifest =
-        getLibraryManifest(getConfiguredTarget("//java/common:theme", appConfiguration));
 
-    assertThat(
-            getBinaryMergeeManifests(
-                getConfiguredTarget("//java/binary:application", appConfiguration)))
+    // These have to be found via the same inheritance hierarchy, because getDirectPrerequsite can
+    // only traverse one level.
+    ConfiguredTarget application = getConfiguredTarget("//java/binary:application");
+    ConfiguredTarget library = getDirectPrerequisite(application, "//java/binary:library");
+    ConfiguredTarget theme = getDirectPrerequisite(library, "//java/common:theme");
+    ConfiguredTarget utility = getDirectPrerequisite(library, "//java/android:utility");
+    ConfiguredTarget common = getDirectPrerequisite(utility, "//java/common:common");
+    ConfiguredTarget core = getDirectPrerequisite(common, "//java/android:core");
+
+    Artifact androidCoreManifest = getLibraryManifest(core);
+    Artifact androidUtilityManifest = getLibraryManifest(utility);
+    Artifact binaryLibraryManifest = getLibraryManifest(library);
+    Artifact commonManifest = getLibraryManifest(common);
+    Artifact commonThemeManifest = getLibraryManifest(theme);
+
+    assertThat(getBinaryMergeeManifests(application))
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 androidCoreManifest.getExecPath().toString(), "//java/android:core",
@@ -4580,14 +4584,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void androidManifestMergerOrderAlphabeticalByConfiguration_MergeesSortedByPathInBinOrGen()
       throws Exception {
-    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
-    // This is necessary because the transition would change the configuration directory, causing
-    // the manifest paths in the assertion not to match.
-    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
-    // them.
     useConfiguration(
-        "--fat_apk_cpu=",
-        "--android_cpu=",
         "--android_manifest_merger_order=alphabetical_by_configuration");
     scratch.overwriteFile(
         "java/android/BUILD",

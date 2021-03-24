@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.io;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
@@ -26,9 +26,8 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class FileSymlinkCycleUniquenessFunctionTest {
-
   @Test
-  public void testHashCodeAndEqualsContract() throws Exception {
+  public void testHashCodeAndEqualsContract() {
     Root root = Root.fromPath(new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/root"));
     RootedPath p1 = RootedPath.toRootedPath(root, PathFragment.create("p1"));
     RootedPath p2 = RootedPath.toRootedPath(root, PathFragment.create("p2"));

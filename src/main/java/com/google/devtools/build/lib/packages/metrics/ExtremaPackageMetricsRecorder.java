@@ -49,6 +49,9 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   @GuardedBy("this")
   private final Extrema<PackageMetricsContainer> packagesWithMostComputationSteps;
 
+  @GuardedBy("this")
+  private final Extrema<PackageMetricsContainer> packagesWithMostOverhead;
+
   ExtremaPackageMetricsRecorder(int currentNumPackagesToTrack) {
     Preconditions.checkArgument(currentNumPackagesToTrack >= 0, "num packages must be >= 0");
     this.currentNumPackagesToTrack = currentNumPackagesToTrack;
@@ -60,6 +63,8 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
         Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.TRANSITIVE_LOADS_COMP);
     this.packagesWithMostComputationSteps =
         Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.COMPUTATION_STEPS_COMP);
+    this.packagesWithMostOverhead =
+        Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.OVERHEAD_COMP);
   }
 
   public int getNumPackageToTrack() {
@@ -73,6 +78,9 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
     packagesWithMostComputationSteps.aggregate(cont);
     largestPackages.aggregate(cont);
     packagesWithMostTransitiveLoads.aggregate(cont);
+    if (metrics.hasPackageOverhead()) {
+      packagesWithMostOverhead.aggregate(cont);
+    }
   }
 
   @Override
@@ -101,6 +109,11 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
     return toMap(packagesWithMostTransitiveLoads, PackageMetrics::getNumTransitiveLoads);
   }
 
+  @Override
+  public synchronized Map<PackageIdentifier, Long> getPackageOverhead() {
+    return toMap(packagesWithMostOverhead, PackageMetrics::getPackageOverhead);
+  }
+
   private synchronized Map<PackageIdentifier, Long> toMap(
       Extrema<PackageMetricsContainer> ext, Function<PackageMetrics, Long> fn) {
 
@@ -119,6 +132,7 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
     packagesWithMostComputationSteps.clear();
     largestPackages.clear();
     packagesWithMostTransitiveLoads.clear();
+    packagesWithMostOverhead.clear();
   }
 
   @Override
@@ -139,6 +153,10 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
         "Packages with most transitive loads (num bzl files)",
         packagesWithMostTransitiveLoads.getExtremeElements(),
         c -> c.getPackageMetricsInternal().getNumTransitiveLoads());
+    logIfNonEmpty(
+        "Packages with most overhead",
+        packagesWithMostOverhead.getExtremeElements(),
+        c -> c.getPackageMetricsInternal().getPackageOverhead());
     clear();
   }
 
@@ -153,7 +171,8 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
             slowestPackagesToLoad.getExtremeElements().stream(),
             packagesWithMostComputationSteps.getExtremeElements().stream(),
             largestPackages.getExtremeElements().stream(),
-            packagesWithMostTransitiveLoads.getExtremeElements().stream())
+            packagesWithMostTransitiveLoads.getExtremeElements().stream(),
+            packagesWithMostOverhead.getExtremeElements().stream())
         .map(c -> c.getPackageMetrics())
         .collect(toImmutableSet());
   }

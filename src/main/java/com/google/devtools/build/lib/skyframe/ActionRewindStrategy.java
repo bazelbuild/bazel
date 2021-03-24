@@ -23,6 +23,7 @@ import static java.util.Comparator.comparing;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,7 +33,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.GraphBuilder;
@@ -128,14 +128,17 @@ public class ActionRewindStrategy {
     ImmutableList.Builder<Action> additionalActionsToRestart = ImmutableList.builder();
 
     // With NSOS, not all input artifacts' keys are direct deps of the action. This maps input
-    // artifact keys to their containing direct dep ArtifactNestedSetKey(s).
-    Multimap<SkyKey, ArtifactNestedSetKey> nestedSetKeys = expandNestedSetKeys(failedActionDeps);
+    // artifacts to their containing direct dep ArtifactNestedSetKey(s).
+    Multimap<Artifact, ArtifactNestedSetKey> nestedSetKeys = expandNestedSetKeys(failedActionDeps);
 
     Set<DerivedArtifact> lostArtifacts =
         getLostInputOwningDirectDeps(
             lostInputs,
             inputDepOwners,
-            Sets.union(failedActionDeps, nestedSetKeys.keySet()),
+            ImmutableSet.<SkyKey>builder()
+                .addAll(failedActionDeps)
+                .addAll(Collections2.transform(nestedSetKeys.keySet(), Artifact::key))
+                .build(),
             failedAction,
             lostInputsException);
 
@@ -151,7 +154,7 @@ public class ActionRewindStrategy {
       ImmutableList<ActionAndLookupData> newlyVisitedActions =
           addArtifactDepsAndGetNewlyVisitedActions(rewindGraph, lostArtifact, actionMap);
 
-      for (ArtifactNestedSetKey nestedSetKey : nestedSetKeys.get(artifactKey)) {
+      for (ArtifactNestedSetKey nestedSetKey : nestedSetKeys.get(lostArtifact)) {
         addNestedSetToRewindGraph(
             rewindGraph, actionLookupData, lostArtifact, artifactKey, nestedSetKey);
       }
@@ -693,23 +696,23 @@ public class ActionRewindStrategy {
   }
 
   /**
-   * Constructs a mapping from input artifact key to all direct dep {@link ArtifactNestedSetKey}s
-   * whose {@linkplain ArtifactNestedSetKey#getSet set} transitively contains the artifact.
+   * Constructs a mapping from input artifact to all direct dep {@link ArtifactNestedSetKey}s whose
+   * {@linkplain ArtifactNestedSetKey#getSet set} transitively contains the artifact.
    *
-   * <p>More formally, a key-value pair {@code (SkyKey k=Artifact.key(a), ArtifactNestedSetKey v)}
-   * is present in the returned map iff {@code deps.contains(v) && v.getSet().toList().contains(a)}.
+   * <p>More formally, a key-value pair {@code (Artifact k, ArtifactNestedSetKey v)} is present in
+   * the returned map iff {@code deps.contains(v) && v.getSet().toList().contains(k)}.
    *
    * <p>When {@link ActionExecutionFunction} requests input deps, it unwraps a single layer of
    * {@linkplain Action#getInputs the action's inputs}, thus requesting an {@link
    * ArtifactNestedSetKey} for each of {@code action.getInputs().getNonLeaves()}.
    */
-  private static Multimap<SkyKey, ArtifactNestedSetKey> expandNestedSetKeys(Set<SkyKey> deps) {
-    Multimap<SkyKey, ArtifactNestedSetKey> map =
+  private static Multimap<Artifact, ArtifactNestedSetKey> expandNestedSetKeys(Set<SkyKey> deps) {
+    Multimap<Artifact, ArtifactNestedSetKey> map =
         MultimapBuilder.hashKeys().arrayListValues().build();
     for (ArtifactNestedSetKey key : Iterables.filter(deps, ArtifactNestedSetKey.class)) {
-      key.getSet().toList().stream()
-          .map(Artifact::key)
-          .forEach(artifactKey -> map.put(artifactKey, key));
+      for (Artifact artifact : key.getSet().toList()) {
+        map.put(artifact, key);
+      }
     }
     return map;
   }

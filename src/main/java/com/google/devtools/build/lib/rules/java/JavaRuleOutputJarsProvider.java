@@ -46,13 +46,13 @@ public final class JavaRuleOutputJarsProvider
   @Immutable
   @AutoCodec
   public static class OutputJar implements OutputJarApi<Artifact> {
-    @Nullable private final Artifact classJar;
+    private final Artifact classJar;
     @Nullable private final Artifact iJar;
     @Nullable private final Artifact manifestProto;
     @Nullable private final ImmutableList<Artifact> srcJars;
 
     public OutputJar(
-        @Nullable Artifact classJar,
+        Artifact classJar,
         @Nullable Artifact iJar,
         @Nullable Artifact manifestProto,
         @Nullable Iterable<Artifact> srcJars) {
@@ -67,7 +67,6 @@ public final class JavaRuleOutputJarsProvider
       return true; // immutable and Starlark-hashable
     }
 
-    @Nullable
     @Override
     public Artifact getClassJar() {
       return classJar;
@@ -181,11 +180,11 @@ public final class JavaRuleOutputJarsProvider
     private Artifact nativeHeaders;
 
     public Builder addOutputJar(
-        @Nullable Artifact classJar,
+        Artifact classJar,
         @Nullable Artifact iJar,
         @Nullable Artifact manifestProto,
         @Nullable ImmutableList<Artifact> sourceJars) {
-      Preconditions.checkState(classJar != null || iJar != null || !sourceJars.isEmpty());
+      Preconditions.checkState(classJar != null);
       outputJars.add(new OutputJar(classJar, iJar, manifestProto, sourceJars));
       return this;
     }

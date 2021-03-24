@@ -27,7 +27,7 @@ import java.util.Collection;
  * <p>This is helpful when wanting to implement a file system on top of another file system as it
  * allows code patterns like: <code>
  * {@literal @}Override
- * protected long getFileSize(Path path, boolean followSymlinks) throws IOException {
+ * protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
  *   if (!someCondition) {
  *     return super.getFileSize(path, followSymlinks);
  *   }
@@ -37,7 +37,7 @@ import java.util.Collection;
  */
 public abstract class DelegateFileSystem extends FileSystem {
 
-  private final FileSystem delegateFs;
+  protected final FileSystem delegateFs;
 
   public DelegateFileSystem(FileSystem delegateFs) {
     super(Preconditions.checkNotNull(delegateFs, "delegateFs").getDigestFunction());
@@ -45,18 +45,18 @@ public abstract class DelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean supportsModifications(Path path) {
-    return delegateFs.supportsModifications(toDelegatePath(path));
+  public boolean supportsModifications(PathFragment path) {
+    return delegateFs.supportsModifications(path);
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively(Path path) {
-    return delegateFs.supportsSymbolicLinksNatively(toDelegatePath(path));
+  public boolean supportsSymbolicLinksNatively(PathFragment path) {
+    return delegateFs.supportsSymbolicLinksNatively(path);
   }
 
   @Override
-  protected boolean supportsHardLinksNatively(Path path) {
-    return delegateFs.supportsHardLinksNatively(toDelegatePath(path));
+  protected boolean supportsHardLinksNatively(PathFragment path) {
+    return delegateFs.supportsHardLinksNatively(path);
   }
 
   @Override
@@ -65,222 +65,217 @@ public abstract class DelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean createDirectory(Path path) throws IOException {
-    return delegateFs.createDirectory(toDelegatePath(path));
+  public boolean createDirectory(PathFragment path) throws IOException {
+    return delegateFs.createDirectory(path);
   }
 
   @Override
-  public void createDirectoryAndParents(Path path) throws IOException {
-    delegateFs.createDirectoryAndParents(toDelegatePath(path));
+  public void createDirectoryAndParents(PathFragment path) throws IOException {
+    delegateFs.createDirectoryAndParents(path);
   }
 
   @Override
-  protected long getFileSize(Path path, boolean followSymlinks) throws IOException {
-    return delegateFs.getFileSize(toDelegatePath(path), followSymlinks);
+  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+    return delegateFs.getFileSize(path, followSymlinks);
   }
 
   @Override
-  public boolean delete(Path path) throws IOException {
-    return delegateFs.delete(toDelegatePath(path));
+  protected boolean delete(PathFragment path) throws IOException {
+    return delegateFs.delete(path);
   }
 
   @Override
-  protected long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException {
-    return delegateFs.getLastModifiedTime(toDelegatePath(path), followSymlinks);
+  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+    return delegateFs.getLastModifiedTime(path, followSymlinks);
   }
 
   @Override
-  public void setLastModifiedTime(Path path, long newTime) throws IOException {
-    delegateFs.setLastModifiedTime(toDelegatePath(path), newTime);
+  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+    delegateFs.setLastModifiedTime(path, newTime);
   }
 
   @Override
-  protected boolean isSymbolicLink(Path path) {
-    return delegateFs.isSymbolicLink(toDelegatePath(path));
+  protected boolean isSymbolicLink(PathFragment path) {
+    return delegateFs.isSymbolicLink(path);
   }
 
   @Override
-  protected boolean isDirectory(Path path, boolean followSymlinks) {
-    return delegateFs.isDirectory(toDelegatePath(path), followSymlinks);
+  protected boolean isDirectory(PathFragment path, boolean followSymlinks) {
+    return delegateFs.isDirectory(path, followSymlinks);
   }
 
   @Override
-  protected boolean isFile(Path path, boolean followSymlinks) {
-    return delegateFs.isFile(toDelegatePath(path), followSymlinks);
+  protected boolean isFile(PathFragment path, boolean followSymlinks) {
+    return delegateFs.isFile(path, followSymlinks);
   }
 
   @Override
-  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
-    return delegateFs.isSpecialFile(toDelegatePath(path), followSymlinks);
+  protected boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+    return delegateFs.isSpecialFile(path, followSymlinks);
   }
 
   @Override
-  protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
-    delegateFs.createSymbolicLink(toDelegatePath(linkPath), targetFragment);
+  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+      throws IOException {
+    delegateFs.createSymbolicLink(linkPath, targetFragment);
   }
 
   @Override
-  protected PathFragment readSymbolicLink(Path path) throws IOException {
-    return delegateFs.readSymbolicLink(toDelegatePath(path));
+  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+    return delegateFs.readSymbolicLink(path);
   }
 
   @Override
-  protected boolean exists(Path path, boolean followSymlinks) {
-    return delegateFs.exists(toDelegatePath(path), followSymlinks);
+  protected boolean exists(PathFragment path, boolean followSymlinks) {
+    return delegateFs.exists(path, followSymlinks);
   }
 
   @Override
-  public boolean exists(Path path) {
-    return delegateFs.exists(toDelegatePath(path));
+  public boolean exists(PathFragment path) {
+    return delegateFs.exists(path);
   }
 
   @Override
-  protected Collection<String> getDirectoryEntries(Path path) throws IOException {
-    return delegateFs.getDirectoryEntries(toDelegatePath(path));
+  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+    return delegateFs.getDirectoryEntries(path);
   }
 
   @Override
-  protected boolean isReadable(Path path) throws IOException {
-    return delegateFs.isReadable(toDelegatePath(path));
+  protected boolean isReadable(PathFragment path) throws IOException {
+    return delegateFs.isReadable(path);
   }
 
   @Override
-  protected void setReadable(Path path, boolean readable) throws IOException {
-    delegateFs.setReadable(toDelegatePath(path), readable);
+  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+    delegateFs.setReadable(path, readable);
   }
 
   @Override
-  protected boolean isWritable(Path path) throws IOException {
-    return delegateFs.isWritable(toDelegatePath(path));
+  protected boolean isWritable(PathFragment path) throws IOException {
+    return delegateFs.isWritable(path);
   }
 
   @Override
-  public void setWritable(Path path, boolean writable) throws IOException {
-    delegateFs.setWritable(toDelegatePath(path), writable);
+  public void setWritable(PathFragment path, boolean writable) throws IOException {
+    delegateFs.setWritable(path, writable);
   }
 
   @Override
-  protected boolean isExecutable(Path path) throws IOException {
-    return delegateFs.isExecutable(toDelegatePath(path));
+  protected boolean isExecutable(PathFragment path) throws IOException {
+    return delegateFs.isExecutable(path);
   }
 
   @Override
-  protected void setExecutable(Path path, boolean executable) throws IOException {
-    delegateFs.setExecutable(toDelegatePath(path), executable);
+  protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+    delegateFs.setExecutable(path, executable);
   }
 
   @Override
-  protected InputStream getInputStream(Path path) throws IOException {
-    return delegateFs.getInputStream(toDelegatePath(path));
+  protected InputStream getInputStream(PathFragment path) throws IOException {
+    return delegateFs.getInputStream(path);
   }
 
   @Override
-  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
-    return delegateFs.createReadableByteChannel(toDelegatePath(path));
+  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
+    return delegateFs.createReadableByteChannel(path);
   }
 
   @Override
-  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
-    return delegateFs.getOutputStream(toDelegatePath(path), append);
+  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
+    return delegateFs.getOutputStream(path, append);
   }
 
   @Override
-  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
-    delegateFs.renameTo(toDelegatePath(sourcePath), toDelegatePath(targetPath));
+  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
+    delegateFs.renameTo(sourcePath, targetPath);
   }
 
   @Override
-  protected void createFSDependentHardLink(Path linkPath, Path originalPath) throws IOException {
-    delegateFs.createFSDependentHardLink(toDelegatePath(linkPath), toDelegatePath(originalPath));
+  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+      throws IOException {
+    delegateFs.createFSDependentHardLink(linkPath, originalPath);
   }
 
   @Override
-  public String getFileSystemType(Path path) {
-    return delegateFs.getFileSystemType(toDelegatePath(path));
+  public String getFileSystemType(PathFragment path) {
+    return delegateFs.getFileSystemType(path);
   }
 
   @Override
-  public void deleteTree(Path path) throws IOException {
-    delegateFs.deleteTree(toDelegatePath(path));
+  protected void deleteTree(PathFragment path) throws IOException {
+    delegateFs.deleteTree(path);
   }
 
   @Override
-  public void deleteTreesBelow(Path dir) throws IOException {
-    delegateFs.deleteTreesBelow(toDelegatePath(dir));
+  protected void deleteTreesBelow(PathFragment dir) throws IOException {
+    delegateFs.deleteTreesBelow(dir);
   }
 
   @Override
-  public byte[] getxattr(Path path, String name, boolean followSymlinks) throws IOException {
-    return delegateFs.getxattr(toDelegatePath(path), name, followSymlinks);
+  public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
+      throws IOException {
+    return delegateFs.getxattr(path, name, followSymlinks);
   }
 
   @Override
-  protected byte[] getFastDigest(Path path) throws IOException {
-    return delegateFs.getFastDigest(toDelegatePath(path));
+  protected byte[] getFastDigest(PathFragment path) throws IOException {
+    return delegateFs.getFastDigest(path);
   }
 
   @Override
-  protected byte[] getDigest(Path path) throws IOException {
-    return delegateFs.getDigest(toDelegatePath(path));
+  protected byte[] getDigest(PathFragment path) throws IOException {
+    return delegateFs.getDigest(path);
   }
 
   @Override
-  protected PathFragment resolveOneLink(Path path) throws IOException {
-    return delegateFs.resolveOneLink(toDelegatePath(path));
+  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
+    return delegateFs.resolveOneLink(path);
   }
 
   @Override
-  protected Path resolveSymbolicLinks(Path path) throws IOException {
-    return fromDelegatePath(delegateFs.resolveSymbolicLinks(toDelegatePath(path)));
+  protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    return getPath(delegateFs.resolveSymbolicLinks(path).asFragment());
   }
 
   @Override
-  protected FileStatus stat(Path path, boolean followSymlinks) throws IOException {
-    return delegateFs.stat(toDelegatePath(path), followSymlinks);
+  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+    return delegateFs.stat(path, followSymlinks);
   }
 
   @Override
-  protected FileStatus statNullable(Path path, boolean followSymlinks) {
-    return delegateFs.statNullable(toDelegatePath(path), followSymlinks);
+  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+    return delegateFs.statNullable(path, followSymlinks);
   }
 
   @Override
-  protected FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
-    return delegateFs.statIfFound(toDelegatePath(path), followSymlinks);
+  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+    return delegateFs.statIfFound(path, followSymlinks);
   }
 
   @Override
-  protected PathFragment readSymbolicLinkUnchecked(Path path) throws IOException {
-    return delegateFs.readSymbolicLink(toDelegatePath(path));
+  protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
+    return delegateFs.readSymbolicLink(path);
   }
 
   @Override
-  protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
-    return delegateFs.readdir(toDelegatePath(path), followSymlinks);
+  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return delegateFs.readdir(path, followSymlinks);
   }
 
   @Override
-  protected void chmod(Path path, int mode) throws IOException {
-    delegateFs.chmod(toDelegatePath(path), mode);
+  protected void chmod(PathFragment path, int mode) throws IOException {
+    delegateFs.chmod(path, mode);
   }
 
   @Override
-  protected void createHardLink(Path linkPath, Path originalPath) throws IOException {
-    delegateFs.createHardLink(toDelegatePath(linkPath), toDelegatePath(originalPath));
+  protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
+      throws IOException {
+    delegateFs.createHardLink(linkPath, originalPath);
   }
 
   @Override
-  protected void prefetchPackageAsync(Path path, int maxDirs) {
-    delegateFs.prefetchPackageAsync(toDelegatePath(path), maxDirs);
-  }
-
-  protected final Path toDelegatePath(Path path) {
-    Preconditions.checkArgument(path.getFileSystem() == this);
-    return Path.create(path.getPathString(), delegateFs);
-  }
-
-  protected final Path fromDelegatePath(Path delegatePath) {
-    Preconditions.checkArgument(delegatePath.getFileSystem() == delegateFs);
-    return Path.create(delegatePath.getPathString(), this);
+  protected void prefetchPackageAsync(PathFragment path, int maxDirs) {
+    delegateFs.prefetchPackageAsync(path, maxDirs);
   }
 }

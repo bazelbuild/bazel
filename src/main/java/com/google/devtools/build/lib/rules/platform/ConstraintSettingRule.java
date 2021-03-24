@@ -30,7 +30,7 @@ public class ConstraintSettingRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .advertiseProvider(ConstraintSettingInfo.class)
+        .advertiseStarlarkProvider(ConstraintSettingInfo.PROVIDER.id())
         /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(default_constraint_value) -->
         The label of the default value for this setting, to be used if no value is given. If this
         attribute is present, the <code>constraint_value</code> it points to must be defined in the

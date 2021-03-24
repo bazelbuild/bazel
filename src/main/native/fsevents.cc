@@ -94,25 +94,25 @@ Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_create(
   FSEventStreamContext context;
   context.version = 0;
   context.info = static_cast<void *>(info);
-  context.retain = NULL;
-  context.release = NULL;
-  context.copyDescription = NULL;
+  context.retain = nullptr;
+  context.release = nullptr;
+  context.copyDescription = nullptr;
 
   // Create an CFArrayRef of CFStringRef from the Java array of String
   jsize length = env->GetArrayLength(paths);
   CFStringRef *pathsArray = new CFStringRef[length];
   for (int i = 0; i < length; i++) {
     jstring path = (jstring)env->GetObjectArrayElement(paths, i);
-    const char *pathCStr = env->GetStringUTFChars(path, NULL);
+    const char *pathCStr = env->GetStringUTFChars(path, nullptr);
     pathsArray[i] =
-        CFStringCreateWithCString(NULL, pathCStr, kCFStringEncodingUTF8);
+        CFStringCreateWithCString(nullptr, pathCStr, kCFStringEncodingUTF8);
     env->ReleaseStringUTFChars(path, pathCStr);
   }
   CFArrayRef pathsToWatch =
-      CFArrayCreate(NULL, (const void **)pathsArray, 1, NULL);
+      CFArrayCreate(nullptr, (const void **)pathsArray, 1, nullptr);
   delete[] pathsArray;
   info->stream = FSEventStreamCreate(
-      NULL, &FsEventsDiffAwarenessCallback, &context, pathsToWatch,
+      nullptr, &FsEventsDiffAwarenessCallback, &context, pathsToWatch,
       kFSEventStreamEventIdSinceNow, static_cast<CFAbsoluteTime>(latency),
       kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagFileEvents);
 
@@ -158,10 +158,10 @@ Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_poll(
 
   jobjectArray result;
   if (info->everything_changed) {
-    result = NULL;
+    result = nullptr;
   } else {
     jclass classString = env->FindClass("java/lang/String");
-    result = env->NewObjectArray(info->paths.size(), classString, NULL);
+    result = env->NewObjectArray(info->paths.size(), classString, nullptr);
     int i = 0;
     for (auto it = info->paths.begin(); it != info->paths.end(); it++, i++) {
       env->SetObjectArrayElement(result, i, env->NewStringUTF(it->c_str()));

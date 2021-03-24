@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
@@ -482,7 +483,8 @@ public final class AndroidRuleClasses {
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(AndroidConfiguration.Options.class, PlatformOptions.class);
+      return ImmutableSet.of(
+          AndroidConfiguration.Options.class, PlatformOptions.class, CppOptions.class);
     }
 
     @Override
@@ -496,6 +498,14 @@ public final class AndroidRuleClasses {
       BuildOptionsView newOptions = options.clone();
       PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
       newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+
+      // If we are using toolchain resolution for Android, also use it for CPP.
+      // This needs to be before the AndroidBinary is analyzed so that all native dependencies
+      // use the same configuration.
+      if (androidOptions.incompatibleUseToolchainResolution) {
+        newOptions.get(CppOptions.class).enableCcToolchainResolution = true;
+      }
+
       return newOptions.underlying();
     }
 

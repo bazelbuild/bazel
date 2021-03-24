@@ -665,13 +665,7 @@ Access to the value of a single branch of a 1:2+
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform](../platforms.html)
-
-## Also see
-
- * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
- * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
- * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples
+[target platform](../platforms.html).
 
 ## Memory and performance considerations
 
@@ -724,3 +718,11 @@ This makes the build graph exponentially larger than the target graph, with
 corresponding memory and performance consequences.
 
 TODO: Add strategies for measurement and mitigation of these issues.
+
+## Further reading
+
+For more details on modifying build configurations, see:
+
+ * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
+ * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
+ * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples

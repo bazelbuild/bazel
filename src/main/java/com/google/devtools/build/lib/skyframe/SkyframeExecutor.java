@@ -114,6 +114,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -495,9 +497,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
     map.put(FileStateValue.FILE_STATE, newFileStateFunction());
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE, newDirectoryListingStateFunction());
-    map.put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
+    map.put(FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     map.put(
-        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+        FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
     map.put(FileValue.FILE, new FileFunction(pkgLocator, nonexistentFileReceiver));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
@@ -554,8 +556,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             actionOnIOExceptionReadingBuildFile,
             tracksStateForIncrementality()
                 ? IncrementalityIntent.INCREMENTAL
-                : IncrementalityIntent.NON_INCREMENTAL,
-            externalPackageHelper));
+                : IncrementalityIntent.NON_INCREMENTAL));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
@@ -959,6 +960,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /** Whether this executor tracks state for the purpose of improving incremental performance. */
   public boolean tracksStateForIncrementality() {
     return true;
+  }
+
+  /**
+   * Whether this executor may reuse analysis phase nodes for the purpose of improving incremental
+   * performance.
+   *
+   * <p>This may diverge from {@link #tracksStateForIncrementality} in the case where only execution
+   * phase nodes are used for incrementality.
+   */
+  protected boolean isAnalysisIncremental() {
+    return tracksStateForIncrementality();
   }
 
   /**
@@ -1551,7 +1563,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, options, actionCacheChecker, topDownActionCache, outputService);
+          reporter,
+          executor,
+          options,
+          actionCacheChecker,
+          topDownActionCache,
+          outputService,
+          isAnalysisIncremental());
     }
 
     resourceManager.resetResourceUsage();
@@ -1602,7 +1620,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, options, actionCacheChecker, topDownActionCache, outputService);
+          reporter,
+          executor,
+          options,
+          actionCacheChecker,
+          topDownActionCache,
+          outputService,
+          isAnalysisIncremental());
     }
 
     resourceManager.resetResourceUsage();
@@ -1632,7 +1656,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ActionCacheChecker checker,
       TopDownActionCache topDownActionCache) {
     skyframeActionExecutor.prepareForExecution(
-        reporter, executor, options, checker, topDownActionCache, outputService);
+        reporter,
+        executor,
+        options,
+        checker,
+        topDownActionCache,
+        outputService,
+        isAnalysisIncremental());
   }
 
   private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
@@ -3005,9 +3035,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return prepareAnalysisPhaseValue;
   }
 
-  /** A progress received to track analysis invalidation and update progress messages. */
-  protected class SkyframeProgressReceiver
-      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+  /** A progress receiver to track analysis invalidation and update progress messages. */
+  protected class SkyframeProgressReceiver implements EvaluationProgressReceiver {
     /**
      * This flag is needed in order to avoid invalidating legacy data when we clear the analysis
      * cache because of --discard_analysis_cache flag. For that case we want to keep the legacy data
@@ -3041,18 +3070,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     @Override
     public void evaluated(
         SkyKey skyKey,
-        @Nullable SkyValue value,
+        @Nullable SkyValue newValue,
+        @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
-      trimmingListener.evaluated(skyKey, value, evaluationSuccessState, state);
+      trimmingListener.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
       if (ignoreInvalidations) {
         return;
       }
       skyframeBuildView
           .getProgressReceiver()
-          .evaluated(skyKey, value, evaluationSuccessState, state);
+          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
       if (executionProgressReceiver != null) {
-        executionProgressReceiver.evaluated(skyKey, value, evaluationSuccessState, state);
+        executionProgressReceiver.evaluated(
+            skyKey, newValue, newError, evaluationSuccessState, state);
       }
     }
   }

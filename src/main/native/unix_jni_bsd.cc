@@ -111,7 +111,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
 #if defined(HAVE_SYSCTLBYNAME)
-  return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
+  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
 #else
   errno = ENOSYS;
   return -1;

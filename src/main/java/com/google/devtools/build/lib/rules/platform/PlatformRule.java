@@ -42,7 +42,7 @@ public class PlatformRule implements RuleDefinition {
     /* <!-- #BLAZE_RULE(platform).NAME -->
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .advertiseProvider(PlatformInfo.class)
+        .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
         The combination of constraint choices that this platform comprises. In order for a platform

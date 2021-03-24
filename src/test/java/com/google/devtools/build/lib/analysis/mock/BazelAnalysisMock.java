@@ -207,7 +207,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         TestConstants.PLATFORMS_PATH + "/android/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "platform(",
-        "  name = 'android',",
+        "  name = 'armeabi-v7a',",
         "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",

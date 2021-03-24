@@ -435,9 +435,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-      if (compileJar == null) {
-        throw Starlark.errorf("Expected 'File' for 'compile_jar', found 'None'");
-      }
       checkSequenceOfJavaInfo(deps, "deps");
       checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
       checkSequenceOfJavaInfo(exports, "exports");
@@ -494,19 +491,21 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       return this;
     }
 
-    public Builder maybeTransitiveOnlyRuntimeJarsToJavaInfo(
-        List<? extends TransitiveInfoCollection> deps, boolean shouldAdd) {
-      // TODO(b/149926109): Currently all callers call with shouldAdd=true as a temporary workaround
-      // to make --trim_test_configuration work again.
-      if (shouldAdd) {
-        deps.stream()
-            .map(JavaInfo::getJavaInfo)
-            .filter(Objects::nonNull)
-            .map(j -> j.getProvider(JavaCompilationArgsProvider.class))
-            .filter(Objects::nonNull)
-            .map(JavaCompilationArgsProvider::getRuntimeJars)
-            .forEach(this::addTransitiveOnlyRuntimeJars);
-      }
+    public Builder addTransitiveOnlyRuntimeJars(List<? extends TransitiveInfoCollection> deps) {
+      addTransitiveOnlyRuntimeJarsToJavaInfo(
+          deps.stream()
+              .map(JavaInfo::getJavaInfo)
+              .filter(Objects::nonNull)
+              .collect(ImmutableList.toImmutableList()));
+      return this;
+    }
+
+    public Builder addTransitiveOnlyRuntimeJarsToJavaInfo(List<JavaInfo> deps) {
+      deps.stream()
+          .map(j -> j.getProvider(JavaCompilationArgsProvider.class))
+          .filter(Objects::nonNull)
+          .map(JavaCompilationArgsProvider::getRuntimeJars)
+          .forEach(this::addTransitiveOnlyRuntimeJars);
       return this;
     }
 

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,13 +41,13 @@ import org.junit.runners.JUnit4;
 @TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ProgressReportingTest extends BuildIntegrationTestCase {
-  private static enum PathOp {
+  private enum PathOp {
     DELETE,
   }
 
   @FunctionalInterface
   private interface Receiver {
-    public void accept(Path path, PathOp op);
+    void accept(PathFragment path, PathOp op);
   }
 
   private Receiver receiver;
@@ -65,14 +66,14 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
   @Override
   protected FileSystem createFileSystem() {
     return new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "") {
-      private void recordAccess(PathOp op, Path path) {
+      private void recordAccess(PathOp op, PathFragment path) {
         if (receiver != null) {
           receiver.accept(path, op);
         }
       }
 
       @Override
-      public boolean delete(Path path) throws IOException {
+      protected boolean delete(PathFragment path) throws IOException {
         recordAccess(PathOp.DELETE, path);
         return super.delete(path);
       }
@@ -119,7 +120,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
     assertThat(output.delete()).isTrue();
     receiver =
         (path, op) -> {
-          if (output.equals(path) && op == PathOp.DELETE) {
+          if (output.asFragment().equals(path) && op == PathOp.DELETE) {
             try {
               // When the action tries to delete its outputs (during the "preparing" stage of action
               // execution), we block on the deletion for enough time that the status reporter

@@ -79,7 +79,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     assertThat(linkPath.isDirectory(Symlinks.NOFOLLOW)).isFalse();
     assertThat(linkPath.isDirectory(Symlinks.FOLLOW)).isFalse();
 
-    if (testFS.supportsSymbolicLinksNatively(linkPath)) {
+    if (testFS.supportsSymbolicLinksNatively(linkPath.asFragment())) {
       assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW)).isEqualTo(newPath.toString().length());
       assertThat(linkPath.getFileSize()).isEqualTo(newPath.getFileSize(Symlinks.NOFOLLOW));
     }
@@ -189,7 +189,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       PathFragment relative = PathFragment.create(linkTarget);
       linkPath.delete();
       createSymbolicLink(linkPath, relative);
-      if (testFS.supportsSymbolicLinksNatively(linkPath)) {
+      if (testFS.supportsSymbolicLinksNatively(linkPath.asFragment())) {
         assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW))
             .isEqualTo(relative.getSafePathString().length());
         assertThat(linkPath.readSymbolicLink()).isEqualTo(relative);
@@ -220,7 +220,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
     // The path may not be a symlink, neither on Darwin nor on Linux.
     String nonLinkEntry = null;
-    for (String child : testFS.getDirectoryEntries(rootPath)) {
+    for (String child : testFS.getDirectoryEntries(rootPath.asFragment())) {
       Path p = rootPath.getChild(child);
       if (!p.isSymbolicLink() && p.isDirectory()) {
         nonLinkEntry = p.getBaseName();
@@ -255,7 +255,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path link = absolutize("recursive-link");
     createSymbolicLink(link, link);
 
-    if (testFS.supportsSymbolicLinksNatively(link)) {
+    if (testFS.supportsSymbolicLinksNatively(link.asFragment())) {
       IOException e = assertThrows(IOException.class, () -> link.resolveSymbolicLinks());
       assertThat(e).hasMessageThat().isEqualTo(link + " (Too many levels of symbolic links)");
     }
@@ -268,7 +268,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     createSymbolicLink(link2, link1);
     createSymbolicLink(link1, link2);
 
-    if (testFS.supportsSymbolicLinksNatively(link1)) {
+    if (testFS.supportsSymbolicLinksNatively(link1.asFragment())) {
       IOException e = assertThrows(IOException.class, () -> link1.resolveSymbolicLinks());
       assertThat(e).hasMessageThat().isEqualTo(link1 + " (Too many levels of symbolic links)");
     }
@@ -276,7 +276,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   @Test
   public void testResolveSymbolicLinksENOENT() {
-    if (testFS.supportsSymbolicLinksNatively(xDanglingLink)) {
+    if (testFS.supportsSymbolicLinksNatively(xDanglingLink.asFragment())) {
       IOException e = assertThrows(IOException.class, () -> xDanglingLink.resolveSymbolicLinks());
       assertThat(e).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
     }
@@ -286,15 +286,15 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   public void testResolveSymbolicLinksENOTDIR() throws IOException {
     Path badLinkTarget = xFile.getChild("bad"); // parent is not a directory!
     Path badLink = absolutize("badLink");
-    if (testFS.supportsSymbolicLinksNatively(badLink)) {
+    if (testFS.supportsSymbolicLinksNatively(badLink.asFragment())) {
       createSymbolicLink(badLink, badLinkTarget);
-      assertThrows(IOException.class, () -> badLink.resolveSymbolicLinks());
+      assertThrows(IOException.class, badLink::resolveSymbolicLinks);
     }
   }
 
   @Test
   public void testResolveSymbolicLinksWithUplevelRefs() throws IOException {
-    if (testFS.supportsSymbolicLinksNatively(xLinkToFile)) {
+    if (testFS.supportsSymbolicLinksNatively(xLinkToFile.asFragment())) {
       // Create a series of links that refer to xFile as ./xFile,
       // ./../foo/xFile, ./../../bar/foo/xFile, etc.  They should all resolve
       // to xFile.
@@ -312,7 +312,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   @Test
   public void testReadSymbolicLink() throws IOException {
-    if (testFS.supportsSymbolicLinksNatively(xDanglingLink)) {
+    if (testFS.supportsSymbolicLinksNatively(xDanglingLink.asFragment())) {
       assertThat(xDanglingLink.readSymbolicLink().toString()).isEqualTo(xNothing.toString());
     }
 
@@ -335,7 +335,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       throws IOException {
     xEmptyDirectory.setWritable(false);
     Path xChildOfReadonlyDir = xEmptyDirectory.getChild("x");
-    if (testFS.supportsSymbolicLinksNatively(xChildOfReadonlyDir)) {
+    if (testFS.supportsSymbolicLinksNatively(xChildOfReadonlyDir.asFragment())) {
       IOException e =
           assertThrows(IOException.class, () -> xChildOfReadonlyDir.createSymbolicLink(xNothing));
       assertThat(e).hasMessageThat().isEqualTo(xChildOfReadonlyDir + " (Permission denied)");
@@ -354,9 +354,9 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     assertThat(someLink.isSymbolicLink()).isTrue();
     assertThat(someLink.exists(Symlinks.NOFOLLOW)).isTrue(); // the link itself exists
     assertThat(someLink.exists()).isFalse(); // ...but the referent doesn't
-    if (testFS.supportsSymbolicLinksNatively(someLink)) {
+    if (testFS.supportsSymbolicLinksNatively(someLink.asFragment())) {
       FileNotFoundException e =
-          assertThrows(FileNotFoundException.class, () -> someLink.resolveSymbolicLinks());
+          assertThrows(FileNotFoundException.class, someLink::resolveSymbolicLinks);
       assertThat(e)
           .hasMessageThat()
           .isEqualTo(newPath.getParentDirectory() + " (No such file or directory)");
@@ -366,7 +366,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   @Test
   public void testCannotCreateSymbolicLinkWithoutParent() throws IOException {
     Path xChildOfMissingDir = xNothing.getChild("x");
-    if (testFS.supportsSymbolicLinksNatively(xChildOfMissingDir)) {
+    if (testFS.supportsSymbolicLinksNatively(xChildOfMissingDir.asFragment())) {
       FileNotFoundException e =
           assertThrows(
               FileNotFoundException.class, () -> xChildOfMissingDir.createSymbolicLink(xFile));

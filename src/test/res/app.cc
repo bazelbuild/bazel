@@ -25,7 +25,7 @@ int main() {
 #ifdef _WIN32
   WCHAR p[100];
   memset(p, 0, sizeof(p));
-  int l = LoadStringW(GetModuleHandle(NULL), IDS_STRING, p, 100);
+  int l = LoadStringW(GetModuleHandle(nullptr), IDS_STRING, p, 100);
   wprintf(L"l=%d, p=(%s)", l, p);
 #else   // not _WIN32
   printf("not supported");

@@ -55,6 +55,9 @@ public final class JavaLibraryHelper {
    */
   private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
 
+  /** Contains runtime dependencies. */
+  private final List<JavaCompilationArgsProvider> runtimeDeps = new ArrayList<>();
+
   private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
   private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
   private ImmutableList<String> javacOpts = ImmutableList.of();
@@ -108,6 +111,12 @@ public final class JavaLibraryHelper {
   public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
     checkNotNull(provider);
     this.deps.add(provider);
+    return this;
+  }
+
+  public JavaLibraryHelper addRuntimeDep(JavaCompilationArgsProvider provider) {
+    checkNotNull(provider);
+    this.runtimeDeps.add(provider);
     return this;
   }
 
@@ -323,7 +332,7 @@ public final class JavaLibraryHelper {
             /* srcLessDepsExport= */ false,
             artifacts,
             deps,
-            /* runtimeDeps= */ ImmutableList.of(),
+            runtimeDeps,
             exports);
 
     if (!isReportedAsStrict) {
@@ -333,14 +342,16 @@ public final class JavaLibraryHelper {
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
-    JavaCompilationArgsProvider argsProvider = JavaCompilationArgsProvider.merge(deps);
+    JavaCompilationArgsProvider mergedDeps = JavaCompilationArgsProvider.merge(deps);
+    JavaCompilationArgsProvider mergedRuntimeDeps = JavaCompilationArgsProvider.merge(runtimeDeps);
 
     if (isStrict()) {
-      attributes.addDirectJars(argsProvider.getDirectCompileTimeJars());
+      attributes.addDirectJars(mergedDeps.getDirectCompileTimeJars());
     }
 
-    attributes.addCompileTimeClassPathEntries(argsProvider.getTransitiveCompileTimeJars());
-    attributes.addRuntimeClassPathEntries(argsProvider.getRuntimeJars());
+    attributes.addCompileTimeClassPathEntries(mergedDeps.getTransitiveCompileTimeJars());
+    attributes.addRuntimeClassPathEntries(mergedRuntimeDeps.getRuntimeJars());
+    attributes.addRuntimeClassPathEntries(mergedDeps.getRuntimeJars());
   }
 
   private boolean isStrict() {

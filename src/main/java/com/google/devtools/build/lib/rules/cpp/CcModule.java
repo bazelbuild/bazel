@@ -717,27 +717,28 @@ public abstract class CcModule
       Object frameworkIncludes,
       Object defines,
       Object localDefines,
-      Object textualHdrsNoneable,
-      Object modularPublicHdrsNoneable,
-      Object modularPrivateHdrsNoneable,
+      Sequence<?> directTextualHdrs,
+      Sequence<?> directPublicHdrs,
+      Sequence<?> directPrivateHdrs,
       Object purposeNoneable,
       StarlarkThread thread)
       throws EvalException {
     if (checkObjectsBound(
-        textualHdrsNoneable,
-        modularPrivateHdrsNoneable,
-        modularPublicHdrsNoneable,
         purposeNoneable)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
-    ImmutableList<Artifact> textualHdrs = asClassImmutableList(textualHdrsNoneable);
-    ImmutableList<Artifact> modularPublicHdrs = asClassImmutableList(modularPublicHdrsNoneable);
-    ImmutableList<Artifact> modularPrivateHdrs = asClassImmutableList(modularPrivateHdrsNoneable);
-
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
+    ImmutableList<Artifact> textualHdrsList =
+        Sequence.cast(directTextualHdrs, Artifact.class, "direct_textual_headers")
+            .getImmutableList();
+    ImmutableList<Artifact> modularPublicHdrsList =
+        Sequence.cast(directPublicHdrs, Artifact.class, "direct_public_headers").getImmutableList();
+    ImmutableList<Artifact> modularPrivateHdrsList =
+        Sequence.cast(directPrivateHdrs, Artifact.class, "direct_private_headers")
+            .getImmutableList();
     ccCompilationContext.addDeclaredIncludeSrcs(headerList);
     ccCompilationContext.addModularPublicHdrs(headerList);
     ccCompilationContext.addSystemIncludeDirs(
@@ -761,9 +762,9 @@ public abstract class CcModule
     ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").toList());
     ccCompilationContext.addNonTransitiveDefines(
         toNestedSetOfStrings(localDefines, "local_defines").toList());
-    ccCompilationContext.addTextualHdrs(textualHdrs);
-    ccCompilationContext.addModularPublicHdrs(modularPublicHdrs);
-    ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrs);
+    ccCompilationContext.addTextualHdrs(textualHdrsList);
+    ccCompilationContext.addModularPublicHdrs(modularPublicHdrsList);
+    ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrsList);
     if (purposeNoneable != null && purposeNoneable != Starlark.UNBOUND) {
       ccCompilationContext.setPurpose((String) purposeNoneable);
     }
@@ -1723,6 +1724,7 @@ public abstract class CcModule
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(language);
@@ -1773,6 +1775,9 @@ public abstract class CcModule
             .setStaticLinkType(staticLinkTargetType)
             .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
+    if (!asDict(variablesExtension).isEmpty()) {
+      helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
+    }
     try {
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
       ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
@@ -1922,14 +1927,11 @@ public abstract class CcModule
     if (checkObjectsBound(
         moduleMapNoneable,
         additionalModuleMapsNoneable,
-        textualHeadersStarlarkObject,
         additionalExportedHeadersObject,
         propagateModuleMapToCompileActionObject,
         doNotGenerateModuleMapObject,
         codeCoverageEnabledObject,
-        hdrsCheckingModeObject,
-        variablesExtension,
-        languageObject)) {
+        hdrsCheckingModeObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -1985,17 +1987,20 @@ public abstract class CcModule
             CppFileTypes.CPP_SOURCE,
             CppFileTypes.C_SOURCE,
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR,
-            CppFileTypes.ASSEMBLER));
+            CppFileTypes.ASSEMBLER),
+        /* allowAnyTreeArtifacts= */ true);
     validateExtensions(
         "public_hdrs",
         publicHeaders,
         FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        FileTypeSet.of(CppFileTypes.CPP_HEADER));
+        FileTypeSet.of(CppFileTypes.CPP_HEADER),
+        /* allowAnyTreeArtifacts= */ true);
     validateExtensions(
         "private_hdrs",
         privateHeaders,
         FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        FileTypeSet.of(CppFileTypes.CPP_HEADER));
+        FileTypeSet.of(CppFileTypes.CPP_HEADER),
+        /* allowAnyTreeArtifacts= */ true);
 
     if (disallowNopicOutputs && disallowPicOutputs) {
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
@@ -2140,7 +2145,6 @@ public abstract class CcModule
         neverLinkObject,
         alwaysLinkObject,
         testOnlyTargetObject,
-        variablesExtension,
         nativeDepsObject,
         wholeArchiveObject,
         additionalLinkstampDefines,
@@ -2244,11 +2248,20 @@ public abstract class CcModule
       Object objectsObject, Object picObjectsObject) throws EvalException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     NestedSet<Artifact> objects = convertToNestedSet(objectsObject, Artifact.class, "objects");
-    validateExtensions("objects", objects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
+    validateExtensions(
+        "objects",
+        objects.toList(),
+        Link.OBJECT_FILETYPES,
+        Link.OBJECT_FILETYPES,
+        /* allowAnyTreeArtifacts= */ false);
     NestedSet<Artifact> picObjects =
         convertToNestedSet(picObjectsObject, Artifact.class, "pic_objects");
     validateExtensions(
-        "pic_objects", picObjects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
+        "pic_objects",
+        picObjects.toList(),
+        Link.OBJECT_FILETYPES,
+        Link.OBJECT_FILETYPES,
+        /* allowAnyTreeArtifacts= */ false);
     ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
     ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
     return ccCompilationOutputsBuilder.build();
@@ -2258,9 +2271,13 @@ public abstract class CcModule
       String paramName,
       List<Artifact> files,
       FileTypeSet validFileTypeSet,
-      FileTypeSet fileTypeForErrorMessage)
+      FileTypeSet fileTypeForErrorMessage,
+      boolean allowAnyTreeArtifacts)
       throws EvalException {
     for (Artifact file : files) {
+      if (allowAnyTreeArtifacts && file.isTreeArtifact()) {
+        continue;
+      }
       if (!validFileTypeSet.matches(file.getFilename())) {
         throw Starlark.errorf(
             "'%s' has wrong extension. The list of possible extensions for '%s' is: %s",

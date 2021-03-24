@@ -78,8 +78,8 @@ Package path elements may be specified in three formats:
   </li>
 </ol>
 <p>
-  If you use a non-default package path, we recommend that you specify
-  it in your <a href='guide.html#bazelrc'>Bazel configuration file</a> for
+  If you use a non-default package path, specify it in your
+  <a href='guide.html#bazelrc'>Bazel configuration file</a> for
   convenience.
 </p>
 <p>
@@ -102,28 +102,6 @@ Package path elements may be specified in three formats:
   These options control Bazel's error-checking and/or warnings.
 </p>
 
-<h4 id='flag--check_constraint'><code class='flag'>--check_constraint <var>constraint</var></code></h4>
-<p>
-  This option takes an argument that specifies which constraint
-  should be checked.
-</p>
-<p>
-  Bazel performs special checks on each rule that is annotated with the
-  given constraint.
-</p>
-<p>
-  The supported constraints and their checks are as follows:
-</p>
-<ul>
-
-  <li><code>public</code>: Verify that all java_libraries marked with
-    <code>constraints = ['public']</code> only depend on java_libraries
-    that are marked as <code>constraints = ['public']</code> too. If bazel
-    finds a dependency that does not conform to this rule, bazel will issue
-    an error.
-  </li>
-</ul>
-
 <h4 id='flag--check_visibility'><code class='flag'>--[no]check_visibility</code></h4>
 <p>
   If this option is set to false, visibility checks are demoted to warnings.
@@ -131,7 +109,7 @@ Package path elements may be specified in three formats:
   checking is done.
 
 </p>
-<h4 id='flag--output_filter'><code class='flag'>--output_filter <var>regex</var></code></h4>
+<h4 id='flag--output_filter'><code class='flag'>--output_filter=<var>regex</var></code></h4>
 <p>
   The <code class='flag'>--output_filter</code> option will only show build and compilation
   warnings for targets that match the regular expression. If a target does not
@@ -167,7 +145,7 @@ Package path elements may be specified in three formats:
   These options control which options Bazel will pass to other tools.
 </p>
 
-<h4 id='flag--copt'><code class='flag'>--copt <var>cc-option</var></code></h4>
+<h4 id='flag--copt'><code class='flag'>--copt=<var>cc-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler.
   The argument will be passed to the compiler whenever it is invoked
@@ -201,7 +179,7 @@ Package path elements may be specified in three formats:
   <code class='flag'>--linkopt</code>, not in <code class='flag'>--copt</code>.
 </p>
 
-<h4 id='flag--host_copt'><code class='flag'>--host_copt <var>cc-option</var></code></h4>
+<h4 id='flag--host_copt'><code class='flag'>--host_copt=<var>cc-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler for source files
   that are compiled in the host configuration. This is analogous to
@@ -209,7 +187,7 @@ Package path elements may be specified in three formats:
   host configuration.
 </p>
 
-<h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt <var>cc-option</var></code></h4>
+<h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt=<var>cc-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler for C++ source files
   that are compiled in the host configuration. This is analogous to
@@ -217,7 +195,7 @@ Package path elements may be specified in three formats:
   host configuration.
 </p>
 
-<h4 id='flag--conlyopt'><code class='flag'>--conlyopt <var>cc-option</var></code></h4>
+<h4 id='flag--conlyopt'><code class='flag'>--conlyopt=<var>cc-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler when compiling C source files.
 </p>
@@ -231,7 +209,7 @@ Package path elements may be specified in three formats:
   will be placed on the compiler command line <em>after</em> these options.
 </p>
 
-<h4 id='flag--cxxopt'><code class='flag'>--cxxopt <var>cc-option</var></code></h4>
+<h4 id='flag--cxxopt'><code class='flag'>--cxxopt=<var>cc-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler when compiling C++ source
   files.
@@ -250,7 +228,7 @@ Package path elements may be specified in three formats:
   will be placed on the compiler command line <em>after</em> these options.
 </p>
 
-<h4 id='flag--linkopt'><code class='flag'>--linkopt <var>linker-option</var></code></h4>
+<h4 id='flag--linkopt'><code class='flag'>--linkopt=<var>linker-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler when linking.
 </p>
@@ -299,7 +277,7 @@ Package path elements may be specified in three formats:
   <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
 </p>
 
-<h4 id='flag--stripopt'><code class='flag'>--stripopt <var>strip-option</var></code></h4>
+<h4 id='flag--stripopt'><code class='flag'>--stripopt=<var>strip-option</var></code></h4>
 <p>
   An additional option to pass to the <code>strip</code> command when generating
   a <a href="be/c-cpp.html#cc_binary_implicit_outputs"><code>*.stripped</code>
@@ -311,7 +289,7 @@ Package path elements may be specified in three formats:
   binary with <code><a href='#flag--strip'>--strip</a>=(always|sometimes)</code>.
 </p>
 
-<h4 id='flag--fdo_instrument'><code class='flag'>--fdo_instrument  <var>profile-output-dir</var></code></h4>
+<h4 id='flag--fdo_instrument'><code class='flag'>--fdo_instrument=<var>profile-output-dir</var></code></h4>
 <p>
   The <code class='flag'>--fdo_instrument</code> option enables the generation of
   FDO (feedback directed optimization) profile output when the
@@ -337,7 +315,7 @@ Package path elements may be specified in three formats:
 </p>
 
 
-<h4 id='flag--fdo_optimize'><code class='flag'>--fdo_optimize <var>profile-zip</var></code></h4>
+<h4 id='flag--fdo_optimize'><code class='flag'>--fdo_optimize=<var>profile-zip</var></code></h4>
 <p>
   The <code class='flag'>--fdo_optimize</code> option enables the use of the
   per-object file profile information to perform FDO (feedback
@@ -429,7 +407,7 @@ Package path elements may be specified in three formats:
 </p>
 -->
 
-<h4 id='flag--jvmopt'><code class='flag'>--jvmopt <var>jvm-option</var></code></h4>
+<h4 id='flag--jvmopt'><code class='flag'>--jvmopt=<var>jvm-option</var></code></h4>
 <p>
   This option allows option arguments to be passed to the Java VM. It can be used
   with one big argument, or multiple times with individual arguments. For example:
@@ -442,7 +420,7 @@ Package path elements may be specified in three formats:
   startup heap size for the VM to 256 MB.
 </p>
 
-<h4 id='flag--javacopt'><code class='flag'>--javacopt <var>javac-option</var></code></h4>
+<h4 id='flag--javacopt'><code class='flag'>--javacopt=<var>javac-option</var></code></h4>
 <p>
   This option allows option arguments to be passed to javac. It can be used
   with one big argument, or multiple times with individual arguments. For example:
@@ -535,7 +513,7 @@ Package path elements may be specified in three formats:
   </li>
 </ul>
 
-<h4 id='flag--cpu'><code class='flag'>--cpu <var>cpu</var></code></h4>
+<h4 id='flag--cpu'><code class='flag'>--cpu=<var>cpu</var></code></h4>
 <p>
 This option specifies the target CPU architecture to be used for
 the compilation of binaries during the build.
@@ -625,13 +603,13 @@ the compilation of binaries during the build.
   --experimental_extra_action_filter=.*/bar/.*
 </pre>
 
-<h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
+<h4 id='flag--host_cpu'><code class='flag'>--host_cpu=<var>cpu</var></code></h4>
 <p>
   This option specifies the name of the CPU architecture that should be
   used to build host tools.
 </p>
 
-<h4 id='flag--fat_apk_cpu'><code class='flag'>--fat_apk_cpu <var>cpu[,cpu]*</var></code></h4>
+<h4 id='flag--fat_apk_cpu'><code class='flag'>--fat_apk_cpu=<var>cpu[,cpu]*</var></code></h4>
 <p>
   The CPUs to build C/C++ libraries for in the transitive <code>deps</code> of
   <code>android_binary</code>
@@ -674,7 +652,7 @@ the compilation of binaries during the build.
     <var>[+-]regex[,[+-]regex]...@option[,option]...</var></code></h4>
 </p>
 
-<h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
+<h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt=
     <var>[+-]regex[,[+-]regex]...@option[,option]...</var></code></h4>
 <p>
   When present, any C++ file with a label or an execution path matching one of the inclusion regex
@@ -723,7 +701,7 @@ the compilation of binaries during the build.
   line of the C++ compiler for all <code>.cc</code> files in <code>//foo/</code> except
   <code>file.cc</code>.
 </p>
-<h4 id='flag--dynamic_mode'><code class='flag'>--dynamic_mode <var>mode</var></code></h4>
+<h4 id='flag--dynamic_mode'><code class='flag'>--dynamic_mode=<var>mode</var></code></h4>
 <p>
   Determines whether C++ binaries will be linked dynamically, interacting with
   the <a href='be/c-cpp.html#cc_binary.linkstatic'>linkstatic
@@ -793,14 +771,14 @@ the compilation of binaries during the build.
   android_binary rules; see the documentation for that rule for further details. Defaults to off.
 </p>
 
-<h4 id='flag--custom_malloc'><code class='flag'>--custom_malloc <var>malloc-library-target</var></code></h4>
+<h4 id='flag--custom_malloc'><code class='flag'>--custom_malloc=<var>malloc-library-target</var></code></h4>
 <p>
   When specified, always use the given malloc implementation, overriding all
   <code>malloc="target"</code> attributes, including in those targets that use the
   default (by not specifying any <code>malloc</code>).
 </p>
 
-<h4 id='flag--crosstool_top'><code class='flag'>--crosstool_top <var>label</var></code></h4>
+<h4 id='flag--crosstool_top'><code class='flag'>--crosstool_top=<var>label</var></code></h4>
 <p>
   This option specifies the location of the crosstool compiler suite
   to be used for all C++ compilation during a build. Bazel will look in that
@@ -810,21 +788,21 @@ the compilation of binaries during the build.
   <code class='flag'>--compiler</code>.
 </p>
 
-<h4 id='flag--host_crosstool_top'><code class='flag'>--host_crosstool_top <var>label</var></code></h4>
+<h4 id='flag--host_crosstool_top'><code class='flag'>--host_crosstool_top=<var>label</var></code></h4>
 <p>
   If not specified, bazel uses the value of <code class='flag'>--crosstool_top</code> to compile
   code in the host configuration, i.e., tools run during the build. The main purpose of this flag
   is to enable cross-compilation.
 </p>
 
-<h4 id='flag--apple_crosstool_top'><code class='flag'>--apple_crosstool_top <var>label</var></code></h4>
+<h4 id='flag--apple_crosstool_top'><code class='flag'>--apple_crosstool_top=<var>label</var></code></h4>
 <p>
   The crosstool to use for compiling C/C++ rules in the transitive <code>deps</code> of
   objc_*, ios__*, and apple_* rules. For those targets, this flag overwrites
   <code class='flag'>--crosstool_top</code>.
 </p>
 
-<h4 id='flag--android_crosstool_top'><code class='flag'>--android_crosstool_top <var>label</var></code></h4>
+<h4 id='flag--android_crosstool_top'><code class='flag'>--android_crosstool_top=<var>label</var></code></h4>
 <p>
   The crosstool to use for compiling C/C++ rules in the transitive <code>deps</code> of
   <code>android_binary</code> rules. This is useful if other targets in the
@@ -832,7 +810,7 @@ the compilation of binaries during the build.
   generated by the <code>android_ndk_repository</code> rule in the WORKSPACE file.
   See also <a href='#flag--fat_apk_cpu'><code class='flag'>--fat_apk_cpu</code></a>.
 </p>
-<h4 id='flag--compiler'><code class='flag'>--compiler <var>version</var></code></h4>
+<h4 id='flag--compiler'><code class='flag'>--compiler=<var>version</var></code></h4>
 <p>
   This option specifies the C/C++ compiler version (e.g. <code>gcc-4.1.0</code>)
   to be used for the compilation of binaries during the build. If you want to
@@ -844,7 +822,7 @@ the compilation of binaries during the build.
   and target CPU are allowed.
 </p>
 
-<h4 id='flag--android_sdk'><code class='flag'>--android_sdk <var>label</var></code></h4>
+<h4 id='flag--android_sdk'><code class='flag'>--android_sdk=<var>label</var></code></h4>
 <p>
   This option specifies the Android SDK/platform toolchain
   and Android runtime library that will be used to build any Android-related
@@ -854,20 +832,20 @@ the compilation of binaries during the build.
   rule is defined in the WORKSPACE file.
 </p>
 
-<h4 id='flag--java_toolchain'><code class='flag'>--java_toolchain <var>label</var></code></h4>
+<h4 id='flag--java_toolchain'><code class='flag'>--java_toolchain=<var>label</var></code></h4>
 <p>
   This option specifies the label of the java_toolchain used to compile Java
   source files.
 </p>
 
-<h4 id='flag--host_java_toolchain'><code class='flag'>--host_java_toolchain <var>label</var></code></h4>
+<h4 id='flag--host_java_toolchain'><code class='flag'>--host_java_toolchain=<var>label</var></code></h4>
 <p>
   If not specified, bazel uses the value of <code class='flag'>--java_toolchain</code> to compile
   code in the host configuration, i.e., tools run during the build. The main purpose of this flag
   is to enable cross-compilation.
 </p>
 
-<h4 id='flag--javabase'><code class='flag'>--javabase (<var>label</var>)</code></h4>
+<h4 id='flag--javabase'><code class='flag'>--javabase=(<var>label</var>)</code></h4>
 <p>
   This option sets the <i>label</i> of the base Java installation to use for <i>bazel run</i>,
   <i>bazel test</i>, and for Java binaries built by <code>java_binary</code> and
@@ -875,7 +853,7 @@ the compilation of binaries during the build.
   <a href='be/make-variables.html'>"Make" variables</a> are derived from this option.
 </p>
 
-<h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
+<h4 id='flag--host_javabase'><code class='flag'>--host_javabase=<var>label</var></code></h4>
 <p>
   This option sets the <i>label</i> of the base Java installation to use in the host configuration,
   for example for host build tools including JavaBuilder and Singlejar.
@@ -895,7 +873,7 @@ the compilation of binaries during the build.
   speed of the build.
 </p>
 
-<h4 id='flag--spawn_strategy'><code class='flag'>--spawn_strategy <var>strategy</var></code></h4>
+<h4 id='flag--spawn_strategy'><code class='flag'>--spawn_strategy=<var>strategy</var></code></h4>
 <p>
   This option controls where and how commands are executed.
 </p>
@@ -939,7 +917,7 @@ the compilation of binaries during the build.
   strategies and their effects.
 </p>
 
-<h4 id='flag--strategy_regexp'><code class='flag'>--strategy_regexp <var>&lt;filter,filter,...&gt;=&lt;strategy&gt;</var></code></h4>
+<h4 id='flag--strategy_regexp'><code class='flag'>--strategy_regexp=<var>&lt;filter,filter,...&gt;=&lt;strategy&gt;</var></code></h4>
 <p>
   This option specifies which strategy should be used to execute commands that have descriptions
   matching a certain <code>regex_filter</code>. See
@@ -965,13 +943,13 @@ other flags for specifying strategy.
   </li>
 </ul>
 
-<h4 id='flag--genrule_strategy'><code class='flag'>--genrule_strategy <var>strategy</var></code></h4>
+<h4 id='flag--genrule_strategy'><code class='flag'>--genrule_strategy=<var>strategy</var></code></h4>
 <p>
   This is a deprecated short-hand for
   <code class='flag'>--strategy=Genrule=<var>strategy</var></code>.
 </p>
 
-<h4 id='flag--jobs'><code class='flag'>--jobs <var>n</var></code> (-j)</h4>
+<h4 id='flag--jobs'><code class='flag'>--jobs=<var>n</var></code> (-j)</h4>
 <p>
   This option, which takes an integer argument, specifies a limit on
   the number of jobs that should be executed concurrently during the
@@ -987,7 +965,7 @@ other flags for specifying strategy.
   the <code class='flag'>--local_ram_resources</code> option.
 </p>
 
-<h4 id='flag--progress_report_interval'><code class='flag'>--progress_report_interval <var>n</var></code></h4>
+<h4 id='flag--progress_report_interval'><code class='flag'>--progress_report_interval=<var>n</var></code></h4>
 <p>
 
   Bazel periodically prints a progress report on jobs that are not
@@ -1183,8 +1161,8 @@ memory-saving mode</a>.
   generated for the set of targets specified on the command line.
 </p>
 <p>
-  Note that our implementation of <code class='flag'>--save_temps</code> does not use the compiler's
-  <code>-save-temps</code> flag. Instead, we do two passes, one with <code>-S</code>
+  Note that the implementation of <code class='flag'>--save_temps</code> does not use the compiler's
+  <code>-save-temps</code> flag. Instead, there are two passes, one with <code>-S</code>
   and one with <code>-E</code>. A consequence of this is that if your build fails,
   Bazel may not yet have produced the ".i" or ".ii" and ".s" files.
   If you're trying to use <code class='flag'>--save_temps</code> to debug a failed compilation,
@@ -1200,7 +1178,7 @@ memory-saving mode</a>.
   setting is high enough.
 </p>
 
-<h4 id='flag--build_tag_filters'><code class='flag'>--build_tag_filters <var>tag[,tag]*</var></code></h4>
+<h4 id='flag--build_tag_filters'><code class='flag'>--build_tag_filters=<var>tag[,tag]*</var></code></h4>
 <p>
   If specified, Bazel will build only targets that have at least one required tag
   (if any of them are specified) and does not have any excluded tags. Build tag
@@ -1214,7 +1192,7 @@ memory-saving mode</a>.
   test targets using <code class='flag'>--test_tag_filters</code> or by explicitly excluding them.
 </p>
 
-<h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
+<h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters=<var>size[,size]*</var></code></h4>
 <p>
   If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
   is also specified) only test targets with the given size. Test size filter
@@ -1236,7 +1214,7 @@ memory-saving mode</a>.
   By default, test size filtering is not applied.
 </p>
 
-<h4 id='flag--test_timeout_filters'><code class='flag'>--test_timeout_filters <var>timeout[,timeout]*</var></code></h4>
+<h4 id='flag--test_timeout_filters'><code class='flag'>--test_timeout_filters=<var>timeout[,timeout]*</var></code></h4>
 <p>
   If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
   is also specified) only test targets with the given timeout. Test timeout filter
@@ -1250,7 +1228,7 @@ memory-saving mode</a>.
 </p>
 
 
-<h4 id='flag--test_tag_filters'><code class='flag'>--test_tag_filters <var>tag[,tag]*</var></code></h4>
+<h4 id='flag--test_tag_filters'><code class='flag'>--test_tag_filters=<var>tag[,tag]*</var></code></h4>
 <p>
   If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
   is also specified) only test targets that have at least one required tag
@@ -1275,7 +1253,7 @@ memory-saving mode</a>.
   this manner.
 </p>
 
-<h4 id='flag--test_lang_filters'><code class='flag'>--test_lang_filters <var>lang[,lang]*</var></code></h4>
+<h4 id='flag--test_lang_filters'><code class='flag'>--test_lang_filters=<var>lang[,lang]*</var></code></h4>
 <p>
   Specifies a comma-separated list of test languages for languages with an official <code>*_test</code> rule the
   (see <a href="be/overview.html">build encyclopedia</a> for a full list of these). Each
@@ -1330,7 +1308,7 @@ memory-saving mode</a>.
 These options control the verbosity of Bazel's output,
 either to the terminal, or to additional log files.
 
-<h4 id='flag--explain'><code class='flag'>--explain <var>logfile</var></code></h4>
+<h4 id='flag--explain'><code class='flag'>--explain=<var>logfile</var></code></h4>
 <p>
   This option, which requires a filename argument, causes the
   dependency checker in <code>bazel build</code>'s execution phase to
@@ -1369,7 +1347,7 @@ either to the terminal, or to additional log files.
   <code class='flag'>--verbose_explanations</code> has no effect.
 </p>
 
-<h4 id='flag--profile'><code class='flag'>--profile <var>file</var></code></h4>
+<h4 id='flag--profile'><code class='flag'>--profile=<var>file</var></code></h4>
 <p>
   This option, which takes a filename argument, causes Bazel to write
   profiling data into a file. The data then can be analyzed or parsed using the
@@ -1389,7 +1367,7 @@ either to the terminal, or to additional log files.
   default. When disabled, progress messages are suppressed.
 </p>
 
-<h4 id='flag--show_progress_rate_limit'><code class='flag'>--show_progress_rate_limit
+<h4 id='flag--show_progress_rate_limit'><code class='flag'>--show_progress_rate_limit=
     <var>n</var></code></h4>
 <p>
   This option causes bazel to display only
@@ -1399,7 +1377,7 @@ either to the terminal, or to additional log files.
   0.03 seconds.
 </p>
 
-<h4 id='flag--show_result'><code class='flag'>--show_result <var>n</var></code></h4>
+<h4 id='flag--show_result'><code class='flag'>--show_result=<var>n</var></code></h4>
 <p>
   This option controls the printing of result information at the end
   of a <code>bazel build</code> command. By default, if a single
@@ -1489,7 +1467,7 @@ either to the terminal, or to additional log files.
   <code>genrule</code>, <code>cc_binary</code>, and more.
 </p>
 
-<h4 id='flag--workspace_status_command'><code class='flag'>--workspace_status_command <var>program</var></code></h4>
+<h4 id='flag--workspace_status_command'><code class='flag'>--workspace_status_command=<var>program</var></code></h4>
 <p>
   This flag lets you specify a binary that Bazel runs before each build. The program can report
   information about the status of the workspace, such as the current source control revision.
@@ -1620,18 +1598,18 @@ echo "STABLE_USER_NAME $USER"
   <a href="platforms.html">Platforms</a> and <a href="toolchains.html">Toolchains</a>.
 </p>
 
-<h4 id="flag--platforms"><code class='flag'>--platforms <var>labels</var></code></h4>
+<h4 id="flag--platforms"><code class='flag'>--platforms=<var>labels</var></code></h4>
 <p>
   The labels of the platform rules describing the target platforms for the
   current command.
 </p>
 
-<h4 id="flag--host_platform"><code class='flag'>--host_platform <var>label</var></code></h4>
+<h4 id="flag--host_platform"><code class='flag'>--host_platform=<var>label</var></code></h4>
 <p>
   The label of a platform rule that describes the host system.
 </p>
 
-<h4 id="flag--extra_execution_platforms"><code class='flag'>--extra_execution_platforms <var>labels</var></code></h4>
+<h4 id="flag--extra_execution_platforms"><code class='flag'>--extra_execution_platforms=<var>labels</var></code></h4>
 <p>
   The platforms that are available as execution platforms to run actions.
   Platforms can be specified by exact target, or as a target pattern. These
@@ -1640,7 +1618,7 @@ echo "STABLE_USER_NAME $USER"
   register_execution_platforms()</a>.
 </p>
 
-<h4 id="flag--extra_toolchains"><code class='flag'>--extra_toolchains <var>labels</var></code></h4>
+<h4 id="flag--extra_toolchains"><code class='flag'>--extra_toolchains=<var>labels</var></code></h4>
 <p>
   The toolchain rules to be considered during toolchain resolution. Toolchains
   can be specified by exact target, or as a target pattern. These toolchains will
@@ -1649,23 +1627,24 @@ echo "STABLE_USER_NAME $USER"
   register_toolchains()</a>.
 </p>
 
-<h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=false</code></h4>
+<h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=<var>regex</var></code></h4>
 <p>
-  Print debug information while finding toolchains for a rule. This might help
-  developers of Bazel or Starlark rules with debugging failures due to missing
-  toolchains.
+  Print debug information while finding toolchains if the toolchain type matches
+  the regex. Multiple regexes can be separated by commas. The regex can be
+  negated by using a <code>-</code> at the beginning. This might help developers
+  of Bazel or Starlark rules with debugging failures due to missing toolchains.
 </p>
 
 <h3 id='misc_build_options'>Miscellaneous</h3>
 
-<h4 id='flag--flag_alias'><code class='flag'>--flag_alias <var>alias_name=target_path</var></code></h4>
+<h4 id='flag--flag_alias'><code class='flag'>--flag_alias=<var>alias_name=target_path</var></code></h4>
 <p>
   A convenience flag used to bind longer Starlark build settings to a shorter name. For more
   details, see the
   <a href=https://docs.bazel.build/versions/master/skylark/config.html#using-build-setting-aliases">Starlark Configurations</a>.
 </p>
 
-<h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
+<h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix=<var>string</var></code></h4>
 <p>
   Changes the prefix of the generated convenience symlinks. The
   default value for the symlink prefix is <code>bazel-</code> which
@@ -1704,7 +1683,7 @@ echo "STABLE_USER_NAME $USER"
   </li>
 </ul>
 
-<h4 id='flag--platform_suffix'><code class='flag'>--platform_suffix <var>string</var></code></h4>
+<h4 id='flag--platform_suffix'><code class='flag'>--platform_suffix=<var>string</var></code></h4>
 <p>
   Adds a suffix to the configuration short name, which is used to determine the
   output directory. Setting this option to different values puts the files into
@@ -1894,7 +1873,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   <code class='flag'>--keep_going</code>.
 </p>
 
-<h4 id='flag--flaky_test_attempts'><code class='flag'>--flaky_test_attempts <var>attempts</var></code></h4>
+<h4 id='flag--flaky_test_attempts'><code class='flag'>--flaky_test_attempts=<var>attempts</var></code></h4>
 <p>
   This option specifies the maximum number of times a test should be attempted
   if it fails for any reason. A test that initially fails but eventually
@@ -1911,7 +1890,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   a maximum of 10 test attempts in order to prevent abuse of the system.
 </p>
 
-<h4 id='flag--runs_per_test'><code class='flag'>--runs_per_test <var>[regex@]number</var></code></h4>
+<h4 id='flag--runs_per_test'><code class='flag'>--runs_per_test=<var>[regex@]number</var></code></h4>
 <p>
   This option specifies the number of times each test should be executed. All
   test executions are treated as separate tests (e.g. fallback functionality
@@ -1947,7 +1926,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   failing status.
 </p>
 
-<h4 id='flag--test_summary'><code class='flag'>--test_summary <var>output_style</var></code></h4>
+<h4 id='flag--test_summary'><code class='flag'>--test_summary=<var>output_style</var></code></h4>
 <p>
   Specifies how the test result summary should be displayed.
 </p>
@@ -1966,7 +1945,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   </li>
 </ul>
 
-<h4 id='flag--test_output'><code class='flag'>--test_output <var>output_style</var></code></h4>
+<h4 id='flag--test_output'><code class='flag'>--test_output=<var>output_style</var></code></h4>
 <p>
   Specifies how test output should be displayed:
 </p>
@@ -2006,7 +1985,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   be formatted to stay within 80 characters when possible.
 </p>
 
-<h4 id='flag--test_tmpdir'><code class='flag'>--test_tmpdir <var>path</var></code></h4>
+<h4 id='flag--test_tmpdir'><code class='flag'>--test_tmpdir=<var>path</var></code></h4>
 <p>
   Specifies temporary directory for tests executed locally. Each test will be
   executed in a separate subdirectory inside this directory. The directory will
@@ -2017,10 +1996,10 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
 </p>
 
 <h4 id='flag--test_timeout'>
-    <code class='flag'>--test_timeout
+    <code class='flag'>--test_timeout=
     <var>seconds</var></code>
     OR
-    <code class='flag'>--test_timeout
+    <code class='flag'>--test_timeout=
     <var>seconds</var>,<var>seconds</var>,<var>seconds</var>,<var>seconds</var>
     </code>
 </h4>
@@ -2049,16 +2028,16 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   timeout.
 </p>
 
-<h4 id='flag--test_arg'><code class='flag'>--test_arg <var>arg</var></code></h4>
+<h4 id='flag--test_arg'><code class='flag'>--test_arg=<var>arg</var></code></h4>
 <p>
   Passes command-line options/flags/arguments to each test process. This
   option can be used multiple times to pass several arguments, e.g.
   <code class='flag'>--test_arg=--logtostderr --test_arg=--v=3</code>.
 </p>
 
-<h4 id='flag--test_env'><code class='flag'>--test_env <var>variable</var>=<i>value</i></code>
+<h4 id='flag--test_env'><code class='flag'>--test_env=<var>variable</var>=<i>value</i></code>
     OR
-    <code class='flag'>--test_env <var>variable</var></code></h4>
+    <code class='flag'>--test_env=<var>variable</var></code></h4>
 <p>
   Specifies additional variables that must be injected into the test
   environment for each test. If <var>value</var> is not specified it will be
@@ -2171,19 +2150,16 @@ Examples:
 <p>
   The <code>clean</code> command is provided primarily as a means of
   reclaiming disk space for workspaces that are no longer needed.
-  However, we recognize that Bazel's incremental rebuilds might not be
-  perfect; <code>clean</code> may be used to recover a consistent
+  Bazel's incremental rebuilds may not be
+  perfect so <code>clean</code> can be used to recover a consistent
   state when problems arise.
 </p>
 <p>
-  Bazel's design is such that these problems are fixable; we consider
-  such bugs a high priority, and will do our best fix them. If you
-  ever find an incorrect incremental build, please file a bug report.
-  We encourage developers to get out of the habit of
-  using <code>clean</code> and into that of reporting bugs in the
-  tools.
+  Bazel's design is such that these problems are fixable and
+  these bugs are a high priority to be fixed. If you
+  ever find an incorrect incremental build, file a bug report, and report bugs in the tools
+  rather than using <code>clean</code>.
 </p>
-
 
 <h2 id='run'>Running executables</h2>
 <p>
@@ -2624,7 +2600,7 @@ a user-friendly way.
   <code class='flag'>--start_app</code> or
   <code class='flag'>--debug_app</code> is set, the last value is used.
 </p>
-<h4 id='flag--adb'><code class='flag'>--adb <var>path</var></code></h4>
+<h4 id='flag--adb'><code class='flag'>--adb=<var>path</var></code></h4>
 <p>
   Indicates the <code>adb</code> binary to be used.
 
@@ -2632,7 +2608,7 @@ a user-friendly way.
   <a href='#flag--android_sdk'><code class='flag'>--android_sdk</code></a>.
 
 </p>
-<h4 id='flag--adb_arg'><code class='flag'>--adb_arg <var>serial</var></code></h4>
+<h4 id='flag--adb_arg'><code class='flag'>--adb_arg=<var>serial</var></code></h4>
 <p>
   Extra arguments to <code>adb</code>. These come before the subcommand in the
   command line and are typically used to specify which device to install to.
@@ -2646,7 +2622,7 @@ a user-friendly way.
 <pre>
 adb -s deadbeef install ...
 </pre>
-<h4 id='flag--incremental_install_verbosity'><code class='flag'>--incremental_install_verbosity <var>number</var></code></h4>
+<h4 id='flag--incremental_install_verbosity'><code class='flag'>--incremental_install_verbosity=<var>number</var></code></h4>
 <p>
   The verbosity for incremental install. Set to 1 for debug logging to be
   printed to the console.
@@ -2844,9 +2820,8 @@ adb -s deadbeef install ...
   overriden with <code class='flag'>--output_base</code>. The directory
   must either not exist or be owned by the calling user. In the past,
   this was allowed to point to a directory shared among various users
-  but it's not allowed any longer. (We can reconsider allowing this once
-  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>
-  is addressed.)
+  but it's not allowed any longer. This may be allowed once the following is addressed:
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>.
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides
@@ -2960,14 +2935,14 @@ adb -s deadbeef install ...
   <i>WARNING:</i> <code class='flag'>--batch</code> is sufficiently slower than standard
   client/server mode. Additionally it might not support all of the features and optimizations which
   are made possible by a persistent Bazel server. If you're using <code class='flag'>--batch</code>
-  for the purpose of build isolation, we recommend using the command option
+  for the purpose of build isolation, you should use the command option
   <code class='flag'>--nokeep_state_after_build</code>, which guarantees that no incremental
   in-memory state is kept between builds. In order to restart the Bazel server and JVM after a
   build, please explicitly do so using the "shutdown" command.
 </p>
 
 
-<h4 id='flag--max_idle_secs'><code class='flag'>--max_idle_secs <var>n</var></code></h4>
+<h4 id='flag--max_idle_secs'><code class='flag'>--max_idle_secs=<var>n</var></code></h4>
 <p>
   This option specifies how long, in seconds, the Bazel server process
   should wait after the last client request, before it exits. The
@@ -3015,7 +2990,7 @@ adb -s deadbeef install ...
   by another Bazel command in the same client.
 </p>
 
-<h4 id='flag--io_nice_level'><code class='flag'>--io_nice_level <var>n</var></code></h4>
+<h4 id='flag--io_nice_level'><code class='flag'>--io_nice_level=<var>n</var></code></h4>
 <p>
   Sets a level from 0-7 for best-effort IO scheduling. 0 is highest priority,
   7 is lowest. The anticipatory scheduler may only honor up to priority 4.
@@ -3053,7 +3028,7 @@ adb -s deadbeef install ...
   of the setting of the TERM environment variable.
 </p>
 
-<h4 id='flag--config'><code class='flag'>--config <var>name</var></code></h4>
+<h4 id='flag--config'><code class='flag'>--config=<var>name</var></code></h4>
 <p>
  Selects additional config section from the rc files; for the current
  <code>command</code>, it also pulls in the options from

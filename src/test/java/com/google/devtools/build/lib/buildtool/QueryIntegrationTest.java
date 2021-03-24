@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.ByteArrayInputStream;
@@ -66,26 +70,69 @@ import org.w3c.dom.NodeList;
 @RunWith(JUnit4.class)
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final CustomFileSystem fs = new CustomFileSystem();
-  private BlazeCommandResult lastBlazeCommandResult;
   private final List<String> options = new ArrayList<>();
 
+  @Override
+  protected EventCollectionApparatus createEvents() {
+    ImmutableSet.Builder<EventKind> eventsSet = ImmutableSet.builder();
+    eventsSet.addAll(EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT);
+    eventsSet.add(EventKind.PROGRESS);
+    return new EventCollectionApparatus(eventsSet.build());
+  }
+
   private static class CustomFileSystem extends UnixFileSystem {
-    final Map<Path, FileStatus> stubbedStats = new HashMap<>();
+    final Map<PathFragment, FileStatus> stubbedStats = new HashMap<>();
 
     CustomFileSystem() {
       super(DigestHashFunction.SHA256, "");
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, stubbedResult);
+      stubbedStats.put(path.asFragment(), stubbedResult);
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path);
       }
       return super.statIfFound(path, followSymlinks);
+    }
+  }
+
+  private static class QueryOutput {
+    private final BlazeCommandResult blazeCommandResult;
+    private final byte[] stdout;
+
+    public QueryOutput(BlazeCommandResult blazeCommandResult, byte[] stdout) {
+      this.blazeCommandResult = blazeCommandResult;
+      this.stdout = stdout;
+    }
+
+    public BlazeCommandResult getBlazeCommandResult() {
+      return blazeCommandResult;
+    }
+
+    public byte[] getStdout() {
+      return stdout;
+    }
+  }
+
+  private static class ProtoQueryOutput {
+    private final QueryResult queryResult;
+    private final QueryOutput queryOutput;
+
+    public ProtoQueryOutput(QueryOutput queryOutput, QueryResult queryResult) {
+      this.queryResult = queryResult;
+      this.queryOutput = queryOutput;
+    }
+
+    public QueryResult getQueryResult() {
+      return queryResult;
+    }
+
+    public QueryOutput getQueryOutput() {
+      return queryOutput;
     }
   }
 
@@ -138,11 +185,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     expected.add("//foo:a");
     Collections.sort(expected, Collections.reverseOrder());
     write("foo/BUILD", "sh_library(name = 'a', deps = [" + depString + "])", targets);
-    QueryResult result = getProtoQueryResult("deps(//foo:a)");
-    assertSameElementsDifferentOrder(getTargetNames(result), expected);
+    ProtoQueryOutput result = getProtoQueryResult("deps(//foo:a)");
+    assertSameElementsDifferentOrder(getTargetNames(result.getQueryResult()), expected);
     options.add("--order_output=full");
     result = getProtoQueryResult("deps(//foo:a)");
-    assertThat(getTargetNames(result)).containsExactlyElementsIn(expected).inOrder();
+    assertThat(getTargetNames(result.getQueryResult()))
+        .containsExactlyElementsIn(expected)
+        .inOrder();
   }
 
   /**
@@ -244,9 +293,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "test_suite(name = 'cop', tests = [':thief', ':shop'])");
 
     // This should not throw an exception, and return 0 targets.
-    QueryResult result = getProtoQueryResult("tests(//donut:cop)");
-    assertThat(result.getTargetCount()).isEqualTo(1);
-    assertThat(result.getTarget(0).getRule().getName()).isEqualTo("//donut:shop");
+    ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
+    QueryResult queryResult = result.getQueryResult();
+    assertThat(queryResult.getTargetCount()).isEqualTo(1);
+    assertThat(queryResult.getTarget(0).getRule().getName()).isEqualTo("//donut:shop");
   }
 
   @Test
@@ -256,9 +306,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
         "test_suite(name = 'cop', tests = [':thief'])");
 
-    getProtoQueryResult("tests(//donut:cop)");
-    assertThat(lastBlazeCommandResult.getExitCode()).isEqualTo(ExitCode.ANALYSIS_FAILURE);
-    assertThat(lastBlazeCommandResult.getFailureDetail().getMessage())
+    ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
+    BlazeCommandResult blazeCommandResult = result.getQueryOutput().getBlazeCommandResult();
+    assertExitCode(result.getQueryOutput(), ExitCode.ANALYSIS_FAILURE);
+    assertThat(blazeCommandResult.getFailureDetail().getMessage())
         .contains(
             "The label '//donut:thief' in the test_suite "
                 + "'//donut:cop' does not refer to a test");
@@ -317,9 +368,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     if (keepGoing) {
       options.add("--keep_going");
     }
-    getQueryResult("deps(//bar:baz)");
-    assertThat(lastBlazeCommandResult.getExitCode())
-        .isEqualTo(keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE);
+    QueryOutput result = getQueryResult("deps(//bar:baz)");
+    ExitCode expectedExitcode =
+        keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE;
+    assertExitCode(result, expectedExitcode);
     events.assertContainsError("Inconsistent filesystem operations");
     assertThat(events.errors()).hasSize(1);
   }
@@ -340,9 +392,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     if (keepGoing) {
       options.add("--keep_going");
     }
-    getQueryResult("deps(//foo:foo)");
-    assertThat(lastBlazeCommandResult.getExitCode())
-        .isEqualTo(keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE);
+    QueryOutput result = getQueryResult("deps(//foo:foo)");
+    ExitCode expectedExitcode =
+        keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE;
+    assertExitCode(result, expectedExitcode);
     events.assertContainsError("Inconsistent filesystem operations");
     events.assertContainsError("and referenced by '//foo:foo'");
     events.assertContainsError("Evaluation of query \"deps(//foo:foo)\" failed: errors were ");
@@ -362,7 +415,429 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     runDepInconsistentFileSystem(/*keepGoing=*/ false);
   }
 
-  private byte[] getQueryResult(String queryString) throws Exception {
+  @Test
+  public void testBinaries() throws Exception {
+    write(
+        "package/BUILD",
+        "sh_library(name='no1')",
+        "sh_binary(name='yes1', srcs = ['dummy.sh'])",
+        "cc_library(name='no2')",
+        "java_library(name='no3')",
+        "go_library(name='no4', srcs = ['dummy.go'])",
+        "py_library(name='no5')",
+        "cc_binary(name='yes2')",
+        "objc_library(name='no6')");
+
+    QueryOutput result = getQueryResult("binaries('package/...')");
+    assertSuccessfulExitCode(result);
+
+    assertQueryOutputContains(result, "//package:yes1", "//package:yes2");
+    assertQueryOutputDoesNotContain(result, "//package:no.");
+  }
+
+  @Test
+  public void invalidQueryFailsParsing() throws Exception {
+    QueryOutput result = getQueryResult("deps(\"--bad_target_name_from_bad_script\")");
+
+    assertCommandLineErrorExitCode(result);
+    assertThat(result.getStdout()).isEmpty();
+    events.assertContainsError("target literal must not begin with (-)");
+  }
+
+  @Test
+  public void testLanguageDepsDoesNotFailHorribly() throws Exception {
+    write(
+        "peach/BUILD",
+        "cc_library(name='cc_lib')",
+        "java_library(name='java_lib')",
+        "go_library(name='go_lib', srcs = ['go_lib.go'])",
+        "py_library(name='py_lib')");
+
+    QueryOutput result = getQueryResult("deps(//peach:all)");
+    assertSuccessfulExitCode(result);
+    assertThat(result.getStdout()).isNotEmpty();
+  }
+
+  @Test
+  public void siblingsFunction() throws Exception {
+    write(
+        "foo/BUILD",
+        "sh_library(name='t1')",
+        "sh_library(name='t2')",
+        "sh_library(name='t3')",
+        "sh_library(name='t4')",
+        "sh_library(name='t5')");
+
+    QueryOutput result = getQueryResult("siblings(//foo:t1)");
+    assertSuccessfulExitCode(result);
+    assertThat(result.getStdout()).isNotEmpty();
+  }
+
+  @Test
+  public void samePackageDirectRDepsFunction() throws Exception {
+    write(
+        "foo/BUILD",
+        "sh_library(name='t1', srcs=['t1.sh'])",
+        "sh_library(name='t2', srcs=['t2.sh'])",
+        "sh_library(name='t3', srcs=['t2.sh'])");
+
+    QueryOutput result = getQueryResult("same_pkg_direct_rdeps(//foo:t1.sh)");
+    assertSuccessfulExitCode(result);
+
+    assertQueryOutputContains(result, "//foo:t1");
+    assertQueryOutputDoesNotContain(result, "//foo:t2", "/foo:t3");
+  }
+
+  @Test
+  public void graphlessQuery() throws Exception {
+    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+
+    QueryOutput result =
+        getQueryResult("//foo", "--experimental_graphless_query", "--order_output=no");
+    assertSuccessfulExitCode(result);
+    assertQueryOutputContains(result, "//foo:foo");
+  }
+
+  @Test
+  public void graphlessQueryRequiresUnorderedOutput() throws Exception {
+    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+
+    QueryOutput result =
+        getQueryResult("//foo", "--experimental_graphless_query", "--order_output=deps");
+    events.assertContainsError(
+        "--experimental_graphless_query requires --order_output=no or --order_output=auto");
+    assertCommandLineErrorExitCode(result);
+    assertThat(result.getStdout()).isEmpty();
+  }
+
+  @Test
+  public void graphlessQueryWithLexicographicalOutput() throws Exception {
+    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+
+    QueryOutput result =
+        getQueryResult(
+            "//foo",
+            "--experimental_graphless_query",
+            "--order_output=auto",
+            "--incompatible_lexicographical_output");
+    assertSuccessfulExitCode(result);
+    assertThat(result.getStdout()).isNotEmpty();
+  }
+
+  @Test
+  public void graphlessQueryRequiresStreamedFormatter() throws Exception {
+    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+
+    QueryOutput result =
+        getQueryResult(
+            "//foo", "--experimental_graphless_query", "--order_output=no", "--output=maxrank");
+
+    assertCommandLineErrorExitCode(result);
+    assertThat(result.getStdout()).isEmpty();
+    events.assertContainsError(
+        "--experimental_graphless_query requires --order_output=no or --order_output=auto and an"
+            + " --output option that supports streaming");
+  }
+
+  @Test
+  public void ruleStackInBuildOutput() throws Exception {
+    /*
+     * See b/151165647 - This needs a non-trivial package name to avoid
+     * including extraneous directories in the generator_location.
+     */
+
+    write(
+        "package/inc.bzl",
+        "def _impl(ctx): pass",
+        "myrule = rule(implementation = _impl)",
+        "def f():",
+        "  g()",
+        "def g():",
+        "  myrule(name='a')");
+
+    write("package/BUILD", "load('inc.bzl', 'f')\n" + "f()");
+
+    QueryOutput result = getQueryResult("//package:a", "--output=build");
+    assertSuccessfulExitCode(result);
+    // TODO(b/151165647): fix the heuristic that incorrectly creates generator_location by//
+    //  relativizing package name "p" relative to /foo/tmp/ regardless of segment boundaries.
+    // TODO(b/151151653): the output should contain only workspace-relative paths.
+    String workspaceDir = getWorkspace().toString();
+    String expectedOut =
+        "# "
+            + workspaceDir
+            + "/package/BUILD:2:2\n"
+            + "myrule(\n"
+            + "  name = \"a\",\n"
+            + "  generator_name = \"a\",\n"
+            + "  generator_function = \"f\",\n"
+            + "  generator_location = "
+            + "\"package/BUILD:2:2\",\n"
+            + ")\n"
+            + "# Rule a instantiated at (most recent call last):\n"
+            + "#   "
+            + workspaceDir
+            + "/package/BUILD:2:2   in <toplevel>\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:4:4 in f\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:6:9 in g\n"
+            + "# Rule myrule defined at (most recent call last):\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:2:14 in <toplevel>\n\n";
+
+    String out = new String(result.getStdout(), UTF_8);
+
+    assertThat(out).isEqualTo(expectedOut);
+  }
+
+  /*
+   * Test of instantiation_stack (b/36593041) through query --output=build
+   */
+  @Test
+  public void ruleStackInProtoOutput() throws Exception {
+    write(
+        "p/inc.bzl",
+        "def _impl(ctx): pass",
+        "myrule = rule(implementation = _impl)",
+        "def f():",
+        "  g()",
+        "def g():",
+        "  myrule(name='a')");
+
+    write("p/BUILD", "load('inc.bzl', 'f')", "f()");
+    ProtoQueryOutput result =
+        getProtoQueryResult("//p:a", "--output=proto", "--proto:instantiation_stack=true");
+    assertSuccessfulExitCode(result.getQueryOutput());
+
+    String expectedProtoOut =
+        "    instantiation_stack: \"p/BUILD:2:2: <toplevel>\"\n"
+            + "    instantiation_stack: \"p/inc.bzl:4:4: f\"\n"
+            + "    instantiation_stack: \"p/inc.bzl:6:9: g\"";
+    String actualProtoOut = result.getQueryResult().toString();
+
+    assertThat(actualProtoOut).contains(expectedProtoOut);
+  }
+
+  /*
+   * Regression test for b/162110273.
+   */
+  @Test
+  public void ruleStackRegressionTest() throws Exception {
+    /*
+     * See b/151165647 - This needs a non-trivial package name to avoid
+     * including extraneous directories in the generator_location.
+     */
+
+    write(
+        "package/inc.bzl",
+        "def g(name):",
+        "    native.cc_library(name = name)",
+        "",
+        "def f(name):",
+        "    g(name)");
+
+    write("package/BUILD", "load(\"inc.bzl\", \"f\")", "f(name = \"a\")", "f(name = \"b\")");
+    QueryOutput result = getQueryResult("//package:all", "--output=build");
+    assertSuccessfulExitCode(result);
+
+    String workspaceDir = getWorkspace().toString();
+    String expectedOut =
+        "# "
+            + workspaceDir
+            + "/package/BUILD:2:2\n"
+            + "cc_library(\n"
+            + "  name = \"a\",\n"
+            + "  generator_name = \"a\",\n"
+            + "  generator_function = \"f\",\n"
+            + "  generator_location = "
+            + "\"package/BUILD:2:2\",\n"
+            + ")\n"
+            + "# Rule a instantiated at (most recent call last):\n"
+            + "#   "
+            + workspaceDir
+            + "/package/BUILD:2:2    in <toplevel>\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:5:6  in f\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:2:22 in g\n"
+            + "\n"
+            + "# "
+            + workspaceDir
+            + "/package/BUILD:3:2\n"
+            + "cc_library(\n"
+            + "  name = \"b\",\n"
+            + "  generator_name = \"b\",\n"
+            + "  generator_function = \"f\",\n"
+            + "  generator_location = "
+            + "\"package/BUILD:3:2\",\n"
+            + ")\n"
+            + "# Rule b instantiated at (most recent call last):\n"
+            + "#   "
+            + workspaceDir
+            + "/package/BUILD:3:2    in <toplevel>\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:5:6  in f\n"
+            + "#   "
+            + workspaceDir
+            + "/package/inc.bzl:2:22 in g\n\n";
+
+    String out = new String(result.getStdout(), UTF_8);
+    assertThat(out).isEqualTo(expectedOut);
+  }
+
+  private void assertDepthBoundedQuery(boolean orderResults) throws Exception {
+    if (orderResults) {
+      options.add("--order_output=auto");
+    } else {
+      options.add("--order_output=no");
+      options.add("--universe_scope=//depth:*");
+    }
+
+    write(
+        "depth/BUILD",
+        "sh_binary(name = 'one', srcs = ['one.sh'], deps = [':two'])",
+        "sh_library(name = 'two', srcs = ['two.sh'],",
+        "           deps = [':div2', ':three', '//depth2:three'])",
+        "sh_library(name = 'three', srcs = ['three.sh'], deps = [':four'])",
+        "sh_library(name = 'four', srcs = ['four.sh'], deps = [':div2', ':five'])",
+        "sh_library(name = 'five', srcs = ['five.sh'])",
+        "sh_library(name = 'div2', srcs = ['two.sh'])");
+
+    write("depth2/BUILD", "sh_library(name = 'three', srcs = ['three.sh'])");
+    write("depth/one.sh", "");
+    write("depth/two.sh", "");
+    write("depth/three.sh", "");
+    write("depth/four.sh", "");
+    write("depth/five.sh", "");
+
+    write("depth2/three.sh", "");
+
+    QueryOutput oneDep = getQueryResult("deps(//depth:one, 1)");
+    assertQueryOutputContains(
+        oneDep, "//depth:one.sh", "//depth:two", "//tools/sh:sh_stub_template.txt");
+    assertQueryOutputDoesNotContain(oneDep, "//depth2");
+
+    // Ensure that the whole transitive closure wasn't pulled in earlier if not pre-loading.
+    QueryOutput threeDep =
+        getQueryResult("deps(//depth:one, 3)", "--experimental_ui_debug_all_events");
+
+    if (orderResults) {
+      events.assertContainsEvent(EventKind.PROGRESS, "Loading package: depth2");
+    }
+
+    assertQueryOutputContains(
+        threeDep,
+        "//depth:one",
+        "//depth:one.sh",
+        "//depth:two",
+        "//depth:two.sh",
+        "//depth:div2",
+        "//depth:three",
+        "//depth:three.sh",
+        "//depth:four",
+        "//depth2:three",
+        "//depth2:three.sh",
+        "//tools/sh:sh_stub_template.txt");
+
+    QueryOutput oneDepNonExperimental = getQueryResult("deps(//depth:one, 3)");
+
+    /*
+     * --experimental_ui_debug_all_events and expect_query_targets are not
+     * mutually compatible at this time, so we run this again to check that the
+     * output is exact rather than a superset.
+     */
+    assertQueryOutputContains(
+        oneDepNonExperimental,
+        "//depth:one",
+        "//depth:one.sh",
+        "//depth:two",
+        "//depth:two.sh",
+        "//depth:div2",
+        "//depth:three",
+        "//depth:three.sh",
+        "//depth:four",
+        "//depth2:three",
+        "//depth2:three.sh",
+        "//tools/sh:sh_stub_template.txt");
+
+    QueryOutput twoDep =
+        getQueryResult("deps(//depth:one, 2)", "--experimental_ui_debug_all_events");
+
+    events.clear();
+    // Restricting the query, however, should not cause reloading.
+    events.assertDoesNotContainEvent("Loading package:");
+
+    assertQueryOutputContains(
+        twoDep,
+        "//depth:one",
+        "//depth:one.sh",
+        "//depth:two",
+        "//depth:two.sh",
+        "//depth:three",
+        "//depth:div2",
+        "//depth2:three",
+        "//tools/sh:sh_stub_template.txt");
+
+    // Same as above
+    QueryOutput twoDepNonExperimental = getQueryResult("deps(//depth:one, 2)");
+
+    assertQueryOutputContains(
+        twoDepNonExperimental,
+        "//depth:one",
+        "//depth:one.sh",
+        "//depth:two",
+        "//depth:two.sh",
+        "//depth:three",
+        "//depth:div2",
+        "//depth2:three",
+        "//tools/sh:sh_stub_template.txt");
+  }
+
+  @Test
+  public void depthBoundedQueryUnordered() throws Exception {
+    assertDepthBoundedQuery(false);
+  }
+
+  @Test
+  public void depthBoundedQueryOrdered() throws Exception {
+    assertDepthBoundedQuery(true);
+  }
+
+  private void assertExitCode(QueryOutput result, ExitCode expected) {
+    assertThat(result.getBlazeCommandResult().getExitCode()).isEqualTo(expected);
+  }
+
+  private void assertSuccessfulExitCode(QueryOutput result) {
+    assertExitCode(result, ExitCode.SUCCESS);
+  }
+
+  private void assertCommandLineErrorExitCode(QueryOutput result) {
+    assertExitCode(result, ExitCode.COMMAND_LINE_ERROR);
+  }
+
+  private void assertQueryOutputContains(QueryOutput result, String... expectedStrings) {
+    String out = new String(result.getStdout(), UTF_8);
+    for (String expectedString : expectedStrings) {
+      assertThat(out).contains(expectedString);
+    }
+  }
+
+  private void assertQueryOutputDoesNotContain(QueryOutput result, String... unexpected) {
+    String out = new String(result.getStdout(), UTF_8);
+    for (String log : unexpected) {
+      assertThat(out).doesNotContain(log);
+    }
+  }
+
+  private QueryOutput getQueryResult(String queryString, String... flags) throws Exception {
+    Collections.addAll(options, flags);
     runtimeWrapper.resetOptions();
     runtimeWrapper.addOptions(options);
     runtimeWrapper.addOptions(queryString);
@@ -404,13 +879,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
                 }
               }
             });
-    lastBlazeCommandResult = new QueryCommand().exec(env, options);
-    return stdout.toByteArray();
+    BlazeCommandResult lastBlazeCommandResult = new QueryCommand().exec(env, options);
+    return new QueryOutput(lastBlazeCommandResult, stdout.toByteArray());
   }
 
   private Document getXmlQueryResult(String queryString) throws Exception {
     options.add("--output=xml");
-    byte[] queryResult = getQueryResult(queryString);
+    byte[] queryResult = getQueryResult(queryString).getStdout();
     return DocumentBuilderFactory.newInstance().newDocumentBuilder()
         .parse(new ByteArrayInputStream(queryResult));
   }
@@ -426,13 +901,19 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private List<String> getStringQueryResult(String queryString) throws Exception {
-    return Arrays.asList(
-        new String(getQueryResult(queryString), Charset.defaultCharset()).split("\n"));
+    QueryOutput result = getQueryResult(queryString);
+    return Arrays.asList(new String(result.getStdout(), Charset.defaultCharset()).split("\n"));
   }
 
-  private QueryResult getProtoQueryResult(String queryString) throws Exception {
+  private ProtoQueryOutput getProtoQueryResult(String queryString, String... flags)
+      throws Exception {
     options.add("--output=proto");
-    return QueryResult.parseFrom(getQueryResult(queryString), ExtensionRegistry.getEmptyRegistry());
+    Collections.addAll(options, flags);
+    QueryOutput result = getQueryResult(queryString);
+    byte[] stdout = result.getStdout();
+    QueryResult queryResult = QueryResult.parseFrom(stdout, ExtensionRegistry.getEmptyRegistry());
+
+    return new ProtoQueryOutput(result, queryResult);
   }
 
   Element getResultNode(Document xml, String ruleName) throws Exception {

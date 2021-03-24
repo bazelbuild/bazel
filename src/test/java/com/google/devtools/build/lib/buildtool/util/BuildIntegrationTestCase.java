@@ -144,7 +144,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected FileSystem fileSystem;
-  protected EventCollectionApparatus events = new EventCollectionApparatus();
+  protected EventCollectionApparatus events = createEvents();
   protected OutErr outErr = OutErr.SYSTEM_OUT_ERR;
   protected Path testRoot;
   protected ServerDirectories serverDirectories;
@@ -158,6 +158,10 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
+
+  protected EventCollectionApparatus createEvents() {
+    return new EventCollectionApparatus();
+  }
 
   @Before
   public final void createFilesAndMocks() throws Exception  {
