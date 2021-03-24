@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -52,7 +53,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(TestOptions.class);
+      return ImmutableSet.of(TestOptions.class, CoreOptions.class);
     }
 
     @Override
@@ -61,9 +62,14 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
         // nothing to do, already trimmed this fragment
         return originalOptions.underlying();
       }
+      CoreOptions originalCoreOptions = originalOptions.get(CoreOptions.class);
       TestOptions originalTestOptions = originalOptions.get(TestOptions.class);
-      if (!originalTestOptions.trimTestConfiguration) {
+      if (!originalTestOptions.trimTestConfiguration
+          || !originalCoreOptions.useDistinctHostConfiguration) {
         // nothing to do, trimming is disabled
+        // Due to repercussions of b/117932061, do not trim when `--nodistinct_host_configuration`
+        // TODO(twigg): See if can remove distinct_host_configuration read here and thus
+        // dependency on CoreOptions above.
         return originalOptions.underlying();
       }
       return cache.applyTransition(
