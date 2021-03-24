@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
@@ -588,13 +587,13 @@ public class CompilationSupport {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
-    ImmutableSet.Builder<String> disableFeatures = ImmutableSet.<String>builder();
-    // TODO(b/159096411): Remove once supports_header_parsing is removed from the cc_toolchain rule.
-    if (disableParseHeaders || !ccToolchain.supportsHeaderParsing()) {
-      disableFeatures.add(CppRuleClasses.PARSE_HEADERS);
+    ImmutableSet.Builder<String> disabledFeatures = ImmutableSet.<String>builder();
+    disabledFeatures.addAll(ruleContext.getDisabledFeatures());
+    if (disableParseHeaders) {
+      disabledFeatures.add(CppRuleClasses.PARSE_HEADERS);
     }
     if (disableLayeringCheck) {
-      disableFeatures.add(CppRuleClasses.LAYERING_CHECK);
+      disabledFeatures.add(CppRuleClasses.LAYERING_CHECK);
     }
     if (forSwiftModuleMap) {
       activatedCrosstoolSelectables
@@ -604,22 +603,15 @@ public class CompilationSupport {
           .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
           .add(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE)
           .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS);
-      disableFeatures.add(CppRuleClasses.GENERATE_SUBMODULES);
-    }
-
-    ImmutableSet<String> disableFeaturesSet = disableFeatures.build();
-    ImmutableSet<String> activatedCrosstoolSelectablesSet;
-    if (!disableFeaturesSet.isEmpty()) {
-      activatedCrosstoolSelectablesSet =
-          activatedCrosstoolSelectables.build().stream()
-              .filter(feature -> !disableFeaturesSet.contains(feature))
-              .collect(toImmutableSet());
-    } else {
-      activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
+      disabledFeatures.add(CppRuleClasses.GENERATE_SUBMODULES);
     }
 
     return CcCommon.configureFeaturesOrReportRuleError(
-        ruleContext, activatedCrosstoolSelectablesSet, ImmutableSet.of(), ccToolchain, semantics);
+        ruleContext,
+        activatedCrosstoolSelectables.build(),
+        disabledFeatures.build(),
+        ccToolchain,
+        semantics);
   }
 
   private FeatureConfiguration getFeatureConfiguration(
