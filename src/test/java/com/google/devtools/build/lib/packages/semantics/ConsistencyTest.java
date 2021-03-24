@@ -124,7 +124,6 @@ public class ConsistencyTest {
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
         "--experimental_ninja_actions=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
-        "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
@@ -170,7 +169,6 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, rand.nextBoolean())

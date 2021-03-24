@@ -181,12 +181,10 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   @Option(
       name = "experimental_starlark_config_transitions",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If set to true, enables creation of configuration transition objects (the "
-              + "`transition()` function) in Starlark.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "No-op: to be removed as soon once all references are gone")
   public boolean experimentalStarlarkConfigTransitions;
 
   @Option(
@@ -650,8 +648,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
-            .setBool(
-                EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS, experimentalStarlarkConfigTransitions)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
@@ -723,8 +719,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
   public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
       "-experimental_sibling_repository_layout";
-  public static final String EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS =
-      "+experimental_starlark_config_transitions";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "-incompatible_allow_tags_propagation";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
