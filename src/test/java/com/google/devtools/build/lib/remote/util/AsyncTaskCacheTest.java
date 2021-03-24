@@ -14,16 +14,15 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.observers.TestObserver;
-import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,21 +31,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AsyncTaskCacheTest {
 
-  private final AtomicReference<Throwable> rxGlobalThrowable = new AtomicReference<>(null);
-
-  @Before
-  public void setUp() {
-    RxJavaPlugins.setErrorHandler(rxGlobalThrowable::set);
-  }
-
-  @After
-  public void tearDown() throws Throwable {
-    // Make sure rxjava didn't receive global errors
-    Throwable t = rxGlobalThrowable.getAndSet(null);
-    if (t != null) {
-      throw t;
-    }
-  }
+  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   @Test
   public void execute_noSubscription_noExecution() {
@@ -295,5 +280,45 @@ public class AsyncTaskCacheTest {
     observer2.assertEmpty();
     assertThat(cache.getInProgressTasks()).containsExactly("key2");
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
+  }
+
+  @Test
+  public void execute_executeAndDisposeLoop_noErrors() throws InterruptedException {
+    AsyncTaskCache<String, Long> cache = AsyncTaskCache.create();
+    Single<Long> task = Single.timer(1, SECONDS);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    AtomicInteger errorCount = new AtomicInteger(0);
+    int executionCount = 100;
+    Runnable runnable =
+        () -> {
+          try {
+            for (int i = 0; i < executionCount; ++i) {
+              TestObserver<Long> observer = cache.execute("key1", task, true).test();
+              observer.assertNoErrors();
+              observer.dispose();
+            }
+          } catch (Throwable t) {
+            errorCount.incrementAndGet();
+            error.set(t);
+          }
+        };
+    int threadCount = 10;
+    Thread[] threads = new Thread[threadCount];
+    for (int i = 0; i < threadCount; ++i) {
+      Thread thread = new Thread(runnable);
+      threads[i] = thread;
+    }
+
+    for (Thread thread : threads) {
+      thread.start();
+    }
+    for (Thread thread : threads) {
+      thread.join();
+    }
+
+    if (error.get() != null) {
+      throw new IllegalStateException(
+          String.format("%s/%s errors", errorCount.get(), threadCount), error.get());
+    }
   }
 }
