@@ -134,10 +134,12 @@ public class PlatformRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = platform, FAMILY = Platform)[GENERIC_RULE] -->
 
-<p>This rule defines a new platform -- a named collection of constraint choices (such as cpu
-architecture or compiler version) describing an environment in which part of the build may run.
-See the <a href="../platforms.html">Platforms</a> page for
-more details.
+<p>This rule defines a new platform -- a named collection of constraint choices
+(such as cpu architecture or compiler version) describing an environment in
+which part of the build may run.
+
+For more details, see the
+<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page.
 
 <h4 id="platform_examples">Example</h4>
 <p>
