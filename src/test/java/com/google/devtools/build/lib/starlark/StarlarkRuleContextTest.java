@@ -1514,6 +1514,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testExternalWorkspaceLoad() throws Exception {
+    // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
+    // safe to execute in parallel. Disable checks with package loader to avoid parallel
+    // evaluations.
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     scratch.file(
         "/r1/BUILD",
         "filegroup(name = 'test',",
