@@ -126,6 +126,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " key.")
   public List<String> experimentalBuiltinsInjectionOverride;
 
+
   @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
@@ -644,9 +645,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
-            .set(
-                EXPERIMENTAL_CC_STARLARK_API_ENABLED_PACKAGES,
-                ImmutableList.copyOf(experimentalCcStarlarkApiEnabledPackages))
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
@@ -776,10 +774,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "");
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
-  public static final StarlarkSemantics.Key<ImmutableList<String>>
-      EXPERIMENTAL_CC_STARLARK_API_ENABLED_PACKAGES =
-          new StarlarkSemantics.Key<>(
-              "experimental_cc_starlark_api_enabled_packages", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
