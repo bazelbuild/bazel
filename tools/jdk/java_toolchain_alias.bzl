@@ -16,11 +16,16 @@
 
 def _java_runtime_alias(ctx):
     """An experimental implementation of java_runtime_alias using toolchain resolution."""
+    toolchain_info = None
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+        toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+        if hasattr(toolchain_info, "java_runtime"):
+            toolchain = toolchain_info.java_runtime
+        else:
+            toolchain = toolchain_info
     else:
         toolchain = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
-    return [
+    providers = [
         toolchain,
         platform_common.TemplateVariableInfo({
             "JAVA": str(toolchain.java_executable_exec_path),
@@ -32,6 +37,9 @@ def _java_runtime_alias(ctx):
             files = toolchain.files,
         ),
     ]
+    if toolchain_info != None and toolchain_info != toolchain:
+        providers.append(toolchain_info)
+    return providers
 
 java_runtime_alias = rule(
     implementation = _java_runtime_alias,
@@ -47,9 +55,13 @@ java_runtime_alias = rule(
 def _java_host_runtime_alias(ctx):
     """An experimental implementation of java_host_runtime_alias using toolchain resolution."""
     runtime = ctx.attr._runtime
+    java_runtime = runtime[java_common.JavaRuntimeInfo]
+    template_variable_info = runtime[platform_common.TemplateVariableInfo]
+    toolchain_info = platform_common.ToolchainInfo(java_runtime = java_runtime)
     return [
-        runtime[java_common.JavaRuntimeInfo],
-        runtime[platform_common.TemplateVariableInfo],
+        java_runtime,
+        template_variable_info,
+        toolchain_info,
         # Create a new DefaultInfo instead of propagating runtime[DefaultInfo]
         # directly.
         DefaultInfo(
@@ -71,15 +83,25 @@ java_host_runtime_alias = rule(
             cfg = "host",
         ),
     },
+    provides = [
+        java_common.JavaRuntimeInfo,
+        platform_common.TemplateVariableInfo,
+        platform_common.ToolchainInfo,
+    ],
 )
 
 def _java_runtime_version_alias(ctx):
     """An alias fixing a specific version of java_runtime."""
+    toolchain_info = None
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+        toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+        if hasattr(toolchain_info, "java_runtime"):
+            toolchain = toolchain_info.java_runtime
+        else:
+            toolchain = toolchain_info
     else:
         toolchain = ctx.attr.selected_java_runtime[java_common.JavaRuntimeInfo]
-    return [
+    providers = [
         toolchain,
         platform_common.TemplateVariableInfo({
             "JAVA": str(toolchain.java_executable_exec_path),
@@ -91,6 +113,9 @@ def _java_runtime_version_alias(ctx):
             files = toolchain.files,
         ),
     ]
+    if toolchain_info != None and toolchain_info != toolchain:
+        providers.append(toolchain_info)
+    return providers
 
 def _java_runtime_transition_impl(settings, attr):
     return {"//command_line_option:java_runtime_version": attr.runtime_version}
