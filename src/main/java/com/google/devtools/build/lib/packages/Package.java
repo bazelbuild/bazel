@@ -1725,6 +1725,9 @@ public class Package {
       }
 
       Collections.sort(tests); // (for determinism)
+      // In case we're called multiple times, as can happen in PackageFunction if skyframe deps are
+      // missing.
+      this.testSuiteImplicitTests.clear();
       this.testSuiteImplicitTests.addAll(tests);
 
       for (InputFile file : newInputFiles.values()) {
