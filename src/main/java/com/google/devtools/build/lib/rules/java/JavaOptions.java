@@ -650,6 +650,7 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  // TODO(b/180107817): delete flag after removing from global .blazerc
   @Option(
       name = "incompatible_dont_collect_so_artifacts",
       defaultValue = "false",
@@ -659,9 +660,7 @@ public class JavaOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "Disables collection of .so libraries as artifact (produced by filegroup or genrule); "
-              + " depend on cc_binary or cc_library directly.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean dontCollectSoArtifacts;
 
   Label defaultJavaBase() {
