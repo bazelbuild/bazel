@@ -179,15 +179,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean experimentalPlatformsApi;
 
   @Option(
-      name = "experimental_starlark_config_transitions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "No-op: to be removed as soon once all references are gone")
-  public boolean experimentalStarlarkConfigTransitions;
-
-  @Option(
       name = "experimental_cc_shared_library",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
