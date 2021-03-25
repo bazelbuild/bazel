@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "java_output",
     category = DocCategory.BUILTIN,
     doc = "The outputs of Java compilation.")
-public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
+public interface JavaOutputApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(name = "class_jar", doc = "A classes jar file.", structField = true)
   FileT getClassJar();

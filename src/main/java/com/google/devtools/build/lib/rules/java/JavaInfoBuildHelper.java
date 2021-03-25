@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
@@ -63,7 +63,7 @@ final class JavaInfoBuildHelper {
   /**
    * Creates JavaInfo instance from outputJar.
    *
-   * @param outputs the artifacts that were created as a result of a compilation (e.g. javac,
+   * @param javaOutput the artifacts that were created as a result of a compilation (e.g. javac,
    *     scalac, etc)
    * @param neverlink if true only use this library for compilation and not at runtime
    * @param compileTimeDeps compile time dependencies that were used to create the output jar
@@ -74,7 +74,7 @@ final class JavaInfoBuildHelper {
    * @return new created JavaInfo instance
    */
   JavaInfo createJavaInfo(
-      OutputJar outputs,
+      JavaOutput javaOutput,
       Boolean neverlink,
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
@@ -87,15 +87,15 @@ final class JavaInfoBuildHelper {
         JavaCompilationArgsProvider.builder();
 
     if (!neverlink) {
-      javaCompilationArgsBuilder.addRuntimeJar(outputs.getClassJar());
+      javaCompilationArgsBuilder.addRuntimeJar(javaOutput.getClassJar());
     }
-    if (outputs.getCompileJar() != null) {
+    if (javaOutput.getCompileJar() != null) {
       javaCompilationArgsBuilder.addDirectCompileTimeJar(
-          /* interfaceJar= */ outputs.getCompileJar(), /* fullJar= */ outputs.getClassJar());
+          /* interfaceJar= */ javaOutput.getCompileJar(), /* fullJar= */ javaOutput.getClassJar());
     }
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        JavaRuleOutputJarsProvider.builder().addOutputJar(outputs).build();
+        JavaRuleOutputJarsProvider.builder().addJavaOutput(javaOutput).build();
     javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);
 
     ClasspathType type = neverlink ? COMPILE_ONLY : BOTH;
@@ -120,19 +120,19 @@ final class JavaInfoBuildHelper {
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
         createJavaSourceJarsProvider(
-            outputs.getSourceJars(), concat(compileTimeDeps, runtimeDeps, exports)));
+            javaOutput.getSourceJars(), concat(compileTimeDeps, runtimeDeps, exports)));
 
     javaInfoBuilder.addProvider(
         JavaGenJarsProvider.class,
         JavaGenJarsProvider.create(
             false,
-            outputs.getGeneratedClassJar(),
-            outputs.getGeneratedSourceJar(),
+            javaOutput.getGeneratedClassJar(),
+            javaOutput.getGeneratedSourceJar(),
             JavaPluginInfoProvider.empty(),
             JavaInfo.fetchProvidersFromList(
                 concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
 
-    javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputs.getClassJar()));
+    javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
 
     return javaInfoBuilder.build();
   }

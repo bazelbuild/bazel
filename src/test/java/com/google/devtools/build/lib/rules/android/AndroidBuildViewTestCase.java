@@ -199,11 +199,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
     return Iterables.find(
-            jarProvider.getOutputJars(),
-            outputJar -> {
-              assertThat(outputJar).isNotNull();
-              assertThat(outputJar.getClassJar()).isNotNull();
-              return outputJar
+            jarProvider.getJavaOutputs(),
+            javaOutput -> {
+              assertThat(javaOutput).isNotNull();
+              assertThat(javaOutput.getClassJar()).isNotNull();
+              return javaOutput
                   .getClassJar()
                   .getFilename()
                   .equals(target.getTarget().getName() + "_resources.jar");

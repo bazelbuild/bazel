@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompileOutputs;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -225,7 +225,7 @@ public class AndroidCommon {
   public static AndroidIdeInfoProvider createAndroidIdeInfoProvider(
       RuleContext ruleContext,
       AndroidIdlHelper idlHelper,
-      OutputJar resourceJar,
+      JavaOutput resourceJarJavaOutput,
       Artifact aar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
@@ -235,7 +235,7 @@ public class AndroidCommon {
         new AndroidIdeInfoProvider.Builder()
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
-            .setResourceJar(resourceJar)
+            .setResourceJarJavaOutput(resourceJarJavaOutput)
             .setAar(aar)
             .setNativeLibs(nativeLibs.getMap())
             .addIdlImportRoot(idlHelper.getIdlImportRoot())
@@ -648,20 +648,20 @@ public class AndroidCommon {
     if (generatedExtensionRegistryProvider != null) {
       builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
-    OutputJar resourceJar = null;
+    JavaOutput resourceJarJavaOutput = null;
     if (resourceApk.getResourceJavaClassJar() != null && resourceSourceJar != null) {
-      resourceJar =
-          OutputJar.builder()
+      resourceJarJavaOutput =
+          JavaOutput.builder()
               .setClassJar(resourceApk.getResourceJavaClassJar())
               .addSourceJar(resourceSourceJar)
               .build();
-      javaRuleOutputJarsProviderBuilder.addOutputJar(resourceJar);
+      javaRuleOutputJarsProviderBuilder.addJavaOutput(resourceJarJavaOutput);
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider =
         javaRuleOutputJarsProviderBuilder
-            .addOutputJar(
-                OutputJar.builder()
+            .addJavaOutput(
+                JavaOutput.builder()
                     .fromJavaCompileOutputs(outputs)
                     .setCompileJar(iJar)
                     .setCompileJdeps(
@@ -718,7 +718,7 @@ public class AndroidCommon {
             createAndroidIdeInfoProvider(
                 ruleContext,
                 idlHelper,
-                resourceJar,
+                resourceJarJavaOutput,
                 aar,
                 resourceApk,
                 zipAlignedApk,

@@ -23,8 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkApiProviderApi;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -108,8 +107,8 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
   @Override
   @Nullable
-  public JavaRuleOutputJarsProvider.OutputJar getResourceJar() {
-    return getIdeInfoProvider().getResourceJar();
+  public JavaOutput getResourceJar() {
+    return getIdeInfoProvider().getResourceJarJavaOutput();
   }
 
   @Override
@@ -153,13 +152,13 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
     @Override
     @Nullable
-    public JavaRuleOutputJarsProvider.OutputJar getIdlOutput() {
+    public JavaOutput getIdlOutput() {
       if (getIdeInfoProvider().getIdlClassJar() == null) {
         return null;
       }
 
       Artifact idlSourceJar = getIdeInfoProvider().getIdlSourceJar();
-      return OutputJar.builder()
+      return JavaOutput.builder()
           .setClassJar(getIdeInfoProvider().getIdlClassJar())
           .addSourceJar(idlSourceJar)
           .build();

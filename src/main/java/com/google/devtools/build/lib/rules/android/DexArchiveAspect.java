@@ -62,7 +62,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -303,10 +303,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
-          return outputJarsProvider
-              .getOutputJars()
-              .stream()
-              .map(OutputJar::getClassJar)
+          return outputJarsProvider.getJavaOutputs().stream()
+              .map(JavaOutput::getClassJar)
               .collect(toImmutableList());
         } else {
           JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
@@ -354,8 +352,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Artifact getAndroidLibraryRJar(ConfiguredTarget base) {
     AndroidIdeInfoProvider provider =
         (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
-    if (provider != null && provider.getResourceJar() != null) {
-      return provider.getResourceJar().getClassJar();
+    if (provider != null && provider.getResourceJarJavaOutput() != null) {
+      return provider.getResourceJarJavaOutput().getClassJar();
     }
     return null;
   }

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 
 /** Implementation for the java_library rule. */
@@ -136,8 +136,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
 
-    ruleOutputJarsProviderBuilder.addOutputJar(
-        OutputJar.builder()
+    ruleOutputJarsProviderBuilder.addJavaOutput(
+        JavaOutput.builder()
             .fromJavaCompileOutputs(outputs)
             .setCompileJar(iJar)
             .setCompileJdeps(javaArtifacts.getCompileTimeDependencyArtifact())

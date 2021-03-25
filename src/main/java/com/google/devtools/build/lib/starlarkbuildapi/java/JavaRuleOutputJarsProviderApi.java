@@ -27,11 +27,11 @@ import net.starlark.java.eval.StarlarkValue;
     name = "java_output_jars",
     category = DocCategory.PROVIDER,
     doc = "Information about outputs of a Java rule.")
-public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>>
+public interface JavaRuleOutputJarsProviderApi<JavaOutputT extends JavaOutputApi<?>>
     extends StarlarkValue {
 
   @StarlarkMethod(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
-  ImmutableList<OutputJarT> getOutputJars();
+  ImmutableList<JavaOutputT> getJavaOutputs();
 
   @StarlarkMethod(
       name = "jdeps",

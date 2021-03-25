@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -451,7 +451,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       checkSequenceOfJavaInfo(exports, "exports");
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
-              OutputJar.builder()
+              JavaOutput.builder()
                   .setClassJar(outputJar)
                   .setCompileJar(compileJar)
                   .setCompileJdeps(compileJdeps)

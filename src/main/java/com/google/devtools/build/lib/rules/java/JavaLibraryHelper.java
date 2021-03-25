@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -266,8 +266,8 @@ public final class JavaLibraryHelper {
       helper.createSourceJarAction(outputSourceJar, outputs.genSource(), javaToolchainProvider);
     }
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
-    outputJarsBuilder.addOutputJar(
-        OutputJar.builder()
+    outputJarsBuilder.addJavaOutput(
+        JavaOutput.builder()
             .fromJavaCompileOutputs(outputs)
             .setCompileJar(iJar)
             .setCompileJdeps(javaArtifacts.getCompileTimeDependencyArtifact())

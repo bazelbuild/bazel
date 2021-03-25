@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeClasspathProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -239,8 +239,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(
-                OutputJar.builder()
+            .addJavaOutput(
+                JavaOutput.builder()
                     .fromJavaCompileOutputs(outputs)
                     .setCompileJar(classJar)
                     .setCompileJdeps(

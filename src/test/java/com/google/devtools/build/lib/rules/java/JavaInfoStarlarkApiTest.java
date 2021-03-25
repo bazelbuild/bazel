@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -112,10 +112,10 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(javaRuleOutputJarsProvider.getAllClassOutputJars()))
         .containsExactly("foo/my_starlark_rule_lib.jar");
 
-    assertThat(javaRuleOutputJarsProvider.getOutputJars()).hasSize(1);
-    OutputJar outputJar = javaRuleOutputJarsProvider.getOutputJars().get(0);
+    assertThat(javaRuleOutputJarsProvider.getJavaOutputs()).hasSize(1);
+    JavaOutput javaOutput = javaRuleOutputJarsProvider.getJavaOutputs().get(0);
 
-    assertThat(outputJar.getCompileJar().prettyPrint())
+    assertThat(javaOutput.getCompileJar().prettyPrint())
         .isEqualTo("foo/my_starlark_rule_lib-ijar.jar");
   }
 
@@ -682,8 +682,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("foo/my_starlark_rule_src.jar");
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(OutputJar::getJdeps)
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getJdeps)
                     .collect(toImmutableList())))
         .containsExactly("foo/my_jdeps.pb");
   }
@@ -711,14 +711,14 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(OutputJar::getGeneratedClassJar)
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getGeneratedClassJar)
                     .collect(toImmutableList())))
         .containsExactly("foo/generated_class.jar");
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(OutputJar::getGeneratedSourceJar)
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getGeneratedSourceJar)
                     .collect(toImmutableList())))
         .containsExactly("foo/generated_srcs.jar");
   }
@@ -768,8 +768,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(OutputJar::getCompileJdeps)
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getCompileJdeps)
                     .collect(toImmutableList())))
         .containsExactly("foo/compile.deps");
   }
@@ -796,8 +796,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(OutputJar::getNativeHeadersJar)
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getNativeHeadersJar)
                     .collect(toImmutableList())))
         .containsExactly("foo/nativeheaders.jar");
   }
@@ -824,8 +824,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(OutputJar::getManifestProto)
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getManifestProto)
                     .collect(toImmutableList())))
         .containsExactly("foo/manifest.proto");
   }
