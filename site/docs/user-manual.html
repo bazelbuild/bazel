@@ -1415,6 +1415,13 @@ either to the terminal, or to additional log files.
   which drive a build.
 </p>
 
+<h4 id='flag--sandbox_debug'><code class='flag'>--sandbox_debug</code></h4>
+<p>
+  This option causes Bazel to print extra debugging information when using sandboxing for action
+  execution. This option also preserves sandbox directories, so that the files visible to actions
+  during execution can be examined.
+</p>
+
 <h4 id='flag--subcommands'><code class='flag'>--subcommands</code> (<code>-s</code>)</h4>
 <p>
   This option causes Bazel's execution phase to print the full command line
