@@ -31,9 +31,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
-import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -139,8 +139,11 @@ public final class AndroidSdkProvider extends NativeInfo
                 ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
         return null;
       }
-      Label toolchainType =
-          attributes.get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.NODEP_LABEL);
+      Type<Label> depType =
+          ruleContext.getRule().getRuleClassObject().isStarlark()
+              ? BuildType.LABEL
+              : BuildType.NODEP_LABEL;
+      Label toolchainType = attributes.get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, depType);
       if (toolchainType == null) {
         ruleContext.ruleError(
             String.format(
@@ -153,12 +156,11 @@ public final class AndroidSdkProvider extends NativeInfo
         return null;
       }
       ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
-      if (attributes.has(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, BuildType.NODEP_LABEL_LIST)) {
+      if (attributes.has(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType)) {
         ImmutableSet<Label> resolvedToolchains = toolchainContext.resolvedToolchainLabels();
-        List<Label> dummyToochains =
-            attributes.get(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, BuildType.NODEP_LABEL_LIST);
+        Label dummyToochain = attributes.get(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType);
         for (Label toolchain : resolvedToolchains) {
-          if (dummyToochains.contains(toolchain)) {
+          if (dummyToochain.equals(toolchain)) {
             ruleContext.ruleError(
                 // TODO(jcater): Decide whether to rewrite message to refer to --android_platforms.
                 // It's unclear if we should always tell users to use --android_platforms, or if
