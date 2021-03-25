@@ -281,6 +281,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+
     packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
@@ -295,6 +296,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           packageLocator,
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
+          ImmutableMap.<String, String>of(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           OptionsProvider.EMPTY);

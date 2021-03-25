@@ -310,6 +310,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         OptionsProvider.EMPTY);
     buildDriver = skyframeExecutor.getDriver();

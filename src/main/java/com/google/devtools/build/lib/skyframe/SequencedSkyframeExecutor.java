@@ -236,6 +236,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
+      Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
@@ -261,6 +262,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildLanguageOptions,
         commandId,
         clientEnv,
+        repoEnvOption,
         tsgm,
         options);
     long startTime = System.nanoTime();

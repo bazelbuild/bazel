@@ -91,6 +91,7 @@ public class CommandEnvironment {
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
   private final Map<String, String> repoEnv = new TreeMap<>();
+  private final Map<String, String> repoEnvFromOptions = new TreeMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
@@ -245,17 +246,15 @@ public class CommandEnvironment {
       }
     }
 
-    CoreOptions configOpts = options.getOptions(CoreOptions.class);
-    if (configOpts != null) {
-      for (Map.Entry<String, String> entry : configOpts.repositoryEnvironment) {
-        String name = entry.getKey();
-        String value = entry.getValue();
-        if (value == null) {
-          value = System.getenv(name);
-        }
-        if (value != null) {
-          repoEnv.put(name, value);
-        }
+    for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
+      String name = entry.getKey();
+      String value = entry.getValue();
+      if (value == null) {
+        value = System.getenv(name);
+      }
+      if (value != null) {
+        repoEnv.put(entry.getKey(), entry.getValue());
+        repoEnvFromOptions.put(entry.getKey(), entry.getValue());
       }
     }
   }
@@ -709,6 +708,7 @@ public class CommandEnvironment {
                 options.getOptions(BuildLanguageOptions.class),
                 getCommandId(),
                 clientEnv,
+                repoEnvFromOptions,
                 timestampGranularityMonitor,
                 options);
   }
