@@ -35,7 +35,7 @@ build events will resemble the graph below. The arrows indicate the
 aforementioned parent and child relationship. Note that some build events and
 most fields have been omitted for brevity.
 
-![bep-graph](/assets/bep-graph.svg)
+![bep-graph](/assets/bep-graph.png)
 
 Initially, a `BuildStarted` event is published. The event informs us that the
 build was invoked through the `bazel test` command and it also announces five
