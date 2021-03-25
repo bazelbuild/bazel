@@ -737,7 +737,8 @@ public class ActionRewindStrategy {
       ArtifactNestedSetKey directDep) {
     SkyKey depKey =
         checkNotNull(
-            findPathToLostArtifact(rewindGraph, lostArtifact, lostArtifactKey, directDep.getSet()),
+            findPathToLostArtifact(
+                rewindGraph, lostArtifact, lostArtifactKey, directDep.getSet(), new HashSet<>()),
             "%s not found",
             lostArtifact);
     rewindGraph.putEdge(directDep, depKey);
@@ -749,13 +750,19 @@ public class ActionRewindStrategy {
       MutableGraph<SkyKey> rewindGraph,
       DerivedArtifact lostArtifact,
       SkyKey lostArtifactKey,
-      NestedSet<Artifact> current) {
+      NestedSet<Artifact> current,
+      Set<NestedSet.Node> visited) {
+    if (!visited.add(current.toNode())) {
+      return null;
+    }
+
     if (current.getLeaves().contains(lostArtifact)) {
       return lostArtifactKey;
     }
 
     for (NestedSet<Artifact> child : current.getNonLeaves()) {
-      SkyKey depKey = findPathToLostArtifact(rewindGraph, lostArtifact, lostArtifactKey, child);
+      SkyKey depKey =
+          findPathToLostArtifact(rewindGraph, lostArtifact, lostArtifactKey, child, visited);
       if (depKey != null) {
         ArtifactNestedSetKey childKey = ArtifactNestedSetKey.create(child);
         rewindGraph.putEdge(childKey, depKey);
