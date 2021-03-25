@@ -26,19 +26,63 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     name = "java_output",
     category = DocCategory.BUILTIN,
-    doc = "Java classes jar, together with their associated source and interface archives.")
+    doc = "The outputs of Java compilation.")
 public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(name = "class_jar", doc = "A classes jar file.", structField = true)
   FileT getClassJar();
 
+  /** @deprecated Use {@link #getCompileJar}. */
   @StarlarkMethod(
       name = "ijar",
-      doc = "A interface jar file.",
+      doc = "Deprecated: Please use compile_jar.",
+      allowReturnNones = true,
+      structField = true)
+  @Deprecated
+  @Nullable
+  FileT getIJar();
+
+  @StarlarkMethod(
+      name = "compile_jar",
+      doc = "An interface jar file.",
       allowReturnNones = true,
       structField = true)
   @Nullable
-  FileT getIJar();
+  FileT getCompileJar();
+
+  @StarlarkMethod(
+      name = "compile_jdeps",
+      doc = "Compile time dependencies information (deps.proto file).",
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getCompileJdeps();
+
+  @StarlarkMethod(
+      name = "generated_class_jar",
+      doc =
+          "A jar file containing class files compiled from sources generated during annotation"
+              + " processing.",
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getGeneratedClassJar();
+
+  @StarlarkMethod(
+      name = "generated_source_jar",
+      doc = "The source jar that was created as a result of annotation processing.",
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getGeneratedSourceJar();
+
+  @StarlarkMethod(
+      name = "native_headers_jar",
+      doc = "A jar containing CC header files supporting native method implementation.",
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getNativeHeadersJar();
 
   @StarlarkMethod(
       name = "manifest_proto",
@@ -51,10 +95,18 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
   FileT getManifestProto();
 
   @StarlarkMethod(
-      name = "source_jar",
+      name = "jdeps",
       doc =
-          "A sources archive file. Deprecated. Kept for migration reasons. "
-              + "Please use source_jars instead.",
+          "A manifest proto file. The protobuf file containing the manifest generated from "
+              + "JavaBuilder.",
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getJdeps();
+
+  @StarlarkMethod(
+      name = "source_jar",
+      doc = "Deprecated: Please use source_jars instead.",
       allowReturnNones = true,
       structField = true)
   @Deprecated

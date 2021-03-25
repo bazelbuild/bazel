@@ -204,6 +204,63 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                       + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
                       + "pack_sources</a></code> to produce this source jar."),
           @Param(
+              name = "compile_jdeps",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "jdeps information about compile time dependencies to be consumed by"
+                      + " JavaCompileAction. This should be a binary proto encoded using the"
+                      + " deps.proto protobuf included with Bazel.  If available this file is"
+                      + " typically produced by a header compiler."),
+          @Param(
+              name = "generated_class_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "A jar file containing class files compiled from sources generated during"
+                      + " annotation processing."),
+          @Param(
+              name = "generated_source_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc = "The source jar that was created as a result of annotation processing."),
+          @Param(
+              name = "native_headers_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "A jar containing CC header files supporting native method implementation"
+                      + " (typically output of javac -h)."),
+          @Param(
+              name = "manifest_proto",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "Manifest information for the rule output (if available). This should be a"
+                      + " binary proto encoded using the manifest.proto protobuf included with"
+                      + " Bazel.  IDEs and other tools can use this information for more efficient"
+                      + " processing."),
+          @Param(
               name = "neverlink",
               named = true,
               defaultValue = "False",
@@ -250,6 +307,11 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,
+        Object compileJdepsApi,
+        Object generatedClassJarApi,
+        Object generatedSourceJarApi,
+        Object nativeHeadersJarApi,
+        Object manifestProtoApi,
         Boolean neverlink,
         Sequence<?> deps,
         Sequence<?> runtimeDeps,

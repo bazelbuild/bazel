@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -424,6 +425,11 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,
+        Object compileJdepsApi,
+        Object generatedClassJarApi,
+        Object generatedSourceJarApi,
+        Object nativeHeadersJarApi,
+        Object manifestProtoApi,
         Boolean neverlink,
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
@@ -434,20 +440,32 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       Artifact outputJar = (Artifact) outputJarApi;
       @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
+      @Nullable Artifact compileJdeps = nullIfNone(compileJdepsApi, Artifact.class);
+      @Nullable Artifact generatedClassJar = nullIfNone(generatedClassJarApi, Artifact.class);
+      @Nullable Artifact generatedSourceJar = nullIfNone(generatedSourceJarApi, Artifact.class);
+      @Nullable Artifact nativeHeadersJar = nullIfNone(nativeHeadersJarApi, Artifact.class);
+      @Nullable Artifact manifestProto = nullIfNone(manifestProtoApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
       checkSequenceOfJavaInfo(deps, "deps");
       checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
       checkSequenceOfJavaInfo(exports, "exports");
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
-              outputJar,
-              compileJar,
-              sourceJar,
+              OutputJar.builder()
+                  .setClassJar(outputJar)
+                  .setCompileJar(compileJar)
+                  .setCompileJdeps(compileJdeps)
+                  .setGeneratedClassJar(generatedClassJar)
+                  .setGeneratedSourceJar(generatedSourceJar)
+                  .setNativeHeadersJar(nativeHeadersJar)
+                  .setManifestProto(manifestProto)
+                  .setJdeps(jdeps)
+                  .addSourceJar(sourceJar)
+                  .build(),
               neverlink,
               (Sequence<JavaInfo>) deps,
               (Sequence<JavaInfo>) runtimeDeps,
               (Sequence<JavaInfo>) exports,
-              jdeps,
               thread.getCallerLocation());
     }
   }

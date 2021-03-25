@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
@@ -62,32 +63,23 @@ final class JavaInfoBuildHelper {
   /**
    * Creates JavaInfo instance from outputJar.
    *
-   * @param outputJar the jar that was created as a result of a compilation (e.g. javac, scalac,
-   *     etc)
-   * @param compileJar Jar added as a compile-time dependency to other rules. Typically produced by
-   *     ijar.
-   * @param sourceJar the source jar that was used to create the output jar
+   * @param outputs the artifacts that were created as a result of a compilation (e.g. javac,
+   *     scalac, etc)
    * @param neverlink if true only use this library for compilation and not at runtime
    * @param compileTimeDeps compile time dependencies that were used to create the output jar
    * @param runtimeDeps runtime dependencies that are needed for this library
    * @param exports libraries to make available for users of this library. <a
    *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
    *     target="_top">java_library.exports</a>
-   * @param jdeps optional jdeps information for outputJar
    * @return new created JavaInfo instance
    */
   JavaInfo createJavaInfo(
-      Artifact outputJar,
-      @Nullable Artifact compileJar,
-      @Nullable Artifact sourceJar,
+      OutputJar outputs,
       Boolean neverlink,
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
-      @Nullable Artifact jdeps,
       Location location) {
-    ImmutableList<Artifact> sourceJars =
-        sourceJar != null ? ImmutableList.of(sourceJar) : ImmutableList.of();
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
 
@@ -95,18 +87,15 @@ final class JavaInfoBuildHelper {
         JavaCompilationArgsProvider.builder();
 
     if (!neverlink) {
-      javaCompilationArgsBuilder.addRuntimeJar(outputJar);
+      javaCompilationArgsBuilder.addRuntimeJar(outputs.getClassJar());
     }
-    if (compileJar != null) {
+    if (outputs.getCompileJar() != null) {
       javaCompilationArgsBuilder.addDirectCompileTimeJar(
-          /* interfaceJar= */ compileJar, /* fullJar= */ outputJar);
+          /* interfaceJar= */ outputs.getCompileJar(), /* fullJar= */ outputs.getClassJar());
     }
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(outputJar, compileJar, null /* manifestProto */, sourceJars)
-            .setJdeps(jdeps)
-            .build();
+        JavaRuleOutputJarsProvider.builder().addOutputJar(outputs).build();
     javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);
 
     ClasspathType type = neverlink ? COMPILE_ONLY : BOTH;
@@ -130,19 +119,20 @@ final class JavaInfoBuildHelper {
 
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
-        createJavaSourceJarsProvider(sourceJars, concat(compileTimeDeps, runtimeDeps, exports)));
+        createJavaSourceJarsProvider(
+            outputs.getSourceJars(), concat(compileTimeDeps, runtimeDeps, exports)));
 
     javaInfoBuilder.addProvider(
         JavaGenJarsProvider.class,
         JavaGenJarsProvider.create(
             false,
-            null,
-            null,
+            outputs.getGeneratedClassJar(),
+            outputs.getGeneratedSourceJar(),
             JavaPluginInfoProvider.empty(),
             JavaInfo.fetchProvidersFromList(
                 concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
 
-    javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
+    javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputs.getClassJar()));
 
     return javaInfoBuilder.build();
   }
