@@ -141,6 +141,14 @@ TEST(FileTest, TestWriteFile) {
   ASSERT_EQ(0, remove(filename.c_str()));
 }
 
+TEST(FileTest, TestLargeFileWrite) {
+  // Buffer over the write limit (2,147,479,552 for Linux, INT32_MAX for MacOS).
+  const size_t size = 4000000000;
+  std::unique_ptr<const char[]> buffer(new char[size]);
+
+  ASSERT_TRUE(WriteFile(buffer.get(), size, "/dev/null"));
+}
+
 TEST(FileTest, TestMtimeHandling) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   ASSERT_NE(tempdir_cstr, nullptr);

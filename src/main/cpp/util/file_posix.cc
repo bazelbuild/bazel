@@ -296,11 +296,19 @@ bool WriteFile(const void *data, size_t size, const string &filename,
   if (fd == -1) {
     return false;
   }
-  int result = write(fd, data, size);
-  if (close(fd)) {
-    return false;  // Can fail on NFS.
+  const char *const char_data = reinterpret_cast<const char *>(data);
+  size_t written = 0;
+  while (written < size) {
+    // write fails with EINVAL on MacOs for count > INT32_MAX.
+    auto result = write(fd, char_data + written,
+                        std::min<size_t>(INT32_MAX, size - written));
+    if (result == -1) {
+      close(fd);
+      return false;
+    }
+    written += result;
   }
-  return result == static_cast<int>(size);
+  return close(fd) == 0;  // Can fail on NFS.
 }
 
 bool WriteFile(const void *data, size_t size, const Path &path,
