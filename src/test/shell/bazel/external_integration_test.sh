@@ -910,7 +910,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
-  expect_log "[Ii]nvalid SHA-256 checksum"
+  expect_log "[Ii]nvalid SHA-256 checksum. The correct checksum is $(sha256sum repo.zip)."
   shutdown_server
 }
 
