@@ -22,6 +22,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/grpc",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib/remote/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
