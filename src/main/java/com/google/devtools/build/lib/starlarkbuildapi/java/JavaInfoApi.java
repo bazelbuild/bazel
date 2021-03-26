@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -35,7 +36,8 @@ import net.starlark.java.eval.StarlarkThread;
     name = "JavaInfo",
     doc = "A provider encapsulating information about Java and Java-like targets.",
     category = DocCategory.PROVIDER)
-public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
+public interface JavaInfoApi<FileT extends FileApi, JavaOutputT extends JavaOutputApi<FileT>>
+    extends StructApi {
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
@@ -96,11 +98,20 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
 
   @StarlarkMethod(
       name = "outputs",
-      doc = "Returns information about outputs of this Java/Java-like target.",
+      doc =
+          "Returns information about outputs of this Java/Java-like target. Deprecated: use"
+              + " java_outputs.",
       structField = true,
       allowReturnNones = true)
   @Nullable
+  @Deprecated
   JavaRuleOutputJarsProviderApi<?> getOutputJars();
+
+  @StarlarkMethod(
+      name = "java_outputs",
+      doc = "Returns information about outputs of this Java/Java-like target.",
+      structField = true)
+  ImmutableList<JavaOutputT> getJavaOutputs();
 
   @StarlarkMethod(
       name = "annotation_processing",
@@ -303,7 +314,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         selfCall = true,
         useStarlarkThread = true)
     @StarlarkConstructor
-    JavaInfoApi<?> javaInfo(
+    JavaInfoApi<?, ?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,

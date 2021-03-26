@@ -54,7 +54,7 @@ import net.starlark.java.syntax.Location;
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
 @AutoCodec
-public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> {
+public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact, JavaOutput> {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
@@ -296,8 +296,15 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   }
 
   @Override
+  @Deprecated
   public JavaRuleOutputJarsProvider getOutputJars() {
     return getProvider(JavaRuleOutputJarsProvider.class);
+  }
+
+  @Override
+  public ImmutableList<JavaOutput> getJavaOutputs() {
+    JavaRuleOutputJarsProvider outputs = getProvider(JavaRuleOutputJarsProvider.class);
+    return outputs == null ? ImmutableList.of() : outputs.getJavaOutputs();
   }
 
   @Override

@@ -45,7 +45,7 @@ public class FakeJavaProtoCommon
   }
 
   @Override
-  public JavaInfoApi<FileApi> getRuntimeToolchainProvider(
+  public JavaInfoApi<FileApi, ?> getRuntimeToolchainProvider(
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext, String protoToolchainAttr)
       throws EvalException {
     return new FakeJavaInfo();
