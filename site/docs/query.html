@@ -1203,9 +1203,10 @@ genrule(
   With this option, the representation of each target is as if it were
   hand-written in the BUILD language. All variables and function calls
   (e.g. glob, macros) are expanded, which is useful for seeing the effect
-  of Starlark macros. Additionally, each effective rule is annotated with
-  the name of the macro (if any, see <code>generator_name</code> and
-  <code>generator_function</code>) that produced it.
+  of Starlark macros. Additionally, each effective rule reports a
+  <code>generator_name</code> and/or <code>generator_function</code>) value,
+  giving the name of the macro that was evaluated to produce the effective
+  rule.
 </p>
 <p>
   Although the output uses the same syntax as BUILD files, it is not
